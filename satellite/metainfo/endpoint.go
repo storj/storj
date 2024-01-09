@@ -72,7 +72,6 @@ type Endpoint struct {
 	attributions           attribution.DB
 	pointerVerification    *pointerverification.Service
 	projectUsage           *accounting.Service
-	projectLimits          *accounting.ProjectLimitCache
 	projects               console.Projects
 	apiKeys                APIKeys
 	satellite              signing.Signer
@@ -88,7 +87,7 @@ type Endpoint struct {
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, projectLimits *accounting.ProjectLimitCache, projects console.Projects,
+	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
 
@@ -124,7 +123,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		pointerVerification: pointerverification.NewService(peerIdentities),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
-		projectLimits:       projectLimits,
 		projects:            projects,
 		satellite:           satellite,
 		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{

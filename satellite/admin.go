@@ -87,10 +87,6 @@ type Admin struct {
 		Cache accounting.Cache
 	}
 
-	ProjectLimits struct {
-		Cache *accounting.ProjectLimitCache
-	}
-
 	Accounting struct {
 		Service *accounting.Service
 	}
@@ -225,15 +221,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 	{ // setup live accounting
 		peer.LiveAccounting.Cache = liveAccounting
-	}
-
-	{ // setup project limits
-		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
-			config.Console.Config.UsageLimits.Storage.Free,
-			config.Console.Config.UsageLimits.Bandwidth.Free,
-			config.Console.Config.UsageLimits.Segment.Free,
-			config.ProjectLimit,
-		)
 	}
 
 	{ // setup accounting project usage

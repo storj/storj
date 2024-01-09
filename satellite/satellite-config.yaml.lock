@@ -979,12 +979,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 2
 
-# number of projects to cache.
-# project-limit.cache-capacity: 20000
-
-# how long to cache the project limits.
-# project-limit.cache-expiration: 10m0s
-
 # as of system interval
 # ranged-loop.as-of-system-interval: -5m0s
 

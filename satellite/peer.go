@@ -217,8 +217,6 @@ type Config struct {
 
 	Compensation compensation.Config
 
-	ProjectLimit accounting.ProjectLimitConfig
-
 	Analytics analytics.Config
 
 	PieceTracker piecetracker.Config

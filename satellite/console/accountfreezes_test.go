@@ -517,7 +517,6 @@ func TestFreezeEffects(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
 				// disable limit caching
-				config.ProjectLimit.CacheCapacity = 0
 				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
 		},
