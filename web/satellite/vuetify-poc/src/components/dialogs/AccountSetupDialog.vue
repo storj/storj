@@ -72,6 +72,8 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { PaymentsHttpApi } from '@/api/payments';
 import { useAppStore } from '@poc/store/appStore';
 import { useLoading } from '@/composables/useLoading';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import ChoiceStep from '@poc/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@poc/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -83,6 +85,7 @@ import PricingPlanStep from '@poc/components/dialogs/upgradeAccountFlow/PricingP
 const payments: PaymentsHttpApi = new PaymentsHttpApi();
 
 const appStore = useAppStore();
+const billingStore = useBillingStore();
 const configStore = useConfigStore();
 const userStore = useUsersStore();
 
@@ -183,13 +186,21 @@ onBeforeMount(() => {
             await userStore.getUser();
         }
 
-        const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
-        if (pricingPkgsEnabled && userStore.state.user.partner) {
+        if (configStore.state.config.billingFeaturesEnabled) {
             try {
-                pkgAvailable.value = await payments.pricingPackageAvailable();
+                await billingStore.setupAccount();
             } catch (error) {
-                notify.notifyError(error);
-                return;
+                notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+            }
+
+            const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
+            if (pricingPkgsEnabled && userStore.state.user.partner) {
+                try {
+                    pkgAvailable.value = await payments.pricingPackageAvailable();
+                } catch (error) {
+                    notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+                    return;
+                }
             }
         }
 
