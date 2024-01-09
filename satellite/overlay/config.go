@@ -42,7 +42,7 @@ type AsOfSystemTimeConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select.
 type NodeSelectionConfig struct {
-	NewNodeFraction   float64       `help:"the fraction of new nodes allowed per request (DEPRECATED: use placement definition instead)" releaseDefault:"0.05" devDefault:"1"`
+	NewNodeFraction   float64       `help:"the fraction of new nodes allowed per request (DEPRECATED: use placement definition instead)" releaseDefault:"0.01" devDefault:"1"`
 	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
 	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"1m"`
 	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
