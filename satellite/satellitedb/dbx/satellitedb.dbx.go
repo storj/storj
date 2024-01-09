@@ -12033,11 +12033,14 @@ func (h *__sqlbundle_Hole) Render() string {
 // end runtime support for building sql statements
 //
 
-type ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row struct {
-	ApiKey             ApiKey
-	Project_PublicId   []byte
-	Project_RateLimit  *int
-	Project_BurstLimit *int
+type ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row struct {
+	ApiKey                 ApiKey
+	Project_PublicId       []byte
+	Project_RateLimit      *int
+	Project_BurstLimit     *int
+	Project_SegmentLimit   *int64
+	Project_UsageLimit     *int64
+	Project_BandwidthLimit *int64
 }
 
 type ApiKey_Project_PublicId_Row struct {
@@ -16430,12 +16433,12 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, err error) {
+	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id, projects.rate_limit, projects.burst_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id, projects.rate_limit, projects.burst_limit, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -16443,10 +16446,10 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstL
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit)
+	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit)
 	if err != nil {
-		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -24857,12 +24860,12 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, err error) {
+	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id, projects.rate_limit, projects.burst_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id, projects.rate_limit, projects.burst_limit, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -24870,10 +24873,10 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Proje
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit)
+	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit)
 	if err != nil {
-		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -29544,9 +29547,9 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		row *ApiKey_Project_PublicId_Row, err error)
 
-	Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx context.Context,
+	Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_By_ApiKey_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
-		row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, err error)
+		row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, err error)
 
 	Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field) (

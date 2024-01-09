@@ -39,6 +39,7 @@ type ProjectLimitConfig struct {
 
 // ProjectLimitCache stores the values for both storage usage limit and bandwidth limit for
 // each project ID if they differ from the default limits.
+// TODO remove this cache as its not used anymore.
 type ProjectLimitCache struct {
 	projectLimitDB ProjectLimitDB
 

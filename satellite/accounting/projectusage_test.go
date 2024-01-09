@@ -157,7 +157,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projectUsage.SetNow(func() time.Time {
 					return now
 				})
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID, accounting.ProjectLimits{})
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
@@ -486,20 +486,22 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 		project := projects[0]
 		// set custom usage limit for project
-		expectedLimit := memory.Size(memory.GiB.Int64() * 10)
-		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, expectedLimit)
+		expectedLimit := memory.GiB.Int64() * 10
+		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, memory.Size(expectedLimit))
 		require.NoError(t, err)
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		// Setup: add data to live accounting to exceed new limit
-		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
+		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1)
+		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
+			Usage: &expectedLimit,
+		})
 		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
-		require.Equal(t, expectedLimit.Int64(), limit.StorageLimit.Int64())
+		require.Equal(t, expectedLimit, limit.StorageLimit.Int64())
 
 		// Setup: create some bytes for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)
@@ -890,7 +892,7 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 				return tt.now
 			})
 
-			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
+			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID, accounting.ProjectLimits{})
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
 		}

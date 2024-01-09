@@ -240,9 +240,11 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		peer.Accounting.Service = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			peer.ProjectLimits.Cache,
 			*metabaseDB,
 			config.LiveAccounting.BandwidthCacheTTL,
+			config.Console.Config.UsageLimits.Storage.Free,
+			config.Console.Config.UsageLimits.Bandwidth.Free,
+			config.Console.Config.UsageLimits.Segment.Free,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
 	}

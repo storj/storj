@@ -96,7 +96,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
-	err = endpoint.checkUploadLimits(ctx, keyInfo.ProjectID)
+	err = endpoint.checkUploadLimits(ctx, keyInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -488,22 +488,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		if errs2.IsCanceled(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
-
-		endpoint.log.Error(
-			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
-	} else if exceeded {
-		endpoint.log.Warn("Monthly bandwidth limit exceeded",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
+		return nil, err
 	}
 
 	var object metabase.Object
@@ -2043,7 +2029,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
-			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
+			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},
 	})
 	if err != nil {
@@ -2166,7 +2152,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewDisallowDelete: false,
 
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
-			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
+			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},
 	})
 	if err != nil {
