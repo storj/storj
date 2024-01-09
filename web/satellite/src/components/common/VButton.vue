@@ -67,6 +67,7 @@ import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import UploadIcon from '@/../static/images/common/upload.svg';
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import BackIcon from '@/../static/images/common/arrowLeft.svg';
+import DatepickerIcon from '@/../static/images/project/datepicker.svg';
 
 const props = withDefaults(defineProps<{
     link?: string;
@@ -125,6 +126,7 @@ const icons = new Map<string, string>([
     ['upload', UploadIcon],
     ['project', ProjectIcon],
     ['back', BackIcon],
+    ['date', DatepickerIcon],
 ]);
 
 const iconComponent = computed((): string | undefined => icons.get(props.icon.toLowerCase()));

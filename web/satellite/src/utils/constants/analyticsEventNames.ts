@@ -124,4 +124,5 @@ export enum AnalyticsErrorEventSource {
     SKIP_PASSPHRASE_MODAL = 'Remember skip passphrase error',
     JOIN_PROJECT_MODAL = 'Join project modal',
     PROJECT_INVITATION = 'Project invitation',
+    DETAILED_USAGE_REPORT_MODAL = 'Detailed usage report modal',
 }

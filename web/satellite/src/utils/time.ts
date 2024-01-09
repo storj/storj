@@ -66,10 +66,6 @@ export class Duration {
         return Math.floor((this.nanoseconds / 1000000) / 1000);
     }
 
-    get fullMilliseconds(): number {
-        return Math.floor(this.nanoseconds / 1000000);
-    }
-
     /**
      * shortString represents this duration in the appropriate unit.
      * */

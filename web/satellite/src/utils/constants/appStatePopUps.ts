@@ -37,6 +37,7 @@ import DeleteAccessGrantModal from '@/components/modals/DeleteAccessGrantModal.v
 import SkipPassphraseModal from '@/components/modals/SkipPassphraseModal.vue';
 import JoinProjectModal from '@/components/modals/JoinProjectModal.vue';
 import RequestProjectLimitModal from '@/components/modals/RequestProjectLimitModal.vue';
+import DetailedUsageReportModal from '@/components/modals/DetailedUsageReportModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
@@ -90,6 +91,7 @@ enum Modals {
     CHANGE_PROJECT_LIMIT = 'changeProjectLimit',
     REQUEST_PROJECT_LIMIT_INCREASE = 'requestProjectLimitIncrease',
     JOIN_PROJECT = 'joinProject',
+    DETAILED_USAGE_REPORT = 'detailedUsageReport',
 }
 
 export const MODALS: Record<Modals, Component> = {
@@ -124,4 +126,5 @@ export const MODALS: Record<Modals, Component> = {
     [Modals.CHANGE_PROJECT_LIMIT]: ChangeProjectLimitModal,
     [Modals.REQUEST_PROJECT_LIMIT_INCREASE]: RequestProjectLimitModal,
     [Modals.JOIN_PROJECT]: JoinProjectModal,
+    [Modals.DETAILED_USAGE_REPORT]: DetailedUsageReportModal,
 };

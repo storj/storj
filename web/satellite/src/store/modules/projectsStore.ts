@@ -51,16 +51,13 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const api: ProjectsApi = new ProjectsHttpApi();
 
-    function getUsageReportLink(projectID = ''): string {
-        const now = new Date();
-        const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
-        const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
+    function getUsageReportLink(startUTC: Date, endUTC: Date, projectID = ''): string {
         const since = Time.toUnixTimestamp(startUTC);
         const before = Time.toUnixTimestamp(endUTC);
 
         const allowedDuration = new Duration(useConfigStore().state.config.allowedUsageReportDateRange);
-        const duration = before - since; // milliseconds
-        if (duration > allowedDuration.fullMilliseconds) {
+        const duration = before - since; // seconds
+        if (duration > allowedDuration.fullSeconds) {
             throw new Error(`Date range must be less than ${allowedDuration.shortString}`);
         }
 

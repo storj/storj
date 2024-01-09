@@ -57,6 +57,7 @@
             <v-button
                 class="total-cost__report__button"
                 label="Download Report"
+                icon="date"
                 width="fit-content"
                 height="30px"
                 is-transparent
@@ -114,7 +115,8 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { Download } from '@/utils/download';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -129,6 +131,8 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+const appStore = useAppStore();
+
 const notify = useNotify();
 const router = useRouter();
 
@@ -187,13 +191,7 @@ function balanceClicked(): void {
  * Handles download usage report click logic.
  */
 function downloadUsageReport(): void {
-    try {
-        const link = projectsStore.getUsageReportLink();
-        Download.fileByLink(link);
-        notify.success('Usage report download started successfully.');
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
-    }
+    appStore.updateActiveModal(MODALS.detailedUsageReport);
 }
 
 /**

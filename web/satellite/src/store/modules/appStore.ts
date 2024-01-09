@@ -37,6 +37,7 @@ class AppState {
     public isProjectTableViewEnabled = LocalData.getProjectTableViewEnabled();
     public isBrowserCardViewEnabled = LocalData.getBrowserCardViewEnabled();
     public shareModalType: ShareType = ShareType.File;
+    public usageReportProjectID = '';
 }
 
 class ErrorPageState {
@@ -111,6 +112,10 @@ export const useAppStore = defineStore('app', () => {
 
     function changeState(newFetchState: FetchState): void {
         state.fetchState = newFetchState;
+    }
+
+    function setUsageReportProjectID(id: string): void {
+        state.usageReportProjectID = id;
     }
 
     function setOnboardingBackRoute(backRoute: string): void {
@@ -197,6 +202,7 @@ export const useAppStore = defineStore('app', () => {
         state.isGalleryView = false;
         state.isProjectTableViewEnabled = false;
         state.shareModalType = ShareType.File;
+        state.usageReportProjectID = '';
         LocalData.removeProjectTableViewConfig();
     }
 
@@ -211,6 +217,7 @@ export const useAppStore = defineStore('app', () => {
         removeActiveModal,
         toggleHasJustLoggedIn,
         changeState,
+        setUsageReportProjectID,
         setOnboardingBackRoute,
         setOnboardingAPIKeyStepBackRoute,
         setOnboardingAPIKey,

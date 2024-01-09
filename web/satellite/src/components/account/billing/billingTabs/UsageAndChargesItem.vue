@@ -54,7 +54,8 @@
                 <v-button
                     class="usage-charges-item-container__detailed-info-container__btn"
                     label="Download Report"
-                    width="140px"
+                    icon="date"
+                    width="160px"
                     height="30px"
                     font-size="14px"
                     is-transparent
@@ -75,9 +76,9 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { Download } from '@/utils/download';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -99,6 +100,7 @@ const props = withDefaults(defineProps<{
 
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+const appStore = useAppStore();
 
 const notify = useNotify();
 
@@ -138,13 +140,8 @@ const projectCharges = computed((): ProjectCharges => {
  * Handles download usage report click logic.
  */
 function downloadUsageReport(): void {
-    try {
-        const link = projectsStore.getUsageReportLink(props.projectId);
-        Download.fileByLink(link);
-        notify.success('Usage report download started successfully.');
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
-    }
+    appStore.setUsageReportProjectID(props.projectId);
+    appStore.updateActiveModal(MODALS.detailedUsageReport);
 }
 
 /**
