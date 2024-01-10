@@ -204,7 +204,7 @@ const userSettings = computed((): UserSettings => {
  * Returns user's paid tier status from store.
  */
  const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier ?? false;
+    return usersStore.state.user.paidTier;
 });
 
 async function toggleEnableMFADialog() {
