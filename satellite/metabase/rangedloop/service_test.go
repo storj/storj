@@ -18,7 +18,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -420,9 +419,7 @@ func TestAllInOne(t *testing.T) {
 				log.Named("repair:checker"),
 				satellite.DB.RepairQueue(),
 				satellite.Overlay.Service,
-				func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
-					return nodeselection.AnyFilter{}
-				},
+				nodeselection.TestPlacementDefinitions(),
 				satellite.Config.Checker,
 			),
 		})

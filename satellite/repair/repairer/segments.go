@@ -105,7 +105,7 @@ type SegmentRepairer struct {
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
-	placementRules                   nodeselection.PlacementRules
+	placements                       nodeselection.PlacementDefinitions
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -120,7 +120,7 @@ func NewSegmentRepairer(
 	overlay *overlay.Service,
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
-	placementRules nodeselection.PlacementRules,
+	placements nodeselection.PlacementDefinitions,
 	repairOverrides checker.RepairOverrides,
 	config Config,
 ) *SegmentRepairer {
@@ -152,7 +152,7 @@ func NewSegmentRepairer(
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
 		doDeclumping:               config.DoDeclumping,
 		doPlacementCheck:           config.DoPlacementCheck,
-		placementRules:             placementRules,
+		placements:                 placements,
 
 		nowFn: time.Now,
 	}
@@ -224,7 +224,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, overlayQueryError.New("GetNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
-	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placementRules(segment.Placement), allNodeIDs)
+	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placements[segment.Placement], allNodeIDs)
 
 	// irreparable segment
 	if piecesCheck.Retrievable.Count() < int(segment.Redundancy.RequiredShares) {

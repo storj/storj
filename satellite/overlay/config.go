@@ -88,6 +88,7 @@ func (c NodeSelectionConfig) CreateDefaultPlacement() (nodeselection.Placement, 
 	placement := nodeselection.Placement{
 		NodeFilter: nodeselection.AnyFilter{},
 		Selector:   nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
+		Invariant:  nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
 	}
 	if len(c.UploadExcludedCountryCodes) > 0 {
 		countryFilter, err := nodeselection.NewCountryFilterFromString(c.UploadExcludedCountryCodes)

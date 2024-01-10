@@ -52,9 +52,7 @@ func TestObserverForkProcess(t *testing.T) {
 			nodesCache: &ReliabilityCache{
 				staleness: time.Hour,
 			},
-			placementRules: func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
-				return nodeselection.AnyFilter{}
-			},
+			placements: nodeselection.TestPlacementDefinitions(),
 		}
 
 		o.nodesCache.state.Store(&reliabilityState{
@@ -73,7 +71,7 @@ func TestObserverForkProcess(t *testing.T) {
 			rsStats:          make(map[storj.RedundancyScheme]*partialRSStats),
 			doDeclumping:     o.doDeclumping,
 			doPlacementCheck: o.doPlacementCheck,
-			placementRules:   o.placementRules,
+			placements:       o.placements,
 			getNodesEstimate: o.getNodesEstimate,
 			nodesCache:       o.nodesCache,
 			repairQueue:      queue.NewInsertBuffer(q, 1000),
@@ -148,7 +146,7 @@ func TestObserverForkProcess(t *testing.T) {
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
 		parsed, err := placements.Parse(nil)
 		require.NoError(t, err)
-		o.placementRules = parsed.CreateFilters
+		o.placements = parsed
 
 		q := queue.MockRepairQueue{}
 		fork := createFork(o, &q)

@@ -25,6 +25,8 @@ type Placement struct {
 	NodeFilter NodeFilter
 	// selector is the method how the nodes are selected from the full node space (eg. pick a subnet first, and pick a node from the subnet)
 	Selector NodeSelectorInit
+	// checked by repair job, applied to the full selection. Out of placement items will be replaced by new, selected by the Selector.
+	Invariant Invariant
 }
 
 // Match implements NodeFilter.
@@ -120,6 +122,7 @@ func TestPlacementDefinitions() PlacementDefinitions {
 			ID:         storj.DefaultPlacement,
 			NodeFilter: AnyFilter{},
 			Selector:   AttributeGroupSelector(LastNetAttribute),
+			Invariant:  ClumpingByAttribute(LastNetAttribute, 1),
 		},
 	}
 }
@@ -173,6 +176,7 @@ func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, fil
 	placement := Placement{
 		NodeFilter: filter,
 		Selector:   AttributeGroupSelector(LastNetAttribute),
+		Invariant:  ClumpingByAttribute(LastNetAttribute, 1),
 	}
 	if GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF {
 		placement.Selector = RandomSelector()
@@ -292,6 +296,7 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 
 		if GetAnnotation(placement.NodeFilter, AutoExcludeSubnet) != AutoExcludeSubnetOFF {
 			placement.Selector = AttributeGroupSelector(LastNetAttribute)
+			placement.Invariant = ClumpingByAttribute(LastNetAttribute, 1)
 		} else {
 			placement.Selector = RandomSelector()
 		}
