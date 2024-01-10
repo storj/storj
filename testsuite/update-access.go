@@ -7,6 +7,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,13 +25,22 @@ import (
 // will print out updated access.
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("usage: update-access satellite-directory access")
+	flag.Usage = func() {
+		fmt.Println("usage: update-access [-a address] satellite-directory access")
 		os.Exit(1)
 	}
 
-	satelliteDirectory := os.Args[1]
-	serializedAccess := os.Args[2]
+	address := flag.String("a", "", "satellite address")
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) != 2 {
+		flag.Usage()
+	}
+
+	satelliteDirectory := args[0]
+	serializedAccess := args[1]
 
 	satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satelliteDirectory, "identity.cert"))
 	if err != nil {
@@ -49,18 +59,23 @@ func main() {
 	}
 
 	nodeURL, err := storj.ParseNodeURL(scope.SatelliteAddr)
+
 	if err != nil {
 		panic(err)
 	}
 
-	if !nodeURL.ID.IsZero() {
+	if *address == "" && !nodeURL.ID.IsZero() {
 		fmt.Println(serializedAccess)
 		return
 	}
 
+	if *address == "" {
+		address = &scope.SatelliteAddr
+	}
+
 	nodeURL = storj.NodeURL{
 		ID:      satNodeID,
-		Address: scope.SatelliteAddr,
+		Address: *address,
 	}
 
 	scope.SatelliteAddr = nodeURL.String()

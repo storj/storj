@@ -292,8 +292,7 @@ if [ ${STORJ_SKIP_FIX_LAST_NETS:-false} == false ]; then
     fix_last_nets
 fi
 
-
-# Starting old satellite api in the background
+# Starting old satellite api before setting up satellite version ${stage2_sat_version} for stage 2
 has_marketing_server=$(echo $stage1_sat_version | awk 'BEGIN{FS="[v.]"} ($2 == 1 && $3 <= 22) || $2 == 0 {print $0}')
 if [ "$has_marketing_server" != "" ]; then
     old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --debug.addr 127.0.0.1:30009 --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002 --marketing.address 127.0.0.1:30003 --marketing.static-dir $(version_dir ${stage1_sat_version})/web/marketing/"
@@ -305,6 +304,10 @@ nohup $old_api_cmd &
 old_api_pid=$!
 # Wait until old satellite api is responding to requests to ensure it happens before migration.
 storj-sim tool wait-for --retry 50 --interval 100ms  "127.0.0.1:30000"
+
+# Prime the old satellite api. We do this to help catch any issues with DB migrations in regards to statement caches.
+echo "Priming old satellite API by uploading, downloading, and deleting objects"
+${scriptdir}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from main branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
@@ -325,6 +328,10 @@ for ul_version in ${stage2_uplink_versions}; do
         PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/step-2.sh" "${test_dir}/local-network"
     fi
 done
+
+# Check that the old satellite api doesn't fail.
+echo "Checking old satellite API by uploading, downloading, and deleting objects"
+${scriptdir}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
 
 echo -e "\nCleaning up."
 PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}" ""
