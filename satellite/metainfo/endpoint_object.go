@@ -974,14 +974,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	//
 	// New clients specify what they need.
 
-	listAllVersions := req.IncludeAllVersions
-
 	// For pending objects, we always need to list the versions.
 	if status == metabase.Pending {
-		listAllVersions = true
-	}
-
-	if !listAllVersions {
 		result, err := endpoint.metabase.ListObjects(ctx,
 			metabase.ListObjects{
 				ProjectID:  keyInfo.ProjectID,
@@ -991,9 +985,41 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					Key:     cursorKey,
 					Version: cursorVersion,
 				},
-				Recursive:             req.Recursive,
-				Limit:                 limit,
-				Pending:               status == metabase.Pending,
+				Pending:     true,
+				AllVersions: true,
+				Recursive:   req.Recursive,
+				Limit:       limit,
+
+				IncludeCustomMetadata: includeCustomMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
+			})
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+
+		for _, entry := range result.Objects {
+			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
+			resp.Items = append(resp.Items, item)
+		}
+		resp.More = result.More
+	} else if !req.IncludeAllVersions {
+		result, err := endpoint.metabase.ListObjects(ctx,
+			metabase.ListObjects{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     cursorKey,
+					Version: cursorVersion,
+				},
+				Pending:     false,
+				AllVersions: false,
+				Recursive:   req.Recursive,
+				Limit:       limit,
+
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
 			})
@@ -1021,7 +1047,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				},
 				Recursive:             req.Recursive,
 				BatchSize:             limit + 1,
-				Pending:               status == metabase.Pending,
+				Pending:               false,
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
 			}, func(ctx context.Context, it metabase.ObjectsIterator) error {

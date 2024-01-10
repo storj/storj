@@ -69,9 +69,10 @@ func TestListObjects(t *testing.T) {
 
 			metabasetest.ListObjects{
 				Opts: metabase.ListObjects{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					Pending:    false,
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
+					Pending:     false,
+					AllVersions: false,
 				},
 				Result: metabase.ListObjectsResult{},
 			}.Check(ctx, t, db)
@@ -129,6 +130,7 @@ func TestListObjects(t *testing.T) {
 					Recursive:             true,
 					Limit:                 limit,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -158,6 +160,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            "bucket-a",
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -188,6 +191,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            "mybucket",
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -222,6 +226,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -245,6 +250,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -269,6 +275,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -293,6 +300,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -312,6 +320,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -332,6 +341,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -351,6 +361,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -382,6 +393,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -400,6 +412,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -419,6 +432,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -438,6 +452,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -456,6 +471,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -475,6 +491,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -493,6 +510,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -507,6 +525,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -526,6 +545,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -565,6 +585,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -586,6 +607,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
@@ -607,6 +629,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
@@ -637,6 +660,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
@@ -658,6 +682,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
@@ -678,6 +703,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
@@ -724,6 +750,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: objects["2017/05/08"].Version,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -748,6 +775,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -770,6 +798,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Version: 1,
 					},
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -812,19 +841,21 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 		b.Run("listing no prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
-					ProjectID:  baseObj.ProjectID,
-					BucketName: baseObj.BucketName,
-					Pending:    false,
-					Limit:      batchsize,
+					ProjectID:   baseObj.ProjectID,
+					BucketName:  baseObj.BucketName,
+					Pending:     false,
+					AllVersions: false,
+					Limit:       batchsize,
 				})
 				require.NoError(b, err)
 				for result.More {
 					result, err = db.ListObjects(ctx, metabase.ListObjects{
-						ProjectID:  baseObj.ProjectID,
-						BucketName: baseObj.BucketName,
-						Cursor:     metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
-						Pending:    false,
-						Limit:      batchsize,
+						ProjectID:   baseObj.ProjectID,
+						BucketName:  baseObj.BucketName,
+						Cursor:      metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
+						Pending:     false,
+						AllVersions: false,
+						Limit:       batchsize,
 					})
 					require.NoError(b, err)
 				}
@@ -834,22 +865,24 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 		b.Run("listing with prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
-					ProjectID:  baseObj.ProjectID,
-					BucketName: baseObj.BucketName,
-					Prefix:     "foo/",
-					Pending:    false,
-					Limit:      batchsize,
+					ProjectID:   baseObj.ProjectID,
+					BucketName:  baseObj.BucketName,
+					Prefix:      "foo/",
+					Pending:     false,
+					AllVersions: false,
+					Limit:       batchsize,
 				})
 				require.NoError(b, err)
 				for result.More {
 					cursorKey := "foo/" + result.Objects[len(result.Objects)-1].ObjectKey
 					result, err = db.ListObjects(ctx, metabase.ListObjects{
-						ProjectID:  baseObj.ProjectID,
-						BucketName: baseObj.BucketName,
-						Prefix:     "foo/",
-						Cursor:     metabase.ListObjectsCursor{Key: cursorKey},
-						Pending:    false,
-						Limit:      batchsize,
+						ProjectID:   baseObj.ProjectID,
+						BucketName:  baseObj.BucketName,
+						Prefix:      "foo/",
+						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
+						Pending:     false,
+						AllVersions: false,
+						Limit:       batchsize,
 					})
 					require.NoError(b, err)
 				}
@@ -859,22 +892,24 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 		b.Run("listing only prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
-					ProjectID:  baseObj.ProjectID,
-					BucketName: baseObj.BucketName,
-					Prefix:     "boo/",
-					Pending:    false,
-					Limit:      batchsize,
+					ProjectID:   baseObj.ProjectID,
+					BucketName:  baseObj.BucketName,
+					Prefix:      "boo/",
+					Pending:     false,
+					AllVersions: false,
+					Limit:       batchsize,
 				})
 				require.NoError(b, err)
 				for result.More {
 					cursorKey := "boo/" + result.Objects[len(result.Objects)-1].ObjectKey
 					result, err = db.ListObjects(ctx, metabase.ListObjects{
-						ProjectID:  baseObj.ProjectID,
-						BucketName: baseObj.BucketName,
-						Prefix:     "boo/",
-						Cursor:     metabase.ListObjectsCursor{Key: cursorKey},
-						Pending:    false,
-						Limit:      batchsize,
+						ProjectID:   baseObj.ProjectID,
+						BucketName:  baseObj.BucketName,
+						Prefix:      "boo/",
+						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
+						Pending:     false,
+						AllVersions: false,
+						Limit:       batchsize,
 					})
 					require.NoError(b, err)
 
@@ -913,6 +948,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            a0.BucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1039,6 +1075,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            a0.BucketName,
 					Recursive:             true,
 					Pending:               true,
+					AllVersions:           true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1108,6 +1145,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            a0.BucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1179,6 +1217,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            a0.BucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1314,6 +1353,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            a0.BucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1397,6 +1437,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            a0.BucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1442,6 +1483,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1465,6 +1507,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1489,6 +1532,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1513,6 +1557,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1532,6 +1577,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1552,6 +1598,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1571,6 +1618,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             true,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1602,6 +1650,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -1620,6 +1669,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1639,6 +1689,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1658,6 +1709,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1676,6 +1728,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1695,6 +1748,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1713,6 +1767,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1727,6 +1782,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -1746,6 +1802,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Pending:               false,
+					AllVersions:           false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 

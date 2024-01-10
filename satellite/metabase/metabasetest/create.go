@@ -5,6 +5,7 @@ package metabasetest
 
 import (
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -190,6 +191,36 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 				StreamID:   obj.StreamID,
 				CreatedAt:  now,
 				Status:     metabase.CommittedVersioned,
+				Encryption: DefaultEncryption,
+			}
+		}
+	}
+
+	return objects
+}
+
+// CreatePendingObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
+// and returns a mapping of keys to all versions.
+func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
+	for key, versions := range keys {
+		for _, version := range versions {
+			obj := RandObjectStream()
+			obj.ProjectID = projectID
+			obj.BucketName = bucketName
+			obj.ObjectKey = key
+			obj.Version = version
+			now := time.Now()
+
+			CreatePendingObject(ctx, t, db, obj, 0)
+
+			k := key + ":" + metabase.ObjectKey(strconv.Itoa(int(version)))
+			objects[k] = metabase.ObjectEntry{
+				ObjectKey:  obj.ObjectKey,
+				Version:    obj.Version,
+				StreamID:   obj.StreamID,
+				CreatedAt:  now,
+				Status:     metabase.Pending,
 				Encryption: DefaultEncryption,
 			}
 		}
