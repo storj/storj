@@ -29,7 +29,14 @@ func (a *API) MustWriteGo(path string) {
 		panic(err)
 	}
 
-	err = os.WriteFile(path, generated, 0644)
+	rootDir := a.outputRootDir()
+	fullpath := filepath.Join(rootDir, path)
+	err = os.MkdirAll(filepath.Dir(fullpath), 0700)
+	if err != nil {
+		panic(errs.Wrap(err))
+	}
+
+	err = os.WriteFile(fullpath, generated, 0644)
 	if err != nil {
 		panic(errs.Wrap(err))
 	}

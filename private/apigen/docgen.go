@@ -6,6 +6,7 @@ package apigen
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -22,7 +23,14 @@ import (
 func (api *API) MustWriteDocs(path string) {
 	docs := api.generateDocumentation()
 
-	err := os.WriteFile(path, []byte(docs), 0644)
+	rootDir := api.outputRootDir()
+	fullpath := filepath.Join(rootDir, path)
+	err := os.MkdirAll(filepath.Dir(fullpath), 0700)
+	if err != nil {
+		panic(errs.Wrap(err))
+	}
+
+	err = os.WriteFile(fullpath, []byte(docs), 0644)
 	if err != nil {
 		panic(errs.Wrap(err))
 	}
