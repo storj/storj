@@ -45,7 +45,7 @@ type Observer struct {
 	excludedCountryCodes map[location.CountryCode]struct{}
 	doDeclumping         bool
 	doPlacementCheck     bool
-	placementRules       nodeselection.PlacementRules
+	placements           nodeselection.PlacementDefinitions
 
 	// the following are reset on each iteration
 	startTime  time.Time
@@ -56,7 +56,7 @@ type Observer struct {
 }
 
 // NewObserver creates new checker observer instance.
-func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, placementRules nodeselection.PlacementRules, config Config) *Observer {
+func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, placements nodeselection.PlacementDefinitions, config Config) *Observer {
 	excludedCountryCodes := make(map[location.CountryCode]struct{})
 	for _, countryCode := range config.RepairExcludedCountryCodes {
 		if cc := location.ToCountryCode(countryCode); cc != location.None {
@@ -76,7 +76,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		excludedCountryCodes: excludedCountryCodes,
 		doDeclumping:         config.DoDeclumping,
 		doPlacementCheck:     config.DoPlacementCheck,
-		placementRules:       placementRules,
+		placements:           placements,
 		statsCollector:       make(map[storj.RedundancyScheme]*observerRSStats),
 	}
 }
@@ -267,7 +267,7 @@ type observerFork struct {
 	excludedCountryCodes map[location.CountryCode]struct{}
 	doDeclumping         bool
 	doPlacementCheck     bool
-	placementRules       nodeselection.PlacementRules
+	placements           nodeselection.PlacementDefinitions
 
 	getObserverStats func(storj.RedundancyScheme) *observerRSStats
 }
@@ -287,7 +287,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 		excludedCountryCodes: observer.excludedCountryCodes,
 		doDeclumping:         observer.doDeclumping,
 		doPlacementCheck:     observer.doPlacementCheck,
-		placementRules:       observer.placementRules,
+		placements:           observer.placements,
 		getObserverStats:     observer.getObserverStats,
 	}
 }
@@ -389,7 +389,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return Error.New("error getting node information for pieces: %w", err)
 	}
 	piecesCheck := repair.ClassifySegmentPieces(segment.Pieces, selectedNodes, fork.excludedCountryCodes, fork.doPlacementCheck,
-		fork.doDeclumping, fork.placementRules(segment.Placement), fork.nodeIDs)
+		fork.doDeclumping, fork.placements[segment.Placement], fork.nodeIDs)
 
 	numHealthy := piecesCheck.Healthy.Count()
 	segmentTotalCountIntVal.Observe(int64(len(pieces)))

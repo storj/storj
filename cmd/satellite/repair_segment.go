@@ -130,7 +130,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		overlayService,
 		nil, // TODO add noop version
 		ecRepairer,
-		placement.CreateFilters,
+		placement,
 		config.Checker.RepairOverrides,
 		config.Repairer,
 	)

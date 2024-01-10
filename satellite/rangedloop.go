@@ -177,7 +177,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,
-			placement.CreateFilters,
+			placement,
 			config.Checker,
 		)
 	}

@@ -37,7 +37,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 		})
 
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, nodeselection.AnyFilter{}, piecesToNodeIDs(pieces))
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, nodeselection.TestPlacementDefinitions()[0], piecesToNodeIDs(pieces))
 
 		require.Equal(t, 0, result.Missing.Count())
 		require.Equal(t, 0, result.Clumped.Count())
@@ -63,7 +63,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 1, 2, 3, 4, 7, 8)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c.CreateFilters(10), piecesToNodeIDs(pieces))
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c[10], piecesToNodeIDs(pieces))
 
 		require.Equal(t, 0, result.Missing.Count())
 		require.Equal(t, 0, result.Clumped.Count())
@@ -86,7 +86,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c.CreateFilters(10), piecesToNodeIDs(pieces))
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c[10], piecesToNodeIDs(pieces))
 
 		// offline nodes
 		require.Equal(t, 5, result.Missing.Count())
@@ -109,7 +109,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c.CreateFilters(0), piecesToNodeIDs(pieces))
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c[0], piecesToNodeIDs(pieces))
 
 		// offline nodes
 		require.Equal(t, 2, result.Missing.Count())
@@ -136,7 +136,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c.CreateFilters(10), piecesToNodeIDs(pieces))
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c[10], piecesToNodeIDs(pieces))
 
 		// offline nodes
 		require.Equal(t, 2, result.Missing.Count())

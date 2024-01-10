@@ -60,7 +60,7 @@ type PiecesCheckResult struct {
 // represented by a PiecesCheckResult. Pieces may be put into multiple
 // categories.
 func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.SelectedNode, excludedCountryCodes map[location.CountryCode]struct{},
-	doPlacementCheck, doDeclumping bool, filter nodeselection.NodeFilter, excludeNodeIDs []storj.NodeID) (result PiecesCheckResult) {
+	doPlacementCheck, doDeclumping bool, placement nodeselection.Placement, excludeNodeIDs []storj.NodeID) (result PiecesCheckResult) {
 	result.ExcludeNodeIDs = excludeNodeIDs
 
 	maxPieceNum := 0
@@ -105,36 +105,8 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 		}
 	}
 
-	if doDeclumping && nodeselection.GetAnnotation(filter, nodeselection.AutoExcludeSubnet) != nodeselection.AutoExcludeSubnetOFF {
-		// if multiple pieces are on the same last_net, keep only the first one. The rest are
-		// to be considered retrievable but unhealthy.
-
-		lastNets := make(map[string]struct{}, len(pieces))
-		result.Clumped = intset.NewSet(maxPieceNum)
-
-		collectClumpedPieces := func(onlineness bool) {
-			for index, nodeRecord := range nodes {
-				if nodeRecord.Online != onlineness {
-					continue
-				}
-				if nodeRecord.LastNet == "" {
-					continue
-				}
-				pieceNum := pieces[index].Number
-				_, ok := lastNets[nodeRecord.LastNet]
-				if ok {
-					// this LastNet was already seen
-					result.Clumped.Include(int(pieceNum))
-				} else {
-					// add to the list of seen LastNets
-					lastNets[nodeRecord.LastNet] = struct{}{}
-				}
-			}
-		}
-		// go over online nodes first, so that if we have to remove clumped pieces, we prefer
-		// to remove offline ones over online ones.
-		collectClumpedPieces(true)
-		collectClumpedPieces(false)
+	if doDeclumping && placement.Invariant != nil {
+		result.Clumped = placement.Invariant(pieces, nodes)
 	}
 
 	if doPlacementCheck {
@@ -145,7 +117,7 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 			if nodeRecord.ID.IsZero() {
 				continue
 			}
-			if filter.Match(&nodeRecord) {
+			if placement.NodeFilter.Match(&nodeRecord) {
 				continue
 			}
 			pieceNum := pieces[index].Number

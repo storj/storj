@@ -235,7 +235,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
-			placement.CreateFilters,
+			placement,
 			config.Checker.RepairOverrides,
 			config.Repairer,
 		)
