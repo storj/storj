@@ -6,6 +6,8 @@ package apigen
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -17,11 +19,18 @@ import (
 //
 // If an error occurs, it panics.
 func (a *API) MustWriteTSMock(path string) {
-	f := newTSGenMockFile(path, a)
+	rootDir := a.outputRootDir()
+	fullpath := filepath.Join(rootDir, path)
+	err := os.MkdirAll(filepath.Dir(fullpath), 0700)
+	if err != nil {
+		panic(errs.Wrap(err))
+	}
+
+	f := newTSGenMockFile(fullpath, a)
 
 	f.generateTS()
 
-	err := f.write()
+	err = f.write()
 	if err != nil {
 		panic(errs.Wrap(err))
 	}

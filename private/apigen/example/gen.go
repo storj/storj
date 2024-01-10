@@ -9,6 +9,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.uber.org/zap"
@@ -181,10 +183,11 @@ func main() {
 		ResponseMock:   example.Project{ID: uuid.UUID([16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}), OwnerName: "Foo Bar"},
 	})
 
-	a.MustWriteGo("api.gen.go")
-	a.MustWriteTS("client-api.gen.ts")
-	a.MustWriteTSMock("client-api-mock.gen.ts")
-	a.MustWriteDocs("apidocs.gen.md")
+	a.OutputRootDir = findModuleRootDir()
+	a.MustWriteGo(filepath.Join("private", "apigen", "example", "api.gen.go"))
+	a.MustWriteTS(filepath.Join("private", "apigen", "example", "client-api.gen.ts"))
+	a.MustWriteTSMock(filepath.Join("private", "apigen", "example", "client-api-mock.gen.ts"))
+	a.MustWriteDocs(filepath.Join("private", "apigen", "example", "apidocs.gen.md"))
 }
 
 // authMiddleware customize endpoints to authenticate requests by API Key or Cookie.
@@ -226,3 +229,29 @@ var (
 	// mechanism.
 	NoCookie tagNoCookie
 )
+
+func findModuleRootDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic("unable to find current working directory")
+	}
+	start := dir
+
+	for i := 0; i < 100; i++ {
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+
+	panic("unable to find go.mod starting from " + start)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}

@@ -158,10 +158,10 @@ func main() {
 		})
 	}
 
-	modroot := findModuleRootDir()
-	a.MustWriteGo(filepath.Join(modroot, "satellite", "console", "consoleweb", "consoleapi", "api.gen.go"))
-	a.MustWriteTS(filepath.Join(modroot, "web", "satellite", "src", "api", a.Version+".gen.ts"))
-	a.MustWriteDocs(filepath.Join(modroot, "satellite", "console", "consoleweb", "consoleapi", "apidocs.gen.md"))
+	a.OutputRootDir = findModuleRootDir()
+	a.MustWriteGo(filepath.Join("satellite", "console", "consoleweb", "consoleapi", "api.gen.go"))
+	a.MustWriteTS(filepath.Join("web", "satellite", "src", "api", a.Version+".gen.ts"))
+	a.MustWriteDocs(filepath.Join("satellite", "console", "consoleweb", "consoleapi", "apidocs.gen.md"))
 }
 
 func findModuleRootDir() string {

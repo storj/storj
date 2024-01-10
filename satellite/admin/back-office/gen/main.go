@@ -95,10 +95,10 @@ func main() {
 		},
 	})
 
-	modroot := findModuleRootDir()
-	api.MustWriteGo(filepath.Join(modroot, "satellite", "admin", "back-office", "handlers.gen.go"))
-	api.MustWriteTS(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))
-	api.MustWriteDocs(filepath.Join(modroot, "satellite", "admin", "back-office", "api-docs.gen.md"))
+	api.OutputRootDir = findModuleRootDir()
+	api.MustWriteGo(filepath.Join("satellite", "admin", "back-office", "handlers.gen.go"))
+	api.MustWriteTS(filepath.Join("satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))
+	api.MustWriteDocs(filepath.Join("satellite", "admin", "back-office", "api-docs.gen.md"))
 }
 
 type authMiddleware struct {

@@ -5,6 +5,7 @@ package apigen
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"reflect"
 	"regexp"
@@ -15,6 +16,9 @@ import (
 
 	"storj.io/storj/private/api"
 )
+
+// OutputRootDirEnvOverride is the name of the environment variable that can be used to override the root directory used for the api.Write... functions.
+const OutputRootDirEnvOverride = "STORJ_APIGEN_OUTPUT_TO_DIR"
 
 // groupNameAndPrefixRegExp guarantees that Group name and prefix are empty or have are only formed
 // by ASCII letters or digits and not starting with a digit.
@@ -40,6 +44,10 @@ type API struct {
 	BasePath       string
 	Auth           api.Auth
 	EndpointGroups []*EndpointGroup
+
+	// OutputRootDir is the root directory that functions like WriteGo, WriteTS, and WriteDocs will use.
+	// If defined, the OutputRootDirEnvOverride environment variable will be used instead.
+	OutputRootDir string
 }
 
 // Group adds new endpoints group to API.
@@ -83,6 +91,14 @@ func (a *API) Group(name, prefix string) *EndpointGroup {
 	a.EndpointGroups = append(a.EndpointGroups, group)
 
 	return group
+}
+
+func (a *API) outputRootDir() string {
+	rootDir := a.OutputRootDir
+	if envRoot := os.Getenv(OutputRootDirEnvOverride); envRoot != "" {
+		rootDir = envRoot
+	}
+	return rootDir
 }
 
 func (a *API) endpointBasePath() string {
