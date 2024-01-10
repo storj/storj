@@ -76,18 +76,45 @@ func mustCreateNodeAttribute(attr string) NodeAttribute {
 	return nodeAttr
 }
 
+// NodeTagAttribute selects a tag value from node.
+func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
+	return func(node SelectedNode) string {
+		tag, err := node.Tags.FindBySignerAndName(signer, tagName)
+		if err != nil {
+			return ""
+		}
+		return string(tag.Value)
+	}
+}
+
+// AnyNodeTagAttribute selects a tag value from node, accepts any signer.
+func AnyNodeTagAttribute(tagName string) NodeAttribute {
+	return func(node SelectedNode) string {
+		for _, tag := range node.Tags {
+			if tag.Name == tagName {
+				return string(tag.Value)
+			}
+		}
+		return ""
+	}
+}
+
 // CreateNodeAttribute creates the NodeAttribute selected based on a string definition.
 func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	if strings.HasPrefix(attr, "tag:") {
-		parts := strings.Split(strings.TrimPrefix(attr, "tag:"), "/")
-		return func(node SelectedNode) string {
-			for _, tag := range node.Tags {
-				if tag.Name == parts[1] && tag.Signer.String() == parts[0] {
-					return string(tag.Value)
-				}
+		parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
+		switch len(parts) {
+		case 1:
+			return AnyNodeTagAttribute(parts[0]), nil
+		case 2:
+			id, err := storj.NodeIDFromString(parts[0])
+			if err != nil {
+				return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
 			}
-			return ""
-		}, nil
+			return NodeTagAttribute(id, parts[1]), nil
+		default:
+			return nil, errs.New("tag attribute should be defined as `tag:key` (any signer) or `tag:signer/key`")
+		}
 	}
 	switch attr {
 	case "last_net":

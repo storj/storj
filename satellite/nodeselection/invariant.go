@@ -53,3 +53,8 @@ func ClumpingByAttribute(attr NodeAttribute, maxAllowed int) Invariant {
 		return res
 	}
 }
+
+// ClumpingByAnyTag tries to limit the number of nodes with the same tag value.
+func ClumpingByAnyTag(key string, maxAllowed int) Invariant {
+	return ClumpingByAttribute(AnyNodeTagAttribute(key), maxAllowed)
+}

@@ -38,6 +38,8 @@ func TestNodeAttribute(t *testing.T) {
 	}))
 
 	signerID := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
+	otherSignerID := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID
+
 	assert.Equal(t, "bar", must(CreateNodeAttribute(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
 		Tags: NodeTags{
 			{
@@ -47,15 +49,29 @@ func TestNodeAttribute(t *testing.T) {
 			},
 		},
 	}))
-
-	assert.Equal(t, "", must(CreateNodeAttribute("tag:xxx/foo"))(SelectedNode{
+	assert.Equal(t, "", must(CreateNodeAttribute(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
 		Tags: NodeTags{
 			{
-				Signer: signerID,
+				Signer: otherSignerID,
 				Name:   "foo",
 				Value:  []byte("bar"),
 			},
 		},
 	}))
 
+	assert.Equal(t, "bar", must(CreateNodeAttribute("tag:foo"))(SelectedNode{
+		Tags: NodeTags{
+			{
+				Signer: otherSignerID,
+				Name:   "foo",
+				Value:  []byte("bar"),
+			},
+		},
+	}))
+
+	_, err := CreateNodeAttribute("tag:xxx/foo")
+	require.ErrorContains(t, err, "has invalid NodeID")
+
+	_, err = CreateNodeAttribute("tag:a/b/c")
+	require.ErrorContains(t, err, "should be defined")
 }
