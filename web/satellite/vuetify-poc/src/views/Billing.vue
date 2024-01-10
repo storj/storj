@@ -155,7 +155,8 @@
                     <v-col>
                         <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." border variant="flat">
                             <v-card-text>
-                                <v-btn variant="outlined" color="default" size="small" @click="downloadReport">
+                                <v-btn variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
+                                    <detailed-usage-report-dialog />
                                     Download Report
                                 </v-btn>
                             </v-card-text>
@@ -218,7 +219,7 @@ import {
     VProgressCircular,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { mdiPlus } from '@mdi/js';
+import { mdiCalendar, mdiPlus } from '@mdi/js';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
@@ -229,7 +230,6 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { Download } from '@/utils/download';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { Project } from '@/types/projects';
 import { RouteName } from '@poc/router';
@@ -243,6 +243,7 @@ import StorjTokenCardComponent from '@poc/components/StorjTokenCardComponent.vue
 import TokenTransactionsTableComponent from '@poc/components/TokenTransactionsTableComponent.vue';
 import ApplyCouponCodeDialog from '@poc/components/dialogs/ApplyCouponCodeDialog.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
+import DetailedUsageReportDialog from '@poc/components/dialogs/DetailedUsageReportDialog.vue';
 
 enum TABS {
     overview,
@@ -356,16 +357,6 @@ const isCouponActive = computed((): boolean => {
     const c = coupon.value;
     return !!c && (c.duration === 'forever' || (!!c.expiresAt && now < c.expiresAt.getTime()));
 });
-
-function downloadReport(): void {
-    try {
-        const link = projectsStore.getUsageReportLink();
-        Download.fileByLink(link);
-        notify.success('Usage report download started successfully.');
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
-    }
-}
 
 function onAddTokensClicked(): void {
     tab.value = TABS['payment-methods'];

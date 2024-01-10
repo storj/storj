@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card rounded="lg" variant="flat" :border="true" class="mb-4">
+    <v-card rounded="lg" variant="flat" border class="mb-4">
         <v-expansion-panels>
             <v-expansion-panel rounded="lg">
                 <v-expansion-panel-title>
@@ -86,7 +86,8 @@
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4" variant="outlined" color="default" size="small" @click="downloadReport">
+                    <v-btn class="mt-4" variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
+                        <detailed-usage-report-dialog :project-i-d="projectId" />
                         Download Report
                     </v-btn>
                 </v-expansion-panel-text>
@@ -108,6 +109,7 @@ import {
     VRow,
     VTable,
 } from 'vuetify/components';
+import { mdiCalendar } from '@mdi/js';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
 import { ProjectCharge, ProjectCharges, ProjectUsagePriceModel } from '@/types/payments';
@@ -116,9 +118,9 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { Download } from '@/utils/download';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+
+import DetailedUsageReportDialog from '@poc/components/dialogs/DetailedUsageReportDialog.vue';
 
 /**
  * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
@@ -165,19 +167,6 @@ const projectName = computed((): string => {
 const projectCharges = computed((): ProjectCharges => {
     return billingStore.state.projectCharges as ProjectCharges;
 });
-
-/**
- * Handles download usage report click logic.
- */
-function downloadReport(): void {
-    try {
-        const link = projectsStore.getUsageReportLink(props.projectId);
-        Download.fileByLink(link);
-        notify.success('Usage report download started successfully.');
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
-    }
-}
 
 /**
  * Returns project usage price model from store.
