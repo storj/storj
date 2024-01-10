@@ -97,7 +97,6 @@
                                 id="Retype Password"
                                 ref="repPasswordField"
                                 v-model="repPassword"
-                                class="mb-2"
                                 label="Retype password"
                                 placeholder="Enter a password"
                                 color="secondary"
@@ -115,7 +114,7 @@
 
                             <v-alert
                                 v-if="isBetaSatellite"
-                                class="mb-2"
+                                class="my-2"
                                 variant="tonal"
                                 color="warning"
                                 rounded="lg"
@@ -148,6 +147,7 @@
                             <v-checkbox
                                 id="Terms checkbox"
                                 v-model="acceptedTerms"
+                                class="mb-2"
                                 :rules="[RequiredRule]"
                                 density="compact"
                                 hide-details="auto"
@@ -160,12 +160,6 @@
                                         and
                                         <a class="link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>.
                                     </p>
-                                </template>
-                            </v-checkbox>
-
-                            <v-checkbox id="Newsletter checkbox" density="compact">
-                                <template #label>
-                                    <p class="text-body-2">I want to receive the Storj newsletter by email.</p>
                                 </template>
                             </v-checkbox>
 

@@ -27,7 +27,7 @@
                     />
                     <v-select
                         v-model="useCase"
-                        :items="['Backup & Recovery', 'Media & Entertainment', 'Generative AI', 'Other']"
+                        :items="['Video Streaming', 'Media Sharing & Collaboration', 'Large File Distribution', 'Backup/Archive', 'Web3 Storage', 'Other']"
                         label="Use Case (optional)"
                         placeholder="Select your use case"
                         variant="outlined"
@@ -104,7 +104,8 @@ function setupAccount() {
         try {
             await auth.setupAccount({
                 fullName: name.value,
-                workingOn: useCase.value,
+                storageUseCase: useCase.value,
+                haveSalesContact: false,
                 isProfessional: false,
             });
 

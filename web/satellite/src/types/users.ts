@@ -157,10 +157,13 @@ export class UpdatedUser {
 export interface AccountSetupData {
     fullName: string
     isProfessional: boolean
+    haveSalesContact: boolean
     position?: string
     companyName?: string
     employeeCount?: string
     storageNeeds?: string
+    storageUseCase?: string
+    functionalArea?: string
 }
 
 /**

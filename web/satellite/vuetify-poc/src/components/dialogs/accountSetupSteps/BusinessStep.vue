@@ -47,11 +47,13 @@
                     />
                 </v-col>
                 <v-col cols="12" sm="5" md="4" lg="3">
-                    <v-text-field
+                    <v-select
                         id="Job Role"
                         v-model="position"
                         :rules="[RequiredRule]"
+                        :items="['Executive/C-Level', 'Director', 'Manager', 'Software Developer', 'Partner', 'Student/Professor', 'Other']"
                         label="Job Role"
+                        variant="outlined"
                         hide-details="auto"
                         required
                     />
@@ -81,7 +83,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-select
                         v-model="storageNeeds"
-                        :items="['Less than 150TB', '150-499TB', '500-999TB', '1PB+']"
+                        :items="['Under 25 TB', '25 TB - 50 TB', '51 TB - 150 TB', '151 TB - 250 TB', '251 TB -500 TB', '501 TB and above']"
                         label="Storage Needs"
                         variant="outlined"
                         hide-details="auto"
@@ -96,6 +98,17 @@
                         hide-details="auto"
                     />
                 </v-col>
+            </v-row>
+
+            <v-row justify="center">
+                <v-col cols="12" sm="6" md="5" lg="4">
+                    <v-checkbox id="sales" v-model="haveSalesContact" density="compact">
+                        <template #label>
+                            <p class="text-body-2">Please have the Sales Team contact me</p>
+                        </template>
+                    </v-checkbox>
+                </v-col>
+                <v-col v-if="smAndUp" cols="12" sm="4" md="3" lg="2" />
             </v-row>
         </v-form>
 
@@ -130,9 +143,10 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
+import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
+import { useDisplay } from 'vuetify';
 
 import { AccountSetupStep } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
@@ -147,17 +161,19 @@ const auth = new AuthHttpApi();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
+const { smAndUp } = useDisplay();
 
 const formValid = ref(false);
 
 const firstName = ref('');
 const lastName = ref('');
 const companyName = ref('');
-const position = ref('');
+const position = ref<string>();
 const employeeCount = ref<string>();
 const storageNeeds = ref<string>();
 const useCase = ref<string>();
 const functionalArea = ref<string>();
+const haveSalesContact = ref(false);
 
 const emit = defineEmits<{
     next: [AccountSetupStep];
@@ -173,9 +189,13 @@ function setupAccount() {
             await auth.setupAccount({
                 fullName: `${firstName.value} ${lastName.value}`,
                 position: position.value,
+                companyName: companyName.value,
                 employeeCount: employeeCount.value,
                 storageNeeds: storageNeeds.value,
+                storageUseCase: useCase.value,
+                functionalArea: functionalArea.value,
                 isProfessional: true,
+                haveSalesContact: haveSalesContact.value,
             });
 
             emit('next', AccountSetupStep.Success);
