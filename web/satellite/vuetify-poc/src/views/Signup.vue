@@ -462,7 +462,8 @@ async function signup(): Promise<void> {
             password: password.value,
             partner: partner.value,
             signupPromoCode: signupPromoCode.value,
-        }, '', captchaResponseToken.value);
+            isMinimal: true,
+        }, secret.value, captchaResponseToken.value);
 
         if (!codeActivationEnabled.value) {
             // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app

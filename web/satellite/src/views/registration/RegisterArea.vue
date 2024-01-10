@@ -786,7 +786,7 @@ async function createUser(): Promise<void> {
     user.value.haveSalesContact = haveSalesContact.value;
 
     try {
-        signupID.value = await auth.register({ ...user.value, storageNeeds: storageNeeds.value }, secret.value, captchaResponseToken.value);
+        signupID.value = await auth.register({ ...user.value, storageNeeds: storageNeeds.value, isMinimal: false }, secret.value, captchaResponseToken.value);
 
         if (!codeActivationEnabled.value) {
             // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app

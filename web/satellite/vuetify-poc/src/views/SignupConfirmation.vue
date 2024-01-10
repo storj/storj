@@ -42,9 +42,6 @@
                 </p>
             </v-col>
             <v-col cols="12">
-                <p class="text-center text-body-2">Not a member? <router-link class="link" to="/signup">Signup</router-link></p>
-            </v-col>
-            <v-col cols="12">
                 <p class="text-center text-body-2"><router-link class="link" to="/login">Go to login page</router-link></p>
             </v-col>
         </v-row>
