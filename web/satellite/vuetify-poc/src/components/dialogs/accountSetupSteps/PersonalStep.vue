@@ -18,6 +18,7 @@
             <v-col cols="12" sm="8" md="6" lg="4">
                 <v-form v-model="formValid">
                     <v-text-field
+                        id="Name"
                         v-model="name"
                         :rules="[RequiredRule]"
                         label="Name"

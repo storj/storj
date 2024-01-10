@@ -14,6 +14,8 @@
   * [Get Users](#users-get-users)
   * [Create Users](#users-create-users)
   * [Get User's age](#users-get-users-age)
+* Projects
+  * [Create Projects](#projects-create-projects)
 
 <h3 id='documents-get-documents'>Get Documents (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -240,6 +242,32 @@ Get the user's age
 	day: number
 	month: number
 	year: number
+}
+
+```
+
+<h3 id='projects-create-projects'>Create Projects (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Create projects
+
+`POST /api/v0/projects/`
+
+**Request body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	ownerName: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	ownerName: string
 }
 
 ```

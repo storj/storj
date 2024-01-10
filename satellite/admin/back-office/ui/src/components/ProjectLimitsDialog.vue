@@ -30,40 +30,41 @@
                 <v-row>
                     <v-col cols="12" sm="6">
                         <v-text-field
-                            label="Buckets" model-value="100" suffix="Buckets" variant="outlined"
+                            v-model="buckets" :rules="limitRules" label="Buckets" suffix="Buckets" variant="outlined" :disabled="isLoading"
+                            hide-details="auto"
+                        />
+                    </v-col>
+                    <!-- TODO: Implement unit selection (GB, TB, etc.) -->
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model="storage" :rules="limitRules" label="Storage" suffix="Bytes" variant="outlined" :disabled="isLoading"
                             hide-details="auto"
                         />
                     </v-col>
                     <v-col cols="12" sm="6">
                         <v-text-field
-                            label="Storage" model-value="100" suffix="TB" variant="outlined"
+                            v-model="egress" :rules="limitRules" label="Download per month" suffix="Bytes" variant="outlined" :disabled="isLoading"
                             hide-details="auto"
                         />
                     </v-col>
                     <v-col cols="12" sm="6">
                         <v-text-field
-                            label="Download per month" model-value="300" suffix="TB" variant="outlined"
+                            v-model="segments" :rules="limitRules" label="Segments" variant="outlined" :disabled="isLoading"
                             hide-details="auto"
                         />
                     </v-col>
                     <v-col cols="12" sm="6">
-                        <v-text-field
-                            label="Segments" model-value="100,000,000" variant="outlined"
-                            hide-details="auto"
-                        />
+                        <v-text-field v-model="rate" :rules="limitRules" label="Rate" variant="outlined" :disabled="isLoading" hide-details="auto" />
                     </v-col>
                     <v-col cols="12" sm="6">
-                        <v-text-field label="Rate" model-value="10,000" variant="outlined" hide-details="auto" />
-                    </v-col>
-                    <v-col cols="12" sm="6">
-                        <v-text-field label="Burst" model-value="50,000" variant="outlined" hide-details="auto" />
+                        <v-text-field v-model="burst" :rules="limitRules" label="Burst" variant="outlined" :disabled="isLoading" hide-details="auto" />
                     </v-col>
                 </v-row>
 
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
-                            model-value="56F82SR21Q284" label="Project ID" variant="solo-filled" flat readonly
+                            :model-value="appStore.state.selectedProject?.id" label="Project ID" variant="solo-filled" flat readonly
                             hide-details="auto"
                         />
                     </v-col>
@@ -78,25 +79,17 @@
                         <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="primary" variant="flat" block :loading="loading" @click="onButtonClick">Save</v-btn>
+                        <v-btn color="primary" variant="flat" block :loading="isLoading" @click="updateLimits">Save</v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
         </v-card>
     </v-dialog>
-
-    <v-snackbar v-model="snackbar" :timeout="7000" color="error">
-        Error. Cannot change project limits.
-        <template #actions>
-            <v-btn color="default" variant="text" @click="snackbar = false">
-                Close
-            </v-btn>
-        </template>
-    </v-snackbar>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onBeforeMount, ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
     VDialog,
     VCard,
@@ -110,14 +103,88 @@ import {
     VCol,
     VTextField,
     VCardActions,
-    VSnackbar,
 } from 'vuetify/components';
 
-const snackbar = ref<boolean>(false);
+import { useAppStore } from '@/store/app';
+import { useNotificationsStore } from '@/store/notifications';
+import { RequiredRule, ValidationRule } from '@/types/common';
+
+const valid = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
+
+const appStore = useAppStore();
+const notify = useNotificationsStore();
+const router = useRouter();
+
 const dialog = ref<boolean>(false);
 
-function onButtonClick() {
-    snackbar.value = true;
+const buckets = ref<number>(0);
+const storage = ref<number>(0);
+const egress = ref<number>(0);
+const segments = ref<number>(0);
+const rate = ref<number>(0);
+const burst = ref<number>(0);
+
+async function updateLimits() {
+    if (!valid.value) {
+        return;
+    }
+    isLoading.value = true;
+    try {
+        const updateReq = {
+            maxBuckets: Number(buckets.value),
+            storageLimit: Number(storage.value),
+            bandwidthLimit: Number(egress.value),
+            segmentLimit: Number(segments.value),
+            rateLimit: Number(rate.value),
+            burstLimit: Number(burst.value),
+        };
+
+        await appStore.updateProjectLimits(appStore.state.selectedProject?.id || '', updateReq);
+        notify.notifySuccess('Successfully updated project limits.');
+    } catch (error) {
+        notify.notifyError(`Error updating project limits. ${error.message}`);
+    }
+    isLoading.value = false;
     dialog.value = false;
 }
+
+/**
+ * Returns an array of validation rules applied to the text input.
+ */
+const limitRules = computed<ValidationRule<string>[]>(() => {
+    return [
+        RequiredRule,
+        v => !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
+        v => (parseFloat(v) >= 0) || 'Number must be zero or greater',
+    ];
+});
+
+function setInputFields() {
+    const p = appStore.state.selectedProject;
+    if (!p) {
+        return;
+    }
+    buckets.value = p.maxBuckets || 0;
+    storage.value = p.storageLimit || 0;
+    egress.value = p.bandwidthLimit || 0;
+    segments.value = p.segmentLimit || 0;
+    rate.value = p.rateLimit || 0;
+    burst.value = p.burstLimit || 0;
+}
+
+watch(dialog, (shown) => {
+    if (!shown || !appStore.state.selectedProject) {
+        return;
+    }
+    setInputFields();
+});
+
+onBeforeMount(() => {
+    if (!appStore.state.selectedProject) {
+        router.push('/accounts');
+        return;
+    }
+    setInputFields();
+});
 </script>

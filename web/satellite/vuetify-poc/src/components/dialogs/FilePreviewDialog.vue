@@ -19,7 +19,7 @@
                     {{ fileName }}
                 </v-toolbar-title>
                 <template #append>
-                    <v-btn :loading="isDownloading" icon size="small" color="white" @click="download">
+                    <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" @click="download">
                         <img src="@poc/assets/icon-download.svg" width="22" alt="Download">
                         <v-tooltip
                             activator="parent"
@@ -28,7 +28,7 @@
                             Download
                         </v-tooltip>
                     </v-btn>
-                    <v-btn icon size="small" color="white" @click="isShareDialogShown = true">
+                    <v-btn id="Share" icon size="small" color="white" @click="isShareDialogShown = true">
                         <icon-share size="22" />
                         <v-tooltip
                             activator="parent"
@@ -37,7 +37,7 @@
                             Share
                         </v-tooltip>
                     </v-btn>
-                    <v-btn icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
+                    <v-btn id="Distribution" icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
                         <icon-distribution size="22" />
                         <v-tooltip
                             activator="parent"
@@ -67,7 +67,7 @@
                             </v-list>
                         </v-menu>
                     </v-btn>
-                    <v-btn icon size="small" color="white" @click="model = false">
+                    <v-btn id="Close" icon size="small" color="white" @click="model = false">
                         <img src="@poc/assets/icon-close.svg" width="18" alt="Close">
                         <v-tooltip
                             activator="parent"

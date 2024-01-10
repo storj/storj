@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
+	"storj.io/storj/private/apigen/example"
 	"storj.io/storj/private/apigen/example/myapi"
 )
 
@@ -166,6 +167,18 @@ func main() {
 		TypeScriptName: "getAge",
 		Response:       myapi.UserAge[int16]{},
 		ResponseMock:   myapi.UserAge[int16]{Day: 1, Month: 1, Year: 2000},
+	})
+
+	g = a.Group("Projects", "projects")
+
+	g.Post("/", &apigen.Endpoint{
+		Name:           "Create Projects",
+		Description:    "Create projects",
+		GoName:         "CreateProject",
+		TypeScriptName: "createProject",
+		Request:        example.Project{},
+		Response:       example.Project{},
+		ResponseMock:   example.Project{ID: uuid.UUID([16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}), OwnerName: "Foo Bar"},
 	})
 
 	a.MustWriteGo("api.gen.go")

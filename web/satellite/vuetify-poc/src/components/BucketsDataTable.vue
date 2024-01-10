@@ -78,6 +78,7 @@
                 <v-menu location="bottom end" transition="scale-transition">
                     <template #activator="{ props: activatorProps }">
                         <v-btn
+                            title="Bucket Actions"
                             :icon="mdiDotsHorizontal"
                             color="default"
                             variant="outlined"

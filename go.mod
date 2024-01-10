@@ -63,7 +63,7 @@ require (
 	storj.io/eventkit v0.0.0-20231215144225-968576eb7548
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c
 	storj.io/private v0.0.0-20231215152845-c5d4aba552e2
-	storj.io/uplink v1.12.3-0.20231215150144-64b6fe256777
+	storj.io/uplink v1.12.3-0.20240102174418-87eb7c9e829a
 )
 
 require (

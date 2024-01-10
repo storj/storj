@@ -28,15 +28,17 @@ var (
 
 // UsageLimits is an api controller that exposes all usage and limits related functionality.
 type UsageLimits struct {
-	log     *zap.Logger
-	service *console.Service
+	log                    *zap.Logger
+	service                *console.Service
+	allowedReportDateRange time.Duration
 }
 
 // NewUsageLimits is a constructor for api usage and limits controller.
-func NewUsageLimits(log *zap.Logger, service *console.Service) *UsageLimits {
+func NewUsageLimits(log *zap.Logger, service *console.Service, allowedReportDateRange time.Duration) *UsageLimits {
 	return &UsageLimits{
-		log:     log,
-		service: service,
+		log:                    log,
+		service:                service,
+		allowedReportDateRange: allowedReportDateRange,
 	}
 }
 
@@ -125,6 +127,12 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 
 	since := time.Unix(sinceStamp, 0).UTC()
 	before := time.Unix(beforeStamp, 0).UTC()
+
+	duration := before.Sub(since)
+	if duration > ul.allowedReportDateRange {
+		ul.serveJSONError(ctx, w, http.StatusForbidden, errs.New("date range must be less than %v", ul.allowedReportDateRange))
+		return
+	}
 
 	var projectID uuid.UUID
 

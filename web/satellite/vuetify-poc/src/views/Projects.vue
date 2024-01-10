@@ -67,11 +67,7 @@
             </template>
         </v-row>
 
-        <v-row v-if="isLoading" class="justify-center">
-            <v-progress-circular indeterminate color="primary" size="48" />
-        </v-row>
-
-        <v-row v-else-if="isTableView">
+        <v-row v-if="isTableView">
             <!-- Table view -->
             <v-col>
                 <ProjectsTableComponent :items="items" @join-click="onJoinClicked" @invite-click="(item) => onInviteClicked(item)" />
@@ -97,7 +93,6 @@
     />
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="addMemberProjectId" />
-    <account-setup-dialog />
 </template>
 
 <script setup lang="ts">
@@ -109,7 +104,6 @@ import {
     VBtn,
     VSpacer,
     VBtnToggle,
-    VProgressCircular,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 
@@ -134,7 +128,6 @@ import AddTeamMemberDialog from '@poc/components/dialogs/AddTeamMemberDialog.vue
 import IconCardView from '@poc/components/icons/IconCardView.vue';
 import IconTableView from '@poc/components/icons/IconTableView.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
-import AccountSetupDialog from '@poc/components/dialogs/AccountSetupDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -146,7 +139,6 @@ const billingStore = useBillingStore();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 
-const isLoading = ref<boolean>(true);
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
@@ -229,13 +221,7 @@ function onInviteClicked(item: ProjectItemModel): void {
     isAddMemberDialogShown.value = true;
 }
 
-onMounted(async (): Promise<void> => {
-    await usersStore.getUser().catch(_ => {});
-    await projectsStore.getProjects().catch(_ => {});
-    await projectsStore.getUserInvitations().catch(_ => {});
-
-    isLoading.value = false;
-
+onMounted(() => {
     if (configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled) {
         Promise.all([
             billingStore.getBalance(),

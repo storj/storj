@@ -299,9 +299,11 @@ func (p *Server) Run(ctx context.Context) (err error) {
 
 	var (
 		publicTLSDRPCListener   net.Listener
+		publicDefaultListener   net.Listener
 		publicNoiseDRPCListener net.Listener
 		publicHTTPListener      net.Listener
 		privateDRPCListener     net.Listener
+		privateDefaultListener  net.Listener
 	)
 
 	if p.publicUDPConn != nil {
@@ -332,6 +334,8 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	if p.publicTCPListener != nil {
 		publicLMux := drpcmigrate.NewListenMux(p.publicTCPListener, len(drpcmigrate.DRPCHeader))
 		tlsMux := publicLMux.Route(drpcmigrate.DRPCHeader)
+		publicDefaultListener = publicLMux.Default()
+
 		var noiseOpts noiseconn.Options
 
 		if p.config.DebouncingEnabled {
@@ -356,6 +360,8 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	{
 		privateLMux := drpcmigrate.NewListenMux(p.privateTCPListener, len(drpcmigrate.DRPCHeader))
 		privateDRPCListener = privateLMux.Route(drpcmigrate.DRPCHeader)
+		privateDefaultListener = privateLMux.Default()
+
 		muxGroup.Go(func() error {
 			return privateLMux.Run(muxCtx)
 		})
@@ -389,6 +395,36 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	connectListenerToEndpoints(ctx, p.publicQUICListener, p.publicEndpointsAll)
 	connectListenerToEndpoints(ctx, publicNoiseDRPCListener, p.publicEndpointsReplaySafe)
 	connectListenerToEndpoints(ctx, privateDRPCListener, p.privateEndpoints)
+
+	rejectConnections := func(ctx context.Context, listener net.Listener) {
+		if listener == nil {
+			return
+		}
+		group.Go(func() error {
+			defer cancel()
+
+			for {
+				conn, err := listener.Accept()
+				if err != nil {
+					return nil //nolint: nilerr // error is ignored, as no action is required. Probably just closing the listener.
+				}
+				_ = conn.Close()
+			}
+
+		})
+
+		// shutdown the previous listener loop, if context is cancelled
+		group.Go(func() error {
+			<-ctx.Done()
+
+			_ = listener.Close()
+			return nil
+		})
+	}
+
+	// we can reject connections without valid mux prefix
+	rejectConnections(ctx, publicDefaultListener)
+	rejectConnections(ctx, privateDefaultListener)
 
 	if publicHTTPListener != nil {
 		// this http server listens on the filtered messages of the incoming DRPC port, instead of a separated port

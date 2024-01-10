@@ -352,8 +352,17 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_pieces_skipped").Observe(piecesSkipped)
 	mon.IntVal("garbage_collection_pieces_to_delete_count").Observe(int64(piecesToDeleteCount))
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	mon.DurationVal("garbage_collection_loop_duration").Observe(time.Now().UTC().Sub(started))
-	s.log.Info("Moved pieces to trash during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
+	duration := time.Now().UTC().Sub(started)
+	mon.DurationVal("garbage_collection_loop_duration").Observe(duration)
+	s.log.Info("Moved pieces to trash during retain",
+		zap.Int("Deleted pieces", numDeleted),
+		zap.Int("Failed to delete", piecesToDeleteCount-numDeleted),
+		zap.Int64("Pieces failed to read", piecesSkipped),
+		zap.Int64("Pieces count", piecesCount),
+		zap.Stringer("Satellite ID", satelliteID),
+		zap.Duration("Duration", duration),
+		zap.String("Retain Status", s.config.Status.String()),
+	)
 
 	return nil
 }

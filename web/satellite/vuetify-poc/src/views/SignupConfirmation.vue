@@ -146,7 +146,7 @@ const timeToEnableResendEmailButton = computed((): string => {
  */
 const codeActivationEnabled = computed((): boolean => {
     // code activation is not available if this page was arrived at via a link.
-    return  configStore.state.config.signupActivationCodeEnabled && !!props.email;
+    return configStore.state.config.signupActivationCodeEnabled && !!props.email;
 });
 
 /**
@@ -209,13 +209,6 @@ function verifyCode(): void {
         analyticsStore.pageVisit('/projects');
         await router.push('/projects');
     });
-}
-
-/**
- * Reloads page to reset back to sign up form for e.g.
- */
-function reloadPage() {
-    location.reload();
 }
 
 /**

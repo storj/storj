@@ -10,6 +10,7 @@
 
             <v-col cols="12">
                 <v-text-field
+                    id="Encryption Passphrase"
                     v-model="passphrase"
                     label="Encryption Passphrase"
                     :type="isPassphraseVisible ? 'text' : 'password'"

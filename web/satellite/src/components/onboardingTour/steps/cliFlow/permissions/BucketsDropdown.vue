@@ -132,8 +132,7 @@ function closeDropdown(): void {
         cursor: default;
 
         &__container {
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden auto;
             width: 100%;
             max-height: 230px;
             background-color: #fff;

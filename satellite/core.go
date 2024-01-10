@@ -252,7 +252,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}

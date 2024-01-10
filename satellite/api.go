@@ -281,7 +281,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	placements, err := config.Placement.Parse()
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}

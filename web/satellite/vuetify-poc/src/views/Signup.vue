@@ -6,7 +6,7 @@
     <v-container v-else class="fill-height flex-row justify-center align-center">
         <v-row align="top" justify="center" class="v-col-12">
             <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
-                <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7">
+                <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7 overflow-visible">
                     <v-card-item>
                         <v-alert
                             v-if="isInvited"
@@ -38,6 +38,7 @@
 
                             <v-text-field
                                 v-if="isInvited"
+                                id="Email Address"
                                 :model-value="queryEmail"
                                 class="mb-2"
                                 label="Email address"
@@ -52,6 +53,7 @@
 
                             <v-text-field
                                 v-else
+                                id="Email Address"
                                 v-model="email"
                                 class="mb-2"
                                 label="Email address"
@@ -65,28 +67,38 @@
                                 required
                             />
 
-                            <v-text-field
-                                v-model="password"
-                                class="mb-2"
-                                label="Password"
-                                placeholder="Enter a password"
-                                color="secondary"
-                                :type="showPassword ? 'text' : 'password'"
-                                :rules="passwordRules"
-                            >
-                                <template #append-inner>
-                                    <password-input-eye-icons
-                                        :is-visible="showPassword"
-                                        type="password"
-                                        @toggleVisibility="showPassword = !showPassword"
-                                    />
-                                </template>
-                            </v-text-field>
+                            <div class="pos-relative">
+                                <v-text-field
+                                    id="Password"
+                                    v-model="password"
+                                    class="mb-2"
+                                    label="Password"
+                                    placeholder="Enter a password"
+                                    color="secondary"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    :rules="passwordRules"
+                                    @update:focused="showPasswordStrength = !showPasswordStrength"
+                                >
+                                    <template #append-inner>
+                                        <password-input-eye-icons
+                                            :is-visible="showPassword"
+                                            type="password"
+                                            @toggleVisibility="showPassword = !showPassword"
+                                        />
+                                    </template>
+                                </v-text-field>
+                                <password-strength
+                                    v-if="showPasswordStrength"
+                                    :password="password"
+                                />
+                            </div>
 
                             <v-text-field
+                                id="Retype Password"
+                                ref="repPasswordField"
                                 v-model="repPassword"
                                 class="mb-2"
-                                label="Password"
+                                label="Retype password"
                                 placeholder="Enter a password"
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
@@ -111,7 +123,14 @@
                                 border
                             >
                                 <template #title>
-                                    <v-checkbox v-model="acceptedBetaTerms" :rules="[RequiredRule]" density="compact" hide-details="auto" required>
+                                    <v-checkbox
+                                        id="Beta terms checkbox"
+                                        v-model="acceptedBetaTerms"
+                                        :rules="[RequiredRule]"
+                                        density="compact"
+                                        hide-details="auto"
+                                        required
+                                    >
                                         <template #label>
                                             This is a BETA satellite
                                         </template>
@@ -126,7 +145,14 @@
                                 </template>
                             </v-alert>
 
-                            <v-checkbox v-model="acceptedTerms" :rules="[RequiredRule]" density="compact" hide-details="auto" required>
+                            <v-checkbox
+                                id="Terms checkbox"
+                                v-model="acceptedTerms"
+                                :rules="[RequiredRule]"
+                                density="compact"
+                                hide-details="auto"
+                                required
+                            >
                                 <template #label>
                                     <p class="text-body-2">
                                         I agree to the
@@ -137,7 +163,7 @@
                                 </template>
                             </v-checkbox>
 
-                            <v-checkbox density="compact">
+                            <v-checkbox id="Newsletter checkbox" density="compact">
                                 <template #label>
                                     <p class="text-body-2">I want to receive the Storj newsletter by email.</p>
                                 </template>
@@ -168,7 +194,7 @@
                 />
             </v-col>
             <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5">
-                <v-card variant="flat" class="pa-2 pa-sm-7 h-100">
+                <v-card variant="flat" class="pa-2 pa-sm-7 h-100 no-position">
                     <v-card-item>
                         <v-card-title class="text-wrap">
                             {{ viewConfig.title }}
@@ -215,7 +241,7 @@ import {
     VSelect,
     VTextField,
 } from 'vuetify/components';
-import { computed, ComputedRef, onBeforeMount, ref } from 'vue';
+import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -230,6 +256,7 @@ import { useNotify } from '@/utils/hooks';
 
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
+import PasswordStrength from '@poc/components/PasswordStrength.vue';
 
 type ViewConfig = {
     title: string;
@@ -258,6 +285,7 @@ const acceptedTerms = ref(false);
 const showPassword = ref(false);
 const captchaError = ref(false);
 const confirmCode = ref(false);
+const showPasswordStrength = ref(false);
 
 const signupID = ref('');
 const partner = ref('');
@@ -274,6 +302,7 @@ const inviterEmail = queryRef('inviter_email');
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
+const repPasswordField = ref<VTextField | null>(null);
 const viewConfig = ref<ViewConfig | null>(null);
 
 const satellitesHints = [
@@ -284,6 +313,9 @@ const satellitesHints = [
 
 const passwordRules: ValidationRule<string>[] = [
     RequiredRule,
+    (value) => value.length < passMinLength.value || value.length > passMaxLength.value
+        ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
+        : true,
 ];
 
 const emailRules: ValidationRule<string>[] = [
@@ -300,6 +332,20 @@ const repeatPasswordRules = computed<ValidationRule<string>[]>(() => [
         return true;
     },
 ]);
+
+/**
+ * Returns the maximum password length from the store.
+ */
+const passMaxLength = computed((): number => {
+    return configStore.state.config.passwordMaximumLength;
+});
+
+/**
+ * Returns the minimum password length from the store.
+ */
+const passMinLength = computed((): number => {
+    return configStore.state.config.passwordMinimumLength;
+});
 
 /**
  * Name of the current satellite.
@@ -428,7 +474,7 @@ async function signup(): Promise<void> {
             const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
-            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
+            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = `${window.location.origin}/v2/${nonBraveSuccessPath}`;
         } else {
             confirmCode.value = true;
         }
@@ -445,7 +491,7 @@ async function signup(): Promise<void> {
  * Detect if user uses Brave browser
  */
 async function detectBraveBrowser(): Promise<boolean> {
-    return (navigator['brave'] && await navigator['brave'].isBrave() || false);
+    return (navigator['brave'] && await navigator['brave'].isBrave()) || false;
 }
 
 onBeforeMount(async () => {
@@ -467,6 +513,12 @@ onBeforeMount(async () => {
         viewConfig.value = partner.value && config[partner.value] ? config[partner.value] : config['default'];
     } catch (e) {
         notify.error('No configuration file for registration page.');
+    }
+});
+
+watch(password, () => {
+    if (repPassword.value) {
+        repPasswordField.value?.validate();
     }
 });
 </script>

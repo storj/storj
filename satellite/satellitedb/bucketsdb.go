@@ -375,42 +375,41 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 	return bucket, nil
 }
 
-// IterateBucketLocations iterates through all buckets from some point with limit.
-func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (more bool, err error) {
+// IterateBucketLocations iterates through all buckets with specific page size.
+func (db *bucketsDB) IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var result []metabase.BucketLocation
+	page := make([]metabase.BucketLocation, pageSize)
 
-	moreLimit := limit + 1
-	rows, err := db.db.Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(
-		ctx,
-		dbx.BucketMetainfo_ProjectId(projectID[:]),
-		dbx.BucketMetainfo_Name([]byte(bucketName)),
-		moreLimit,
-		0,
-	)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	for _, row := range rows {
-		projectID, err := uuid.FromBytes(row.ProjectId)
-		if err != nil {
-			return false, Error.Wrap(err)
+	var continuationToken *dbx.Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
+	var rows []*dbx.ProjectId_Name_Row
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		result = append(result, metabase.BucketLocation{
-			ProjectID:  projectID,
-			BucketName: string(row.Name),
-		})
-	}
 
-	if len(result) == 0 {
-		return false, nil
-	}
+		rows, continuationToken, err = db.db.Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx, pageSize, continuationToken)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
-	if len(result) > limit {
-		return true, Error.Wrap(fn(result[:len(result)-1]))
-	}
+		if len(rows) == 0 {
+			return nil
+		}
 
-	return false, Error.Wrap(fn(result))
+		for i, row := range rows {
+			projectID, err := uuid.FromBytes(row.ProjectId)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			page[i].ProjectID = projectID
+			page[i].BucketName = string(row.Name)
+		}
+
+		if err := fn(page[:len(rows)]); err != nil {
+			return Error.Wrap(err)
+		}
+
+	}
 }

@@ -18,6 +18,7 @@
             <v-row justify="center">
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
+                        id="First Name"
                         v-model="firstName"
                         :rules="[RequiredRule]"
                         label="First Name"
@@ -27,6 +28,7 @@
                 </v-col>
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
+                        id="Last Name"
                         v-model="lastName"
                         label="Last Name"
                         hide-details="auto"
@@ -36,6 +38,7 @@
             <v-row justify="center">
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
+                        id="Company Name"
                         v-model="companyName"
                         :rules="[RequiredRule]"
                         label="Company Name"
@@ -45,6 +48,7 @@
                 </v-col>
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
+                        id="Job Role"
                         v-model="position"
                         :rules="[RequiredRule]"
                         label="Job Role"

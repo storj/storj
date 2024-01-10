@@ -139,7 +139,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup orders
 
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}

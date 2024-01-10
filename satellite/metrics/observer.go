@@ -71,6 +71,8 @@ func (obs *Observer) Finish(ctx context.Context) error {
 
 	mon.IntVal("total_inline_segments").Observe(obs.metrics.TotalInlineSegments) //mon:locked
 	mon.IntVal("total_remote_segments").Observe(obs.metrics.TotalRemoteSegments) //mon:locked
+
+	mon.IntVal("total_segments_with_expires_at").Observe(obs.metrics.TotalSegmentsWithExpiresAt) //mon:locked
 	return nil
 }
 
@@ -102,6 +104,9 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 			fork.stream.remoteSegments++
 			fork.stream.remoteBytes += int64(segment.EncryptedSize)
 		}
+		if segment.ExpiresAt != nil {
+			fork.stream.segmentsWithExpiresAt++
+		}
 	}
 	return nil
 }
@@ -113,6 +118,7 @@ func (fork *observerFork) Flush() {
 	fork.totals.TotalRemoteSegments += fork.stream.remoteSegments
 	fork.totals.TotalInlineBytes += fork.stream.inlineBytes
 	fork.totals.TotalRemoteBytes += fork.stream.remoteBytes
+	fork.totals.TotalSegmentsWithExpiresAt += fork.stream.segmentsWithExpiresAt
 	if fork.stream.remoteSegments > 0 {
 		// At least one remote segment was found for this stream so classify
 		// as a remote object.
@@ -127,8 +133,9 @@ func (fork *observerFork) Flush() {
 
 // streamMetrics tracks the metrics for an individual stream.
 type streamMetrics struct {
-	remoteSegments int64
-	remoteBytes    int64
-	inlineSegments int64
-	inlineBytes    int64
+	remoteSegments        int64
+	remoteBytes           int64
+	inlineSegments        int64
+	inlineBytes           int64
+	segmentsWithExpiresAt int64
 }

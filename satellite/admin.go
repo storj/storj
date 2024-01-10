@@ -254,7 +254,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
@@ -265,6 +265,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.Service,
 			placement,
+			config.Metainfo.ProjectLimits.MaxBuckets,
+			config.Metainfo.RateLimiter.Rate,
 		)
 
 		adminConfig := config.Admin

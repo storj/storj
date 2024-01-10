@@ -23,6 +23,8 @@ type Placement struct {
 	ID storj.PlacementConstraint
 	// binding condition for filtering out nodes
 	NodeFilter NodeFilter
+	// selector is the method how the nodes are selected from the full node space (eg. pick a subnet first, and pick a node from the subnet)
+	Selector NodeSelectorInit
 }
 
 // Match implements NodeFilter.
@@ -81,7 +83,17 @@ func (c *ConfigurablePlacementRule) Type() string {
 }
 
 // Parse creates the PlacementDefinitions from the string rules.
-func (c ConfigurablePlacementRule) Parse() (PlacementDefinitions, error) {
+// defaultPlacement is used to create the placement if no placement has been set.
+func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, error)) (PlacementDefinitions, error) {
+	if c.PlacementRules == "" {
+		dp, err := defaultPlacement()
+		if err != nil {
+			return PlacementDefinitions{}, err
+		}
+		pdef := NewPlacementDefinitions(dp)
+		pdef.AddLegacyStaticRules()
+		return pdef, nil
+	}
 	rules := c.PlacementRules
 	if _, err := os.Stat(rules); err == nil {
 		ruleBytes, err := os.ReadFile(rules)
@@ -93,7 +105,7 @@ func (c ConfigurablePlacementRule) Parse() (PlacementDefinitions, error) {
 	if strings.HasPrefix(rules, "/") || strings.HasPrefix(rules, "./") || strings.HasPrefix(rules, "../") {
 		return nil, ErrPlacement.New("Placement definition (%s) looks to be a path, but file doesn't exist at that place", rules)
 	}
-	d := NewPlacementDefinitions()
+	d := PlacementDefinitions(map[storj.PlacementConstraint]Placement{})
 	d.AddLegacyStaticRules()
 	err := d.AddPlacementFromString(rules)
 	return d, err
@@ -101,13 +113,35 @@ func (c ConfigurablePlacementRule) Parse() (PlacementDefinitions, error) {
 
 var _ pflag.Value = &ConfigurablePlacementRule{}
 
-// NewPlacementDefinitions creates a fully initialized NewPlacementDefinitions.
-func NewPlacementDefinitions() PlacementDefinitions {
+// TestPlacementDefinitions creates placements for testing. Only 0 placement is defined with subnetfiltering.
+func TestPlacementDefinitions() PlacementDefinitions {
 	return map[storj.PlacementConstraint]Placement{
 		storj.DefaultPlacement: {
+			ID:         storj.DefaultPlacement,
 			NodeFilter: AnyFilter{},
+			Selector:   AttributeGroupSelector(LastNetAttribute),
 		},
 	}
+}
+
+// TestPlacementDefinitionsWithFraction creates placements for testing. Similar to TestPlacementDefinitions, but also selects newNodes based on fraction.
+func TestPlacementDefinitionsWithFraction(newNodeFraction float64) PlacementDefinitions {
+	return map[storj.PlacementConstraint]Placement{
+		storj.DefaultPlacement: {
+			ID:         storj.DefaultPlacement,
+			NodeFilter: AnyFilter{},
+			Selector:   UnvettedSelector(newNodeFraction, AttributeGroupSelector(LastNetAttribute)),
+		},
+	}
+}
+
+// NewPlacementDefinitions creates a PlacementDefinition with a default placement.
+func NewPlacementDefinitions(placements ...Placement) PlacementDefinitions {
+	result := map[storj.PlacementConstraint]Placement{}
+	for _, p := range placements {
+		result[p.ID] = p
+	}
+	return result
 }
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
@@ -129,11 +163,21 @@ func (d PlacementDefinitions) AddLegacyStaticRules() {
 	}
 }
 
+// AddPlacement registers a new placement.
+func (d PlacementDefinitions) AddPlacement(id storj.PlacementConstraint, placement Placement) {
+	d[id] = placement
+}
+
 // AddPlacementRule registers a new placement.
 func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter) {
-	d[id] = Placement{
+	placement := Placement{
 		NodeFilter: filter,
+		Selector:   AttributeGroupSelector(LastNetAttribute),
 	}
+	if GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF {
+		placement.Selector = RandomSelector()
+	}
+	d[id] = placement
 }
 
 type stringNotMatch string
@@ -245,6 +289,13 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 		placement := Placement{
 			NodeFilter: val.(NodeFilter),
 		}
+
+		if GetAnnotation(placement.NodeFilter, AutoExcludeSubnet) != AutoExcludeSubnetOFF {
+			placement.Selector = AttributeGroupSelector(LastNetAttribute)
+		} else {
+			placement.Selector = RandomSelector()
+		}
+
 		d[storj.PlacementConstraint(id)] = placement
 	}
 	return nil

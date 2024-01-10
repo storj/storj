@@ -140,9 +140,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			"net": func(node *nodeselection.SelectedNode) string {
 				return node.LastNet
 			},
-			"country": func(node *nodeselection.SelectedNode) string {
-				return node.CountryCode.String()
-			},
 		}
 		for class, f := range classes {
 			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, class, f, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
@@ -150,7 +147,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup overlay
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +164,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}

@@ -6,6 +6,7 @@ package metabase
 import (
 	"database/sql/driver"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -279,7 +280,7 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 		return obj.ObjectKey < b.ObjectKey
 	}
 	if obj.Version != b.Version {
-		return obj.Version < b.Version
+		return obj.Version > b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }
@@ -366,8 +367,10 @@ const DefaultVersion = Version(1)
 const PendingVersion = Version(0)
 
 // MaxVersion represents maximum version.
-// Version in DB is represented as INT4.
-const MaxVersion = Version(math.MaxInt32)
+// Version in DB is represented as INT8.
+//
+// It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
+const MaxVersion = Version(math.MaxInt64 - 64)
 
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.
@@ -465,6 +468,28 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
+// String returns textual representation of status.
+func (status ObjectStatus) String() string {
+	switch status {
+	case Pending:
+		return "Pending"
+	case ObjectStatus(2):
+		return "Deleted" // Deprecated
+	case CommittedUnversioned:
+		return "CommittedUnversioned"
+	case CommittedVersioned:
+		return "CommittedVersioned"
+	case DeleteMarkerVersioned:
+		return "DeleteMarkerVersioned"
+	case DeleteMarkerUnversioned:
+		return "DeleteMarkerUnversioned"
+	case Prefix:
+		return "Prefix"
+	default:
+		return fmt.Sprintf("ObjectStatus(%d)", int(status))
+	}
 }
 
 // Pieces defines information for pieces.

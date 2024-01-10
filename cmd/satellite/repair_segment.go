@@ -93,7 +93,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return err
 	}

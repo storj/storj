@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
 	backoffice "storj.io/storj/satellite/admin/back-office"
 )
@@ -47,9 +48,26 @@ func main() {
 		PathParams: []apigen.Param{
 			apigen.NewParam("email", ""),
 		},
-		Response: backoffice.User{},
+		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group = api.Group("ProjectManagement", "projects")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/{publicID}", &apigen.Endpoint{
+		Name:           "Get project",
+		Description:    "Gets project by ID",
+		GoName:         "GetProject",
+		TypeScriptName: "getProject",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Response: backoffice.Project{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
 		},
 	})
 

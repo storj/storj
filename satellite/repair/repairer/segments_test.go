@@ -119,7 +119,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 				// confirm that some pieces are out of placement
 
-				placement, err := planet.Satellites[0].Config.Placement.Parse()
+				placement, err := planet.Satellites[0].Config.Placement.Parse(planet.Satellites[0].Config.Overlay.Node.CreateDefaultPlacement)
 				require.NoError(t, err)
 
 				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
@@ -249,7 +249,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 
-			placement, err := planet.Satellites[0].Config.Placement.Parse()
+			placement, err := planet.Satellites[0].Config.Placement.Parse(planet.Satellites[0].Config.Overlay.Node.CreateDefaultPlacement)
 			require.NoError(t, err)
 
 			require.Equal(t, storj.PlacementConstraint(10), segments[0].Placement)
@@ -357,7 +357,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		placement, err := planet.Satellites[0].Config.Placement.Parse()
+		placement, err := planet.Satellites[0].Config.Placement.Parse(planet.Satellites[0].Config.Overlay.Node.CreateDefaultPlacement)
 		require.NoError(t, err)
 
 		// confirm that some pieces are out of placement
@@ -540,7 +540,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		placement, err := planet.Satellites[0].Config.Placement.Parse()
+		placement, err := planet.Satellites[0].Config.Placement.Parse(planet.Satellites[0].Config.Overlay.Node.CreateDefaultPlacement)
 		require.NoError(t, err)
 
 		{

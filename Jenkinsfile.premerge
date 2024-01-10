@@ -54,7 +54,7 @@ pipeline {
 
                 stage('wasm') {
                     steps {
-                        sh './scripts/test-wasm.sh'
+                        sh './testsuite/wasm/start.sh'
                     }
                 }
 

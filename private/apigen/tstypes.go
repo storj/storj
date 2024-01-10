@@ -265,6 +265,10 @@ func GetClassFieldsFromStruct(t reflect.Type) []ClassField {
 				panic(err)
 			}
 
+			if jsonInfo.Skip {
+				continue
+			}
+
 			if !ok && !field.Anonymous {
 				panic(
 					fmt.Sprintf(
@@ -293,10 +297,6 @@ func GetClassFieldsFromStruct(t reflect.Type) []ClassField {
 			}
 
 			fieldNames[jsonInfo.FieldName] = struct{}{}
-
-			if jsonInfo.Skip {
-				continue
-			}
 
 			fields = append(
 				fields,

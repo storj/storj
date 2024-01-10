@@ -520,8 +520,8 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
-				name: 'unwarn user',
-				desc: "Remove a user's warning status",
+				name: 'remove billing warning',
+				desc: "Remove the billing warning status from a user's account",
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/billing-warning`) as Promise<null>;
@@ -561,7 +561,7 @@ Blank fields will not be updated.`,
 		rest_api_keys: [
 			{
 				name: 'create',
-				desc: 'Create a REST key',
+				desc: 'Create a REST key. The expiration format must be accepted by https://pkg.go.dev/time#ParseDuration (e.g 20d4h20s) and if it is blank the default applies',
 				params: [
 					["user's email", new InputText('text', true)],
 					['expiration', new InputText('text', false)]

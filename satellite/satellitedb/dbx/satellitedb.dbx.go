@@ -12033,6 +12033,13 @@ func (h *__sqlbundle_Hole) Render() string {
 // end runtime support for building sql statements
 //
 
+type ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row struct {
+	ApiKey             ApiKey
+	Project_PublicId   []byte
+	Project_RateLimit  *int
+	Project_BurstLimit *int
+}
+
 type ApiKey_Project_PublicId_Row struct {
 	ApiKey           ApiKey
 	Project_PublicId []byte
@@ -12116,6 +12123,12 @@ type Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation st
 	_value_interval_start time.Time
 	_value_action         uint
 	_set                  bool
+}
+
+type Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation struct {
+	_value_project_id []byte
+	_value_name       []byte
+	_set              bool
 }
 
 type Paged_Node_Continuation struct {
@@ -16417,12 +16430,12 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	row *ApiKey_Project_PublicId_Row, err error) {
+	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id, projects.rate_limit, projects.burst_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -16430,10 +16443,10 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &ApiKey_Project_PublicId_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
+	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit)
 	if err != nil {
-		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -16721,52 +16734,61 @@ func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*ProjectId_Name_Row, err error) {
+func (obj *pgxImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx context.Context,
+	limit int, start *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation) (
+	rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE bucket_metainfos.project_id >= ? AND bucket_metainfos.name > ? GROUP BY bucket_metainfos.project_id, bucket_metainfos.name ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE (bucket_metainfos.project_id, bucket_metainfos.name) > (?, ?) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id_greater_or_equal.value(), bucket_metainfo_name_greater.value())
 
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_project_id, start._value_name, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*ProjectId_Name_Row, err error) {
+		rows, next, err = func() (rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			defer __rows.Close()
 
+			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
+			__continuation._set = true
+
 			for __rows.Next() {
 				row := &ProjectId_Name_Row{}
-				err = __rows.Scan(&row.ProjectId, &row.Name)
+				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				rows = append(rows, row)
+				next = &__continuation
 			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
 			}
-			return rows, nil
+
+			return rows, next, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			return nil, obj.makeErr(err)
+			return nil, nil, obj.makeErr(err)
 		}
-		return rows, nil
+		return rows, next, nil
 	}
 
 }
@@ -24835,12 +24857,12 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	row *ApiKey_Project_PublicId_Row, err error) {
+	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, projects.public_id, projects.rate_limit, projects.burst_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -24848,10 +24870,10 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &ApiKey_Project_PublicId_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
+	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit)
 	if err != nil {
-		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -25139,52 +25161,61 @@ func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.
 
 }
 
-func (obj *pgxcockroachImpl) Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*ProjectId_Name_Row, err error) {
+func (obj *pgxcockroachImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx context.Context,
+	limit int, start *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation) (
+	rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE bucket_metainfos.project_id >= ? AND bucket_metainfos.name > ? GROUP BY bucket_metainfos.project_id, bucket_metainfos.name ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE (bucket_metainfos.project_id, bucket_metainfos.name) > (?, ?) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
 	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id_greater_or_equal.value(), bucket_metainfo_name_greater.value())
 
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_project_id, start._value_name, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*ProjectId_Name_Row, err error) {
+		rows, next, err = func() (rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			defer __rows.Close()
 
+			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
+			__continuation._set = true
+
 			for __rows.Next() {
 				row := &ProjectId_Name_Row{}
-				err = __rows.Scan(&row.ProjectId, &row.Name)
+				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				rows = append(rows, row)
+				next = &__continuation
 			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
 			}
-			return rows, nil
+
+			return rows, next, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			return nil, obj.makeErr(err)
+			return nil, nil, obj.makeErr(err)
 		}
-		return rows, nil
+		return rows, next, nil
 	}
 
 }
@@ -29504,10 +29535,6 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field) (
 		account_freeze_event *AccountFreezeEvent, err error)
 
-	Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
-		api_key_head ApiKey_Head_Field) (
-		row *ApiKey_Project_PublicId_Row, err error)
-
 	Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		row *ApiKey_Project_PublicId_Row, err error)
@@ -29516,6 +29543,10 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field,
 		api_key_project_id ApiKey_ProjectId_Field) (
 		row *ApiKey_Project_PublicId_Row, err error)
+
+	Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx context.Context,
+		api_key_head ApiKey_Head_Field) (
+		row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, err error)
 
 	Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field) (
@@ -29753,12 +29784,6 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)
 
-	Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(ctx context.Context,
-		bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
-		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
-		limit int, offset int64) (
-		rows []*ProjectId_Name_Row, err error)
-
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,
 		limit int, offset int64) (
@@ -29789,6 +29814,10 @@ type Methods interface {
 		bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
 		limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
 		rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error)
+
+	Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx context.Context,
+		limit int, start *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation) (
+		rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error)
 
 	Paged_Node(ctx context.Context,
 		limit int, start *Paged_Node_Continuation) (

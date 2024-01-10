@@ -56,7 +56,9 @@ func TestGetOrderLimits(t *testing.T) {
 		Return(nodes, nil).AnyTimes()
 
 	service, err := orders.NewService(zaptest.NewLogger(t), k, overlayService, orders.NewNoopDB(),
-		nodeselection.NewPlacementDefinitions().CreateFilters,
+		func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
+			return nodeselection.AnyFilter{}
+		},
 		orders.Config{
 			EncryptionKeys: orders.EncryptionKeys{
 				Default: orders.EncryptionKey{

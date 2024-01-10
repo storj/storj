@@ -46,7 +46,7 @@ func TestSelectByID(t *testing.T) {
 	}
 
 	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectByID(nodes)
+	selector := nodeselection.RandomSelector()(nodes, nil)
 
 	const (
 		reqCount       = 2
@@ -57,7 +57,8 @@ func TestSelectByID(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, nodeselection.NodeFilters{})
+		selectedNodes, err := selector(reqCount, nil)
+		require.NoError(t, err)
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -106,7 +107,9 @@ func TestSelectBySubnet(t *testing.T) {
 	}
 
 	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectBySubnetFromNodes(nodes)
+	attribute, err := nodeselection.CreateNodeAttribute("last_net")
+	require.NoError(t, err)
+	selector := nodeselection.AttributeGroupSelector(attribute)(nodes, nil)
 
 	const (
 		reqCount       = 2
@@ -117,7 +120,8 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, nodeselection.NodeFilters{})
+		selectedNodes, err := selector(reqCount, nil)
+		require.NoError(t, err)
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -178,7 +182,9 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 	}
 
 	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectBySubnetFromNodes(nodes)
+	attribute, err := nodeselection.CreateNodeAttribute("last_net")
+	require.NoError(t, err)
+	selector := nodeselection.AttributeGroupSelector(attribute)(nodes, nil)
 
 	const (
 		reqCount       = 1
@@ -189,7 +195,8 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// perform many node selections that selects 1 node
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, nodeselection.NodeFilters{})
+		selectedNodes, err := selector(reqCount, nil)
+		require.NoError(t, err)
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -245,12 +252,19 @@ func TestSelectFiltered(t *testing.T) {
 	}
 
 	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectByID(nodes)
 
-	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}), 3)
-	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}), 3)
+	selector := nodeselection.RandomSelector()(nodes, nil)
+	selected, err := selector(3, nil)
+	require.NoError(t, err)
+	assert.Len(t, selected, 3)
+	selected, err = selector(3, nil)
+	require.NoError(t, err)
+	assert.Len(t, selected, 3)
 
-	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID})), 1)
+	selector = nodeselection.RandomSelector()(nodes, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID}))
+	selected, err = selector(3, nil)
+	require.NoError(t, err)
+	assert.Len(t, selected, 1)
 }
 
 func TestSelectFilteredMulti(t *testing.T) {
@@ -272,9 +286,13 @@ func TestSelectFilteredMulti(t *testing.T) {
 
 	}
 
-	selector := nodeselection.SelectBySubnetFromNodes(nodes)
+	filter := nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany))
+	attribute, err := nodeselection.CreateNodeAttribute("last_net")
+	require.NoError(t, err)
+	selector := nodeselection.AttributeGroupSelector(attribute)(nodes, filter)
 	for i := 0; i < 100; i++ {
-		assert.Len(t, selector.Select(4, nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany))), 4)
+		selected, err := selector(4, nil)
+		require.NoError(t, err)
+		assert.Len(t, selected, 4)
 	}
-
 }

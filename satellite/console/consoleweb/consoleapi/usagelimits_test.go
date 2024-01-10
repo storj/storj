@@ -189,6 +189,7 @@ func Test_TotalUsageReport(t *testing.T) {
 			inAnHour         = now.Add(1 * time.Hour)
 			since            = fmt.Sprintf("%d", now.Unix())
 			before           = fmt.Sprintf("%d", inAnHour.Unix())
+			notAllowedBefore = fmt.Sprintf("%d", now.Add(satelliteSys.Config.Console.AllowedUsageReportDateRange+1*time.Second).Unix())
 			expectedCSVValue = fmt.Sprintf("%f", float64(0))
 		)
 
@@ -200,6 +201,11 @@ func Test_TotalUsageReport(t *testing.T) {
 
 		user, err := satelliteSys.AddUser(ctx, newUser, 3)
 		require.NoError(t, err)
+
+		endpoint := fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, notAllowedBefore)
+		_, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusForbidden, status)
 
 		project1, err := satelliteSys.AddProject(ctx, user.ID, "testProject1")
 		require.NoError(t, err)
@@ -235,7 +241,7 @@ func Test_TotalUsageReport(t *testing.T) {
 		err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, inFiveMinutes, bucketTallies)
 		require.NoError(t, err)
 
-		endpoint := fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
+		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
 		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)

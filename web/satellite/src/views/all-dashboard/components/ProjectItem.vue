@@ -179,10 +179,9 @@ async function goToProjectEdit(): Promise<void> {
         &__menu {
             width: 24px;
             height: 24px;
-            align-content: center;
+            place-content: center center;
             display: flex;
             align-items: center;
-            justify-content: center;
             border-radius: 4px;
             position: relative;
 

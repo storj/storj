@@ -134,8 +134,7 @@ onMounted(async (): Promise<void> => {
         align-items: center;
         justify-content: center;
         flex-wrap: wrap;
-        column-gap: 38px;
-        row-gap: 38px;
+        gap: 38px 38px;
     }
 
     &__skip-button {

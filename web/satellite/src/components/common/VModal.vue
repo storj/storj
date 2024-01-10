@@ -56,10 +56,9 @@ onMounted((): void => {
         &__wrapper {
             height: calc(100% - 40px);
             max-height: calc(100vh - 40px);
-            overflow-y: auto;
+            overflow: hidden auto;
             text-align: center;
             padding: 20px 0;
-            overflow-x: hidden;
 
             &__container {
                 display: inline-block;

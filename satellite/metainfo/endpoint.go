@@ -338,6 +338,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, tags ...eventkit.Tag) {
 	evs.Event("usage", append([]eventkit.Tag{
 		eventkit.Bytes("project-public-id", keyInfo.ProjectPublicID[:]),
+		eventkit.Bytes("macaroon-head", keyInfo.Head),
 		eventkit.String("user-agent", string(header.UserAgent)),
 		eventkit.String("request", name),
 	}, tags...)...)

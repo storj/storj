@@ -29,7 +29,7 @@ var (
 		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
 		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
 		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 10},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 10, ExpiresAt: &time.Time{}},
 	}
 )
 
@@ -53,12 +53,13 @@ func TestObserver(t *testing.T) {
 		metrics := loop(t, obs, inline1, remote2, remote3)
 
 		require.Equal(t, Metrics{
-			InlineObjects:       1,
-			RemoteObjects:       2,
-			TotalInlineSegments: 3,
-			TotalRemoteSegments: 4,
-			TotalInlineBytes:    30,
-			TotalRemoteBytes:    64,
+			InlineObjects:              1,
+			RemoteObjects:              2,
+			TotalInlineSegments:        3,
+			TotalRemoteSegments:        4,
+			TotalInlineBytes:           30,
+			TotalRemoteBytes:           64,
+			TotalSegmentsWithExpiresAt: 1,
 		}, metrics)
 	})
 
@@ -71,12 +72,13 @@ func TestObserver(t *testing.T) {
 		metrics := loop(t, obs, remote3)
 
 		require.Equal(t, Metrics{
-			InlineObjects:       0,
-			RemoteObjects:       1,
-			TotalInlineSegments: 1,
-			TotalRemoteSegments: 3,
-			TotalInlineBytes:    10,
-			TotalRemoteBytes:    48,
+			InlineObjects:              0,
+			RemoteObjects:              1,
+			TotalInlineSegments:        1,
+			TotalRemoteSegments:        3,
+			TotalInlineBytes:           10,
+			TotalRemoteBytes:           48,
+			TotalSegmentsWithExpiresAt: 1,
 		}, metrics)
 	})
 

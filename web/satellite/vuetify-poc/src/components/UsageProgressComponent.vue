@@ -10,7 +10,7 @@
             </v-card-title>
         </template>
         <v-card-item>
-            <v-progress-linear color="default" :model-value="progress" rounded height="6" />
+            <v-progress-linear :color="progressColor" :model-value="progress" rounded height="6" />
         </v-card-item>
         <v-card-item>
             <v-row>
@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle } from 'vuetify/components';
+import { computed } from 'vue';
 
 import IconCloud from '@poc/components/icons/IconCloud.vue';
 import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
@@ -57,4 +58,14 @@ const iconComponents = {
     check: IconCircleCheck,
     bucket: IconBucket,
 };
+
+const progressColor = computed(() => {
+    if (props.progress >= 100) {
+        return 'error';
+    } else if (props.progress >= 80) {
+        return 'warning';
+    } else {
+        return 'blue2';
+    }
+});
 </script>

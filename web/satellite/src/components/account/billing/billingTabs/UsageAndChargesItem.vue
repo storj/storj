@@ -77,6 +77,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { Download } from '@/utils/download';
 import { useNotify } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -137,9 +138,13 @@ const projectCharges = computed((): ProjectCharges => {
  * Handles download usage report click logic.
  */
 function downloadUsageReport(): void {
-    const link = projectsStore.getUsageReportLink(props.projectId);
-    Download.fileByLink(link);
-    notify.success('Usage report download started successfully.');
+    try {
+        const link = projectsStore.getUsageReportLink(props.projectId);
+        Download.fileByLink(link);
+        notify.success('Usage report download started successfully.');
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
+    }
 }
 
 /**

@@ -392,8 +392,7 @@ function sendDocsEvent(): void {
                 width: 100%;
                 padding-bottom: 8px;
                 z-index: 9999;
-                overflow-y: auto;
-                overflow-x: hidden;
+                overflow: hidden auto;
                 background: white;
                 border-bottom: 1px solid var(--c-grey-2);
 

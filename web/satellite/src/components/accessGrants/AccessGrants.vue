@@ -395,8 +395,7 @@ onBeforeUnmount(() => {
             align-items: center;
             -webkit-box-pack: justify;
             margin-top: 20px;
-            column-gap: 16px;
-            row-gap: 16px;
+            gap: 16px 16px;
 
             &__access-grant,
             &__s3-credentials,

@@ -53,6 +53,7 @@ export class FrontendConfig {
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
     newSignupFlowEnabled: boolean;
+    allowedUsageReportDateRange: number;
 }
 
 export class MultiCaptchaConfig {

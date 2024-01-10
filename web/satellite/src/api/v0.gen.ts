@@ -67,6 +67,7 @@ export class Project {
     userSpecifiedBandwidthLimit: MemorySize | null;
     segmentLimit: number | null;
     defaultPlacement: number;
+    defaultVersioning: number;
 }
 
 export class ResponseUser {

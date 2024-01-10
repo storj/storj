@@ -13,7 +13,7 @@ require (
 	storj.io/private v0.0.0-20231215152845-c5d4aba552e2
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
-	storj.io/uplink v1.12.3-0.20231215150144-64b6fe256777
+	storj.io/uplink v1.12.3-0.20240102174418-87eb7c9e829a
 )
 
 require (

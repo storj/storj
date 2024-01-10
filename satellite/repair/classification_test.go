@@ -36,13 +36,8 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		})
 
-		c := &nodeselection.ConfigurablePlacementRule{}
-		require.NoError(t, c.Set(""))
-		parsed, err := c.Parse()
-		require.NoError(t, err)
-
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, parsed.CreateFilters(0), piecesToNodeIDs(pieces))
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, nodeselection.AnyFilter{}, piecesToNodeIDs(pieces))
 
 		require.Equal(t, 0, result.Missing.Count())
 		require.Equal(t, 0, result.Clumped.Count())
@@ -64,7 +59,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: `10:country("GB")`,
-		}.Parse()
+		}.Parse(nil)
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 1, 2, 3, 4, 7, 8)
@@ -87,7 +82,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: `10:country("GB")`,
-		}.Parse()
+		}.Parse(nil)
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -110,7 +105,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 			node.LastNet = fmt.Sprintf("127.0.%d.0", ix/2)
 		})
 
-		c := nodeselection.NewPlacementDefinitions()
+		c := nodeselection.TestPlacementDefinitions()
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
@@ -136,7 +131,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: fmt.Sprintf(`10:annotated(country("GB"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF),
-		}.Parse()
+		}.Parse(nil)
 		require.NoError(t, err)
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6

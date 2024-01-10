@@ -28,8 +28,9 @@
                         <v-icon icon="mdi-dots-horizontal" />
                     </v-btn>
                     <v-chip
-                        variant="text" color="default" size="small" router-link to="/project-details"
+                        variant="text" color="default" size="small"
                         class="font-weight-bold pl-1 ml-1"
+                        @click="selectProject(item.raw.id)"
                     >
                         <template #prepend>
                             <svg class="mr-2" width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -134,6 +135,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { VCard, VTextField, VBtn, VIcon, VTooltip, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
@@ -165,6 +167,7 @@ type ProjectTableSlotProps = { item: { raw: ProjectTableItem } };
 const search = ref<string>('');
 const selected = ref<string[]>([]);
 const sortBy = ref([{ key: 'name', order: 'asc' }]);
+const router = useRouter();
 
 const headers = [
     { title: 'Name', key: 'name' },
@@ -196,19 +199,27 @@ const projects = computed<ProjectTableItem[]>(() => {
         };
     }
 
-    const usageLimits = appStore.state.user?.projectUsageLimits;
-    if (!usageLimits || !usageLimits.length) {
+    const projects = appStore.state.userAccount?.projects;
+    if (!projects || !projects.length) {
         return [];
     }
 
-    return usageLimits.map<ProjectTableItem>(usage => ({
-        id: usage.id,
-        name: usage.name,
-        storage: makeUsageStats(usage.storageUsed, usage.storageLimit),
-        download: makeUsageStats(usage.bandwidthUsed, usage.bandwidthLimit),
-        segment: makeUsageStats(usage.segmentUsed, usage.segmentLimit),
+    return projects.map<ProjectTableItem>(project => ({
+        id: project.id,
+        name: project.name,
+        storage: makeUsageStats(project.storageUsed, project.storageLimit),
+        download: makeUsageStats(project.bandwidthUsed, project.bandwidthLimit),
+        segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
     }));
 });
+
+/**
+* Selects the project and navigates to the project dashboard.
+*/
+async function selectProject(id: string): Promise<void> {
+    await appStore.selectProject(id);
+    router.push('/project-details');
+}
 
 function getPercentColor(percent: number) {
     if (percent >= 99) {

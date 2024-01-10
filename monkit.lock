@@ -76,6 +76,7 @@ storj.io/storj/satellite/metrics."total_inline_bytes" IntVal
 storj.io/storj/satellite/metrics."total_inline_segments" IntVal
 storj.io/storj/satellite/metrics."total_remote_bytes" IntVal
 storj.io/storj/satellite/metrics."total_remote_segments" IntVal
+storj.io/storj/satellite/metrics."total_segments_with_expires_at" IntVal
 storj.io/storj/satellite/orders."download_failed_not_enough_pieces_uplink" Meter
 storj.io/storj/satellite/repair/checker."checker_injured_segment_health" FloatVal
 storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal

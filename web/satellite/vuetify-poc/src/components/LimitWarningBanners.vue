@@ -8,38 +8,65 @@
         closable
         variant="tonal"
         :title="bannerText[threshold].title"
-        :text="bannerText[threshold].message"
-        :type="isHundred(threshold) ? 'error' : 'warning'"
+        :type="bannerText[threshold].hundred ? 'error' : 'warning'"
         rounded="lg"
         class="my-2"
         border
-    />
+    >
+        <template v-if="isPaidTier && !reachedThresholds[threshold].includes(LimitType.Segment)" #text>
+            You can increase your limits
+            <a class="text-decoration-underline text-cursor-pointer" @click="openLimitDialog(bannerText[threshold].limitType)">here</a>
+            or in the
+            <a class="text-decoration-underline text-cursor-pointer" @click="goToProjectSettings">Project Settings page</a>.
+        </template>
+        <template v-else-if="!isPaidTier && bannerText[threshold].hundred" #text>
+            <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> to avoid any service interruptions.
+        </template>
+        <template v-else-if="!isPaidTier && !bannerText[threshold].hundred" #text>
+            Avoid interrupting your usage by
+            <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">upgrading</a>
+            your account.
+        </template>
+        <template v-else #text>
+            Contact support to avoid any service interruptions.
+        </template>
+    </v-alert>
+
+    <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="LimitToChange.Storage" />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { VAlert } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 
-import { LimitThreshold, LimitThresholdsReached, LimitType } from '@/types/projects';
+import { LimitThreshold, LimitThresholdsReached, LimitToChange, LimitType } from '@/types/projects';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { humanizeArray } from '@/utils/strings';
 import { Memory } from '@/utils/bytesSize';
 import { DEFAULT_PROJECT_LIMITS, useProjectsStore } from '@/store/modules/projectsStore';
+import { useAppStore } from '@poc/store/appStore';
+
+import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
 
 type BannerText = {
     title: string;
-    message: string;
+    hundred: boolean;
+    limitType: LimitType;
 };
 
+const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
 const analyticsStore = useAnalyticsStore();
 
 const router = useRouter();
+
+const isEditLimitDialogShown = ref(false);
+const limitToChange = ref(LimitToChange.Storage);
 
 /**
  * Returns which limit thresholds have been reached by which usage limit type.
@@ -127,25 +154,13 @@ const bannerText = computed<Record<LimitThreshold, BannerText>>(() => {
         let limitText = humanizeArray(reachedThresholds.value[thresh]).toLowerCase() + ' limit';
         if (reachedThresholds.value[thresh].length > 1) limitText += 's';
 
-        const custom = isCustom(thresh);
         const hundred = isHundred(thresh);
 
         const title = hundred
             ? `URGENT: You've reached the ${limitText} for your project.`
             : `You've used 80% of your ${limitText}.`;
 
-        let message: string;
-        if (!isPaidTier.value) {
-            message = hundred
-                ? 'Upgrade to avoid any service interruptions.'
-                : 'Avoid interrupting your usage by upgrading your account.';
-        } else {
-            message = custom
-                ? 'You can increase your limits here or in the Project Settings page.'
-                : 'Contact support to avoid any service interruptions.';
-        }
-
-        record[thresh] = { title, message };
+        record[thresh] = { title, hundred, limitType: reachedThresholds.value[thresh][0] };
     });
 
     return record;
@@ -167,9 +182,27 @@ function isHundred(threshold: LimitThreshold): boolean {
 }
 
 /**
- * Returns whether the threshold is for a custom limit.
+ * Opens the limit dialog.
  */
-function isCustom(threshold: LimitThreshold): boolean {
-    return threshold.toLowerCase().includes('custom');
+function openLimitDialog(limitType: LimitType): void {
+    switch (limitType) {
+    case LimitType.Storage:
+        limitToChange.value = LimitToChange.Storage;
+        break;
+    case LimitType.Egress:
+        limitToChange.value = LimitToChange.Bandwidth;
+        break;
+    default:
+        return;
+    }
+    isEditLimitDialogShown.value = true;
+}
+
+/**
+ * Navigates to the project settings page.
+ */
+function goToProjectSettings(): void {
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/settings`);
+    analyticsStore.pageVisit('/projects/settings');
 }
 </script>

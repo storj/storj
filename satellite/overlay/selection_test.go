@@ -629,6 +629,7 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 				Address: fmt.Sprintf("10.9.%d.1:9999", i),
 			},
 			LastIPPort: fmt.Sprintf("10.9.%d.1:9999", i),
+			Vetted:     i < reputable,
 		}
 		nodeCustomization(i, &node)
 		if i >= reputable {
@@ -637,7 +638,7 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 			db.reputable = append(db.reputable, &node)
 		}
 	}
-	service, _ := overlay.NewService(log, db, nil, nodeselection.NewPlacementDefinitions(), "", "", config)
+	service, _ := overlay.NewService(log, db, nil, nodeselection.TestPlacementDefinitionsWithFraction(config.Node.NewNodeFraction), "", "", config)
 	serviceCtx, cancel := context.WithCancel(ctx)
 	ctx.Go(func() error {
 		return service.Run(serviceCtx)

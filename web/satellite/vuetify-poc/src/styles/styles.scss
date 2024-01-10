@@ -152,7 +152,7 @@ body {
 }
 .v-card--variant-flat {
   box-shadow: none !important;
-}  
+}
 
 // Cards Padding
 .v-card-item {
@@ -414,7 +414,7 @@ table {
 
 // Card Preview Img
 .card-preview-img {
-  transition: transform 0.15s ease-in-out; 
+  transition: transform 0.15s ease-in-out;
   border-bottom: 1px solid rgba(var(--v-theme-on-background), 0.02);
 }
 .card-preview-img:hover {
@@ -430,7 +430,7 @@ table {
   border-radius: 10%;
 }
 .card-preview-icon, .card-preview-icon img {
-  transition: all 0.15s ease-in-out; 
+  transition: all 0.15s ease-in-out;
 }
 .card-preview-icon:hover {
   background: none;
@@ -450,4 +450,12 @@ table {
 // Fix label position on fields
 .v-field--variant-outlined .v-field__outline .v-field__outline__start {
   flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
+}
+
+.no-pointer-events {
+  pointer-events: none;
+}
+
+.no-position {
+  position: unset !important;
 }

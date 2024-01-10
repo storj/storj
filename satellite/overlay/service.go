@@ -338,7 +338,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 
 	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
 		config.NodeSelectionCache.Staleness, config.Node,
-		defaultSelection, placements.CreateFilters,
+		defaultSelection, placements,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)

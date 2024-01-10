@@ -1373,6 +1373,10 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 
 		userID, err := service.db.Customers().GetUserID(ctx, stripeInvoice.Customer.ID)
 		if err != nil {
+			if errors.Is(err, ErrNoCustomer) {
+				service.log.Warn("User ID does not exist for invoiced customer.", zap.String("stripe customer", stripeInvoice.Customer.ID))
+				continue
+			}
 			return Error.Wrap(err)
 		}
 		if inactive, err := service.isUserInactive(ctx, userID); err != nil {

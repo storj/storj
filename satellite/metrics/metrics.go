@@ -22,6 +22,9 @@ type Metrics struct {
 
 	// TotalRemoteSegments is the count of remote segments across all objects.
 	TotalRemoteSegments int64
+
+	// TotalSegmentsWithExpiresAt is the count of segments that will expire automatically.
+	TotalSegmentsWithExpiresAt int64
 }
 
 // Reset resets the invidual metrics back to zero.
@@ -37,4 +40,5 @@ func (metrics *Metrics) Aggregate(partial Metrics) {
 	metrics.TotalRemoteBytes += partial.TotalRemoteBytes
 	metrics.TotalInlineSegments += partial.TotalInlineSegments
 	metrics.TotalRemoteSegments += partial.TotalRemoteSegments
+	metrics.TotalSegmentsWithExpiresAt += partial.TotalSegmentsWithExpiresAt
 }

@@ -20,6 +20,7 @@ export enum RouteName {
     Access = 'Access',
     Team = 'Team',
     ProjectSettings = 'Project Settings',
+    Login = 'Login',
 }
 
 const routes: RouteRecordRaw[] = [
@@ -33,7 +34,7 @@ const routes: RouteRecordRaw[] = [
         children: [
             {
                 path: '/login',
-                name: 'Login',
+                name: RouteName.Login,
                 component: () => import(/* webpackChunkName: "Login" */ '@poc/views/Login.vue'),
             },
             {
@@ -145,8 +146,13 @@ export const router = createRouter({
     routes,
 });
 
-router.beforeEach((to, _, next) => {
-    useAppStore().setIsNavigating(true);
+router.beforeEach((to, from, next) => {
+    const appStore = useAppStore();
+    appStore.setIsNavigating(true);
+
+    if (to.name === RouteName.Projects && from.name === RouteName.Login) {
+        appStore.toggleHasJustLoggedIn(true);
+    }
 
     next();
 });

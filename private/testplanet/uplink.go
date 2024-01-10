@@ -51,12 +51,13 @@ type Uplink struct {
 	Projects []*Project
 }
 
-// Project contains all necessary information about a user.
+// Project contains all necessary information about a project.
 type Project struct {
 	client *Uplink
 
-	ID    uuid.UUID
-	Owner ProjectOwner
+	ID       uuid.UUID
+	PublicID uuid.UUID
+	Owner    ProjectOwner
 
 	Satellite Peer
 	APIKey    string
@@ -170,7 +171,8 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 		planetUplink.Projects = append(planetUplink.Projects, &Project{
 			client: planetUplink,
 
-			ID: project.ID,
+			ID:       project.ID,
+			PublicID: project.PublicID,
 			Owner: ProjectOwner{
 				ID:    user.ID,
 				Email: user.Email,

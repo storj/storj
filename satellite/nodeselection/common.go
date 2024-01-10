@@ -5,12 +5,10 @@
 package nodeselection
 
 import (
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 )
 
 var (
-	mon = monkit.Package()
 	// Error represents an uploadselection error.
 	Error = errs.Class("uploadselection")
 )

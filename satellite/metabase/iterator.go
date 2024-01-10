@@ -71,8 +71,8 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 	// start from either the cursor or prefix, depending on which is larger
 	if lessKey(it.cursor.Key, opts.Prefix) {
 		it.cursor.Key = opts.Prefix
-		it.cursor.Version = -1
-		it.cursor.Inclusive = true
+		it.cursor.Version = MaxVersion
+		it.cursor.Inclusive = true // TODO: we probably won't need this `Inclusive` handling, if we specify MaxVersion already
 	}
 
 	return iterate(ctx, it, fn)
@@ -80,12 +80,6 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 
 func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	cursor := opts.Cursor
-
-	if cursor.StreamID.IsZero() {
-		cursor.StreamID = uuid.UUID{}
-	}
 
 	it := &objectsIterator{
 		db: db,
@@ -103,7 +97,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		curIndex: 0,
 		cursor: iterateCursor{
 			Key:      opts.ObjectKey,
-			Version:  0,
+			Version:  MaxVersion, // TODO: this needs to come as an argument
 			StreamID: opts.Cursor.StreamID,
 		},
 		doNextQuery: doNextQueryPendingObjectsByKey,
@@ -187,7 +181,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 			if p >= 0 {
 				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
 				it.cursor.StreamID = uuid.UUID{}
-				it.cursor.Version = 0
+				it.cursor.Version = MaxVersion
 			}
 		}
 
@@ -243,11 +237,17 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 				`+querySelectFields+`
 			FROM objects
 			WHERE
-				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $3, $4)
+				(
+					(project_id, bucket_name, object_key) `+cursorCompare+` ($1, $2, $3)
+					OR (
+						(project_id, bucket_name, object_key) = ($1, $2, $3)
+						AND $4::INT8 `+cursorCompare+` version
+					)
+				)
 				AND (project_id, bucket_name) < ($1, $6)
 				`+statusFilter+`
 				AND (expires_at IS NULL OR expires_at > now())
-				ORDER BY (project_id, bucket_name, object_key, version) ASC
+				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
 			LIMIT $5
 			`, it.projectID, it.bucketName,
 			[]byte(it.cursor.Key), int(it.cursor.Version),
@@ -267,11 +267,17 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			`+querySelectFields+`
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $3, $4)
+			(
+				(project_id, bucket_name, object_key) `+cursorCompare+` ($1, $2, $3)
+				OR (
+					(project_id, bucket_name, object_key) = ($1, $2, $3)
+					AND $4::INT8 `+cursorCompare+` version
+				)
+			)
 			AND (project_id, bucket_name, object_key) < ($1, $2, $5)
 			`+statusFilter+`
 			AND (expires_at IS NULL OR expires_at > now())
-			ORDER BY (project_id, bucket_name, object_key, version) ASC
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
 		LIMIT $6
 		`, it.projectID, it.bucketName,
 		[]byte(it.cursor.Key), int(it.cursor.Version),
@@ -435,7 +441,7 @@ func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 	// return the next prefix given a scoped path
 	return iterateCursor{
 		Key:       cursor.Key[:len(prefix)+p] + ObjectKey(Delimiter+1),
-		Version:   -1,
+		Version:   MaxVersion,
 		Inclusive: true,
 	}
 }

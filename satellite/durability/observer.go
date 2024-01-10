@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/storj"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -77,7 +76,7 @@ type Report struct {
 	busFactor          HealthStat
 	classifier         NodeClassifier
 	aliasMap           *metabase.NodeAliasMap
-	nodes              map[storj.NodeID]*nodeselection.SelectedNode
+	nodes              []nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
 	reporter           func(n time.Time, class string, value string, stat *HealthStat)
@@ -105,28 +104,23 @@ func NewDurability(db overlay.DB, metabaseDB *metabase.DB, class string, classif
 		reportThreshold:    reportThreshold,
 		busFactorThreshold: busFactorThreshold,
 		asOfSystemInterval: asOfSystemInterval,
-		nodes:              make(map[storj.NodeID]*nodeselection.SelectedNode),
 		healthStat:         make(map[string]*HealthStat),
+		nodes:              []nodeselection.SelectedNode{},
 		reporter:           reportToEventkit,
 		maxPieceCount:      maxPieceCount,
 	}
 }
 
 // Start implements rangedloop.Observer.
-func (c *Report) Start(ctx context.Context, startTime time.Time) error {
-	nodes, err := c.db.GetParticipatingNodes(ctx, -12*time.Hour, c.asOfSystemInterval)
+func (c *Report) Start(ctx context.Context, startTime time.Time) (err error) {
+	c.nodes, err = c.db.GetParticipatingNodes(ctx, -12*time.Hour, c.asOfSystemInterval)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	c.nodes = map[storj.NodeID]*nodeselection.SelectedNode{}
-	for ix := range nodes {
-		c.nodes[nodes[ix].ID] = &nodes[ix]
-	}
-	aliasMap, err := c.metabaseDB.LatestNodesAliasMap(ctx)
+	c.aliasMap, err = c.metabaseDB.LatestNodesAliasMap(ctx)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	c.aliasMap = aliasMap
 	c.resetStat()
 	c.classifyNodeAliases()
 	return nil
@@ -151,7 +145,7 @@ func (c *Report) classifyNodeAliases() {
 			continue
 		}
 
-		class := c.classifier(node)
+		class := c.classifier(&node)
 		id, ok := classes[class]
 		if !ok {
 			id = classID(len(classes))
@@ -165,9 +159,6 @@ func (c *Report) classifyNodeAliases() {
 // Fork implements rangedloop.Observer.
 func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 	d := &ObserverFork{
-		aliasMap:               c.aliasMap,
-		nodes:                  c.nodes,
-		classifierCache:        make([][]string, c.aliasMap.Max()+1),
 		reportThreshold:        c.reportThreshold,
 		healthStat:             make([]HealthStat, len(c.className)),
 		controlledByClassCache: make([]int32, len(c.className)),
@@ -228,12 +219,9 @@ type classID int32
 type ObserverFork struct {
 	controlledByClassCache []int32
 
-	healthStat      []HealthStat
-	busFactor       HealthStat
-	aliasMap        *metabase.NodeAliasMap
-	nodes           map[storj.NodeID]*nodeselection.SelectedNode
-	classifierCache [][]string
-	busFactorCache  []int32
+	healthStat     []HealthStat
+	busFactor      HealthStat
+	busFactorCache []int32
 
 	reportThreshold    int
 	busFactorThreshold int

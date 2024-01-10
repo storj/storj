@@ -25,6 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
+                        id="Close"
                         icon="$close"
                         variant="text"
                         size="small"
@@ -37,7 +38,7 @@
             <v-divider />
 
             <div class="pa-7">
-                <img class="w-100" :src="mapURL" alt="map">
+                <img id="Map" class="w-100" :src="mapURL" alt="map">
                 <p class="font-weight-bold my-4">
                     You're getting this file from all over the world on the Storj network.
                 </p>

@@ -25,6 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
+                        id="Close"
                         icon="$close"
                         variant="text"
                         size="small"

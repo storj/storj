@@ -285,8 +285,7 @@ function toggleBucketsVisibility(): void {
         display: flex;
         align-items: center;
         margin-top: 16px;
-        column-gap: 4px;
-        row-gap: 4px;
+        gap: 4px 4px;
 
         &__item {
             max-width: 100%;

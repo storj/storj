@@ -35,20 +35,20 @@ type UploadSelectionCache struct {
 	db              UploadSelectionDB
 	selectionConfig NodeSelectionConfig
 
-	cache sync2.ReadCacheOf[*nodeselection.State]
+	cache sync2.ReadCacheOf[nodeselection.State]
 
 	defaultFilters nodeselection.NodeFilters
-	placementRules nodeselection.PlacementRules
+	placements     nodeselection.PlacementDefinitions
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
-func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig, defaultFilter nodeselection.NodeFilters, placementRules nodeselection.PlacementRules) (*UploadSelectionCache, error) {
+func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig, defaultFilter nodeselection.NodeFilters, placements nodeselection.PlacementDefinitions) (*UploadSelectionCache, error) {
 	cache := &UploadSelectionCache{
 		log:             log,
 		db:              db,
 		selectionConfig: config,
 		defaultFilters:  defaultFilter,
-		placementRules:  placementRules,
+		placements:      placements,
 	}
 	return cache, cache.cache.Init(staleness/2, staleness, cache.read)
 }
@@ -69,7 +69,7 @@ func (cache *UploadSelectionCache) Refresh(ctx context.Context) (err error) {
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future.
-func (cache *UploadSelectionCache) read(ctx context.Context) (_ *nodeselection.State, err error) {
+func (cache *UploadSelectionCache) read(ctx context.Context) (_ nodeselection.State, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	reputableNodes, newNodes, err := cache.db.SelectAllStorageNodesUpload(ctx, cache.selectionConfig)
@@ -77,11 +77,11 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ *nodeselection.S
 		return nil, Error.Wrap(err)
 	}
 
-	state := nodeselection.NewState(reputableNodes, newNodes)
-
 	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(reputableNodes)))
 	mon.IntVal("refresh_cache_size_new").Observe(int64(len(newNodes)))
 
+	var allNodes = append(append([]*nodeselection.SelectedNode{}, reputableNodes...), newNodes...)
+	state := nodeselection.NewState(allNodes, cache.placements)
 	return state, nil
 }
 
@@ -92,37 +92,13 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
+
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	placementRules := cache.placementRules(req.Placement)
-	useSubnetExclusion := !nodeselection.AllowSameSubnet(placementRules)
-
-	filters := nodeselection.NodeFilters{placementRules}
-	if len(req.ExcludedIDs) > 0 {
-		if useSubnetExclusion {
-			filters = append(filters, state.ExcludeNetworksBasedOnNodes(req.ExcludedIDs))
-		} else {
-			filters = append(filters, nodeselection.ExcludedIDs(req.ExcludedIDs))
-		}
-	}
-
-	filters = append(filters, cache.defaultFilters)
-
-	selectionReq := nodeselection.Request{
-		Count:       req.RequestedCount,
-		NewFraction: cache.selectionConfig.NewNodeFraction,
-		NodeFilters: filters,
-	}
-
-	if !useSubnetExclusion {
-		selectionReq.SelectionType = nodeselection.SelectionTypeByID
-	}
-
-	selected, err := state.Select(ctx, selectionReq)
+	nodes, err := state.Select(req.Placement, req.RequestedCount, req.ExcludedIDs)
 	if nodeselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}
-	return selected, err
+	return nodes, err
 }

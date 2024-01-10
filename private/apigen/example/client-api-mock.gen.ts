@@ -20,6 +20,11 @@ export class NewDocument {
     content: string;
 }
 
+export class Project {
+    id: UUID;
+    ownerName: string;
+}
+
 export class User {
     name: string;
     surname: string;
@@ -149,5 +154,33 @@ export class UsersHttpApiV0 {
         }
 
         return JSON.parse('{"day":1,"month":1,"year":2000}') as UserAge;
+    }
+}
+
+export class ProjectsHttpApiV0 {
+    public readonly respStatusCode: number;
+
+    // When respStatuscode is passed, the client throws an APIError on each method call
+    // with respStatusCode as HTTP status code.
+    // respStatuscode must be equal or greater than 400
+    constructor(respStatusCode?: number) {
+        if (typeof respStatusCode === 'undefined') {
+            this.respStatusCode = 0;
+            return;
+        }
+
+        if (respStatusCode < 400) {
+            throw new Error('invalid response status code for API Error, it must be greater or equal than 400');
+        }
+
+        this.respStatusCode = respStatusCode;
+    }
+
+    public async createProject(request: Project): Promise<Project> {
+        if (this.respStatusCode !== 0) {
+            throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
+        }
+
+        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000001","ownerName":"Foo Bar"}') as Project;
     }
 }

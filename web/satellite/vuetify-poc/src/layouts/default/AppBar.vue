@@ -157,6 +157,8 @@
             </v-menu>
         </template>
     </v-app-bar>
+
+    <account-setup-dialog />
 </template>
 
 <script setup lang="ts">
@@ -203,6 +205,7 @@ import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconLogout from '@poc/components/icons/IconLogout.vue';
 import IconSatellite from '@poc/components/icons/IconSatellite.vue';
+import AccountSetupDialog from '@poc/components/dialogs/AccountSetupDialog.vue';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();

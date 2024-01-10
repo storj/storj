@@ -21,7 +21,7 @@ var _ console.APIKeys = (*apikeys)(nil)
 // apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
 	methods dbx.Methods
-	lru     *lrucache.ExpiringLRUOf[*dbx.ApiKey_Project_PublicId_Row]
+	lru     *lrucache.ExpiringLRUOf[*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row]
 	db      *satelliteDB
 }
 
@@ -132,20 +132,20 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 		return nil, err
 	}
 
-	return fromDBXAPIKey(ctx, dbKey)
+	return fromDBXApiKeyProjectPublicIdRow(ctx, dbKey)
 }
 
 // GetByHead implements satellite.APIKeys.
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbKey, err := keys.lru.Get(ctx, string(head), func() (*dbx.ApiKey_Project_PublicId_Row, error) {
-		return keys.methods.Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx, dbx.ApiKey_Head(head))
+	dbKey, err := keys.lru.Get(ctx, string(head), func() (*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row, error) {
+		return keys.methods.Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_By_ApiKey_Head(ctx, dbx.ApiKey_Head(head))
 	})
 	if err != nil {
 		return nil, err
 	}
-	return fromDBXAPIKey(ctx, dbKey)
+	return fromDBXApiKeyProjectPublicIdProjectRateLimitProjectBurstLimitRow(ctx, dbKey)
 }
 
 // GetByNameAndProjectID implements satellite.APIKeys.
@@ -158,7 +158,7 @@ func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, pro
 		return nil, err
 	}
 
-	return fromDBXAPIKey(ctx, dbKey)
+	return fromDBXApiKeyProjectPublicIdRow(ctx, dbKey)
 }
 
 // GetAllNamesByProjectID implements satellite.APIKeys.
@@ -248,10 +248,8 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	return err
 }
 
-// fromDBXAPIKey converts dbx.ApiKey to satellite.APIKeyInfo.
-func fromDBXAPIKey(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Row) (_ *console.APIKeyInfo, err error) {
+func apiKeyToAPIKeyInfo(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	key := &row.ApiKey
 	id, err := uuid.FromBytes(key.Id)
 	if err != nil {
 		return nil, err
@@ -261,24 +259,51 @@ func fromDBXAPIKey(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Row) (_
 	if err != nil {
 		return nil, err
 	}
-	projectPublicID, err := uuid.FromBytes(row.Project_PublicId)
-	if err != nil {
-		return nil, err
-	}
 
 	result := &console.APIKeyInfo{
-		ID:              id,
-		ProjectID:       projectID,
-		ProjectPublicID: projectPublicID,
-		Name:            key.Name,
-		CreatedAt:       key.CreatedAt,
-		Head:            key.Head,
-		Secret:          key.Secret,
+		ID:        id,
+		ProjectID: projectID,
+		Name:      key.Name,
+		CreatedAt: key.CreatedAt,
+		Head:      key.Head,
+		Secret:    key.Secret,
 	}
 
 	if key.UserAgent != nil {
 		result.UserAgent = key.UserAgent
 	}
+
+	return result, nil
+}
+
+func fromDBXApiKeyProjectPublicIdRow(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Row) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := apiKeyToAPIKeyInfo(ctx, &row.ApiKey)
+	if err != nil {
+		return nil, err
+	}
+	result.ProjectPublicID, err = uuid.FromBytes(row.Project_PublicId)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func fromDBXApiKeyProjectPublicIdProjectRateLimitProjectBurstLimitRow(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Row) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := apiKeyToAPIKeyInfo(ctx, &row.ApiKey)
+	if err != nil {
+		return nil, err
+	}
+	result.ProjectPublicID, err = uuid.FromBytes(row.Project_PublicId)
+	if err != nil {
+		return nil, err
+	}
+	result.ProjectRateLimit = row.Project_RateLimit
+	result.ProjectBurstLimit = row.Project_BurstLimit
 
 	return result, nil
 }

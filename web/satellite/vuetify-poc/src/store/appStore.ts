@@ -9,6 +9,7 @@ class AppState {
     public isUpgradeFlowDialogShown = false;
     public isAccountSetupDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
+    public hasJustLoggedIn = false;
     public isNavigating = false;
 }
 
@@ -27,6 +28,14 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         state.isAccountSetupDialogShown = isShown ?? !state.isAccountSetupDialogShown;
     }
 
+    function toggleHasJustLoggedIn(hasJustLoggedIn: boolean | null = null): void {
+        if (hasJustLoggedIn === null) {
+            state.hasJustLoggedIn = !state.hasJustLoggedIn;
+            return;
+        }
+        state.hasJustLoggedIn = hasJustLoggedIn;
+    }
+
     function setPathBeforeAccountPage(path: string) {
         state.pathBeforeAccountPage = path;
     }
@@ -43,6 +52,7 @@ export const useAppStore = defineStore('vuetifyApp', () => {
 
     return {
         state,
+        toggleHasJustLoggedIn,
         toggleNavigationDrawer,
         toggleUpgradeFlow,
         toggleAccountSetup,
