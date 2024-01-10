@@ -33,6 +33,8 @@ const (
 	professionalFormID = "cc693502-9d55-4204-ae61-406a19148cfe"
 	// This form(ID) is the personal account form.
 	basicFormID = "77cfa709-f533-44b8-bf3a-ed1278ca3202"
+	// this form  ID  is the minimal  account form.
+	minimalFormID = "926d1b53-f21f-486b-9f15-3b3d341cc4e1"
 	// The hubspot lifecycle stage of all new accounts (Product Qualified Lead).
 	lifecycleStage = "66198674"
 )
@@ -52,6 +54,7 @@ type HubSpotConfig struct {
 type HubSpotEvent struct {
 	Data     map[string]interface{}
 	Endpoint string
+	Method   *string
 }
 
 // HubSpotEvents is a configuration struct for sending Events data to HubSpot.
@@ -206,6 +209,114 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	}
 }
 
+// EnqueueCreateUserMinimal is for creating user in HubSpot using the minimal form.
+func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
+	newField := func(name string, value interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"name":  name,
+			"value": value,
+		}
+	}
+
+	formFields := []map[string]interface{}{
+		newField("email", fields.Email),
+		newField("origin_header", fields.OriginHeader),
+		newField("signup_referrer", fields.Referrer),
+		newField("account_created", "true"),
+		newField("signup_partner", fields.UserAgent),
+		newField("lifecyclestage", lifecycleStage),
+	}
+	if fields.SignupCaptcha != nil {
+		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
+	}
+
+	properties := map[string]interface{}{
+		"userid":             fields.ID.String(),
+		"email":              fields.Email,
+		"satellite_selected": q.satelliteName,
+	}
+
+	formURL := fmt.Sprintf(hubspotFormTemplate, minimalFormID)
+
+	data := map[string]interface{}{
+		"fields": formFields,
+	}
+
+	if fields.HubspotUTK != "" {
+		data["context"] = map[string]interface{}{
+			"hutk": fields.HubspotUTK,
+		}
+	}
+
+	createUser := HubSpotEvent{
+		Endpoint: formURL,
+		Data:     data,
+	}
+
+	sendUserEvent := HubSpotEvent{
+		Endpoint: "https://api.hubapi.com/events/v3/send",
+		Data: map[string]interface{}{
+			"email":      fields.Email,
+			"eventName":  eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
+			"properties": properties,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{createUser, sendUserEvent}:
+	default:
+		q.log.Error("create user hubspot event failed, event channel is full")
+	}
+}
+
+// EnqueueUserOnboardingInfo is for sending post-creation information to Hubspot, that the user enters after login  during onboarding.
+func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFields) {
+	fullName := fields.FullName
+	names := strings.SplitN(fullName, " ", 2)
+
+	var firstName string
+	var lastName string
+
+	if len(names) > 1 {
+		firstName = names[0]
+		lastName = names[1]
+	} else {
+		firstName = fullName
+	}
+
+	properties := map[string]interface{}{
+		"email":       fields.Email,
+		"firstname":   firstName,
+		"lastname":    lastName,
+		"storage_use": fields.StorageUseCase,
+	}
+	if fields.Type == Professional {
+		properties["have_sales_contact"] = fields.HaveSalesContact
+		properties["company_size"] = fields.EmployeeCount
+		properties["company"] = fields.CompanyName
+		properties["title"] = fields.JobTitle
+		properties["storage_needs"] = fields.StorageNeeds
+		properties["functional_area"] = fields.FunctionalArea
+	}
+
+	updateContactEndpoint := fmt.Sprintf("https://api.hubapi.com/crm/v3/objects/contacts/%s?idProperty=email", url.QueryEscape(fields.Email))
+	method := http.MethodPatch
+
+	onboardingInfoEvent := HubSpotEvent{
+		Endpoint: updateContactEndpoint,
+		Method:   &method,
+		Data: map[string]interface{}{
+			"properties": properties,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{onboardingInfoEvent}:
+	default:
+		q.log.Error("update user properties hubspot event failed, event channel is full")
+	}
+}
+
 // handleSingleEvent for handle the single HubSpot API request.
 func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) (err error) {
 	payloadBytes, err := json.Marshal(ev.Data)
@@ -213,7 +324,11 @@ func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) 
 		return Error.New("json marshal failed: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ev.Endpoint, bytes.NewReader(payloadBytes))
+	method := http.MethodPost
+	if ev.Method != nil {
+		method = *ev.Method
+	}
+	req, err := http.NewRequestWithContext(ctx, method, ev.Endpoint, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return Error.New("new request failed: %w", err)
 	}
@@ -227,6 +342,7 @@ func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) 
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
+		q.log.Error("send request failed", zap.Error(err))
 		return Error.New("send request failed: %w", err)
 	}
 

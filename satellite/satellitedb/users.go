@@ -633,6 +633,9 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.IsProfessional != nil {
 		update.IsProfessional = dbx.User_IsProfessional(*request.IsProfessional)
 	}
+	if request.HaveSalesContact != nil {
+		update.HaveSalesContact = dbx.User_HaveSalesContact(*request.HaveSalesContact)
+	}
 	if request.Position != nil {
 		update.Position = dbx.User_Position(*request.Position)
 	}

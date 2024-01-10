@@ -18,6 +18,7 @@ const (
 	eventInviteLinkClicked            = "Invite Link Clicked"
 	eventInviteLinkSignup             = "Invite Link Signup"
 	eventAccountCreated               = "Account Created"
+	eventAccountSetUp                 = "Account Set Up"
 	eventSignedIn                     = "Signed In"
 	eventProjectCreated               = "Project Created"
 	eventAccessGrantCreated           = "Access Grant Created"
@@ -234,6 +235,21 @@ type TrackCreateUserFields struct {
 	SignupCaptcha    *float64
 }
 
+// TrackOnboardingInfoFields contains input data entered after first login.
+type TrackOnboardingInfoFields struct {
+	ID               uuid.UUID
+	FullName         string
+	Email            string
+	Type             UserType
+	EmployeeCount    string
+	CompanyName      string
+	StorageNeeds     string
+	JobTitle         string
+	StorageUseCase   string
+	FunctionalArea   string
+	HaveSalesContact bool
+}
+
 func (service *Service) enqueueMessage(message segment.Message) {
 	err := service.segment.Enqueue(message)
 	if err != nil {
@@ -306,7 +322,67 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Properties:  props,
 	})
 
+	if fields.FullName == "" {
+		// the new minimal signup flow does not require a name.
+		service.hubspot.EnqueueCreateUserMinimal(fields)
+		return
+	}
 	service.hubspot.EnqueueCreateUser(fields)
+}
+
+// TrackUserOnboardingInfo sends onboarding info to Hubspot.
+func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields) {
+	if !service.config.Enabled {
+		return
+	}
+
+	fullName := fields.FullName
+	names := strings.SplitN(fullName, " ", 2)
+
+	var firstName string
+	var lastName string
+
+	if len(names) > 1 {
+		firstName = names[0]
+		lastName = names[1]
+	} else {
+		firstName = fullName
+	}
+
+	traits := segment.NewTraits()
+	traits.SetFirstName(firstName)
+	traits.SetLastName(lastName)
+	traits.SetEmail(fields.Email)
+	if fields.Type == Professional {
+		traits.Set("have_sales_contact", fields.HaveSalesContact)
+	}
+
+	service.enqueueMessage(segment.Identify{
+		UserId: fields.ID.String(),
+		Traits: traits,
+	})
+
+	props := segment.NewProperties()
+	props.Set("email", fields.Email)
+	props.Set("name", fields.FullName)
+	props.Set("account_type", fields.Type)
+	props.Set("storage_use", fields.StorageUseCase)
+
+	if fields.Type == Professional {
+		props.Set("company_size", fields.EmployeeCount)
+		props.Set("company_name", fields.CompanyName)
+		props.Set("job_title", fields.JobTitle)
+		props.Set("storage_needs", fields.StorageNeeds)
+		props.Set("functional_area", fields.FunctionalArea)
+	}
+
+	service.enqueueMessage(segment.Track{
+		UserId:     fields.ID.String(),
+		Event:      service.satelliteName + " " + eventAccountSetUp,
+		Properties: props,
+	})
+
+	service.hubspot.EnqueueUserOnboardingInfo(fields)
 }
 
 // TrackSignedIn sends an "Signed In" event to Segment.

@@ -1539,17 +1539,49 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		FullName:       &requestData.FullName,
-		IsProfessional: &requestData.IsProfessional,
-		Position:       requestData.Position,
-		CompanyName:    requestData.CompanyName,
-		EmployeeCount:  requestData.EmployeeCount,
+		FullName:         &requestData.FullName,
+		IsProfessional:   &requestData.IsProfessional,
+		HaveSalesContact: &requestData.HaveSalesContact,
+		Position:         requestData.Position,
+		CompanyName:      requestData.CompanyName,
+		EmployeeCount:    requestData.EmployeeCount,
 	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// TODO: track setup account
+	onboardingFields := analytics.TrackOnboardingInfoFields{
+		ID:       user.ID,
+		FullName: requestData.FullName,
+		Email:    user.Email,
+	}
+
+	if requestData.StorageUseCase != nil {
+		onboardingFields.StorageUseCase = *requestData.StorageUseCase
+	}
+
+	if requestData.IsProfessional {
+		onboardingFields.Type = analytics.Professional
+		onboardingFields.HaveSalesContact = requestData.HaveSalesContact
+		if requestData.CompanyName != nil {
+			onboardingFields.CompanyName = *requestData.CompanyName
+		}
+		if requestData.EmployeeCount != nil {
+			onboardingFields.EmployeeCount = *requestData.EmployeeCount
+		}
+		if requestData.StorageNeeds != nil {
+			onboardingFields.StorageNeeds = *requestData.StorageNeeds
+		}
+		if requestData.Position != nil {
+			onboardingFields.JobTitle = *requestData.Position
+		}
+		if requestData.FunctionalArea != nil {
+			onboardingFields.FunctionalArea = *requestData.FunctionalArea
+		}
+	} else {
+		onboardingFields.Type = analytics.Personal
+	}
+	s.analytics.TrackUserOnboardingInfo(onboardingFields)
 
 	return nil
 }

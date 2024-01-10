@@ -89,10 +89,11 @@ func TestUpdateUser(t *testing.T) {
 			LoginLockoutExpiration: time.Now().Truncate(time.Second),
 			DefaultPlacement:       13,
 
-			IsProfessional: true,
-			Position:       "Engineer",
-			CompanyName:    "Storj",
-			EmployeeCount:  "1-200",
+			HaveSalesContact: true,
+			IsProfessional:   true,
+			Position:         "Engineer",
+			CompanyName:      "Storj",
+			EmployeeCount:    "1-200",
 		}
 
 		require.NotEqual(t, u.FullName, newInfo.FullName)
@@ -316,10 +317,11 @@ func TestUpdateUser(t *testing.T) {
 
 		// update professional info
 		updateReq = console.UpdateUserRequest{
-			IsProfessional: &newInfo.IsProfessional,
-			Position:       &newInfo.Position,
-			CompanyName:    &newInfo.CompanyName,
-			EmployeeCount:  &newInfo.EmployeeCount,
+			IsProfessional:   &newInfo.IsProfessional,
+			HaveSalesContact: &newInfo.HaveSalesContact,
+			Position:         &newInfo.Position,
+			CompanyName:      &newInfo.CompanyName,
+			EmployeeCount:    &newInfo.EmployeeCount,
 		}
 
 		err = users.Update(ctx, id, updateReq)
@@ -328,6 +330,7 @@ func TestUpdateUser(t *testing.T) {
 		updatedUser, err = users.Get(ctx, id)
 		require.NoError(t, err)
 
+		u.HaveSalesContact = newInfo.HaveSalesContact
 		u.IsProfessional = newInfo.IsProfessional
 		u.Position = newInfo.Position
 		u.CompanyName = newInfo.CompanyName

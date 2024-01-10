@@ -293,11 +293,12 @@ type UpdateUserRequest struct {
 	FullName  *string
 	ShortName **string
 
-	Position       *string
-	CompanyName    *string
-	WorkingOn      *string
-	IsProfessional *bool
-	EmployeeCount  *string
+	Position         *string
+	CompanyName      *string
+	WorkingOn        *string
+	IsProfessional   *bool
+	HaveSalesContact *bool
+	EmployeeCount    *string
 
 	Email        *string
 	PasswordHash []byte
@@ -347,10 +348,13 @@ type UpsertUserSettingsRequest struct {
 
 // SetUpAccountRequest holds data for completing account setup.
 type SetUpAccountRequest struct {
-	FullName       string  `json:"fullName"`
-	IsProfessional bool    `json:"isProfessional"`
-	Position       *string `json:"position"`
-	CompanyName    *string `json:"companyName"`
-	EmployeeCount  *string `json:"employeeCount"`
-	StorageNeeds   *string `json:"storageNeeds"`
+	FullName         string  `json:"fullName"`
+	IsProfessional   bool    `json:"isProfessional"`
+	Position         *string `json:"position"`
+	CompanyName      *string `json:"companyName"`
+	EmployeeCount    *string `json:"employeeCount"`
+	StorageNeeds     *string `json:"storageNeeds"`
+	StorageUseCase   *string `json:"storageUseCase"`
+	FunctionalArea   *string `json:"functionalArea"`
+	HaveSalesContact bool    `json:"haveSalesContact"`
 }
