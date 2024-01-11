@@ -5,7 +5,7 @@
     <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height flex-row justify-center align-center">
         <v-row align="top" justify="center" class="v-col-12">
-            <v-col cols="12" sm="10" md="7" lg="5">
+            <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
                 <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7 overflow-visible">
                     <v-card-item>
                         <v-alert

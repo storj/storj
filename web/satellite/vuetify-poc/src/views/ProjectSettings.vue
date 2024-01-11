@@ -11,28 +11,41 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" sm="6">
+            <v-col cols="12" lg="4">
                 <v-card title="Project Name" variant="outlined" :border="true" rounded="xlg">
-                    <v-card-subtitle>
-                        {{ project.name }}
-                    </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
+                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                            {{ project.name }}
+                        </v-chip>
+                        <v-divider class="my-4" />
                         <v-btn variant="outlined" color="default" size="small" @click="showEditNameDialog">
                             Edit Name
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" sm="6">
+            <v-col cols="12" lg="4">
                 <v-card title="Project Description" variant="outlined" :border="true" rounded="xlg">
-                    <v-card-subtitle>
-                        {{ project.description }}
-                    </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
+                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                            {{ project.description }}
+                        </v-chip>
+                        <v-divider class="my-4" />
                         <v-btn variant="outlined" color="default" size="small" @click="showEditDescriptionDialog">
                             Edit Description
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+            <v-col cols="12" lg="4">
+                <v-card title="Delete Project" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-text>
+                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
+                            Not Available
+                        </v-chip>
+                        <v-divider class="my-4" />
+                        <v-btn variant="outlined" color="default" size="small" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank" >
+                            Learn More
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -64,7 +77,7 @@
         </v-row>
 
         <v-row v-else>
-            <v-col cols="12" sm="6" lg="4">
+            <v-col cols="12" lg="4">
                 <v-card title="Storage Limit" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
                         Storage Limit: {{ storageLimitFormatted }} <br>
@@ -79,7 +92,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" sm="6" lg="4">
+            <v-col cols="12" lg="4">
                 <v-card title="Download Limit" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
                         Download Limit: {{ bandwidthLimitFormatted }} per month<br>

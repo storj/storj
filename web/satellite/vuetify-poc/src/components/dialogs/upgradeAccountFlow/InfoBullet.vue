@@ -10,14 +10,14 @@
                     color="default"
                     :icon="mdiCheckCircleOutline"
                     size="small"
-                    class="text-disabled pl-2 mr-n3"
+                    class="text-disabled mr-n4"
                 />
                 <v-icon
                     v-else
                     color="primary"
                     :icon="mdiCheckCircleOutline"
                     size="small"
-                    class="opacity-100 pl-2 mr-n3"
+                    class="opacity-100 mr-n4"
                 />
             </template>
             <v-list-item-title>

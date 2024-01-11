@@ -4,7 +4,7 @@
 <template>
     <v-container class="fill-height">
         <v-row align="top" justify="center">
-            <v-col cols="12" sm="9" md="7" lg="5">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
                 <v-card title="Did you forgot your password?" class="pa-2 pa-sm-7">
                     <v-card-text>
                         <p>Select your account satellite, enter your email address, and we will send you a password reset link.</p>

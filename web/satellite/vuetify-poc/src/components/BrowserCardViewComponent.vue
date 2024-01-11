@@ -30,7 +30,7 @@
                             v-bind="sortProps"
                             class="mr-2"
                         >
-                            <span class="text-body-2">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
+                            <span class="text-body-2 hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
                         </v-btn>
                     </template>
                     <v-list>

@@ -8,7 +8,7 @@
             cta-label="Go to billing"
             @click="redirectToBilling"
         />
-        <PageTitleComponent title="My Projects" />
+        <PageTitleComponent title="All Projects" />
         <!-- <PageSubtitleComponent subtitle="Projects are where you and your team can upload and manage data, view usage statistics and billing."/> -->
 
         <v-row>

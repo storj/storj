@@ -23,7 +23,6 @@
                     <template v-if="ownProjects.length">
                         <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
                             <template #prepend>
-                                <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
                                 <IconProject />
                             </template>
                             <v-list-item-title class="ml-3">
@@ -92,8 +91,6 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <!-- <v-divider class="my-2"></v-divider> -->
-
                     <!-- View All Projects -->
                     <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
                         <template #prepend>
@@ -130,32 +127,15 @@
 
             <v-divider class="my-2" />
 
-            <!--
-            <v-list-item
-                router-link
-                :to="`/projects/${selectedProject.urlId}/dashboard`"
-                class="my-1 py-3"
-                tabindex="0"
-                @click="() => registerLinkClick('/dashboard')"
-            >
-                <template #prepend>
-                    <IconDashboard />
-                </template>
-                <v-list-item-title class="ml-3">
-                    Overview
-                </v-list-item-title>
-            </v-list-item>
-            -->
-
-            <navigation-item title="Overview" :to="`/projects/${selectedProject.urlId}/dashboard`" @click="() => registerDashboardLinkClick('/projects/dashboard')">
+            <navigation-item title="Dashboard" :to="`/projects/${selectedProject.urlId}/dashboard`" @click="() => registerDashboardLinkClick('/projects/dashboard')">
                 <template #prepend>
                     <IconDashboard />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Buckets" :to="`/projects/${selectedProject.urlId}/buckets`" @click="() => registerLinkClick('/projects/buckets')">
+            <navigation-item title="Browse" :to="`/projects/${selectedProject.urlId}/buckets`">
                 <template #prepend>
-                    <IconBucket />
+                    <IconFolder size="18" />
                 </template>
             </navigation-item>
 
@@ -246,14 +226,6 @@
 
             <v-divider class="my-2" />
 
-            <!-- <v-list-item link class="my-1" router-link to="/design-library" rounded="lg">
-                <template v-slot:prepend>
-                    <img src="@poc/assets/icon-bookmark.svg" alt="Design Library" class="mr-3">
-                </template>
-                <v-list-item-title class="text-body-2">
-                    Design Library
-                </v-list-item-title>
-            </v-list-item> -->
         </v-sheet>
     </v-navigation-drawer>
 
@@ -292,7 +264,6 @@ import IconAllProjects from '@poc/components/icons/IconAllProjects.vue';
 import IconNew from '@poc/components/icons/IconNew.vue';
 import IconPassphrase from '@poc/components/icons/IconPassphrase.vue';
 import IconDashboard from '@poc/components/icons/IconDashboard.vue';
-import IconBucket from '@poc/components/icons/IconBucket.vue';
 import IconAccess from '@poc/components/icons/IconAccess.vue';
 import IconTeam from '@poc/components/icons/IconTeam.vue';
 import IconDocs from '@poc/components/icons/IconDocs.vue';
@@ -302,6 +273,7 @@ import IconResources from '@poc/components/icons/IconResources.vue';
 import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@poc/components/dialogs/ManagePassphraseDialog.vue';
 import NavigationItem from '@poc/layouts/default/NavigationItem.vue';
+import IconFolder from '@poc/components/icons/IconFolder.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
