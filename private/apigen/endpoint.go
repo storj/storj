@@ -206,6 +206,12 @@ func (eg *EndpointGroup) Post(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodPost, endpoint)
 }
 
+// Put adds new PUT endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
+func (eg *EndpointGroup) Put(path string, endpoint *Endpoint) {
+	eg.addEndpoint(path, http.MethodPut, endpoint)
+}
+
 // Delete adds new DELETE endpoint to endpoints group.
 // It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Delete(path string, endpoint *Endpoint) {

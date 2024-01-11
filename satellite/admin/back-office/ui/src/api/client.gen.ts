@@ -28,6 +28,15 @@ export class Project {
     segmentUsed: number | null;
 }
 
+export class ProjectLimitsUpdate {
+    maxBuckets: number;
+    storageLimit: number;
+    bandwidthLimit: number;
+    segmentLimit: number;
+    rateLimit: number;
+    burstLimit: number;
+}
+
 export class User {
     id: UUID;
     fullName: string;
@@ -105,6 +114,16 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateProjectLimits(request: ProjectLimitsUpdate, publicID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/limits/${publicID}`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

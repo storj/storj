@@ -228,6 +228,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		HaveSalesContact bool   `json:"haveSalesContact"`
 		CaptchaResponse  string `json:"captchaResponse"`
 		SignupPromoCode  string `json:"signupPromoCode"`
+		IsMinimal        bool   `json:"isMinimal"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -331,8 +332,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				SignupPromoCode:  registerData.SignupPromoCode,
 				ActivationCode:   code,
 				SignupId:         requestID,
-				// signup from the v2 app doesn't require name.
-				AllowNoName: strings.Contains(r.Referer(), "v2"),
+				// the minimal signup from the v2 app doesn't require name.
+				AllowNoName: registerData.IsMinimal,
 			},
 			secret,
 		)

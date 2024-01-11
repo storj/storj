@@ -177,10 +177,11 @@ func TestEndpointGroup(t *testing.T) {
 		assert.NotPanics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.NotPanics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.NotPanics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.NotPanics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.NotPanics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 
-		require.Len(t, eg.endpoints, 4, "Group endpoints count")
-		for i, m := range []string{http.MethodGet, http.MethodPatch, http.MethodPost, http.MethodDelete} {
+		require.Len(t, eg.endpoints, 5, "Group endpoints count")
+		for i, m := range []string{http.MethodGet, http.MethodPatch, http.MethodPost, http.MethodPut, http.MethodDelete} {
 			ep := eg.endpoints[i]
 			assert.Equal(t, m, ep.Method)
 			assert.Equal(t, path, ep.Path)
@@ -204,6 +205,7 @@ func TestEndpointGroup(t *testing.T) {
 		assert.Panics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.Panics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.Panics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.Panics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
 
@@ -223,6 +225,7 @@ func TestEndpointGroup(t *testing.T) {
 		assert.Panics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.Panics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.Panics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.Panics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
 
@@ -242,11 +245,13 @@ func TestEndpointGroup(t *testing.T) {
 		assert.NotPanics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.NotPanics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.NotPanics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.NotPanics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.NotPanics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 
 		assert.Panics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.Panics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.Panics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.Panics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
 
@@ -266,6 +271,7 @@ func TestEndpointGroup(t *testing.T) {
 		assert.NotPanics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.Panics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.Panics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.Panics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
 
@@ -285,6 +291,7 @@ func TestEndpointGroup(t *testing.T) {
 		assert.NotPanics(t, func() { eg.Patch(path, endpointFn(http.MethodPatch)) }, "Patch")
 		assert.Panics(t, func() { eg.Get(path, endpointFn(http.MethodGet)) }, "Get")
 		assert.Panics(t, func() { eg.Post(path, endpointFn(http.MethodPost)) }, "Post")
+		assert.Panics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
 }

@@ -21,6 +21,8 @@ import (
 type Placement struct {
 	// the unique ID of the placement
 	ID storj.PlacementConstraint
+	// meaningful identifier/label for Humans. Will be used on UI.
+	Name string
 	// binding condition for filtering out nodes
 	NodeFilter NodeFilter
 	// selector is the method how the nodes are selected from the full node space (eg. pick a subnet first, and pick a node from the subnet)
@@ -35,7 +37,11 @@ func (p Placement) Match(node *SelectedNode) bool {
 }
 
 // GetAnnotation implements NodeFilterWithAnnotation.
+// Deprecated: use Name instead.
 func (p Placement) GetAnnotation(name string) string {
+	if name == Location && p.Name != "" {
+		return p.Name
+	}
 	switch filter := p.NodeFilter.(type) {
 	case NodeFilterWithAnnotation:
 		return filter.GetAnnotation(name)
@@ -300,6 +306,8 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 		} else {
 			placement.Selector = RandomSelector()
 		}
+
+		placement.Name = GetAnnotation(placement.NodeFilter, Location)
 
 		d[storj.PlacementConstraint(id)] = placement
 	}

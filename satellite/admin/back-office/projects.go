@@ -51,6 +51,16 @@ type ProjectUsageLimits[T ~int64 | *int64] struct {
 	SegmentUsed    *int64 `json:"segmentUsed"`
 }
 
+// ProjectLimitsUpdate contains all limit values to be updated.
+type ProjectLimitsUpdate struct {
+	MaxBuckets     int   `json:"maxBuckets"`
+	StorageLimit   int64 `json:"storageLimit"`
+	BandwidthLimit int64 `json:"bandwidthLimit"`
+	SegmentLimit   int64 `json:"segmentLimit"`
+	RateLimit      int   `json:"rateLimit"`
+	BurstLimit     int   `json:"burstLimit"`
+}
+
 // GetProject gets the project info.
 func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.HTTPError) {
 	var err error
@@ -250,4 +260,51 @@ func (s *Service) getProjectUsage(
 	}
 
 	return bandwidt, storage, segment, api.HTTPError{}
+}
+
+// UpdateProjectLimits updates the project's max buckets, storage, bandwidth, segment, rate, and burst limits.
+func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req ProjectLimitsUpdate) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	p, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+		}
+		return api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	buckets := &req.MaxBuckets
+	if req.MaxBuckets == s.defaults.MaxBuckets {
+		buckets = nil
+	}
+	rate := &req.RateLimit
+	if req.RateLimit == s.defaults.RateLimit {
+		rate = nil
+	}
+	burst := &req.BurstLimit
+	if req.BurstLimit == s.defaults.RateLimit {
+		burst = nil
+	}
+
+	// Note: usage_limit (storage), bandwidth_limit, and segment_limit columns are also nullable, but are never actually null in production.
+
+	err = s.consoleDB.Projects().UpdateAllLimits(ctx, p.ID, &req.StorageLimit, &req.BandwidthLimit, &req.SegmentLimit, buckets, rate, burst)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+		}
+		return api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return api.HTTPError{}
 }
