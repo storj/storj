@@ -19,17 +19,19 @@
         />
 
         <v-data-table-server
-            v-model="selected"
+            v-model="selectedFiles"
             v-model:options="options"
             :sort-by="sortBy"
             :headers="headers"
             :items="tableFiles"
             :search="search"
-            :item-value="(item: BrowserObjectWrapper) => item.browserObject.Key"
+            :item-value="(item: BrowserObjectWrapper) => item.browserObject.path + item.browserObject.Key"
             :no-data-text="search ? 'No data found' : 'Drag and drop files to upload'"
             :page="cursor.page"
             hover
             must-sort
+            select-strategy="page"
+            show-select
             :loading="isFetching || loading"
             :items-length="isPaginationEnabled ? totalObjectCount : allFiles.length"
             :items-per-page-options="isPaginationEnabled ? tableSizeOptions(totalObjectCount, true) : undefined"
@@ -95,6 +97,35 @@
         <file-preview-dialog v-model="previewDialog" />
     </v-card>
 
+    <v-snackbar
+        rounded="lg"
+        variant="elevated"
+        color="surface"
+        :model-value="!!selectedFiles.length"
+        :timeout="-1"
+    >
+        <v-row align="center" justify="space-between">
+            <v-col>
+                {{ selectedFiles.length }} items selected
+            </v-col>
+            <v-col>
+                <div class="d-flex justify-end">
+                    <v-btn
+                        color="default"
+                        density="comfortable"
+                        variant="outlined"
+                        @click="deleteSelectedFiles"
+                    >
+                        <template #prepend>
+                            <icon-trash bold />
+                        </template>
+                        Delete
+                    </v-btn>
+                </div>
+            </v-col>
+        </v-row>
+    </v-snackbar>
+
     <delete-file-dialog
         v-if="fileToDelete"
         v-model="isDeleteFileDialogShown"
@@ -110,15 +141,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, WritableComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VCard,
+    VCol,
+    VRow,
     VTextField,
     VBtn,
     VTooltip,
     VDataTableServer,
     VDataTableRow,
+    VSnackbar,
 } from 'vuetify/components';
 import { mdiMagnify } from '@mdi/js';
 
@@ -145,6 +179,7 @@ import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
+import IconTrash from '@poc/components/icons/IconTrash.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -296,6 +331,24 @@ const tableFiles = computed<BrowserObjectWrapper[]>(() => {
 });
 
 /**
+ * Returns a list of path+keys for selected files in the table.
+ */
+const selectedFiles: WritableComputedRef<string[]> = computed({
+    get: () => obStore.state.selectedFiles.map(f => {
+        return f.path + f.Key;
+    }),
+    set: (names: string[]) => {
+        const files = names.map(name => {
+            const parts = name.split('/');
+            const key = parts.pop();
+            const path = parts.join('/') + (parts.length ? '/' : '');
+            return allFiles.value.find(f => f.browserObject.Key === key && f.browserObject.path === path)?.browserObject;
+        });
+        obStore.updateSelectedFiles(files.filter(f => f !== undefined) as BrowserObject[]);
+    },
+});
+
+/**
  * Returns the first browser object in the table that is a file.
  */
 const firstFile = computed<BrowserObject | null>(() => {
@@ -303,9 +356,23 @@ const firstFile = computed<BrowserObject | null>(() => {
 });
 
 /**
+ * Delete selected files.
+ */
+async function deleteSelectedFiles() {
+    if (!selectedFiles.value.length) return;
+    try {
+        await obStore.deleteSelected();
+        obStore.updateSelectedFiles([]);
+    } catch (e) {
+        notify.notifyError(e, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    }
+}
+
+/**
  * Handles page change event.
  */
 function onPageChange(page: number): void {
+    obStore.updateSelectedFiles([]);
     const path = filePath.value ? filePath.value + '/' : '';
     routePageCache.set(path, page);
     obStore.setCursor({ page, limit: options.value?.itemsPerPage ?? 10 });
@@ -394,6 +461,8 @@ function onFileClick(file: BrowserObject): void {
  */
 async function fetchFiles(): Promise<void> {
     if (isFetching.value || props.forceEmpty) return;
+
+    obStore.updateSelectedFiles([]);
     isFetching.value = true;
 
     try {
