@@ -125,4 +125,6 @@ export enum AnalyticsErrorEventSource {
     JOIN_PROJECT_MODAL = 'Join project modal',
     PROJECT_INVITATION = 'Project invitation',
     DETAILED_USAGE_REPORT_MODAL = 'Detailed usage report modal',
+    REMOVE_CC_MODAL = 'Remove credit card modal',
+    EDIT_DEFAULT_CC_MODAL = 'Edit default credit card modal',
 }
