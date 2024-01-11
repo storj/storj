@@ -74,7 +74,7 @@
                     :disabled="!isInitialized"
                     @click="isNewFolderDialogOpen = true"
                 >
-                    <icon-folder class="mr-2"/>
+                    <icon-folder class="mr-2" />
                     New Folder
                 </v-btn>
 

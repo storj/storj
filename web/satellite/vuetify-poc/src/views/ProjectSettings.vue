@@ -44,7 +44,7 @@
                             Not Available
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank" >
+                        <v-btn variant="outlined" color="default" size="small" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
                             Learn More
                         </v-btn>
                     </v-card-text>
@@ -148,6 +148,7 @@ import {
     VCol,
     VRow,
     VIcon,
+    VChip,
 } from 'vuetify/components';
 import { mdiOpenInNew } from '@mdi/js';
 

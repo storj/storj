@@ -31,15 +31,15 @@
                         </v-chip>
                         <v-divider class="my-4" />
                         <div>
-                        <v-tooltip
-                            activator="parent"
-                            location="top"
-                        >
-                            To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
-                        </v-tooltip>
-                        <v-btn variant="outlined" color="default" size="small" disabled>
-                            Change Email
-                        </v-btn>
+                            <v-tooltip
+                                activator="parent"
+                                location="top"
+                            >
+                                To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
+                            </v-tooltip>
+                            <v-btn variant="outlined" color="default" size="small" disabled>
+                                Change Email
+                            </v-btn>
                         </div>
                     </v-card-text>
                 </v-card>
@@ -158,6 +158,7 @@ import {
     VRow,
     VCol,
     VTooltip,
+    VChip,
 } from 'vuetify/components';
 
 import { User, UserSettings } from '@/types/users';
@@ -203,7 +204,7 @@ const userSettings = computed((): UserSettings => {
 /**
  * Returns user's paid tier status from store.
  */
- const isPaidTier = computed<boolean>(() => {
+const isPaidTier = computed<boolean>(() => {
     return usersStore.state.user.paidTier;
 });
 

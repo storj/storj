@@ -225,7 +225,6 @@
             </v-menu>
 
             <v-divider class="my-2" />
-
         </v-sheet>
     </v-navigation-drawer>
 

@@ -2,9 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="STORJ Token" variant="flat" :border="true" rounded="xlg">
+    <v-card title="STORJ Token" variant="flat" border rounded="xlg">
         <v-card-text>
-            <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
+            <v-row class="ma-0 align-center">
+                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
+                <v-chip rounded color="info" variant="tonal" class="font-weight-bold">
+                    Default
+                    <span class="d-inline-flex ml-1">
+                        <v-icon class="text-cursor-pointer" :icon="mdiInformationOutline" />
+                        <v-tooltip
+                            class="text-center"
+                            activator="parent"
+                            location="top"
+                            max-width="300px"
+                            open-delay="150"
+                            close-delay="150"
+                        >
+                            If the STORJ token balance runs out, the default credit card will be charged.
+                            <a class="link" href="https://docs.storj.io/support/account-management-billing/payment-methods" target="_blank" rel="noopener noreferrer">
+                                Learn more
+                            </a>
+                        </v-tooltip>
+                    </span>
+                </v-chip>
+            </v-row>
             <v-divider class="my-4" />
             <p>Deposit Address</p>
             <v-chip rounded color="default" variant="text" class="font-weight-bold mt-2 px-0" @click="copyAddress">
@@ -31,8 +52,9 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip } from 'vuetify/components';
+import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
+import { mdiInformationOutline } from '@mdi/js';
 
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
@@ -50,7 +72,7 @@ const billingStore = useBillingStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
-const isAddTokenDialogOpen = ref(false);
+const isAddTokenDialogOpen = ref<boolean>(false);
 
 const emit = defineEmits(['historyClicked']);
 

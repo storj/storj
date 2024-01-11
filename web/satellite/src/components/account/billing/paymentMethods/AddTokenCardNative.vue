@@ -44,7 +44,7 @@
                                     If the STORJ token balance runs out, the default credit card will be charged.
                                     <a
                                         class="token__content__title-area__default-wrapper__message__link"
-                                        href=""
+                                        href="https://docs.storj.io/support/account-management-billing/payment-methods"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
