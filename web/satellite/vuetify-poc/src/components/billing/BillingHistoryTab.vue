@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :border="true" rounded="xlg">
-        <v-data-table
+    <v-card border rounded="xlg">
+        <v-data-table-server
             :loading="isLoading"
             :headers="headers"
             :items="historyItems"
@@ -57,7 +57,7 @@
                     </v-row>
                 </div>
             </template>
-        </v-data-table>
+        </v-data-table-server>
     </v-card>
 </template>
 
@@ -71,7 +71,7 @@ import {
     VCol,
     VRow,
     VSelect,
-    VDataTable,
+    VDataTableServer,
 } from 'vuetify/components';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 

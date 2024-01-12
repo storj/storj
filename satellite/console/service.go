@@ -590,7 +590,7 @@ func (payment Payments) BillingHistory(ctx context.Context) (billingHistory []*B
 }
 
 // InvoiceHistory returns a paged list of invoices for payment account.
-func (payment Payments) InvoiceHistory(ctx context.Context, cursor BillingHistoryCursor) (history *BillingHistoryPage, err error) {
+func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.InvoiceCursor) (history *BillingHistoryPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "get invoice history")
@@ -598,11 +598,7 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor BillingHistor
 		return nil, Error.Wrap(err)
 	}
 
-	page, err := payment.service.accounts.Invoices().ListPaged(ctx, user.ID, payments.InvoiceCursor{
-		Limit:         cursor.Limit,
-		StartingAfter: cursor.StartingAfter,
-		EndingBefore:  cursor.EndingBefore,
-	})
+	page, err := payment.service.accounts.Invoices().ListPaged(ctx, user.ID, cursor)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

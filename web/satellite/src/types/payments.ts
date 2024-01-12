@@ -216,8 +216,7 @@ export class PaymentHistoryPage {
         public readonly items: PaymentsHistoryItem[],
         public readonly hasNext = false,
         public readonly hasPrevious = false,
-    ) {
-    }
+    ) { }
 }
 
 /**

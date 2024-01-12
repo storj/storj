@@ -428,7 +428,7 @@ func (p *Payments) InvoiceHistory(w http.ResponseWriter, r *http.Request) {
 	startParam := query.Get("starting_after")
 	endParam := query.Get("ending_before")
 
-	history, err := p.service.Payments().InvoiceHistory(ctx, console.BillingHistoryCursor{
+	history, err := p.service.Payments().InvoiceHistory(ctx, payments.InvoiceCursor{
 		Limit:         int(limit),
 		StartingAfter: startParam,
 		EndingBefore:  endParam,
