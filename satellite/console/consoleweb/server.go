@@ -100,6 +100,7 @@ type Config struct {
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
 	UseVuetifyProject               bool          `help:"whether to use vuetify POC project" default:"false"`
+	PrefixVuetifyUI                 bool          `help:"whether to prefix the v2 UI with '/v2/'" default:"true"`
 	VuetifyHost                     string        `help:"the subdomain the vuetify POC project should be hosted on" default:""`
 	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
@@ -404,15 +405,22 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
 
-		if server.config.UseVuetifyProject {
-			if server.config.VuetifyHost != "" {
-				router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-			} else {
-				// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
-				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+		if server.config.PrefixVuetifyUI {
+			if server.config.UseVuetifyProject {
+				if server.config.VuetifyHost != "" {
+					router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+				} else {
+					// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
+					router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+				}
 			}
+			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
+		} else {
+			router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, strings.TrimPrefix(r.URL.Path, "/v2"), http.StatusMovedPermanently)
+			})))
+			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
 		}
-		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
 	server.server = http.Server{
@@ -776,6 +784,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
 		NewSignupFlowEnabled:            server.config.NewSignupFlowEnabled,
 		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
+		PrefixVuetifyUI:                 server.config.PrefixVuetifyUI,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
