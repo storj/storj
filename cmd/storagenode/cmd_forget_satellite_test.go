@@ -132,7 +132,7 @@ func Test_cmdForgetSatellite(t *testing.T) {
 
 		cmdCtx, cmdCancel := context.WithCancel(ctx)
 		defer cmdCancel()
-		err = initForgetSatellite(cmdCtx, log, client, InitFSOptions{
+		err = startForgetSatellite(cmdCtx, log, client, ForgetSatelliteOptions{
 			AllUntrusted: true,
 			Stdout:       &stdout,
 		})

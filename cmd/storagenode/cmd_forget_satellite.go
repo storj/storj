@@ -28,17 +28,25 @@ type forgetSatelliteCfg struct {
 	Identity identity.Config
 	Server   server.Config
 
-	InitFSOptions
+	ForgetSatelliteOptions
 }
 
-// InitFSOptions defines options for forget-satellite command.
-type InitFSOptions struct {
+// ForgetSatelliteOptions defines options for forget-satellite command.
+type ForgetSatelliteOptions struct {
 	SatelliteIDs []string `internal:"true"`
 
 	AllUntrusted bool `help:"Clean up all untrusted satellites" default:"false"`
 	Force        bool `help:"Force removal of satellite data if not listed in satelliteDB cache or marked as untrusted" default:"false"`
 
 	Stdout io.Writer `internal:"true"`
+}
+
+type forgetSatelliteStatusCfg struct {
+	Identity identity.Config
+	Server   server.Config
+
+	SatelliteIDs []string  `internal:"true"`
+	Stdout       io.Writer `internal:"true"`
 }
 
 func newForgetSatelliteCmd(f *Factory) *cobra.Command {
@@ -87,6 +95,36 @@ $ storagenode forget-satellite satellite_ID1 satellite_ID2 --force --identity-di
 	return cmd
 }
 
+func newForgetSatelliteStatusCmd(f *Factory) *cobra.Command {
+	var cfg forgetSatelliteStatusCfg
+	cmd := &cobra.Command{
+		Use:   "forget-satellite-status [satellite_IDs...]",
+		Short: "Get forget satellite status",
+		Long:  "The command returns the status of the forget-satellite process for a satellite.\n",
+		Example: `
+# Get status for all processes
+$ storagenode forget-satellite-status --identity-dir /path/to/identityDir --config-dir /path/to/configDir
+
+# Specify satellite ID to get status
+$ storagenode forget-satellite-status --identity-dir /path/to/identityDir --config-dir /path/to/configDir satellite_ID
+
+# Specify multiple satellite IDs to get status
+$ storagenode forget-satellite-status satellite_ID1 satellite_ID2 --identity-dir /path/to/identityDir --config-dir /path/to/configDir
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg.SatelliteIDs = args
+
+			ctx, _ := process.Ctx(cmd)
+			return cmdForgetSatelliteStatus(ctx, zap.L(), &cfg)
+		},
+		Annotations: map[string]string{"type": "helper"},
+	}
+
+	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir), cfgstruct.IdentityDir(f.IdentityDir))
+
+	return cmd
+}
+
 func cmdForgetSatellite(ctx context.Context, log *zap.Logger, cfg *forgetSatelliteCfg) (err error) {
 	if cfg.Stdout == nil {
 		cfg.Stdout = os.Stdout
@@ -111,11 +149,11 @@ func cmdForgetSatellite(ctx context.Context, log *zap.Logger, cfg *forgetSatelli
 		}
 	}()
 
-	return initForgetSatellite(ctx, log, client, cfg.InitFSOptions)
+	return startForgetSatellite(ctx, log, client, cfg.ForgetSatelliteOptions)
 }
 
-func initForgetSatellite(ctx context.Context, log *zap.Logger, client *forgetSatelliteClient, cfg InitFSOptions) (err error) {
-	if cfg.AllUntrusted {
+func startForgetSatellite(ctx context.Context, log *zap.Logger, client *forgetSatelliteClient, opts ForgetSatelliteOptions) (err error) {
+	if opts.AllUntrusted {
 		resp, err := client.getUntrustedSatellites(ctx)
 		if err != nil {
 			return errs.Wrap(err)
@@ -127,18 +165,18 @@ func initForgetSatellite(ctx context.Context, log *zap.Logger, client *forgetSat
 		}
 
 		for _, satelliteID := range resp.SatelliteIds {
-			cfg.SatelliteIDs = append(cfg.SatelliteIDs, satelliteID.String())
+			opts.SatelliteIDs = append(opts.SatelliteIDs, satelliteID.String())
 		}
 	}
 
-	statuses := make([]*forgetSatelliteStatus, 0, len(cfg.SatelliteIDs))
-	for _, satelliteID := range cfg.SatelliteIDs {
+	statuses := make([]*forgetSatelliteStatus, 0, len(opts.SatelliteIDs))
+	for _, satelliteID := range opts.SatelliteIDs {
 		id, err := storj.NodeIDFromString(satelliteID)
 		if err != nil {
 			return errs.Wrap(err)
 		}
 
-		resp, err := client.initForgetSatellite(ctx, id, cfg.Force)
+		resp, err := client.startForgetSatellite(ctx, id, opts.Force)
 		if err != nil {
 			inProgress := false
 			switch rpcstatus.Code(err) {
@@ -157,6 +195,62 @@ func initForgetSatellite(ctx context.Context, log *zap.Logger, client *forgetSat
 		}
 
 		statuses = append(statuses, &forgetSatelliteStatus{satelliteID: id, inProgress: resp.InProgress, successful: false})
+	}
+
+	w := tabwriter.NewWriter(opts.Stdout, 0, 0, 2, ' ', 0)
+	return displayStatus(w, statuses)
+}
+
+func cmdForgetSatelliteStatus(ctx context.Context, log *zap.Logger, cfg *forgetSatelliteStatusCfg) (err error) {
+	if cfg.Stdout == nil {
+		cfg.Stdout = os.Stdout
+	}
+	// we don't really need the identity, but we load it as a sanity check
+	ident, err := cfg.Identity.Load()
+	if err != nil {
+		log.Fatal("Failed to load identity.", zap.Error(err))
+	} else {
+		log.Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+	}
+
+	client, err := dialForgetSatelliteClient(ctx, cfg.Server.PrivateAddress)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, client.close())
+		if err != nil {
+			log.Debug("error closing forget-satellite client", zap.Error(err))
+		}
+	}()
+
+	statuses := make([]*forgetSatelliteStatus, 0, len(cfg.SatelliteIDs))
+	for _, satelliteID := range cfg.SatelliteIDs {
+		id, err := storj.NodeIDFromString(satelliteID)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		resp, err := client.getForgetSatelliteStatus(ctx, id)
+		if err != nil {
+			log.Error("Failed to get forget satellite status", zap.Stringer("Satellite ID", id), zap.Error(err))
+			statuses = append(statuses, &forgetSatelliteStatus{satelliteID: id, inProgress: false, successful: false})
+			continue
+		}
+
+		statuses = append(statuses, &forgetSatelliteStatus{satelliteID: id, inProgress: resp.InProgress, successful: resp.Successful})
+	}
+
+	if len(cfg.SatelliteIDs) == 0 {
+		resp, err := client.getAllForgetSatelliteStatus(ctx)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		for _, status := range resp.Statuses {
+			statuses = append(statuses, &forgetSatelliteStatus{satelliteID: status.SatelliteId, inProgress: status.InProgress, successful: status.Successful})
+		}
 	}
 
 	w := tabwriter.NewWriter(cfg.Stdout, 0, 0, 2, ' ', 0)
@@ -221,8 +315,16 @@ func (client *forgetSatelliteClient) getUntrustedSatellites(ctx context.Context)
 
 }
 
-func (client *forgetSatelliteClient) initForgetSatellite(ctx context.Context, id storj.NodeID, force bool) (*internalpb.InitForgetSatelliteResponse, error) {
+func (client *forgetSatelliteClient) startForgetSatellite(ctx context.Context, id storj.NodeID, force bool) (*internalpb.InitForgetSatelliteResponse, error) {
 	return internalpb.NewDRPCNodeForgetSatelliteClient(client.conn).InitForgetSatellite(ctx, &internalpb.InitForgetSatelliteRequest{SatelliteId: id, ForceCleanup: force})
+}
+
+func (client *forgetSatelliteClient) getForgetSatelliteStatus(ctx context.Context, id storj.NodeID) (*internalpb.ForgetSatelliteStatusResponse, error) {
+	return internalpb.NewDRPCNodeForgetSatelliteClient(client.conn).ForgetSatelliteStatus(ctx, &internalpb.ForgetSatelliteStatusRequest{SatelliteId: id})
+}
+
+func (client *forgetSatelliteClient) getAllForgetSatelliteStatus(ctx context.Context) (*internalpb.GetAllForgetSatelliteStatusResponse, error) {
+	return internalpb.NewDRPCNodeForgetSatelliteClient(client.conn).GetAllForgetSatelliteStatus(ctx, &internalpb.GetAllForgetSatelliteStatusRequest{})
 }
 
 func (client *forgetSatelliteClient) close() error {

@@ -45,6 +45,7 @@ type DRPCNodeForgetSatelliteClient interface {
 	InitForgetSatellite(ctx context.Context, in *InitForgetSatelliteRequest) (*InitForgetSatelliteResponse, error)
 	GetUntrustedSatellites(ctx context.Context, in *GetUntrustedSatellitesRequest) (*GetUntrustedSatellitesResponse, error)
 	ForgetSatelliteStatus(ctx context.Context, in *ForgetSatelliteStatusRequest) (*ForgetSatelliteStatusResponse, error)
+	GetAllForgetSatelliteStatus(ctx context.Context, in *GetAllForgetSatelliteStatusRequest) (*GetAllForgetSatelliteStatusResponse, error)
 }
 
 type drpcNodeForgetSatelliteClient struct {
@@ -84,10 +85,20 @@ func (c *drpcNodeForgetSatelliteClient) ForgetSatelliteStatus(ctx context.Contex
 	return out, nil
 }
 
+func (c *drpcNodeForgetSatelliteClient) GetAllForgetSatelliteStatus(ctx context.Context, in *GetAllForgetSatelliteStatusRequest) (*GetAllForgetSatelliteStatusResponse, error) {
+	out := new(GetAllForgetSatelliteStatusResponse)
+	err := c.cc.Invoke(ctx, "/storagenode.forgetsatellite.NodeForgetSatellite/GetAllForgetSatelliteStatus", drpcEncoding_File_forgetsatellite_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCNodeForgetSatelliteServer interface {
 	InitForgetSatellite(context.Context, *InitForgetSatelliteRequest) (*InitForgetSatelliteResponse, error)
 	GetUntrustedSatellites(context.Context, *GetUntrustedSatellitesRequest) (*GetUntrustedSatellitesResponse, error)
 	ForgetSatelliteStatus(context.Context, *ForgetSatelliteStatusRequest) (*ForgetSatelliteStatusResponse, error)
+	GetAllForgetSatelliteStatus(context.Context, *GetAllForgetSatelliteStatusRequest) (*GetAllForgetSatelliteStatusResponse, error)
 }
 
 type DRPCNodeForgetSatelliteUnimplementedServer struct{}
@@ -104,9 +115,13 @@ func (s *DRPCNodeForgetSatelliteUnimplementedServer) ForgetSatelliteStatus(conte
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
+func (s *DRPCNodeForgetSatelliteUnimplementedServer) GetAllForgetSatelliteStatus(context.Context, *GetAllForgetSatelliteStatusRequest) (*GetAllForgetSatelliteStatusResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
 type DRPCNodeForgetSatelliteDescription struct{}
 
-func (DRPCNodeForgetSatelliteDescription) NumMethods() int { return 3 }
+func (DRPCNodeForgetSatelliteDescription) NumMethods() int { return 4 }
 
 func (DRPCNodeForgetSatelliteDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -137,6 +152,15 @@ func (DRPCNodeForgetSatelliteDescription) Method(n int) (string, drpc.Encoding, 
 						in1.(*ForgetSatelliteStatusRequest),
 					)
 			}, DRPCNodeForgetSatelliteServer.ForgetSatelliteStatus, true
+	case 3:
+		return "/storagenode.forgetsatellite.NodeForgetSatellite/GetAllForgetSatelliteStatus", drpcEncoding_File_forgetsatellite_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodeForgetSatelliteServer).
+					GetAllForgetSatelliteStatus(
+						ctx,
+						in1.(*GetAllForgetSatelliteStatusRequest),
+					)
+			}, DRPCNodeForgetSatelliteServer.GetAllForgetSatelliteStatus, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -188,6 +212,22 @@ type drpcNodeForgetSatellite_ForgetSatelliteStatusStream struct {
 }
 
 func (x *drpcNodeForgetSatellite_ForgetSatelliteStatusStream) SendAndClose(m *ForgetSatelliteStatusResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_forgetsatellite_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCNodeForgetSatellite_GetAllForgetSatelliteStatusStream interface {
+	drpc.Stream
+	SendAndClose(*GetAllForgetSatelliteStatusResponse) error
+}
+
+type drpcNodeForgetSatellite_GetAllForgetSatelliteStatusStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodeForgetSatellite_GetAllForgetSatelliteStatusStream) SendAndClose(m *GetAllForgetSatelliteStatusResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_forgetsatellite_proto{}); err != nil {
 		return err
 	}
