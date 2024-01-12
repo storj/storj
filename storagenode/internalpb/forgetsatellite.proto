@@ -16,6 +16,8 @@ service NodeForgetSatellite {
   rpc GetUntrustedSatellites(GetUntrustedSatellitesRequest) returns (GetUntrustedSatellitesResponse);
   // ForgetSatelliteStatus returns the status of the forget satellite operation.
   rpc ForgetSatelliteStatus(ForgetSatelliteStatusRequest) returns (ForgetSatelliteStatusResponse);
+  // GetAllForgetSatelliteStatus returns the status of all forget satellite operations.
+  rpc GetAllForgetSatelliteStatus(GetAllForgetSatelliteStatusRequest) returns (GetAllForgetSatelliteStatusResponse);
 }
 
 message InitForgetSatelliteRequest {
@@ -47,4 +49,11 @@ message ForgetSatelliteStatusResponse {
   // in_progress is true if the forget satellite operation is in progress.
   bool in_progress = 2;
   bool successful = 3;
+}
+
+message GetAllForgetSatelliteStatusRequest {}
+
+message GetAllForgetSatelliteStatusResponse {
+  // statuses is the list of forget satellite statuses.
+  repeated ForgetSatelliteStatusResponse statuses = 1;
 }

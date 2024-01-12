@@ -134,3 +134,36 @@ func (e *Endpoint) GetUntrustedSatellites(ctx context.Context, req *internalpb.G
 		SatelliteIds: untrustedSatellites,
 	}, nil
 }
+
+// GetAllForgetSatelliteStatus returns the status of the forget-satellite process for all satellites.
+func (e *Endpoint) GetAllForgetSatelliteStatus(ctx context.Context, _ *internalpb.GetAllForgetSatelliteStatusRequest) (_ *internalpb.GetAllForgetSatelliteStatusResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	logger := e.log.With(zap.String("action", "GetAllForgetSatelliteStatus"))
+
+	sats, err := e.satellites.GetSatellites(ctx)
+	if err != nil {
+		logger.Error("failed to get satellites", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	var statuses []*internalpb.ForgetSatelliteStatusResponse
+	for _, satellite := range sats {
+		if !isCleanupSatellite(&satellite) {
+			continue
+		}
+		statuses = append(statuses, &internalpb.ForgetSatelliteStatusResponse{
+			SatelliteId: satellite.SatelliteID,
+			InProgress:  satellite.Status == satellites.CleanupInProgress,
+			Successful:  satellite.Status == satellites.CleanupSucceeded,
+		})
+	}
+
+	return &internalpb.GetAllForgetSatelliteStatusResponse{
+		Statuses: statuses,
+	}, nil
+}
+
+func isCleanupSatellite(satellite *satellites.Satellite) bool {
+	return satellite.Status == satellites.CleanupInProgress || satellite.Status == satellites.CleanupSucceeded || satellite.Status == satellites.CleanupFailed
+}
