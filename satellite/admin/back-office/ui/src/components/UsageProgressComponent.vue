@@ -25,11 +25,12 @@
                     <h4 class="text-right">{{ format(limit) }}</h4>
                 </v-col>
 
-                <v-divider />
-
-                <v-col>
-                    <v-btn size="small" variant="outlined" color="default" class="mt-1 my-2">Change Limits</v-btn>
-                </v-col>
+                <template v-if="featureFlags.project.updateLimits">
+                    <v-divider />
+                    <v-col>
+                        <v-btn size="small" variant="outlined" color="default" class="mt-1 my-2">Change Limits</v-btn>
+                    </v-col>
+                </template>
             </v-row>
         </v-card-item>
     </v-card>
@@ -47,7 +48,11 @@ import {
     VBtn,
 } from 'vuetify/components';
 
+import { FeatureFlags } from '@/api/client.gen';
+import { useAppStore } from '@/store/app';
 import { Dimensions, Size } from '@/utils/bytesSize';
+
+const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
 
 const props = defineProps<{
     title: string;

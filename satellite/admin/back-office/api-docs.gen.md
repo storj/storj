@@ -32,6 +32,7 @@ Gets the settings of the service and relevant Storj services settings
 				history: boolean
 				list: boolean
 				projects: boolean
+				search: boolean
 				suspend: boolean
 				unsuspend: boolean
 				resetMFA: boolean

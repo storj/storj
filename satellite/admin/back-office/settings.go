@@ -45,6 +45,7 @@ type AccountFlags struct {
 	History                bool `json:"history"`
 	List                   bool `json:"list"`
 	Projects               bool `json:"projects"`
+	Search                 bool `json:"search"`
 	Suspend                bool `json:"suspend"`
 	Unsuspend              bool `json:"unsuspend"`
 	ResetMFA               bool `json:"resetMFA"`
@@ -95,6 +96,7 @@ func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
 					History:                false,
 					List:                   false,
 					Projects:               true,
+					Search:                 true,
 					Suspend:                false,
 					Unsuspend:              false,
 					ResetMFA:               false,
@@ -111,10 +113,10 @@ func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
 					History:                false,
 					List:                   false,
 					UpdateInfo:             false,
-					UpdateLimits:           false,
+					UpdateLimits:           true,
 					UpdatePlacement:        false,
 					UpdateValueAttribution: false,
-					View:                   false,
+					View:                   true,
 					MemberList:             false,
 					MemberAdd:              false,
 					MemberRemove:           false,

@@ -74,11 +74,13 @@
                                 Pro account since: 2 May 2022
                             </v-tooltip> -->
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default" class="mr-2">
-                            Edit Project Information
-                            <ProjectInformationDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.project.updateInfo">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default" class="mr-2">
+                                Edit Project Information
+                                <ProjectInformationDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -86,12 +88,14 @@
             <v-col cols="12" md="4">
                 <v-card title="Value" subtitle="Attribution" variant="flat" :border="true" rounded="xlg" class="mb-3">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" class="mr-2">{{ project.userAgent }}</v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            Set Value Attribution
-                            <ProjectUserAgentsDialog />
-                        </v-btn>
+                        <v-chip color="default" :variant="project.userAgent ? 'tonal' : 'text'" class="mr-2">{{ project.userAgent || 'None' }}</v-chip>
+                        <template v-if="featureFlags.project.updateValueAttribution">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                Set Value Attribution
+                                <ProjectUserAgentsDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -102,11 +106,13 @@
                         <v-chip variant="tonal" class="mr-2">
                             {{ placementText }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            Set Project Placement
-                            <ProjectGeofenceDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.project.updatePlacement">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                Set Project Placement
+                                <ProjectGeofenceDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -117,58 +123,46 @@
 
             <v-col cols="12" sm="6" lg="4">
                 <!-- TODO: get bucket count -->
-                <UsageProgressComponent
-                    title="Buckets" :only-limit="true" :limit="project.maxBuckets || 0" color="success" link
-                />
+                <UsageProgressComponent title="Buckets" :only-limit="true" :limit="project.maxBuckets || 0" color="success" link />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Storage" :is-bytes="true" :used="project.storageUsed || 0" :limit="project.storageLimit || 0" color="success" link
-                />
+                <UsageProgressComponent title="Storage" :is-bytes="true" :used="project.storageUsed || 0" :limit="project.storageLimit || 0" color="success" link />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Download" :is-bytes="true" :used="project.bandwidthUsed" :limit="project.bandwidthLimit || 0" color="success" link
-                />
+                <UsageProgressComponent title="Download" :is-bytes="true" :used="project.bandwidthUsed" :limit="project.bandwidthLimit || 0" color="success" link />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Segments" :used="project.segmentUsed || 0" :limit="project.segmentLimit || 0" color="success" link
-                />
+                <UsageProgressComponent title="Segments" :used="project.segmentUsed || 0" :limit="project.segmentLimit || 0" color="success" link />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Rate" :only-limit="true" :limit="project.rateLimit || 0" color="success" link
-                />
+                <UsageProgressComponent title="Rate" :only-limit="true" :limit="project.rateLimit || 0" color="success" link />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Burst" :only-limit="true" :limit="project.burstLimit || 0" color="success" link
-                />
+                <UsageProgressComponent title="Burst" :only-limit="true" :limit="project.burstLimit || 0" color="success" link />
             </v-col>
         </v-row>
 
         <v-row>
-            <v-col>
+            <v-col v-if="featureFlags.bucket.list">
                 <h3 class="my-4">Buckets</h3>
                 <BucketsTableComponent />
             </v-col>
         </v-row>
 
         <v-row>
-            <v-col>
+            <v-col v-if="featureFlags.project.memberList">
                 <h3 class="my-4">Users</h3>
                 <UsersTableComponent />
             </v-col>
         </v-row>
 
         <v-row>
-            <v-col>
+            <v-col v-if="featureFlags.project.history">
                 <h3 class="my-4">History</h3>
                 <LogsTableComponent />
             </v-col>
@@ -192,7 +186,7 @@ import {
     VDivider,
 } from 'vuetify/components';
 
-import { Project, UserAccount } from '@/api/client.gen';
+import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -207,6 +201,7 @@ import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 
 const appStore = useAppStore();
+const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
 const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
 const project = computed<Project>(() => appStore.state.selectedProject as Project);

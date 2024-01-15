@@ -6,7 +6,7 @@
         <v-row>
             <v-col cols="6">
                 <PageTitleComponent title="Accounts" />
-                <PageSubtitleComponent subtitle="Find accounts on North America US1." />
+                <PageSubtitleComponent subtitle="All accounts on North America US1." />
             </v-col>
 
             <v-col cols="6" class="d-flex justify-end align-center">
@@ -23,117 +23,18 @@
             </v-col>
         </v-row>
 
-        <!-- <v-row class="d-flex align-center justify-center mt-2">
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="All Accounts" data="218,748" color="default"/>
-            </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Enterprise" data="3,405" color="default" />
-            </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Priority" data="5,224" color="default"/>
-            </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Pro" data="82,386" color="default"/>
-            </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Free" data="123,480" color="default"/>
-            </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Suspended" data="1" color="default" />
-            </v-col>
-        </v-row> -->
-
-        <v-row align="center" justify="center">
-            <v-col cols="12" sm="8" md="6" lg="4">
-                <v-card variant="flat" class="mt-8 pa-4" rounded="xlg" border>
-                    <v-card-text>
-                        <v-form v-model="isFormValid" @submit.prevent="goToUser">
-                            <h2 class="my-1">Find an account</h2>
-                            <p>Enter account email</p>
-                            <v-text-field
-                                v-model="email"
-                                label="Email"
-                                variant="outlined"
-                                class="mt-5"
-                                :disabled="isLoading"
-                                autofocus
-                                :rules="emailRules"
-                                :error-messages="notFoundError ? 'The user was not found.' : ''"
-                                @click="goToUser"
-                            />
-                            <v-btn class="mt-3" block size="large" :loading="isLoading" @click="goToUser">
-                                Continue
-                            </v-btn>
-                        </v-form>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
+        <AccountsTableComponent class="my-5" />
     </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { VContainer, VRow, VCol, VBtn, VCard, VCardText, VForm, VTextField } from 'vuetify/components';
+import { VContainer, VRow, VCol, VBtn } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
+import AccountsTableComponent from '@/components/AccountsTableComponent.vue';
 import NewAccountDialog from '@/components/NewAccountDialog.vue';
-
-const isLoading = ref<boolean>(false);
-const isFormValid = ref<boolean>(false);
-const email = ref<string>('');
-const notFoundError = ref<boolean>(false);
-
-const emailRules: ((value: string) => boolean | string)[] = [
-    v => /.+@.+\..+/.test(v) || 'E-mail must be valid.',
-    v => !!v || 'Required',
-];
-
-const appStore = useAppStore();
-const notify = useNotificationsStore();
-const router = useRouter();
-
-/**
- * Fetches user information and navigates to Account Details page.
- * Displays an error message if no user has the input email address.
- */
-async function goToUser(): Promise<void> {
-    if (isLoading.value || !isFormValid.value) return;
-    isLoading.value = true;
-
-    const maxAttempts = 3;
-    const retryDelay = 1000;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-            await appStore.getUserByEmail(email.value);
-            router.push(`/account-details`);
-            isLoading.value = false;
-            return;
-        } catch (error) {
-            if (error.responseStatusCode === 404) {
-                notFoundError.value = true;
-                break;
-            } else if (error.responseStatusCode === 409) {
-                if (attempt >= maxAttempts-1) {
-                    notify.notifyError(`Error getting user. Please wait a few minutes before trying again.`);
-                    break;
-                }
-                await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
-            } else {
-                notify.notifyError(`Error getting user. ${error.message}`);
-                break;
-            }
-        }
-    }
-
-    isLoading.value = false;
-}
-
-watch(email, () => notFoundError.value = false);
 </script>
