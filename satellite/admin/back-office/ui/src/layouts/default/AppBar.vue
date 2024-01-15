@@ -9,10 +9,14 @@
         />
 
         <v-app-bar-title class="mx-1">
-            <router-link to="/dashboard">
+            <router-link v-if="featureFlags.dashboard" to="/dashboard">
                 <v-img v-if="theme.global.current.value.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
                 <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
             </router-link>
+            <div v-else>
+                <v-img v-if="theme.global.current.value.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
+                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
+            </div>
         </v-app-bar-title>
 
         <template #append>
@@ -38,7 +42,7 @@
             </v-btn-toggle>
 
             <v-menu offset-y class="rounded-xl">
-                <template #activator="{ props }">
+                <template v-if="featureFlags.switchSatellite && featureFlags.operator &&featureFlags.signOut" #activator="{ props }">
                     <!-- Account Dropdown Button -->
                     <v-btn v-bind="props" variant="outlined" color="default" density="comfortable" class="ml-3 mr-1">
                         <template #append>
@@ -50,7 +54,7 @@
 
                 <!-- My Account Menu -->
                 <v-list class="px-1">
-                    <v-list-item rounded="lg">
+                    <v-list-item v-if="featureFlags.switchSatellite" rounded="lg">
                         <template #prepend>
                             <img src="@/assets/icon-satellite.svg" width="16" alt="Satellite">
                         </template>
@@ -60,16 +64,16 @@
                         </v-list-item-subtitle>
                     </v-list-item>
 
-                    <v-divider class="mt-2 mb-1" />
+                    <v-divider v-if="featureFlags.switchSatellite" class="mt-2 mb-1" />
 
-                    <v-list-item rounded="lg" link router-link to="/admin-settings">
+                    <v-list-item v-if="featureFlags.operator" rounded="lg" link router-link to="/admin-settings">
                         <template #prepend>
                             <img src="@/assets/icon-settings.svg" width="16" alt="Settings">
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">Settings</v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item rounded="lg" link>
+                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link>
                         <template #prepend>
                             <img src="@/assets/icon-logout.svg" width="16" alt="Log Out">
                         </template>
@@ -85,10 +89,10 @@
     <v-navigation-drawer v-model="drawer" color="surface">
         <v-sheet>
             <v-list class="px-2" variant="flat">
-                <v-list-item link class="pa-4 rounded-lg">
+                <v-list-item v-if="featureFlags.switchSatellite" link class="pa-4 rounded-lg">
                     <v-menu activator="parent" location="end" transition="scale-transition">
                         <v-list class="pa-2">
-                            <v-list-item link rounded="lg" active>
+                            <v-list-item link rounded="lg">
                                 <template #prepend>
                                     <img src="@/assets/icon-check-color.svg" alt="Selected Project">
                                 </template>
@@ -99,8 +103,8 @@
 
                             <v-list-item link rounded="lg">
                                 <!-- <template v-slot:prepend>
-                                    <img src="@/assets/icon-check-color.svg" alt="Selected Project">
-                                </template> -->
+                        <img src="@/assets/icon-check-color.svg" alt="Selected Project">
+                        </template> -->
                                 <v-list-item-title class="text-body-2 ml-7">
                                     Europe (EU1)
                                 </v-list-item-title>
@@ -108,8 +112,8 @@
 
                             <v-list-item link rounded="lg">
                                 <!-- <template v-slot:prepend>
-                                    <img src="@/assets/icon-check-color.svg" alt="Selected Project">
-                                </template> -->
+                        <img src="@/assets/icon-check-color.svg" alt="Selected Project">
+                        </template> -->
                                 <v-list-item-title class="text-body-2 ml-7">
                                     Asia-Pacific (AP1)
                                 </v-list-item-title>
@@ -141,7 +145,7 @@
                     </template>
                 </v-list-item>
 
-                <v-list-item link router-link to="/dashboard" class="my-1 py-3" rounded="lg">
+                <v-list-item v-if="featureFlags.dashboard" link router-link to="/dashboard" class="my-1 py-3" rounded="lg">
                     <template #prepend>
                         <img src="@/assets/icon-dashboard.svg" alt="Dashboard">
                     </template>
@@ -150,7 +154,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/accounts" class="my-1" rounded="lg">
+                <v-list-item v-if="featureFlags.account.list" link router-link to="/accounts" class="my-1" rounded="lg">
                     <template #prepend>
                         <img src="@/assets/icon-team.svg" alt="Accounts">
                     </template>
@@ -159,7 +163,17 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/projects" class="my-1" rounded="lg">
+                <!-- This view is temporary until we implement list with search -->
+                <v-list-item v-if="featureFlags.account.search" link router-link to="/account-search" class="my-1" rounded="lg">
+                    <template #prepend>
+                        <img src="@/assets/icon-team.svg" alt="Accounts">
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Search account
+                    </v-list-item-title>
+                </v-list-item>
+
+                <v-list-item v-if="featureFlags.project.list" link router-link to="/projects" class="my-1" rounded="lg">
                     <template #prepend>
                         <img src="@/assets/icon-project.svg" alt="Projects">
                     </template>
@@ -194,10 +208,13 @@ import {
 } from 'vuetify/components';
 import { useTheme } from 'vuetify';
 
-const theme = useTheme();
+import { FeatureFlags } from '@/api/client.gen';
+import { useAppStore } from '@/store/app';
 
+const theme = useTheme();
 const drawer = ref<boolean>(true);
 const activeTheme = ref<number>(0);
+const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
 
 function toggleTheme(newTheme: string) {
     if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {

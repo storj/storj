@@ -59,11 +59,13 @@
                         <v-chip :color="userAccount.paidTier ? 'success' : 'default'" variant="tonal" class="mr-2 font-weight-bold">
                             {{ userAccount.paidTier ? 'Pro' : 'Free' }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            Edit Account Information
-                            <AccountInformationDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.account.updateInfo">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                Edit Account Information
+                                <AccountInformationDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -74,11 +76,13 @@
                         <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
                             {{ userAccount.status }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            Set Account Status
-                            <AccountStatusDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.account.updateStatus">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                Set Account Status
+                                <AccountStatusDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -90,11 +94,13 @@
                         <v-chip :variant="userAccount.userAgent ? 'tonal' : 'text'" class="mr-2">
                             {{ userAccount.userAgent || 'None' }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            Set Value Attribution
-                            <AccountUserAgentsDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.account.updateValueAttribution">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                Set Value Attribution
+                                <AccountUserAgentsDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -106,11 +112,13 @@
                         <v-chip variant="tonal" class="mr-2">
                             {{ placementText }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            Set Account Placement
-                            <AccountGeofenceDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.account.updatePlacement">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                Set Account Placement
+                                <AccountGeofenceDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -148,14 +156,14 @@
             </v-col>
         </v-row>
 
-        <v-row>
+        <v-row v-if="featureFlags.account.projects">
             <v-col>
                 <h3 class="my-4">Projects</h3>
                 <AccountProjectsTableComponent />
             </v-col>
         </v-row>
 
-        <v-row>
+        <v-row v-if="featureFlags.account.history">
             <v-col>
                 <h3 class="my-4">History</h3>
                 <LogsTableComponent />
@@ -181,8 +189,8 @@ import {
     VAlert,
 } from 'vuetify/components';
 
+import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
-import { UserAccount } from '@/api/client.gen';
 import { sizeToBase10String } from '@/utils/memory';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -199,6 +207,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const appStore = useAppStore();
 const router = useRouter();
+const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
 /**
  * Returns user account info from store.

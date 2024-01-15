@@ -57,7 +57,7 @@
                 </v-chip>
             </v-col>
 
-            <v-col cols="12" md="4" class="d-flex justify-start justify-md-end align-top align-md-center">
+            <v-col cols="12" md="4" class="d-flex justify-end align-top align-md-center">
                 <v-btn>
                     Bucket Actions
                     <template #append>
@@ -78,11 +78,13 @@
                                 Pro account since: 2 May 2022
                             </v-tooltip>
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default" class="mr-2">
-                            Edit Bucket Information
-                            <BucketInformationDialog />
-                        </v-btn>
+                        <template v-if="featureFlags.bucket.updateInfo">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default" class="mr-2">
+                                Edit Bucket Information
+                                <BucketInformationDialog />
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -91,11 +93,13 @@
                 <v-card title="Value" subtitle="Attribution" variant="flat" :border="true" rounded="xlg" class="mb-3">
                     <v-card-text>
                         <v-chip color="default" variant="tonal" class="mr-2">Company</v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            <BucketUserAgentsDialog />
-                            Set Value Attribution
-                        </v-btn>
+                        <template v-if="featureFlags.bucket.updateValueAttribution">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                <BucketUserAgentsDialog />
+                                Set Value Attribution
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -106,11 +110,13 @@
                         <v-chip color="default" variant="tonal" class="mr-2">
                             Global
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" size="small" color="default">
-                            <BucketGeofenceDialog />
-                            Set Bucket Placement
-                        </v-btn>
+                        <template v-if="featureFlags.bucket.updatePlacement">
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" size="small" color="default">
+                                <BucketGeofenceDialog />
+                                Set Bucket Placement
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -144,10 +150,15 @@ import {
     VDivider,
 } from 'vuetify/components';
 
+import { FeatureFlags } from '@/api/client.gen';
+import { useAppStore } from '@/store/app';
+
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 import BucketGeofenceDialog from '@/components/BucketGeofenceDialog.vue';
 import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
 import BucketInformationDialog from '@/components/BucketInformationDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
+
+const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
 </script>

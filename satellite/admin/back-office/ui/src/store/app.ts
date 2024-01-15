@@ -4,12 +4,13 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { PlacementInfo, PlacementManagementHttpApiV1, Project, ProjectLimitsUpdate, ProjectManagementHttpApiV1, UserAccount, UserManagementHttpApiV1 } from '@/api/client.gen';
+import { PlacementInfo, PlacementManagementHttpApiV1, Project, ProjectLimitsUpdate, ProjectManagementHttpApiV1, UserAccount, UserManagementHttpApiV1, Settings, SettingsHttpApiV1 } from '@/api/client.gen';
 
 class AppState {
     public placements: PlacementInfo[];
     public userAccount: UserAccount | null = null;
     public selectedProject: Project | null = null;
+    public settings: Settings;
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -18,6 +19,7 @@ export const useAppStore = defineStore('app', () => {
     const userApi = new UserManagementHttpApiV1();
     const placementApi = new PlacementManagementHttpApiV1();
     const projectApi = new ProjectManagementHttpApiV1();
+    const settingsApi = new SettingsHttpApiV1();
 
     async function getUserByEmail(email: string): Promise<void> {
         state.userAccount = await userApi.getUserByEmail(email);
@@ -67,6 +69,10 @@ export const useAppStore = defineStore('app', () => {
         }
     }
 
+    async function getSettings(): Promise<void> {
+        state.settings = await settingsApi.get();
+    }
+
     return {
         state,
         getUserByEmail,
@@ -75,5 +81,6 @@ export const useAppStore = defineStore('app', () => {
         getPlacementText,
         selectProject,
         updateProjectLimits,
+        getSettings,
     };
 });
