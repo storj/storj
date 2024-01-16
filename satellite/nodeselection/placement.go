@@ -104,6 +104,11 @@ func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, err
 	}
 	rules := c.PlacementRules
 	if _, err := os.Stat(rules); err == nil {
+		if strings.HasSuffix(rules, ".yaml") {
+			// new style of config, all others are deprecated
+			return LoadConfig(rules)
+
+		}
 		ruleBytes, err := os.ReadFile(rules)
 		if err != nil {
 			return nil, ErrPlacement.New("Placement definition file couldn't be read: %s %v", rules, err)
@@ -193,6 +198,7 @@ func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, fil
 type stringNotMatch string
 
 // AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
+// Deprecated: we will switch to the YAML based configuration.
 func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 	env := map[any]any{
 		"country": func(countries ...string) (NodeFilter, error) {
