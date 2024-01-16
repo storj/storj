@@ -21,3 +21,12 @@ func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint,
 	r, err := db.precommitConstraint(ctx, precommitConstraint(opts), tx)
 	return PrecommitConstraintResult(r), err
 }
+
+// PrecommitConstraintWithNonPendingResult exposes precommitConstraintWithNonPendingResult for testing.
+type PrecommitConstraintWithNonPendingResult precommitConstraintWithNonPendingResult
+
+// PrecommitDeleteUnversionedWithNonPending exposes precommitDeleteUnversionedWithNonPending for testing.
+func (db *DB) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation, tx stmtRow) (result PrecommitConstraintWithNonPendingResult, err error) {
+	r, err := db.precommitDeleteUnversionedWithNonPending(ctx, loc, tx)
+	return PrecommitConstraintWithNonPendingResult(r), err
+}

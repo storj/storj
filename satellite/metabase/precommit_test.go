@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -13,6 +14,33 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
+
+func TestPrecommitConstraint_Empty(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		for _, versioned := range []bool{false, true} {
+			for _, disallowDelete := range []bool{false, true} {
+				name := fmt.Sprintf("Versioned:%v,DisallowDelete:%v", versioned, disallowDelete)
+				t.Run(name, func(t *testing.T) {
+					result, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+						Location:       obj.Location(),
+						Versioned:      versioned,
+						DisallowDelete: disallowDelete,
+					}, db.UnderlyingTagSQL())
+					require.NoError(t, err)
+					require.Equal(t, metabase.PrecommitConstraintResult{}, result)
+				})
+			}
+		}
+
+		t.Run("with-non-pending", func(t *testing.T) {
+			result, err := db.PrecommitDeleteUnversionedWithNonPending(ctx, obj.Location(), db.UnderlyingTagSQL())
+			require.NoError(t, err)
+			require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{}, result)
+		})
+	})
+}
 
 func BenchmarkPrecommitConstraint(b *testing.B) {
 	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
