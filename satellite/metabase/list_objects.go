@@ -143,14 +143,9 @@ func (opts *ListObjects) getSQLQuery() string {
 		`
 
 	case !opts.Pending && !opts.AllVersions:
-		// TODO(ver): using subquery the following subquery looks nicer, however CRDB has a bug related to it.
-		//
-		//    SELECT MAX(sub.version)
-		//    FROM objects sub
-		//    WHERE
-		//      (sub.project_id, sub.bucket_name, sub.object_key) = (main.project_id, main.bucket_name, main.object_key)
-		//      AND status <> ` + statusPending + `
-		//      AND (expires_at IS NULL OR expires_at > now())
+		// The following subquery for the highest-version can also be implemented via
+		//     SELECT MAX(sub.version) FROM objects ...
+		// however, that seems slower on benchmarks.
 
 		// query committed objects where the latest is not a delete marker
 		return `SELECT ` + indexFields + opts.selectedFields() + `
