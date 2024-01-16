@@ -50,6 +50,7 @@ type ExitProgress struct {
 // Satellite contains the satellite and status.
 type Satellite struct {
 	SatelliteID storj.NodeID
+	Address     string
 	AddedAt     time.Time
 	Status      Status
 }

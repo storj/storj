@@ -152,11 +152,3 @@ type HeldForPeriod struct {
 	Period string `json:"period"`
 	Amount int64  `json:"amount"`
 }
-
-// Period is a string that represents paystub period type in format yyyy-mm.
-type Period string
-
-// Time returns period in time.Time type from string.
-func (p Period) Time() (time.Time, error) {
-	return time.Parse("2006-01", string(p))
-}
