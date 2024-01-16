@@ -6,7 +6,6 @@ package payouts
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -236,80 +235,54 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period string) (result []SatellitePayoutForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satelliteIDs := service.trust.GetSatellites(ctx)
+	paystubs, err := service.AllPayStubsMonthly(ctx, period)
+	if err != nil {
+		return nil, ErrPayoutService.Wrap(err)
+	}
 
-	satelliteIDs = append(satelliteIDs, service.stefanSatellite)
-	for i := 0; i < len(satelliteIDs); i++ {
-		var payoutForPeriod SatellitePayoutForPeriod
-		paystub, err := service.db.GetPayStub(ctx, satelliteIDs[i], period)
-		if err != nil {
-			if ErrNoPayStubForPeriod.Has(err) {
-				continue
-			}
-			return nil, ErrPayoutService.Wrap(err)
-		}
-
-		receipt, err := service.db.GetReceipt(ctx, satelliteIDs[i], period)
+	for _, paystub := range paystubs {
+		receipt, err := service.db.GetReceipt(ctx, paystub.SatelliteID, period)
 		if err != nil {
 			if !ErrNoPayStubForPeriod.Has(err) {
 				return nil, ErrPayoutService.Wrap(err)
 			}
 		}
 
-		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
+		stats, err := service.reputationDB.Get(ctx, paystub.SatelliteID)
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		satellite, err := service.satellitesDB.GetSatellite(ctx, satelliteIDs[i])
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				payoutForPeriod.IsExitComplete = false
-			}
-
+		satellite, err := service.satellitesDB.GetSatellite(ctx, paystub.SatelliteID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		if satelliteIDs[i] != service.stefanSatellite {
-			url, err := service.trust.GetNodeURL(ctx, satelliteIDs[i])
-			if err != nil {
+		isExitComplete := false
+		if satellite.Status == satellites.ExitSucceeded {
+			isExitComplete = true
+		}
+
+		satelliteURL := satellite.Address
+
+		if satelliteURL == "" {
+			url, err := service.trust.GetNodeURL(ctx, paystub.SatelliteID)
+			if err != nil && !errs.Is(err, trust.ErrUntrusted) {
 				return nil, ErrPayoutService.Wrap(err)
 			}
 
-			payoutForPeriod.SatelliteURL = url.Address
+			satelliteURL = url.Address
+			// if satellite is not in trusted list, and we don't know the address,
+			// we display the satelliteID as the URL.
+			if satelliteURL == "" {
+				satelliteURL = paystub.SatelliteID.String()
+			}
 		}
 
-		if satellite.Status == satellites.ExitSucceeded {
-			payoutForPeriod.IsExitComplete = true
-		}
-
-		if paystub.SurgePercent == 0 {
-			paystub.SurgePercent = 100
-		}
-
-		earned, surge := paystub.GetEarnedWithSurge()
-
-		periodTime := Period(paystub.Period)
-
-		heldPeriod, err := periodTime.Time()
+		payoutForPeriod, err := PaystubToSatellitePayoutForPeriod(paystub, stats.JoinedAt, receipt, satelliteURL, isExitComplete)
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
 		}
-
-		heldPercent := GetHeldRate(stats.JoinedAt, heldPeriod)
-		payoutForPeriod.Held = paystub.Held
-		payoutForPeriod.Receipt = receipt
-		payoutForPeriod.Surge = surge
-		payoutForPeriod.AfterHeld = surge - paystub.Held
-		payoutForPeriod.Age = int64(date.MonthsCountSince(stats.JoinedAt))
-		payoutForPeriod.Disposed = paystub.Disposed
-		payoutForPeriod.Earned = earned
-		payoutForPeriod.SatelliteID = satelliteIDs[i].String()
-		payoutForPeriod.SurgePercent = paystub.SurgePercent
-		payoutForPeriod.Paid = paystub.Paid
-		payoutForPeriod.HeldPercent = heldPercent
-		payoutForPeriod.Distributed = paystub.Distributed
-
 		result = append(result, payoutForPeriod)
 	}
 
@@ -344,6 +317,43 @@ func (service *Service) HeldAmountHistory(ctx context.Context) (_ []HeldAmountHi
 	}
 
 	return heldHistory, nil
+}
+
+// PaystubToSatellitePayoutForPeriod converts PayStub to SatellitePayoutForPeriod.
+func PaystubToSatellitePayoutForPeriod(paystub PayStub, joinedAt time.Time, receipt string, satelliteURL string, isExitComplete bool) (payoutForPeriod SatellitePayoutForPeriod, err error) {
+	if paystub.SurgePercent == 0 {
+		paystub.SurgePercent = 100
+	}
+
+	earned, surge := paystub.GetEarnedWithSurge()
+
+	heldPeriod, err := date.PeriodToTime(paystub.Period)
+	if err != nil {
+		return SatellitePayoutForPeriod{}, err
+	}
+
+	if joinedAt.IsZero() {
+		joinedAt = time.Now()
+		payoutForPeriod.HeldPercent = (float64(paystub.Held) / float64(earned)) * 100
+	} else {
+		payoutForPeriod.HeldPercent = GetHeldRate(joinedAt, heldPeriod)
+	}
+
+	payoutForPeriod.SatelliteID = paystub.SatelliteID.String()
+	payoutForPeriod.SatelliteURL = satelliteURL
+	payoutForPeriod.Age = int64(date.MonthsCountSince(joinedAt))
+	payoutForPeriod.Earned = earned
+	payoutForPeriod.Surge = surge
+	payoutForPeriod.SurgePercent = paystub.SurgePercent
+	payoutForPeriod.Held = paystub.Held
+	payoutForPeriod.AfterHeld = surge - paystub.Held
+	payoutForPeriod.Disposed = paystub.Disposed
+	payoutForPeriod.Paid = paystub.Paid
+	payoutForPeriod.Receipt = receipt
+	payoutForPeriod.IsExitComplete = isExitComplete
+	payoutForPeriod.Distributed = paystub.Distributed
+
+	return payoutForPeriod, nil
 }
 
 // parsePeriodRange creates period range form start and end periods.

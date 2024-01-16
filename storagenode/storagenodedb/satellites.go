@@ -5,6 +5,7 @@ package storagenodedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -59,17 +60,19 @@ func (db *satellitesDB) SetAddressAndStatus(ctx context.Context, satelliteID sto
 func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite satellites.Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.QueryContext(ctx, "SELECT node_id, added_at, status FROM satellites WHERE node_id = ?", satelliteID)
+	rows, err := db.QueryContext(ctx, "SELECT node_id, address, added_at, status FROM satellites WHERE node_id = ?", satelliteID)
 	if err != nil {
 		return satellite, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
+	var address sql.NullString
 	if rows.Next() {
-		err := rows.Scan(&satellite.SatelliteID, &satellite.AddedAt, &satellite.Status)
+		err := rows.Scan(&satellite.SatelliteID, &address, &satellite.AddedAt, &satellite.Status)
 		if err != nil {
 			return satellite, err
 		}
+		satellite.Address = address.String
 	}
 	return satellite, rows.Err()
 }
@@ -78,7 +81,7 @@ func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.Node
 func (db *satellitesDB) GetSatellites(ctx context.Context) (sats []satellites.Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.QueryContext(ctx, "SELECT node_id, added_at, status FROM satellites")
+	rows, err := db.QueryContext(ctx, "SELECT node_id, address, added_at, status FROM satellites")
 	if err != nil {
 		return nil, err
 	}
@@ -86,10 +89,12 @@ func (db *satellitesDB) GetSatellites(ctx context.Context) (sats []satellites.Sa
 
 	for rows.Next() {
 		var satellite satellites.Satellite
-		err := rows.Scan(&satellite.SatelliteID, &satellite.AddedAt, &satellite.Status)
+		var address sql.NullString
+		err := rows.Scan(&satellite.SatelliteID, &address, &satellite.AddedAt, &satellite.Status)
 		if err != nil {
 			return nil, err
 		}
+		satellite.Address = address.String
 		sats = append(sats, satellite)
 	}
 	return sats, rows.Err()
