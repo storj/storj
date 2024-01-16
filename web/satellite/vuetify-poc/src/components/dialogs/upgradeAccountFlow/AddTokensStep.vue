@@ -183,9 +183,12 @@ watch(() => pendingPayments.value, async () => {
     // fetch User to update their Paid Tier status.
     await usersStore.getUser();
 
-    // arbitrary delay to allow for user to read success banner.
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    emit('success');
+    // we redirect to success step only if user status was updated to Paid Tier.
+    if (usersStore.state.user.paidTier) {
+        // arbitrary delay to allow for user to read success banner.
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        emit('success');
+    }
 }, { deep: true });
 
 /**
