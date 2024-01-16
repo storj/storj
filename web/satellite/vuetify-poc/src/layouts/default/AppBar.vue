@@ -311,10 +311,10 @@ async function onLogout(): Promise<void> {
         notify.error(error.message);
     }
 
-    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
-    // TODO this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
-    location.reload();
+    if (configStore.state.config.prefixVuetifyUI) {
+        location.reload();
+    }
 }
 
 </script>

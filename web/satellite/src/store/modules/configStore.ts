@@ -22,6 +22,8 @@ export const useConfigStore = defineStore('config', () => {
         return state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
     });
 
+    const optionalV2Path = computed((): string => !state.config.prefixVuetifyUI ? '' : '/' + import.meta.env.VITE_VUETIFY_PREFIX);
+
     async function getConfig(): Promise<FrontendConfig> {
         const result = await configApi.get();
 
@@ -33,6 +35,7 @@ export const useConfigStore = defineStore('config', () => {
     return {
         state,
         firstOnboardingStep,
+        optionalV2Path,
         getConfig,
     };
 });

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { useConfigStore } from '@/store/modules/configStore';
 
 /**
  * HttpClient is a custom wrapper around fetch api.
@@ -103,7 +104,7 @@ export class HttpClient {
             setTimeout(() => {
                 const origin = window.location.origin;
                 if (document.querySelector('.v-overlay-container')) {
-                    window.location.href = origin + '/' + import.meta.env.VITE_VUETIFY_PREFIX + '/login';
+                    window.location.href = origin + useConfigStore().optionalV2Path + '/login';
                     return;
                 }
                 window.location.href = origin + '/login';

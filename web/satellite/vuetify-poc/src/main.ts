@@ -18,9 +18,12 @@ import { registerPlugins } from '@poc/plugins';
 
 const app = createApp(App);
 
-registerPlugins(app);
+registerPlugins(app).then(() => {
+    const loader = document.getElementById('pre-app-loader');
+    loader?.remove();
 
-app.mount('#app');
+    app.mount('#app');
+});
 
 // By default, Papa Parse uses a blob URL for loading its worker.
 // This isn't supported by our content security policy, so we override the URL.

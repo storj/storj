@@ -2,11 +2,12 @@
 // See LICENSE for copying information.
 
 import { watch } from 'vue';
-import { RouteRecordRaw, createRouter, createWebHistory } from 'vue-router';
+import { RouteRecordRaw, createRouter, createWebHistory, Router } from 'vue-router';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@poc/store/appStore';
+import { FrontendConfig } from '@/types/config.gen';
 
 export enum RouteName {
     Billing = 'Billing',
@@ -141,25 +142,27 @@ const routes: RouteRecordRaw[] = [
     },
 ];
 
-export const router = createRouter({
-    history: createWebHistory(import.meta.env.VITE_VUETIFY_PREFIX),
-    routes,
-});
+export function setupRouter(config: FrontendConfig): Router {
+    const basePath = !config.prefixVuetifyUI ? '' : import.meta.env.VITE_VUETIFY_PREFIX;
+    const history = createWebHistory(basePath);
+    const router = createRouter({
+        history,
+        routes,
+    });
 
-router.beforeEach((to, from, next) => {
-    const appStore = useAppStore();
-    appStore.setIsNavigating(true);
+    router.beforeEach((to, from, next) => {
+        const appStore = useAppStore();
+        appStore.setIsNavigating(true);
 
-    if (to.name === RouteName.Projects && from.name === RouteName.Login) {
-        appStore.toggleHasJustLoggedIn(true);
-    }
+        if (to.name === RouteName.Projects && from.name === RouteName.Login) {
+            appStore.toggleHasJustLoggedIn(true);
+        }
 
-    next();
-});
+        next();
+    });
 
-router.afterEach(() => useAppStore().setIsNavigating(false));
+    router.afterEach(() => useAppStore().setIsNavigating(false));
 
-export function startTitleWatcher(): void {
     const projectsStore = useProjectsStore();
     const configStore = useConfigStore();
 
@@ -176,6 +179,6 @@ export function startTitleWatcher(): void {
             document.title = parts.join(' | ');
         },
     );
-}
 
-export default router;
+    return router;
+}

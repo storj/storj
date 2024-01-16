@@ -12,11 +12,13 @@ import { App, watch } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import THEME_URLS from 'virtual:vuetify-theme-css';
 
-import { router, startTitleWatcher } from '../router';
+import { setupRouter } from '../router';
 
 import vuetify from './vuetify';
 
-import NotificatorPlugin from '@/utils/plugins/notificator';
+import NotificatorPlugin, { Notificator } from '@/utils/plugins/notificator';
+import { useConfigStore } from '@/store/modules/configStore';
+import { FrontendConfig } from '@/types/config.gen';
 
 const pinia = createPinia();
 setActivePinia(pinia);
@@ -59,12 +61,16 @@ function setupTheme() {
     });
 }
 
-export function registerPlugins(app: App<Element>) {
+export async function registerPlugins(app: App<Element>) {
     setupTheme();
-    app
-        .use(vuetify)
-        .use(router)
-        .use(pinia)
-        .use(NotificatorPlugin);
-    startTitleWatcher();
+    app.use(vuetify).use(pinia).use(NotificatorPlugin);
+
+    let config = new FrontendConfig();
+    try {
+        config = await useConfigStore().getConfig();
+    } catch (e) {
+        new Notificator().notifyError(e);
+    }
+    const router = setupRouter(config);
+    app.use(router);
 }
