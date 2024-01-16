@@ -169,6 +169,7 @@ CREATE TABLE node_api_versions (
 CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	last_ip_port text,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,

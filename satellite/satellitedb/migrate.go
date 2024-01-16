@@ -2596,6 +2596,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`UPDATE projects SET default_versioning = 1 WHERE default_versioning = 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add last_ip_port to node_events",
+				Version:     255,
+				Action: migrate.SQL{
+					`ALTER TABLE node_events ADD COLUMN last_ip_port TEXT;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
