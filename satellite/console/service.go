@@ -956,7 +956,7 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 }
 
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (_ *TokenInfo, err error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string, customDuration *time.Duration) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sessionID, err := uuid.New()
@@ -965,7 +965,9 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 
 	duration := s.config.Session.Duration
-	if s.config.Session.InactivityTimerEnabled {
+	if customDuration != nil {
+		duration = *customDuration
+	} else if s.config.Session.InactivityTimerEnabled {
 		settings, err := s.store.Users().GetSettings(ctx, userID)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
@@ -1360,7 +1362,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}
 
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent)
+	var customDurationPtr *time.Duration
+	if request.RememberForOneWeek {
+		weekDuration := 7 * 24 * time.Hour
+		customDurationPtr = &weekDuration
+	}
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, customDurationPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -1384,7 +1391,7 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 		return nil, Error.New(failedToRetrieveUserErrMsg)
 	}
 
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent)
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
 	if err != nil {
 		return nil, Error.New(generateSessionTokenErrMsg)
 	}
