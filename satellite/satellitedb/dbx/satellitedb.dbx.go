@@ -482,6 +482,7 @@ CREATE TABLE node_api_versions (
 CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	last_ip_port text,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
@@ -1178,6 +1179,7 @@ CREATE TABLE node_api_versions (
 CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	last_ip_port text,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
@@ -4785,6 +4787,7 @@ func (NodeApiVersion_UpdatedAt_Field) _Column() string { return "updated_at" }
 type NodeEvent struct {
 	Id            []byte
 	Email         string
+	LastIpPort    *string
 	NodeId        []byte
 	Event         int
 	CreatedAt     time.Time
@@ -4795,6 +4798,7 @@ type NodeEvent struct {
 func (NodeEvent) _Table() string { return "node_events" }
 
 type NodeEvent_Create_Fields struct {
+	LastIpPort    NodeEvent_LastIpPort_Field
 	CreatedAt     NodeEvent_CreatedAt_Field
 	LastAttempted NodeEvent_LastAttempted_Field
 	EmailSent     NodeEvent_EmailSent_Field
@@ -4842,6 +4846,38 @@ func (f NodeEvent_Email_Field) value() interface{} {
 }
 
 func (NodeEvent_Email_Field) _Column() string { return "email" }
+
+type NodeEvent_LastIpPort_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func NodeEvent_LastIpPort(v string) NodeEvent_LastIpPort_Field {
+	return NodeEvent_LastIpPort_Field{_set: true, _value: &v}
+}
+
+func NodeEvent_LastIpPort_Raw(v *string) NodeEvent_LastIpPort_Field {
+	if v == nil {
+		return NodeEvent_LastIpPort_Null()
+	}
+	return NodeEvent_LastIpPort(*v)
+}
+
+func NodeEvent_LastIpPort_Null() NodeEvent_LastIpPort_Field {
+	return NodeEvent_LastIpPort_Field{_set: true, _null: true}
+}
+
+func (f NodeEvent_LastIpPort_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f NodeEvent_LastIpPort_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_LastIpPort_Field) _Column() string { return "last_ip_port" }
 
 type NodeEvent_NodeId_Field struct {
 	_set   bool
@@ -12735,19 +12771,20 @@ func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	__id_val := node_event_id.value()
 	__email_val := node_event_email.value()
+	__last_ip_port_val := optional.LastIpPort.value()
 	__node_id_val := node_event_node_id.value()
 	__event_val := node_event_event.value()
 	__last_attempted_val := optional.LastAttempted.value()
 	__email_sent_val := optional.EmailSent.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, node_id, event, last_attempted, email_sent")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, last_ip_port, node_id, event, last_attempted, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
+	__values = append(__values, __id_val, __email_val, __last_ip_port_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -12770,7 +12807,7 @@ func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15292,7 +15329,7 @@ func (obj *pgxImpl) Get_NodeEvent_By_Id(ctx context.Context,
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_event_id.value())
@@ -15301,7 +15338,7 @@ func (obj *pgxImpl) Get_NodeEvent_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 	if err != nil {
 		return (*NodeEvent)(nil), obj.makeErr(err)
 	}
@@ -15315,7 +15352,7 @@ func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ct
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, node_event_email.value(), node_event_event.value())
@@ -15339,7 +15376,7 @@ func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ct
 			}
 
 			node_event = &NodeEvent{}
-			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 			if err != nil {
 				return nil, err
 			}
@@ -21162,19 +21199,20 @@ func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	__id_val := node_event_id.value()
 	__email_val := node_event_email.value()
+	__last_ip_port_val := optional.LastIpPort.value()
 	__node_id_val := node_event_node_id.value()
 	__event_val := node_event_event.value()
 	__last_attempted_val := optional.LastAttempted.value()
 	__email_sent_val := optional.EmailSent.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, node_id, event, last_attempted, email_sent")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, last_ip_port, node_id, event, last_attempted, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
+	__values = append(__values, __id_val, __email_val, __last_ip_port_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -21197,7 +21235,7 @@ func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -23719,7 +23757,7 @@ func (obj *pgxcockroachImpl) Get_NodeEvent_By_Id(ctx context.Context,
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_event_id.value())
@@ -23728,7 +23766,7 @@ func (obj *pgxcockroachImpl) Get_NodeEvent_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 	if err != nil {
 		return (*NodeEvent)(nil), obj.makeErr(err)
 	}
@@ -23742,7 +23780,7 @@ func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_Cre
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, node_event_email.value(), node_event_event.value())
@@ -23766,7 +23804,7 @@ func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_Cre
 			}
 
 			node_event = &NodeEvent{}
-			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 			if err != nil {
 				return nil, err
 			}
