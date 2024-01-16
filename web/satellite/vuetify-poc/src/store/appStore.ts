@@ -11,6 +11,15 @@ class AppState {
     public pathBeforeAccountPage: string | null = null;
     public hasJustLoggedIn = false;
     public isNavigating = false;
+    public error: ErrorPageState = new ErrorPageState();
+}
+
+class ErrorPageState {
+    constructor(
+        public statusCode = 0,
+        public fatal = false,
+        public visible = false,
+    ) {}
 }
 
 export const useAppStore = defineStore('vuetifyApp', () => {
@@ -50,6 +59,14 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         state.pathBeforeAccountPage = null;
     }
 
+    function setErrorPage(statusCode: number, fatal = false): void {
+        state.error = new ErrorPageState(statusCode, fatal, true);
+    }
+
+    function removeErrorPage(): void {
+        state.error.visible = false;
+    }
+
     return {
         state,
         toggleHasJustLoggedIn,
@@ -58,6 +75,8 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         toggleAccountSetup,
         setPathBeforeAccountPage,
         setIsNavigating,
+        setErrorPage,
+        removeErrorPage,
         clear,
     };
 });

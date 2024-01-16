@@ -154,6 +154,13 @@ export function setupRouter(config: FrontendConfig): Router {
         const appStore = useAppStore();
         appStore.setIsNavigating(true);
 
+        if (!to.matched.length) {
+            appStore.setErrorPage(404);
+            return;
+        } else if (appStore.state.error.visible) {
+            appStore.removeErrorPage();
+        }
+
         if (to.name === RouteName.Projects && from.name === RouteName.Login) {
             appStore.toggleHasJustLoggedIn(true);
         }
