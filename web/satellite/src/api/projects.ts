@@ -83,6 +83,8 @@ export class ProjectsHttpApi implements ProjectsApi {
             false,
             p.memberCount,
             p.edgeURLOverrides,
+            p.storageUsed,
+            p.bandwidthUsed,
         ));
     }
 

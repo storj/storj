@@ -14,6 +14,8 @@ export class ProjectItemModel {
         public role: ProjectItemRole,
         public memberCount: number | null,
         public createdAt: Date,
+        public storageUsed: string = '',
+        public bandwidthUsed: string = '',
     ) {}
 }
 

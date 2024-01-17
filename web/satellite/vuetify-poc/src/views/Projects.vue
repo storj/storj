@@ -118,6 +118,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { RouteName } from '@poc/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { Dimensions, Size } from '@/utils/bytesSize';
 
 import ProjectCard from '@poc/components/ProjectCard.vue';
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
@@ -184,6 +185,8 @@ const items = computed((): ProjectItemModel[] => {
         project.ownerId === usersStore.state.user.id ? ProjectRole.Owner : ProjectRole.Member,
         project.memberCount,
         new Date(project.createdAt),
+        formattedValue(new Size(project.storageUsed, 2)),
+        formattedValue(new Size(project.bandwidthUsed, 2)),
     )).sort((projA, projB) => {
         if (projA.role === ProjectRole.Owner && projB.role === ProjectRole.Member) return -1;
         if (projA.role === ProjectRole.Member && projB.role === ProjectRole.Owner) return 1;
@@ -219,6 +222,18 @@ function onJoinClicked(item: ProjectItemModel): void {
 function onInviteClicked(item: ProjectItemModel): void {
     addMemberProjectId.value = item.id;
     isAddMemberDialogShown.value = true;
+}
+
+/**
+ * Formats value to needed form and returns it.
+ */
+function formattedValue(value: Size): string {
+    switch (value.label) {
+    case Dimensions.Bytes:
+        return '0';
+    default:
+        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
+    }
 }
 
 onMounted(() => {
