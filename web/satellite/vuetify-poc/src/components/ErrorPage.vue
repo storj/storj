@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { VBtn, VImg } from 'vuetify/components';
 import { useTheme } from 'vuetify';
 
@@ -45,6 +45,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 const appStore = useAppStore();
 const configStore = useConfigStore();
 const router = useRouter();
+const route = useRoute();
 const theme = useTheme();
 
 const messages = new Map<number, string>([
@@ -86,6 +87,10 @@ function goToHomepage(): void {
 function onButtonClick(): void {
     if (isFatal.value) {
         goToHomepage();
+        return;
+    }
+    if (!route.redirectedFrom) {
+        router.replace('/');
         return;
     }
     router.back();
