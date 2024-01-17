@@ -149,13 +149,14 @@ type ProjectLimits struct {
 
 // AuthUser holds info for user authentication token requests.
 type AuthUser struct {
-	Email           string `json:"email"`
-	Password        string `json:"password"`
-	MFAPasscode     string `json:"mfaPasscode"`
-	MFARecoveryCode string `json:"mfaRecoveryCode"`
-	CaptchaResponse string `json:"captchaResponse"`
-	IP              string `json:"-"`
-	UserAgent       string `json:"-"`
+	Email              string `json:"email"`
+	Password           string `json:"password"`
+	MFAPasscode        string `json:"mfaPasscode"`
+	MFARecoveryCode    string `json:"mfaRecoveryCode"`
+	CaptchaResponse    string `json:"captchaResponse"`
+	RememberForOneWeek bool   `json:"rememberForOneWeek"`
+	IP                 string `json:"-"`
+	UserAgent          string `json:"-"`
 }
 
 // TokenInfo holds info for user authentication token responses.

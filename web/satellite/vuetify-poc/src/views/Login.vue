@@ -99,6 +99,8 @@
                                 </template>
                             </v-text-field>
 
+                            <v-checkbox v-model="rememberForOneWeek" label="remember me for one week" hide-details />
+
                             <v-btn
                                 color="primary"
                                 size="large"
@@ -138,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert, VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
+import { VAlert, VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField, VCheckbox } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
@@ -184,6 +186,7 @@ const captchaError = ref(false);
 const useOTP = ref(true);
 const isMFARequired = ref(false);
 const isMFAError = ref(false);
+const rememberForOneWeek = ref<boolean>(false);
 
 const captchaResponseToken = ref('');
 const email = ref('');
@@ -288,7 +291,7 @@ async function onLoginClick(): Promise<void> {
  */
 async function login(): Promise<void> {
     try {
-        const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value);
+        const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value, rememberForOneWeek.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
     } catch (error) {
         if (hcaptcha.value) {

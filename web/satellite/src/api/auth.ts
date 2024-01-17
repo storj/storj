@@ -62,9 +62,10 @@ export class AuthHttpApi implements UsersApi {
      * @param captchaResponse - captcha response token
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
+     * @param rememberForOneWeek - flag to remember user
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<TokenInfo> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, rememberForOneWeek = false): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -72,6 +73,7 @@ export class AuthHttpApi implements UsersApi {
             captchaResponse,
             mfaPasscode: mfaPasscode || null,
             mfaRecoveryCode: mfaRecoveryCode || null,
+            rememberForOneWeek,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));

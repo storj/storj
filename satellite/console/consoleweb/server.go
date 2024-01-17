@@ -894,7 +894,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return
