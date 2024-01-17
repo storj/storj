@@ -405,21 +405,23 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
 
-		if server.config.PrefixVuetifyUI {
-			if server.config.UseVuetifyProject {
+		if server.config.UseVuetifyProject {
+			if server.config.PrefixVuetifyUI {
 				if server.config.VuetifyHost != "" {
 					router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
 				} else {
 					// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
 					router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
 				}
+				router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
+			} else {
+				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(w, r, strings.TrimPrefix(r.URL.Path, "/v2"), http.StatusMovedPermanently)
+				})))
+				router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
 			}
-			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 		} else {
-			router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, strings.TrimPrefix(r.URL.Path, "/v2"), http.StatusMovedPermanently)
-			})))
-			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 		}
 	}
 
@@ -524,10 +526,26 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	router.HandleFunc("/robots.txt", server.seoHandler)
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
+
 	if server.config.UseVuetifyProject {
-		router.PathPrefix("/v2").Handler(http.HandlerFunc(server.vuetifyAppHandler))
+		if server.config.PrefixVuetifyUI {
+			if server.config.VuetifyHost != "" {
+				router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+			} else {
+				// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
+				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+			}
+			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
+		} else {
+			router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, strings.TrimPrefix(r.URL.Path, "/v2"), http.StatusMovedPermanently)
+			})))
+			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+		}
+	} else {
+		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
-	router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
+
 	server.server = http.Server{
 		Handler:        server.withRequest(router),
 		MaxHeaderBytes: ContentLengthLimit.Int(),
