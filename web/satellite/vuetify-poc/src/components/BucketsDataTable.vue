@@ -74,6 +74,15 @@
                     {{ item.since.toLocaleString() }}
                 </span>
             </template>
+            <template #item.versioning="{ item }">
+                <v-icon size="28" class="mr-1 pa-1 rounded border text-cursor-pointer">
+                    <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
+                    <icon-versioning />
+                </v-icon>
+                <v-chip variant="tonal" color="default" size="small" rounded>
+                    {{ item.versioning }}
+                </v-chip>
+            </template>
             <template #item.actions="{ item }">
                 <v-menu location="bottom end" transition="scale-transition">
                     <template #activator="{ props: activatorProps }">
@@ -125,22 +134,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    VCard,
-    VTextField,
     VBtn,
-    VMenu,
+    VCard,
+    VChip,
+    VDataTableServer,
+    VDivider,
+    VIcon,
     VList,
     VListItem,
     VListItemTitle,
-    VDivider,
-    VDataTableServer,
+    VMenu,
+    VTextField,
+    VTooltip,
 } from 'vuetify/components';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
-import { BucketPage, BucketCursor, Bucket } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketPage, Versioning } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -159,6 +171,7 @@ import DeleteBucketDialog from '@poc/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@poc/components/dialogs/BucketDetailsDialog.vue';
+import IconVersioning from '@poc/components/icons/IconVersioning.vue';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -203,6 +216,10 @@ const displayedItems = computed<Bucket[]>(() => {
     return items;
 });
 
+const shouldShowVersioning = computed<boolean>(() => {
+    return displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
+});
+
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
@@ -219,9 +236,16 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
         { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
         { title: 'Download', key: 'egress', sortable: isTableSortable.value },
+    ];
+
+    if (shouldShowVersioning.value) {
+        hdrs.push({ title: 'Versioning', key: 'versioning', sortable: isTableSortable.value });
+    }
+
+    hdrs.push(
         { title: 'Date Created', key: 'since', sortable: isTableSortable.value },
         { title: '', key: 'actions', width: '0', sortable: false },
-    ];
+    );
 
     if (pageWidth.value <= 1400) {
         ['segmentCount', 'objectCount'].forEach((key) => {
@@ -238,8 +262,10 @@ const headers = computed<DataTableHeader[]>(() => {
     }
 
     if (pageWidth.value <= 780) {
-        const index = hdrs.findIndex((el) => el.key === 'createdAt');
-        if (index !== -1) hdrs.splice(index, 1);
+        ['since', 'versioning'].forEach((key) => {
+            const index = hdrs.findIndex((el) => el.key === key);
+            if (index !== -1) hdrs.splice(index, 1);
+        });
     }
 
     return hdrs;
@@ -319,11 +345,25 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
     case 'segmentCount':
         items.sort((a, b) => option.order === 'asc' ? a.segmentCount - b.segmentCount : b.segmentCount - a.segmentCount);
         break;
+    case 'versioning':
+        items.sort((a, b) => option.order === 'asc' ? a.versioning.localeCompare(b.versioning) : b.versioning.localeCompare(a.versioning));
+        break;
     case 'since':
         items.sort((a, b) => option.order === 'asc' ? a.since.getTime() - b.since.getTime() : b.since.getTime() - a.since.getTime());
         break;
     default:
         items.sort((a, b) => option.order === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+    }
+}
+
+/**
+ * Returns helper info based on versioning status.
+ */
+function getVersioningInfo(status: Versioning): string {
+    if (status === Versioning.Enabled) {
+        return 'Version history saved for all files.';
+    } else {
+        return 'Version history is not saved for all files.';
     }
 }
 
