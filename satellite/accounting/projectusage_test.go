@@ -30,11 +30,13 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	satbuckets "storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	snorders "storj.io/storj/storagenode/orders"
 	"storj.io/uplink"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -515,6 +517,11 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			numBuckets     = 5
@@ -791,6 +798,46 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(0), bucketsPage.CurrentPage)
 			assert.Equal(t, uint(0), bucketsPage.PageCount)
 			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
+		})
+
+		t.Run("enable/suspend versioning", func(t *testing.T) {
+			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
+			require.NoError(t, err)
+
+			for _, bucket := range buckets {
+				err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+					Name:       []byte(bucket),
+					Versioning: true,
+				})
+				require.NoError(t, err)
+			}
+
+			cursor := accounting.BucketUsageCursor{Limit: 20, Page: 1}
+
+			totals, err := usageRollups.GetBucketTotals(ctx, project1, cursor, now)
+			require.NoError(t, err)
+			require.NotNil(t, totals)
+			require.NotZero(t, len(totals.BucketUsages))
+
+			for _, usage := range totals.BucketUsages {
+				require.Equal(t, satbuckets.VersioningEnabled, usage.Versioning)
+			}
+
+			for _, bucket := range buckets {
+				err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+					Name:       []byte(bucket),
+					Versioning: false,
+				})
+				require.NoError(t, err)
+			}
+
+			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, now)
+			require.NoError(t, err)
+			require.NotNil(t, totals)
+
+			for _, usage := range totals.BucketUsages {
+				require.Equal(t, satbuckets.VersioningSuspended, usage.Versioning)
+			}
 		})
 	})
 }
