@@ -4,7 +4,7 @@
 <template>
     <v-app>
         <auth-bar />
-        <default-view class="signup-background"/>
+        <default-view class="signup-background" />
     </v-app>
 </template>
 

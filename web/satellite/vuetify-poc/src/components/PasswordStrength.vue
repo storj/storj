@@ -12,7 +12,7 @@
         <v-card-item>
             <p class="font-weight-bold mt-1 mb-3">Password strength</p>
             <p class="text-body-2 font-weight-bold mb-2" :style="strengthLabelColor">{{ passwordStrength }}</p>
-            <v-progress-linear :model-value="barWidth" :color="passwordStrengthColor" rounded="lg"/>
+            <v-progress-linear :model-value="barWidth" :color="passwordStrengthColor" rounded="lg" />
         </v-card-item>
         <v-card-item>
             <p class="text-body-2">Your password should contain:</p>
@@ -23,9 +23,9 @@
                 color="success"
                 density="compact"
                 hide-details
-                >
+            >
                 <template #label>
-                   <p class="text-body-2">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
+                    <p class="text-body-2">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
                 </template>
             </v-checkbox>
             <p class="text-body-2 mt-2">Its nice to have:</p>
@@ -36,9 +36,9 @@
                 color="success"
                 density="compact"
                 hide-details
-                >
+            >
                 <template #label>
-                   <p class="text-body-2">Upper and lowercase letters</p>
+                    <p class="text-body-2">Upper and lowercase letters</p>
                 </template>
             </v-checkbox>
             <v-checkbox
@@ -50,7 +50,7 @@
                 hide-details
             >
                 <template #label>
-                   <p class="text-body-2">At least one special character</p>
+                    <p class="text-body-2">At least one special character</p>
                 </template>
             </v-checkbox>
             <p class="text-caption mt-2">

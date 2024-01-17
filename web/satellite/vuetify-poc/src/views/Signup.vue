@@ -187,28 +187,28 @@
                 />
             </v-col>
             <template v-if="partner">
-            <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
-                <v-card class="pa-2 pa-sm-7 h-100 no-position">
-                    <v-card-item>
-                        <v-card-title class="text-wrap">
-                            {{ viewConfig.title }}
-                        </v-card-title>
-                        <v-card-subtitle class="text-wrap">
-                            {{ viewConfig.description }}
-                        </v-card-subtitle>
-                    </v-card-item>
-                    <v-card-text>
-                        <!-- eslint-disable-next-line vue/no-v-html -->
-                        <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
-                        <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
-                            <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
-                        </a>
-                        <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
-                            <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
-                        </a>
-                    </v-card-text>
-                </v-card>
-            </v-col>
+                <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
+                    <v-card class="pa-2 pa-sm-7 h-100 no-position">
+                        <v-card-item>
+                            <v-card-title class="text-wrap">
+                                {{ viewConfig.title }}
+                            </v-card-title>
+                            <v-card-subtitle class="text-wrap">
+                                {{ viewConfig.description }}
+                            </v-card-subtitle>
+                        </v-card-item>
+                        <v-card-text>
+                            <!-- eslint-disable-next-line vue/no-v-html -->
+                            <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
+                            <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
+                                <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
+                            </a>
+                            <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
+                                <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
+                            </a>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
             </template>
             <template v-else>
                 <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
@@ -227,7 +227,7 @@
                             <p class="text-body-2">
                                 80% lower cost than competing storage solutions.
                             </p>
-                            
+
                             <p class="text-subtitle-2 mt-4">
                                 Best Performance
                             </p>
@@ -553,7 +553,7 @@ onBeforeMount(async () => {
             }
         } catch (e) {
         // Handle errors, such as a missing configuration file
-        notify.error('No configuration file for registration page.');
+            notify.error('No configuration file for registration page.');
         }
     }
 });
