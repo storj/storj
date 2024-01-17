@@ -52,7 +52,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !chore.service.Checked() {
-		_, err = chore.service.CheckVersion(ctx)
+		_, err = chore.checkVersion(ctx)
 		if err != nil {
 			return err
 		}
@@ -62,7 +62,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	chore.version.init(currentVer)
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		suggested, err := chore.service.CheckVersion(ctx)
+		suggested, err := chore.checkVersion(ctx)
 		if err != nil {
 			return err
 		}
@@ -101,6 +101,19 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		return nil
 	})
+}
+
+// checkVersion checks to make sure the node version is still relevant and returns the suggested
+// version. If the node is running below the minimum version, it logs the error but returns
+// a nil error to avoid crashing the node.
+func (chore *Chore) checkVersion(ctx context.Context) (version.SemVer, error) {
+	latest, err := chore.service.CheckVersion(ctx)
+	if err != nil && checker.ErrOutdatedVersion.Has(err) {
+		chore.log.Error("outdated software version", zap.Error(err))
+		return latest, nil
+	}
+
+	return latest, err
 }
 
 func (chore *Chore) checkRelevance(ctx context.Context, suggested version.SemVer, current version.SemVer) error {
