@@ -27,7 +27,7 @@
                     <v-list class="pa-1">
                         <v-list-item rounded="lg" :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
-                                <IconFile size="16"/>
+                                <IconFile size="16" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-2">
                                 Upload Files
