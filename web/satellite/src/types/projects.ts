@@ -126,6 +126,8 @@ export class Project {
         public isSelected: boolean = false,
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
+        public storageUsed: number = 0,
+        public bandwidthUsed: number = 0,
     ) {}
 
     /**

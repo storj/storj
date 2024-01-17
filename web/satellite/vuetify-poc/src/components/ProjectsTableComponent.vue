@@ -171,6 +171,8 @@ const headers = [
     { title: 'Project', key: 'name', align: 'start' },
     { title: 'Role', key: 'role' },
     { title: 'Members', key: 'memberCount' },
+    { title: 'Storage', key: 'storageUsed', sortable: false },
+    { title: 'Bandwidth', key: 'bandwidthUsed', sortable: false },
     { title: 'Date Added', key: 'createdAt' },
     { title: 'Actions', key: 'actions', sortable: false, width: '0' },
 ];
