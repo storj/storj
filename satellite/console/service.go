@@ -1729,18 +1729,28 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 		return nil, Error.Wrap(err)
 	}
 
+	for i, project := range ps {
+		project.StorageUsed, project.BandwidthUsed, err = s.getStorageAndBandwidthUse(ctx, project.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		ps[i] = project
+	}
+
 	return
 }
 
 // GetMinimalProject returns a ProjectInfo copy of a project.
 func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 	info := ProjectInfo{
-		ID:          project.PublicID,
-		Name:        project.Name,
-		OwnerID:     project.OwnerID,
-		Description: project.Description,
-		MemberCount: project.MemberCount,
-		CreatedAt:   project.CreatedAt,
+		ID:            project.PublicID,
+		Name:          project.Name,
+		OwnerID:       project.OwnerID,
+		Description:   project.Description,
+		MemberCount:   project.MemberCount,
+		CreatedAt:     project.CreatedAt,
+		StorageUsed:   project.StorageUsed,
+		BandwidthUsed: project.BandwidthUsed,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {
@@ -3074,6 +3084,23 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 		StorageUsed:    totalStorageUsed,
 		BandwidthUsed:  totalBandwidthUsed,
 	}, nil
+}
+
+func (s *Service) getStorageAndBandwidthUse(ctx context.Context, projectID uuid.UUID) (storage, bandwidth int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	storage, err = s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	now := s.nowFn()
+	bandwidth, err = s.projectUsage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return storage, bandwidth, nil
 }
 
 func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, getBandwidthTotals bool) (_ *ProjectUsageLimits, err error) {
