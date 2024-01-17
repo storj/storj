@@ -49,14 +49,24 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "SignupConfirmation" */ '@poc/views/SignupConfirmation.vue'),
             },
             {
-                path: '/password-reset',
-                name: 'Password Reset',
-                component: () => import(/* webpackChunkName: "PasswordReset" */ '@poc/views/PasswordReset.vue'),
+                path: '/forgot-password',
+                name: 'Forgot Password',
+                component: () => import(/* webpackChunkName: "ForgotPassword" */ '@poc/views/ForgotPassword.vue'),
             },
             {
                 path: '/password-reset-confirmation',
                 name: 'Password Reset Confirmation',
                 component: () => import(/* webpackChunkName: "PasswordResetConfirmation" */ '@poc/views/PasswordResetConfirmation.vue'),
+            },
+            {
+                path: '/password-recovery',
+                name: 'Password Recovery',
+                component: () => import(/* webpackChunkName: "PasswordRecovery" */ '@poc/views/PasswordRecovery.vue'),
+            },
+            {
+                path: '/activate',
+                name: 'Activate Account',
+                component: () => import(/* webpackChunkName: "ActivateAccountRequest" */ '@poc/views/ActivateAccountRequest.vue'),
             },
             {
                 path: '/password-reset-new',

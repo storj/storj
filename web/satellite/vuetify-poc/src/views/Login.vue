@@ -132,7 +132,7 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link" to="/password-reset">Reset password</router-link></p>
+                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link" to="/forgot-password">Reset password</router-link></p>
                 <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link" to="/signup">Sign Up</router-link></p>
             </v-col>
         </v-row>

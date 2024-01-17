@@ -1,13 +1,28 @@
-// Copyright (C) 2023 Storj Labs, Inc.
+// Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <v-container class="fill-height">
-        <v-row align="top" justify="center">
+        <v-row justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card title="Did you forgot your password?" class="pa-2 pa-sm-7">
+                <v-card title="Verify Account" class="pa-2 pa-sm-7">
+                    <v-card-item>
+                        <v-alert
+                            v-if="isActivationExpired"
+                            variant="tonal"
+                            color="error"
+                            rounded="lg"
+                            density="comfortable"
+                            border
+                            closable
+                        >
+                            <template #text>
+                                The verification link you clicked on has expired. Request a new link.
+                            </template>
+                        </v-alert>
+                    </v-card-item>
                     <v-card-text>
-                        <p>Select your account satellite, enter your email address, and we will send you a password reset link.</p>
+                        <p>If you haven’t verified your account yet, input your email to receive a new verification link. Make sure you’re signing on the right satellite.</p>
                         <v-form v-model="formValid" class="pt-4" @submit.prevent>
                             <v-select
                                 v-model="satellite"
@@ -44,10 +59,11 @@
                                 color="primary"
                                 size="large"
                                 block
-                                :disabled="isLoading || !formValid"
-                                @click="onPasswordReset"
+                                :loading="isLoading"
+                                :disabled="!formValid"
+                                @click="onActivateClick"
                             >
-                                Request Password Reset
+                                Get Activation Link
                             </v-btn>
                         </v-form>
                     </v-card-text>
@@ -59,11 +75,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
+    VAlert,
     VBtn,
-    VCard,
+    VCard, VCardItem,
     VCardText,
     VCol,
     VContainer,
@@ -81,13 +98,21 @@ import { useNotify } from '@/utils/hooks';
 import { AuthHttpApi } from '@/api/auth';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 
+const auth: AuthHttpApi = new AuthHttpApi();
 const configStore = useConfigStore();
 
+const route = useRoute();
 const router = useRouter();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
-const auth: AuthHttpApi = new AuthHttpApi();
+const email = ref<string>('');
+const isActivationExpired = ref<boolean>(false);
+const formValid = ref<boolean>(false);
+const captchaResponseToken = ref<string>('');
+
+const captcha = ref<VueHcaptcha>();
+
 const satellitesHints = [
     { satellite: 'US1', hint: 'Recommended for North and South America' },
     { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
@@ -97,11 +122,6 @@ const emailRules: ValidationRule<string>[] = [
     RequiredRule,
     EmailRule,
 ];
-
-const formValid = ref<boolean>(false);
-const email = ref('');
-const captcha = ref<VueHcaptcha>();
-const captchaResponseToken = ref<string>('');
 
 /**
  * This component's captcha configuration.
@@ -123,7 +143,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + configStore.optionalV2Path + '/password-reset';
+            window.location.href = satellite.address + configStore.optionalV2Path + '/forgot-password';
         }
     },
 });
@@ -140,34 +160,11 @@ const satellites = computed(() => {
 });
 
 /**
- * Sends recovery password email.
- */
-async function onPasswordReset(): Promise<void> {
-    if (captcha.value && !captchaResponseToken.value) {
-        captcha.value.execute();
-        return;
-    }
-
-    await withLoading(async () => {
-        try {
-            await auth.forgotPassword(email.value, captchaResponseToken.value);
-            notify.success('Please look for instructions in your email');
-            router.push('/password-reset-confirmation');
-        } catch (error) {
-            notify.notifyError(error);
-        }
-    });
-
-    captcha.value?.reset();
-    captchaResponseToken.value = '';
-}
-
-/**
  * Handles captcha verification response.
  */
 function onCaptchaVerified(response: string): void {
     captchaResponseToken.value = response;
-    onPasswordReset();
+    onActivateClick();
 }
 
 /**
@@ -177,4 +174,33 @@ function onCaptchaError(): void {
     captchaResponseToken.value = '';
     notify.error('The captcha encountered an error. Please try again.', null);
 }
+
+/**
+ * onActivateClick validates input fields and requests resending of activation email.
+ */
+async function onActivateClick(): Promise<void> {
+    if (!formValid.value) {
+        return;
+    }
+    if (captcha.value && !captchaResponseToken.value) {
+        captcha.value.execute();
+        return;
+    }
+
+    await withLoading(async () => {
+        try {
+            await auth.resendEmail(email.value);
+            notify.success('Activation link sent');
+            router.push(`/signup-confirmation?email=${encodeURIComponent(email.value)}`);
+        } catch (error) {
+            notify.notifyError(error);
+        }
+    });
+    captcha.value?.reset();
+    captchaResponseToken.value = '';
+}
+
+onMounted((): void => {
+    isActivationExpired.value = route.query.expired === 'true';
+});
 </script>

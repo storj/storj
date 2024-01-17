@@ -15,7 +15,7 @@
                 </v-card>
                 <p class="pt-6 text-center text-body-2">Didn't get the password reset email?</p>
                 <p class="text-center text-body-2">Make sure you selected the correct satellite.</p>
-                <p class="text-center text-body-2">Go back to <router-link class="link" to="/password-reset">password reset</router-link>.</p>
+                <p class="text-center text-body-2">Go back to <router-link class="link" to="/forgot-password">password reset</router-link>.</p>
                 <p class="pt-6 text-center text-body-2">Still having problems? <a class="link" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
             </v-col>
         </v-row>

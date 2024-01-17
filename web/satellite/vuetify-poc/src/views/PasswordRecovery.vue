@@ -1,0 +1,195 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+<template>
+    <v-container class="fill-height">
+        <v-row justify="center">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+                <v-card v-if="!isMFARequired" title="Reset Password" subtitle="Please enter your new password." rounded="xlg" class="pa-2 pa-sm-7 overflow-visible">
+                    <v-card-text>
+                        <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
+                            <div class="pos-relative">
+                                <v-text-field
+                                    id="Password"
+                                    v-model="password"
+                                    class="mb-2"
+                                    label="Password"
+                                    placeholder="Enter a password"
+                                    color="secondary"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    :rules="passwordRules"
+                                    @update:focused="showPasswordStrength = !showPasswordStrength"
+                                >
+                                    <template #append-inner>
+                                        <password-input-eye-icons
+                                            :is-visible="showPassword"
+                                            type="password"
+                                            @toggleVisibility="showPassword = !showPassword"
+                                        />
+                                    </template>
+                                </v-text-field>
+                                <password-strength
+                                    v-if="showPasswordStrength"
+                                    :password="password"
+                                />
+                            </div>
+
+                            <v-text-field
+                                id="Retype Password"
+                                ref="repPasswordField"
+                                v-model="repPassword"
+                                label="Retype password"
+                                placeholder="Enter a password"
+                                color="secondary"
+                                :type="showPassword ? 'text' : 'password'"
+                                :rules="repeatPasswordRules"
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="showPassword"
+                                        type="password"
+                                        @toggleVisibility="showPassword = !showPassword"
+                                    />
+                                </template>
+                            </v-text-field>
+
+                            <v-btn
+                                color="primary"
+                                size="large"
+                                block
+                                :loading="isLoading"
+                                @click="onResetClick"
+                            >
+                                Reset Password
+                            </v-btn>
+                        </v-form>
+                    </v-card-text>
+                </v-card>
+                <login2-f-a
+                    v-else
+                    v-model="useOTP"
+                    v-model:error="isMFAError"
+                    v-model:otp="passcode"
+                    v-model:recovery="recoveryCode"
+                    :loading="isLoading"
+                    @verify="onResetClick"
+                />
+                <p class="mt-5 text-center text-body-2"><router-link class="link" to="/login">Back to login</router-link></p>
+            </v-col>
+        </v-row>
+    </v-container>
+</template>
+
+<script setup lang="ts">
+import { VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VTextField } from 'vuetify/components';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
+import { useConfigStore } from '@/store/modules/configStore';
+import { RequiredRule, ValidationRule } from '@poc/types/common';
+import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
+import { RouteConfig } from '@/types/router';
+import { AuthHttpApi } from '@/api/auth';
+import { useNotify } from '@/utils/hooks';
+import { useLoading } from '@/composables/useLoading';
+
+import Login2FA from '@poc/views/Login2FA.vue';
+import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
+import PasswordStrength from '@poc/components/PasswordStrength.vue';
+
+const auth: AuthHttpApi = new AuthHttpApi();
+
+const configStore = useConfigStore();
+const router = useRouter();
+const route = useRoute();
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
+
+const showPassword = ref(false);
+const showPasswordStrength = ref(false);
+const useOTP = ref(true);
+const isMFARequired = ref(false);
+const isMFAError = ref(false);
+const formValid = ref<boolean>(false);
+
+const password = ref('');
+const repPassword = ref('');
+const passcode = ref('');
+const recoveryCode = ref('');
+const token = ref<string>('');
+
+const form = ref<VForm | null>(null);
+const repPasswordField = ref<VTextField | null>(null);
+
+const passwordRules: ValidationRule<string>[] = [
+    RequiredRule,
+];
+
+const repeatPasswordRules = computed<ValidationRule<string>[]>(() => [
+    ...passwordRules,
+    (value: string) => {
+        if (password.value !== value) {
+            return 'Passwords do not match';
+        }
+        return true;
+    },
+]);
+
+/**
+ * Validates input fields and requests password reset.
+ */
+function onResetClick(): void {
+    form.value?.validate();
+    if (!formValid.value) {
+        return;
+    }
+
+    withLoading(async () => {
+        try {
+            await auth.resetPassword(token.value, password.value, passcode.value.trim(), recoveryCode.value.trim());
+            notify.success('Password reset successfully');
+            router.push('/login');
+        } catch (error) {
+            isLoading.value = false;
+
+            if (error instanceof ErrorMFARequired) {
+                if (isMFARequired.value) isMFAError.value = true;
+                isMFARequired.value = true;
+                return;
+            }
+
+            if (error instanceof ErrorTokenExpired) {
+                await router.push('/forgot-password?expired=true');
+                return;
+            }
+
+            if (isMFARequired.value) {
+                isMFAError.value = true;
+                return;
+            }
+
+            notify.notifyError(error);
+        }
+    });
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Initializes recovery token from route param
+ * and redirects to login page if token doesn't exist.
+ */
+onMounted(() => {
+    if (route.query.token) {
+        token.value = route.query.token.toString();
+    } else {
+        router.push(RouteConfig.Login.path);
+    }
+});
+
+watch(password, () => {
+    if (repPassword.value) {
+        repPasswordField.value?.validate();
+    }
+});
+</script>
