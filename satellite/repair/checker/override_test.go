@@ -33,11 +33,6 @@ func TestRepairOverrideConfigValidation(t *testing.T) {
 			size:           1,
 		},
 		{
-			description:    "invalid repair override config - numbers decrease",
-			overrideConfig: "1/5/4-3",
-			expectError:    true,
-		},
-		{
 			description:    "invalid repair override config - starts at 0",
 			overrideConfig: "0/5/6-3",
 			expectError:    true,
@@ -45,16 +40,6 @@ func TestRepairOverrideConfigValidation(t *testing.T) {
 		{
 			description:    "invalid repair override config - strings",
 			overrideConfig: "1/2/4-a",
-			expectError:    true,
-		},
-		{
-			description:    "invalid repair override config - strings",
-			overrideConfig: "1/b/4-3",
-			expectError:    true,
-		},
-		{
-			description:    "invalid repair override config - floating point numbers",
-			overrideConfig: "2/3.2/4-3",
 			expectError:    true,
 		},
 		{
@@ -68,18 +53,8 @@ func TestRepairOverrideConfigValidation(t *testing.T) {
 			expectError:    true,
 		},
 		{
-			description:    "invalid repair override config - not enough rs numbers",
-			overrideConfig: "1/6-3",
-			expectError:    true,
-		},
-		{
 			description:    "invalid repair override config - override < min",
 			overrideConfig: "2/5/20-1",
-			expectError:    true,
-		},
-		{
-			description:    "invalid repair override config - override >= optimal",
-			overrideConfig: "2/5/20-5",
 			expectError:    true,
 		},
 		{
@@ -102,10 +77,10 @@ func TestRepairOverrideConfigValidation(t *testing.T) {
 		newOverrides := checker.RepairOverrides{}
 		err := newOverrides.Set(tt.overrideConfig)
 		if tt.expectError {
-			require.Error(t, err)
+			require.Error(t, err, tt.description)
 		} else {
 			require.NoError(t, err)
-			require.Len(t, newOverrides.List, tt.size)
+			require.Len(t, newOverrides.Values, tt.size)
 		}
 
 	}
@@ -143,7 +118,7 @@ func TestRepairOverride(t *testing.T) {
 		pbSchemes = append(pbSchemes, newPB)
 	}
 
-	ro := newOverrides.GetMap()
+	ro := newOverrides
 	require.EqualValues(t, 25, ro.GetOverrideValue(storjSchemes[0]))
 	require.EqualValues(t, 25, ro.GetOverrideValuePB(pbSchemes[0]))
 
