@@ -24,6 +24,7 @@ import (
 	"storj.io/private/dbutil/pgxutil"
 	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/accounting"
+	satbuckets "storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -893,7 +894,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	bucketsQuery := db.db.Rebind(`SELECT name, created_at FROM bucket_metainfos
+	bucketsQuery := db.db.Rebind(`SELECT name, versioning, created_at FROM bucket_metainfos
 	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
@@ -912,22 +913,27 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 
 	type bucketWithCreationDate struct {
-		name      string
-		createdAt time.Time
+		name       string
+		versioning satbuckets.Versioning
+		createdAt  time.Time
 	}
 
 	var buckets []bucketWithCreationDate
 	for bucketRows.Next() {
-		var bucket string
-		var createdAt time.Time
-		err = bucketRows.Scan(&bucket, &createdAt)
+		var (
+			bucket     string
+			versioning satbuckets.Versioning
+			createdAt  time.Time
+		)
+		err = bucketRows.Scan(&bucket, &versioning, &createdAt)
 		if err != nil {
 			return nil, err
 		}
 
 		buckets = append(buckets, bucketWithCreationDate{
-			name:      bucket,
-			createdAt: createdAt,
+			name:       bucket,
+			versioning: versioning,
+			createdAt:  createdAt,
 		})
 	}
 	if err := bucketRows.Err(); err != nil {
@@ -949,6 +955,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		bucketUsage := accounting.BucketUsage{
 			ProjectID:  projectID,
 			BucketName: bucket.name,
+			Versioning: bucket.versioning,
 			Since:      bucket.createdAt,
 			Before:     before,
 		}

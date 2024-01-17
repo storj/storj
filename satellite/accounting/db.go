@@ -11,6 +11,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -114,6 +115,8 @@ type ProjectUsageByDay struct {
 type BucketUsage struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
+
+	Versioning buckets.Versioning `json:"versioning"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`
