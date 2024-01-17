@@ -211,6 +211,10 @@ body {
   width: 100%;
 }
 
+.snackbar-multiple .v-snackbar__wrapper {
+  border: 1px solid #a9b0b939;
+}
+
 // Table Headers
 .v-data-table-header__content {
   text-transform: uppercase;
