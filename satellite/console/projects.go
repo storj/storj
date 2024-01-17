@@ -117,7 +117,9 @@ type Project struct {
 	CreatedAt                   time.Time                 `json:"createdAt"`
 	MemberCount                 int                       `json:"memberCount"`
 	StorageLimit                *memory.Size              `json:"storageLimit"`
+	StorageUsed                 int64                     `json:"-"`
 	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
+	BandwidthUsed               int64                     `json:"-"`
 	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
 	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
 	SegmentLimit                *int64                    `json:"segmentLimit"`
@@ -143,6 +145,8 @@ type ProjectInfo struct {
 	MemberCount      int               `json:"memberCount"`
 	CreatedAt        time.Time         `json:"createdAt"`
 	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
+	StorageUsed      int64             `json:"storageUsed"`
+	BandwidthUsed    int64             `json:"bandwidthUsed"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.

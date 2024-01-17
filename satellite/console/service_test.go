@@ -46,7 +46,7 @@ import (
 
 func TestService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -62,6 +62,10 @@ func TestService(t *testing.T) {
 			up2Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[1].Projects[0].ID)
 			require.NoError(t, err)
 
+			uplink3 := planet.Uplinks[2]
+			up3Proj, err := sat.API.DB.Console().Projects().Get(ctx, uplink3.Projects[0].ID)
+			require.NoError(t, err)
+
 			require.NotEqual(t, up1Proj.ID, up2Proj.ID)
 			require.NotEqual(t, up1Proj.OwnerID, up2Proj.OwnerID)
 
@@ -69,6 +73,9 @@ func TestService(t *testing.T) {
 			require.NoError(t, err)
 
 			userCtx2, err := sat.UserContext(ctx, up2Proj.OwnerID)
+			require.NoError(t, err)
+
+			userCtx3, err := sat.UserContext(ctx, up3Proj.OwnerID)
 			require.NoError(t, err)
 
 			getOwnerAndCtx := func(ctx context.Context, proj *console.Project) (user *console.User, userCtx context.Context) {
@@ -89,6 +96,39 @@ func TestService(t *testing.T) {
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, project)
+			})
+
+			t.Run("GetUsersProjects", func(t *testing.T) {
+				projects, err := service.GetUsersProjects(userCtx3)
+				require.NoError(t, err)
+				require.Len(t, projects, 1)
+				require.Equal(t, up3Proj.ID, projects[0].ID)
+				require.Zero(t, projects[0].BandwidthUsed)
+				require.Zero(t, projects[0].StorageUsed)
+
+				bucket := "testbucket1"
+				require.NoError(t, uplink3.CreateBucket(userCtx3, sat, bucket))
+
+				settledAmount := int64(2000)
+				now := time.Now().UTC()
+				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up3Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
+				require.NoError(t, err)
+
+				sat.API.Accounting.ProjectUsage.TestSetAsOfSystemInterval(0)
+
+				data := testrand.Bytes(50 * memory.KiB)
+
+				require.NoError(t, uplink3.Upload(ctx, sat, bucket, "1", data))
+
+				segments, err := sat.Metabase.DB.TestingAllSegments(userCtx3)
+				require.NoError(t, err)
+
+				projects, err = service.GetUsersProjects(userCtx3)
+				require.NoError(t, err)
+				require.Equal(t, settledAmount, projects[0].BandwidthUsed)
+				require.EqualValues(t, segments[0].EncryptedSize, projects[0].StorageUsed)
 			})
 
 			t.Run("GetSalt", func(t *testing.T) {
