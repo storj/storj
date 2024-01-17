@@ -577,6 +577,9 @@ contact.external-address: ""
 # the initial number of pieces expected for a storage node to have, used for creating a filter
 # garbage-collection-bf.initial-pieces: 400000
 
+# maximum size of a single bloom filter
+# garbage-collection-bf.max-bloom-filter-size: 2.00 MB
+
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
 

@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/bloomfilter"
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/overlay"
@@ -207,7 +206,7 @@ func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 			return
 		}
 
-		hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, fork.config.FalsePositiveRate, 2*memory.MiB)
+		hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, fork.config.FalsePositiveRate, fork.config.MaxBloomFilterSize)
 		// limit size of bloom filter to ensure we are under the limit for RPC
 		filter := bloomfilter.NewExplicit(fork.seed, hashCount, tableSize)
 		info = &RetainInfo{
