@@ -211,6 +211,10 @@ body {
   width: 100%;
 }
 
+.snackbar-multiple .v-snackbar__wrapper {
+  border: 1px solid #a9b0b939;
+}
+
 // Table Headers
 .v-data-table-header__content {
   text-transform: uppercase;
@@ -458,4 +462,18 @@ table {
 
 .no-position {
   position: unset !important;
+}
+
+// Login and Signup Background
+.signup-background::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('../assets/bg.svg');
+  background-size: cover;
+  opacity: 0.1;
+  pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
 }

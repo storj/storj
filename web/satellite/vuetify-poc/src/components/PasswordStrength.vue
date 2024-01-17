@@ -9,47 +9,54 @@
         elevation="12"
         variant="elevated"
     >
-        <v-card-title class="pb-1">Password strength</v-card-title>
-        <v-card-subtitle>
-            <template #default>
-                <p :style="strengthLabelColor">{{ passwordStrength }}</p>
-            </template>
-        </v-card-subtitle>
         <v-card-item>
-            <v-progress-linear :model-value="barWidth" :color="passwordStrengthColor" />
+            <p class="font-weight-bold mt-1 mb-3">Password strength</p>
+            <p class="text-body-2 font-weight-bold mb-2" :style="strengthLabelColor">{{ passwordStrength }}</p>
+            <v-progress-linear :model-value="barWidth" :color="passwordStrengthColor" rounded="lg" />
         </v-card-item>
-        <v-card-subtitle>Your password should contain:</v-card-subtitle>
-        <v-card-item class="py-0">
-            <v-radio
+        <v-card-item>
+            <p class="text-body-2">Your password should contain:</p>
+            <v-checkbox
                 tabindex="-1"
-                class="no-pointer-events"
+                class="no-pointer-events text-body-2"
                 :model-value="isPasswordLengthAcceptable"
                 color="success"
-                :label="`Between ${passMinLength} and ${passMaxLength} Latin characters`"
-            />
-        </v-card-item>
-        <v-card-subtitle>Its nice to have:</v-card-subtitle>
-        <v-card-item class="py-0">
-            <v-radio
+                density="compact"
+                hide-details
+            >
+                <template #label>
+                    <p class="text-body-2">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
+                </template>
+            </v-checkbox>
+            <p class="text-body-2 mt-2">Its nice to have:</p>
+            <v-checkbox
                 tabindex="-1"
-                class="no-pointer-events"
+                class="no-pointer-events text-body-2"
                 :model-value="hasLowerAndUpperCaseLetters"
                 color="success"
-                label="Upper & lowercase letters"
-            />
-        </v-card-item>
-        <v-card-item class="py-0">
-            <v-radio
+                density="compact"
+                hide-details
+            >
+                <template #label>
+                    <p class="text-body-2">Upper and lowercase letters</p>
+                </template>
+            </v-checkbox>
+            <v-checkbox
                 tabindex="-1"
-                class="no-pointer-events"
+                class="no-pointer-events text-body-2 mt-n2"
                 :model-value="hasSpecialCharacter"
                 color="success"
-                label="At least one special character"
-            />
+                density="compact"
+                hide-details
+            >
+                <template #label>
+                    <p class="text-body-2">At least one special character</p>
+                </template>
+            </v-checkbox>
+            <p class="text-caption mt-2">
+                Avoid using a password that you use on other websites or that might be easily guessed by someone else.
+            </p>
         </v-card-item>
-        <v-card-text class="pb-2">
-            Avoid using a password that you use on other websites or that might be easily guessed by someone else.
-        </v-card-text>
     </v-card>
 </template>
 
@@ -57,12 +64,10 @@
 import { computed } from 'vue';
 import {
     VCard,
-    VCardTitle,
-    VCardSubtitle,
     VCardItem,
     VCardText,
     VProgressLinear,
-    VRadio,
+    VCheckbox,
 } from 'vuetify/components';
 
 import { useConfigStore } from '@/store/modules/configStore';
@@ -78,8 +83,8 @@ const PASSWORD_STRENGTH = {
 
 const PASSWORD_STRENGTH_COLORS = {
     [PASSWORD_STRENGTH.good]: '#ffa500',
-    [PASSWORD_STRENGTH.strong]: '#aaff00',
-    [PASSWORD_STRENGTH.veryStrong]: '#008000',
+    [PASSWORD_STRENGTH.strong]: '#00AC26',
+    [PASSWORD_STRENGTH.veryStrong]: '#00AC26',
     default: '#ff0000',
 };
 

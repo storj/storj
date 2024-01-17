@@ -103,6 +103,7 @@
         color="surface"
         :model-value="!!selectedFiles.length"
         :timeout="-1"
+        class="snackbar-multiple"
     >
         <v-row align="center" justify="space-between">
             <v-col>

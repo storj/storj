@@ -5,7 +5,7 @@
     <v-container class="fill-height">
         <v-row align="top" justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card v-if="!isMFARequired" title="Login to your Storj account" rounded="xlg" class="pa-2 pa-sm-7">
+                <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" rounded="xlg" class="pa-2 pa-sm-7">
                     <v-card-text>
                         <v-alert
                             v-if="captchaError"

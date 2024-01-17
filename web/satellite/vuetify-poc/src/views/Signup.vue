@@ -3,13 +3,12 @@
 
 <template>
     <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
-    <v-container v-else class="fill-height flex-row justify-center align-center">
-        <v-row align="top" justify="center" class="v-col-12">
+    <v-container v-else class="fill-height">
+        <v-row align="top" justify="center">
             <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
-                <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7 overflow-visible">
-                    <v-card-item>
+                <v-card title="Create your Storj account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7 overflow-visible">
+                    <v-card-item v-if="isInvited">
                         <v-alert
-                            v-if="isInvited"
                             variant="tonal"
                             color="info"
                             rounded="lg"
@@ -147,7 +146,7 @@
                             <v-checkbox
                                 id="Terms checkbox"
                                 v-model="acceptedTerms"
-                                class="mb-2"
+                                class="mb-5"
                                 :rules="[RequiredRule]"
                                 density="compact"
                                 hide-details="auto"
@@ -170,7 +169,7 @@
                                 block
                                 @click="onSignupClick"
                             >
-                                {{ viewConfig?.signupButtonLabel ?? 'Create your account' }}
+                                Create your account
                             </v-btn>
                         </v-form>
                     </v-card-text>
@@ -187,28 +186,72 @@
                     @error="onCaptchaError"
                 />
             </v-col>
-            <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5">
-                <v-card variant="flat" class="pa-2 pa-sm-7 h-100 no-position">
-                    <v-card-item>
-                        <v-card-title class="text-wrap">
-                            {{ viewConfig.title }}
-                        </v-card-title>
-                        <v-card-subtitle class="text-wrap">
-                            {{ viewConfig.description }}
-                        </v-card-subtitle>
-                    </v-card-item>
-                    <v-card-text>
-                        <!-- eslint-disable-next-line vue/no-v-html -->
-                        <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
-                        <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
-                            <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
-                        </a>
-                        <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
-                            <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
-                        </a>
-                    </v-card-text>
-                </v-card>
-            </v-col>
+            <template v-if="partner">
+                <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
+                    <v-card class="pa-2 pa-sm-7 h-100 no-position">
+                        <v-card-item>
+                            <v-card-title class="text-wrap">
+                                {{ viewConfig.title }}
+                            </v-card-title>
+                            <v-card-subtitle class="text-wrap">
+                                {{ viewConfig.description }}
+                            </v-card-subtitle>
+                        </v-card-item>
+                        <v-card-text>
+                            <!-- eslint-disable-next-line vue/no-v-html -->
+                            <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
+                            <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
+                                <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
+                            </a>
+                            <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
+                                <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
+                            </a>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </template>
+            <template v-else>
+                <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
+                    <v-card class="pa-2 pa-sm-7 h-100 no-position">
+                        <v-card-text>
+                            <p class="text-subtitle-2">
+                                Get unparalleled security
+                            </p>
+                            <p class="text-body-2">
+                                Every file is encrypted, split into pieces, then stored across thousands of nodes globally, helping to prevent breaches, ransomware attacks and downtime.
+                            </p>
+
+                            <p class="text-subtitle-2 mt-4">
+                                Cut your cloud costs
+                            </p>
+                            <p class="text-body-2">
+                                80% lower cost than competing storage solutions.
+                            </p>
+
+                            <p class="text-subtitle-2 mt-4">
+                                Best Performance
+                            </p>
+                            <p class="text-body-2">
+                                Get consistent, lightning fast, CDN-like performace globally. Legacy cloud storage simply can't match Storj.
+                            </p>
+
+                            <p class="text-subtitle-2 mt-4">
+                                S3 Compatibility
+                            </p>
+                            <p class="text-body-2">
+                                Storj works with the tools you are already using, with drop-in S3 compatibility for simple integration.
+                            </p>
+
+                            <p class="text-subtitle-2 mt-4">
+                                Sustainability
+                            </p>
+                            <p class="text-body-2">
+                                Dramatically reduce your carbon footprint when you switch to the greenest data storage on earth.
+                            </p>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </template>
         </v-row>
         <v-row justify="center" class="v-col-12">
             <v-col>
@@ -498,11 +541,20 @@ onBeforeMount(async () => {
         signupPromoCode.value = route.query.promo.toString();
     }
 
-    try {
-        const config = (await import('@/views/registration/registrationViewConfig.json')).default;
-        viewConfig.value = partner.value && config[partner.value] ? config[partner.value] : config['default'];
-    } catch (e) {
-        notify.error('No configuration file for registration page.');
+    // If partner.value is true, attempt to load the partner-specific configuration
+    if (partner.value) {
+        try {
+            const config = (await import('@/views/registration/registrationViewConfig.json')).default;
+            viewConfig.value = config[partner.value];
+
+            // Optionally handle the case where there is no configuration for the given partner
+            if (!viewConfig.value) {
+                notify.error('No configuration found for the specified partner.');
+            }
+        } catch (e) {
+        // Handle errors, such as a missing configuration file
+            notify.error('No configuration file for registration page.');
+        }
     }
 });
 

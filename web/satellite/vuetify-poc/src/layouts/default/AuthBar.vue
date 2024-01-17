@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-app-bar :elevation="0">
+    <v-app-bar :elevation="0" border="0">
         <v-app-bar-title class="mr-1">
             <v-img
                 v-if="theme.global.current.value.dark"

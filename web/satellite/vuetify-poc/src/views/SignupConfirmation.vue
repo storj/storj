@@ -6,11 +6,10 @@
         <v-row justify="center" align="center">
             <v-col class="text-center py-5" cols="12">
                 <icon-blue-checkmark />
-                <h2 class="mb-3">You are almost ready to use Storj</h2>
+                <h2 class="my-3">You are almost ready to use Storj</h2>
                 <p>
-                    If an account with the email address
+                    A verification email has been sent to your email
                     <span class="font-weight-bold">{{ userEmail }}</span>
-                    exists, a verification email has been sent.
                 </p>
                 <p>
                     Check your inbox to activate your account and get started.
@@ -26,7 +25,7 @@
                         Resend in {{ timeToEnableResendEmailButton }}
                     </template>
                     <template v-else>
-                        Resend
+                        Resend Verification Email
                     </template>
                 </v-btn>
             </v-col>

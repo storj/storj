@@ -27,7 +27,7 @@
                     <v-list class="pa-1">
                         <v-list-item rounded="lg" :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
-                                <IconFile size="16" class="mr-2" />
+                                <IconFile size="16" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-2">
                                 Upload Files
@@ -38,7 +38,7 @@
 
                         <v-list-item class="mt-1" rounded="lg" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
                             <template #prepend>
-                                <icon-folder />
+                                <icon-folder size="16" bold />
                             </template>
                             <v-list-item-title class="text-body-2 ml-2">
                                 Upload Folders
@@ -74,7 +74,7 @@
                     :disabled="!isInitialized"
                     @click="isNewFolderDialogOpen = true"
                 >
-                    <icon-folder class="mr-2" />
+                    <icon-folder class="mr-2" bold />
                     New Folder
                 </v-btn>
 
