@@ -937,3 +937,8 @@ func (m *mockdb) UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags
 func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
 	panic("implement me")
 }
+
+// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
+func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
+	panic("implement me")
+}

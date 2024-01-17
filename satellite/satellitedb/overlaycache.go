@@ -1719,3 +1719,36 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (no
 	}
 	return tags, err
 }
+
+// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
+func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagNames []string) (lastIPPorts map[storj.NodeID]*string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	lastIPPorts = make(map[storj.NodeID]*string)
+
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id, last_ip_port FROM nodes n
+		JOIN node_tags nt ON n.id = nt.node_id
+		WHERE nt.node_id = any($1::bytea[])
+			AND nt.name = any($2::text[])
+			AND n.last_ip_port != ''
+			AND n.last_ip_port IS NOT NULL;
+	`), pgutil.NodeIDArray(ids), pgutil.TextArray(tagNames))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		var lastIPPort *string
+		err = rows.Scan(&id, &lastIPPort)
+		if err != nil {
+			return nil, err
+		}
+		lastIPPorts[id] = lastIPPort
+	}
+	return lastIPPorts, Error.Wrap(rows.Err())
+}

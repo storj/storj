@@ -143,6 +143,9 @@ type DB interface {
 
 	// GetNodeTags returns all nodes for a specific node.
 	GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error)
+
+	// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
+	GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error)
 }
 
 // DisqualificationReason is disqualification reason enum type.
