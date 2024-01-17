@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"math/rand"
+	"sort"
 	"sync"
 	"testing"
 
@@ -170,6 +171,46 @@ func TestNodeAliases(t *testing.T) {
 					})
 
 					batch = batch[:len(batch)*2/3]
+
+					preparations.Done()
+					preparations.Wait()
+					err := db.EnsureNodeAliases(ctx,
+						metabase.EnsureNodeAliases{Nodes: batch},
+					)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				})
+			}
+			require.NoError(t, group.Wait())
+		})
+
+		t.Run("Stress Concurrent Swapped Order", func(t *testing.T) {
+			// this test is trying to trigger deadlocks by having multiple
+			// inserts in reverse order from each other (this used to be a
+			// problem).
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			nodes := make([]storj.NodeID, 128)
+			for i := range nodes {
+				nodes[i] = testrand.NodeID()
+			}
+
+			var group errgroup.Group
+			const N = 16
+			var preparations sync.WaitGroup
+			preparations.Add(N)
+			for k := 0; k < N; k++ {
+				k := k
+				group.Go(func() error {
+					batch := append([]storj.NodeID{}, nodes...)
+					if k%2 == 0 {
+						sort.Sort(storj.NodeIDList(batch))
+					} else {
+						sort.Sort(sort.Reverse(storj.NodeIDList(batch)))
+					}
 
 					preparations.Done()
 					preparations.Wait()
