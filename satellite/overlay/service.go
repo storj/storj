@@ -465,7 +465,7 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 
 	var successful storj.NodeIDList
 	for id, email := range nodes {
-		_, err = service.nodeEvents.Insert(ctx, email, id, nodeevents.Offline)
+		_, err = service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.Offline)
 		if err != nil {
 			service.log.Error("could not insert node offline into node events", zap.Error(err))
 		} else {
@@ -626,7 +626,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 			node.VersionBelowMin = true
 			if oldInfo.LastSoftwareUpdateEmail == nil ||
 				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(timestamp) {
-				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.BelowMinVersion)
+				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, nil, node.NodeID, nodeevents.BelowMinVersion)
 				if err != nil {
 					service.log.Error("could not insert node software below minimum version into node events", zap.Error(err))
 				} else {
@@ -645,7 +645,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		}
 
 		if service.config.SendNodeEmails && node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
-			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.Online)
+			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, nil, node.NodeID, nodeevents.Online)
 			return Error.Wrap(err)
 		}
 		return nil
@@ -669,7 +669,7 @@ func (service *Service) DQNodesLastSeenBefore(ctx context.Context, cutoff time.T
 	}
 	if service.config.SendNodeEmails {
 		for nodeID, email := range nodes {
-			_, err = service.nodeEvents.Insert(ctx, email, nodeID, nodeevents.Disqualified)
+			_, err = service.nodeEvents.Insert(ctx, email, nil, nodeID, nodeevents.Disqualified)
 			if err != nil {
 				service.log.Error("could not insert node disqualified into node events", zap.Error(err))
 			}
@@ -686,7 +686,7 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID,
 		return err
 	}
 	if service.config.SendNodeEmails {
-		_, err = service.nodeEvents.Insert(ctx, email, nodeID, nodeevents.Disqualified)
+		_, err = service.nodeEvents.Insert(ctx, email, nil, nodeID, nodeevents.Disqualified)
 		if err != nil {
 			service.log.Error("could not insert node disqualified into node events")
 		}
@@ -812,27 +812,27 @@ func (service *Service) insertReputationNodeEvents(ctx context.Context, email st
 	for _, event := range repEvents {
 		switch event {
 		case nodeevents.Disqualified:
-			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.Disqualified)
+			_, err := service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.Disqualified)
 			if err != nil {
 				service.log.Error("could not insert node disqualified into node events", zap.Error(err))
 			}
 		case nodeevents.UnknownAuditSuspended:
-			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.UnknownAuditSuspended)
+			_, err := service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.UnknownAuditSuspended)
 			if err != nil {
 				service.log.Error("could not insert node unknown audit suspended into node events", zap.Error(err))
 			}
 		case nodeevents.UnknownAuditUnsuspended:
-			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.UnknownAuditUnsuspended)
+			_, err := service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.UnknownAuditUnsuspended)
 			if err != nil {
 				service.log.Error("could not insert node unknown audit unsuspended into node events", zap.Error(err))
 			}
 		case nodeevents.OfflineSuspended:
-			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.OfflineSuspended)
+			_, err := service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.OfflineSuspended)
 			if err != nil {
 				service.log.Error("could not insert node offline suspended into node events", zap.Error(err))
 			}
 		case nodeevents.OfflineUnsuspended:
-			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.OfflineUnsuspended)
+			_, err := service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.OfflineUnsuspended)
 			if err != nil {
 				service.log.Error("could not insert node offline unsuspended into node events", zap.Error(err))
 			}
