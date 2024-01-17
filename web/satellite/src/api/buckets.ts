@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketPage, BucketsApi, Versioning } from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
 
@@ -45,6 +45,7 @@ export class BucketsHttpApi implements BucketsApi {
             result.bucketUsages?.map(usage =>
                 new Bucket(
                     usage.bucketName,
+                    this.getVersioning(usage.versioning),
                     usage.storage,
                     usage.egress,
                     usage.objectCount,
@@ -83,5 +84,20 @@ export class BucketsHttpApi implements BucketsApi {
         const result = await response.json();
 
         return result ? result : [];
+    }
+
+    private getVersioning(value: number): Versioning {
+        switch (value) {
+        case 0:
+            return Versioning.NotSupported;
+        case 1:
+            return Versioning.Unversioned;
+        case 2:
+            return Versioning.Enabled;
+        case 3:
+            return Versioning.Suspended;
+        default:
+            return Versioning.NotSupported;
+        }
     }
 }

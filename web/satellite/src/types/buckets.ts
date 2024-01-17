@@ -24,12 +24,20 @@ export interface BucketsApi {
     getAllBucketNames(projectId: string): Promise<string[]>;
 }
 
+export enum Versioning {
+    NotSupported = 'Not Supported',
+    Unversioned = 'Unversioned',
+    Enabled = 'Enabled',
+    Suspended = 'Suspended',
+}
+
 /**
  * Bucket class holds info for Bucket entity.
  */
 export class Bucket {
     public constructor(
         public name: string = '',
+        public versioning: Versioning = Versioning.NotSupported,
         public storage: number = 0,
         public egress: number = 0,
         public objectCount: number = 0,
