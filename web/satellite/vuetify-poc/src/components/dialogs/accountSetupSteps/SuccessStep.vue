@@ -10,7 +10,7 @@
                     Account Complete
                 </p>
                 <h2 class="mb-3">You are now ready to use Storj</h2>
-                <p>Create your first project, and upload files to share with the world.</p>
+                <p class="mb-2">Create your first bucket, and start uploading files.</p>
                 <p>Let us know if you need any help getting started!</p>
                 <v-btn
                     class="mt-7"
