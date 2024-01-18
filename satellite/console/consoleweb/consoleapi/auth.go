@@ -674,29 +674,6 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	a.serveJSONError(ctx, w, errNotImplemented)
 }
 
-// ChangeEmail auth user, changes users email for a new one.
-func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var emailChange struct {
-		NewEmail string `json:"newEmail"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&emailChange)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	err = a.service.ChangeEmail(ctx, emailChange.NewEmail)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-}
-
 // ChangePassword auth user, changes users password for a new one.
 func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
