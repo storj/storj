@@ -209,6 +209,11 @@ const edgeCredentials = computed((): EdgeCredentials => bucketsStore.state.edgeC
 const projectId = computed<string>(() => projectsStore.state.selectedProject.id);
 
 /**
+ * Returns urlID of selected project from store.
+ */
+const projectUrlId = computed<string>(() => projectsStore.state.selectedProject.urlId);
+
+/**
  * Returns whether the user should be prompted to enter the passphrase.
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
@@ -271,7 +276,7 @@ async function upload(e: Event): Promise<void> {
 
 watch(isBucketPassphraseDialogOpen, isOpen => {
     if (isOpen || !isPromptForPassphrase.value) return;
-    router.push(`/projects/${projectId.value}/buckets`);
+    router.push(`/projects/${projectUrlId.value}/buckets`);
     analyticsStore.pageVisit(`/projects/buckets`);
 });
 
@@ -293,7 +298,7 @@ watch(() => route.params.browserPath, browserPath => {
 watch(() => bucketsStore.state.passphrase, async newPass => {
     if (isBucketPassphraseDialogOpen.value) return;
 
-    const bucketsURL = `/projects/${projectId.value}/buckets`;
+    const bucketsURL = `/projects/${projectUrlId.value}/buckets`;
 
     if (!newPass) {
         router.push(bucketsURL);
@@ -330,7 +335,7 @@ onMounted(async () => {
     }
 
     if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
-        router.push(`/projects/${projectId.value}/buckets`);
+        router.push(`/projects/${projectUrlId.value}/buckets`);
         return;
     }
 

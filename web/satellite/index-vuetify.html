@@ -19,9 +19,15 @@
                 border: 4px solid rgb(1,73,255);
                 border-top: 4px solid transparent;
                 border-radius: 50%;
-                width: 50px;
-                height: 50px;
+                width: 90px;
+                height: 90px;
                 animation: spin .7s linear infinite;
+            }
+
+            #pre-app-loader img {
+                position: absolute;
+                inset: 0;
+                margin: auto;
             }
 
             @keyframes spin {
@@ -31,7 +37,10 @@
         </style>
     </head>
     <body>
-        <div id="pre-app-loader"><div></div></div>
+        <div id="pre-app-loader">
+            <div></div>
+            <img alt="loader" src="@/../static/images/common/loadIcon.svg">
+        </div>
         <div id="app"></div>
         <script type="module" src="/vuetify-poc/src/main.ts"></script>
     </body>

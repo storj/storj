@@ -149,7 +149,7 @@ import { EmailRule, RequiredRule, ValidationRule } from '@poc/types/common';
 import { AuthHttpApi } from '@/api/auth';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAppStore } from '@/store/modules/appStore';
+import { useAppStore } from '@poc/store/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { MultiCaptchaConfig } from '@/types/config.gen';
@@ -179,7 +179,7 @@ const showPassword = ref(false);
 const isLoading = ref<boolean>(false);
 const isBadLoginMessageShown = ref<boolean>(false);
 const formValid = ref<boolean>(false);
-const inviteInvalid = ref(true);
+const inviteInvalid = ref(false);
 const isActivatedBannerShown = ref(false);
 const isActivatedError = ref(false);
 const captchaError = ref(false);
@@ -326,6 +326,7 @@ async function login(): Promise<void> {
         return;
     }
 
+    appStore.toggleHasJustLoggedIn(true);
     usersStore.login();
     isLoading.value = false;
 
