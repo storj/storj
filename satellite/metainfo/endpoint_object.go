@@ -1998,6 +1998,10 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
+	if err := validateObjectVersion(req.ObjectVersion); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
 		// TODO we may try to combine those two DB calls into single one
@@ -2022,12 +2026,23 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
+	var version metabase.Version
+	if len(req.ObjectVersion) != 0 {
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+		version = sv.Version()
+	}
+
 	result, err := endpoint.metabase.BeginCopyObject(ctx, metabase.BeginCopyObject{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
+		Version: version,
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},
