@@ -14,7 +14,7 @@ import (
 
 	"github.com/stripe/stripe-go/v75"
 	"github.com/stripe/stripe-go/v75/charge"
-	"github.com/stripe/stripe-go/v75/client"
+	"github.com/stripe/stripe-go/v75/creditnote"
 	"github.com/stripe/stripe-go/v75/customer"
 	"github.com/stripe/stripe-go/v75/customerbalancetransaction"
 	"github.com/stripe/stripe-go/v75/form"
@@ -99,52 +99,54 @@ type CreditNotes interface {
 }
 
 type stripeClient struct {
-	client *client.API
+	// charges is the client used to invoke /charges APIs.
+	charges *charge.Client
+	// creditNotes is the client used to invoke /credit_notes APIs.
+	creditNotes *creditnote.Client
+	// customerBalanceTransactions is the client used to invoke /customers/{customer}/balance_transactions APIs.
+	customerBalanceTransactions *customerbalancetransaction.Client
+	// customers is the client used to invoke /customers APIs.
+	customers *customer.Client
+	// invoiceItems is the client used to invoke /invoiceitems APIs.
+	invoiceItems *invoiceitem.Client
+	// invoices is the client used to invoke /invoices APIs.
+	invoices *invoice.Client
+	// paymentMethods is the client used to invoke /payment_methods APIs.
+	paymentMethods *paymentmethod.Client
+	// promotionCodes is the client used to invoke /promotion_codes APIs.
+	promotionCodes *promotioncode.Client
 }
 
-func (s *stripeClient) Customers() Customers {
-	return s.client.Customers
-}
-
-func (s *stripeClient) PaymentMethods() PaymentMethods {
-	return s.client.PaymentMethods
-}
-
-func (s *stripeClient) Invoices() Invoices {
-	return s.client.Invoices
-}
-
-func (s *stripeClient) InvoiceItems() InvoiceItems {
-	return s.client.InvoiceItems
-}
-
+func (s *stripeClient) Charges() Charges         { return s.charges }
+func (s *stripeClient) CreditNotes() CreditNotes { return s.creditNotes }
 func (s *stripeClient) CustomerBalanceTransactions() CustomerBalanceTransactions {
-	return s.client.CustomerBalanceTransactions
+	return s.customerBalanceTransactions
 }
-
-func (s *stripeClient) Charges() Charges {
-	return s.client.Charges
-}
-
-func (s *stripeClient) PromoCodes() PromoCodes {
-	return s.client.PromotionCodes
-}
-
-func (s *stripeClient) CreditNotes() CreditNotes {
-	return s.client.CreditNotes
-}
+func (s *stripeClient) Customers() Customers           { return s.customers }
+func (s *stripeClient) InvoiceItems() InvoiceItems     { return s.invoiceItems }
+func (s *stripeClient) Invoices() Invoices             { return s.invoices }
+func (s *stripeClient) PaymentMethods() PaymentMethods { return s.paymentMethods }
+func (s *stripeClient) PromoCodes() PromoCodes         { return s.promotionCodes }
 
 // NewStripeClient creates Stripe client from configuration.
 func NewStripeClient(log *zap.Logger, config Config) Client {
-	sClient := client.New(config.StripeSecretKey,
-		&stripe.Backends{
-			API:     NewBackendWrapper(log, stripe.APIBackend, config.Retries),
-			Connect: NewBackendWrapper(log, stripe.ConnectBackend, config.Retries),
-			Uploads: NewBackendWrapper(log, stripe.UploadsBackend, config.Retries),
-		},
-	)
+	key := config.StripeSecretKey
+	backends := &stripe.Backends{
+		API:     NewBackendWrapper(log, stripe.APIBackend, config.Retries),
+		Connect: NewBackendWrapper(log, stripe.ConnectBackend, config.Retries),
+		Uploads: NewBackendWrapper(log, stripe.UploadsBackend, config.Retries),
+	}
 
-	return &stripeClient{client: sClient}
+	return &stripeClient{
+		charges:                     &charge.Client{B: backends.API, Key: key},
+		creditNotes:                 &creditnote.Client{B: backends.API, Key: key},
+		customerBalanceTransactions: &customerbalancetransaction.Client{B: backends.API, Key: key},
+		customers:                   &customer.Client{B: backends.API, Key: key},
+		invoiceItems:                &invoiceitem.Client{B: backends.API, Key: key},
+		invoices:                    &invoice.Client{B: backends.API, Key: key},
+		paymentMethods:              &paymentmethod.Client{B: backends.API, Key: key},
+		promotionCodes:              &promotioncode.Client{B: backends.API, Key: key},
+	}
 }
 
 // RetryConfig contains the configuration for an exponential backoff strategy when retrying Stripe API calls.
