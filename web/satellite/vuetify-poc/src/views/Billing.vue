@@ -371,11 +371,10 @@ onBeforeMount(() => {
 
 onMounted(async () => {
     withLoading(async () => {
-        const promises: Promise<void | Project[] | AccountBalance | CreditCard[]>[] = [
+        const promises: Promise<void | AccountBalance | CreditCard[]>[] = [
             billingStore.getBalance(),
             billingStore.getCoupon(),
             billingStore.getCreditCards(),
-            projectsStore.getProjects(),
             billingStore.getProjectUsagePriceModel(),
         ];
 

@@ -264,11 +264,7 @@ function toggleTheme(newTheme: string): void {
 
 watch(() => theme.global.current.value.dark, (newVal: boolean) => {
     activeTheme.value = newVal ? 1 : 0;
-});
-
-// Check for stored theme in localStorage. If none, default to 'light'
-toggleTheme(localStorage.getItem('theme') || 'light');
-activeTheme.value = theme.global.current.value.dark ? 1 : 0;
+}, { immediate: true });
 
 function closeSideNav(): void {
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
