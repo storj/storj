@@ -14,7 +14,6 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
-	"net/mail"
 	"sort"
 	"strconv"
 	"strings"
@@ -1585,37 +1584,6 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 		onboardingFields.Type = analytics.Personal
 	}
 	s.analytics.TrackUserOnboardingInfo(onboardingFields)
-
-	return nil
-}
-
-// ChangeEmail updates email for a given user.
-func (s *Service) ChangeEmail(ctx context.Context, newEmail string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "change email")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if _, err := mail.ParseAddress(newEmail); err != nil {
-		return ErrValidation.Wrap(err)
-	}
-
-	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, newEmail)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if verified != nil || len(unverified) != 0 {
-		return ErrEmailUsed.New(emailUsedErrMsg)
-	}
-
-	user.Email = newEmail
-	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		Email: &user.Email,
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
 	return nil
 }

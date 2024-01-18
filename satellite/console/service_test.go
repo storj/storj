@@ -538,20 +538,6 @@ func TestService(t *testing.T) {
 				require.Equal(t, settledAmount+settledAmount, limits2.BandwidthUsed)
 			})
 
-			t.Run("ChangeEmail", func(t *testing.T) {
-				const newEmail = "newEmail@example.com"
-
-				err = service.ChangeEmail(userCtx2, newEmail)
-				require.NoError(t, err)
-
-				user, _, err := service.GetUserByEmailWithUnverified(userCtx2, newEmail)
-				require.NoError(t, err)
-				require.Equal(t, newEmail, user.Email)
-
-				err = service.ChangeEmail(userCtx2, newEmail)
-				require.Error(t, err)
-			})
-
 			t.Run("GetAllBucketNames", func(t *testing.T) {
 				bucket1 := buckets.Bucket{
 					ID:        testrand.UUID(),
