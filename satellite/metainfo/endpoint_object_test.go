@@ -3032,5 +3032,51 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
+
+		t.Run("begin copy object from older version", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			objectKeyA := "test-object-a"
+			versionIDs := make([][]byte, 2)
+			for i := range versionIDs {
+				object, err := planet.Uplinks[0].UploadWithOptions(ctx, satelliteSys, bucketName, objectKeyA, testrand.Bytes(100), nil)
+				require.NoError(t, err)
+
+				versionIDs[i] = object.Version
+			}
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 2)
+
+			_, err = planet.Satellites[0].Metainfo.Endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      versionIDs[0],
+
+				NewBucket:             []byte(bucketName),
+				NewEncryptedObjectKey: []byte("copied-object"),
+			})
+			require.NoError(t, err)
+
+			// NOT existing source version
+			nonExistingVersion := versionIDs[0]
+			nonExistingVersion[0]++
+			_, err = planet.Satellites[0].Metainfo.Endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      nonExistingVersion,
+
+				NewBucket:             []byte(bucketName),
+				NewEncryptedObjectKey: []byte("copied-object"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		})
 	})
 }

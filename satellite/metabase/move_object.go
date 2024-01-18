@@ -43,7 +43,8 @@ type BeginMoveCopyResults struct {
 
 // BeginMoveObject collects all data needed to begin object move procedure.
 func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (_ BeginMoveObjectResult, err error) {
-	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, MoveSegmentLimit, nil)
+	// TODO(ver) add support specifying move source object version
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, 0, MoveSegmentLimit, nil)
 	if err != nil {
 		return BeginMoveObjectResult{}, err
 	}
@@ -52,20 +53,24 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (_ Begi
 }
 
 // beginMoveCopyObject collects all data needed to begin object move/copy procedure.
-func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, segmentLimit int64, verifyLimits func(encryptedObjectSize int64, nSegments int64) error) (result BeginMoveCopyResults, err error) {
+func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, version Version, segmentLimit int64, verifyLimits func(encryptedObjectSize int64, nSegments int64) error) (result BeginMoveCopyResults, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := location.Verify(); err != nil {
 		return BeginMoveCopyResults{}, err
 	}
 
-	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
-		ObjectLocation: ObjectLocation{
-			ProjectID:  location.ProjectID,
-			BucketName: location.BucketName,
-			ObjectKey:  location.ObjectKey,
-		},
-	})
+	var object Object
+	if version > 0 {
+		object, err = db.GetObjectExactVersion(ctx, GetObjectExactVersion{
+			ObjectLocation: location,
+			Version:        version,
+		})
+	} else {
+		object, err = db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
+			ObjectLocation: location,
+		})
+	}
 	if err != nil {
 		return BeginMoveCopyResults{}, err
 	}
