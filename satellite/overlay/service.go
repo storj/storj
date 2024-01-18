@@ -293,12 +293,13 @@ type NodeReputation struct {
 //
 // architecture: Service
 type Service struct {
-	log              *zap.Logger
-	db               DB
-	nodeEvents       nodeevents.DB
-	satelliteName    string
-	satelliteAddress string
-	config           Config
+	log                  *zap.Logger
+	db                   DB
+	nodeEvents           nodeevents.DB
+	satelliteName        string
+	satelliteAddress     string
+	nodeTagsIPPortEmails []string
+	config               Config
 
 	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
@@ -358,12 +359,13 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 	}
 
 	return &Service{
-		log:              log,
-		db:               db,
-		nodeEvents:       nodeEvents,
-		satelliteAddress: satelliteAddr,
-		satelliteName:    satelliteName,
-		config:           config,
+		log:                  log,
+		db:                   db,
+		nodeEvents:           nodeEvents,
+		satelliteAddress:     satelliteAddr,
+		satelliteName:        satelliteName,
+		nodeTagsIPPortEmails: config.NodeTagsIPPortEmails,
+		config:               config,
 
 		GeoIP: geoIP,
 
@@ -466,9 +468,22 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 
 	count = len(nodes)
 
+	var lastIPPorts map[storj.NodeID]*string
+	if len(service.nodeTagsIPPortEmails) > 0 {
+		var nodeIDs storj.NodeIDList
+		for id := range nodes {
+			nodeIDs = append(nodeIDs, id)
+		}
+		lastIPPorts, err = service.db.GetLastIPPortByNodeTagNames(ctx, nodeIDs, service.nodeTagsIPPortEmails)
+		if err != nil {
+			service.log.Error("could not get last IP and ports for nodes", zap.Error(err))
+		}
+	}
+
 	var successful storj.NodeIDList
 	for id, email := range nodes {
-		_, err = service.nodeEvents.Insert(ctx, email, nil, id, nodeevents.Offline)
+		lastIPPort := lastIPPorts[id]
+		_, err = service.nodeEvents.Insert(ctx, email, lastIPPort, id, nodeevents.Offline)
 		if err != nil {
 			service.log.Error("could not insert node offline into node events", zap.Error(err))
 		} else {

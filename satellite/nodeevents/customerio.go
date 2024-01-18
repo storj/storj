@@ -43,6 +43,7 @@ type CustomerioBatch struct {
 type CustomerioData struct {
 	Satellite string `json:"satellite"`
 	NodeIDs   string `json:"nodeIDs"`
+	IPPorts   string `json:"ipPorts"`
 }
 
 // NewCustomerioNotifier is a constructor for CustomerioNotifier.
@@ -70,21 +71,26 @@ func (c *CustomerioNotifier) Notify(ctx context.Context, satellite string, event
 		return err
 	}
 
-	var nodeIDs string
+	var nodeIDs, ipPorts string
 	seen := make(map[storj.NodeID]struct{})
 	for _, e := range events {
 		if _, ok := seen[e.NodeID]; !ok {
 			seen[e.NodeID] = struct{}{}
 			nodeIDs = nodeIDs + e.NodeID.String() + ","
+			if e.LastIPPort != nil {
+				ipPorts = ipPorts + *e.LastIPPort + ","
+			}
 		}
 	}
 	nodeIDs = strings.TrimSuffix(nodeIDs, ",")
+	ipPorts = strings.TrimSuffix(ipPorts, ",")
 
 	batch := CustomerioBatch{
 		Name: eventName,
 		Data: CustomerioData{
 			Satellite: satellite,
 			NodeIDs:   nodeIDs,
+			IPPorts:   ipPorts,
 		},
 	}
 	data, err := json.Marshal(batch)

@@ -29,6 +29,7 @@ type Config struct {
 	NodeSoftwareUpdateEmailCooldown time.Duration `help:"the amount of time to wait between sending Node Software Update emails" default:"168h"`
 	RepairExcludedCountryCodes      []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
 	SendNodeEmails                  bool          `help:"whether to send emails to nodes" default:"false"`
+	NodeTagsIPPortEmails            []string      `help:"comma separated list of node tags for whom to add last ip and port to emails. Currently only for offline emails." default:""`
 	MinimumNewNodeIDDifficulty      int           `help:"the minimum node id difficulty required for new nodes. existing nodes remain allowed" devDefault:"0" releaseDefault:"36"`
 	AsOfSystemTime                  time.Duration `help:"default AS OF SYSTEM TIME for service" default:"-10s" testDefault:"0"`
 }

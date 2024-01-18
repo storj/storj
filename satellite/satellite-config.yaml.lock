@@ -859,6 +859,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the amount of time to wait between sending Node Software Update emails
 # overlay.node-software-update-email-cooldown: 168h0m0s
 
+# comma separated list of node tags for whom to add last ip and port to emails. Currently only for offline emails.
+# overlay.node-tags-ip-port-emails: []
+
 # default duration for AS OF SYSTEM TIME
 # overlay.node.as-of-system-time.default-interval: -10s
 
