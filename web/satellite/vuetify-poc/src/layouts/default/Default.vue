@@ -3,9 +3,7 @@
 
 <template>
     <v-app>
-        <div v-if="isLoading" class="d-flex align-center justify-center w-100 h-100">
-            <v-progress-circular color="primary" indeterminate size="64" />
-        </div>
+        <branded-loader v-if="isLoading" />
         <session-wrapper v-else>
             <default-bar show-nav-drawer-button />
             <ProjectNav />
@@ -18,50 +16,37 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
+import { onBeforeMount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { VApp, VProgressCircular } from 'vuetify/components';
+import { VApp } from 'vuetify/components';
 
 import DefaultBar from './AppBar.vue';
 import ProjectNav from './ProjectNav.vue';
 import DefaultView from './View.vue';
 
-import { RouteConfig } from '@/types/router';
 import { Project } from '@/types/projects';
-import { useBillingStore } from '@/store/modules/billingStore';
-import { useUsersStore } from '@/store/modules/usersStore';
-import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { MINIMUM_URL_ID_LENGTH, useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { useConfigStore } from '@/store/modules/configStore';
 
 import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
+import BrandedLoader from '@poc/components/utils/BrandedLoader.vue';
 
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
 const analyticsStore = useAnalyticsStore();
-const billingStore = useBillingStore();
-const usersStore = useUsersStore();
-const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const configStore = useConfigStore();
 
 const isLoading = ref<boolean>(true);
-
-/**
- * Indicates if billing features are enabled.
- */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Selects the project with the given URL ID, redirecting to the
@@ -116,28 +101,6 @@ watch(() => route.params.id, async newId => {
  */
 onBeforeMount(async () => {
     isLoading.value = true;
-
-    try {
-        await Promise.all([
-            usersStore.getUser(),
-            abTestingStore.fetchValues(),
-            usersStore.getSettings(),
-        ]);
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-        setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
-
-        return;
-    }
-
-    if (billingEnabled.value) {
-        try {
-            await billingStore.setupAccount();
-        } catch (error) {
-            error.message = `Unable to setup account. ${error.message}`;
-            notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-        }
-    }
 
     await selectProject(route.params.id as string);
 

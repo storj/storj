@@ -69,4 +69,6 @@ export abstract class RouteConfig {
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink(':pathMatch*', 'Objects Upload Children');
+
+    public static AuthRoutes = ['/login', '/signup', '/forgot-password', '/activate', '/password-recovery', '/signup-confirmation', '/password-reset-confirmation'];
 }

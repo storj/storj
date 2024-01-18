@@ -160,7 +160,7 @@ export function setupRouter(config: FrontendConfig): Router {
         routes,
     });
 
-    router.beforeEach((to, from, next) => {
+    router.beforeEach((to, _, next) => {
         const appStore = useAppStore();
         appStore.setIsNavigating(true);
 
@@ -169,10 +169,6 @@ export function setupRouter(config: FrontendConfig): Router {
             return;
         } else if (appStore.state.error.visible) {
             appStore.removeErrorPage();
-        }
-
-        if (to.name === RouteName.Projects && from.name === RouteName.Login) {
-            appStore.toggleHasJustLoggedIn(true);
         }
 
         next();
