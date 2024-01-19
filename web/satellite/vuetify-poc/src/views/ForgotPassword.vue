@@ -58,7 +58,8 @@
                                 color="primary"
                                 size="large"
                                 block
-                                :disabled="isLoading || !formValid"
+                                :loading="isLoading"
+                                :disabled="!formValid"
                                 @click="onPasswordReset"
                             >
                                 Request Password Reset

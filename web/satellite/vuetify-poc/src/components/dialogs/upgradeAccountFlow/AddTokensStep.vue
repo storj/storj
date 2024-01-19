@@ -2,7 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="text-body-2 mb-4">
+    <p v-if="isPaidTier" class="text-body-2 mb-4">
+        Send STORJ Tokens to the following deposit address to credit your Storj account:
+    </p>
+    <p v-else class="text-body-2 mb-4">
         Send more than $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
         Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
         If your account is not automatically upgraded, please fill out this
@@ -141,6 +144,11 @@ const pendingPayments = computed((): PaymentWithConfirmations[] => {
 });
 
 /**
+ * Returns whether the user is in paid tier.
+ */
+const isPaidTier = computed((): boolean => usersStore.state.user.paidTier);
+
+/**
  * Copies address to user's clipboard.
  */
 function onCopyAddressClick(): void {
@@ -173,7 +181,7 @@ watch(() => pendingPayments.value, async () => {
     clearInterval(intervalID.value);
     billingStore.clearPendingPayments();
 
-    if (usersStore.state.user.paidTier) {
+    if (isPaidTier.value) {
         // in case this step was entered in to directly from
         // the billing/payment method tab when the user is
         // already in paid tier.
@@ -184,7 +192,7 @@ watch(() => pendingPayments.value, async () => {
     await usersStore.getUser();
 
     // we redirect to success step only if user status was updated to Paid Tier.
-    if (usersStore.state.user.paidTier) {
+    if (isPaidTier.value) {
         // arbitrary delay to allow for user to read success banner.
         await new Promise(resolve => setTimeout(resolve, 2000));
         emit('success');
