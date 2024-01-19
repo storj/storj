@@ -273,8 +273,8 @@ export class Admin {
 				desc: 'Update the limits of a specific project. Only the no blank fields are updated. Fields with the 0 value are set to 0, which is not the default value. The fields that accept -1 set the value to null, which is the value that indicate the satellite to apply the configured defaults',
 				params: [
 					['Project ID', new InputText('text', true)],
-					['Storage (in bytes)', new InputText('number', false)],
-					['Bandwidth (in bytes)', new InputText('number', false)],
+					['Storage (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
+					['Bandwidth (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
 					['Rate: requests per second (accepts -1)', new InputText('number', false)],
 					['Buckets: maximum number (accepts -1)', new InputText('number', false)],
 					['Burst: max concurrent requests (accepts -1)', new InputText('number', false)],
@@ -282,15 +282,15 @@ export class Admin {
 				],
 				func: async (
 					projectId: string,
-					usage: number,
-					bandwidth: number,
+					usage: string,
+					bandwidth: string,
 					rate: number,
 					buckets: number,
 					burst: number,
 					segments: number
 				): Promise<null> => {
-					usage = this.nullToUndefined(usage);
-					bandwidth = this.nullToUndefined(bandwidth);
+					usage = this.emptyToUndefined(usage);
+					bandwidth = this.emptyToUndefined(bandwidth);
 					rate = this.nullToUndefined(rate);
 					buckets = this.nullToUndefined(buckets);
 					burst = this.nullToUndefined(burst);
@@ -665,6 +665,14 @@ Blank fields will not be updated.`,
 		}
 
 		return val;
+	}
+
+	protected emptyToUndefined(s: string): string {
+		if (s === '') {
+			return undefined;
+		}
+
+		return s;
 	}
 }
 
