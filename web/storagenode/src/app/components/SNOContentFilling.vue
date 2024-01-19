@@ -16,9 +16,7 @@
                     href="https://www.storj.io/s/storage-node-pricing-update-2023"
                     rel="noopener noreferrer"
                     target="_blank"
-                >
-                    forum
-                </a> regarding the Storage Node payout changes.
+                >forum</a> regarding the Storage Node payout changes.
             </p>
         </div>
         <div v-if="isDisqualifiedInfoShown" class="info-area__disqualified-info">
@@ -33,9 +31,7 @@
                     href="https://forum.storj.io/c/sno-category"
                     rel="noopener noreferrer"
                     target="_blank"
-                >
-                    thread
-                </a> on Storj forum.
+                >thread</a> on Storj forum.
             </p>
         </div>
         <div v-else-if="doDisqualifiedSatellitesExist" class="info-area__disqualified-info">
@@ -50,9 +46,7 @@
                     href="https://forum.storj.io/c/sno-category"
                     rel="noopener noreferrer"
                     target="_blank"
-                >
-                    thread
-                </a> on Storj forum.
+                >thread</a> on Storj forum.
             </p>
         </div>
         <div v-if="isSuspendedInfoShown" class="info-area__suspended-info">
@@ -67,9 +61,7 @@
                     href="https://forum.storj.io/c/sno-category"
                     rel="noopener noreferrer"
                     target="_blank"
-                >
-                    thread
-                </a> on Storj forum.
+                >thread</a> on Storj forum.
             </p>
         </div>
         <div v-else-if="doSuspendedSatellitesExist" class="info-area__suspended-info">
@@ -84,9 +76,7 @@
                     href="https://forum.storj.io/c/sno-category"
                     rel="noopener noreferrer"
                     target="_blank"
-                >
-                    thread
-                </a> on Storj forum.
+                >thread</a> on Storj forum.
             </p>
         </div>
         <p class="info-area__title">Bandwidth Utilization </p>
