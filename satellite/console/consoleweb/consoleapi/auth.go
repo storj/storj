@@ -399,6 +399,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if a.ActivationCodeEnabled {
+		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},

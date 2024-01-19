@@ -97,6 +97,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { LocalData } from '@/utils/localData';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useAppStore } from '@poc/store/appStore';
 
 import IconBlueCheckmark from '@poc/components/icons/IconBlueCheckmark.vue';
 
@@ -110,6 +111,7 @@ const props = withDefaults(defineProps<{
 
 const auth: AuthHttpApi = new AuthHttpApi();
 
+const appStore = useAppStore();
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
@@ -170,6 +172,7 @@ function resendMail(): void {
 
         try {
             signupId.value = await auth.resendEmail(email);
+            code.value = '';
         } catch (error) {
             notify.notifyError(error);
         }
@@ -201,6 +204,7 @@ function verifyCode(): void {
             return;
         }
 
+        appStore.toggleHasJustLoggedIn(true);
         usersStore.login();
         analyticsStore.pageVisit('/projects');
         await router.push('/projects');
