@@ -1,0 +1,29 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+#pre-app-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+#pre-app-loader div {
+    border: 4px solid rgb(1,73,255);
+    border-top: 4px solid transparent;
+    border-radius: 50%;
+    width: 90px;
+    height: 90px;
+    animation: spin .7s linear infinite;
+}
+
+#pre-app-loader img {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

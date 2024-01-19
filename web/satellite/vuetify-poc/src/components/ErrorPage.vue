@@ -117,7 +117,7 @@ onMounted(() => {
             content: '';
             position: fixed;
             inset: 0;
-            background: url('../../static/images/errors/world.svg') no-repeat center;
+            background: url('../../../static/images/errors/world.svg') no-repeat center;
             background-size: auto 75%;
             z-index: -1;
             opacity: 0.15;
