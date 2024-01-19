@@ -410,29 +410,43 @@ A successful response body:
 #### Update limits
 
 You can update the different limits with one single request just adding the
-various query parameters (e.g. `usage=5000000&bandwidth=9000000`)
+various query parameters (e.g. `usage=5000000&bandwidth=9000000`).
 
-##### POST /api/projects/{project-id}/limit?usage={value}
+This endpoint also accepts to receive the information as a form in the request body, that is content
+type `application/x-www-form-urlencoded` and the header must be specified, otherwise the server
+doesn't read the request body.
+
+Using the 0 number means to set them exactly to 0, which is not the same than using the default
+value. Default values are applied when they are `nil`. Only the indicated fields support to set the
+default value to `nil` using the -1 number.
+
+##### PUT /api/projects/{project-id}/limit?usage={value}
 
 Updates usage limit for a project. The value must be in bytes.
 
-##### POST /api/projects/{project-id}/limit?bandwidth={value}
+##### PUT /api/projects/{project-id}/limit?bandwidth={value}
 
 Updates bandwidth limit for a project. The value must be in bytes.
 
-##### POST /api/projects/{project-id}/limit?rate={value}
+##### PUT /api/projects/{project-id}/limit?rate={value}
 
 Updates rate limit for a project.
 
-##### POST /api/projects/{project-id}/limit?buckets={value}
+Accepts -1 to set to `nil`.
+
+##### PUT /api/projects/{project-id}/limit?buckets={value}
 
 Updates number of buckets limit for a project.
 
-##### POST /api/projects/{project-id}/limit?burst={value}
+Accepts -1 to set to `nil`.
+
+##### PUT /api/projects/{project-id}/limit?burst={value}
 
 Updates burst limit for a project.
 
-##### POST /api/projects/{project-id}/limit?segments={value}
+Accepts -1 to set to `nil`.
+
+##### PUT /api/projects/{project-id}/limit?segments={value}
 
 Updates number of segments limit for a project.
 

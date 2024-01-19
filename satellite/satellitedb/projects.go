@@ -213,7 +213,6 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		dbx.Project_OwnerId(project.OwnerID[:]),
 		createFields,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +249,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		updateFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
 	}
 	if project.UserSpecifiedBandwidthLimit != nil {
-		updateFields.UserSpecifiedBandwidthLimit = dbx.Project_UserSpecifiedBandwidthLimit(int64(*project.UserSpecifiedBandwidthLimit))
+		updateFields.UserSpecifiedBandwidthLimit = dbx.Project_UserSpecifiedBandwidthLimit(
+			int64(*project.UserSpecifiedBandwidthLimit),
+		)
 	}
 	if project.SegmentLimit != nil {
 		updateFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
@@ -314,20 +315,34 @@ func (projects *projects) UpdateBurstLimit(ctx context.Context, id uuid.UUID, ne
 }
 
 // UpdateBucketLimit is a method for updating projects bucket limit.
-func (projects *projects) UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+func (projects *projects) UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit *int) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	maxBuckets := dbx.Project_MaxBuckets_Null()
+	if newLimit != nil {
+		if *newLimit < 0 {
+			return Error.New("limit can't be set to negative value")
+		}
+
+		maxBuckets = dbx.Project_MaxBuckets(*newLimit)
+	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
-			MaxBuckets: dbx.Project_MaxBuckets(newLimit),
+			MaxBuckets: maxBuckets,
 		})
 
 	return err
 }
 
 // UpdateAllLimits is a method for updating max buckets, storage, bandwidth, segment, rate, and burst limits.
-func (projects *projects) UpdateAllLimits(ctx context.Context, id uuid.UUID, storage, bandwidth, segment *int64, buckets, rate, burst *int) (err error) {
+func (projects *projects) UpdateAllLimits(
+	ctx context.Context,
+	id uuid.UUID,
+	storage, bandwidth, segment *int64,
+	buckets, rate, burst *int,
+) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
@@ -359,7 +374,11 @@ func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, use
 }
 
 // UpdateDefaultPlacement is a method to update the project's default placement for new segments.
-func (projects *projects) UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) (err error) {
+func (projects *projects) UpdateDefaultPlacement(
+	ctx context.Context,
+	id uuid.UUID,
+	placement storj.PlacementConstraint,
+) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = projects.db.Update_Project_By_Id(
@@ -374,7 +393,11 @@ func (projects *projects) UpdateDefaultPlacement(ctx context.Context, id uuid.UU
 }
 
 // UpdateDefaultVersioning is a method to update the project's default versioning state for new buckets.
-func (projects *projects) UpdateDefaultVersioning(ctx context.Context, id uuid.UUID, defaultVersioning console.DefaultVersioning) (err error) {
+func (projects *projects) UpdateDefaultVersioning(
+	ctx context.Context,
+	id uuid.UUID,
+	defaultVersioning console.DefaultVersioning,
+) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = projects.db.Update_Project_By_Id(
@@ -389,7 +412,12 @@ func (projects *projects) UpdateDefaultVersioning(ctx context.Context, id uuid.U
 }
 
 // List returns paginated projects, created before provided timestamp.
-func (projects *projects) List(ctx context.Context, offset int64, limit int, before time.Time) (_ console.ProjectsPage, err error) {
+func (projects *projects) List(
+	ctx context.Context,
+	offset int64,
+	limit int,
+	before time.Time,
+) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var page console.ProjectsPage
@@ -421,7 +449,11 @@ func (projects *projects) List(ctx context.Context, offset int64, limit int, bef
 
 // ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
 // cursor.Limit is set to 50 if it exceeds 50.
-func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, cursor console.ProjectsCursor) (_ console.ProjectsPage, err error) {
+func (projects *projects) ListByOwnerID(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	cursor console.ProjectsCursor,
+) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if cursor.Limit > 50 {
@@ -596,7 +628,10 @@ func (projects *projects) GetMaxBuckets(ctx context.Context, id uuid.UUID) (maxB
 }
 
 // GetDefaultVersioning is a method to get the default versioning state for new buckets.
-func (projects *projects) GetDefaultVersioning(ctx context.Context, id uuid.UUID) (defaultVersioning console.DefaultVersioning, err error) {
+func (projects *projects) GetDefaultVersioning(
+	ctx context.Context,
+	id uuid.UUID,
+) (defaultVersioning console.DefaultVersioning, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxRow, err := projects.db.Get_Project_DefaultVersioning_By_Id(ctx, dbx.Project_Id(id[:]))

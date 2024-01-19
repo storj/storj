@@ -125,7 +125,7 @@ func TestGetProject(t *testing.T) {
 
 			// now set the null columns to specific values and check admin returns them.
 			newBucketLimit := defaultMaxBuckets * 2
-			require.NoError(t, consoleDB.Projects().UpdateBucketLimit(ctx, projID, newBucketLimit))
+			require.NoError(t, consoleDB.Projects().UpdateBucketLimit(ctx, projID, &newBucketLimit))
 
 			newRateLimit := defaultRate * 2
 			require.NoError(t, consoleDB.Projects().UpdateRateLimit(ctx, projID, &newRateLimit))

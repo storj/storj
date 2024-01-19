@@ -244,7 +244,6 @@ func TestService(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Equal(t, storj.EU, p.DefaultPlacement)
-
 			})
 
 			t.Run("UpdateProject", func(t *testing.T) {
@@ -389,17 +388,29 @@ func TestService(t *testing.T) {
 
 			t.Run("GetProjectMembersAndInvitations", func(t *testing.T) {
 				// Getting the project members of an own project that one is a part of should work
-				userPage, err := service.GetProjectMembersAndInvitations(userCtx1, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err := service.GetProjectMembersAndInvitations(
+					userCtx1,
+					up1Proj.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is a part of should work
-				userPage, err = service.GetProjectMembersAndInvitations(userCtx2, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err = service.GetProjectMembersAndInvitations(
+					userCtx2,
+					up1Proj.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is not a part of should not work
-				userPage, err = service.GetProjectMembersAndInvitations(userCtx1, up2Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err = service.GetProjectMembersAndInvitations(
+					userCtx1,
+					up2Proj.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
 				require.Error(t, err)
 				require.Nil(t, userPage)
 			})
@@ -431,7 +442,11 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 
 				// An invalid email should cause the operation to fail.
-				err = service.DeleteProjectMembersAndInvitations(user2Ctx, up2Proj.ID, []string{invitedUser.Email, "nobody@mail.test"})
+				err = service.DeleteProjectMembersAndInvitations(
+					user2Ctx,
+					up2Proj.ID,
+					[]string{invitedUser.Email, "nobody@mail.test"},
+				)
 				require.Error(t, err)
 				_, err = sat.DB.Console().ProjectInvitations().Get(ctx, up2Proj.ID, invitedUser.Email)
 				require.NoError(t, err)
@@ -513,7 +528,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 
 				updatedBucketsLimit := 20
-				err = sat.DB.Console().Projects().UpdateBucketLimit(ctx, up2Proj.ID, updatedBucketsLimit)
+				err = sat.DB.Console().Projects().UpdateBucketLimit(ctx, up2Proj.ID, &updatedBucketsLimit)
 				require.NoError(t, err)
 
 				limits1, err = service.GetProjectUsageLimits(userCtx2, up2Proj.ID)
@@ -549,9 +564,11 @@ func TestService(t *testing.T) {
 				})
 
 				// add allocated and settled bandwidth for the beginning of the month.
-				err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, allocatedAmount, startOfMonth)
+				err = sat.DB.Orders().
+					UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, allocatedAmount, startOfMonth)
 				require.NoError(t, err)
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
+				err = sat.DB.Orders().
+					UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
 				require.NoError(t, err)
 
 				sat.API.Accounting.ProjectUsage.TestSetAsOfSystemInterval(0)
@@ -575,7 +592,8 @@ func TestService(t *testing.T) {
 				require.Equal(t, settledAmount, limits2.BandwidthUsed)
 
 				// add settled traffic for the third day of the month.
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, thirdDayOfMonth)
+				err = sat.DB.Orders().
+					UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, thirdDayOfMonth)
 				require.NoError(t, err)
 
 				// at this point only settled traffic for the first day is expected because now is still set to fourth day.
@@ -695,7 +713,6 @@ func TestService(t *testing.T) {
 				coupon, err = sat.API.Payments.Accounts.Coupons().GetByUserID(ctx, up1Proj.OwnerID)
 				require.NoError(t, err)
 				require.Equal(t, freeTier, coupon.ID)
-
 			})
 			t.Run("ApplyFreeTierCoupon fails with unknown user", func(t *testing.T) {
 				coupon, err := service.Payments().ApplyFreeTierCoupon(ctx)
@@ -729,7 +746,9 @@ func TestService(t *testing.T) {
 				purchaseTime := time.Now()
 
 				check := func() {
-					dbPackagePlan, dbPurchaseTime, err := sat.DB.StripeCoinPayments().Customers().GetPackageInfo(ctx, up1Proj.OwnerID)
+					dbPackagePlan, dbPurchaseTime, err := sat.DB.StripeCoinPayments().
+						Customers().
+						GetPackageInfo(ctx, up1Proj.OwnerID)
 					require.NoError(t, err)
 					require.NotNil(t, dbPackagePlan)
 					require.NotNil(t, dbPurchaseTime)
@@ -1160,7 +1179,14 @@ func TestResetPassword(t *testing.T) {
 		require.True(t, console.ErrRecoveryToken.Has(err))
 
 		// Expect error when providing good but expired token.
-		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", "", token.CreatedAt.Add(sat.Config.ConsoleAuth.TokenExpirationTime).Add(time.Second))
+		err = service.ResetPassword(
+			ctx,
+			token.Secret.String(),
+			newPass,
+			"",
+			"",
+			token.CreatedAt.Add(sat.Config.ConsoleAuth.TokenExpirationTime).Add(time.Second),
+		)
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		// Expect error when providing good token with bad (too short) password.
@@ -1233,7 +1259,14 @@ func TestChangePassword(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(newPass)))
 
-		err = sat.API.Console.Service.ResetPassword(userCtx, passwordRecoveryToken, "aDifferentPassword123!", "", "", time.Now())
+		err = sat.API.Console.Service.ResetPassword(
+			userCtx,
+			passwordRecoveryToken,
+			"aDifferentPassword123!",
+			"",
+			"",
+			time.Now(),
+		)
 		require.Error(t, err)
 		require.True(t, console.ErrRecoveryToken.Has(err))
 	})
@@ -1699,7 +1732,6 @@ func TestWalletJsonMarshall(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(out), "\"address\":\"0x0102030000000000000000000000000000000000\"")
 	require.Contains(t, string(out), "\"balance\":{\"value\":\"100\",\"currency\":\"USD\"}")
-
 }
 
 func TestSessionExpiration(t *testing.T) {
@@ -1938,11 +1970,19 @@ func (dw mockDepositWallets) Get(_ context.Context, _ uuid.UUID) (blockchain.Add
 	return dw.address, nil
 }
 
-func (dw mockDepositWallets) Payments(_ context.Context, _ blockchain.Address, _ int, _ int64) (p []payments.WalletPayment, err error) {
+func (dw mockDepositWallets) Payments(
+	_ context.Context,
+	_ blockchain.Address,
+	_ int,
+	_ int64,
+) (p []payments.WalletPayment, err error) {
 	return
 }
 
-func (dw mockDepositWallets) PaymentsWithConfirmations(_ context.Context, _ blockchain.Address) ([]payments.WalletPaymentWithConfirmations, error) {
+func (dw mockDepositWallets) PaymentsWithConfirmations(
+	_ context.Context,
+	_ blockchain.Address,
+) ([]payments.WalletPaymentWithConfirmations, error) {
 	return dw.payments, nil
 }
 
@@ -2069,7 +2109,6 @@ func TestPaymentsPurchase(t *testing.T) {
 				}
 			})
 		}
-
 	})
 }
 

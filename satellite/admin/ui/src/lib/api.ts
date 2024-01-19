@@ -262,7 +262,7 @@ export class Admin {
 			},
 			{
 				name: 'get project limits',
-				desc: 'Get the current limits of a specific project',
+				desc: 'Get the current limits of a specific project. NULL values means that the satellite applies the configured defaults',
 				params: [['Project ID', new InputText('text', true)]],
 				func: async (projectId: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `projects/${projectId}/limit`);
@@ -270,14 +270,14 @@ export class Admin {
 			},
 			{
 				name: 'update project limits',
-				desc: 'Update the limits of a specific project',
+				desc: 'Update the limits of a specific project. Only the no blank fields are updated. Fields with the 0 value are set to 0, which is not the default value. The fields that accept -1 set the value to null, which is the value that indicate the satellite to apply the configured defaults',
 				params: [
 					['Project ID', new InputText('text', true)],
 					['Storage (in bytes)', new InputText('number', false)],
 					['Bandwidth (in bytes)', new InputText('number', false)],
-					['Rate (requests per second)', new InputText('number', false)],
-					['Buckets (maximum number)', new InputText('number', false)],
-					['Burst (max concurrent requests)', new InputText('number', false)],
+					['Rate: requests per second (accepts -1)', new InputText('number', false)],
+					['Buckets: maximum number (accepts -1)', new InputText('number', false)],
+					['Burst: max concurrent requests (accepts -1)', new InputText('number', false)],
 					['Segments (maximum number)', new InputText('number', false)]
 				],
 				func: async (
@@ -289,6 +289,13 @@ export class Admin {
 					burst: number,
 					segments: number
 				): Promise<null> => {
+					usage = this.nullToUndefined(usage);
+					bandwidth = this.nullToUndefined(bandwidth);
+					rate = this.nullToUndefined(rate);
+					buckets = this.nullToUndefined(buckets);
+					burst = this.nullToUndefined(burst);
+					segments = this.nullToUndefined(segments);
+
 					const query = this.urlQueryFromObject({
 						usage,
 						bandwidth,
@@ -650,6 +657,14 @@ Blank fields will not be updated.`,
 		}
 
 		return queryParts.join('&');
+	}
+
+	protected nullToUndefined<Type>(val: Type): Type {
+		if (val === null) {
+			return undefined;
+		}
+
+		return val;
 	}
 }
 

@@ -55,7 +55,7 @@ type Projects interface {
 	// UpdateDefaultVersioning is a method to update the default versioning state of a new bucket in the project.
 	UpdateDefaultVersioning(ctx context.Context, id uuid.UUID, versioning DefaultVersioning) error
 	// UpdateBucketLimit is a method for updating projects bucket limit.
-	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// UpdateUsageLimits is a method for updating project's usage limits.
 	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
@@ -86,7 +86,7 @@ type StorageLimitConfig struct {
 
 // BandwidthLimitConfig is a configuration struct for default bandwidth per-project usage limits.
 type BandwidthLimitConfig struct {
-	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"25.00GB" testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"25.00GB"  testDefault:"25.00 GB"`
 	Paid memory.Size `help:"the default paid-tier bandwidth usage limit" default:"100.00TB" testDefault:"25.00 GB"`
 }
 
