@@ -706,7 +706,7 @@ func loadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations str
 
 // Run runs satellite until it's either closed or it errors.
 func (peer *API) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	//	defer mon.Task()(&ctx)(&err)
 
 	group, ctx := errgroup.WithContext(ctx)
 

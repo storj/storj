@@ -103,7 +103,7 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 
 // Run runs satellite UI until it's either closed or it errors.
 func (peer *UI) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	//	defer mon.Task()(&ctx)(&err)
 
 	group, ctx := errgroup.WithContext(ctx)
 

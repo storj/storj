@@ -625,7 +625,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 // Run runs satellite until it's either closed or it errors.
 func (peer *Core) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	//	defer mon.Task()(&ctx)(&err)
 
 	group, ctx := errgroup.WithContext(ctx)
 

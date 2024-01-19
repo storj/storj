@@ -25,6 +25,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
@@ -253,7 +254,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	server.router = router
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
-	router.Use(newTraceRequestMiddleware(logger, router))
+	//router.Use(newTraceRequestMiddleware(logger, router))
+	router.Use(otelmux.Middleware("satellite"))
 
 	router.Use(requestid.AddToContext)
 

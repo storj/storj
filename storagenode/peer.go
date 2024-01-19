@@ -923,7 +923,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	//	defer mon.Task()(&ctx)(&err)
 
 	// Refresh the trust pool first. It will be updated periodically via
 	// Run() below.

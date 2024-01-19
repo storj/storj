@@ -8,6 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	oteltrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.22.0"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,15 +30,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3/present"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"golang.org/x/term"
 
 	"storj.io/common/experiment"
-	"storj.io/common/rpc/rpctracing"
 	"storj.io/common/sync2/mpscqueue"
-	"storj.io/common/tracing"
 	"storj.io/eventkit"
-	jaeger "storj.io/monkit-jaeger"
 	"storj.io/private/version"
 )
 
@@ -305,54 +307,68 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 	// in this if statement. If we do ever start turning on trace samples by default, we
 	// will need to make sure we only do so if ex.analyticsEnabled().
 	if ex.tracing.traceAddress != "" && (ex.tracing.sample > 0 || ex.tracing.traceID > 0) {
-		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
-		if !version.Build.Release {
-			versionName = "uplink-dev"
-		}
-		collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			_ = collector.Close()
-		}()
-
-		defer tracked(ctx, collector.Run)()
-
-		cancel := jaeger.RegisterJaeger(monkit.Default, collector,
-			jaeger.Options{
-				Fraction: ex.tracing.sample,
-				Excluded: tracing.IsExcluded,
-			},
+		//versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
+		//if !version.Build.Release {
+		//	versionName = "uplink-dev"
+		//}
+		//collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
+		//if err != nil {
+		//	return err
+		//}
+		//defer func() {
+		//	_ = collector.Close()
+		//}()
+		//
+		//defer tracked(ctx, collector.Run)()
+		//
+		//cancel := jaeger.RegisterJaeger(monkit.Default, collector,
+		//	jaeger.Options{
+		//		Fraction: ex.tracing.sample,
+		//		Excluded: tracing.IsExcluded,
+		//	},
+		//)
+		//defer cancel()
+		//
+		//if ex.tracing.traceID == 0 {
+		//	if ex.tracing.verbose {
+		//		var printedFirst bool
+		//		monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
+		//			// workaround to hide the traceID of tlsopts.verifyIndentity called from a separated goroutine
+		//			if !printedFirst {
+		//				_, _ = fmt.Fprintf(clingy.Stdout(ctx), "New traceID %x\n", trace.Id())
+		//				printedFirst = true
+		//			}
+		//		})
+		//	}
+		//} else {
+		//	trace := monkit.NewTrace(ex.tracing.traceID)
+		//	trace.Set(rpctracing.Sampled, true)
+		//
+		//	defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
+		//}
+		//
+		//monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
+		//	if hn, err := os.Hostname(); err == nil {
+		//		trace.Set("hostname", hn)
+		//	}
+		//	for k, v := range ex.tracing.tags {
+		//		trace.Set(k, v)
+		//	}
+		//})
+		exp, _ := stdouttrace.New(stdouttrace.WithPrettyPrint())
+		tp := oteltrace.NewTracerProvider(
+			oteltrace.WithSampler(
+				oteltrace.AlwaysSample()),
+			oteltrace.WithSpanProcessor(
+				oteltrace.NewBatchSpanProcessor(exp)),
+			oteltrace.WithResource(
+				resource.NewWithAttributes(
+					semconv.SchemaURL,
+					semconv.ServiceName("test"),
+				)),
 		)
-		defer cancel()
-
-		if ex.tracing.traceID == 0 {
-			if ex.tracing.verbose {
-				var printedFirst bool
-				monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
-					// workaround to hide the traceID of tlsopts.verifyIndentity called from a separated goroutine
-					if !printedFirst {
-						_, _ = fmt.Fprintf(clingy.Stdout(ctx), "New traceID %x\n", trace.Id())
-						printedFirst = true
-					}
-				})
-			}
-		} else {
-			trace := monkit.NewTrace(ex.tracing.traceID)
-			trace.Set(rpctracing.Sampled, true)
-
-			defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
-		}
-
-		monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
-			if hn, err := os.Hostname(); err == nil {
-				trace.Set("hostname", hn)
-			}
-			for k, v := range ex.tracing.tags {
-				trace.Set(k, v)
-			}
-		})
+		otel.SetTracerProvider(tp)
+		otel.SetTextMapPropagator(propagation.TraceContext{})
 	}
 
 	if ex.analyticsEnabled() && ex.events.address != "" {
