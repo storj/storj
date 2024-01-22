@@ -56,6 +56,16 @@ func (r *Remote) Create(ctx context.Context, bucket, key string, opts *CreateOpt
 		}
 	}
 
+	if opts.SinglePart {
+		upload, err := r.project.UploadObject(ctx, bucket, key, &uplink.UploadOptions{
+			Expires: opts.Expires,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return newUplinkSingleWriteHandle(r.project, bucket, upload, customMetadata), nil
+	}
+
 	info, err := r.project.BeginUpload(ctx, bucket, key, &uplink.UploadOptions{
 		Expires: opts.Expires,
 	})

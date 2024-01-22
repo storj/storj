@@ -290,3 +290,83 @@ func (u *uplinkPartWriteHandle) Commit() error {
 func (u *uplinkPartWriteHandle) Abort() error {
 	return u.ul.Abort()
 }
+
+type uplinkSingleWriteHandle struct {
+	project  *uplink.Project
+	bucket   string
+	upload   *uplink.Upload
+	metadata uplink.CustomMetadata
+
+	mu        sync.Mutex
+	commitErr *error
+	abortErr  *error
+
+	partCount int // just for safety
+}
+
+func newUplinkSingleWriteHandle(project *uplink.Project, bucket string, upload *uplink.Upload, metadata uplink.CustomMetadata) *uplinkSingleWriteHandle {
+	return &uplinkSingleWriteHandle{
+		project:  project,
+		bucket:   bucket,
+		upload:   upload,
+		metadata: metadata,
+	}
+}
+
+func (u *uplinkSingleWriteHandle) NextPart(ctx context.Context, length int64) (WriteHandle, error) {
+	u.partCount++
+	if u.partCount > 1 {
+		panic("invalid use of uplinkSingleWriteHandle")
+	}
+
+	return &uplinkSingleWriteHandleRef{ul: u}, nil
+}
+
+func (u *uplinkSingleWriteHandle) Commit(ctx context.Context) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	switch {
+	case u.abortErr != nil:
+		return errs.New("cannot commit an aborted multipart write")
+	case u.commitErr != nil:
+		return *u.commitErr
+	}
+
+	if err := u.upload.SetCustomMetadata(ctx, u.metadata); err != nil {
+		u.commitErr = &err
+		_ = u.upload.Abort()
+		return err
+	}
+
+	err := u.upload.Commit()
+	u.commitErr = &err
+	return err
+}
+
+func (u *uplinkSingleWriteHandle) Abort(ctx context.Context) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	switch {
+	case u.abortErr != nil:
+		return *u.abortErr
+	case u.commitErr != nil:
+		return errs.New("cannot abort a committed multipart write")
+	}
+	err := u.upload.Abort()
+	u.abortErr = &err
+	return err
+}
+
+// uplinkSingleWriteHandleRef implements writeHandle for *uplink.Uploads.
+type uplinkSingleWriteHandleRef struct {
+	ul *uplinkSingleWriteHandle
+}
+
+func (u *uplinkSingleWriteHandleRef) Write(p []byte) (int, error) {
+	return u.ul.upload.Write(p)
+}
+
+func (u *uplinkSingleWriteHandleRef) Commit() error { return nil }
+func (u *uplinkSingleWriteHandleRef) Abort() error  { return nil }
