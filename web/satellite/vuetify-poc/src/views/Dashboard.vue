@@ -649,6 +649,10 @@ onMounted(async (): Promise<void> => {
     const past = new Date();
     past.setDate(past.getDate() - 7);
 
+    // Truncate dates to hours only.
+    now.setMinutes(0, 0, 0);
+    past.setMinutes(0, 0, 0);
+
     let promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
         projectsStore.getDailyProjectData({ since: past, before: now }),
         projectsStore.getProjectLimits(projectID),
