@@ -13,6 +13,7 @@ export class LocalData {
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
     private static sessionExpirationDate = 'sessionExpirationDate';
+    private static customSessionDuration = 'customSessionDuration';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
     private static projectTableViewEnabled = 'projectTableViewEnabled';
     private static browserCardViewEnabled = 'browserCardViewEnabled';
@@ -108,6 +109,21 @@ export class LocalData {
 
     public static setSessionExpirationDate(date: Date): void {
         localStorage.setItem(LocalData.sessionExpirationDate, date.toISOString());
+    }
+
+    public static getCustomSessionDuration(): number | null {
+        const value: string | null = localStorage.getItem(LocalData.customSessionDuration);
+        if (value) return parseInt(value);
+
+        return null;
+    }
+
+    public static setCustomSessionDuration(value: number): void {
+        localStorage.setItem(LocalData.customSessionDuration, value.toString());
+    }
+
+    public static removeCustomSessionDuration(): void {
+        localStorage.removeItem(LocalData.customSessionDuration);
     }
 
     /**

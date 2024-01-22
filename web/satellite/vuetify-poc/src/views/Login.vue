@@ -300,6 +300,11 @@ async function login(): Promise<void> {
     try {
         const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value, rememberForOneWeek.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
+        if (rememberForOneWeek.value) {
+            LocalData.setCustomSessionDuration(604800); // 7 days in seconds.
+        } else if (LocalData.getCustomSessionDuration()) {
+            LocalData.removeCustomSessionDuration();
+        }
     } catch (error) {
         if (hcaptcha.value) {
             hcaptcha.value?.reset();
