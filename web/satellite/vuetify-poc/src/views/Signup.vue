@@ -5,8 +5,8 @@
     <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
         <v-row align="top" justify="center">
-            <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
-                <v-card title="Create your Storj account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7 overflow-visible">
+            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                <v-card title="Create your Storj account" subtitle="Get 25GB free storage and download" class="pa-2 pa-sm-7 overflow-visible">
                     <v-card-item v-if="isInvited">
                         <v-alert
                             variant="tonal"
@@ -187,7 +187,7 @@
                 />
             </v-col>
             <template v-if="partner">
-                <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
+                <v-col v-if="viewConfig" cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-7 h-100 no-position">
                         <v-card-item>
                             <v-card-title class="text-wrap">
@@ -211,7 +211,7 @@
                 </v-col>
             </template>
             <template v-else>
-                <v-col cols="12" sm="10" md="7" lg="5" xl="4" xxl="3">
+                <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-7 h-100 no-position">
                         <v-card-text>
                             <p class="text-subtitle-2">
