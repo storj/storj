@@ -180,6 +180,8 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=3600") // Cache the same request for 1 hour.
+
 	wr.Flush()
 }
 
@@ -226,6 +228,8 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 		ul.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
+
+	w.Header().Set("Cache-Control", "public, max-age=3600") // Cache the same request for 1 hour.
 
 	err = json.NewEncoder(w).Encode(dailyUsage)
 	if err != nil {
