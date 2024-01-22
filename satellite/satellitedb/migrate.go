@@ -2604,6 +2604,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE node_events ADD COLUMN last_ip_port TEXT;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add notice_dismissal column to user_settings to track dismissed notices",
+				Version:     256,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN notice_dismissal jsonb NOT NULL DEFAULT '{}';`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

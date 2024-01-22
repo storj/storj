@@ -1367,6 +1367,7 @@ func TestUserSettings(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, existingUser.ID)
 		require.NoError(t, err)
 
+		// getting non-existing settings directly from db should return error
 		_, err = userDB.GetSettings(userCtx, existingUser.ID)
 		require.Error(t, err)
 
@@ -1378,6 +1379,12 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, true, settings.OnboardingEnd)
 		require.Nil(t, settings.OnboardingStep)
 		require.Nil(t, settings.SessionDuration)
+
+		noticeDismissal := console.NoticeDismissal{
+			FileGuide:            false,
+			ServerSideEncryption: false,
+		}
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		newUser, err := userDB.Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
@@ -1397,22 +1404,27 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, false, settings.OnboardingEnd)
 		require.Nil(t, settings.OnboardingStep)
 		require.Nil(t, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		onboardingBool := true
 		onboardingStep := "Overview"
 		sessionDur := time.Duration(rand.Int63()).Round(time.Minute)
 		sessionDurPtr := &sessionDur
+		noticeDismissal.ServerSideEncryption = true
+		noticeDismissal.FileGuide = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,
 			OnboardingEnd:   &onboardingBool,
 			OnboardingStep:  &onboardingStep,
+			NoticeDismissal: &noticeDismissal,
 		})
 		require.NoError(t, err)
 		require.Equal(t, onboardingBool, settings.OnboardingStart)
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
@@ -1420,6 +1432,7 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		// passing nil should not override existing values
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
@@ -1427,12 +1440,14 @@ func TestUserSettings(t *testing.T) {
 			OnboardingStart: nil,
 			OnboardingEnd:   nil,
 			OnboardingStep:  nil,
+			NoticeDismissal: nil,
 		})
 		require.NoError(t, err)
 		require.Equal(t, onboardingBool, settings.OnboardingStart)
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
@@ -1440,6 +1455,7 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 	})
 }
 

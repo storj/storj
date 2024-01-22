@@ -1181,11 +1181,12 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateInfo struct {
-		OnboardingStart  *bool   `json:"onboardingStart"`
-		OnboardingEnd    *bool   `json:"onboardingEnd"`
-		PassphrasePrompt *bool   `json:"passphrasePrompt"`
-		OnboardingStep   *string `json:"onboardingStep"`
-		SessionDuration  *int64  `json:"sessionDuration"`
+		OnboardingStart  *bool                    `json:"onboardingStart"`
+		OnboardingEnd    *bool                    `json:"onboardingEnd"`
+		PassphrasePrompt *bool                    `json:"passphrasePrompt"`
+		OnboardingStep   *string                  `json:"onboardingStep"`
+		SessionDuration  *int64                   `json:"sessionDuration"`
+		NoticeDismissal  *console.NoticeDismissal `json:"noticeDismissal"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateInfo)
@@ -1209,6 +1210,7 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 		OnboardingStep:   updateInfo.OnboardingStep,
 		PassphrasePrompt: updateInfo.PassphrasePrompt,
 		SessionDuration:  newDuration,
+		NoticeDismissal:  updateInfo.NoticeDismissal,
 	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

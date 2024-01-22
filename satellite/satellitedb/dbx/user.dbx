@@ -263,6 +263,8 @@ model user_settings (
     field onboarding_end bool ( updatable, default true )
     // onboarding_step indicates the step where a user exited onboarding without finishing.
     field onboarding_step text ( nullable, updatable )
+    // notice_dismissal keeps track of the notices that the user has dismissed or not.
+    field notice_dismissal json ( updatable, default "{}" )
 )
 
 create user_settings ( noreturn )

@@ -486,6 +486,11 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 		settings.SessionDuration = &dur
 	}
 
+	err = json.Unmarshal(row.NoticeDismissal, &settings.NoticeDismissal)
+	if err != nil {
+		return nil, err
+	}
+
 	return settings, nil
 }
 
@@ -519,6 +524,15 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 	if settings.OnboardingStep != nil {
 		update.OnboardingStep = dbx.UserSettings_OnboardingStep(*settings.OnboardingStep)
+		fieldCount++
+	}
+
+	if settings.NoticeDismissal != nil {
+		noticesBytes, err := json.Marshal(settings.NoticeDismissal)
+		if err != nil {
+			return err
+		}
+		update.NoticeDismissal = dbx.UserSettings_NoticeDismissal(noticesBytes)
 		fieldCount++
 	}
 

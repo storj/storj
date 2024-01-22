@@ -483,6 +483,7 @@ CREATE TABLE user_settings (
 	onboarding_start boolean NOT NULL DEFAULT true,
 	onboarding_end boolean NOT NULL DEFAULT true,
 	onboarding_step text,
+	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (

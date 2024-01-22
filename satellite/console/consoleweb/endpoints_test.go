@@ -114,6 +114,7 @@ func TestAuth(t *testing.T) {
 				OnboardingEnd    bool
 				PassphrasePrompt bool
 				OnboardingStep   *string
+				NoticeDismissal  console.NoticeDismissal
 			}
 			testGetSettings := func(expected expectedSettings) {
 				resp, body := test.request(http.MethodGet, "/auth/account/settings", nil)
@@ -124,6 +125,7 @@ func TestAuth(t *testing.T) {
 					OnboardingEnd    bool
 					PassphrasePrompt bool
 					OnboardingStep   *string
+					NoticeDismissal  console.NoticeDismissal
 				}
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 				require.NoError(test.t, json.Unmarshal([]byte(body), &settings))
@@ -132,6 +134,12 @@ func TestAuth(t *testing.T) {
 				require.Equal(test.t, expected.PassphrasePrompt, settings.PassphrasePrompt)
 				require.Equal(test.t, expected.OnboardingStep, settings.OnboardingStep)
 				require.Equal(test.t, expected.SessionDuration, settings.SessionDuration)
+				require.Equal(test.t, expected.NoticeDismissal, settings.NoticeDismissal)
+			}
+
+			noticeDismissal := console.NoticeDismissal{
+				FileGuide:            false,
+				ServerSideEncryption: false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -140,10 +148,13 @@ func TestAuth(t *testing.T) {
 				OnboardingEnd:    true,
 				PassphrasePrompt: true,
 				OnboardingStep:   nil,
+				NoticeDismissal:  noticeDismissal,
 			})
 
 			step := "cli"
 			duration := time.Duration(15) * time.Minute
+			noticeDismissal.FileGuide = true
+			noticeDismissal.ServerSideEncryption = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -151,6 +162,10 @@ func TestAuth(t *testing.T) {
 					"onboardingEnd":    false,
 					"passphrasePrompt": false,
 					"onboardingStep":   step,
+					"noticeDismissal": map[string]bool{
+						"fileGuide":            noticeDismissal.FileGuide,
+						"serverSideEncryption": noticeDismissal.ServerSideEncryption,
+					},
 				}))
 
 			require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -160,6 +175,7 @@ func TestAuth(t *testing.T) {
 				OnboardingEnd:    false,
 				PassphrasePrompt: false,
 				OnboardingStep:   &step,
+				NoticeDismissal:  noticeDismissal,
 			})
 
 			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
@@ -168,6 +184,7 @@ func TestAuth(t *testing.T) {
 					"onboardingStart": nil,
 					"onboardingEnd":   nil,
 					"onboardingStep":  nil,
+					"noticeDismissal": nil,
 				}))
 
 			require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -178,6 +195,7 @@ func TestAuth(t *testing.T) {
 				OnboardingEnd:    false,
 				PassphrasePrompt: false,
 				OnboardingStep:   &step,
+				NoticeDismissal:  noticeDismissal,
 			})
 
 			// having passed 0 as sessionDuration to /auth/account/settings should nullify it.
@@ -192,6 +210,7 @@ func TestAuth(t *testing.T) {
 				OnboardingStart: true,
 				OnboardingEnd:   false,
 				OnboardingStep:  &step,
+				NoticeDismissal: noticeDismissal,
 			})
 		}
 
