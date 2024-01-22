@@ -460,9 +460,6 @@ table {
   pointer-events: none;
 }
 
-.no-position {
-  position: unset !important;
-}
 
 // Login and Signup Background
 .signup-background::before {
@@ -472,8 +469,55 @@ table {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('../assets/bg.svg');
   background-size: cover;
-  opacity: 0.1;
+  opacity: 0.25;
   pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
+}
+
+.v-theme--dark .signup-background::before {
+  opacity: 0.05;
+}
+
+
+@media (min-width: 600px) {
+  .signup-background::before {
+    background-image: url('../assets/bg.svg');
+    background-position: 40% center;
+  }
+}
+
+@media (max-width: 959px) {
+  .no-position {
+    position: unset !important;
+  }  
+}
+
+@media (min-width: 960px) {
+  .signup-background::before {
+    background-position: 35% center;
+  }
+}
+
+@media (min-width: 1264px) {
+  .signup-background::before {
+    background-position: 30% center;
+  }
+}
+
+@media (min-width: 1400px) {
+  .signup-background::before {
+    background-position: 15% center;
+  }
+}
+
+@media (min-width: 1600px) {
+  .signup-background::before {
+    background-position: 10% center;
+  }
+}
+
+@media (min-width: 1904px) {
+  .signup-background::before {
+    background-position: 5% center;
+  }
 }

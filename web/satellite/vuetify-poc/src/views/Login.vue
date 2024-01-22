@@ -99,7 +99,14 @@
                                 </template>
                             </v-text-field>
 
-                            <v-checkbox v-model="rememberForOneWeek" label="remember me for one week" hide-details />
+                            <v-checkbox v-model="rememberForOneWeek" label="Remember Me" density="compact" class="mb-4 mt-n3" hide-details>
+                                <v-tooltip
+                                    activator="parent"
+                                    location="top"
+                                >
+                                    Stay logged in for 7 days.
+                                </v-tooltip>
+                            </v-checkbox>
 
                             <v-btn
                                 color="primary"
@@ -140,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert, VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField, VCheckbox } from 'vuetify/components';
+import { VAlert, VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField, VCheckbox, VTooltip } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
