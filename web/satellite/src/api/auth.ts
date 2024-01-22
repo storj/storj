@@ -365,6 +365,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.onboardingEnd,
                 responseData.passphrasePrompt,
                 responseData.onboardingStep,
+                responseData.noticeDismissal,
             );
         }
 
@@ -394,6 +395,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.onboardingEnd,
                 responseData.passphrasePrompt,
                 responseData.onboardingStep,
+                responseData.noticeDismissal,
             );
         }
 

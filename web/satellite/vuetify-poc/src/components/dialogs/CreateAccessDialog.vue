@@ -196,10 +196,10 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { AccessType, PassphraseOption, Permission, CreateAccessStep, STEP_ICON_AND_TITLE } from '@/types/createAccessGrant';
 import { AccessGrantEndDate, ACCESS_TYPE_LINKS } from '@poc/types/createAccessGrant';
-import { LocalData } from '@/utils/localData';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { DialogStepComponent } from '@poc/types/common';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreateNewAccessStep from '@poc/components/dialogs/createAccessSteps/CreateNewAccessStep.vue';
 import ChoosePermissionsStep from '@poc/components/dialogs/createAccessSteps/ChoosePermissionsStep.vue';
@@ -263,6 +263,7 @@ const agStore = useAccessGrantsStore();
 const configStore = useConfigStore();
 const notify = useNotify();
 const analyticsStore = useAnalyticsStore();
+const userStore = useUsersStore();
 
 const innerContent = ref<Component | null>(null);
 const step = resettableRef<CreateAccessStep>(CreateAccessStep.CreateNewAccess);
@@ -300,7 +301,7 @@ const worker = ref<Worker | null>(null);
 const stepInfos: Record<CreateAccessStep, StepInfo> = {
     [CreateAccessStep.CreateNewAccess]: new StepInfo(
         null,
-        () => (accessTypes.value.includes(AccessType.S3) && !LocalData.getServerSideEncryptionModalHidden())
+        () => (accessTypes.value.includes(AccessType.S3) && !userStore.noticeDismissal.serverSideEncryption)
             ? CreateAccessStep.EncryptionInfo
             : CreateAccessStep.ChoosePermission,
     ),
@@ -309,7 +310,7 @@ const stepInfos: Record<CreateAccessStep, StepInfo> = {
         CreateAccessStep.ChoosePermission,
     ),
     [CreateAccessStep.ChoosePermission]: new StepInfo(
-        () => (accessTypes.value.includes(AccessType.S3) && !LocalData.getServerSideEncryptionModalHidden())
+        () => (accessTypes.value.includes(AccessType.S3) && !userStore.noticeDismissal.serverSideEncryption)
             ? CreateAccessStep.EncryptionInfo
             : CreateAccessStep.CreateNewAccess,
         () => accessTypes.value.includes(AccessType.APIKey) ? CreateAccessStep.ConfirmDetails : CreateAccessStep.AccessEncryption,

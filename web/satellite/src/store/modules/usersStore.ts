@@ -35,6 +35,8 @@ export const useUsersStore = defineStore('users', () => {
         return !state.settings.onboardingStart || (state.settings.onboardingStart && !state.settings.onboardingEnd);
     });
 
+    const noticeDismissal = computed(() => state.settings.noticeDismissal);
+
     const api: UsersApi = new AuthHttpApi();
 
     async function updateUser(userInfo: UpdatedUser): Promise<void> {
@@ -114,6 +116,7 @@ export const useUsersStore = defineStore('users', () => {
         state,
         userName,
         shouldOnboard,
+        noticeDismissal,
         updateUser,
         getUser,
         disableUserMFA,

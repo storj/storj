@@ -171,10 +171,10 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
-import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
@@ -206,6 +206,7 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
+const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -454,7 +455,7 @@ function onFileClick(file: BrowserObject): void {
     obStore.setObjectPathForModal((file.path ?? '') + file.Key);
     previewDialog.value = true;
     isFileGuideShown.value = false;
-    LocalData.setFileGuideHidden();
+    dismissFileGuide();
 }
 
 /**
@@ -509,13 +510,22 @@ function onShareClick(file: BrowserObject): void {
     isShareDialogShown.value = true;
 }
 
+async function dismissFileGuide() {
+    try {
+        const noticeDismissal = { ...userStore.state.settings.noticeDismissal };
+        noticeDismissal.fileGuide = true;
+        await userStore.updateSettings({ noticeDismissal });
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
+    }
+}
+
 watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
 
-if (!LocalData.getFileGuideHidden()) {
+if (!userStore.noticeDismissal.fileGuide) {
     const unwatch = watch(firstFile, () => {
         isFileGuideShown.value = true;
-        LocalData.setFileGuideHidden();
         unwatch();
     });
 }

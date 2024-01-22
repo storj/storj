@@ -9,7 +9,6 @@ export class LocalData {
     private static bucketWasCreated = 'bucketWasCreated';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
-    private static fileGuideHidden = 'fileGuideHidden';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
     private static sessionExpirationDate = 'sessionExpirationDate';
@@ -58,20 +57,6 @@ export class LocalData {
     public static getBucketGuideHidden(): boolean {
         const value = localStorage.getItem(LocalData.bucketGuideHidden);
         return value === 'true';
-    }
-
-    /**
-     * Hides the "click on the file name to preview" tooltip that appears on first upload.
-     */
-    public static setFileGuideHidden(): void {
-        localStorage.setItem(LocalData.fileGuideHidden, 'true');
-    }
-
-    /**
-     * Returns whether the "click on the file name to preview" tooltip that appears on first upload should be shown.
-     */
-    public static getFileGuideHidden(): boolean {
-        return localStorage.getItem(LocalData.fileGuideHidden) === 'true';
     }
 
     /**
