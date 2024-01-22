@@ -15,7 +15,7 @@
     >
         <v-row>
             <v-col>
-                <v-expansion-panels theme="dark" @update:model-value="v => isExpanded = v != undefined">
+                <v-expansion-panels theme="dark" @update:model-value="v => isExpanded = v !== undefined">
                     <v-expansion-panel
                         color="default"
                         rounded="lg"
@@ -23,7 +23,11 @@
                         <v-expansion-panel-title color="">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
-                                <v-btn variant="outlined" color="default" size="x-small" :icon="mdiClose" title="Close" @click="closeDialog" />
+                                <v-row class="ma-0 align-center">
+                                    <v-icon v-if="isExpanded" :icon="mdiChevronUp" class="mr-2" />
+                                    <v-icon v-else :icon="mdiChevronDown" class="mr-2" />
+                                    <v-btn variant="outlined" color="default" size="x-small" :icon="mdiClose" title="Close" @click="closeDialog" />
+                                </v-row>
                             </template>
                         </v-expansion-panel-title>
                         <v-progress-linear
@@ -90,7 +94,7 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { mdiClose, mdiCloseCircle } from '@mdi/js';
+import { mdiChevronDown, mdiChevronUp, mdiClose, mdiCloseCircle } from '@mdi/js';
 
 import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
