@@ -217,7 +217,7 @@ func (u *uplinkMultiWriteHandle) NextPart(ctx context.Context, length int64) (Wr
 		return nil, err
 	}
 
-	return &uplinkWriteHandle{
+	return &uplinkPartWriteHandle{
 		ul:   ul,
 		tail: length < 0,
 		len:  length,
@@ -258,14 +258,14 @@ func (u *uplinkMultiWriteHandle) Abort(ctx context.Context) error {
 	return err
 }
 
-// uplinkWriteHandle implements writeHandle for *uplink.Uploads.
-type uplinkWriteHandle struct {
+// uplinkPartWriteHandle implements writeHandle for *uplink.Uploads.
+type uplinkPartWriteHandle struct {
 	ul   *uplink.PartUpload
 	tail bool
 	len  int64
 }
 
-func (u *uplinkWriteHandle) Write(p []byte) (int, error) {
+func (u *uplinkPartWriteHandle) Write(p []byte) (int, error) {
 	if !u.tail {
 		if u.len <= 0 {
 			return 0, errs.New("write past maximum length")
@@ -283,10 +283,10 @@ func (u *uplinkWriteHandle) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (u *uplinkWriteHandle) Commit() error {
+func (u *uplinkPartWriteHandle) Commit() error {
 	return u.ul.Commit()
 }
 
-func (u *uplinkWriteHandle) Abort() error {
+func (u *uplinkPartWriteHandle) Abort() error {
 	return u.ul.Abort()
 }
