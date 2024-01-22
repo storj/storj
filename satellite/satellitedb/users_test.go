@@ -464,6 +464,28 @@ func TestUserSettings(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, newBool, settings.PassphrasePrompt)
 		})
+
+		t.Run("test notice dismissal", func(t *testing.T) {
+			id = testrand.UUID()
+			noticeDismissal := console.NoticeDismissal{
+				FileGuide:            false,
+				ServerSideEncryption: false,
+			}
+
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
+			settings, err := users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, noticeDismissal, settings.NoticeDismissal)
+
+			noticeDismissal.FileGuide = true
+			noticeDismissal.ServerSideEncryption = true
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
+				NoticeDismissal: &noticeDismissal,
+			}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, noticeDismissal, settings.NoticeDismissal)
+		})
 	})
 }
 

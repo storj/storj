@@ -330,11 +330,12 @@ type UpdateUserRequest struct {
 
 // UserSettings contains configurations for a user.
 type UserSettings struct {
-	SessionDuration  *time.Duration `json:"sessionDuration"`
-	OnboardingStart  bool           `json:"onboardingStart"`
-	OnboardingEnd    bool           `json:"onboardingEnd"`
-	PassphrasePrompt bool           `json:"passphrasePrompt"`
-	OnboardingStep   *string        `json:"onboardingStep"`
+	SessionDuration  *time.Duration  `json:"sessionDuration"`
+	OnboardingStart  bool            `json:"onboardingStart"`
+	OnboardingEnd    bool            `json:"onboardingEnd"`
+	PassphrasePrompt bool            `json:"passphrasePrompt"`
+	OnboardingStep   *string         `json:"onboardingStep"`
+	NoticeDismissal  NoticeDismissal `json:"noticeDismissal"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
@@ -345,6 +346,13 @@ type UpsertUserSettingsRequest struct {
 	OnboardingEnd    *bool
 	PassphrasePrompt *bool
 	OnboardingStep   *string
+	NoticeDismissal  *NoticeDismissal
+}
+
+// NoticeDismissal contains whether notices should be shown to a user.
+type NoticeDismissal struct {
+	FileGuide            bool `json:"fileGuide"`
+	ServerSideEncryption bool `json:"serverSideEncryption"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

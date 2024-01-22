@@ -796,6 +796,7 @@ CREATE TABLE user_settings (
 	onboarding_start boolean NOT NULL DEFAULT true,
 	onboarding_end boolean NOT NULL DEFAULT true,
 	onboarding_step text,
+	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -1493,6 +1494,7 @@ CREATE TABLE user_settings (
 	onboarding_start boolean NOT NULL DEFAULT true,
 	onboarding_end boolean NOT NULL DEFAULT true,
 	onboarding_step text,
+	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -10427,6 +10429,7 @@ type UserSettings struct {
 	OnboardingStart  bool
 	OnboardingEnd    bool
 	OnboardingStep   *string
+	NoticeDismissal  []byte
 }
 
 func (UserSettings) _Table() string { return "user_settings" }
@@ -10437,6 +10440,7 @@ type UserSettings_Create_Fields struct {
 	OnboardingStart  UserSettings_OnboardingStart_Field
 	OnboardingEnd    UserSettings_OnboardingEnd_Field
 	OnboardingStep   UserSettings_OnboardingStep_Field
+	NoticeDismissal  UserSettings_NoticeDismissal_Field
 }
 
 type UserSettings_Update_Fields struct {
@@ -10445,6 +10449,7 @@ type UserSettings_Update_Fields struct {
 	OnboardingStart  UserSettings_OnboardingStart_Field
 	OnboardingEnd    UserSettings_OnboardingEnd_Field
 	OnboardingStep   UserSettings_OnboardingStep_Field
+	NoticeDismissal  UserSettings_NoticeDismissal_Field
 }
 
 type UserSettings_UserId_Field struct {
@@ -10605,6 +10610,25 @@ func (f UserSettings_OnboardingStep_Field) value() interface{} {
 }
 
 func (UserSettings_OnboardingStep_Field) _Column() string { return "onboarding_step" }
+
+type UserSettings_NoticeDismissal_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserSettings_NoticeDismissal(v []byte) UserSettings_NoticeDismissal_Field {
+	return UserSettings_NoticeDismissal_Field{_set: true, _value: v}
+}
+
+func (f UserSettings_NoticeDismissal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_NoticeDismissal_Field) _Column() string { return "notice_dismissal" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -13697,6 +13721,12 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	if optional.OnboardingEnd._set {
 		__values = append(__values, optional.OnboardingEnd.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("onboarding_end"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.NoticeDismissal._set {
+		__values = append(__values, optional.NoticeDismissal.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notice_dismissal"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -17351,7 +17381,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_settings_user_id.value())
@@ -17360,7 +17390,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -19609,7 +19639,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -19640,6 +19670,11 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_step = ?"))
 	}
 
+	if update.NoticeDismissal._set {
+		__values = append(__values, update.NoticeDismissal.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notice_dismissal = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -19653,7 +19688,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -22125,6 +22160,12 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	if optional.OnboardingEnd._set {
 		__values = append(__values, optional.OnboardingEnd.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("onboarding_end"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.NoticeDismissal._set {
+		__values = append(__values, optional.NoticeDismissal.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notice_dismissal"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -25779,7 +25820,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_settings_user_id.value())
@@ -25788,7 +25829,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -28037,7 +28078,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -28068,6 +28109,11 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_step = ?"))
 	}
 
+	if update.NoticeDismissal._set {
+		__values = append(__values, update.NoticeDismissal.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notice_dismissal = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -28081,7 +28127,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
