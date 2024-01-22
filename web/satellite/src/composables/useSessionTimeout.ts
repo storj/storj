@@ -1,13 +1,13 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { WatchStopHandle, computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-import { DEFAULT_USER_SETTINGS, useUsersStore } from '@/store/modules/usersStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
@@ -59,7 +59,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
      * Returns the session duration from the store.
      */
     const sessionDuration = computed((): number => {
-        const duration = (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
+        const duration = (LocalData.getCustomSessionDuration() || usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
         const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
         if (duration > maxTimeout) {
             return maxTimeout;
@@ -71,7 +71,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
      * Returns the session refresh interval from the store.
      */
     const sessionRefreshInterval = computed((): number => {
-        return sessionDuration.value / 2;
+        return Math.floor(sessionDuration.value * 0.75);
     });
 
     /**
@@ -103,6 +103,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         RESET_ACTIVITY_EVENTS.forEach((eventName: string) => {
             document.removeEventListener(eventName, onSessionActivity);
         });
+        LocalData.removeCustomSessionDuration();
         clearSessionTimers();
         inactivityModalShown.value = false;
         sessionExpiredModalShown.value = true;
@@ -206,6 +207,9 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
 
         try {
             LocalData.setSessionExpirationDate(await auth.refreshSession());
+            if (LocalData.getCustomSessionDuration()) {
+                LocalData.removeCustomSessionDuration();
+            }
         } catch (error) {
             error.message = (error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message;
             notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
@@ -238,19 +242,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         isSessionActive.value = true;
     }
 
-    let unwatch: WatchStopHandle | null = null;
-    let unwatchImmediately = false;
-    unwatch = watch(() => usersStore.state.settings, newSettings => {
-        if (newSettings !== DEFAULT_USER_SETTINGS) {
-            setupSessionTimers();
-            if (unwatch) {
-                unwatch();
-                return;
-            }
-            unwatchImmediately = true;
-        }
-    }, { immediate: true });
-    if (unwatchImmediately) unwatch();
+    setupSessionTimers();
 
     usersStore.$onAction(({ name, after, args }) => {
         if (name === 'clear') clearSessionTimers();
