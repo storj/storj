@@ -15,7 +15,7 @@
                 label="I understand, don't show this again."
                 color="default"
                 :hide-details="false"
-                @update:model-value="value => LocalData.setServerSideEncryptionModalHidden(value)"
+                @update:model-value="value => toggleServerSideEncryptionNotice(value)"
             />
         </v-col>
     </v-row>
@@ -24,8 +24,24 @@
 <script setup lang="ts">
 import { VRow, VCol, VCheckbox } from 'vuetify/components';
 
-import { LocalData } from '@/utils/localData';
 import { DialogStepComponent } from '@poc/types/common';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
+
+const userStore = useUsersStore();
+
+const notify = useNotify();
+
+async function toggleServerSideEncryptionNotice(value: boolean) {
+    try {
+        const noticeDismissal = { ...userStore.state.settings.noticeDismissal };
+        noticeDismissal.serverSideEncryption = value;
+        await userStore.updateSettings({ noticeDismissal });
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+    }
+}
 
 defineExpose<DialogStepComponent>({
     title: 'Encryption Information',
