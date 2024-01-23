@@ -43,8 +43,11 @@ type ProjectMembersPage struct {
 
 // Member is a project member in a ProjectMembersPage.
 type Member struct {
-	User     *console.User `json:"user"`
-	JoinedAt time.Time     `json:"joinedAt"`
+	ID        uuid.UUID `json:"id"`
+	FullName  string    `json:"fullName"`
+	ShortName string    `json:"shortName"`
+	Email     string    `json:"email"`
+	JoinedAt  time.Time `json:"joinedAt"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
@@ -399,25 +402,18 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 	memberPage.Members = []Member{}
 	memberPage.Invitations = []Invitation{}
 
-	// getMemberInfo returns only member information that is necessary in the UI
-	getMemberInfo := func(u *console.User) *console.User {
-		return &console.User{
-			ID:        u.ID,
-			FullName:  u.FullName,
-			ShortName: u.ShortName,
-			Email:     u.Email,
-		}
-	}
 	for _, m := range membersAndInvitations.ProjectMembers {
 		user, err := p.service.GetUser(ctx, m.MemberID)
 		if err != nil {
 			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
-		u := getMemberInfo(user)
 		member := Member{
-			User:     u,
-			JoinedAt: m.CreatedAt,
+			ID:        user.ID,
+			FullName:  user.FullName,
+			ShortName: user.ShortName,
+			Email:     user.Email,
+			JoinedAt:  m.CreatedAt,
 		}
 		memberPage.Members = append(memberPage.Members, member)
 	}

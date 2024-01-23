@@ -211,7 +211,7 @@ type User struct {
 	ShortName string `json:"shortName"`
 
 	Email        string `json:"email"`
-	PasswordHash []byte `json:"passwordHash"`
+	PasswordHash []byte `json:"-"`
 
 	Status    UserStatus `json:"status"`
 	UserAgent []byte     `json:"userAgent"`
@@ -234,8 +234,8 @@ type User struct {
 	HaveSalesContact bool `json:"haveSalesContact"`
 
 	MFAEnabled       bool     `json:"mfaEnabled"`
-	MFASecretKey     string   `json:"mfaSecretKey"`
-	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
+	MFASecretKey     string   `json:"-"`
+	MFARecoveryCodes []string `json:"-"`
 
 	SignupPromoCode string `json:"signupPromoCode"`
 
