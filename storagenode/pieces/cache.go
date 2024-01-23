@@ -289,13 +289,13 @@ func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string
 }
 
 // Trash moves the ref to the trash and updates the cache.
-func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobRef) error {
+func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobRef, timestamp time.Time) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = blobs.Blobs.Trash(ctx, blobRef)
+	err = blobs.Blobs.Trash(ctx, blobRef, timestamp)
 	if err != nil {
 		return Error.Wrap(err)
 	}

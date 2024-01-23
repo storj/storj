@@ -92,11 +92,11 @@ func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref blobstore.
 }
 
 // Trash deletes the blob with the namespace and key.
-func (slow *SlowBlobs) Trash(ctx context.Context, ref blobstore.BlobRef) error {
+func (slow *SlowBlobs) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
-	return slow.blobs.Trash(ctx, ref)
+	return slow.blobs.Trash(ctx, ref, timestamp)
 }
 
 // RestoreTrash restores all files in the trash.

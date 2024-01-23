@@ -182,7 +182,7 @@ func (d *Deleter) deleteOrTrash(ctx context.Context, satelliteID storj.NodeID, p
 	var errMsg string
 	var infoMsg string
 	if d.store.config.DeleteToTrash {
-		err = d.store.Trash(ctx, satelliteID, pieceID)
+		err = d.store.Trash(ctx, satelliteID, pieceID, time.Now())
 		errMsg = "could not send delete piece to trash"
 		infoMsg = "delete piece sent to trash"
 	} else {

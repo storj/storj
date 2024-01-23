@@ -351,7 +351,7 @@ func TestDownload(t *testing.T) {
 		// upload another piece that we will trash
 		trashPieceID := storj.PieceID{3}
 		trashPieceData, _, _ := uploadPiece(t, ctx, trashPieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
-		err := planet.StorageNodes[0].Storage2.Store.Trash(ctx, planet.Satellites[0].ID(), trashPieceID)
+		err := planet.StorageNodes[0].Storage2.Store.Trash(ctx, planet.Satellites[0].ID(), trashPieceID, time.Now())
 		require.NoError(t, err)
 		_, err = planet.StorageNodes[0].Storage2.Store.Stat(ctx, planet.Satellites[0].ID(), trashPieceID)
 		require.Equal(t, true, errs.Is(err, os.ErrNotExist))

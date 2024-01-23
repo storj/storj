@@ -40,16 +40,13 @@ var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPa
 type Dir struct {
 	log  *zap.Logger
 	path string
-
-	trashnow func() time.Time // the function used by trash to determine "now"
 }
 
 // OpenDir opens existing folder for storing blobs.
 func OpenDir(log *zap.Logger, path string) (*Dir, error) {
 	dir := &Dir{
-		log:      log,
-		path:     path,
-		trashnow: time.Now,
+		log:  log,
+		path: path,
 	}
 
 	stat := func(path string) error {
@@ -67,9 +64,8 @@ func OpenDir(log *zap.Logger, path string) (*Dir, error) {
 // NewDir returns folder for storing blobs.
 func NewDir(log *zap.Logger, path string) (*Dir, error) {
 	dir := &Dir{
-		log:      log,
-		path:     path,
-		trashnow: time.Now,
+		log:  log,
+		path: path,
 	}
 
 	return dir, errs.Combine(
@@ -316,13 +312,15 @@ func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef
 }
 
 // Trash moves the blob specified by ref to the trash for every format version.
-func (dir *Dir) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
+func (dir *Dir) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.iterateStorageFormatVersions(ctx, ref, dir.TrashWithStorageFormat)
+	return dir.iterateStorageFormatVersions(ctx, ref, func(ctx context.Context, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) error {
+		return dir.TrashWithStorageFormat(ctx, ref, formatVersion, timestamp)
+	})
 }
 
 // TrashWithStorageFormat moves the blob specified by ref to the trash for the specified format version.
-func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
+func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) (err error) {
 	blobsBasePath, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return err
@@ -343,16 +341,15 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRe
 		return err
 	}
 
-	// Change mtime to now. This allows us to check the mtime to know how long
-	// the file has been in the trash. If the file is restored this may make it
-	// take longer to be trashed again, but the simplicity is worth the
-	// trade-off.
+	// Change mtime to the logical time of removal. This allows us to check the
+	// mtime to know how long the file has been in the trash. If the file is
+	// restored this may make it take longer to be trashed again, but the
+	// simplicity is worth the trade-off.
 	//
 	// We change the mtime prior to moving the file so that if this call fails
 	// the file will not be in the trash with an unmodified mtime, which could
 	// result in its permanent deletion too soon.
-	now := dir.trashnow()
-	err = os.Chtimes(blobsVerPath, now, now)
+	err = os.Chtimes(blobsVerPath, timestamp, timestamp)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -369,12 +366,6 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRe
 		return nil
 	}
 	return err
-}
-
-// ReplaceTrashnow is a helper for tests to replace the trashnow function used
-// when moving files to the trash.
-func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
-	dir.trashnow = trashnow
 }
 
 // RestoreTrash moves every blob in the trash folder back into blobsdir.
