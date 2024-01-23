@@ -120,7 +120,8 @@ const bucketsStore = useBucketsStore();
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 
-const innerContent = ref<Component | null>(null);
+// Copied from here https://github.com/storj/storj/blob/f6646b0e88700b5e7113a76a8d07bf346b59185a/satellite/metainfo/validation.go#L38
+const ipRegexp = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
 
 const props = defineProps<{
     modelValue: boolean,
@@ -130,6 +131,7 @@ const emit = defineEmits<{
     (event: 'update:modelValue', value: boolean): void,
 }>();
 
+const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
@@ -140,16 +142,21 @@ const model = computed<boolean>({
 });
 
 const bucketNameRules = computed(() => {
-
     return [
         (value: string) => (!!value || 'Bucket name is required.'),
-        (value: string) => ((value.length >= 3 && value.length <= 63)  || 'Name should be between 3 and 63 characters length.'),
+        (value: string) => ((value.length >= 3 && value.length <= 63) || 'Name should be between 3 and 63 characters length.'),
         (value: string) => {
-            if (/^[a-z0-9-.]+$/.test(value)) return true;
-            if (/[A-Z]/.test(value)) return 'Uppercase characters are not allowed.';
-            if (/\s/.test(value)) return 'Spaces are not allowed.';
-            if (/[^a-zA-Z0-9-.]/.test(value)) return 'Other characters are not allowed.';
-            return true;
+            const labels = value.split('.');
+            for (let i = 0; i < labels.length; i++) {
+                const l = labels[i];
+                if (!l.length) return 'Bucket name part cannot start or end with a dot.';
+                if (!/^[a-z0-9]$/.test(l[0])) return 'Bucket name part must start with a lowercase letter or number.';
+                if (!/^[a-z0-9]$/.test(l[l.length - 1])) return 'Bucket name part must end with a lowercase letter or number.';
+                if (!/^[a-z0-9-.]+$/.test(l)) return 'Bucket name part must contain only lowercase letters, numbers or hyphens.';
+            }
+        },
+        (value: string) => {
+            if (ipRegexp.test(value)) return 'Bucket name cannot be formatted as an IP address.';
         },
         (value: string) => (!allBucketNames.value.includes(value) || 'A bucket exists with this name.'),
     ];
