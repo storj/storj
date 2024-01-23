@@ -319,6 +319,24 @@ func TestService(t *testing.T) {
 				err = sat.DB.Console().Projects().Update(ctx, up1Proj)
 				require.NoError(t, err)
 
+				// should not be able to set limit to zero.
+				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
+					Name:           up1Proj.Name,
+					StorageLimit:   memory.Size(0),
+					BandwidthLimit: memory.Size(0),
+				})
+				require.True(t, console.ErrInvalidProjectLimit.Has(err))
+				require.Nil(t, updatedProject)
+
+				// should not be able to set limit more than tier limit.
+				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
+					Name:           up1Proj.Name,
+					StorageLimit:   sat.Config.Console.UsageLimits.Storage.Paid + memory.MB,
+					BandwidthLimit: sat.Config.Console.UsageLimits.Bandwidth.Paid + memory.MB,
+				})
+				require.True(t, console.ErrInvalidProjectLimit.Has(err))
+				require.Nil(t, updatedProject)
+
 				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, updateInfo)
 				require.NoError(t, err)
 				require.Equal(t, updateInfo.Name, updatedProject.Name)

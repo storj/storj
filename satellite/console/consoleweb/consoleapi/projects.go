@@ -200,6 +200,11 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if console.ErrInvalidProjectLimit.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
