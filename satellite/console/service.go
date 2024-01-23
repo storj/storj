@@ -2024,15 +2024,15 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
 		}
 		if updatedProject.StorageLimit <= 0 || updatedProject.BandwidthLimit <= 0 {
-			return nil, Error.New("project limits must be greater than 0")
+			return nil, ErrInvalidProjectLimit.New("Project limits must be greater than 0")
 		}
 
 		if updatedProject.StorageLimit > s.config.UsageLimits.Storage.Paid && updatedProject.StorageLimit > *project.StorageLimit {
-			return nil, Error.New("specified storage limit exceeds allowed maximum for current tier")
+			return nil, ErrInvalidProjectLimit.New("Specified storage limit exceeds allowed maximum for current tier")
 		}
 
 		if updatedProject.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && updatedProject.BandwidthLimit > *project.BandwidthLimit {
-			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
+			return nil, ErrInvalidProjectLimit.New("Specified bandwidth limit exceeds allowed maximum for current tier")
 		}
 
 		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
@@ -2040,7 +2040,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.Wrap(err)
 		}
 		if updatedProject.StorageLimit.Int64() < storageUsed {
-			return nil, Error.New("cannot set storage limit below current usage")
+			return nil, ErrInvalidProjectLimit.New("Cannot set storage limit below current usage")
 		}
 
 		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
@@ -2048,7 +2048,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.Wrap(err)
 		}
 		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
-			return nil, Error.New("cannot set bandwidth limit below current usage")
+			return nil, ErrInvalidProjectLimit.New("Cannot set bandwidth limit below current usage")
 		}
 		/*
 			The purpose of userSpecifiedBandwidthLimit and userSpecifiedStorageLimit is to know if a user has set a bandwidth
