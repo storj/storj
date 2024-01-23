@@ -313,7 +313,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 		// since they're not reached when iterating over objects in the metainfo DB.
 		// We only do this for buckets whose last tally is non-empty because only one empty tally is
 		// required for us to know that a bucket was empty the last time we checked.
-		locs, err := observer.projectAccountingDB.GetNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket)
+		locs, err := observer.projectAccountingDB.GetNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 		if err != nil {
 			return err
 		}

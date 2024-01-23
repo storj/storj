@@ -149,13 +149,14 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 
 // GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 // whose most recent tally does not represent empty usage.
-func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation) (result []metabase.BucketLocation, err error) {
+func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result []metabase.BucketLocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(db.db.QueryContext(ctx, `
 		SELECT project_id, name
-		FROM bucket_metainfos bm
-		WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
+		FROM bucket_metainfos bm`+
+		db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
+		` WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
 		AND NOT 0 IN (
 			SELECT object_count FROM bucket_storage_tallies
 			WHERE (project_id, bucket_name) = (bm.project_id, bm.name)

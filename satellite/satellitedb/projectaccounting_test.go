@@ -579,7 +579,7 @@ func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
 		}, metabase.BucketLocation{
 			ProjectID:  testrand.UUID(),
 			BucketName: "b\\",
-		})
+		}, 0)
 		require.NoError(t, err)
 	})
 }
