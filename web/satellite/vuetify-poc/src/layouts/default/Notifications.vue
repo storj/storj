@@ -9,33 +9,22 @@
         z-index="99999"
         variant="text"
     >
-        <v-alert
+        <notification-item
             v-for="item in notifications"
             :key="item.id"
-            closable
-            variant="elevated"
-            :title="item.title || item.type"
-            :type="item.type.toLowerCase() as 'error' | 'success' | 'warning' | 'info'"
-            rounded="lg"
-            class="my-2"
-            border
-            @mouseover="() => onMouseOver(item.id)"
-            @mouseleave="() => onMouseLeave(item.id)"
-            @click:close="() => onCloseClick(item.id)"
-        >
-            <template #default>
-                <component :is="item.messageNode" />
-            </template>
-        </v-alert>
+            :item="item"
+        />
     </v-snackbar>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VAlert, VSnackbar } from 'vuetify/components';
+import { VSnackbar } from 'vuetify/components';
 
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { DelayedNotification } from '@/types/DelayedNotification';
+
+import NotificationItem from '@poc/components/NotificationItem.vue';
 
 const notificationsStore = useNotificationsStore();
 
@@ -52,25 +41,4 @@ const doNotificationsExist = computed((): boolean => {
 const notifications = computed((): DelayedNotification[] => {
     return notificationsStore.state.notificationQueue as DelayedNotification[];
 });
-
-/**
- * Forces notification to stay on page on mouse over it.
- */
-function onMouseOver(id: string): void {
-    notificationsStore.pauseNotification(id);
-}
-
-/**
- * Resume notification flow when mouse leaves notification.
- */
-function onMouseLeave(id: string): void {
-    notificationsStore.resumeNotification(id);
-}
-
-/**
- * Removes notification when the close button is clicked.
- */
-function onCloseClick(id: string): void {
-    notificationsStore.deleteNotification(id);
-}
 </script>

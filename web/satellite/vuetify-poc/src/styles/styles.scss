@@ -460,6 +460,13 @@ table {
   pointer-events: none;
 }
 
+.white-link {
+  color: #fff;
+
+  &:visited {
+    color: #fff;
+  }
+}
 
 // Login and Signup Background
 .signup-background::before {
@@ -489,7 +496,7 @@ table {
 @media (max-width: 959px) {
   .no-position {
     position: unset !important;
-  }  
+  }
 }
 
 @media (min-width: 960px) {
