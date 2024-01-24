@@ -503,6 +503,12 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 			return err
 		}
 
+		// Invalidate all user sessions.
+		_, err = tx.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -633,6 +639,12 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 
 		botStatus := PendingBotVerification
 		err = tx.Users().Update(ctx, userID, UpdateUserRequest{Status: &botStatus})
+		if err != nil {
+			return err
+		}
+
+		// Invalidate all user sessions.
+		_, err = tx.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 		if err != nil {
 			return err
 		}
