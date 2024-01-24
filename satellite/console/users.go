@@ -351,9 +351,10 @@ type UpsertUserSettingsRequest struct {
 
 // NoticeDismissal contains whether notices should be shown to a user.
 type NoticeDismissal struct {
-	FileGuide            bool `json:"fileGuide"`
-	ServerSideEncryption bool `json:"serverSideEncryption"`
-	PartnerUpgradeBanner bool `json:"partnerUpgradeBanner"`
+	FileGuide                bool `json:"fileGuide"`
+	ServerSideEncryption     bool `json:"serverSideEncryption"`
+	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
+	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.
