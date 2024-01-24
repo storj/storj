@@ -1301,14 +1301,16 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 			continue
 		}
 		service.log.Info("Updating customer balance to 0", zap.String("CustomerID", itr.Customer().ID))
-		custParams := &stripe.CustomerParams{
+		balanceParams := &stripe.CustomerBalanceTransactionParams{
 			Params: stripe.Params{
 				Context: ctx,
 			},
-			Balance:     stripe.Int64(0),
+			Amount:      stripe.Int64(-itr.Customer().Balance),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Customer:    stripe.String(itr.Customer().ID),
 			Description: stripe.String("Customer balance adjusted to 0 after adding invoice item " + invoiceItem.ID),
 		}
-		_, err = service.stripeClient.Customers().Update(itr.Customer().ID, custParams)
+		_, err = service.stripeClient.CustomerBalanceTransactions().New(balanceParams)
 		if err != nil {
 			service.log.Error("Failed to update customer balance to 0 after adding invoice item", zap.Error(err))
 			errGrp.Add(err)
