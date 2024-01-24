@@ -87,6 +87,10 @@ onBeforeMount(async () => {
         ];
     }
     const user: User = usersStore.state.user;
+    if (user.paidTier || !user.partner) {
+        isLoading.value = false;
+        return;
+    }
 
     let config;
     try {

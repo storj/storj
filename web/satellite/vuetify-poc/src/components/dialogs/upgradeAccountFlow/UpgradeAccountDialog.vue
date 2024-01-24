@@ -240,4 +240,6 @@ watch(content, (value) => {
         return;
     }
 });
+
+defineExpose({ setSecondStep });
 </script>
