@@ -470,6 +470,7 @@ func TestUserSettings(t *testing.T) {
 			noticeDismissal := console.NoticeDismissal{
 				FileGuide:            false,
 				ServerSideEncryption: false,
+				PartnerUpgradeBanner: false,
 			}
 
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
@@ -479,6 +480,7 @@ func TestUserSettings(t *testing.T) {
 
 			noticeDismissal.FileGuide = true
 			noticeDismissal.ServerSideEncryption = true
+			noticeDismissal.PartnerUpgradeBanner = true
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
 				NoticeDismissal: &noticeDismissal,
 			}))
