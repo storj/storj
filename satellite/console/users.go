@@ -353,6 +353,7 @@ type UpsertUserSettingsRequest struct {
 type NoticeDismissal struct {
 	FileGuide            bool `json:"fileGuide"`
 	ServerSideEncryption bool `json:"serverSideEncryption"`
+	PartnerUpgradeBanner bool `json:"partnerUpgradeBanner"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

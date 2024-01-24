@@ -140,6 +140,7 @@ func TestAuth(t *testing.T) {
 			noticeDismissal := console.NoticeDismissal{
 				FileGuide:            false,
 				ServerSideEncryption: false,
+				PartnerUpgradeBanner: false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -155,6 +156,7 @@ func TestAuth(t *testing.T) {
 			duration := time.Duration(15) * time.Minute
 			noticeDismissal.FileGuide = true
 			noticeDismissal.ServerSideEncryption = true
+			noticeDismissal.PartnerUpgradeBanner = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -165,6 +167,7 @@ func TestAuth(t *testing.T) {
 					"noticeDismissal": map[string]bool{
 						"fileGuide":            noticeDismissal.FileGuide,
 						"serverSideEncryption": noticeDismissal.ServerSideEncryption,
+						"partnerUpgradeBanner": noticeDismissal.PartnerUpgradeBanner,
 					},
 				}))
 

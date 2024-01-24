@@ -1383,6 +1383,7 @@ func TestUserSettings(t *testing.T) {
 		noticeDismissal := console.NoticeDismissal{
 			FileGuide:            false,
 			ServerSideEncryption: false,
+			PartnerUpgradeBanner: false,
 		}
 		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
@@ -1412,6 +1413,7 @@ func TestUserSettings(t *testing.T) {
 		sessionDurPtr := &sessionDur
 		noticeDismissal.ServerSideEncryption = true
 		noticeDismissal.FileGuide = true
+		noticeDismissal.PartnerUpgradeBanner = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,
