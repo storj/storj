@@ -52,6 +52,8 @@
             </v-col>
         </v-row>
 
+        <team-passphrase-banner v-if="isTeamPassphraseBanner" />
+
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent icon="file" title="Files" subtitle="Total files stored" :data="limits.objectCount.toLocaleString()" to="buckets" />
@@ -305,6 +307,7 @@ import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
 import IconCirclePlus from '@poc/components/icons/IconCirclePlus.vue';
 import NextStepsContainer from '@poc/components/NextStepsContainer.vue';
+import TeamPassphraseBanner from '@poc/components/TeamPassphraseBanner.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -407,6 +410,13 @@ const couponRemainingPercent = computed((): number => {
  */
 const isPaidTier = computed((): boolean => {
     return usersStore.state.user.paidTier;
+});
+
+/**
+ * Whether project members passphrase banner should be shown.
+ */
+const isTeamPassphraseBanner = computed<boolean>(() => {
+    return !usersStore.state.settings.noticeDismissal.projectMembersPassphrase && teamSize.value > 1;
 });
 
 /**
