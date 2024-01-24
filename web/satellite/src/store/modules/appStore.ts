@@ -24,7 +24,7 @@ class ErrorPageState {
         public statusCode = 0,
         public fatal = false,
         public visible = false,
-    ) {}
+    ) { }
 }
 
 export const useAppStore = defineStore('app', () => {

@@ -265,7 +265,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
-
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 

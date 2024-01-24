@@ -116,6 +116,9 @@ type BucketUsage struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
 
+	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	Location         string                    `json:"location"`
+
 	Versioning buckets.Versioning `json:"versioning"`
 
 	Storage      float64 `json:"storage"`

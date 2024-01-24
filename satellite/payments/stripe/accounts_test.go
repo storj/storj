@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripe"
@@ -96,6 +97,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			"",
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
+			nodeselection.NewPlacementDefinitions(),
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

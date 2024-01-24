@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -181,6 +182,7 @@ type Service struct {
 	projectAccounting          accounting.ProjectAccounting
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
+	placements                 nodeselection.PlacementDefinitions
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -218,7 +220,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, satelliteAddress string, satelliteName string, maxProjectBuckets int, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -254,6 +256,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		projectAccounting:          projectAccounting,
 		projectUsage:               projectUsage,
 		buckets:                    buckets,
+		placements:                 placements,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
 		billing:                    billing,
@@ -2816,6 +2819,15 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if usage == nil {
+		return usage, nil
+	}
+
+	for i := range usage.BucketUsages {
+		placementID := usage.BucketUsages[i].DefaultPlacement
+		usage.BucketUsages[i].Location = s.placements[placementID].Name
 	}
 
 	return usage, nil

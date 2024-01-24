@@ -21,8 +21,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -837,6 +839,30 @@ func TestUsageRollups(t *testing.T) {
 
 			for _, usage := range totals.BucketUsages {
 				require.Equal(t, satbuckets.VersioningSuspended, usage.Versioning)
+			}
+		})
+
+		t.Run("placement", func(t *testing.T) {
+			bList, err := db.Buckets().ListBuckets(ctx, planet.Uplinks[0].Projects[0].ID, satbuckets.ListOptions{Direction: satbuckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+			require.NoError(t, err)
+			for _, b := range bList.Items {
+				// this is a number. See earlier in test where bucket is created
+				elems := strings.Split(b.Name, "-")
+				n, err := strconv.Atoi(elems[1])
+				require.NoError(t, err)
+				b.Placement = storj.PlacementConstraint(n)
+				_, err = db.Buckets().UpdateBucket(ctx, b)
+				require.NoError(t, err)
+			}
+			page, err := usageRollups.GetBucketTotals(ctx, planet.Uplinks[0].Projects[0].ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+			require.NoError(t, err)
+			require.NotNil(t, page)
+			for _, b := range page.BucketUsages {
+				// this is a number. See earlier in test where bucket is created
+				elems := strings.Split(b.BucketName, "-")
+				n, err := strconv.Atoi(elems[1])
+				require.NoError(t, err)
+				require.True(t, int(b.DefaultPlacement) == n)
 			}
 		})
 	})

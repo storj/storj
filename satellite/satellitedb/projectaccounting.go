@@ -20,6 +20,7 @@ import (
 	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/tagsql"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
@@ -894,7 +895,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	bucketsQuery := db.db.Rebind(`SELECT name, versioning, created_at FROM bucket_metainfos
+	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, created_at FROM bucket_metainfos
 	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
@@ -915,6 +916,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	type bucketWithCreationDate struct {
 		name       string
 		versioning satbuckets.Versioning
+		placement  storj.PlacementConstraint
 		createdAt  time.Time
 	}
 
@@ -923,9 +925,10 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		var (
 			bucket     string
 			versioning satbuckets.Versioning
+			placement  storj.PlacementConstraint
 			createdAt  time.Time
 		)
-		err = bucketRows.Scan(&bucket, &versioning, &createdAt)
+		err = bucketRows.Scan(&bucket, &versioning, &placement, &createdAt)
 		if err != nil {
 			return nil, err
 		}
@@ -933,6 +936,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		buckets = append(buckets, bucketWithCreationDate{
 			name:       bucket,
 			versioning: versioning,
+			placement:  placement,
 			createdAt:  createdAt,
 		})
 	}
@@ -953,11 +957,12 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	var bucketUsages []accounting.BucketUsage
 	for _, bucket := range buckets {
 		bucketUsage := accounting.BucketUsage{
-			ProjectID:  projectID,
-			BucketName: bucket.name,
-			Versioning: bucket.versioning,
-			Since:      bucket.createdAt,
-			Before:     before,
+			ProjectID:        projectID,
+			BucketName:       bucket.name,
+			Versioning:       bucket.versioning,
+			DefaultPlacement: bucket.placement,
+			Since:            bucket.createdAt,
+			Before:           before,
 		}
 
 		// get bucket_bandwidth_rollups

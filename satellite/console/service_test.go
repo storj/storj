@@ -33,9 +33,11 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -45,11 +47,20 @@ import (
 )
 
 func TestService(t *testing.T) {
+	placements := make(map[int]string)
+	for i := 0; i < 4; i++ {
+		placements[i] = fmt.Sprintf("loc-%d", i)
+	}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
+				var plcStr string
+				for k, v := range placements {
+					plcStr += fmt.Sprintf(`%d:annotation("location", "%s"); `, k, v)
+				}
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
 			},
 		},
 	},
@@ -651,6 +662,25 @@ func TestService(t *testing.T) {
 				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, bucketsForUnauthorizedUser)
+			})
+
+			t.Run("GetBucketTotals", func(t *testing.T) {
+				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+				require.NoError(t, err)
+				for i, item := range list.Items {
+					item.Placement = storj.PlacementConstraint(i)
+					if i > len(placements)-1 {
+						item.Placement = storj.PlacementConstraint(len(placements) - 1)
+					}
+					b, err := sat.DB.Buckets().UpdateBucket(ctx, item)
+					require.NoError(t, err)
+					require.Equal(t, i, int(b.Placement))
+				}
+				bt, err := service.GetBucketTotals(userCtx2, up2Proj.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+				require.NoError(t, err)
+				for _, b := range bt.BucketUsages {
+					require.Equal(t, placements[int(b.DefaultPlacement)], b.Location)
+				}
 			})
 
 			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
