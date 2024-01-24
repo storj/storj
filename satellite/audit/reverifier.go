@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
-	"storj.io/common/pkcrypto"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
@@ -249,7 +248,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 		// blaming the node
 	} else {
 		// check for a matching hash
-		downloadedHash := pkcrypto.SHA256Hash(pieceData)
+		downloadedHash := hashWithAlgo(pieceHash.HashAlgorithm, pieceData)
 		if !bytes.Equal(downloadedHash, pieceHash.Hash) {
 			logger.Info("ReverifyPiece: audit failure; downloaded piece does not match hash", zap.ByteString("downloaded", downloadedHash), zap.ByteString("expected", pieceHash.Hash))
 			outcome = OutcomeFailure
@@ -278,6 +277,17 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	}
 
 	return OutcomeSuccess, reputation, nil
+}
+
+func hashWithAlgo(algo pb.PieceHashAlgorithm, data []byte) []byte {
+	h := pb.NewHashFromAlgorithm(algo)
+	_, err := h.Write(data)
+	if err != nil {
+		// sha256 and blake3 hash writers never return errors. we could just ignore
+		// the error return value (many callers do), but that seems unwise.
+		panic(err)
+	}
+	return h.Sum(nil)
 }
 
 // GetPiece uses the piecestore client to download a piece (and the associated
