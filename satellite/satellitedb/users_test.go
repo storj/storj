@@ -468,9 +468,10 @@ func TestUserSettings(t *testing.T) {
 		t.Run("test notice dismissal", func(t *testing.T) {
 			id = testrand.UUID()
 			noticeDismissal := console.NoticeDismissal{
-				FileGuide:            false,
-				ServerSideEncryption: false,
-				PartnerUpgradeBanner: false,
+				FileGuide:                false,
+				ServerSideEncryption:     false,
+				PartnerUpgradeBanner:     false,
+				ProjectMembersPassphrase: false,
 			}
 
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
@@ -481,6 +482,7 @@ func TestUserSettings(t *testing.T) {
 			noticeDismissal.FileGuide = true
 			noticeDismissal.ServerSideEncryption = true
 			noticeDismissal.PartnerUpgradeBanner = true
+			noticeDismissal.ProjectMembersPassphrase = true
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
 				NoticeDismissal: &noticeDismissal,
 			}))
