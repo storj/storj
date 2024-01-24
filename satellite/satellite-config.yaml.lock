@@ -77,10 +77,10 @@
 # audit.max-reverify-count: 3
 
 # the minimum acceptable bytes that storage nodes can transfer per second to the satellite
-# audit.min-bytes-per-second: 128 B
+# audit.min-bytes-per-second: 150.00 KB
 
 # the minimum duration for downloading a share from storage nodes before timing out
-# audit.min-download-timeout: 5m0s
+# audit.min-download-timeout: 15s
 
 # how often to recheck an empty audit queue
 # audit.queue-interval: 1h0m0s
