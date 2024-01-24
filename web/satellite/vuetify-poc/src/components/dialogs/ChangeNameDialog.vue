@@ -14,7 +14,7 @@
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-change-name.svg" alt="Change name">
                 </template>
-                <v-card-title class="font-weight-bold">Edit Account Name</v-card-title>
+                <v-card-title class="font-weight-bold">Edit Name</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"

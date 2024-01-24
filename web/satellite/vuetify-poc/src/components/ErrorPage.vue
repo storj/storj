@@ -8,7 +8,7 @@
                 v-if="theme.global.current.value.dark"
                 class="error-area__logo-wrapper__logo"
                 src="@poc/assets/logo-dark.svg"
-                width="120"
+                width="140"
                 alt="Storj Logo"
                 @click="goToHomepage"
             />
@@ -16,14 +16,14 @@
                 v-else
                 class="error-area__logo-wrapper__logo"
                 src="@poc/assets/logo.svg"
-                width="120"
+                width="140"
                 alt="Storj Logo"
                 @click="goToHomepage"
             />
         </div>
         <div class="d-flex flex-column align-center text-center">
-            <h3 class="text-h3">{{ statusCode }}</h3>
-            <h4 class="text-h4 mb-5">{{ message }}</h4>
+            <h2 class="text-h2 font-weight-bold mb-4">{{ statusCode }}</h2>
+            <h5 class="text-h5 mb-6">{{ message }}</h5>
             <v-btn
                 @click="onButtonClick"
             >
@@ -112,6 +112,7 @@ onMounted(() => {
         padding: 52px 24px;
         box-sizing: border-box;
         overflow-y: auto;
+        background: rgb(var(--v-theme-background));
 
         &:before {
             content: '';
@@ -120,11 +121,11 @@ onMounted(() => {
             background: url('../../../static/images/errors/world.svg') no-repeat center;
             background-size: auto 75%;
             z-index: -1;
-            opacity: 0.15;
+            opacity: 0.1;
         }
 
         &__logo-wrapper {
-            height: 30.89px;
+            height: 42px;
             position: absolute;
             top: 52px;
             left: 0;
