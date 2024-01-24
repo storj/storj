@@ -35,6 +35,8 @@ export class PricingPlanInfo {
         public activationPriceHTML: string | null = null,
         // Info for the pricing plan modal (post-activation)
         public successSubtitle: string = '',
+        public bannerTitle: string = '',
+        public bannerText: string = '',
     ) {}
 }
 

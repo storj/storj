@@ -30,6 +30,8 @@
             </v-col>
         </v-row>
 
+        <next-steps-container />
+
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
                 <PageTitleComponent title="Project Dashboard" />
@@ -302,6 +304,7 @@ import LimitWarningBanners from '@poc/components/LimitWarningBanners.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
 import IconCirclePlus from '@poc/components/icons/IconCirclePlus.vue';
+import NextStepsContainer from '@poc/components/NextStepsContainer.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();

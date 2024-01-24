@@ -87,20 +87,24 @@
 
         <p class="text-center mb-4">Your plan has been successfully activated.</p>
 
-        <v-row align="center" justify="space-between" class="ma-0 mb-4 pa-2 border-sm rounded-lg">
-            <v-col cols="auto">
-                <v-icon color="success" :icon="mdiCheckOutline" />
-            </v-col>
-            <v-col cols="auto">
-                <span class="text-body-1 font-weight-bold">
+        <v-alert
+            class="mb-4"
+            type="success"
+            variant="tonal"
+        >
+            <template #prepend>
+                <v-icon :icon="mdiCheckOutline" />
+            </template>
+            <template #text>
+                <p class="font-weight-bold">
                     {{ plan.title }}
-                    <span v-if="plan.activationSubtitle" class="font-weight-regular"> / {{ plan.successSubtitle }}</span>
-                </span>
-            </v-col>
-            <v-col cols="auto">
-                <span style="color: var(--c-green-5);">Activated</span>
-            </v-col>
-        </v-row>
+                </p>
+                <p v-if="plan.activationSubtitle">{{ plan.activationSubtitle }}</p>
+            </template>
+            <template #append>
+                <span>Activated</span>
+            </template>
+        </v-alert>
 
         <v-btn
             color="success"
@@ -115,7 +119,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { VBtn, VCol, VIcon, VRow } from 'vuetify/components';
+import { VAlert, VBtn, VCol, VIcon, VRow } from 'vuetify/components';
 import { useTheme } from 'vuetify';
 import { mdiCheckOutline, mdiLock } from '@mdi/js';
 

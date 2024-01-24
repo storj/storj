@@ -196,7 +196,7 @@ export class UserSettings {
         public onboardingEnd = false,
         public passphrasePrompt = true,
         public onboardingStep: string | null = null,
-        public noticeDismissal: NoticeDismissal = { fileGuide: false, serverSideEncryption: false },
+        public noticeDismissal: NoticeDismissal = { fileGuide: false, serverSideEncryption: false, partnerUpgradeBanner: false },
     ) { }
 
     public get sessionDuration(): Duration | null {
@@ -210,6 +210,7 @@ export class UserSettings {
 export interface NoticeDismissal {
     fileGuide: boolean
     serverSideEncryption: boolean
+    partnerUpgradeBanner: boolean
 }
 
 export interface SetUserSettingsData {
