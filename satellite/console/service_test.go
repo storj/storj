@@ -1353,6 +1353,44 @@ func TestRefreshSessionToken(t *testing.T) {
 	})
 }
 
+func TestLoginRestricted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+		user := planet.Uplinks[0].User[sat.ID()]
+
+		dbUser, _, err := service.GetUserByEmailWithUnverified(ctx, user.Email)
+		require.NoError(t, err)
+
+		status := console.PendingBotVerification
+		err = userDB.Update(ctx, dbUser.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.Password})
+		require.True(t, console.ErrLoginRestricted.Has(err))
+		require.Nil(t, tokenInfo)
+
+		status = console.LegalHold
+		err = userDB.Update(ctx, dbUser.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.Password})
+		require.True(t, console.ErrLoginRestricted.Has(err))
+		require.Nil(t, tokenInfo)
+
+		status = console.Active
+		err = userDB.Update(ctx, dbUser.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.Password})
+		require.NoError(t, err)
+		require.NotNil(t, tokenInfo)
+	})
+}
+
 func TestUserSettings(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

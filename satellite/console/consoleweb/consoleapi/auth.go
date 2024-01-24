@@ -1256,6 +1256,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
+	case console.ErrLoginRestricted.Has(err):
+		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
 	case console.ErrNotPaidTier.Has(err):
@@ -1293,6 +1295,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "The MFA recovery code is not valid or has been previously used"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
+	case console.ErrLoginRestricted.Has(err):
+		return "You can't be authenticated. Please contact support"
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):

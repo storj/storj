@@ -166,6 +166,9 @@ var (
 
 	// ErrBotUser occurs when a user must be verified by admin first in order to complete operation.
 	ErrBotUser = errs.Class("user has to be verified by admin first")
+
+	// ErrLoginRestricted occurs when a user with PendingBotVerification or LegalHold status tries to log in.
+	ErrLoginRestricted = errs.Class("user can't be authenticated")
 )
 
 // Service is handling accounts related logic.
@@ -1222,17 +1225,17 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 
 	user, nonActiveUsers, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
 	if user == nil {
-		isBotAccount := false
+		shouldProceed := false
 		for _, usr := range nonActiveUsers {
-			if usr.Status == PendingBotVerification {
-				isBotAccount = true
+			if usr.Status == PendingBotVerification || usr.Status == LegalHold {
+				shouldProceed = true
 				botAccount := usr
 				user = &botAccount
 				break
 			}
 		}
 
-		if !isBotAccount {
+		if !shouldProceed {
 			if len(nonActiveUsers) > 0 {
 				mon.Counter("login_email_unverified").Inc(1) //mon:locked
 				s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
@@ -1359,6 +1362,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if user.Status == PendingBotVerification || user.Status == LegalHold {
+		return nil, ErrLoginRestricted.New("")
 	}
 
 	var customDurationPtr *time.Duration
