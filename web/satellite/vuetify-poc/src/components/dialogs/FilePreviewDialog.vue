@@ -126,8 +126,8 @@
     <delete-file-dialog
         v-if="fileToDelete"
         v-model="isDeleteFileDialogShown"
-        :file="fileToDelete"
-        @file-deleted="onDeleteComplete"
+        :files="[fileToDelete]"
+        @files-deleted="onDeleteComplete"
     />
 </template>
 

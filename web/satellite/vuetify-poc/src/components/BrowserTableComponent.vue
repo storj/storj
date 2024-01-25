@@ -115,7 +115,7 @@
                         color="default"
                         density="comfortable"
                         variant="outlined"
-                        @click="deleteSelectedFiles"
+                        @click="isDeleteFileDialogShown = true"
                     >
                         <template #prepend>
                             <icon-trash bold />
@@ -128,10 +128,9 @@
     </v-snackbar>
 
     <delete-file-dialog
-        v-if="fileToDelete"
         v-model="isDeleteFileDialogShown"
-        :file="fileToDelete"
-        @content-removed="fileToDelete = null"
+        :files="filesToDelete"
+        @files-deleted="clearDeleteFiles"
     />
     <share-dialog
         v-model="isShareDialogShown"
@@ -213,7 +212,6 @@ const router = useRouter();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
-const selected = ref([]);
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
 const fileToDelete = ref<BrowserObject | null>(null);
@@ -351,23 +349,23 @@ const selectedFiles: WritableComputedRef<string[]> = computed({
 });
 
 /**
+ * Returns the selected files to the delete dialog.
+ */
+const filesToDelete = computed<BrowserObject[]>(() => {
+    if (fileToDelete.value) return [fileToDelete.value];
+    return obStore.state.selectedFiles;
+});
+
+/**
  * Returns the first browser object in the table that is a file.
  */
 const firstFile = computed<BrowserObject | null>(() => {
     return tableFiles.value.find(f => f.browserObject.type === 'file')?.browserObject || null;
 });
 
-/**
- * Delete selected files.
- */
-async function deleteSelectedFiles() {
-    if (!selectedFiles.value.length) return;
-    try {
-        await obStore.deleteSelected();
-        obStore.updateSelectedFiles([]);
-    } catch (e) {
-        notify.notifyError(e, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
-    }
+function clearDeleteFiles(): void {
+    fileToDelete.value = null;
+    obStore.updateSelectedFiles([]);
 }
 
 /**
@@ -476,7 +474,7 @@ async function fetchFiles(): Promise<void> {
             await obStore.list(path);
         }
 
-        selected.value = [];
+        selectedFiles.value = [];
 
         if (isPaginationEnabled.value) {
             const cachedPage = routePageCache.get(path);
