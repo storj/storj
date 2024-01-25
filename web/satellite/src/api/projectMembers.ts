@@ -120,11 +120,11 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
 
         const projectMembersPage: ProjectMembersPage = new ProjectMembersPage();
         projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(
-            key.user.fullName,
-            key.user.shortName,
-            key.user.email,
+            key.fullName,
+            key.shortName,
+            key.email,
             new Date(key.joinedAt),
-            key.user.id,
+            key.id,
         ));
         projectMembersPage.projectInvitations = projectMembers.projectInvitations.map(key => new ProjectInvitationItemModel(
             key.email,
