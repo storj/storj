@@ -27,7 +27,8 @@
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             item-value="name"
             no-data-text="No results found"
-            select-strategy="all"
+            select-strategy="page"
+            show-select
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
             @update:sortBy="onUpdateSortBy"
@@ -71,21 +72,54 @@
 
     <delete-access-dialog
         v-model="isDeleteAccessDialogShown"
-        :access-name="accessNameToDelete"
+        :access-names="accessesToDelete"
         @deleted="() => onUpdatePage(FIRST_PAGE)"
     />
+
+    <v-snackbar
+        rounded="lg"
+        variant="elevated"
+        color="surface"
+        :model-value="!!selected.length"
+        :timeout="-1"
+        class="snackbar-multiple"
+    >
+        <v-row align="center" justify="space-between">
+            <v-col>
+                {{ selected.length }} access{{ selected.length > 1 ? 'es' : '' }} selected
+            </v-col>
+            <v-col>
+                <div class="d-flex justify-end">
+                    <v-btn
+                        color="default"
+                        density="comfortable"
+                        variant="outlined"
+                        @click="isDeleteAccessDialogShown = true"
+                    >
+                        <template #prepend>
+                            <icon-trash bold />
+                        </template>
+                        Delete
+                    </v-btn>
+                </div>
+            </v-col>
+        </v-row>
+    </v-snackbar>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import {
     VBtn,
+    VCol,
     VIcon,
     VMenu,
     VList,
     VListItem,
     VListItemTitle,
     VCard,
+    VRow,
+    VSnackbar,
     VTextField,
     VDataTableServer,
 } from 'vuetify/components';
@@ -140,6 +174,14 @@ const page = computed((): AccessGrantsPage => {
 });
 
 /**
+ * Returns the selected accesses to the delete dialog.
+ */
+const accessesToDelete = computed<string[]>(() => {
+    if (accessNameToDelete.value) return [accessNameToDelete.value];
+    return selected.value;
+});
+
+/**
  * Fetches Access records depending on page and limit.
  */
 async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
@@ -162,6 +204,8 @@ function onUpdateLimit(limit: number): void {
  * Handles update table page event.
  */
 function onUpdatePage(page: number): void {
+    selected.value = [];
+    accessNameToDelete.value = '';
     fetch(page, cursor.value.limit);
 }
 
