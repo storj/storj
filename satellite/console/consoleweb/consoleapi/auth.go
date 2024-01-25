@@ -785,7 +785,6 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&console.ForgotPasswordEmail{
 			Origin:                     a.ExternalAddress,
-			UserName:                   userName,
 			ResetLink:                  passwordRecoveryLink,
 			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 			LetUsKnowURL:               letUsKnowURL,
@@ -830,7 +829,6 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			[]post.Address{{Address: verified.Email, Name: userName}},
 			&console.ForgotPasswordEmail{
 				Origin:                     a.ExternalAddress,
-				UserName:                   userName,
 				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
 				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
 				LetUsKnowURL:               a.LetUsKnowURL,
