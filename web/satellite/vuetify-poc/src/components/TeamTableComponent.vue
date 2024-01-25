@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     VRow,
     VCard,
@@ -381,5 +381,9 @@ watch(() => search.value, () => {
 
 onMounted(() => {
     fetch();
+});
+
+onBeforeUnmount(() => {
+    pmStore.setSearchQuery('');
 });
 </script>
