@@ -54,6 +54,19 @@ func (entry ObjectEntry) Less(other ObjectEntry) bool {
 	})
 }
 
+// LessVersionAsc implements sorting on object entries.
+func (entry ObjectEntry) LessVersionAsc(other ObjectEntry) bool {
+	return ObjectStream{
+		ObjectKey: entry.ObjectKey,
+		Version:   entry.Version,
+		StreamID:  entry.StreamID,
+	}.LessVersionAsc(ObjectStream{
+		ObjectKey: other.ObjectKey,
+		Version:   other.Version,
+		StreamID:  other.StreamID,
+	})
+}
+
 // ObjectsIterator iterates over a sequence of ObjectEntry items.
 type ObjectsIterator interface {
 	Next(ctx context.Context, item *ObjectEntry) bool

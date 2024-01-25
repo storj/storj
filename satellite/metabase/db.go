@@ -129,6 +129,9 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 		DROP TABLE IF EXISTS objects;
 		DROP TABLE IF EXISTS segments;
 		DROP TABLE IF EXISTS node_aliases;
+		DROP TABLE IF EXISTS segment_copies;
+		DROP TABLE IF EXISTS pending_objects;
+		DROP TABLE IF EXISTS metabase_versions;
 		DROP SEQUENCE IF EXISTS node_alias_seq;
 	`)
 	db.aliasCache = NewNodeAliasCache(db)
