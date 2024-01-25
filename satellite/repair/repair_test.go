@@ -1960,8 +1960,8 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.InMemoryRepair = true
 					config.Checker.RepairOverrides = checker.RepairOverrides{
-						Values: map[int]int{
-							3: repairOverride,
+						List: []checker.RepairOverride{
+							{Min: 3, Success: 9, Total: 9, Override: repairOverride},
 						},
 					}
 				},
@@ -2047,8 +2047,8 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.InMemoryRepair = true
 					config.Checker.RepairOverrides = checker.RepairOverrides{
-						Values: map[int]int{
-							3: repairOverride,
+						List: []checker.RepairOverride{
+							{Min: 3, Success: 9, Total: 9, Override: repairOverride},
 						},
 					}
 				},

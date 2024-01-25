@@ -131,8 +131,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		nil, // TODO add noop version
 		ecRepairer,
 		placement,
-		config.Checker.RepairThresholdOverrides,
-		config.Checker.RepairTargetOverrides,
+		config.Checker.RepairOverrides,
 		config.Repairer,
 	)
 

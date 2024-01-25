@@ -35,18 +35,17 @@ var _ rangedloop.Partial = (*observerFork)(nil)
 //
 // architecture: Observer
 type Observer struct {
-	logger                   *zap.Logger
-	repairQueue              queue.RepairQueue
-	nodesCache               *ReliabilityCache
-	overlayService           *overlay.Service
-	repairThresholdOverrides RepairOverrides
-	repairTargetOverrides    RepairOverrides
-	nodeFailureRate          float64
-	repairQueueBatchSize     int
-	excludedCountryCodes     map[location.CountryCode]struct{}
-	doDeclumping             bool
-	doPlacementCheck         bool
-	placements               nodeselection.PlacementDefinitions
+	logger               *zap.Logger
+	repairQueue          queue.RepairQueue
+	nodesCache           *ReliabilityCache
+	overlayService       *overlay.Service
+	repairOverrides      RepairOverridesMap
+	nodeFailureRate      float64
+	repairQueueBatchSize int
+	excludedCountryCodes map[location.CountryCode]struct{}
+	doDeclumping         bool
+	doPlacementCheck     bool
+	placements           nodeselection.PlacementDefinitions
 
 	// the following are reset on each iteration
 	startTime  time.Time
@@ -65,29 +64,21 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		}
 	}
 
-	rv := &Observer{
+	return &Observer{
 		logger: logger,
 
-		repairQueue:              repairQueue,
-		nodesCache:               NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		overlayService:           overlay,
-		repairThresholdOverrides: config.RepairThresholdOverrides,
-		repairTargetOverrides:    config.RepairTargetOverrides,
-		nodeFailureRate:          config.NodeFailureRate,
-		repairQueueBatchSize:     config.RepairQueueInsertBatchSize,
-		excludedCountryCodes:     excludedCountryCodes,
-		doDeclumping:             config.DoDeclumping,
-		doPlacementCheck:         config.DoPlacementCheck,
-		placements:               placements,
-		statsCollector:           make(map[storj.RedundancyScheme]*observerRSStats),
+		repairQueue:          repairQueue,
+		nodesCache:           NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		overlayService:       overlay,
+		repairOverrides:      config.RepairOverrides.GetMap(),
+		nodeFailureRate:      config.NodeFailureRate,
+		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
+		excludedCountryCodes: excludedCountryCodes,
+		doDeclumping:         config.DoDeclumping,
+		doPlacementCheck:     config.DoPlacementCheck,
+		placements:           placements,
+		statsCollector:       make(map[storj.RedundancyScheme]*observerRSStats),
 	}
-
-	if config.RepairOverrides.String() != "" {
-		// backwards compat
-		rv.repairThresholdOverrides = config.RepairOverrides
-	}
-
-	return rv
 }
 
 // getNodesEstimate updates the estimate of the total number of nodes. It is guaranteed
@@ -230,7 +221,7 @@ func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *o
 
 	observerStats, exists := observer.statsCollector[redundancy]
 	if !exists {
-		rsString := getRSString(loadRedundancy(redundancy, observer.repairThresholdOverrides, observer.repairTargetOverrides))
+		rsString := getRSString(loadRedundancy(redundancy, observer.repairOverrides))
 		observerStats = &observerRSStats{aggregateStats{}, newIterationRSStats(rsString), newSegmentRSStats(rsString)}
 		mon.Chain(observerStats)
 		observer.statsCollector[redundancy] = observerStats
@@ -239,23 +230,15 @@ func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *o
 	return observerStats
 }
 
-func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides, repairTargetOverrides RepairOverrides) (int, int, int, int) {
+func loadRedundancy(redundancy storj.RedundancyScheme, repairOverrides RepairOverridesMap) (int, int, int, int) {
 	repair := int(redundancy.RepairShares)
-	optimal := int(redundancy.OptimalShares)
-	total := int(redundancy.TotalShares)
 
-	if overrideValue := repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
+	overrideValue := repairOverrides.GetOverrideValue(redundancy)
+	if overrideValue != 0 {
 		repair = int(overrideValue)
 	}
-	if overrideValue := repairTargetOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
-		optimal = int(overrideValue)
-	}
 
-	if optimal > total {
-		total = optimal
-	}
-
-	return int(redundancy.RequiredShares), repair, optimal, total
+	return int(redundancy.RequiredShares), repair, int(redundancy.OptimalShares), int(redundancy.TotalShares)
 }
 
 // RefreshReliabilityCache forces refreshing node online status cache.
@@ -265,17 +248,16 @@ func (observer *Observer) RefreshReliabilityCache(ctx context.Context) error {
 
 // observerFork implements the ranged loop Partial interface.
 type observerFork struct {
-	repairQueue              *queue.InsertBuffer
-	nodesCache               *ReliabilityCache
-	overlayService           *overlay.Service
-	rsStats                  map[storj.RedundancyScheme]*partialRSStats
-	repairThresholdOverrides RepairOverrides
-	repairTargetOverrides    RepairOverrides
-	nodeFailureRate          float64
-	getNodesEstimate         func(ctx context.Context) (int, error)
-	log                      *zap.Logger
-	lastStreamID             uuid.UUID
-	totalStats               aggregateStats
+	repairQueue      *queue.InsertBuffer
+	nodesCache       *ReliabilityCache
+	overlayService   *overlay.Service
+	rsStats          map[storj.RedundancyScheme]*partialRSStats
+	repairOverrides  RepairOverridesMap
+	nodeFailureRate  float64
+	getNodesEstimate func(ctx context.Context) (int, error)
+	log              *zap.Logger
+	lastStreamID     uuid.UUID
+	totalStats       aggregateStats
 
 	// reuse those slices to optimize memory usage
 	nodeIDs []storj.NodeID
@@ -294,20 +276,19 @@ type observerFork struct {
 func newObserverFork(observer *Observer) rangedloop.Partial {
 	// we can only share thread-safe objects.
 	return &observerFork{
-		repairQueue:              observer.createInsertBuffer(),
-		nodesCache:               observer.nodesCache,
-		overlayService:           observer.overlayService,
-		rsStats:                  make(map[storj.RedundancyScheme]*partialRSStats),
-		repairThresholdOverrides: observer.repairThresholdOverrides,
-		repairTargetOverrides:    observer.repairTargetOverrides,
-		nodeFailureRate:          observer.nodeFailureRate,
-		getNodesEstimate:         observer.getNodesEstimate,
-		log:                      observer.logger,
-		excludedCountryCodes:     observer.excludedCountryCodes,
-		doDeclumping:             observer.doDeclumping,
-		doPlacementCheck:         observer.doPlacementCheck,
-		placements:               observer.placements,
-		getObserverStats:         observer.getObserverStats,
+		repairQueue:          observer.createInsertBuffer(),
+		nodesCache:           observer.nodesCache,
+		overlayService:       observer.overlayService,
+		rsStats:              make(map[storj.RedundancyScheme]*partialRSStats),
+		repairOverrides:      observer.repairOverrides,
+		nodeFailureRate:      observer.nodeFailureRate,
+		getNodesEstimate:     observer.getNodesEstimate,
+		log:                  observer.logger,
+		excludedCountryCodes: observer.excludedCountryCodes,
+		doDeclumping:         observer.doDeclumping,
+		doPlacementCheck:     observer.doPlacementCheck,
+		placements:           observer.placements,
+		getObserverStats:     observer.getObserverStats,
 	}
 }
 
@@ -429,7 +410,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	segmentAgeIntVal.Observe(int64(segmentAge.Seconds()))
 	stats.segmentStats.segmentAge.Observe(int64(segmentAge.Seconds()))
 
-	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairThresholdOverrides, fork.repairTargetOverrides)
+	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairOverrides)
 	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, fork.nodeFailureRate)
 	segmentHealthFloatVal.Observe(segmentHealth)
 	stats.segmentStats.segmentHealth.Observe(segmentHealth)
