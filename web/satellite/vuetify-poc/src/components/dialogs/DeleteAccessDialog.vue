@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Delete Access
+                    Delete Access{{ accessNames.length > 1 ? 'es' : '' }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -38,9 +38,11 @@
             <v-divider />
 
             <div class="pa-7">
-                The following access will be deleted. Linksharing URLs using this access will no longer work.
+                The following access{{ accessNames.length > 1 ? 'es' : '' }}
+                will be deleted. Linksharing URLs using
+                {{ accessNames.length > 1 ? 'these accesses' : 'this access' }} will no longer work.
                 <br><br>
-                <span class="font-weight-bold">{{ accessName }}</span>
+                <p v-for="accessName of accessNames" :key="accessName" class="font-weight-bold">{{ accessName }}</p>
             </div>
 
             <v-divider />
@@ -93,7 +95,7 @@ const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
     modelValue: boolean;
-    accessName: string;
+    accessNames: string[];
 }>();
 
 const emit = defineEmits<{
@@ -109,12 +111,13 @@ const model = computed<boolean>({
 async function onDeleteClick(): Promise<void> {
     await withLoading(async () => {
         try {
-            await agStore.deleteAccessGrantByNameAndProjectID(props.accessName, projectsStore.state.selectedProject.id);
-            notify.success(`Access Grant deleted successfully`);
+            const projId = projectsStore.state.selectedProject.id;
+            await Promise.all(props.accessNames.map(n => agStore.deleteAccessGrantByNameAndProjectID(n, projId)));
+            notify.success(`Access Grant${props.accessNames.length > 1 ? 's' : ''} deleted successfully`);
             emit('deleted');
             model.value = false;
         } catch (error) {
-            error.message = `Error deleting access grant. ${error.message}`;
+            error.message = `Error deleting access grant${props.accessNames.length > 1 ? 's' : ''}. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
     });
