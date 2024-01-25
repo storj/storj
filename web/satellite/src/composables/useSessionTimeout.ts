@@ -174,6 +174,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
             inactivityModalShown.value = true;
             inactivityTimerId.value = setTimeout(async () => {
                 await clearStoresAndTimers();
+                LocalData.setSessionHasExpired();
                 notify.notify('Your session was timed out.');
             }, INACTIVITY_MODAL_DURATION);
         }, sessionDuration.value - INACTIVITY_MODAL_DURATION);
