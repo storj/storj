@@ -1416,7 +1416,6 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 			ctx,
 			[]post.Address{{Address: user.Email, Name: user.FullName}},
 			&LockAccountEmail{
-				Name:              user.FullName,
 				LockoutDuration:   lockoutDuration,
 				ResetPasswordLink: address + "forgot-password",
 			},
