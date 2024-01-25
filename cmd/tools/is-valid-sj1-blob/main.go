@@ -18,6 +18,7 @@ import (
 	"github.com/zeebo/blake3"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -173,9 +174,7 @@ func checkFile(fileName string) (report string, realFilename string, err error) 
 	if err != nil {
 		return "", "", fmt.Errorf("could not read file data to check hash: %w", err)
 	}
-	pieceID := pathEncoding.EncodeToString(header.OrderLimit.PieceId[:])
-	satelliteID := pathEncoding.EncodeToString(header.OrderLimit.SatelliteId[:])
-	realFilename = fmt.Sprintf("%s/%s.sj1", satelliteID, pieceID)
+	realFilename = v1FilenameFor(header.OrderLimit.SatelliteId, header.OrderLimit.PieceId)
 	if matches {
 		return "valid sj1 blob", realFilename, nil
 	}
@@ -191,7 +190,13 @@ func checkFile(fileName string) (report string, realFilename string, err error) 
 		fileLength := rightLength + pieces.V1PieceHeaderReservedArea
 		return fmt.Sprintf("valid sj1 blob but should be truncated at %d bytes. Hint:\n    truncate -s %d %q", fileLength, fileLength, fileName), realFilename, nil
 	}
-	return fmt.Sprintf("valid sj1 blob with incorrect size: %s/%s.sj1", satelliteID, pieceID), realFilename, nil
+	return "valid-looking sj1 blob with hash mismatch", realFilename, nil
+}
+
+func v1FilenameFor(satelliteID storj.NodeID, pieceID storj.PieceID) string {
+	pieceIDEncoded := pathEncoding.EncodeToString(pieceID[:])
+	satelliteIDEncoded := pathEncoding.EncodeToString(satelliteID[:])
+	return fmt.Sprintf("%s/%s/%s.sj1", satelliteIDEncoded, pieceIDEncoded[0:2], pieceIDEncoded[2:])
 }
 
 func main() {
