@@ -97,8 +97,8 @@ type SegmentRepairer struct {
 	// repaired pieces
 	multiplierOptimalThreshold float64
 
-	// repairOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
-	repairOverrides checker.RepairOverridesMap
+	// repairThresholdOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
+	repairThresholdOverrides checker.RepairOverrides
 
 	excludedCountryCodes map[location.CountryCode]struct{}
 
@@ -121,7 +121,7 @@ func NewSegmentRepairer(
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
 	placements nodeselection.PlacementDefinitions,
-	repairOverrides checker.RepairOverrides,
+	repairThresholdOverrides checker.RepairOverrides,
 	config Config,
 ) *SegmentRepairer {
 
@@ -146,7 +146,7 @@ func NewSegmentRepairer(
 		ec:                         ecRepairer,
 		timeout:                    config.Timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
-		repairOverrides:            repairOverrides.GetMap(),
+		repairThresholdOverrides:   repairThresholdOverrides,
 		excludedCountryCodes:       excludedCountryCodes,
 		reporter:                   reporter,
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
@@ -252,7 +252,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		SuccessThreshold: int32(segment.Redundancy.OptimalShares),
 		Total:            int32(segment.Redundancy.TotalShares),
 	}
-	overrideValue := repairer.repairOverrides.GetOverrideValuePB(pbRedundancy)
+	overrideValue := repairer.repairThresholdOverrides.GetOverrideValuePB(pbRedundancy)
 	if overrideValue != 0 {
 		repairThreshold = overrideValue
 	}
@@ -714,7 +714,7 @@ func (repairer *SegmentRepairer) getStatsByRS(redundancy *pb.RedundancyScheme) *
 
 func (repairer *SegmentRepairer) loadRedundancy(redundancy *pb.RedundancyScheme) (int, int, int, int) {
 	repair := int(redundancy.RepairThreshold)
-	overrideValue := repairer.repairOverrides.GetOverrideValuePB(redundancy)
+	overrideValue := repairer.repairThresholdOverrides.GetOverrideValuePB(redundancy)
 	if overrideValue != 0 {
 		repair = int(overrideValue)
 	}

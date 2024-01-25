@@ -124,11 +124,14 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
-# checker.repair-overrides: 29/80/110-52,29/80/95-52,29/80/130-52
+# [DEPRECATED] comma-separated override values for repair threshold in the format k-threshold
+# checker.repair-overrides: ""
 
 # Number of damaged segments to buffer in-memory before flushing to the repair queue
 # checker.repair-queue-insert-batch-size: 100
+
+# comma-separated override values for repair threshold in the format k-threshold
+# checker.repair-threshold-overrides: 29-52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
