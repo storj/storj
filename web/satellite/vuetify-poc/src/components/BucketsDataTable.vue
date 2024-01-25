@@ -435,6 +435,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     window.removeEventListener('resize', resizeHandler);
+    bucketsStore.setBucketsSearch('');
 });
 </script>
 

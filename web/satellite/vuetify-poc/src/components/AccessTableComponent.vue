@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import {
     VBtn,
     VIcon,
@@ -201,5 +201,9 @@ watch(() => search.value, () => {
 
 onMounted(() => {
     fetch();
+});
+
+onBeforeUnmount(() => {
+    agStore.setSearchQuery('');
 });
 </script>
