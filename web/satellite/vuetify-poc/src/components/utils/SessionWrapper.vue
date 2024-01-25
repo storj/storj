@@ -23,23 +23,39 @@
         :on-continue="() => sessionTimeout.refreshSession(true)"
         :on-logout="sessionTimeout.handleInactive"
     />
+    <update-session-timeout-prompt-dialog
+        v-model="isUpdateTimeoutPromptModalShown"
+        @showSetTimeoutModal="isSetTimeoutModalShown = true"
+    />
     <session-expired-dialog v-model="sessionTimeout.sessionExpiredModalShown.value" />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { VSnackbar, VIcon } from 'vuetify/lib/components/index.mjs';
 import { mdiClock } from '@mdi/js';
 
 import { useSessionTimeout } from '@/composables/useSessionTimeout';
+import { LocalData } from '@/utils/localData';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import InactivityDialog from '@poc/components/dialogs/InactivityDialog.vue';
 import SessionExpiredDialog from '@poc/components/dialogs/SessionExpiredDialog.vue';
 import SetSessionTimeoutDialog from '@poc/components/dialogs/SetSessionTimeoutDialog.vue';
+import UpdateSessionTimeoutPromptDialog from '@poc/components/dialogs/UpdateSessionTimeoutPromptDialog.vue';
+
+const usersStore = useUsersStore();
 
 const isSetTimeoutModalShown = ref<boolean>(false);
+const isUpdateTimeoutPromptModalShown = ref<boolean>(false);
 
 const sessionTimeout = useSessionTimeout({
     showEditSessionTimeoutModal: () => isSetTimeoutModalShown.value = true,
+});
+
+onMounted(() => {
+    if (LocalData.getSessionHasExpired() && !usersStore.state.settings.sessionDuration) {
+        isUpdateTimeoutPromptModalShown.value = true;
+    }
 });
 </script>

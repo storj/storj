@@ -16,6 +16,7 @@ export class LocalData {
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
     private static projectTableViewEnabled = 'projectTableViewEnabled';
     private static browserCardViewEnabled = 'browserCardViewEnabled';
+    private static sessionHasExpired = 'sessionHasExpired';
 
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
@@ -109,6 +110,19 @@ export class LocalData {
 
     public static removeCustomSessionDuration(): void {
         localStorage.removeItem(LocalData.customSessionDuration);
+    }
+
+    public static getSessionHasExpired(): boolean {
+        const value: string | null = localStorage.getItem(LocalData.sessionHasExpired);
+        return value === 'true';
+    }
+
+    public static setSessionHasExpired(): void {
+        localStorage.setItem(LocalData.sessionHasExpired, 'true');
+    }
+
+    public static removeSessionHasExpired(): void {
+        localStorage.removeItem(LocalData.sessionHasExpired);
     }
 
     /**
