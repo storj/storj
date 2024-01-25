@@ -10,9 +10,9 @@
         Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
         If your account is not automatically upgraded, please fill out this
         <a
-            style="color: var(--c-blue-3);"
             href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
             target="_blank"
+            class="link"
             rel="noopener noreferrer"
         >limit increase request form</a>.
     </p>
@@ -23,19 +23,17 @@
         </v-col>
     </v-row>
 
-    <p class="text-caption font-weight-bold">
+    <p class="text-caption font-weight-bold my-3">
         Deposit Address
         <v-tooltip max-width="200px" location="top">
             <template #activator="{ props }">
-                <v-btn v-bind="props" density="compact" variant="plain" color="grey" icon>
-                    <v-icon :icon="mdiInformationOutline" size="16" />
-                </v-btn>
+                <v-icon v-bind="props" :icon="mdiInformationOutline" size="16" />
             </template>
             <p>
                 This is a Storj token deposit address generated just for you.
                 <a
-                    style="color: var(--c-white);"
-                    href=""
+                    href="https://docs.storj.io/support/account-management-billing/billing#adding-storj-tokens"
+                    class="link"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
@@ -46,11 +44,11 @@
     </p>
 
     <v-row justify="space-between" align="center" class="ma-0 mb-4 border-sm rounded-lg">
-        <v-col class="pb-0">
+        <v-col>
             <p class="text-caption">{{ wallet.address }}</p>
         </v-col>
 
-        <v-col class="pa-2 pr-3" cols="auto">
+        <v-col cols="auto">
             <v-btn
                 density="compact"
                 @click="onCopyAddressClick"

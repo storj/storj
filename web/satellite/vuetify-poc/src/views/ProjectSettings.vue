@@ -63,12 +63,11 @@
                 <v-card title="Free Account" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
-                        Need more? Upgrade to Pro.
+                        Need more? Upgrade to Pro Account.
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
                         <v-btn variant="flat" color="primary" size="small" @click="toggleUpgradeFlow">
-                            >
                             Upgrade to Pro
                         </v-btn>
                     </v-card-text>

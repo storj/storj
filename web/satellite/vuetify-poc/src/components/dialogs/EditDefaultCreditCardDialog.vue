@@ -10,7 +10,7 @@
     >
         <v-card rounded="xlg">
             <v-card-item class="pa-5 pl-6">
-                <v-card-title class="font-weight-bold">Edit default credit card</v-card-title>
+                <v-card-title class="font-weight-bold">Edit Default Credit Card</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -23,16 +23,16 @@
                 </template>
             </v-card-item>
 
-            <v-card-item class="px-6 py-0">
-                <v-divider />
+            <v-divider />
 
-                <credit-card-item v-if="defaultCard" class="mt-4" :card="defaultCard" />
+            <v-card-item class="px-6 py-0">
+                <credit-card-item v-if="defaultCard" class="mt-6" :card="defaultCard" />
                 <v-radio-group v-model="selectedCard" hide-details>
                     <credit-card-item v-for="cc in nonDefaultCards" :key="cc.id" selectable :card="cc" />
                 </v-radio-group>
-
-                <v-divider />
             </v-card-item>
+
+            <v-divider />
 
             <v-card-actions class="pa-6">
                 <v-row>
@@ -43,7 +43,7 @@
                     </v-col>
                     <v-col>
                         <v-btn color="primary" variant="flat" block :loading="isLoading" @click="onMakeDefault">
-                            Make Default
+                            Set Default
                         </v-btn>
                     </v-col>
                 </v-row>
