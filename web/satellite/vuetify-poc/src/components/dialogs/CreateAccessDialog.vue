@@ -8,7 +8,7 @@
         max-width="420px"
         transition="fade-transition"
         scrollable
-        :persistent="isCreating"
+        persistent
     >
         <v-card ref="innerContent" rounded="xlg">
             <v-card-item class="pa-5 pl-7 pos-relative">

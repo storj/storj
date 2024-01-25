@@ -10,7 +10,7 @@
     >
         <v-card rounded="xlg">
             <v-card-item class="pa-5 pl-6">
-                <v-card-title class="font-weight-bold">Remove credit card</v-card-title>
+                <v-card-title class="font-weight-bold">Remove Credit Card</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -23,16 +23,16 @@
                 </template>
             </v-card-item>
 
-            <v-card-item class="px-6 py-0">
-                <v-divider />
+            <v-divider />
 
-                <v-card-text v-if="card.isDefault" class="py-4 px-0">This is your default payment card. It can't be removed.</v-card-text>
-                <v-card-text v-else class="py-4 px-0">This is not your default payment card.</v-card-text>
+            <v-card-item class="px-6 py-0">
+                <v-card-text v-if="card.isDefault" class="py-5 px-0">This is your default payment card. It can't be removed.</v-card-text>
+                <v-card-text v-else class="py-5 px-0">This is not your default payment card.</v-card-text>
 
                 <credit-card-item :card="card" />
-
-                <v-divider />
             </v-card-item>
+
+            <v-divider />
 
             <v-card-actions class="pa-6">
                 <v-row>

@@ -239,6 +239,7 @@
             v-model="datePickerModel"
             multiple
             show-adjacent-months
+            title="Select Date Range"
             header="Daily Usage"
             :disabled="isLoading"
         />

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card border class="mb-4">
+    <v-card border class="mb-6 py-2">
         <v-card-item>
             <v-row class="align-center justify-space-between ma-0">
                 <v-col class="pa-0">
@@ -10,8 +10,8 @@
                         <v-chip rounded class="text-capitalize font-weight-bold">{{ card.brand }}</v-chip>
                         <v-chip v-if="card.isDefault" color="info" rounded class="text-capitalize font-weight-bold ml-2">Default</v-chip>
                     </v-row>
-                    <v-card-text class="px-0">**** **** **** {{ card.last4 }}</v-card-text>
-                    <v-card-text class="pa-0">{{ card.expMonth }}/{{ card.expYear }}</v-card-text>
+                    <v-card-text class="font-weight-bold px-0">**** **** **** {{ card.last4 }}</v-card-text>
+                    <v-card-text class="font-weight-bold pa-0">{{ card.expMonth }}/{{ card.expYear }}</v-card-text>
                 </v-col>
                 <v-radio v-if="selectable" class="flex-0-0" :value="card.id" />
             </v-row>
