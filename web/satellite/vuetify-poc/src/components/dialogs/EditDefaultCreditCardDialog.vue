@@ -26,8 +26,8 @@
             <v-divider />
 
             <v-card-item class="px-6 py-0">
-                <credit-card-item v-if="defaultCard" class="mt-6" :card="defaultCard" />
                 <v-radio-group v-model="selectedCard" hide-details>
+                    <credit-card-item v-if="defaultCard" class="mt-6" selectable :card="defaultCard" />
                     <credit-card-item v-for="cc in nonDefaultCards" :key="cc.id" selectable :card="cc" />
                 </v-radio-group>
             </v-card-item>
@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -87,10 +87,7 @@ const emit = defineEmits<{
 
 const model = computed<boolean>({
     get: () => props.modelValue,
-    set: value => {
-        selectedCard.value = '';
-        emit('update:modelValue', value);
-    },
+    set: value => emit('update:modelValue', value),
 });
 
 const analyticsStore = useAnalyticsStore();
@@ -100,11 +97,11 @@ const configStore = useConfigStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const selectedCard = ref<string>('');
-
 const defaultCard = computed<CreditCard | undefined>(() => {
     return billingStore.state.creditCards.find(c => c.isDefault);
 });
+
+const selectedCard = ref<string>(defaultCard.value?.id ?? '');
 
 const nonDefaultCards = computed<CreditCard[]>(() => {
     return billingStore.state.creditCards.filter(c => !c.isDefault);
@@ -117,14 +114,22 @@ async function onMakeDefault(): Promise<void> {
             return;
         }
 
-        try {
-            await billingStore.makeCardDefault(selectedCard.value);
-            notify.success('Default credit card was successfully edited');
-            model.value = false;
-        } catch (error) {
-            error.message = `Error making credit card default. ${error.message}`;
-            notify.notifyError(error, AnalyticsErrorEventSource.EDIT_DEFAULT_CC_MODAL);
+        if (selectedCard.value !== defaultCard.value?.id) {
+            try {
+                await billingStore.makeCardDefault(selectedCard.value);
+            } catch (error) {
+                error.message = `Error making credit card default. ${error.message}`;
+                notify.notifyError(error, AnalyticsErrorEventSource.EDIT_DEFAULT_CC_MODAL);
+                return;
+            }
         }
+
+        notify.success('Default credit card was successfully edited');
+        model.value = false;
     });
 }
+
+watch(() => props.modelValue, () => {
+    selectedCard.value = defaultCard.value?.id ?? '';
+});
 </script>
