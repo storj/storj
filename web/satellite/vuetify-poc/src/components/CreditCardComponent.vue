@@ -15,7 +15,10 @@
                 {{ card.expMonth }}/{{ card.expYear }}
             </v-chip>
             <v-divider class="my-4" />
-            <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="isRemoveCCDialog = true">Remove</v-btn>
+            <v-row class="ma-0 align-center">
+                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
+                <v-btn variant="outlined" color="default" size="small" @click="isRemoveCCDialog = true">Remove</v-btn>
+            </v-row>
         </v-card-text>
     </v-card>
     <remove-credit-card-dialog v-model="isRemoveCCDialog" :card="card" @editDefault="isEditDefaultCCDialog = true" />
@@ -24,7 +27,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VBtn, VCard, VCardText, VChip, VDivider } from 'vuetify/components';
+import { VBtn, VCard, VCardText, VChip, VDivider, VRow } from 'vuetify/components';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { CreditCard } from '@/types/payments';

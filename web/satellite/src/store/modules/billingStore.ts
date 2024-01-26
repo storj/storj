@@ -105,16 +105,8 @@ export const useBillingStore = defineStore('billing', () => {
     async function makeCardDefault(id: string): Promise<void> {
         await api.makeCreditCardDefault(id);
 
-        state.creditCards = state.creditCards.map(card => {
-            if (card.id === id) {
-                card.isDefault = !card.isDefault;
-
-                return card;
-            }
-
-            card.isDefault = false;
-
-            return card;
+        state.creditCards.forEach(card => {
+            card.isDefault = card.id === id;
         });
     }
 
