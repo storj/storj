@@ -91,7 +91,18 @@ func (db *DB) IterateObjectsAllVersionsWithStatus(ctx context.Context, opts Iter
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatus(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusDescending(ctx, db, opts, fn)
+}
+
+// IterateObjectsAllVersionsWithStatusAscending iterates through all versions of all objects with specified status. Ordered from oldest to latest.
+// TODO this method was copied (and renamed) from v1.95.1 as a workaround for issues with metabase.ListObject performance. It should be removed
+// when problem with metabase.ListObject will be fixed.
+func (db *DB) IterateObjectsAllVersionsWithStatusAscending(ctx context.Context, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if err = opts.Verify(); err != nil {
+		return err
+	}
+	return iterateAllVersionsWithStatusAscending(ctx, db, opts, fn)
 }
 
 // Verify verifies get object request fields.
