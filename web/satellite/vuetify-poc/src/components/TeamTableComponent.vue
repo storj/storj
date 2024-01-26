@@ -3,36 +3,20 @@
 
 <template>
     <v-card variant="outlined" :border="true" rounded="xlg">
-        <v-row align="center" class="ma-0">
-            <v-col v-if="selectedMembers.length" class="pa-0" cols="auto">
-                <v-btn
-                    class="text-caption ml-2 mt-2"
-                    :prepend-icon="mdiTrashCanOutline"
-                    variant="outlined"
-                    size="large"
-                    color="default"
-                    @click="showDeleteDialog"
-                >
-                    Remove {{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }}
-                </v-btn>
-            </v-col>
-            <v-col class="pa-0">
-                <v-text-field
-                    v-model="search"
-                    label="Search"
-                    :prepend-inner-icon="mdiMagnify"
-                    single-line
-                    variant="solo-filled"
-                    flat
-                    hide-details
-                    clearable
-                    density="comfortable"
-                    rounded="lg"
-                    :maxlength="MAX_SEARCH_VALUE_LENGTH"
-                    class="mx-2 mt-2"
-                />
-            </v-col>
-        </v-row>
+        <v-text-field
+            v-model="search"
+            label="Search"
+            :prepend-inner-icon="mdiMagnify"
+            single-line
+            variant="solo-filled"
+            flat
+            hide-details
+            clearable
+            density="comfortable"
+            rounded="lg"
+            :maxlength="MAX_SEARCH_VALUE_LENGTH"
+            class="mx-2 mt-2"
+        />
 
         <v-data-table-server
             v-model="selectedMembers"
@@ -115,6 +99,36 @@
         :emails="selectedMembers"
         @deleted="onPostDelete"
     />
+
+    <v-snackbar
+        rounded="lg"
+        variant="elevated"
+        color="surface"
+        :model-value="!!selectedMembers.length"
+        :timeout="-1"
+        class="snackbar-multiple"
+    >
+        <v-row align="center" justify="space-between">
+            <v-col>
+                {{ selectedMembers.length }} user{{ selectedMembers.length > 1 ? 's' : '' }} selected
+            </v-col>
+            <v-col>
+                <div class="d-flex justify-end">
+                    <v-btn
+                        color="default"
+                        density="comfortable"
+                        variant="outlined"
+                        @click="showDeleteDialog"
+                    >
+                        <template #prepend>
+                            <icon-trash bold />
+                        </template>
+                        Remove
+                    </v-btn>
+                </div>
+            </v-col>
+        </v-row>
+    </v-snackbar>
 </template>
 
 <script setup lang="ts">
@@ -132,9 +146,10 @@ import {
     VBtn,
     VListItemTitle,
     VDataTableServer,
+    VSnackbar,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { mdiDotsHorizontal, mdiMagnify, mdiTrashCanOutline } from '@mdi/js';
+import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
