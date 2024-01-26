@@ -592,6 +592,26 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	require.Zero(t, diff)
 }
 
+// IterateObjectsWithStatusAscending is for testing metabase.IterateObjectsWithStatusAscending.
+type IterateObjectsWithStatusAscending struct {
+	Opts metabase.IterateObjectsWithStatus
+
+	Result   []metabase.ObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step IterateObjectsWithStatusAscending) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	var result IterateCollector
+
+	err := db.IterateObjectsAllVersionsWithStatusAscending(ctx, step.Opts, result.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
 // IterateLoopObjects is for testing metabase.IterateLoopObjects.
 type IterateLoopObjects struct {
 	Opts metabase.IterateLoopObjects

@@ -962,66 +962,105 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	// For pending objects, we always need to list the versions.
 	if status == metabase.Pending {
-		result, err := endpoint.metabase.ListObjects(ctx,
-			metabase.ListObjects{
+		// handles listing pending objects for all types of buckets
+		err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
+			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				Prefix:     prefix,
-				Cursor: metabase.ListObjectsCursor{
+				Cursor: metabase.IterateCursor{
 					Key:     cursorKey,
 					Version: cursorVersion,
 				},
-				Pending:     true,
-				AllVersions: true,
-				Recursive:   req.Recursive,
-				Limit:       limit,
-
+				Recursive:             req.Recursive,
+				BatchSize:             limit + 1,
+				Pending:               true,
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
-			})
+			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+				entry := metabase.ObjectEntry{}
+				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+					if err != nil {
+						return err
+					}
+					resp.Items = append(resp.Items, item)
+				}
+
+				resp.More = it.Next(ctx, &entry)
+				return nil
+			},
+		)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
-
-		for _, entry := range result.Objects {
-			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
-			if err != nil {
-				return nil, endpoint.convertMetabaseErr(err)
-			}
-			resp.Items = append(resp.Items, item)
-		}
-		resp.More = result.More
 	} else if !req.IncludeAllVersions {
-		result, err := endpoint.metabase.ListObjects(ctx,
-			metabase.ListObjects{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				Prefix:     prefix,
-				Cursor: metabase.ListObjectsCursor{
-					Key:     cursorKey,
-					Version: cursorVersion,
+		// handles regular listing for all type of buckets
+		if bucket.Versioning == buckets.Unversioned {
+			err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
+				metabase.IterateObjectsWithStatus{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					Prefix:     prefix,
+					Cursor: metabase.IterateCursor{
+						Key:     cursorKey,
+						Version: cursorVersion,
+					},
+					Recursive:             req.Recursive,
+					BatchSize:             limit + 1,
+					Pending:               false,
+					IncludeCustomMetadata: includeCustomMetadata,
+					IncludeSystemMetadata: includeSystemMetadata,
+				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for len(resp.Items) < limit && it.Next(ctx, &entry) {
+						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+						if err != nil {
+							return err
+						}
+						resp.Items = append(resp.Items, item)
+					}
+
+					resp.More = it.Next(ctx, &entry)
+					return nil
 				},
-				Pending:     false,
-				AllVersions: false,
-				Recursive:   req.Recursive,
-				Limit:       limit,
-
-				IncludeCustomMetadata: includeCustomMetadata,
-				IncludeSystemMetadata: includeSystemMetadata,
-			})
-		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
-		}
-
-		for _, entry := range result.Objects {
-			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+			)
 			if err != nil {
 				return nil, endpoint.convertMetabaseErr(err)
 			}
-			resp.Items = append(resp.Items, item)
+		} else {
+			result, err := endpoint.metabase.ListObjects(ctx,
+				metabase.ListObjects{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					Prefix:     prefix,
+					Cursor: metabase.ListObjectsCursor{
+						Key:     cursorKey,
+						Version: cursorVersion,
+					},
+					Pending:     false,
+					AllVersions: false,
+					Recursive:   req.Recursive,
+					Limit:       limit,
+
+					IncludeCustomMetadata: includeCustomMetadata,
+					IncludeSystemMetadata: includeSystemMetadata,
+				})
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
+
+			for _, entry := range result.Objects {
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+				if err != nil {
+					return nil, endpoint.convertMetabaseErr(err)
+				}
+				resp.Items = append(resp.Items, item)
+			}
+			resp.More = result.More
 		}
-		resp.More = result.More
 	} else {
+		// handles listing all versions
 		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
 			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,

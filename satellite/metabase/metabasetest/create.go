@@ -231,7 +231,7 @@ func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *me
 
 // CreateVersionedObjectsWithKeysAll creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to a slice of all versions.
-func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey][]metabase.ObjectEntry {
+func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version, sortDesc bool) map[metabase.ObjectKey][]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey][]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
 		items := []metabase.ObjectEntry{}
@@ -254,10 +254,13 @@ func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, d
 				Encryption: DefaultEncryption,
 			})
 		}
-		// sort by version descending
-		sort.Slice(items, func(i, k int) bool {
-			return items[i].Less(items[k])
-		})
+
+		if sortDesc {
+			// sort by version descending
+			sort.Slice(items, func(i, k int) bool {
+				return items[i].Less(items[k])
+			})
+		}
 		objects[key] = items
 	}
 
