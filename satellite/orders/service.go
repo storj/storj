@@ -5,7 +5,10 @@ package orders
 
 import (
 	"context"
+	"fmt"
 	mathrand "math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +39,8 @@ type Config struct {
 	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m" testDefault:"$TESTINTERVAL"`
 	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
 	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
+
+	DownloadTailToleranceOverrides string `help:"how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5." default:""`
 }
 
 // Overlay defines the overlay dependency of orders.Service.
@@ -63,6 +68,8 @@ type Service struct {
 
 	orderExpiration time.Duration
 
+	downloadOverrides map[int16]int32
+
 	rngMu sync.Mutex
 	rng   *mathrand.Rand
 }
@@ -76,6 +83,11 @@ func NewService(
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
 	}
 
+	downloadOverrides, err := parseDownloadOverrides(config.DownloadTailToleranceOverrides)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		log:            log,
 		satellite:      satellite,
@@ -86,6 +98,8 @@ func NewService(
 		encryptionKeys: config.EncryptionKeys,
 
 		orderExpiration: config.Expiration,
+
+		downloadOverrides: downloadOverrides,
 
 		rng: mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}, nil
@@ -126,6 +140,32 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 	return nil
 }
 
+// DownloadNodes calculates the number of nodes needed to download in the
+// presence of node failure based on t = k + (n-o)k/o.
+func (service *Service) DownloadNodes(scheme storj.RedundancyScheme) int32 {
+	if needed, found := service.downloadOverrides[scheme.RequiredShares]; found {
+		return needed
+	}
+
+	extra := int32(1)
+
+	if scheme.OptimalShares > 0 {
+		extra = int32(((scheme.TotalShares - scheme.OptimalShares) * scheme.RequiredShares) / scheme.OptimalShares)
+		if extra == 0 {
+			// ensure there is at least one extra node, so we can have error detection/correction
+			// N.B.: we actually need two for this, but the uplink doesn't make appropriate use of it (yet)
+			extra = 1
+		}
+	}
+
+	needed := int32(scheme.RequiredShares) + extra
+
+	if needed > int32(scheme.TotalShares) {
+		needed = int32(scheme.TotalShares)
+	}
+	return needed
+}
+
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
 func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -158,7 +198,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	neededLimits := segment.Redundancy.DownloadNodes()
+	neededLimits := service.DownloadNodes(segment.Redundancy)
 	if desiredNodes > neededLimits {
 		neededLimits = desiredNodes
 	}
@@ -597,4 +637,33 @@ func resolveStorageNode(node *pb.Node, lastIPPort string, resolveDNS bool) *pb.N
 		node.Address.Address = lastIPPort
 	}
 	return node
+}
+
+func parseDownloadOverrides(val string) (map[int16]int32, error) {
+	rv := map[int16]int32{}
+	val = strings.TrimSpace(val)
+	if val != "" {
+		for _, entry := range strings.Split(val, ",") {
+			parts := strings.Split(entry, "-")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid download override value %q", val)
+			}
+			required, err := strconv.ParseInt(parts[0], 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid download override value %q: %w", val, err)
+			}
+			download, err := strconv.ParseInt(parts[1], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("invalid download override value %q: %w", val, err)
+			}
+			if required > download {
+				return nil, fmt.Errorf("invalid download override value %q: required > download", val)
+			}
+			if _, found := rv[int16(required)]; found {
+				return nil, fmt.Errorf("invalid download override value %q: duplicate key", val)
+			}
+			rv[int16(required)] = int32(download)
+		}
+	}
+	return rv, nil
 }

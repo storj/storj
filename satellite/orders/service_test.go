@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package orders_test
+package orders
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/identity/testidentity"
@@ -20,7 +21,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/orders"
 )
 
 func TestGetOrderLimits(t *testing.T) {
@@ -49,20 +49,20 @@ func TestGetOrderLimits(t *testing.T) {
 	require.NoError(t, err)
 	k := signing.SignerFromFullIdentity(testIdentity)
 
-	overlayService := orders.NewMockOverlayForOrders(ctrl)
+	overlayService := NewMockOverlayForOrders(ctrl)
 	overlayService.
 		EXPECT().
 		CachedGetOnlineNodesForGet(gomock.Any(), gomock.Any()).
 		Return(nodes, nil).AnyTimes()
 
-	service, err := orders.NewService(zaptest.NewLogger(t), k, overlayService, orders.NewNoopDB(),
+	service, err := NewService(zaptest.NewLogger(t), k, overlayService, NewNoopDB(),
 		func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
 			return nodeselection.AnyFilter{}
 		},
-		orders.Config{
-			EncryptionKeys: orders.EncryptionKeys{
-				Default: orders.EncryptionKey{
-					ID:  orders.EncryptionKeyID{1, 2, 3, 4, 5, 6, 7, 8},
+		Config{
+			EncryptionKeys: EncryptionKeys{
+				Default: EncryptionKey{
+					ID:  EncryptionKeyID{1, 2, 3, 4, 5, 6, 7, 8},
 					Key: testrand.Key(),
 				},
 			},
@@ -112,5 +112,105 @@ func TestGetOrderLimits(t *testing.T) {
 	t.Run("Request more than the replication", func(t *testing.T) {
 		checkExpectedLimits(1000, 8)
 	})
+}
 
+func TestDownloadNodes(t *testing.T) {
+	key, err := storj.NewKey([]byte("test-key"))
+	require.NoError(t, err)
+	encryptionKeys := EncryptionKeys{
+		Default: EncryptionKey{
+			ID:  EncryptionKeyID{0, 1, 2, 3, 4, 5, 6, 7},
+			Key: *key,
+		},
+	}
+
+	service, err := NewService(zap.L(), nil, nil, nil, nil, Config{EncryptionKeys: encryptionKeys})
+	require.NoError(t, err)
+
+	for i, tt := range []struct {
+		k, m, o, n int16
+		needed     int32
+	}{
+		{k: 0, m: 0, o: 0, n: 0, needed: 0},
+		{k: 1, m: 1, o: 1, n: 1, needed: 1},
+		{k: 1, m: 1, o: 2, n: 2, needed: 2},
+		{k: 1, m: 2, o: 2, n: 2, needed: 2},
+		{k: 2, m: 3, o: 4, n: 4, needed: 3},
+		{k: 2, m: 4, o: 6, n: 8, needed: 3},
+		{k: 20, m: 30, o: 40, n: 50, needed: 25},
+		{k: 29, m: 35, o: 80, n: 95, needed: 34},
+	} {
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
+		rs := storj.RedundancyScheme{
+			RequiredShares: tt.k,
+			RepairShares:   tt.m,
+			OptimalShares:  tt.o,
+			TotalShares:    tt.n,
+		}
+
+		require.Equal(t, tt.needed, service.DownloadNodes(rs), tag)
+	}
+
+	service, err = NewService(zap.L(), nil, nil, nil, nil, Config{
+		EncryptionKeys:                 encryptionKeys,
+		DownloadTailToleranceOverrides: "1-4,20-21",
+	})
+	require.NoError(t, err)
+
+	for i, tt := range []struct {
+		k, m, o, n int16
+		needed     int32
+	}{
+		{k: 0, m: 0, o: 0, n: 0, needed: 0},
+		{k: 1, m: 1, o: 1, n: 1, needed: 4},
+		{k: 1, m: 1, o: 2, n: 2, needed: 4},
+		{k: 1, m: 2, o: 2, n: 2, needed: 4},
+		{k: 2, m: 3, o: 4, n: 4, needed: 3},
+		{k: 2, m: 4, o: 6, n: 8, needed: 3},
+		{k: 20, m: 30, o: 40, n: 50, needed: 21},
+		{k: 29, m: 35, o: 80, n: 95, needed: 34},
+	} {
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
+		rs := storj.RedundancyScheme{
+			RequiredShares: tt.k,
+			RepairShares:   tt.m,
+			OptimalShares:  tt.o,
+			TotalShares:    tt.n,
+		}
+
+		require.Equal(t, tt.needed, service.DownloadNodes(rs), tag)
+	}
+}
+
+func TestParseDownloadOverrides(t *testing.T) {
+	for i, tt := range []struct {
+		unparsed string
+		parsed   map[int16]int32
+		success  bool
+	}{
+		{"", map[int16]int32{}, true},
+		{" \n", map[int16]int32{}, true},
+		{"29-28", nil, false},
+		{"29-29", map[int16]int32{29: 35}, true},
+		{"29-35", map[int16]int32{29: 35}, true},
+		{"29-35,29-36", nil, false},
+		{"29-35,2-4", map[int16]int32{2: 4, 29: 35}, true},
+		{"29-35,2-4,7-9", map[int16]int32{2: 4, 29: 35, 7: 9}, true},
+		{"29-35,", nil, false},
+		{",29-35", nil, false},
+	} {
+		tag := fmt.Sprintf("#%d. %+v", i, tt)
+
+		actual, err := parseDownloadOverrides(tt.unparsed)
+		if !tt.success {
+			require.Error(t, err, tag)
+			continue
+		}
+		require.Equal(t, len(actual), len(tt.parsed), tag)
+		for k, v := range tt.parsed {
+			require.Equal(t, v, tt.parsed[k], tag)
+		}
+	}
 }

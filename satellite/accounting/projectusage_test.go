@@ -1164,7 +1164,7 @@ func TestProjectUsage_BandwidthDeadAllocation(t *testing.T) {
 			project.ID, now.Year(), now.Month(), now.Day(), 0)
 		require.NoError(t, err)
 
-		require.Equal(t, int64(segments[0].Redundancy.DownloadNodes())*pieceSize, bandwidthUsage)
+		require.Equal(t, int64(planet.Satellites[0].Orders.Service.DownloadNodes(segments[0].Redundancy))*pieceSize, bandwidthUsage)
 
 		initialBandwidthUsage := bandwidthUsage
 		var updatedBandwidthUsage int64

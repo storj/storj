@@ -817,6 +817,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # max number of offline emails to send a node operator until the node comes back online
 # offline-nodes.max-emails: 3
 
+# how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5.
+# orders.download-tail-tolerance-overrides: ""
+
 # encryption keys to encrypt info in orders
 # orders.encryption-keys: ""
 
