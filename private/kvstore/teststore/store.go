@@ -4,6 +4,7 @@
 package teststore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sort"
@@ -25,11 +26,12 @@ type Client struct {
 	ForceError int
 
 	CallCount struct {
-		Get    int
-		Put    int
-		Delete int
-		Close  int
-		Range  int
+		Get            int
+		Put            int
+		Delete         int
+		Close          int
+		Range          int
+		CompareAndSwap int
 	}
 
 	version int
@@ -167,6 +169,50 @@ func (store *Client) Range(ctx context.Context, fn func(context.Context, kvstore
 			return err
 		}
 	}
+	return nil
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
+func (store *Client) CompareAndSwap(ctx context.Context, key kvstore.Key, oldValue, newValue kvstore.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer store.locked()()
+
+	store.version++
+	store.CallCount.CompareAndSwap++
+	if store.forcedError() {
+		return errInternal
+	}
+
+	if key.IsZero() {
+		return kvstore.ErrEmptyKey.New("")
+	}
+
+	keyIndex, found := store.indexOf(key)
+	if !found {
+		if oldValue != nil {
+			return kvstore.ErrKeyNotFound.New("%q", key)
+		}
+
+		if newValue == nil {
+			return nil
+		}
+
+		store.put(keyIndex, key, newValue)
+		return nil
+	}
+
+	kv := &store.Items[keyIndex]
+	if !bytes.Equal(kv.Value, oldValue) {
+		return kvstore.ErrValueChanged.New("%q", key)
+	}
+
+	if newValue == nil {
+		store.delete(keyIndex)
+		return nil
+	}
+
+	kv.Value = kvstore.CloneValue(newValue)
+
 	return nil
 }
 

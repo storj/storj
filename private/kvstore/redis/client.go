@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/url"
@@ -156,6 +157,56 @@ func (client *Client) Range(ctx context.Context, fn func(context.Context, kvstor
 	}
 
 	return Error.Wrap(it.Err())
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
+func (client *Client) CompareAndSwap(ctx context.Context, key kvstore.Key, oldValue, newValue kvstore.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return kvstore.ErrEmptyKey.New("")
+	}
+
+	txf := func(tx *redis.Tx) error {
+		value, err := get(ctx, tx, key)
+		if kvstore.ErrKeyNotFound.Has(err) {
+			if oldValue != nil {
+				return kvstore.ErrKeyNotFound.New("%q", key)
+			}
+
+			if newValue == nil {
+				return nil
+			}
+
+			// runs only if the watched keys remain unchanged
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				return put(ctx, pipe, key, newValue, client.TTL)
+			})
+			return err
+		}
+		if err != nil {
+			return err
+		}
+
+		if !bytes.Equal(value, oldValue) {
+			return kvstore.ErrValueChanged.New("%q", key)
+		}
+
+		// runs only if the watched keys remain unchanged
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+			if newValue == nil {
+				return delete(ctx, pipe, key)
+			}
+			return put(ctx, pipe, key, newValue, client.TTL)
+		})
+
+		return err
+	}
+
+	err = client.db.Watch(ctx, txf, key.String())
+	if errors.Is(err, redis.TxFailedErr) {
+		return kvstore.ErrValueChanged.New("%q", key)
+	}
+	return Error.Wrap(err)
 }
 
 func get(ctx context.Context, cmdable redis.Cmdable, key kvstore.Key) (_ kvstore.Value, err error) {
