@@ -4,6 +4,7 @@
 package boltdb
 
 import (
+	"bytes"
 	"context"
 	"sync/atomic"
 	"time"
@@ -160,5 +161,38 @@ func (client *Client) Range(ctx context.Context, fn func(context.Context, kvstor
 		return bucket.ForEach(func(k, v []byte) error {
 			return fn(ctx, kvstore.Key(k), kvstore.Value(v))
 		})
+	})
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
+func (client *Client) CompareAndSwap(ctx context.Context, key kvstore.Key, oldValue, newValue kvstore.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return kvstore.ErrEmptyKey.New("")
+	}
+
+	return client.update(func(bucket *bbolt.Bucket) error {
+		data := bucket.Get([]byte(key))
+		if len(data) == 0 {
+			if oldValue != nil {
+				return kvstore.ErrKeyNotFound.New("%q", key)
+			}
+
+			if newValue == nil {
+				return nil
+			}
+
+			return Error.Wrap(bucket.Put(key, newValue))
+		}
+
+		if !bytes.Equal(kvstore.Value(data), oldValue) {
+			return kvstore.ErrValueChanged.New("%q", key)
+		}
+
+		if newValue == nil {
+			return Error.Wrap(bucket.Delete(key))
+		}
+
+		return Error.Wrap(bucket.Put(key, newValue))
 	})
 }
