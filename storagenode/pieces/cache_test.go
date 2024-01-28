@@ -747,7 +747,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		assertValues("trashed again", satelliteID, expPieceSize, len(pieceContent), int(ref0Size))
 
 		// Empty trash
-		_, _, err = cache.EmptyTrash(ctx, satelliteID.Bytes(), time.Now().Add(24*time.Hour))
+		_, _, _, err = cache.EmptyTrash(ctx, satelliteID.Bytes(), time.Now().Add(24*time.Hour))
 		require.NoError(t, err)
 		assertValues("emptied trash", satelliteID, expPieceSize, len(pieceContent), 0)
 

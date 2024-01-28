@@ -447,9 +447,10 @@ func (dir *Dir) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) 
 // EmptyTrash walks the trash files for the given namespace and deletes any
 // file whose mtime is older than trashedBefore. The mtime is modified when
 // Trash is called.
-func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, deletedKeys [][]byte, err error) {
+func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, deletedKeys [][]byte, minPieceTimestamp time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errorsEncountered errs.Group
+	minPieceTimestamp = time.Now()
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info blobstore.BlobInfo) error {
 		fileInfo, err := info.Stat(ctx)
 		if err != nil {
@@ -477,11 +478,13 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 			}
 			deletedKeys = append(deletedKeys, info.BlobRef().Key)
 			bytesEmptied += fileInfo.Size()
+		} else if mtime.Before(minPieceTimestamp) {
+			minPieceTimestamp = mtime
 		}
 		return nil
 	})
 	errorsEncountered.Add(err)
-	return bytesEmptied, deletedKeys, errorsEncountered.Err()
+	return bytesEmptied, deletedKeys, minPieceTimestamp, errorsEncountered.Err()
 }
 
 // DeleteTrashNamespace deletes the entire trash namespace.

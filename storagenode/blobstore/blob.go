@@ -90,7 +90,7 @@ type Blobs interface {
 	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.
 	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
 	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted.
-	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error)
+	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, time.Time, error)
 	// TryRestoreTrashBlob attempts to restore a blob from the trash.
 	// It returns nil if the blob was restored, or an error if the blob was not
 	// in the trash or could not be restored.

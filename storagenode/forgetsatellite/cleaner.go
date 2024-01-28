@@ -91,7 +91,7 @@ func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error)
 	// To be sure that we update the usage cache before deleting the trash, we first
 	// delete the trash by calling EmptyTrash because it updates the usage cache.
 	// Then we delete the trash folder for the satellite.
-	err = c.store.EmptyTrash(ctx, satellite.SatelliteID, time.Now())
+	_, err = c.store.EmptyTrash(ctx, satellite.SatelliteID, time.Now())
 	if err != nil {
 		return err
 	}

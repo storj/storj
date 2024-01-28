@@ -108,9 +108,9 @@ func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]
 }
 
 // EmptyTrash empties the trash.
-func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
+func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, time.Time, error) {
 	if err := slow.sleep(ctx); err != nil {
-		return 0, nil, errs.Wrap(err)
+		return 0, nil, time.Time{}, errs.Wrap(err)
 	}
 	return slow.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
