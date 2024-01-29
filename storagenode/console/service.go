@@ -55,7 +55,8 @@ type Service struct {
 	version    *checker.Service
 	pingStats  *contact.PingStats
 
-	allocatedDiskSpace memory.Size
+	allocatedDiskSpace   memory.Size
+	storageStatusChecked bool // indicates if storage status was checked
 
 	walletAddress  string
 	walletFeatures operator.WalletFeatures
@@ -222,6 +223,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx, time.Now())
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	if !s.storageStatusChecked {
+		storageStatus, err := s.pieceStore.StorageStatus(ctx)
+		if err != nil {
+			s.log.Error("unable to get storage status", zap.Error(err))
+			s.storageStatusChecked = false
+		}
+
+		if storageStatus.DiskTotal > 0 && storageStatus.DiskTotal < s.allocatedDiskSpace.Int64() {
+			s.allocatedDiskSpace = memory.Size(storageStatus.DiskTotal)
+		}
+		s.storageStatusChecked = true
 	}
 
 	data.DiskSpace = DiskSpaceInfo{

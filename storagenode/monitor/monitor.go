@@ -34,6 +34,8 @@ var (
 type DiskSpace struct {
 	// Allocated is the amount of disk space allocated to the storage node, in bytes.
 	Allocated int64
+	// Total is the total amount of disk space on the whole disk, not just allocated disk space, in bytes.
+	Total int64
 	// UsedForPieces is the amount of disk space used for pieces, in bytes.
 	UsedForPieces int64
 	// UsedForTrash is the amount of disk space used for trash, in bytes.
@@ -245,17 +247,22 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 		return 0, err
 	}
 
-	freeSpaceForStorj := service.allocatedDiskSpace - usedSpace
-
 	diskStatus, err := service.store.StorageStatus(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
+
+	allocated := service.allocatedDiskSpace
+	if isLowerThanAllocated(diskStatus.DiskTotal, allocated) {
+		allocated = diskStatus.DiskTotal
+	}
+
+	freeSpaceForStorj := allocated - usedSpace
 	if diskStatus.DiskFree < freeSpaceForStorj {
 		freeSpaceForStorj = diskStatus.DiskFree
 	}
 
-	mon.IntVal("allocated_space").Observe(service.allocatedDiskSpace)
+	mon.IntVal("allocated_space").Observe(allocated)
 	mon.IntVal("used_space").Observe(usedSpace)
 	mon.IntVal("available_space").Observe(freeSpaceForStorj)
 
@@ -282,7 +289,12 @@ func (service *Service) DiskSpace(ctx context.Context) (_ DiskSpace, err error) 
 
 	overused := int64(0)
 
-	available := service.allocatedDiskSpace - (usedForPieces + usedForTrash)
+	allocated := service.allocatedDiskSpace
+	if isLowerThanAllocated(storageStatus.DiskTotal, allocated) {
+		allocated = storageStatus.DiskTotal
+	}
+
+	available := allocated - (usedForPieces + usedForTrash)
 	if available < 0 {
 		overused = -available
 	}
@@ -291,11 +303,17 @@ func (service *Service) DiskSpace(ctx context.Context) (_ DiskSpace, err error) 
 	}
 
 	return DiskSpace{
-		Allocated:     service.allocatedDiskSpace,
+		Total:         storageStatus.DiskTotal,
+		Allocated:     allocated,
 		UsedForPieces: usedForPieces,
 		UsedForTrash:  usedForTrash,
 		Free:          storageStatus.DiskFree,
 		Available:     available,
 		Overused:      overused,
 	}, nil
+}
+
+// isLowerThanAllocated checks if the disk space is lower than allocated.
+func isLowerThanAllocated(actual, allocated int64) bool {
+	return actual > 0 && actual < allocated
 }

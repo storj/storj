@@ -748,7 +748,9 @@ func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, 
 
 // StorageStatus contains information about the disk store is using.
 type StorageStatus struct {
-	DiskUsed int64
+	// DiskTotal is the actual disk size (not just the allocated disk space), in bytes.
+	DiskTotal int64
+	DiskUsed  int64
 	// DiskFree is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
 	DiskFree int64
 }
@@ -756,13 +758,14 @@ type StorageStatus struct {
 // StorageStatus returns information about the disk.
 func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
-	diskFree, err := store.blobs.FreeSpace(ctx)
+	info, err := store.blobs.DiskInfo(ctx)
 	if err != nil {
 		return StorageStatus{}, err
 	}
 	return StorageStatus{
-		DiskUsed: -1, // TODO set value
-		DiskFree: diskFree,
+		DiskTotal: info.TotalSpace,
+		DiskUsed:  -1, // TODO set value
+		DiskFree:  info.AvailableSpace,
 	}, nil
 }
 

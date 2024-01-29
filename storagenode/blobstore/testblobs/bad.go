@@ -244,6 +244,14 @@ func (bad *BadBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	return bad.blobs.FreeSpace(ctx)
 }
 
+// DiskInfo returns information about the disk.
+func (bad *BadBlobs) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
+	if err := bad.err.Err(); err != nil {
+		return blobstore.DiskInfo{}, err
+	}
+	return bad.blobs.DiskInfo(ctx)
+}
+
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (bad *BadBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if err := bad.err.Err(); err != nil {

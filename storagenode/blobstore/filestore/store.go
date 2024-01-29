@@ -281,6 +281,11 @@ func (store *blobStore) FreeSpace(ctx context.Context) (int64, error) {
 	return info.AvailableSpace, nil
 }
 
+// DiskInfo returns information about the disk.
+func (store *blobStore) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
+	return store.dir.Info(ctx)
+}
+
 // CheckWritability tests writability of the storage directory by creating and deleting a file.
 func (store *blobStore) CheckWritability(ctx context.Context) error {
 	f, err := os.CreateTemp(store.dir.Path(), "write-test")
