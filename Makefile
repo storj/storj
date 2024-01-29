@@ -156,7 +156,7 @@ test/postgres: test/setup ## Run tests against Postgres (developer)
 		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
 		STORJ_TEST_COCKROACH='omit' \
 		STORJ_TEST_LOG_LEVEL='info' \
-		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml down -v; \
 		}
 	@docker compose -f docker-compose.tests.yaml down -v
@@ -173,7 +173,7 @@ test/cockroach: test/setup ## Run tests against CockroachDB (developer)
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
 		STORJ_TEST_LOG_LEVEL='info' \
-		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml down -v; \
 		}
 	@docker compose -f docker-compose.tests.yaml down -v
@@ -190,7 +190,7 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
 		STORJ_TEST_LOG_LEVEL='info' \
-		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml rm -fs; \
 		}
 	@docker compose -f docker-compose.tests.yaml rm -fs

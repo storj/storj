@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/multinode/multinodedb"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/multinodeauth"
+	_ "storj.io/storj/web/multinode" // This embeds multinode assets.
 )
 
 // Config defines multinode configuration.

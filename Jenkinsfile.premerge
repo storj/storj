@@ -83,13 +83,13 @@ pipeline {
                 stage('go') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
                         sh 'go install -race -v storj.io/storj/cmd/satellite '+
@@ -146,7 +146,7 @@ pipeline {
             }
             steps {
                 sh 'psql -U postgres -c \'create database benchstorj;\''
-                sh 'go test -tags noembed -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
             }
         }
 
