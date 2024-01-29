@@ -48,6 +48,7 @@ import { humanizeArray } from '@/utils/strings';
 import { Memory } from '@/utils/bytesSize';
 import { DEFAULT_PROJECT_LIMITS, useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@poc/store/appStore';
+import { ROUTES } from '@poc/router';
 
 import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
 
@@ -202,7 +203,10 @@ function openLimitDialog(limitType: LimitType): void {
  * Navigates to the project settings page.
  */
 function goToProjectSettings(): void {
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/settings`);
-    analyticsStore.pageVisit('/projects/settings');
+    router.push({
+        name: ROUTES.ProjectSettings.name,
+        params: { id: projectsStore.state.selectedProject.urlId },
+    });
+    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 </script>

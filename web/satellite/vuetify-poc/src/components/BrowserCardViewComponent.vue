@@ -202,6 +202,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { ROUTES } from '@poc/router';
 
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
@@ -431,7 +432,7 @@ function onFileClick(file: BrowserObject): void {
             uriParts.unshift(...filePath.value.split('/'));
         }
         const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-        router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketName.value}/${pathAndKey}`);
+        router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
         return;
     }
 

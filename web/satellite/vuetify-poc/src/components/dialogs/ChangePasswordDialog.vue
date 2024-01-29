@@ -123,10 +123,10 @@ import { useRouter } from 'vue-router';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/types/router';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { ROUTES } from '@poc/router';
 
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -185,7 +185,7 @@ async function onChangePassword(): Promise<void> {
             await auth.logout();
 
             setTimeout(() => {
-                router.push(RouteConfig.Login.path);
+                router.push(ROUTES.Login.path);
                 // TODO: this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
                 location.reload();
             }, DELAY_BEFORE_REDIRECT);

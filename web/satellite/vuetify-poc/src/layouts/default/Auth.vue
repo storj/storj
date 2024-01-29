@@ -17,6 +17,7 @@ import AuthBar from './AuthBar.vue';
 import DefaultView from './View.vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
+import { ROUTES } from '@poc/router';
 
 const usersStore = useUsersStore();
 
@@ -26,7 +27,7 @@ const router = useRouter();
 onBeforeMount(() => {
     if (usersStore.state.user.id) {
         // user is already logged in
-        router.replace('/projects');
+        router.replace(ROUTES.Projects.path);
         return;
     }
 });

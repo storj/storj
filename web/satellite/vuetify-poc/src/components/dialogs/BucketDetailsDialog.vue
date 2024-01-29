@@ -100,6 +100,7 @@ import { useLoading } from '@/composables/useLoading';
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { ROUTES } from '@poc/router';
 
 const isLoading = useLoading();
 const bucketsStore = useBucketsStore();
@@ -118,7 +119,10 @@ const model = computed<boolean>({
 });
 
 function redirectToBucketsPage(): void {
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets`);
+    router.push({
+        name: ROUTES.Buckets.name,
+        params: { id: projectsStore.state.selectedProject.urlId },
+    });
 }
 
 const bucket = computed((): Bucket => {

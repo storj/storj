@@ -112,7 +112,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { RouteName } from '@poc/router';
+import { ROUTES } from '@poc/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
@@ -203,7 +203,7 @@ function newProjectClicked() {
  * Redirects to Billing Page tab.
  */
 function redirectToBilling(): void {
-    router.push({ name: RouteName.Billing });
+    router.push({ name: ROUTES.Billing.name });
 }
 
 /**

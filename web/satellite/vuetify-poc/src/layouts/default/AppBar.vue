@@ -16,7 +16,7 @@
         />
 
         <v-app-bar-title class="mx-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
-            <router-link to="/projects">
+            <router-link :to="ROUTES.Projects.path">
                 <v-img
                     v-if="theme.global.current.value.dark"
                     src="@poc/assets/logo-dark.svg"
@@ -128,7 +128,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link to="/account/billing" @click="() => registerLinkClick('/account/billing')">
+                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link :to="billingPath" @click="() => registerLinkClick(billingPath)">
                         <template #prepend>
                             <icon-card size="18" />
                         </template>
@@ -137,7 +137,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings" @click="() => registerLinkClick('/account/settings')">
+                    <v-list-item link class="my-1 rounded-lg" router-link :to="settingsPath" @click="() => registerLinkClick(settingsPath)">
                         <template #prepend>
                             <icon-settings size="18" />
                         </template>
@@ -199,6 +199,7 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@poc/router';
 
 import IconCard from '@poc/components/icons/IconCard.vue';
 import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
@@ -228,6 +229,9 @@ const notify = useNotify();
 const { mdAndDown } = useDisplay();
 
 const auth: AuthHttpApi = new AuthHttpApi();
+
+const settingsPath = ROUTES.Account.with(ROUTES.AccountSettings).path;
+const billingPath = ROUTES.Account.with(ROUTES.Billing).path;
 
 const props = withDefaults(defineProps<{
     showNavDrawerButton: boolean;
@@ -307,7 +311,7 @@ async function onLogout(): Promise<void> {
         notify.error(error.message);
     }
 
-    await router.push(RouteConfig.Login.path);
+    await router.push(ROUTES.Login.path);
     if (configStore.state.config.prefixVuetifyUI) {
         location.reload();
     }

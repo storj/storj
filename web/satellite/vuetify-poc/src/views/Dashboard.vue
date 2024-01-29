@@ -56,22 +56,22 @@
 
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="file" title="Files" subtitle="Total files stored" :data="limits.objectCount.toLocaleString()" to="buckets" />
+                <CardStatsComponent icon="file" title="Files" subtitle="Total files stored" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="globe" title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" to="buckets" />
+                <CardStatsComponent icon="globe" title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="bucket" title="Buckets" subtitle="Storage buckets" :data="bucketsCount.toLocaleString()" to="buckets" />
+                <CardStatsComponent icon="bucket" title="Buckets" subtitle="Storage buckets" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="access" title="Access" subtitle="Project keys" :data="accessGrantsCount.toLocaleString()" to="access" />
+                <CardStatsComponent icon="access" title="Access" subtitle="Project keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" to="team" />
+                <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
             </v-col>
             <v-col v-if="billingEnabled" cols="6" md="4" lg="2">
-                <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" to="/account/billing" />
+                <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
             </v-col>
         </v-row>
 
@@ -286,7 +286,7 @@ import { ProjectMembersPage } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
-import { RouteName } from '@poc/router';
+import { ROUTES } from '@poc/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 
@@ -645,7 +645,7 @@ function onBucketsCTAClicked(): void {
  * Redirects to Billing Page tab.
  */
 function redirectToBilling(): void {
-    router.push({ name: RouteName.Billing });
+    router.push({ name: ROUTES.Billing.name });
 }
 
 /**

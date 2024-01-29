@@ -60,13 +60,13 @@ import { useTheme } from 'vuetify';
 import { mdiLock } from '@mdi/js';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@poc/router';
 
 import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
@@ -131,11 +131,11 @@ async function addCardToDB(res: string): Promise<void> {
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
 
-        if (route.path.includes(RouteConfig.ProjectDashboard.name.toLowerCase())) {
+        if (route.name === ROUTES.Dashboard.name) {
             await projectsStore.getProjectLimits(projectsStore.state.selectedProject.id);
         }
 
-        if (route.path.includes(RouteConfig.Billing.path)) {
+        if (route.name === ROUTES.Billing.name) {
             await billingStore.getCreditCards();
         }
 

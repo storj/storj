@@ -181,6 +181,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { ROUTES } from '@poc/router';
 
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
@@ -253,10 +254,13 @@ async function onPrimaryClick(): Promise<void> {
                 return;
             }
             model.value = false;
-            router.push(`/projects/${project.urlId}/dashboard`);
+            router.push({
+                name: ROUTES.Dashboard.name,
+                params: { id: project.urlId },
+            });
             notify.success('Project created.');
 
-            analyticsStore.pageVisit('/projects/dashboard');
+            analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
         });
     } else if (usersStore.state.user.paidTier) {
         if (!isLimitIncreaseRequestEnabled.value) {

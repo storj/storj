@@ -15,6 +15,7 @@ import { VBreadcrumbs } from 'vuetify/components';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { ROUTES } from '@poc/router';
 
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -38,7 +39,7 @@ type BreadcrumbItem = {
  * Returns breadcrumb items corresponding to parts in the file browser path.
  */
 const items = computed<BreadcrumbItem[]>(() => {
-    const bucketsURL = `/projects/${projectsStore.state.selectedProject.urlId}/buckets`;
+    const bucketsURL = `${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}`;
 
     const pathParts = [bucketName.value];
     if (filePath.value) pathParts.push(...filePath.value.split('/'));

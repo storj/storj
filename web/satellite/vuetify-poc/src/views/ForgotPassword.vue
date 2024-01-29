@@ -67,7 +67,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link" to="/login">login</router-link></p>
+                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link" :to="ROUTES.Login.path">login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -97,6 +97,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AuthHttpApi } from '@/api/auth';
 import { MultiCaptchaConfig } from '@/types/config.gen';
+import { ROUTES } from '@poc/router';
 
 const configStore = useConfigStore();
 
@@ -171,7 +172,7 @@ async function onPasswordReset(): Promise<void> {
         try {
             await auth.forgotPassword(email.value, captchaResponseToken.value);
             notify.success('Please look for instructions in your email');
-            router.push('/password-reset-confirmation');
+            router.push(ROUTES.PasswordResetConfirmation.path);
         } catch (error) {
             notify.notifyError(error);
         }

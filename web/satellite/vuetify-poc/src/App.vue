@@ -25,6 +25,7 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
+import { ROUTES } from '@poc/router';
 
 import Notifications from '@poc/layouts/default/Notifications.vue';
 import ErrorPage from '@poc/components/ErrorPage.vue';
@@ -83,8 +84,11 @@ async function setup() {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
             } else {
                 projectsStore.selectProject(projects[0].id);
-                await router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
-                analyticsStore.pageVisit('/projects/dashboard');
+                await router.push({
+                    name: ROUTES.Dashboard.name,
+                    params: { id: projectsStore.state.selectedProject.urlId },
+                });
+                analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
                 analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
             }
         }
@@ -94,7 +98,7 @@ async function setup() {
             appStore.setErrorPage((error as APIError).status ?? 500, true);
         } else {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (!RouteConfig.AuthRoutes.includes(route.path)) await router.push('/login');
+            if (!RouteConfig.AuthRoutes.includes(route.path)) await router.push(ROUTES.Login.path);
         }
     }
     isLoading.value = false;

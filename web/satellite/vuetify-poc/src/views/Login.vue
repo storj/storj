@@ -139,8 +139,8 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link" to="/forgot-password">Reset password</router-link></p>
-                <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link" to="/signup">Sign Up</router-link></p>
+                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link" :to="ROUTES.ForgotPassword.path">Reset password</router-link></p>
+                <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link" :to="ROUTES.Signup.path">Sign Up</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -166,6 +166,7 @@ import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
+import { ROUTES } from '@poc/router';
 
 import Login2FA from '@poc/views/Login2FA.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
@@ -201,7 +202,7 @@ const password = ref('');
 const passcode = ref('');
 const recoveryCode = ref('');
 const pathEmail = ref<string | null>(null);
-const returnURL = ref('/projects');
+const returnURL = ref(ROUTES.Projects.path);
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);

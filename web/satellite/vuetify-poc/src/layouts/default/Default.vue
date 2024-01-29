@@ -31,6 +31,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { ROUTES } from '@poc/router';
 
 import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
@@ -54,7 +55,7 @@ const isLoading = ref<boolean>(true);
  */
 async function selectProject(urlId: string): Promise<void> {
     const goToDashboard = () => {
-        const path = '/projects';
+        const path = ROUTES.Projects.path;
         router.push(path);
         analyticsStore.pageVisit(path);
     };

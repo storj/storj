@@ -68,7 +68,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link" to="/login">login</router-link></p>
+                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link" :to="ROUTES.Login.path">login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -97,6 +97,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AuthHttpApi } from '@/api/auth';
 import { MultiCaptchaConfig } from '@/types/config.gen';
+import { ROUTES } from '@poc/router';
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const configStore = useConfigStore();
@@ -191,7 +192,10 @@ async function onActivateClick(): Promise<void> {
         try {
             await auth.resendEmail(email.value);
             notify.success('Activation link sent');
-            router.push(`/signup-confirmation?email=${encodeURIComponent(email.value)}`);
+            router.push({
+                name: ROUTES.SignupConfirmation.name,
+                query: { email: encodeURIComponent(email.value) },
+            });
         } catch (error) {
             notify.notifyError(error);
         }

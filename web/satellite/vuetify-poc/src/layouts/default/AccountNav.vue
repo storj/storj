@@ -19,7 +19,7 @@
                 </template>
 
                 <!-- All Projects -->
-                <navigation-item title="All Projects" subtitle="Dashboard" to="/projects" class="py-4">
+                <navigation-item title="All Projects" subtitle="Dashboard" :to="ROUTES.Projects.path" class="py-4">
                     <template #prepend>
                         <icon-all-projects />
                     </template>
@@ -32,14 +32,14 @@
                 </v-list-item>
 
                 <!-- Account Billing -->
-                <navigation-item v-if="billingEnabled" title="Billing" to="/account/billing" class="py-2">
+                <navigation-item v-if="billingEnabled" title="Billing" :to="ROUTES.Account.with(ROUTES.Billing).path" class="py-2">
                     <template #prepend>
                         <icon-card />
                     </template>
                 </navigation-item>
 
                 <!-- Account Settings -->
-                <navigation-item title="Settings" to="/account/settings" class="py-2">
+                <navigation-item title="Settings" :to="ROUTES.Account.with(ROUTES.AccountSettings).path" class="py-2">
                     <template #prepend>
                         <icon-settings />
                     </template>
@@ -66,6 +66,7 @@ import { useDisplay } from 'vuetify';
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@poc/router';
 
 import IconCard from '@poc/components/icons/IconCard.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -93,7 +94,7 @@ const billingEnabled = computed<boolean>(() => configStore.state.config.billingF
  */
 const pathBeforeAccountPage = computed((): string | null => {
     const path = appStore.state.pathBeforeAccountPage;
-    if (!path || path === '/projects') return null;
+    if (!path || path === ROUTES.Projects.path) return null;
     return path;
 });
 

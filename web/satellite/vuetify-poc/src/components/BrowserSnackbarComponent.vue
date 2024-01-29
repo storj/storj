@@ -103,6 +103,7 @@ import { useNotify } from '@/utils/hooks';
 import { useAppStore as useV1AppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { ROUTES } from '@poc/router';
 
 import UploadItem from '@poc/components/UploadItem.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
@@ -221,7 +222,7 @@ function onFileClick(file: BrowserObject): void {
             uriParts.unshift(...filePath.value.split('/'));
         }
         const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-        router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketName.value}/${pathAndKey}`);
+        router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
         return;
     }
 

@@ -45,7 +45,7 @@ import { useRouter } from 'vue-router';
 import { VDialog, VCard, VCardItem, VCardTitle, VBtn, VDivider, VCardActions } from 'vuetify/components';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { RouteConfig } from '@/types/router';
+import { ROUTES } from '@poc/router';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -67,8 +67,8 @@ const model = computed<boolean>({
  * Redirects to login screen.
  */
 function redirectToLogin(): void {
-    analyticsStore.pageVisit(RouteConfig.Login.path);
-    router.push(RouteConfig.Login.path);
+    analyticsStore.pageVisit(ROUTES.Login.path);
+    router.push(ROUTES.Login.path);
     model.value = false;
     // TODO this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
     location.reload();

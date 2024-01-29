@@ -231,8 +231,7 @@ import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
-import { Project } from '@/types/projects';
-import { RouteName } from '@poc/router';
+import { ROUTES } from '@poc/router';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
@@ -365,7 +364,7 @@ function onAddTokensClicked(): void {
 
 onBeforeMount(() => {
     if (!configStore.state.config.billingFeaturesEnabled) {
-        router.replace({ name: RouteName.AccountSettings });
+        router.replace({ name: ROUTES.AccountSettings.name });
     }
 });
 

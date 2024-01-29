@@ -163,6 +163,7 @@ import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { MAX_SEARCH_VALUE_LENGTH } from '@poc/types/common';
+import { ROUTES } from '@poc/router';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconShare from '@poc/components/icons/IconShare.vue';
@@ -407,7 +408,13 @@ async function openBucket(bucketName: string): Promise<void> {
         }
 
         analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketsStore.state.fileComponentBucketName}`);
+        await router.push({
+            name: ROUTES.Bucket.name,
+            params: {
+                browserPath: bucketsStore.state.fileComponentBucketName,
+                id: projectsStore.state.selectedProject.urlId,
+            },
+        });
         return;
     }
     passphraseDialogCallback = () => openBucket(selectedBucketName.value);

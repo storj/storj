@@ -80,6 +80,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
+import { ROUTES } from '@poc/router';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -110,8 +111,11 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     projectsStore.selectProject(props.id);
     notify.success('Invite accepted!');
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
-    analyticsStore.pageVisit('/projects/dashboard');
+    router.push({
+        name: ROUTES.Dashboard.name,
+        params: { id: projectsStore.state.selectedProject.urlId },
+    });
+    analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 

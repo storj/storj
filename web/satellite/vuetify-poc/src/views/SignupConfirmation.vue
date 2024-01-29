@@ -41,7 +41,7 @@
                 </p>
             </v-col>
             <v-col cols="12">
-                <p class="text-center text-body-2"><router-link class="link" to="/login">Go to login page</router-link></p>
+                <p class="text-center text-body-2"><router-link class="link" :to="ROUTES.Login.path">Go to login page</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -99,6 +99,7 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@poc/store/appStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { ROUTES } from '@poc/router';
 
 import IconBlueCheckmark from '@poc/components/icons/IconBlueCheckmark.vue';
 
@@ -130,7 +131,7 @@ const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
-    return props.email || route.query.email?.toString() || '';
+    return props.email || decodeURIComponent(route.query.email?.toString() || '') || '';
 });
 
 /**
@@ -208,8 +209,8 @@ function verifyCode(): void {
         analyticsStore.eventTriggered(AnalyticsEvent.USER_SIGN_UP);
         appStore.toggleHasJustLoggedIn(true);
         usersStore.login();
-        analyticsStore.pageVisit('/projects');
-        await router.push('/projects');
+        analyticsStore.pageVisit(ROUTES.Projects.path);
+        await router.push(ROUTES.Projects.path);
     });
 }
 

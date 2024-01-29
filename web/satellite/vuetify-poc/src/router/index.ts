@@ -2,17 +2,18 @@
 // See LICENSE for copying information.
 
 import { watch } from 'vue';
-import { RouteRecordRaw, createRouter, createWebHistory, Router } from 'vue-router';
+import { RouteRecordRaw, createRouter, createWebHistory, Router, RouteLocation } from 'vue-router';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@poc/store/appStore';
 import { FrontendConfig } from '@/types/config.gen';
+import { NavigationLink } from '@/types/navigation';
 
-export enum RouteName {
+enum RouteName {
+    Account = 'Account',
     Billing = 'Billing',
     AccountSettings = 'Account Settings',
-    DesignLibrary = 'Design Library',
     Projects = 'Projects',
     Project = 'Project',
     Dashboard = 'Dashboard',
@@ -22,130 +23,161 @@ export enum RouteName {
     Team = 'Team',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
+    Signup = 'Signup',
+    SignupConfirmation = 'Signup Confirmation',
+    ForgotPassword = 'Forgot Password',
+    PasswordResetConfirmation = 'Password Reset Confirmation',
+    PasswordRecovery = 'Password Recovery',
+    Activate = 'Activate Account',
+}
+
+export abstract class ROUTES {
+    public static Account = new NavigationLink('/account', RouteName.Account);
+    public static Billing = new NavigationLink('billing', RouteName.Billing);
+    public static AccountSettings = new NavigationLink('settings', RouteName.AccountSettings);
+
+    public static Projects = new NavigationLink('/projects', RouteName.Projects);
+    public static Project = new NavigationLink(':id', RouteName.Project);
+    public static Dashboard = new NavigationLink('dashboard', RouteName.Dashboard);
+    public static Buckets = new NavigationLink('buckets', RouteName.Buckets);
+    public static Bucket = new NavigationLink(':browserPath+', RouteName.Bucket);
+    public static Access = new NavigationLink('access', RouteName.Access);
+    public static Team = new NavigationLink('team', RouteName.Team);
+    public static ProjectSettings = new NavigationLink('settings', RouteName.ProjectSettings);
+
+    public static Login = new NavigationLink('/login', RouteName.Login);
+    public static Signup = new NavigationLink('/signup', RouteName.Signup);
+    public static SignupConfirmation = new NavigationLink('/signup-confirmation', RouteName.SignupConfirmation);
+    public static ForgotPassword = new NavigationLink('/forgot-password', RouteName.ForgotPassword);
+    public static PasswordResetConfirmation = new NavigationLink('/password-reset-confirmation', RouteName.PasswordResetConfirmation);
+    public static PasswordRecovery = new NavigationLink('/password-recovery', RouteName.PasswordRecovery);
+    public static Activate = new NavigationLink('/activate', RouteName.Activate);
+
+    public static DashboardAnalyticsLink = `${this.Projects.path}/${this.Dashboard.path}`;
+    public static ProjectSettingsAnalyticsLink = `${this.Projects.path}/${this.ProjectSettings.path}`;
+    public static AccessAnalyticsLink = `${this.Projects.path}/${this.Access.path}`;
+    public static TeamAnalyticsLink = `${this.Projects.path}/${this.Team.path}`;
+    public static BucketsAnalyticsLink = `${this.Projects.path}/${this.Buckets.path}`;
 }
 
 const routes: RouteRecordRaw[] = [
     {
         path: '/',
-        redirect: { path: '/projects' }, // redirect
+        redirect: { path: ROUTES.Projects.path }, // redirect
     },
     {
         path: '/',
         component: () => import('@poc/layouts/default/Auth.vue'),
         children: [
             {
-                path: '/login',
-                name: RouteName.Login,
+                path: ROUTES.Login.path,
+                name: ROUTES.Login.name,
                 component: () => import(/* webpackChunkName: "Login" */ '@poc/views/Login.vue'),
             },
             {
-                path: '/signup',
-                name: 'Signup',
+                path: ROUTES.Signup.path,
+                name: ROUTES.Signup.name,
                 component: () => import(/* webpackChunkName: "Signup" */ '@poc/views/Signup.vue'),
             },
             {
-                path: '/signup-confirmation',
-                name: 'Signup Confirmation',
+                path: ROUTES.SignupConfirmation.path,
+                name: ROUTES.SignupConfirmation.name,
                 component: () => import(/* webpackChunkName: "SignupConfirmation" */ '@poc/views/SignupConfirmation.vue'),
             },
             {
-                path: '/forgot-password',
-                name: 'Forgot Password',
+                path: ROUTES.ForgotPassword.path,
+                name: ROUTES.ForgotPassword.name,
                 component: () => import(/* webpackChunkName: "ForgotPassword" */ '@poc/views/ForgotPassword.vue'),
             },
             {
-                path: '/password-reset-confirmation',
-                name: 'Password Reset Confirmation',
+                path: ROUTES.PasswordResetConfirmation.path,
+                name: ROUTES.PasswordResetConfirmation.name,
                 component: () => import(/* webpackChunkName: "PasswordResetConfirmation" */ '@poc/views/PasswordResetConfirmation.vue'),
             },
             {
-                path: '/password-recovery',
-                name: 'Password Recovery',
+                path: ROUTES.PasswordRecovery.path,
+                name: ROUTES.PasswordRecovery.name,
                 component: () => import(/* webpackChunkName: "PasswordRecovery" */ '@poc/views/PasswordRecovery.vue'),
             },
             {
-                path: '/activate',
-                name: 'Activate Account',
+                path: ROUTES.Activate.path,
+                name: ROUTES.Activate.name,
                 component: () => import(/* webpackChunkName: "ActivateAccountRequest" */ '@poc/views/ActivateAccountRequest.vue'),
-            },
-            {
-                path: '/password-reset-new',
-                name: 'Password Reset New',
-                component: () => import(/* webpackChunkName: "PasswordResetNew" */ '@poc/views/PasswordResetNew.vue'),
-            },
-            {
-                path: '/password-reset-new-confirmation',
-                name: 'Password Reset New Confirmation',
-                component: () => import(/* webpackChunkName: "PasswordResetNewConfirmation" */ '@poc/views/PasswordResetNewConfirmation.vue'),
             },
         ],
     },
     {
-        path: '/account',
+        path: ROUTES.Account.path,
         component: () => import('@poc/layouts/default/Account.vue'),
         beforeEnter: (_, from) => useAppStore().setPathBeforeAccountPage(from.path),
         children: [
             {
-                path: 'billing',
-                name: RouteName.Billing,
+                path: '',
+                redirect: { path: ROUTES.Account.with(ROUTES.AccountSettings).path }, // redirect
+            },
+            {
+                path: ROUTES.Billing.path,
+                name: ROUTES.Billing.name,
                 component: () => import(/* webpackChunkName: "Billing" */ '@poc/views/Billing.vue'),
             },
             {
-                path: 'settings',
-                name: RouteName.AccountSettings,
+                path: ROUTES.AccountSettings.path,
+                name: ROUTES.AccountSettings.path,
                 component: () => import(/* webpackChunkName: "MyAccount" */ '@poc/views/AccountSettings.vue'),
-            },
-            {
-                path: 'design-library',
-                name: RouteName.DesignLibrary,
-                component: () => import(/* webpackChunkName: "DesignLibrary" */ '@poc/views/DesignLibrary.vue'),
             },
         ],
     },
     {
-        path: '/projects',
+        path: ROUTES.Projects.path,
         component: () => import('@poc/layouts/default/AllProjects.vue'),
         children: [
             {
                 path: '',
-                name: RouteName.Projects,
+                name: ROUTES.Projects.name,
                 component: () => import(/* webpackChunkName: "Projects" */ '@poc/views/Projects.vue'),
             },
         ],
     },
     {
-        path: '/projects/:id',
+        path: ROUTES.Projects.with(ROUTES.Project).path,
         name: RouteName.Project,
         component: () => import('@poc/layouts/default/Default.vue'),
         children: [
             {
-                path: 'dashboard',
-                name: RouteName.Dashboard,
+                path: '',
+                redirect: (to: RouteLocation) => {
+                    const projRoute = new NavigationLink(to.params.id as string, RouteName.Project);
+                    return { path: ROUTES.Projects.with(projRoute).with(ROUTES.Dashboard).path };
+                },
+            },
+            {
+                path: ROUTES.Dashboard.path,
+                name: ROUTES.Dashboard.name,
                 component: () => import(/* webpackChunkName: "home" */ '@poc/views/Dashboard.vue'),
             },
             {
-                path: 'buckets',
-                name: RouteName.Buckets,
+                path: ROUTES.Buckets.path,
+                name: ROUTES.Buckets.name,
                 component: () => import(/* webpackChunkName: "Buckets" */ '@poc/views/Buckets.vue'),
             },
             {
-                path: 'buckets/:browserPath+',
-                name: RouteName.Bucket,
+                path: ROUTES.Buckets.with(ROUTES.Bucket).path,
+                name: ROUTES.Bucket.name,
                 component: () => import(/* webpackChunkName: "Bucket" */ '@poc/views/Bucket.vue'),
             },
             {
-                path: 'access',
-                name: RouteName.Access,
+                path: ROUTES.Access.path,
+                name: ROUTES.Access.name,
                 component: () => import(/* webpackChunkName: "Access" */ '@poc/views/Access.vue'),
             },
             {
-                path: 'team',
-                name: RouteName.Team,
+                path: ROUTES.Team.path,
+                name: ROUTES.Team.name,
                 component: () => import(/* webpackChunkName: "Team" */ '@poc/views/Team.vue'),
             },
             {
-                path: 'settings',
-                name: RouteName.ProjectSettings,
+                path: ROUTES.ProjectSettings.path,
+                name: ROUTES.ProjectSettings.name,
                 component: () => import(/* webpackChunkName: "ProjectSettings" */ '@poc/views/ProjectSettings.vue'),
             },
         ],

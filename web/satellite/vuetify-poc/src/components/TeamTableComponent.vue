@@ -172,6 +172,7 @@ import { SortDirection, tableSizeOptions } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { MAX_SEARCH_VALUE_LENGTH } from '@poc/types/common';
+import { ROUTES } from '@poc/router';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconCopy from '@poc/components/icons/IconCopy.vue';
@@ -276,7 +277,7 @@ async function onUpdatePage(page: number): Promise<void> {
  */
 async function onPostDelete(): Promise<void> {
     if (selectedMembers.value.includes(usersStore.state.user.email)) {
-        router.push('/projects');
+        router.push(ROUTES.Projects.path);
         return;
     }
 

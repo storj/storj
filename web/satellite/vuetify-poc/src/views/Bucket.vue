@@ -157,6 +157,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@poc/router';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
@@ -279,8 +280,11 @@ async function upload(e: Event): Promise<void> {
 
 watch(isBucketPassphraseDialogOpen, isOpen => {
     if (isOpen || !isPromptForPassphrase.value) return;
-    router.push(`/projects/${projectUrlId.value}/buckets`);
-    analyticsStore.pageVisit(`/projects/buckets`);
+    router.push({
+        name: ROUTES.Buckets.name,
+        params: { id: projectUrlId.value },
+    });
+    analyticsStore.pageVisit(ROUTES.BucketsAnalyticsLink);
 });
 
 watch(() => route.params.browserPath, browserPath => {
@@ -301,7 +305,7 @@ watch(() => route.params.browserPath, browserPath => {
 watch(() => bucketsStore.state.passphrase, async newPass => {
     if (isBucketPassphraseDialogOpen.value) return;
 
-    const bucketsURL = `/projects/${projectUrlId.value}/buckets`;
+    const bucketsURL = `${ROUTES.Projects.path}/${projectUrlId.value}/${ROUTES.Buckets.path}`;
 
     if (!newPass) {
         router.push(bucketsURL);
@@ -338,7 +342,10 @@ onMounted(async () => {
     }
 
     if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
-        router.push(`/projects/${projectUrlId.value}/buckets`);
+        router.push({
+            name: ROUTES.Buckets.name,
+            params: { id: projectUrlId.value },
+        });
         return;
     }
 

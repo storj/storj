@@ -21,7 +21,7 @@
                 <v-list class="pa-2">
                     <!-- My Projects -->
                     <template v-if="ownProjects.length">
-                        <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                        <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
                             <template #prepend>
                                 <IconProject />
                             </template>
@@ -52,7 +52,7 @@
 
                     <!-- Shared With Me -->
                     <template v-if="sharedProjects.length">
-                        <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                        <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
                             <template #prepend>
                                 <IconProject />
                             </template>
@@ -82,7 +82,7 @@
                     </template>
 
                     <!-- Project Settings -->
-                    <v-list-item router-link :to="`/projects/${selectedProject.urlId}/settings`" @click="() => registerLinkClick('/projects/settings')">
+                    <v-list-item router-link :to="settingsURL" @click="() => registerLinkClick(ROUTES.ProjectSettingsAnalyticsLink)">
                         <template #prepend>
                             <IconSettings />
                         </template>
@@ -94,7 +94,7 @@
                     <v-divider class="my-2" />
 
                     <!-- View All Projects -->
-                    <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                    <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
                         <template #prepend>
                             <IconAllProjects />
                         </template>
@@ -131,25 +131,25 @@
 
             <v-divider class="my-2" />
 
-            <navigation-item title="Dashboard" :to="`/projects/${selectedProject.urlId}/dashboard`" @click="() => registerDashboardLinkClick('/projects/dashboard')">
+            <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="() => registerDashboardLinkClick(ROUTES.DashboardAnalyticsLink)">
                 <template #prepend>
                     <IconDashboard />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Browse" :to="`/projects/${selectedProject.urlId}/buckets`">
+            <navigation-item title="Browse" :to="bucketsURL">
                 <template #prepend>
                     <IconFolder size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Access" :to="`/projects/${selectedProject.urlId}/access`" @click="() => registerLinkClick('/projects/access')">
+            <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="() => registerLinkClick(ROUTES.AccessAnalyticsLink)">
                 <template #prepend>
                     <IconAccess size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Team" :to="`/projects/${selectedProject.urlId}/team`" @click="() => registerLinkClick('/projects/team')">
+            <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="() => registerLinkClick(ROUTES.TeamAnalyticsLink)">
                 <template #prepend>
                     <IconTeam size="18" />
                 </template>
@@ -259,7 +259,7 @@ import { useAppStore } from '@poc/store/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { RouteName } from '@poc/router';
+import { ROUTES } from '@poc/router';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -303,6 +303,18 @@ const isManagePassphraseDialogShown = ref<boolean>(false);
 const selectedProject = computed((): Project => {
     return projectsStore.state.selectedProject;
 });
+
+const projectURLBase = computed<string>(() => `${ROUTES.Projects.path}/${selectedProject.value.urlId}`);
+
+const settingsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ProjectSettings.path}`);
+
+const accessURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Access.path}`);
+
+const bucketsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Buckets.path}`);
+
+const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Dashboard.path}`);
+
+const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
 
 /**
  * Returns user's own projects.
@@ -383,14 +395,14 @@ function compareProjects(a: Project, b: Project): number {
  */
 async function onProjectSelected(project: Project): Promise<void> {
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    if (route.name === RouteName.Bucket) {
+    if (route.name === ROUTES.Bucket.name) {
         await router.push({
-            name: RouteName.Buckets,
+            name: ROUTES.Buckets.name,
             params: { id: project.urlId },
         });
     } else {
         await router.push({
-            name: route.name || undefined,
+            name: route.name || ROUTES.Dashboard.name,
             params: {
                 ...route.params,
                 id: project.urlId,

@@ -103,6 +103,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { ROUTES } from '@poc/router';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -131,8 +132,11 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
-    analyticsStore.pageVisit('/projects/dashboard');
+    router.push({
+        name: ROUTES.Dashboard.name,
+        params: { id: projectsStore.state.selectedProject.urlId },
+    });
+    analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
@@ -142,8 +146,11 @@ function openProject(): void {
 function onSettingsClick(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/settings`);
-    analyticsStore.pageVisit('/projects/settings');
+    router.push({
+        name: ROUTES.ProjectSettings.name,
+        params: { id: projectsStore.state.selectedProject.urlId },
+    });
+    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 
 /**

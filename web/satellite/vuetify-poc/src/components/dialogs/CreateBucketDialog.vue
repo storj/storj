@@ -110,6 +110,7 @@ import { FILE_BROWSER_AG_NAME, useBucketsStore } from '@/store/modules/bucketsSt
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { ROUTES } from '@poc/router';
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -235,7 +236,7 @@ function onCreate(): void {
 
         try {
             const projectID = projectsStore.state.selectedProject.id;
-            const bucketURL = `/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketName.value}`;
+            const bucketURL = `${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}`;
 
             if (!promptForPassphrase.value) {
                 if (!edgeCredentials.value.accessKeyId) {

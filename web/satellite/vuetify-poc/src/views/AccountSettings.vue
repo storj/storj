@@ -57,7 +57,7 @@
                             {{ isPaidTier ? 'Pro Account' : 'Free Account' }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" to="billing">
+                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" :to="ROUTES.Billing.path">
                             View Billing
                         </v-btn>
                         <v-btn v-else variant="outlined" color="default" size="small" @click="appStore.toggleUpgradeFlow(true)">
@@ -167,6 +167,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
+import { ROUTES } from '@poc/router';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';

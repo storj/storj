@@ -74,7 +74,7 @@
                     :loading="isLoading"
                     @verify="onResetClick"
                 />
-                <p class="mt-5 text-center text-body-2"><router-link class="link" to="/login">Back to login</router-link></p>
+                <p class="mt-5 text-center text-body-2"><router-link class="link" :to="ROUTES.Login.path">Back to login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -89,10 +89,10 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { RequiredRule, ValidationRule } from '@poc/types/common';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
-import { RouteConfig } from '@/types/router';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
+import { ROUTES } from '@poc/router';
 
 import Login2FA from '@poc/views/Login2FA.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
@@ -149,7 +149,7 @@ function onResetClick(): void {
         try {
             await auth.resetPassword(token.value, password.value, passcode.value.trim(), recoveryCode.value.trim());
             notify.success('Password reset successfully');
-            router.push('/login');
+            await router.push(ROUTES.Login.path);
         } catch (error) {
             isLoading.value = false;
 
@@ -160,7 +160,10 @@ function onResetClick(): void {
             }
 
             if (error instanceof ErrorTokenExpired) {
-                await router.push('/forgot-password?expired=true');
+                await router.push({
+                    name: ROUTES.ForgotPassword.name,
+                    query: { expired: 'true' },
+                });
                 return;
             }
 
@@ -183,7 +186,7 @@ onMounted(() => {
     if (route.query.token) {
         token.value = route.query.token.toString();
     } else {
-        router.push(RouteConfig.Login.path);
+        router.push(ROUTES.Login.path);
     }
 });
 

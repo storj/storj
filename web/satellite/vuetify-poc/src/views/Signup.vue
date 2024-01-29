@@ -255,7 +255,7 @@
         </v-row>
         <v-row justify="center" class="v-col-12">
             <v-col>
-                <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link" to="/login">Login</router-link></p>
+                <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link" :to="ROUTES.Login.path">Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -288,10 +288,10 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { EmailRule, RequiredRule, ValidationRule } from '@poc/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { ROUTES } from '@poc/router';
 
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
@@ -510,13 +510,14 @@ async function signup(): Promise<void> {
             // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
             // signups outside of the brave browser may use a configured URL to track conversions
             // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
-            const internalRegisterSuccessPath = RouteConfig.RegisterConfirmation.path;
+            const internalRegisterSuccessPath = ROUTES.SignupConfirmation.path;
             const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
 
             const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
-            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = `${window.location.origin}/v2/${nonBraveSuccessPath}`;
+            const altRoute = `${window.location.origin}${configStore.optionalV2Path}/${nonBraveSuccessPath}`;
+            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = altRoute;
         } else {
             confirmCode.value = true;
         }
@@ -573,7 +574,7 @@ watch(() => configStore.state.config, (value, oldValue) => {
         return;
     }
     if (!value.newSignupFlowEnabled) {
-        location.replace(RouteConfig.Register.path);
+        location.replace(ROUTES.Signup.path);
         return;
     }
 });
