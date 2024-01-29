@@ -199,7 +199,8 @@ function openProject(item: ProjectItemModel): void {
  */
 function onSettingsClick(item: ProjectItemModel): void {
     projectsStore.selectProject(item.id);
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/settings`);
+    analyticsStore.pageVisit('/projects/settings');
 }
 
 /**
