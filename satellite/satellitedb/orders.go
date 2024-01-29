@@ -14,11 +14,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil/pgutil"
+	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )

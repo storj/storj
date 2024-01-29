@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/notifications"
 )

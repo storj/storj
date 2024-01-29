@@ -26,12 +26,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/currency"
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/post"

@@ -31,9 +31,9 @@ import (
 	"storj.io/common/rpc/rpctracing"
 	"storj.io/common/sync2/mpscqueue"
 	"storj.io/common/tracing"
+	"storj.io/common/version"
 	"storj.io/eventkit"
 	jaeger "storj.io/monkit-jaeger"
-	"storj.io/private/version"
 )
 
 type external struct {

@@ -10,10 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/cockroachutil"
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/cockroachutil"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"

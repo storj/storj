@@ -14,15 +14,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/pkcrypto"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.

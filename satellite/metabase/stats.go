@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"storj.io/private/dbutil"
+	"storj.io/common/dbutil"
 )
 
 const statsUpToDateThreshold = 8 * time.Hour

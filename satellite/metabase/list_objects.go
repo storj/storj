@@ -9,8 +9,8 @@ import (
 	"errors"
 	"strings"
 
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/tagsql"
 )
 
 // ListObjectsCursor is a cursor used during iteration through objects.

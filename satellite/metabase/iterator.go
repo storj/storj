@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/tagsql"
 )
 
 // objectIterator enables iteration on objects in a bucket.

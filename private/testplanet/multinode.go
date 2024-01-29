@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/debug"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/multinodedb"

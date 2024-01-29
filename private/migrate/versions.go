@@ -15,8 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/private/dbutil/txutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/dbutil/txutil"
+	"storj.io/common/tagsql"
 )
 
 var (

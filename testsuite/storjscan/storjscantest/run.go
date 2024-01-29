@@ -13,10 +13,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/dbutil/pgtest"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/private/dbutil/pgtest"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/private/testplanet"

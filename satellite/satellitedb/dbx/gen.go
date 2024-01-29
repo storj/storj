@@ -11,9 +11,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/private/dbutil/cockroachutil"
-	"storj.io/private/dbutil/txutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/dbutil/cockroachutil"
+	"storj.io/common/dbutil/txutil"
+	"storj.io/common/tagsql"
 )
 
 //go:generate go run ./gen

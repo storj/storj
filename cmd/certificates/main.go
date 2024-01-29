@@ -8,9 +8,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
+	"storj.io/common/process"
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/private/revocation"

@@ -16,11 +16,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/debug"
 	"storj.io/common/memory"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
 	"storj.io/storj/cmd/storagenode/internalcmd"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"

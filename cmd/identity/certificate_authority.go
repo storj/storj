@@ -11,10 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
+	"storj.io/common/process"
 	"storj.io/storj/private/revocation"
 )
 

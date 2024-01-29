@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
+	"storj.io/common/process"
 )
 
 func newConfigCmd(f *Factory) *cobra.Command {

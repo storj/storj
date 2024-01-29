@@ -505,10 +505,10 @@ diagrams-graphml:
 
 .PHONY: bump-dependencies
 bump-dependencies:
-	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
+	go get storj.io/common@main storj.io/uplink@main
 	go mod tidy
 	cd testsuite/storjscan;\
-		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
+		go get storj.io/common@main storj.io/uplink@main;\
 		go mod tidy;
 
 update-proto-lock:

@@ -13,12 +13,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/identity"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
 	"storj.io/storj/private/server"
 	"storj.io/storj/storagenode/internalpb"
 )

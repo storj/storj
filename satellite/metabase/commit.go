@@ -12,12 +12,12 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgutil/pgerrcode"
+	"storj.io/common/dbutil/txutil"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
-	"storj.io/private/dbutil/txutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/tagsql"
 )
 
 // we need to disable PlainSize validation for old uplinks.

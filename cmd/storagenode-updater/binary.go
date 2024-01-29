@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/private/version"
+	"storj.io/common/version"
 )
 
 func binaryVersion(location string) (version.SemVer, error) {

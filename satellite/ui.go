@@ -14,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/console/consoleweb"
 )

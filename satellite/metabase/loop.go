@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/tagsql"
 )
 
 const loopIteratorBatchSizeLimit = intLimitRange(5000)

@@ -26,7 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -133,10 +133,10 @@ func TestAutoUpdater(t *testing.T) {
 // to the passed version info values and returns the executable name.
 func CompileWithVersion(ctx *testcontext.Context, pkg string, info version.Info) string {
 	ldFlagsX := map[string]string{
-		"storj.io/private/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
-		"storj.io/private/version.buildCommitHash": info.CommitHash,
-		"storj.io/private/version.buildVersion":    info.Version.String(),
-		"storj.io/private/version.buildRelease":    strconv.FormatBool(info.Release),
+		"storj.io/common/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
+		"storj.io/common/version.buildCommitHash": info.CommitHash,
+		"storj.io/common/version.buildVersion":    info.Version.String(),
+		"storj.io/common/version.buildRelease":    strconv.FormatBool(info.Release),
 	}
 	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)
 }

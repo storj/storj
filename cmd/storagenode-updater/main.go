@@ -9,7 +9,7 @@ package main
 import (
 	"go.uber.org/zap"
 
-	"storj.io/private/process"
+	"storj.io/common/process"
 )
 
 func main() {

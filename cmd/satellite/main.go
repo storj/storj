@@ -21,17 +21,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/lrucache"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/process"
+	_ "storj.io/common/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
-	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.

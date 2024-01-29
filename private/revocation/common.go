@@ -6,9 +6,9 @@ package revocation
 import (
 	"context"
 
+	"storj.io/common/dbutil"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/private/dbutil"
 	"storj.io/storj/private/kvstore/boltdb"
 	"storj.io/storj/private/kvstore/redis"
 )

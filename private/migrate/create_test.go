@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/dbutil/pgtest"
+	"storj.io/common/dbutil/tempdb"
+	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/private/dbutil/pgtest"
-	"storj.io/private/dbutil/tempdb"
-	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
 )
 

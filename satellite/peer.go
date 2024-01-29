@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
-	"storj.io/private/debug"
-	"storj.io/private/tagsql"
+	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"

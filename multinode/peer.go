@@ -14,10 +14,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/private/debug"
 	"storj.io/storj/multinode/bandwidth"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/nodes"

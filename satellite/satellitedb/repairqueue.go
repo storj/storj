@@ -13,10 +13,10 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb/dbx"

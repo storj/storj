@@ -13,11 +13,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/tempdb"
 	migrator "storj.io/storj/cmd/tools/migrate-public-ids"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"

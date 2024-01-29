@@ -280,8 +280,8 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			c.healthStat[classID].Update(diff, streamLocation)
 		}
 
-		slices.SortFunc[int32](busFactorGroups, func(a int32, b int32) bool {
-			return a > b
+		slices.SortFunc(busFactorGroups, func(a int32, b int32) int {
+			return int(b - a)
 		})
 		rollingSum := 0
 		busFactor := 0

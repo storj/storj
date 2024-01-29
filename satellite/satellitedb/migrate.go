@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/cockroachutil"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/cockroachutil"
+	"storj.io/common/dbutil/pgutil"
+	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
 )
 

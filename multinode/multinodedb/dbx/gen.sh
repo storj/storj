@@ -11,7 +11,7 @@ perl -0777 -pi \
   -e 's,\t"fmt"\n,\t"fmt"\n\t"math/rand"\n,' \
   multinodedb.dbx.go
 perl -0777 -pi \
-  -e 's,\t"math/rand"\n\),\n\t"storj.io/private/tagsql"\n\),' \
+  -e 's,\t"math/rand"\n\),\n\t"storj.io/common/tagsql"\n\),' \
   multinodedb.dbx.go
 perl -0777 -pi \
   -e 's/type DB struct \{\n\t\*sql\.DB/type DB struct \{\n\ttagsql.DB/' \

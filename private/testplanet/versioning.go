@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/versioncontrol"
 )

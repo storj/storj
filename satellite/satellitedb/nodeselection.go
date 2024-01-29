@@ -12,10 +12,10 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )

@@ -13,8 +13,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/currency"
+	"storj.io/common/dbutil/pgutil/pgerrcode"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
