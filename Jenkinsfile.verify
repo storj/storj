@@ -49,13 +49,13 @@ pipeline {
                 stage('go') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
                         sh 'go install -race -v storj.io/storj/cmd/satellite '+
@@ -171,7 +171,7 @@ pipeline {
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
-                sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256256.txt'
                 sh 'cockroach sql --insecure --host=localhost:26257 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256257.txt'

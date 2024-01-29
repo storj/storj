@@ -25,9 +25,12 @@ import (
 	"storj.io/storj/multinode/payouts"
 	"storj.io/storj/multinode/reputation"
 	"storj.io/storj/multinode/storage"
+	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/private/lifecycle"
-	multinodeweb "storj.io/storj/web/multinode"
 )
+
+// Assets contains either the built admin/back-office/ui or it is nil.
+var Assets fs.FS = emptyfs.FS{}
 
 var (
 	mon = monkit.Package()
@@ -178,8 +181,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 			return nil, err
 		}
 
-		var assets fs.FS
-		assets = multinodeweb.Assets
+		assets := Assets
 		// Use a custom directory instead of the embedded assets.
 		if config.Console.StaticDir != "" {
 			// HACKFIX: Previous setups specify the directory for web/multinode,

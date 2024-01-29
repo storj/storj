@@ -26,6 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
+	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/private/server"
@@ -64,12 +65,14 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	version2 "storj.io/storj/storagenode/version"
-	storagenodeweb "storj.io/storj/web/storagenode"
 )
 
 var (
 	mon = monkit.Package()
 )
+
+// Assets contains either the built admin/back-office/ui or it is nil.
+var Assets fs.FS = emptyfs.FS{}
 
 // DB is the master database for Storage Node.
 //
@@ -724,8 +727,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		var assets fs.FS
-		assets = storagenodeweb.Assets
+		assets := Assets
 		if config.Console.StaticDir != "" {
 			// HACKFIX: Previous setups specify the directory for web/storagenode,
 			// instead of the actual built data. This is for backwards compatibility.
