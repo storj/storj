@@ -54,6 +54,7 @@ export class FrontendConfig {
     signupActivationCodeEnabled: boolean;
     allowedUsageReportDateRange: number;
     onboardingStepperEnabled: boolean;
+    enableRegionTag: boolean;
 }
 
 export class MultiCaptchaConfig {

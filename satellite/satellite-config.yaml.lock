@@ -295,6 +295,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
+# whether to show region tag in UI
+# console.enable-region-tag: false
+
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 

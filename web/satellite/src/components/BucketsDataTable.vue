@@ -74,6 +74,14 @@
                     {{ item.since.toLocaleString() }}
                 </span>
             </template>
+            <template #item.location="{ item }">
+                <v-icon size="28" class="mr-1 pa-1 rounded border">
+                    <icon-location />
+                </v-icon>
+                <v-chip variant="tonal" color="default" size="small" rounded>
+                    {{ item.location || `unknown(${item.defaultPlacement})` }}
+                </v-chip>
+            </template>
             <template #item.versioning="{ item }">
                 <v-icon size="28" class="mr-1 pa-1 rounded border text-cursor-pointer">
                     <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
@@ -154,6 +162,7 @@ import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
 import { Bucket, BucketCursor, BucketPage, Versioning } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -172,10 +181,12 @@ import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphr
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import IconVersioning from '@/components/icons/IconVersioning.vue';
+import IconLocation from '@/components/icons/IconLocation.vue';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -216,6 +227,10 @@ const displayedItems = computed<Bucket[]>(() => {
     return items;
 });
 
+const showRegionTag = computed<boolean>(() => {
+    return configStore.state.config.enableRegionTag;
+});
+
 const shouldShowVersioning = computed<boolean>(() => {
     return displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
 });
@@ -237,6 +252,10 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
         { title: 'Download', key: 'egress', sortable: isTableSortable.value },
     ];
+
+    if (showRegionTag.value) {
+        hdrs.push({ title: 'Location', key: 'location', sortable: isTableSortable.value });
+    }
 
     if (shouldShowVersioning.value) {
         hdrs.push({ title: 'Versioning', key: 'versioning', sortable: isTableSortable.value });
@@ -262,12 +281,11 @@ const headers = computed<DataTableHeader[]>(() => {
     }
 
     if (pageWidth.value <= 780) {
-        ['since', 'versioning'].forEach((key) => {
+        ['since', 'versioning', 'location'].forEach((key) => {
             const index = hdrs.findIndex((el) => el.key === key);
             if (index !== -1) hdrs.splice(index, 1);
         });
     }
-
     return hdrs;
 });
 
@@ -344,6 +362,9 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
         break;
     case 'segmentCount':
         items.sort((a, b) => option.order === 'asc' ? a.segmentCount - b.segmentCount : b.segmentCount - a.segmentCount);
+        break;
+    case 'location':
+        items.sort((a, b) => option.order === 'asc' ? a.location.localeCompare(b.location) : b.location.localeCompare(a.location));
         break;
     case 'versioning':
         items.sort((a, b) => option.order === 'asc' ? a.versioning.localeCompare(b.versioning) : b.versioning.localeCompare(a.versioning));

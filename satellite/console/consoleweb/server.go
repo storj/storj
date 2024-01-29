@@ -103,6 +103,7 @@ type Config struct {
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	OnboardingStepperEnabled        bool          `help:"whether the onboarding stepper should be enabled" default:"false"`
+	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -732,6 +733,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
 		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
 		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
+		EnableRegionTag:                 server.config.EnableRegionTag,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

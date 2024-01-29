@@ -38,6 +38,8 @@ export class Bucket {
     public constructor(
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
+        public defaultPlacement: number = 0,
+        public location: string = '',
         public storage: number = 0,
         public egress: number = 0,
         public objectCount: number = 0,

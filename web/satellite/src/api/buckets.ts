@@ -46,6 +46,8 @@ export class BucketsHttpApi implements BucketsApi {
                 new Bucket(
                     usage.bucketName,
                     this.getVersioning(usage.versioning),
+                    usage.defaultPlacement,
+                    usage.location,
                     usage.storage,
                     usage.egress,
                     usage.objectCount,
