@@ -144,3 +144,17 @@ func RandomSelector() NodeSelectorInit {
 		}
 	}
 }
+
+// FilterSelector is a specific selector, which can filter out nodes from the upload selection.
+// Note: this is different from the generic filter attribute of the NodeSelectorInit, as that is applied to all node selection (upload/download/repair).
+func FilterSelector(loadTimeFilter NodeFilter, init NodeSelectorInit) NodeSelectorInit {
+	return func(nodes []*SelectedNode, selectionFilter NodeFilter) NodeSelector {
+		var filtered []*SelectedNode
+		for _, n := range nodes {
+			if loadTimeFilter.Match(n) {
+				filtered = append(filtered, n)
+			}
+		}
+		return init(filtered, selectionFilter)
+	}
+}

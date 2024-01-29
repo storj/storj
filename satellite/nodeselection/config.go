@@ -93,75 +93,77 @@ func LoadConfig(configFile string) (PlacementDefinitions, error) {
 	return placements, nil
 }
 
+var supportedFilters = map[any]any{
+	"country": func(countries ...string) (NodeFilter, error) {
+		return NewCountryFilterFromString(countries)
+	},
+	"all": func(filters ...NodeFilter) (NodeFilters, error) {
+		res := NodeFilters{}
+		for _, filter := range filters {
+			res = append(res, filter)
+		}
+		return res, nil
+	},
+	mito.OpAnd: func(env map[any]any, a, b any) (any, error) {
+		filter1, ok1 := a.(NodeFilter)
+		filter2, ok2 := b.(NodeFilter)
+		if !ok1 || !ok2 {
+			return nil, ErrPlacement.New("&& is supported only between NodeFilter instances")
+		}
+		res := NodeFilters{filter1, filter2}
+		return res, nil
+	},
+	mito.OpOr: func(env map[any]any, a, b any) (any, error) {
+		filter1, ok1 := a.(NodeFilter)
+		filter2, ok2 := b.(NodeFilter)
+		if !ok1 || !ok2 {
+			return nil, errs.New("OR is supported only between NodeFilter instances")
+		}
+		return OrFilter{filter1, filter2}, nil
+	},
+	"tag": func(nodeIDstr string, key string, value any) (NodeFilters, error) {
+		nodeID, err := storj.NodeIDFromString(nodeIDstr)
+		if err != nil {
+			return nil, err
+		}
+
+		var rawValue []byte
+		match := bytes.Equal
+		switch v := value.(type) {
+		case string:
+			rawValue = []byte(v)
+		case []byte:
+			rawValue = v
+		case stringNotMatch:
+			match = func(a, b []byte) bool {
+				return !bytes.Equal(a, b)
+			}
+			rawValue = []byte(v)
+		default:
+			return nil, ErrPlacement.New("3rd argument of tag() should be string or []byte")
+		}
+		res := NodeFilters{
+			NewTagFilter(nodeID, key, rawValue, match),
+		}
+		return res, nil
+	},
+	"exclude": func(filter NodeFilter) (NodeFilter, error) {
+		return NewExcludeFilter(filter), nil
+	},
+	"empty": func() string {
+		return ""
+	},
+	"notEmpty": func() any {
+		return stringNotMatch("")
+	},
+	"nodelist": AllowedNodesFromFile,
+}
+
 func filterFromString(expr string) (NodeFilter, error) {
 	if expr == "" {
 		expr = "all()"
 	}
-	env := map[any]any{
-		"country": func(countries ...string) (NodeFilter, error) {
-			return NewCountryFilterFromString(countries)
-		},
-		"all": func(filters ...NodeFilter) (NodeFilters, error) {
-			res := NodeFilters{}
-			for _, filter := range filters {
-				res = append(res, filter)
-			}
-			return res, nil
-		},
-		mito.OpAnd: func(env map[any]any, a, b any) (any, error) {
-			filter1, ok1 := a.(NodeFilter)
-			filter2, ok2 := b.(NodeFilter)
-			if !ok1 || !ok2 {
-				return nil, ErrPlacement.New("&& is supported only between NodeFilter instances")
-			}
-			res := NodeFilters{filter1, filter2}
-			return res, nil
-		},
-		mito.OpOr: func(env map[any]any, a, b any) (any, error) {
-			filter1, ok1 := a.(NodeFilter)
-			filter2, ok2 := b.(NodeFilter)
-			if !ok1 || !ok2 {
-				return nil, errs.New("OR is supported only between NodeFilter instances")
-			}
-			return OrFilter{filter1, filter2}, nil
-		},
-		"tag": func(nodeIDstr string, key string, value any) (NodeFilters, error) {
-			nodeID, err := storj.NodeIDFromString(nodeIDstr)
-			if err != nil {
-				return nil, err
-			}
-
-			var rawValue []byte
-			match := bytes.Equal
-			switch v := value.(type) {
-			case string:
-				rawValue = []byte(v)
-			case []byte:
-				rawValue = v
-			case stringNotMatch:
-				match = func(a, b []byte) bool {
-					return !bytes.Equal(a, b)
-				}
-				rawValue = []byte(v)
-			default:
-				return nil, ErrPlacement.New("3rd argument of tag() should be string or []byte")
-			}
-			res := NodeFilters{
-				NewTagFilter(nodeID, key, rawValue, match),
-			}
-			return res, nil
-		},
-		"exclude": func(filter NodeFilter) (NodeFilter, error) {
-			return NewExcludeFilter(filter), nil
-		},
-		"empty": func() string {
-			return ""
-		},
-		"notEmpty": func() any {
-			return stringNotMatch("")
-		},
-	}
-	filter, err := mito.Eval(expr, env)
+	filter, err := mito.Eval(expr, supportedFilters)
 	if err != nil {
 		return nil, errs.New("Invalid filter definition '%s', %v", expr, err)
 	}
@@ -186,6 +188,11 @@ func selectorFromString(expr string) (NodeSelectorInit, error) {
 		"unvetted": func(newNodeRatio float64, def NodeSelectorInit) (NodeSelectorInit, error) {
 			return UnvettedSelector(newNodeRatio, def), nil
 		},
+		"nodelist": AllowedNodesFromFile,
+		"filter":   FilterSelector,
+	}
+	for k, v := range supportedFilters {
+		env[k] = v
 	}
 	selector, err := mito.Eval(expr, env)
 	if err != nil {

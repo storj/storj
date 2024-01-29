@@ -296,3 +296,33 @@ func TestSelectFilteredMulti(t *testing.T) {
 		assert.Len(t, selected, 4)
 	}
 }
+
+func TestFilterSelector(t *testing.T) {
+	list := nodeselection.AllowedNodesFilter([]storj.NodeID{
+		testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+		testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID,
+		testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion()).ID,
+	})
+
+	selector := nodeselection.FilterSelector(nodeselection.NewExcludeFilter(list), nodeselection.RandomSelector())
+
+	// initialize the node space
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 10; i++ {
+		nodes = append(nodes, &nodeselection.SelectedNode{
+			ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+		})
+	}
+
+	initialized := selector(nodes, nil)
+	for i := 0; i < 100; i++ {
+		selected, err := initialized(3, []storj.NodeID{})
+		require.NoError(t, err)
+		for _, s := range selected {
+			for _, w := range list {
+				// make sure we didn't choose from the white list, as they are excluded
+				require.NotEqual(t, s.ID, w)
+			}
+		}
+	}
+}

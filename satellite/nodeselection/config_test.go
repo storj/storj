@@ -85,5 +85,41 @@ func TestParsedConfig(t *testing.T) {
 		require.NoError(t, err)
 
 	}
+}
+
+func TestFilterFromString(t *testing.T) {
+	filter, err := filterFromString(`exclude(nodelist("filter_testdata.txt"))`)
+	require.NoError(t, err)
+
+	require.False(t, filter.Match(&SelectedNode{
+		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+	}))
+	require.True(t, filter.Match(&SelectedNode{
+		ID: testidentity.MustPregeneratedIdentity(3, storj.LatestIDVersion()).ID,
+	}))
+
+}
+
+func TestSelectorFromString(t *testing.T) {
+	selector, err := selectorFromString(`filter(exclude(nodelist("filter_testdata.txt")),random())`)
+	require.NoError(t, err)
+
+	// initialize the node space
+	var nodes []*SelectedNode
+	for i := 0; i < 10; i++ {
+		nodes = append(nodes, &SelectedNode{
+			ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+		})
+	}
+
+	initialized := selector(nodes, nil)
+
+	for i := 0; i < 100; i++ {
+		selected, err := initialized(1, []storj.NodeID{})
+		require.NoError(t, err)
+		require.Len(t, selected, 1)
+		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
+		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
+	}
 
 }
