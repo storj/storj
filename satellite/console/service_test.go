@@ -683,6 +683,28 @@ func TestService(t *testing.T) {
 				}
 			})
 
+			t.Run("GetBucketPlacements", func(t *testing.T) {
+				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+				require.NoError(t, err)
+				bp, err := service.GetBucketPlacements(userCtx2, up2Proj.ID)
+				require.NoError(t, err)
+				for _, b := range bp {
+					var found bool
+					for _, item := range list.Items {
+						if item.Name == b.Name {
+							found = true
+							require.Equal(t, item.Placement, b.Placement.DefaultPlacement)
+							require.Equal(t, placements[int(item.Placement)], b.Placement.Location)
+							break
+						}
+					}
+					if found {
+						continue
+					}
+					require.Fail(t, "bucket name not in list", b.Name)
+				}
+			})
+
 			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
 				secret, err := macaroon.NewSecret()
 				require.NoError(t, err)

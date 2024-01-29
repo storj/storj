@@ -2869,6 +2869,48 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	return list, nil
 }
 
+// GetBucketPlacements retrieves all bucket names and placements of a specific project.
+// projectID here may be Project.ID or Project.PublicID.
+func (s *Service) GetBucketPlacements(ctx context.Context, projectID uuid.UUID) (_ []BucketPlacement, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and placements", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	listOptions := buckets.ListOptions{
+		Direction: buckets.DirectionForward,
+	}
+
+	allowedBuckets := macaroon.AllowedBuckets{
+		All: true,
+	}
+
+	bucketsList, err := s.buckets.ListBuckets(ctx, isMember.project.ID, listOptions, allowedBuckets)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var list []BucketPlacement
+	for _, bucket := range bucketsList.Items {
+		list = append(list, BucketPlacement{
+			bucket.Name,
+			Placement{
+				DefaultPlacement: bucket.Placement,
+				Location:         s.placements[bucket.Placement].Name,
+			},
+		})
+	}
+
+	return list, nil
+}
+
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
 func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, projectID uuid.UUID) ([]accounting.ProjectReportItem, error) {
 	var err error
