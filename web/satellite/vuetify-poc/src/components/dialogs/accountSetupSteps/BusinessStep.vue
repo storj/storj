@@ -96,6 +96,7 @@
                         label="Use Case"
                         variant="outlined"
                         hide-details="auto"
+                        @update:model-value="(v) => analyticsStore.eventTriggered(AnalyticsEvent.USE_CASE_SELECTED, { useCase: v })"
                     />
                 </v-col>
             </v-row>
@@ -152,13 +153,15 @@ import { AccountSetupStep } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RequiredRule } from '@poc/types/common';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconBusiness from '@poc/components/icons/IconBusiness.vue';
 
 const auth = new AuthHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 const { smAndUp } = useDisplay();
@@ -198,9 +201,10 @@ function setupAccount() {
                 haveSalesContact: haveSalesContact.value,
             });
 
+            analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
             emit('next', AccountSetupStep.Success);
         } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+            notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
         }
     });
 }

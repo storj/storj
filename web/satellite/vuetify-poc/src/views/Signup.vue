@@ -290,6 +290,8 @@ import { MultiCaptchaConfig } from '@/types/config.gen';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
@@ -308,6 +310,7 @@ type ViewConfig = {
 
 const auth = new AuthHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -503,6 +506,7 @@ async function signup(): Promise<void> {
         }, secret.value, captchaResponseToken.value);
 
         if (!codeActivationEnabled.value) {
+            analyticsStore.eventTriggered(AnalyticsEvent.USER_SIGN_UP);
             // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
             // signups outside of the brave browser may use a configured URL to track conversions
             // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers

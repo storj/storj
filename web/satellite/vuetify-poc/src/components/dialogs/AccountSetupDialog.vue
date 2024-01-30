@@ -72,8 +72,9 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { PaymentsHttpApi } from '@/api/payments';
 import { useAppStore } from '@poc/store/appStore';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ChoiceStep from '@poc/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@poc/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -84,6 +85,7 @@ import PricingPlanStep from '@poc/components/dialogs/upgradeAccountFlow/PricingP
 
 const payments: PaymentsHttpApi = new PaymentsHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
@@ -175,6 +177,7 @@ function toNextStep(next: AccountSetupStep) {
 function finishSetup() {
     appStore.toggleAccountSetup(false);
     userStore.updateSettings({ onboardingEnd: true });
+    analyticsStore.eventTriggered(AnalyticsEvent.ONBOARDING_COMPLETED);
 }
 
 /**
@@ -208,6 +211,9 @@ onBeforeMount(() => {
             step.value = AccountSetupStep.Choice;
         } else if (pkgAvailable.value) {
             step.value = AccountSetupStep.PricingPlanSelection;
+        } else {
+            // onboarding was completed, but onboardingEnd was not set
+            step.value = AccountSetupStep.Success;
         }
 
         appStore.toggleAccountSetup(true);

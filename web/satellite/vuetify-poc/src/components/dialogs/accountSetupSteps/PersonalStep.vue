@@ -32,6 +32,7 @@
                         placeholder="Select your use case"
                         variant="outlined"
                         class="mt-2"
+                        @update:model-value="(v) => analyticsStore.eventTriggered(AnalyticsEvent.USE_CASE_SELECTED, { useCase: v })"
                     />
                 </v-form>
             </v-col>
@@ -77,12 +78,14 @@ import { RequiredRule } from '@poc/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconPersonal from '@poc/components/icons/IconPersonal.vue';
 
 const auth = new AuthHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -109,9 +112,10 @@ function setupAccount() {
                 isProfessional: false,
             });
 
+            analyticsStore.eventTriggered(AnalyticsEvent.PERSONAL_INFO_SUBMITTED);
             emit('next', AccountSetupStep.Success);
         } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+            notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
         }
     });
 }
