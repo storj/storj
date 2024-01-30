@@ -223,7 +223,10 @@ const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptF
  */
 const isCardView = computed<boolean>({
     get: () => appStore.state.isBrowserCardViewEnabled,
-    set: value => appStore.toggleBrowserCardViewEnabled(value),
+    set: value => {
+        appStore.toggleBrowserCardViewEnabled(value);
+        obStore.updateSelectedFiles([]);
+    },
 });
 
 /**

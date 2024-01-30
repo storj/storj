@@ -148,10 +148,9 @@
     <file-preview-dialog v-model="previewDialog" />
 
     <delete-file-dialog
-        v-if="fileToDelete"
         v-model="isDeleteFileDialogShown"
-        :file="fileToDelete"
-        @content-removed="fileToDelete = null"
+        :files="filesToDelete"
+        @content-removed="filesToDelete = []"
     />
     <share-dialog
         v-model="isShareDialogShown"
@@ -235,7 +234,7 @@ const isFetching = ref<boolean>(false);
 const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
-const fileToDelete = ref<BrowserObject | null>(null);
+const filesToDelete = ref<BrowserObject[]>([]);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
@@ -478,7 +477,7 @@ async function fetchFiles(): Promise<void> {
  * Handles delete button click event for files.
  */
 function onDeleteFileClick(file: BrowserObject): void {
-    fileToDelete.value = file;
+    filesToDelete.value = [file];
     isDeleteFileDialogShown.value = true;
 }
 

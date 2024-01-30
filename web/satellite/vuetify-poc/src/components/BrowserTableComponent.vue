@@ -131,6 +131,7 @@
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
         @files-deleted="clearDeleteFiles"
+        @content-removed="fileToDelete = null"
     />
     <share-dialog
         v-model="isShareDialogShown"
