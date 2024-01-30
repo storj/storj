@@ -105,6 +105,7 @@ type Config struct {
 	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
+	OnboardingStepperEnabled        bool          `help:"whether the onboarding stepper should be enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -802,6 +803,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewSignupFlowEnabled:            server.config.NewSignupFlowEnabled,
 		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
 		PrefixVuetifyUI:                 server.config.PrefixVuetifyUI,
+		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

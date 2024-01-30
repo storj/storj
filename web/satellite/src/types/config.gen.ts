@@ -55,6 +55,7 @@ export class FrontendConfig {
     newSignupFlowEnabled: boolean;
     allowedUsageReportDateRange: number;
     prefixVuetifyUI: boolean;
+    onboardingStepperEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

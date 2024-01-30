@@ -59,6 +59,7 @@ type FrontendConfig struct {
 	NewSignupFlowEnabled            bool                  `json:"newSignupFlowEnabled"`
 	AllowedUsageReportDateRange     time.Duration         `json:"allowedUsageReportDateRange"`
 	PrefixVuetifyUI                 bool                  `json:"prefixVuetifyUI"`
+	OnboardingStepperEnabled        bool                  `json:"onboardingStepperEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
