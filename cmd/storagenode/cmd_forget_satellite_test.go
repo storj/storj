@@ -111,8 +111,14 @@ func Test_cmdForgetSatellite(t *testing.T) {
 		// test that the reputation was stored correctly
 		rstats, err := reputationDB.Get(ctx, satellite.ID())
 		require.NoError(t, err)
+		// just making sure we have reputation stats for the satellite.
+		// We can't compare the stats directly because the nodestats cache service
+		// can update the reputation stats for the satellite until it is no longer in the trust cache.
+		// This is fine because we haven't run the forget satellite command yet.
 		require.NotNil(t, rstats)
-		require.Equal(t, stats, *rstats)
+		require.Equal(t, satellite.ID(), rstats.SatelliteID)
+		require.False(t, rstats.JoinedAt.IsZero())
+		require.False(t, rstats.UpdatedAt.IsZero())
 
 		satelliteDB := planet.StorageNodes[0].DB.Satellites()
 		// insert a new untrusted satellite in the database
