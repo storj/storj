@@ -151,34 +151,73 @@ pipeline {
         }
 
         stage('Integration') {
-            environment {
-                // use different hostname to avoid port conflicts
-                STORJ_NETWORK_HOST4 = '127.0.0.2'
-                STORJ_NETWORK_HOST6 = '127.0.0.2'
+            parallel {
+                stage('Postgres') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.2'
+                        STORJ_NETWORK_HOST6 = '127.0.0.2'
 
-                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
-            }
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                    }
 
-            steps {
-                sh 'psql -U postgres -c \'create database teststorj2;\''
-                sh 'make test-sim'
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh 'make test-sim'
 
-                // sh 'make test-certificates' // flaky
+                        // sh 'make test-certificates' // flaky
+                    }
+                }
+
+                stage('Cockroach') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.4'
+                        STORJ_NETWORK_HOST6 = '127.0.0.4'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
+                        sh 'make test-sim'
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
+                    }
+                }
             }
         }
 
-        stage('Cockroach Integration') {
-            environment {
-                STORJ_NETWORK_HOST4 = '127.0.0.4'
-                STORJ_NETWORK_HOST6 = '127.0.0.4'
+        stage('Backwards Compatibility') {
+            parallel {
+                stage('Postgres') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
 
-                STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
-            }
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+                    }
 
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                sh 'make test-sim'
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj3;\''
+                        sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
+                stage('Cockroach') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.5'
+                        STORJ_NETWORK_HOST6 = '127.0.0.5'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
+                        sh 'make test-sim-backwards-compatible'
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
+                    }
+                }
             }
         }
 
@@ -195,37 +234,6 @@ pipeline {
             steps {
                 sh 'psql -U postgres -c \'create database teststorj6;\''
                 sh 'make test-sim-redis-unavailability'
-            }
-        }
-
-        stage('Backwards Compatibility') {
-            environment {
-                STORJ_NETWORK_HOST4 = '127.0.0.3'
-                STORJ_NETWORK_HOST6 = '127.0.0.3'
-
-                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
-                STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
-            }
-
-            steps {
-                sh 'psql -U postgres -c \'create database teststorj3;\''
-                sh 'make test-sim-backwards-compatible'
-            }
-        }
-
-        stage('Cockroach Backwards Compatibility') {
-            environment {
-                STORJ_NETWORK_HOST4 = '127.0.0.5'
-                STORJ_NETWORK_HOST6 = '127.0.0.5'
-
-                STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
-                STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
-            }
-
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
-                sh 'make test-sim-backwards-compatible'
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
             }
         }
 
