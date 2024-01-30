@@ -94,10 +94,10 @@
                                     <v-divider class="my-1" />
                                     <v-list-item link @click="emit('inviteClick', item)">
                                         <template #prepend>
-                                            <icon-team size="18" />
+                                            <IconNew size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
-                                            Invite Members
+                                            Add Members
                                         </v-list-item-title>
                                     </v-list-item>
                                 </template>
@@ -146,8 +146,8 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 
 import IconSettings from '@poc/components/icons/IconSettings.vue';
-import IconTeam from '@poc/components/icons/IconTeam.vue';
 import IconTrash from '@poc/components/icons/IconTrash.vue';
+import IconNew from '@poc/components/icons/IconNew.vue';
 
 const props = defineProps<{
     items: ProjectItemModel[],
@@ -172,7 +172,7 @@ const headers = [
     { title: 'Role', key: 'role' },
     { title: 'Members', key: 'memberCount' },
     { title: 'Storage', key: 'storageUsed', sortable: false },
-    { title: 'Bandwidth', key: 'bandwidthUsed', sortable: false },
+    { title: 'Download', key: 'bandwidthUsed', sortable: false },
     { title: 'Date Added', key: 'createdAt' },
     { title: 'Actions', key: 'actions', sortable: false, width: '0' },
 ];

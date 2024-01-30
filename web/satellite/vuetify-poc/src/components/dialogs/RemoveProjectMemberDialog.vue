@@ -46,7 +46,7 @@
                     v-for="email in firstThreeSelected"
                     :key="email"
                     rounded
-                    class="mb-3"
+                    class="mb-3 mr-1"
                 >
                     <template #default>
                         <div class="max-width">
@@ -54,7 +54,7 @@
                         </div>
                     </template>
                 </v-chip>
-                <v-chip v-if="props.emails.length > 3" rounded class="mb-3">
+                <v-chip v-if="props.emails.length > 3" rounded class="mb-3 mr-1">
                     + {{ props.emails.length - 3 }} more
                 </v-chip>
             </v-card-item>

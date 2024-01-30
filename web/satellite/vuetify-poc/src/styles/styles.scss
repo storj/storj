@@ -485,6 +485,10 @@ table {
   opacity: 0.05;
 }
 
+.loader {
+  background: rgb(var(--v-theme-background));
+}
+
 
 @media (min-width: 600px) {
   .signup-background::before {
@@ -526,5 +530,12 @@ table {
 @media (min-width: 1904px) {
   .signup-background::before {
     background-position: 5% center;
+  }
+}
+
+// Improve container width for wide displays
+@media (min-width: 2560px) {
+  .v-container {
+      max-width: 1800px !important;
   }
 }

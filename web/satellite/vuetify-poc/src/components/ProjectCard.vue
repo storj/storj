@@ -62,7 +62,7 @@
 
                             <v-list-item link class="mt-1" @click="emit('inviteClick')">
                                 <template #prepend>
-                                    <icon-team size="18" />
+                                    <IconNew size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
                                     Invite Members
@@ -106,7 +106,7 @@ import { useNotify } from '@/utils/hooks';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
-import IconTeam from '@poc/components/icons/IconTeam.vue';
+import IconNew from '@poc/components/icons/IconNew.vue';
 
 const props = defineProps<{
     item?: ProjectItemModel,

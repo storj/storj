@@ -14,7 +14,7 @@
                 density="compact"
                 label="I understand, don't show this again."
                 color="default"
-                :hide-details="false"
+                :hide-details="true"
                 @update:model-value="value => toggleServerSideEncryptionNotice(value)"
             />
         </v-col>
