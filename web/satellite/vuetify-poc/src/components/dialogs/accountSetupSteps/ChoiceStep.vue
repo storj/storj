@@ -16,7 +16,7 @@
 
         <v-row justify="center">
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="personal" border class="px-3 py-5" @click="typeSelected(AccountSetupStep.Personal)">
+                <v-card id="personal" border class="px-3 py-5" @click="typeSelected(OnboardingStep.PersonalAccountForm)">
                     <v-card-item>
                         <div>
                             <icon-personal />
@@ -37,7 +37,7 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="business" border class="px-3 py-5" @click="typeSelected(AccountSetupStep.Business)">
+                <v-card id="business" border class="px-3 py-5" @click="typeSelected(OnboardingStep.BusinessAccountForm)">
                     <v-card-item>
                         <div>
                             <icon-business />
@@ -65,7 +65,7 @@
 import { VBtn, VCard, VCardItem, VCol, VContainer, VRow } from 'vuetify/components';
 import { mdiChevronRight } from '@mdi/js';
 
-import { AccountSetupStep } from '@/types/users';
+import { OnboardingStep } from '@/types/users';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
@@ -76,18 +76,18 @@ import IconStorjLogo from '@poc/components/icons/IconStorjLogo.vue';
 const analyticsStore = useAnalyticsStore();
 
 const emit = defineEmits<{
-    next: [AccountSetupStep];
+    next: [OnboardingStep];
 }>();
 
-function typeSelected(type: AccountSetupStep) {
+function typeSelected(type: OnboardingStep) {
     emit('next', type);
 
     let event: AnalyticsEvent;
     switch (type) {
-    case AccountSetupStep.Business:
+    case OnboardingStep.BusinessAccountForm:
         event = AnalyticsEvent.BUSINESS_SELECTED;
         break;
-    case AccountSetupStep.Personal:
+    case OnboardingStep.PersonalAccountForm:
         event = AnalyticsEvent.PERSONAL_SELECTED;
         break;
     default:

@@ -234,13 +234,33 @@ export class FreezeStatus {
 }
 
 /**
- * AccountSetupStep are the steps in the account setup dialog.
+ * OnboardingStep are the steps in the account setup dialog and onboarding stepper.
  */
-export enum AccountSetupStep {
-    Choice,
-    Personal,
-    PricingPlanSelection,
-    PricingPlan,
-    Business,
-    Success,
+export enum OnboardingStep {
+    AccountTypeSelection = 'AccountTypeSelection',
+    PersonalAccountForm = 'PersonalAccountForm',
+    PricingPlanSelection = 'PricingPlanSelection',
+    PricingPlan = 'PricingPlan',
+    BusinessAccountForm = 'BusinessAccountForm',
+    SetupComplete = 'SetupComplete',
+    EncryptionPassphrase = 'EncryptionPassphrase',
+    CreateBucket = 'CreateBucket',
+    UploadFiles = 'UploadFiles',
+    CreateAccess = 'CreateAccess',
 }
+
+export const ONBOARDING_STEPPER_STEPS = [
+    OnboardingStep.EncryptionPassphrase,
+    OnboardingStep.CreateBucket,
+    OnboardingStep.UploadFiles,
+    OnboardingStep.CreateAccess,
+];
+
+export const ACCOUNT_SETUP_STEPS = [
+    OnboardingStep.AccountTypeSelection,
+    OnboardingStep.PersonalAccountForm,
+    OnboardingStep.PricingPlanSelection,
+    OnboardingStep.PricingPlan,
+    OnboardingStep.BusinessAccountForm,
+    OnboardingStep.SetupComplete,
+];

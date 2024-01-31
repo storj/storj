@@ -47,7 +47,7 @@
                     color="default"
                     :disabled="isLoading"
                     block
-                    @click="emit('next', AccountSetupStep.Choice)"
+                    @click="emit('next', OnboardingStep.AccountTypeSelection)"
                 >
                     Back
                 </v-btn>
@@ -73,7 +73,7 @@ import { VBtn, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetif
 import { ref } from 'vue';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
-import { AccountSetupStep } from '@/types/users';
+import { OnboardingStep } from '@/types/users';
 import { RequiredRule } from '@poc/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { AuthHttpApi } from '@/api/auth';
@@ -95,7 +95,7 @@ const name = ref('');
 const useCase = ref<string>();
 
 const emit = defineEmits<{
-    next: [AccountSetupStep];
+    (event: 'next', value: OnboardingStep): void,
 }>();
 
 function setupAccount() {
@@ -113,7 +113,7 @@ function setupAccount() {
             });
 
             analyticsStore.eventTriggered(AnalyticsEvent.PERSONAL_INFO_SUBMITTED);
-            emit('next', AccountSetupStep.Success);
+            emit('next', OnboardingStep.SetupComplete);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
         }

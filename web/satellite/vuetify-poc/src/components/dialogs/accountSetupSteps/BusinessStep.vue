@@ -122,7 +122,7 @@
                     color="default"
                     :disabled="isLoading"
                     block
-                    @click="emit('next', AccountSetupStep.Choice)"
+                    @click="emit('next', OnboardingStep.AccountTypeSelection)"
                 >
                     Back
                 </v-btn>
@@ -149,7 +149,7 @@ import { ref } from 'vue';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 import { useDisplay } from 'vuetify';
 
-import { AccountSetupStep } from '@/types/users';
+import { OnboardingStep } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
@@ -179,7 +179,7 @@ const functionalArea = ref<string>();
 const haveSalesContact = ref(false);
 
 const emit = defineEmits<{
-    next: [AccountSetupStep];
+    (event: 'next', value: OnboardingStep): void,
 }>();
 
 function setupAccount() {
@@ -202,7 +202,7 @@ function setupAccount() {
             });
 
             analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
-            emit('next', AccountSetupStep.Success);
+            emit('next', OnboardingStep.SetupComplete);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
         }

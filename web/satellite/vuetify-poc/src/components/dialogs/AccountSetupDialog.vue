@@ -5,7 +5,7 @@
     <v-dialog :model-value="shouldShowSetupDialog" :height="dialogHeight" :width="dialogWidth" persistent transition="fade-transition" scrollable>
         <v-card
             ref="innerContent"
-            :title="step === AccountSetupStep.PricingPlanSelection ? 'Select a pricing plan' : ''"
+            :title="step === OnboardingStep.PricingPlanSelection ? 'Select a pricing plan' : ''"
         >
             <v-card-item class="py-4">
                 <v-container
@@ -20,39 +20,39 @@
 
                 <v-window v-else v-model="step">
                     <!-- Choice step -->
-                    <v-window-item :value="step === AccountSetupStep.Choice">
+                    <v-window-item :value="OnboardingStep.AccountTypeSelection">
                         <choice-step @next="toNextStep" />
                     </v-window-item>
 
                     <!-- Business step -->
-                    <v-window-item :value="AccountSetupStep.Business">
+                    <v-window-item :value="OnboardingStep.BusinessAccountForm">
                         <business-step @next="toNextStep" />
                     </v-window-item>
 
                     <!-- Personal step -->
-                    <v-window-item :value="AccountSetupStep.Personal">
+                    <v-window-item :value="OnboardingStep.PersonalAccountForm">
                         <personal-step @next="toNextStep" />
                     </v-window-item>
 
                     <!-- Pricing plan steps -->
-                    <v-window-item :value="AccountSetupStep.PricingPlanSelection">
+                    <v-window-item :value="OnboardingStep.PricingPlanSelection">
                         <pricing-plan-selection-step
                             show-free-plan
                             @select="onSelectPricingPlan"
                         />
                     </v-window-item>
 
-                    <v-window-item :value="AccountSetupStep.PricingPlan">
+                    <v-window-item :value="OnboardingStep.PricingPlan">
                         <PricingPlanStep
                             :plan="plan"
-                            @success="() => toNextStep(AccountSetupStep.Success)"
-                            @back="() => toNextStep(AccountSetupStep.PricingPlanSelection)"
+                            @success="() => toNextStep(OnboardingStep.SetupComplete)"
+                            @back="() => toNextStep(OnboardingStep.PricingPlanSelection)"
                         />
                     </v-window-item>
 
                     <!-- Final step -->
-                    <v-window-item :value="AccountSetupStep.Success">
-                        <success-step @continue="finishSetup" />
+                    <v-window-item :value="OnboardingStep.SetupComplete">
+                        <success-step />
                     </v-window-item>
                 </v-window>
             </v-card-item>
@@ -66,15 +66,16 @@ import { VCard, VCardItem, VContainer, VDialog, VProgressCircular, VRow, VWindow
 
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { AccountSetupStep, UserSettings } from '@/types/users';
+import { ACCOUNT_SETUP_STEPS, ONBOARDING_STEPPER_STEPS, OnboardingStep, UserSettings } from '@/types/users';
 import { PricingPlanInfo } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { PaymentsHttpApi } from '@/api/payments';
 import { useAppStore } from '@poc/store/appStore';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { APIError } from '@/utils/error';
 
 import ChoiceStep from '@poc/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@poc/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -95,7 +96,7 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const innerContent = ref<Component | null>(null);
-const step = ref<AccountSetupStep>(AccountSetupStep.Choice);
+const step = ref<OnboardingStep>(OnboardingStep.AccountTypeSelection);
 const plan = ref<PricingPlanInfo>();
 
 const pkgAvailable = ref(false);
@@ -103,7 +104,7 @@ const pkgAvailable = ref(false);
 const shouldShowSetupDialog = computed(() => {
     // settings are fetched on the projects page.
     const onboardingEnd = userStore.state.settings.onboardingEnd;
-    if (onboardingEnd) {
+    if (onboardingEnd || !!ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep)) {
         return false;
     }
 
@@ -118,9 +119,9 @@ const userSettings = computed(() => userStore.state.settings as UserSettings);
 const dialogHeight = computed(() => {
     switch (step.value) {
 
-    case AccountSetupStep.Choice:
-    case AccountSetupStep.Business:
-    case AccountSetupStep.Personal:
+    case OnboardingStep.AccountTypeSelection:
+    case OnboardingStep.BusinessAccountForm:
+    case OnboardingStep.PersonalAccountForm:
         return '87%';
     default:
         return 'auto';
@@ -133,10 +134,10 @@ const dialogHeight = computed(() => {
 const dialogWidth = computed(() => {
     switch (step.value) {
 
-    case AccountSetupStep.PricingPlanSelection:
+    case OnboardingStep.PricingPlanSelection:
         return '720px';
-    case AccountSetupStep.PricingPlan:
-    case AccountSetupStep.Success:
+    case OnboardingStep.PricingPlan:
+    case OnboardingStep.SetupComplete:
         return '460px';
     default:
         return '';
@@ -145,39 +146,28 @@ const dialogWidth = computed(() => {
 
 async function onSelectPricingPlan(p: PricingPlanInfo) {
     plan.value = p;
-    toNextStep(AccountSetupStep.PricingPlan);
+    toNextStep(OnboardingStep.PricingPlan);
 }
 
 /**
  * Decides whether to move to the success step or the pricing plan selection.
  */
-function toNextStep(next: AccountSetupStep) {
-    if (step.value !== AccountSetupStep.Personal && step.value !== AccountSetupStep.Business) {
-        step.value = next;
-        return;
-    }
-
-    if (next === AccountSetupStep.Choice) {
-        step.value = next;
-        return;
-    }
-
+function toNextStep(next: OnboardingStep) {
     if (!userSettings.value.onboardingStart) {
         userStore.updateSettings({ onboardingStart: true });
     }
 
-    if (!pkgAvailable.value) {
-        step.value = AccountSetupStep.Success;
-        return;
+    const isForm = step.value === OnboardingStep.PersonalAccountForm || step.value === OnboardingStep.BusinessAccountForm;
+    if (isForm && next === OnboardingStep.SetupComplete && pkgAvailable.value) {
+        step.value = OnboardingStep.PricingPlanSelection;
+    } else {
+        step.value = next;
     }
 
-    step.value = AccountSetupStep.PricingPlanSelection;
-}
-
-function finishSetup() {
-    appStore.toggleAccountSetup(false);
-    userStore.updateSettings({ onboardingEnd: true });
-    analyticsStore.eventTriggered(AnalyticsEvent.ONBOARDING_COMPLETED);
+    if (step.value === OnboardingStep.PricingPlan) {
+        return;
+    }
+    userStore.updateSettings({ onboardingStep: step.value });
 }
 
 /**
@@ -185,17 +175,17 @@ function finishSetup() {
  */
 onBeforeMount(() => {
     withLoading(async () => {
-        if (!userStore.state.user.email) {
-            await userStore.getUser();
+        if (userSettings.value.onboardingEnd || !!ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep)) {
+            return;
+        }
+
+        if (userSettings.value.onboardingStep === OnboardingStep.SetupComplete) {
+            step.value = OnboardingStep.SetupComplete;
+            appStore.toggleAccountSetup(true);
+            return;
         }
 
         if (configStore.state.config.billingFeaturesEnabled) {
-            try {
-                await billingStore.setupAccount();
-            } catch (error) {
-                notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-            }
-
             const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
             if (pricingPkgsEnabled && userStore.state.user.partner) {
                 try {
@@ -207,13 +197,12 @@ onBeforeMount(() => {
             }
         }
 
-        if (!userStore.userName) {
-            step.value = AccountSetupStep.Choice;
+        if (ACCOUNT_SETUP_STEPS.find(s => s === userSettings.value.onboardingStep)) {
+            step.value = userSettings.value.onboardingStep as OnboardingStep;
+        } else if (!userStore.userName) {
+            step.value = OnboardingStep.AccountTypeSelection;
         } else if (pkgAvailable.value) {
-            step.value = AccountSetupStep.PricingPlanSelection;
-        } else {
-            // onboarding was completed, but onboardingEnd was not set
-            step.value = AccountSetupStep.Success;
+            step.value = OnboardingStep.PricingPlanSelection;
         }
 
         appStore.toggleAccountSetup(true);
@@ -222,6 +211,6 @@ onBeforeMount(() => {
 
 watch(innerContent, comp => {
     if (comp) return;
-    step.value = AccountSetupStep.Choice;
+    step.value = OnboardingStep.AccountTypeSelection;
 });
 </script>

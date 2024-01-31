@@ -33,27 +33,30 @@ import { mdiChevronRight } from '@mdi/js';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { ONBOARDING_STEPPER_STEPS } from '@/types/users';
+import { useAppStore } from '@poc/store/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconBlueCheckmark from '@poc/components/icons/IconBlueCheckmark.vue';
 
+const analyticsStore = useAnalyticsStore();
+const appStore = useAppStore();
 const userStore = useUsersStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
-const emit = defineEmits<{
-    continue: [];
-}>();
-
 function finishSetup() {
     withLoading(async () => {
         try {
+            await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
             await userStore.getUser();
-            emit('continue');
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+            return;
         }
+        appStore.toggleAccountSetup(false);
     });
 }
 </script>
