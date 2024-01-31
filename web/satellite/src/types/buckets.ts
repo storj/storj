@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { Placement } from '@/types/placements';
 
 /**
  * Exposes all bucket-related functionality.
@@ -22,6 +23,15 @@ export interface BucketsApi {
      * @throws Error
      */
     getAllBucketNames(projectId: string): Promise<string[]>;
+
+    /**
+     *
+     * Fetch all bucket placements
+     *
+     * @returns BucketPlacement[]
+     * @throws Error
+     */
+    getAllBucketPlacements(projectId: string): Promise<BucketPlacement[]>
 }
 
 export enum Versioning {
@@ -72,5 +82,15 @@ export class BucketCursor {
         public search: string = '',
         public limit: number = DEFAULT_PAGE_LIMIT,
         public page: number = 1,
+    ) { }
+}
+
+/**
+ * BucketPlacement class holds bucket name, placement ID, and location.
+ */
+export class BucketPlacement {
+    public constructor(
+        public name: string = '',
+        public placement: Placement = new Placement(),
     ) { }
 }

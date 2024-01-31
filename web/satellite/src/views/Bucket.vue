@@ -334,9 +334,12 @@ watch(() => bucketsStore.state.passphrase, async newPass => {
  */
 onMounted(async () => {
     try {
-        await bucketsStore.getAllBucketsNames(projectId.value);
+        await Promise.all([
+            bucketsStore.getAllBucketsNames(projectId.value),
+            bucketsStore.getAllBucketsPlacements(projectId.value),
+        ]);
     } catch (error) {
-        error.message = `Error fetching bucket names. ${error.message}`;
+        error.message = `Error fetching bucket names and/or placements. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
