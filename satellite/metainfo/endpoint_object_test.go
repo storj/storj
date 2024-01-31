@@ -3078,5 +3078,43 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
+
+		t.Run("finish copy object, unversioned into versioned bucket", func(t *testing.T) {
+			defer ctx.Check(deleteBucket("unversioned"))
+			defer ctx.Check(deleteBucket("versioned"))
+
+			require.NoError(t, createBucket("unversioned"))
+			require.NoError(t, createBucket("versioned"))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte("versioned"), projectID))
+
+			_, err := planet.Uplinks[0].UploadWithOptions(ctx, satelliteSys, "unversioned", "object-key", testrand.Bytes(100), nil)
+			require.NoError(t, err)
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+			require.Equal(t, metabase.CommittedUnversioned, objects[0].Status)
+
+			beginResponse, err := planet.Satellites[0].Metainfo.Endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte("unversioned"),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+
+				NewBucket:             []byte("versioned"),
+				NewEncryptedObjectKey: []byte("copy"),
+			})
+			require.NoError(t, err)
+
+			finishResponse, err := planet.Satellites[0].Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+				Header:                &pb.RequestHeader{ApiKey: apiKey},
+				StreamId:              beginResponse.StreamId,
+				NewBucket:             []byte("versioned"),
+				NewEncryptedObjectKey: []byte("copy"),
+				NewSegmentKeys:        beginResponse.SegmentKeys,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, pb.Object_COMMITTED_VERSIONED, finishResponse.Object.Status)
+		})
 	})
 }
