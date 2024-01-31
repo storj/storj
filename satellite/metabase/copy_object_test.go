@@ -109,6 +109,26 @@ func TestBeginCopyObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
+
+		t.Run("begin copy object with delete marker as source", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObjectVersioned(ctx, t, db, metabasetest.RandObjectStream(), 0)
+
+			result, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: object.Location(),
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+
+			metabasetest.BeginCopyObject{
+				Opts: metabase.BeginCopyObject{
+					ObjectLocation: object.Location(),
+					Version:        result.Markers[0].Version,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+		})
 	})
 }
 

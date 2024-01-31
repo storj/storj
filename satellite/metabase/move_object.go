@@ -75,6 +75,10 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 		return BeginMoveCopyResults{}, err
 	}
 
+	if object.Status.IsDeleteMarker() {
+		return BeginMoveCopyResults{}, ErrObjectNotFound.New("")
+	}
+
 	if int64(object.SegmentCount) > segmentLimit {
 		return BeginMoveCopyResults{}, ErrInvalidRequest.New("object has too many segments (%d). Limit is %d.", object.SegmentCount, CopySegmentLimit)
 	}
