@@ -56,9 +56,7 @@ type FrontendConfig struct {
 	UserBalanceForUpgrade           int64                 `json:"userBalanceForUpgrade"`
 	LimitIncreaseRequestEnabled     bool                  `json:"limitIncreaseRequestEnabled"`
 	SignupActivationCodeEnabled     bool                  `json:"signupActivationCodeEnabled"`
-	NewSignupFlowEnabled            bool                  `json:"newSignupFlowEnabled"`
 	AllowedUsageReportDateRange     time.Duration         `json:"allowedUsageReportDateRange"`
-	PrefixVuetifyUI                 bool                  `json:"prefixVuetifyUI"`
 	OnboardingStepperEnabled        bool                  `json:"onboardingStepperEnabled"`
 }
 

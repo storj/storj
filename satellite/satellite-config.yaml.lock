@@ -358,9 +358,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
 
-# indicates whether the v2 app signup flow is enabled
-# console.new-signup-flow-enabled: false
-
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s
 
@@ -393,9 +390,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
-
-# whether to prefix the v2 UI with '/v2/'
-# console.prefix-vuetify-ui: true
 
 # whether to allow purchasing pricing packages
 # console.pricing-packages-enabled: false
@@ -478,14 +472,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 25.00 TB
 
-# whether to use vuetify POC project
-# console.use-vuetify-project: false
-
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
-
-# the subdomain the vuetify POC project should be hosted on
-# console.vuetify-host: ""
 
 # whether to load templates on each request
 # console.watch: false

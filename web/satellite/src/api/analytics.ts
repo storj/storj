@@ -24,7 +24,6 @@ export class AnalyticsHttpApi {
             const path = `${this.ROOT_PATH}/event`;
             const body = {
                 eventName: eventName,
-                uiType: __UI_TYPE__,
             };
             if (props) {
                 body['props'] = props;
@@ -52,7 +51,6 @@ export class AnalyticsHttpApi {
             const body = {
                 eventName: eventName,
                 link: link,
-                uiType: __UI_TYPE__,
             };
             const response = await this.http.post(path, JSON.stringify(body));
             if (response.ok) {
@@ -75,7 +73,6 @@ export class AnalyticsHttpApi {
             const path = `${this.ROOT_PATH}/page`;
             const body = {
                 pageName: pageName,
-                uiType: __UI_TYPE__,
             };
             const response = await this.http.post(path, JSON.stringify(body));
             if (response.ok) {
@@ -98,7 +95,6 @@ export class AnalyticsHttpApi {
             const path = `${this.ROOT_PATH}/event`;
             const body = {
                 eventName: AnalyticsEvent.UI_ERROR,
-                uiType: __UI_TYPE__,
             };
 
             if (source) {

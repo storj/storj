@@ -312,9 +312,6 @@ async function onLogout(): Promise<void> {
     }
 
     await router.push(ROUTES.Login.path);
-    if (configStore.state.config.prefixVuetifyUI) {
-        location.reload();
-    }
 }
 
 </script>

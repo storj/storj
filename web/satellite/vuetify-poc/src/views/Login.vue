@@ -235,7 +235,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + configStore.optionalV2Path + '/login';
+            window.location.href = satellite.address + '/login';
         }
     },
 });

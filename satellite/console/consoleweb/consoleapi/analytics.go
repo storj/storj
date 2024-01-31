@@ -40,7 +40,6 @@ type eventTriggeredBody struct {
 	EventName        string            `json:"eventName"`
 	Link             string            `json:"link"`
 	ErrorEventSource string            `json:"errorEventSource"`
-	UIType           string            `json:"uiType"`
 	Props            map[string]string `json:"props"`
 }
 
@@ -71,11 +70,11 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if et.ErrorEventSource != "" {
-		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource, et.UIType)
+		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource)
 	} else if et.Link != "" {
-		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link, et.UIType)
+		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link)
 	} else {
-		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.UIType, et.Props)
+		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.Props)
 	}
 	w.WriteHeader(http.StatusOK)
 }

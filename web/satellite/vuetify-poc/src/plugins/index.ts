@@ -1,13 +1,6 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * plugins/index.ts
- *
- * Automatically included in `./src/main.ts`
- */
-
-// Plugins
 import { App, watch } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import THEME_URLS from 'virtual:vuetify-theme-css';
@@ -16,9 +9,7 @@ import { setupRouter } from '../router';
 
 import vuetify from './vuetify';
 
-import NotificatorPlugin, { Notificator } from '@/utils/plugins/notificator';
-import { useConfigStore } from '@/store/modules/configStore';
-import { FrontendConfig } from '@/types/config.gen';
+import NotificatorPlugin from '@/utils/plugins/notificator';
 
 const pinia = createPinia();
 setActivePinia(pinia);
@@ -61,16 +52,10 @@ function setupTheme() {
     });
 }
 
-export async function registerPlugins(app: App<Element>) {
+export function registerPlugins(app: App<Element>): void {
     setupTheme();
     app.use(vuetify).use(pinia).use(NotificatorPlugin);
 
-    let config = new FrontendConfig();
-    try {
-        config = await useConfigStore().getConfig();
-    } catch (e) {
-        new Notificator().notifyError(e);
-    }
-    const router = setupRouter(config);
+    const router = setupRouter();
     app.use(router);
 }

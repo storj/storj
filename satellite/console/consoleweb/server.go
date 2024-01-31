@@ -99,9 +99,6 @@ type Config struct {
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
-	UseVuetifyProject               bool          `help:"whether to use vuetify POC project" default:"false"`
-	PrefixVuetifyUI                 bool          `help:"whether to prefix the v2 UI with '/v2/'" default:"true"`
-	VuetifyHost                     string        `help:"the subdomain the vuetify POC project should be hosted on" default:""`
 	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
@@ -404,25 +401,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
-
-		if server.config.UseVuetifyProject {
-			if server.config.PrefixVuetifyUI {
-				if server.config.VuetifyHost != "" {
-					router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-				} else {
-					// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
-					router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-				}
-				router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
-			} else {
-				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					http.Redirect(w, r, strings.TrimPrefix(r.URL.Path, "/v2"), http.StatusMovedPermanently)
-				})))
-				router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-			}
-		} else {
-			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
-		}
+		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
 	server.server = http.Server{
@@ -526,25 +505,7 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	router.HandleFunc("/robots.txt", server.seoHandler)
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
-
-	if server.config.UseVuetifyProject {
-		if server.config.PrefixVuetifyUI {
-			if server.config.VuetifyHost != "" {
-				router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-			} else {
-				// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
-				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-			}
-			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
-		} else {
-			router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, strings.TrimPrefix(r.URL.Path, "/v2"), http.StatusMovedPermanently)
-			})))
-			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-		}
-	} else {
-		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
-	}
+	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 
 	server.server = http.Server{
 		Handler:        server.withRequest(router),
@@ -654,36 +615,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := file.Stat()
 	if err != nil {
 		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
-		return
-	}
-
-	http.ServeContent(w, r, path, info.ModTime(), file)
-}
-
-// vuetifyAppHandler is web app http handler function.
-func (server *Server) vuetifyAppHandler(w http.ResponseWriter, r *http.Request) {
-	server.setAppHeaders(w, r)
-
-	path := filepath.Join(server.config.StaticDir, "dist_vuetify_poc", "index-vuetify.html")
-	file, err := os.Open(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			server.log.Error("index-vuetify.html was not generated. run 'npm run build-vuetify' in the "+server.config.StaticDir+" directory", zap.Error(err))
-		} else {
-			server.log.Error("error loading index-vuetify.html", zap.String("path", path), zap.Error(err))
-		}
-		return
-	}
-
-	defer func() {
-		if err := file.Close(); err != nil {
-			server.log.Error("error closing index-vuetify.html", zap.String("path", path), zap.Error(err))
-		}
-	}()
-
-	info, err := file.Stat()
-	if err != nil {
-		server.log.Error("failed to retrieve index-vuetify.html file info", zap.Error(err))
 		return
 	}
 
@@ -800,9 +731,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
-		NewSignupFlowEnabled:            server.config.NewSignupFlowEnabled,
 		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
-		PrefixVuetifyUI:                 server.config.PrefixVuetifyUI,
 		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
 	}
 

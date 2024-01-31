@@ -400,7 +400,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + configStore.optionalV2Path + '/signup';
+            window.location.href = satellite.address + '/signup';
         }
     },
 });
@@ -566,16 +566,6 @@ onBeforeMount(async () => {
 watch(password, () => {
     if (repPassword.value) {
         repPasswordField.value?.validate();
-    }
-});
-
-watch(() => configStore.state.config, (value, oldValue) => {
-    if (value === oldValue) {
-        return;
-    }
-    if (!value.newSignupFlowEnabled) {
-        location.replace(ROUTES.Signup.path);
-        return;
     }
 });
 </script>

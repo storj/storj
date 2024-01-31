@@ -6,7 +6,6 @@ COPY web/satellite/ /app
 # Need to clean up (or ignore) local folders like node_modules, etc...
 RUN npm install
 RUN npm run build
-RUN npm run build-vuetify
 
 # Fetch ca-certificates file for arch independent builds below
 FROM debian:buster-slim as ca-cert
@@ -39,7 +38,6 @@ EXPOSE 10100
 WORKDIR /app
 COPY --from=ui /app/static /app/static
 COPY --from=ui /app/dist /app/dist
-COPY --from=ui /app/dist_vuetify_poc /app/dist_vuetify_poc
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY release/${TAG}/wasm /app/static/wasm
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite

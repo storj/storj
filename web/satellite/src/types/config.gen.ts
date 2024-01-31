@@ -52,9 +52,7 @@ export class FrontendConfig {
     userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
-    newSignupFlowEnabled: boolean;
     allowedUsageReportDateRange: number;
-    prefixVuetifyUI: boolean;
     onboardingStepperEnabled: boolean;
 }
 

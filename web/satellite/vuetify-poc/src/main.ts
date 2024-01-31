@@ -13,12 +13,9 @@ import { registerMixins } from '@poc/mixins';
 const app = createApp(App);
 
 registerMixins(app);
-registerPlugins(app).then(() => {
-    const loader = document.getElementById('pre-app-loader');
-    loader?.remove();
+registerPlugins(app);
 
-    app.mount('#app');
-});
+app.mount('#app');
 
 // By default, Papa Parse uses a blob URL for loading its worker.
 // This isn't supported by our content security policy, so we override the URL.

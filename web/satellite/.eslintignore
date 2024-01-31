@@ -1,5 +1,4 @@
 dist
-dist_vuetify_poc
 node_modules
 coverage
 tests/unit/ignore

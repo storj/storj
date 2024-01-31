@@ -633,7 +633,7 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 
 // TrackEvent sends an arbitrary event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email, uiType string, customProps map[string]string) {
+func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string, customProps map[string]string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -646,7 +646,6 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email, ui
 
 	props := segment.NewProperties()
 	props.Set("email", email)
-	props.Set("ui_type", uiType)
 
 	for key, value := range customProps {
 		props.Set(key, value)
@@ -661,7 +660,7 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email, ui
 
 // TrackErrorEvent sends an arbitrary error event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side errors.
-func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, uiType string) {
+func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -669,7 +668,6 @@ func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, uiType 
 	props := segment.NewProperties()
 	props.Set("email", email)
 	props.Set("source", source)
-	props.Set("ui_type", uiType)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
@@ -680,7 +678,7 @@ func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, uiType 
 
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link, uiType string) {
+func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -694,7 +692,6 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 	props := segment.NewProperties()
 	props.Set("link", link)
 	props.Set("email", email)
-	props.Set("ui_type", uiType)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),

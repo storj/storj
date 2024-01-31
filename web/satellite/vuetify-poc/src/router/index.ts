@@ -184,9 +184,8 @@ const routes: RouteRecordRaw[] = [
     },
 ];
 
-export function setupRouter(config: FrontendConfig): Router {
-    const basePath = !config.prefixVuetifyUI ? '' : import.meta.env.VITE_VUETIFY_PREFIX;
-    const history = createWebHistory(basePath);
+export function setupRouter(): Router {
+    const history = createWebHistory('');
     const router = createRouter({
         history,
         routes,

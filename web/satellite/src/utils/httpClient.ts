@@ -108,12 +108,7 @@ export class HttpClient {
                 if (this.isAuthRoute(path)) {
                     return;
                 }
-                const origin = window.location.origin;
-                if (document.querySelector('.v-overlay-container')) {
-                    window.location.href = origin + useConfigStore().optionalV2Path + '/login';
-                    return;
-                }
-                window.location.href = origin + '/login';
+                window.location.href = `${window.location.origin}/login`;
             }, 2000);
         }
     }

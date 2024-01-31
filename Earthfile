@@ -35,7 +35,6 @@ satellite-web:
     RUN ./build.sh
     COPY +wasm/wasm static/wasm
     SAVE ARTIFACT dist AS LOCAL web/satellite/dist
-    SAVE ARTIFACT dist_vuetify_poc AS LOCAL web/satellite/dist_vuetify_poc
     SAVE ARTIFACT static AS LOCAL web/satellite/static
 
 satellite-admin:
@@ -120,7 +119,6 @@ build-tagged-image:
     FROM img.dev.storj.io/storjup/base:20230208-1
     COPY +multinode-web/dist /var/lib/storj/storj/web/multinode/dist
     COPY +satellite-web/dist /var/lib/storj/storj/web/satellite/dist
-    COPY +satellite-web/dist_vuetify_poc /var/lib/storj/storj/web/satellite/dist_vuetify_poc
     COPY +satellite-admin/build /app/satellite-admin/
     COPY +satellite-web/static /var/lib/storj/storj/web/satellite/static
     COPY +storagenode-web/dist /var/lib/storj/storj/web/storagenode/dist
