@@ -98,6 +98,7 @@ import { LocalData } from '@/utils/localData';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@poc/store/appStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import IconBlueCheckmark from '@poc/components/icons/IconBlueCheckmark.vue';
 
@@ -204,6 +205,7 @@ function verifyCode(): void {
             return;
         }
 
+        analyticsStore.eventTriggered(AnalyticsEvent.USER_SIGN_UP);
         appStore.toggleHasJustLoggedIn(true);
         usersStore.login();
         analyticsStore.pageVisit('/projects');

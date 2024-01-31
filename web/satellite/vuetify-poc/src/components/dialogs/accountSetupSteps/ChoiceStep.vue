@@ -16,7 +16,7 @@
 
         <v-row justify="center">
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="personal" border class="px-3 py-5" @click="emit('next', AccountSetupStep.Personal)">
+                <v-card id="personal" border class="px-3 py-5" @click="typeSelected(AccountSetupStep.Personal)">
                     <v-card-item>
                         <div>
                             <icon-personal />
@@ -37,7 +37,7 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="business" border class="px-3 py-5" @click="emit('next', AccountSetupStep.Business)">
+                <v-card id="business" border class="px-3 py-5" @click="typeSelected(AccountSetupStep.Business)">
                     <v-card-item>
                         <div>
                             <icon-business />
@@ -66,12 +66,33 @@ import { VBtn, VCard, VCardItem, VCol, VContainer, VRow } from 'vuetify/componen
 import { mdiChevronRight } from '@mdi/js';
 
 import { AccountSetupStep } from '@/types/users';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconPersonal from '@poc/components/icons/IconPersonal.vue';
 import IconBusiness from '@poc/components/icons/IconBusiness.vue';
 import IconStorjLogo from '@poc/components/icons/IconStorjLogo.vue';
 
+const analyticsStore = useAnalyticsStore();
+
 const emit = defineEmits<{
     next: [AccountSetupStep];
 }>();
+
+function typeSelected(type: AccountSetupStep) {
+    emit('next', type);
+
+    let event: AnalyticsEvent;
+    switch (type) {
+    case AccountSetupStep.Business:
+        event = AnalyticsEvent.BUSINESS_SELECTED;
+        break;
+    case AccountSetupStep.Personal:
+        event = AnalyticsEvent.PERSONAL_SELECTED;
+        break;
+    default:
+        return;
+    }
+    analyticsStore.eventTriggered(event);
+}
 </script>

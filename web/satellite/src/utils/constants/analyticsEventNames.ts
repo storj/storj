@@ -58,6 +58,13 @@ export enum AnalyticsEvent {
     RESEND_INVITE_CLICKED = 'Resend Invite Clicked',
     COPY_INVITE_LINK_CLICKED = 'Copy Invite Link Clicked',
     REMOVE_PROJECT_MEMBER_CLICKED = 'Remove Member Clicked',
+    USER_SIGN_UP = 'User Sign Up',
+    PERSONAL_INFO_SUBMITTED = 'Personal Info Submitted',
+    BUSINESS_INFO_SUBMITTED = 'Business Info Submitted',
+    USE_CASE_SELECTED = 'Use Case Selected',
+    ONBOARDING_COMPLETED = 'Onboarding Completed',
+    PERSONAL_SELECTED = 'Personal Selected',
+    BUSINESS_SELECTED = 'Business Selected',
 }
 
 export enum AnalyticsErrorEventSource {
@@ -128,4 +135,5 @@ export enum AnalyticsErrorEventSource {
     DETAILED_USAGE_REPORT_MODAL = 'Detailed usage report modal',
     REMOVE_CC_MODAL = 'Remove credit card modal',
     EDIT_DEFAULT_CC_MODAL = 'Edit default credit card modal',
+    ONBOARDING_FORM = 'Onboarding form',
 }
