@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="text-medium-emphasis">{{ subtitle }} <a :href="link" target="_blank" class="link">Learn More</a></p>
+    <p class="text-medium-emphasis">{{ subtitle }} <a v-if="link" :href="link" target="_blank" class="link">Learn More</a></p>
 </template>
 
 <script setup lang="ts">
 const props = defineProps<{
     subtitle: string;
-    link: string;
+    link?: string;
 }>();
 </script>

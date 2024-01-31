@@ -306,7 +306,7 @@ import LimitWarningBanners from '@/components/LimitWarningBanners.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import IconUpgrade from '@/components/icons/IconUpgrade.vue';
 import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
-import NextStepsContainer from '@/components/NextStepsContainer.vue';
+import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 
 const appStore = useAppStore();
