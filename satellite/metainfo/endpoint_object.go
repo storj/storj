@@ -995,8 +995,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			return nil, endpoint.convertMetabaseErr(err)
 		}
 	} else if !req.IncludeAllVersions {
-		// handles regular listing for all type of buckets
-		if bucket.Versioning == buckets.Unversioned {
+		if bucket.Versioning.IsUnversioned() {
+			// handles listing for VersioningUnsupported and Unversioned buckets
 			err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
 				metabase.IterateObjectsWithStatus{
 					ProjectID:  keyInfo.ProjectID,
