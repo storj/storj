@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { useConfigStore } from '@/store/modules/configStore';
 import { RouteConfig } from '@/types/router';
 
 /**

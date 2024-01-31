@@ -21,7 +21,6 @@ import { SignatureV4 } from '@smithy/signature-v4';
 import { ListObjectsV2CommandInput } from '@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -555,11 +554,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             return;
         }
 
-        // If file size exceeds 5 GB, show warning notification
-        if (body.size > (5 * 1024 * 1024 * 1024)) {
-            appStore.setLargeUploadWarningNotification(true);
-        }
-
         // Upload 4 parts at a time.
         const queueSize = 4;
         // For now use a 64mb part size. This may be configurable in the future to enhance performance.
@@ -624,12 +618,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             const uploadedFiles = state.files.filter(f => f.type === 'file');
             if (uploadedFiles.length === 1 && !key.includes('/') && state.openModalOnFirstUpload) {
                 state.objectPathForModal = key;
-
-                if (config.state.config.galleryViewEnabled) {
-                    appStore.setGalleryView(true);
-                } else {
-                    appStore.updateActiveModal(MODALS.objectDetails);
-                }
             }
         });
     }
@@ -639,12 +627,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         item.status = UploadingStatus.Failed;
         item.failedMessage = FailedUploadMessage.Failed;
-
-        // If file size exceeds 1 GB, show warning notification.
-        if (item.Size > (1024 * 1024 * 1024)) {
-            const appStore = useAppStore();
-            appStore.setLargeUploadWarningNotification(true);
-        }
 
         const { notifyError } = useNotificationsStore();
 

@@ -84,12 +84,6 @@ export const SHARE_BUTTON_CONFIGS: Record<ShareOptions, ShareButtonConfig> = {
     },
 };
 
-export enum ShareType {
-    File = 'File',
-    Folder = 'Folder',
-    Bucket = 'Bucket',
-}
-
 export enum PreviewType {
     None,
     Text,

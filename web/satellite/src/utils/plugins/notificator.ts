@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VNode, h } from 'vue';
+import { h } from 'vue';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';

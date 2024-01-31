@@ -8,18 +8,6 @@ export enum SortDirection {
     desc = 2,
 }
 
-export enum OnboardingOS {
-    WINDOWS = 'windows',
-    MAC = 'macos',
-    LINUX = 'linux',
-}
-
-export enum OnboardingOption {
-    Browser = 'Continue in Browser',
-    CLI = 'CLI',
-    Skip = 'Skip',
-}
-
 export class PricingPlanInfo {
     constructor(
         public type: PricingPlanType = PricingPlanType.FREE,

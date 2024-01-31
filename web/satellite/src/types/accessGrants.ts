@@ -4,8 +4,6 @@
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
-export type OnHeaderClickCallback = (sortBy: AccessGrantsOrderBy, sortDirection: SortDirection) => Promise<void>;
-
 /**
  * Exposes all access grants-related functionality.
  */

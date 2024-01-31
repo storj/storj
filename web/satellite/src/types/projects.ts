@@ -199,15 +199,6 @@ export class ProjectLimits {
     ) {}
 }
 
-export class ProjectPage {
-    public constructor(
-        public projects: Project[] = [],
-        public pageCount: number = 0,
-        public currentPage: number = 0,
-        public totalCount: number = 0,
-    ) {}
-}
-
 /**
  * ProjectsPage class, used to describe paged projects list.
  */

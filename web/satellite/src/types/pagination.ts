@@ -3,10 +3,7 @@
 
 export const DEFAULT_PAGE_LIMIT = 10;
 
-export type PageChangeCallback = (page: number, limit: number) => Promise<void> | void;
-
 export type OnPageClickCallback = (search: number) => Promise<void>;
-export type CheckSelected = (index: number) => boolean;
 
 /**
  * Describes paginator page.
