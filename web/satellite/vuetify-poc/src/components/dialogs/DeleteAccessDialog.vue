@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Delete Access{{ accessNames.length > 1 ? 'es' : '' }}
+                    Delete Access Key{{ accessNames.length > 1 ? 's' : '' }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -38,9 +38,9 @@
             <v-divider />
 
             <div class="pa-7">
-                The following access{{ accessNames.length > 1 ? 'es' : '' }}
-                will be deleted. Linksharing URLs using
-                {{ accessNames.length > 1 ? 'these accesses' : 'this access' }} will no longer work.
+                The following access key{{ accessNames.length > 1 ? 's' : '' }}
+                will be deleted. Any publicly shared links using
+                {{ accessNames.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
                 <br><br>
                 <p v-for="accessName of accessNames" :key="accessName" class="font-weight-bold">{{ accessName }}</p>
             </div>

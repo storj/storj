@@ -3,7 +3,7 @@
 
 <template>
     <v-navigation-drawer v-model="model">
-        <v-sheet class="pa-2">
+        <v-sheet class="px-2 py-1">
             <!-- Project -->
             <v-menu location="end" transition="scale-transition">
                 <template #activator="{ props: activatorProps }">
@@ -26,7 +26,7 @@
                                 <IconProject />
                             </template>
                             <v-list-item-title class="ml-3">
-                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick('/projects')">
                                     My Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -57,7 +57,7 @@
                                 <IconProject />
                             </template>
                             <v-list-item-title class="ml-3">
-                                <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
+                                <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick('/projects')">
                                     Shared Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -91,6 +91,8 @@
                         </v-list-item-title>
                     </v-list-item>
 
+                    <v-divider class="my-2" />
+
                     <!-- View All Projects -->
                     <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
                         <template #prepend>
@@ -101,10 +103,12 @@
                         </v-list-item-title>
                     </v-list-item>
 
+                    <v-divider class="my-2" />
+
                     <!-- Create New Project -->
                     <v-list-item link @click="isCreateProjectDialogShown = true">
                         <template #prepend>
-                            <IconNew />
+                            <IconNew size="18" />
                         </template>
                         <v-list-item-title class="ml-3">
                             Create New Project

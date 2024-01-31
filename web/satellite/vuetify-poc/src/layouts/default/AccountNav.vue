@@ -2,9 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-navigation-drawer v-model="model" class="py-1">
+    <v-navigation-drawer v-model="model">
         <v-sheet>
-            <v-list class="px-2" color="default" variant="flat">
+            <v-list class="px-2 py-1" color="default" variant="flat">
+                <!-- Back -->
                 <template v-if="pathBeforeAccountPage">
                     <navigation-item class="pa-4" title="Back" :to="pathBeforeAccountPage">
                         <template #prepend>
@@ -18,21 +19,29 @@
                 </template>
 
                 <!-- All Projects -->
-                <navigation-item title="Projects" to="/projects">
+                <navigation-item title="All Projects" subtitle="Dashboard" to="/projects" class="py-4">
                     <template #prepend>
                         <icon-all-projects />
                     </template>
                 </navigation-item>
 
-                <navigation-item title="Settings" to="settings">
+                <v-divider class="my-2" />
+
+                <v-list-item class="my-1">
+                    <v-list-item-subtitle>My Account</v-list-item-subtitle>
+                </v-list-item>
+
+                <!-- Account Billing -->
+                <navigation-item v-if="billingEnabled" title="Billing" to="/account/billing" class="py-2">
                     <template #prepend>
-                        <icon-settings />
+                        <icon-card />
                     </template>
                 </navigation-item>
 
-                <navigation-item v-if="billingEnabled" title="Billing" to="billing">
+                <!-- Account Settings -->
+                <navigation-item title="Settings" to="/account/settings" class="py-2">
                     <template #prepend>
-                        <icon-card />
+                        <icon-settings />
                     </template>
                 </navigation-item>
 
@@ -48,6 +57,8 @@ import {
     VNavigationDrawer,
     VSheet,
     VList,
+    VListItem,
+    VListItemSubtitle,
     VDivider,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
@@ -58,8 +69,8 @@ import { useConfigStore } from '@/store/modules/configStore';
 
 import IconCard from '@poc/components/icons/IconCard.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
-import IconAllProjects from '@poc/components/icons/IconAllProjects.vue';
 import NavigationItem from '@poc/layouts/default/NavigationItem.vue';
+import IconAllProjects from '@poc/components/icons/IconAllProjects.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();

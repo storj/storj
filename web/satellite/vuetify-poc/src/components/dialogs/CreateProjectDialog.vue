@@ -59,7 +59,6 @@
                             <v-btn
                                 v-if="!isDescriptionShown"
                                 variant="text"
-                                size="small"
                                 color="default"
                                 :prepend-icon="mdiPlus"
                                 @click="isDescriptionShown = true"

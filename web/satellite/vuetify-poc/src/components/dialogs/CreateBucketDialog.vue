@@ -149,10 +149,10 @@ const bucketNameRules = computed(() => {
             const labels = value.split('.');
             for (let i = 0; i < labels.length; i++) {
                 const l = labels[i];
-                if (!l.length) return 'Bucket name part cannot start or end with a dot.';
-                if (!/^[a-z0-9]$/.test(l[0])) return 'Bucket name part must start with a lowercase letter or number.';
-                if (!/^[a-z0-9]$/.test(l[l.length - 1])) return 'Bucket name part must end with a lowercase letter or number.';
-                if (!/^[a-z0-9-.]+$/.test(l)) return 'Bucket name part must contain only lowercase letters, numbers or hyphens.';
+                if (!l.length) return 'Bucket name cannot start or end with a dot.';
+                if (!/^[a-z0-9]$/.test(l[0])) return 'Bucket name must start with a lowercase letter or number.';
+                if (!/^[a-z0-9]$/.test(l[l.length - 1])) return 'Bucket name must end with a lowercase letter or number.';
+                if (!/^[a-z0-9-.]+$/.test(l)) return 'Bucket name can contain only lowercase letters, numbers or hyphens.';
             }
         },
         (value: string) => {

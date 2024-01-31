@@ -4,7 +4,8 @@
 <template>
     <v-app>
         <session-wrapper>
-            <default-bar />
+            <default-bar show-nav-drawer-button />
+            <account-nav />
             <default-view />
 
             <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
@@ -18,6 +19,7 @@ import { VApp } from 'vuetify/components';
 import { onBeforeUnmount } from 'vue';
 
 import DefaultBar from './AppBar.vue';
+import AccountNav from './AccountNav.vue';
 import DefaultView from './View.vue';
 
 import { useAppStore } from '@poc/store/appStore';

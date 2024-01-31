@@ -127,7 +127,7 @@ const nameRules: ValidationRule<string>[] = [
 ];
 
 defineExpose<DialogStepComponent>({
-    title: 'Create New Access',
+    title: 'New Access Key',
     validate: () => {
         form.value?.validate();
         return !!form.value?.isValid;
