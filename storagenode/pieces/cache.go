@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -169,11 +170,13 @@ type BlobsUsageCache struct {
 
 // NewBlobsUsageCache creates a new disk blob store with a space used cache.
 func NewBlobsUsageCache(log *zap.Logger, blob blobstore.Blobs) *BlobsUsageCache {
-	return &BlobsUsageCache{
+	usageCache := &BlobsUsageCache{
 		log:                  log,
 		Blobs:                blob,
 		spaceUsedBySatellite: map[storj.NodeID]SatelliteUsage{},
 	}
+	mon.Chain(usageCache)
+	return usageCache
 }
 
 // NewBlobsUsageCacheTest creates a new disk blob store with a space used cache.
@@ -518,4 +521,15 @@ func (blobs *BlobsUsageCache) TestCreateV0(ctx context.Context, ref blobstore.Bl
 		TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error)
 	})
 	return fStore.TestCreateV0(ctx, ref)
+}
+
+// Stats implements monkit.StatSource.
+func (blobs *BlobsUsageCache) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
+	for satellite, used := range blobs.spaceUsedBySatellite {
+		k := monkit.NewSeriesKey("blobs_usage").WithTag("satellite", satellite.String())
+		cb(k, "total_size", float64(used.Total))
+		cb(k, "content_size", float64(used.ContentSize))
+	}
 }
