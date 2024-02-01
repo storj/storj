@@ -5,6 +5,7 @@ package stripe
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/stripe/stripe-go/v75"
@@ -129,6 +130,10 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err = creditCards.service.stripeClient.PaymentMethods().Attach(card.ID, attachParams)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.New(stripeErr.Msg)
+		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
@@ -198,6 +203,10 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 
 	card, err = creditCards.service.stripeClient.PaymentMethods().Attach(pmID, attachParams)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.New(stripeErr.Msg)
+		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
