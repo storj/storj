@@ -5,14 +5,17 @@ package satellite_test
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/apigen"
@@ -23,43 +26,18 @@ func TestGeneratedAPIs(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	type apiCheck struct {
-		genPath  string
-		genFiles []string
-	}
-
-	tempDir := ctx.Dir("satellite-generated-apis")
+	tempDir := ctx.Dir()
 	rootDir := findModuleRootDir()
+	helpText := "Regenerate by running the following:\n"
 
-	for _, tt := range []apiCheck{
-		{
-			genPath: "satellite/console/consoleweb/consoleapi/gen",
-			genFiles: []string{
-				"satellite/console/consoleweb/consoleapi/api.gen.go",
-				"satellite/console/consoleweb/consoleapi/apidocs.gen.md",
-				"web/satellite/src/api/v0.gen.ts",
-			},
-		},
-		{
-			genPath: "satellite/admin/back-office/gen",
-			genFiles: []string{
-				"satellite/admin/back-office/handlers.gen.go",
-				"satellite/admin/back-office/api-docs.gen.md",
-				"satellite/admin/back-office/ui/src/api/client.gen.ts",
-			},
-		},
-		{
-			genPath: "private/apigen/example",
-			genFiles: []string{
-				"private/apigen/example/api.gen.go",
-				"private/apigen/example/client-api.gen.ts",
-				"private/apigen/example/client-api-mock.gen.ts",
-				"private/apigen/example/apidocs.gen.md",
-			},
-		},
+	for _, genPath := range []string{
+		"satellite/console/consoleweb/consoleapi/gen",
+		"satellite/admin/back-office/gen",
+		"private/apigen/example",
 	} {
-		// 1. generate files to test directory
-		cmd := exec.Command("go", "generate", path.Join(rootDir, tt.genPath))
+		// generate files to test directory
+		helpText += fmt.Sprintf("go generate ./%s\n", genPath)
+		cmd := exec.Command("go", "generate", path.Join(rootDir, genPath))
 		rootOverrideEnv := fmt.Sprintf("%s=%s", apigen.OutputRootDirEnvOverride, tempDir)
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, rootOverrideEnv)
@@ -68,24 +46,29 @@ func TestGeneratedAPIs(t *testing.T) {
 			t.Fatal(err, string(out))
 		}
 
-		// 2. compare original vs. newly-generated files
-		for _, file := range tt.genFiles {
-			oldFile := path.Join(rootDir, file)
-			newFile := path.Join(tempDir, file)
-
-			originalData := readLines(t, oldFile)
-			newData := readLines(t, newFile)
-			if diff := cmp.Diff(originalData, newData); diff != "" {
-				t.Errorf(`The satellite generated APIs have changed since being re-generated:
-%s
-Filepath: %s
-Regenerate by running one or all of the following:
-"go generate ./satellite/console/..."
-"go generate ./satellite/admin/back-office/..."
-"go generate ./private/apigen/example/..."`, diff, newFile)
-			}
-		}
 	}
+
+	// iterate over all newly-generated files, and compare to originals
+	err := filepath.Walk(tempDir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		newFile := path
+		relativePath := strings.TrimPrefix(path, tempDir)
+		oldFile := filepath.Join(rootDir, relativePath)
+
+		originalData := readLines(t, oldFile)
+		newData := readLines(t, newFile)
+		if diff := cmp.Diff(originalData, newData); diff != "" {
+			t.Errorf("The satellite generated APIs have changed since being re-generated:\nPath:\n%s\nDiff:\n%s\n%s", relativePath, diff, helpText)
+			return nil
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }
 
 func findModuleRootDir() string {
