@@ -190,6 +190,13 @@ func selectorFromString(expr string) (NodeSelectorInit, error) {
 		},
 		"nodelist": AllowedNodesFromFile,
 		"filter":   FilterSelector,
+		"balanced": func(attribute string) (NodeSelectorInit, error) {
+			attr, err := CreateNodeAttribute(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return BalancedGroupBasedSelector(attr), nil
+		},
 	}
 	for k, v := range supportedFilters {
 		env[k] = v
