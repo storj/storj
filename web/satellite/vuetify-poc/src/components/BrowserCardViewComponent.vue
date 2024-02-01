@@ -300,7 +300,7 @@ const lastPage = computed<number>(() => {
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
 
-    const objects = obStore.state.files;
+    const objects = isPaginationEnabled.value ? obStore.displayedObjects : obStore.state.files;
     return objects.map<BrowserObjectWrapper>(file => {
         const lowerName = file.Key.toLowerCase();
         const dotIdx = lowerName.lastIndexOf('.');
@@ -541,8 +541,8 @@ async function processFilePath(file: BrowserObjectWrapper) {
  * Adds image files to preview queue.
  */
 function addToPreviewQueue(file: BrowserObjectWrapper) {
-    if (file.browserObject.type === 'folder') return;
-    if (file.typeInfo.title !== 'Image') return;
+    if (file.browserObject.type === 'folder' || file.typeInfo.title !== 'Image') return;
+
     previewQueue.push(file);
     if (!processingPreview) {
         processPreviewQueue();
@@ -574,7 +574,7 @@ watch(() => props.forceEmpty, v => !v && fetchFiles());
 watch(allFiles, async (value, oldValue) => {
     // find new files for which we haven't fetched preview url yet.
     const newFiles = value.filter(file => {
-        return !oldValue.some(oldFile => {
+        return !oldValue?.some(oldFile => {
             return oldFile.browserObject.Key === file.browserObject.Key
                 && oldFile.browserObject.path === file.browserObject.path;
         });
@@ -582,7 +582,7 @@ watch(allFiles, async (value, oldValue) => {
     for (const file of newFiles) {
         addToPreviewQueue(file);
     }
-});
+}, { immediate: true });
 
 onBeforeMount(() => {
     obStore.setCursor({ page: 1, limit: pageSizes[0].value });
