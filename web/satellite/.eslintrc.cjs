@@ -46,7 +46,7 @@ module.exports = {
                 },
                 {
                     'group': 'internal',
-                    'pattern': '@?(poc)/{components,views,layouts}/**',
+                    'pattern': '@/{components,views,layouts}/**',
                     'position': 'after',
                 },
                 {
@@ -56,7 +56,7 @@ module.exports = {
                 },
                 {
                     'group': 'internal',
-                    'pattern': '@poc/assets/**',
+                    'pattern': '@/assets/**',
                     'position': 'after',
                 },
             ],

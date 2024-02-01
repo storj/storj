@@ -9,7 +9,6 @@ import {
     CreateBucketCommand,
     DeleteBucketCommand,
     ListObjectsV2Command,
-    ListObjectsV2CommandOutput,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 

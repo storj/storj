@@ -22,9 +22,6 @@
     "paths": {
       "@/*": [
         "src/*"
-      ],
-      "@poc/*": [
-        "vuetify-poc/src/*"
       ]
     },
     "lib": [
@@ -35,8 +32,6 @@
     ]
   },
   "include": [
-    "vuetify-poc/src/**/*.ts",
-    "vuetify-poc/src/**/*.vue",
     "src/**/*.ts",
     "src/**/*.vue",
     "src/types/*.d.ts",

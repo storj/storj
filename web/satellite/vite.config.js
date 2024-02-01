@@ -21,7 +21,7 @@ const plugins = [
     vuetify({
         autoImport: true,
         styles: {
-            configFile: 'vuetify-poc/src/styles/settings.scss',
+            configFile: 'src/styles/settings.scss',
         },
     }),
     vuetifyThemeCSS(),
@@ -59,7 +59,6 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 '@': resolve(__dirname, './src'),
-                '@poc': resolve(__dirname, './vuetify-poc/src'),
                 'stream': 'stream-browserify', // Passphrase mnemonic generation will not work without this
             },
             extensions: [

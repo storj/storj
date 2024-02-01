@@ -4,16 +4,19 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { LocalData } from '@/utils/localData';
 
 class AppState {
     public hasJustLoggedIn = false;
-    public managePassphraseStep: ManageProjectPassphraseStep | undefined = undefined;
     public isUploadingModal = false;
     public error: ErrorPageState = new ErrorPageState();
     public isProjectTableViewEnabled = LocalData.getProjectTableViewEnabled();
     public isBrowserCardViewEnabled = LocalData.getBrowserCardViewEnabled();
+    public isNavigationDrawerShown = true;
+    public isUpgradeFlowDialogShown = false;
+    public isAccountSetupDialogShown = false;
+    public pathBeforeAccountPage: string | null = null;
+    public isNavigating = false;
 }
 
 class ErrorPageState {
@@ -61,8 +64,24 @@ export const useAppStore = defineStore('app', () => {
         state.isUploadingModal = value;
     }
 
-    function setManagePassphraseStep(step: ManageProjectPassphraseStep | undefined): void {
-        state.managePassphraseStep = step;
+    function toggleNavigationDrawer(isShown?: boolean): void {
+        state.isNavigationDrawerShown = isShown ?? !state.isNavigationDrawerShown;
+    }
+
+    function toggleUpgradeFlow(isShown?: boolean): void {
+        state.isUpgradeFlowDialogShown = isShown ?? !state.isUpgradeFlowDialogShown;
+    }
+
+    function toggleAccountSetup(isShown?: boolean): void {
+        state.isAccountSetupDialogShown = isShown ?? !state.isAccountSetupDialogShown;
+    }
+
+    function setPathBeforeAccountPage(path: string) {
+        state.pathBeforeAccountPage = path;
+    }
+
+    function setIsNavigating(isLoading: boolean) {
+        state.isNavigating = isLoading;
     }
 
     function setErrorPage(statusCode: number, fatal = false): void {
@@ -75,11 +94,13 @@ export const useAppStore = defineStore('app', () => {
 
     function clear(): void {
         state.hasJustLoggedIn = false;
-        state.managePassphraseStep = undefined;
         state.isUploadingModal = false;
         state.error.visible = false;
         state.isProjectTableViewEnabled = false;
         LocalData.removeProjectTableViewConfig();
+        state.isNavigationDrawerShown = true;
+        state.isUpgradeFlowDialogShown = false;
+        state.pathBeforeAccountPage = null;
     }
 
     return {
@@ -88,10 +109,14 @@ export const useAppStore = defineStore('app', () => {
         toggleBrowserCardViewEnabled: toggleBrowserTableViewEnabled,
         hasProjectTableViewConfigured,
         toggleHasJustLoggedIn,
-        setManagePassphraseStep,
         setUploadingModal,
         setErrorPage,
         removeErrorPage,
+        toggleNavigationDrawer,
+        toggleUpgradeFlow,
+        toggleAccountSetup,
+        setPathBeforeAccountPage,
+        setIsNavigating,
         clear,
     };
 });

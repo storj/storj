@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VNode, reactive } from 'vue';
+import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { DelayedNotification, NotificationMessage, NotificationType } from '@/types/DelayedNotification';

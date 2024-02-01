@@ -5,24 +5,24 @@ import { Component } from 'vue';
 
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 
-import RedditIcon from '@poc/components/icons/share/IconReddit.vue';
-import FacebookIcon from '@poc/components/icons/share/IconFacebook.vue';
-import TwitterIcon from '@poc/components/icons/share/IconTwitter.vue';
-import HackerNewsIcon from '@poc/components/icons/share/IconHackerNews.vue';
-import LinkedInIcon from '@poc/components/icons/share/IconLinkedIn.vue';
-import TelegramIcon from '@poc/components/icons/share/IconTelegram.vue';
-import WhatsAppIcon from '@poc/components/icons/share/IconWhatsApp.vue';
-import EmailIcon from '@poc/components/icons/share/IconEmail.vue';
+import RedditIcon from '@/components/icons/share/IconReddit.vue';
+import FacebookIcon from '@/components/icons/share/IconFacebook.vue';
+import TwitterIcon from '@/components/icons/share/IconTwitter.vue';
+import HackerNewsIcon from '@/components/icons/share/IconHackerNews.vue';
+import LinkedInIcon from '@/components/icons/share/IconLinkedIn.vue';
+import TelegramIcon from '@/components/icons/share/IconTelegram.vue';
+import WhatsAppIcon from '@/components/icons/share/IconWhatsApp.vue';
+import EmailIcon from '@/components/icons/share/IconEmail.vue';
 
-import imageIcon from '@poc/assets/icon-image-tonal.svg';
-import videoIcon from '@poc/assets/icon-video-tonal.svg';
-import audioIcon from '@poc/assets/icon-audio-tonal.svg';
-import textIcon from '@poc/assets/icon-text-tonal.svg';
-import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';
-import zipIcon from '@poc/assets/icon-zip-tonal.svg';
-import spreadsheetIcon from '@poc/assets/icon-spreadsheet-tonal.svg';
-import folderIcon from '@poc/assets/icon-folder-tonal.svg';
-import fileIcon from '@poc/assets/icon-file-tonal.svg';
+import imageIcon from '@/assets/icon-image-tonal.svg';
+import videoIcon from '@/assets/icon-video-tonal.svg';
+import audioIcon from '@/assets/icon-audio-tonal.svg';
+import textIcon from '@/assets/icon-text-tonal.svg';
+import pdfIcon from '@/assets/icon-pdf-tonal.svg';
+import zipIcon from '@/assets/icon-zip-tonal.svg';
+import spreadsheetIcon from '@/assets/icon-spreadsheet-tonal.svg';
+import folderIcon from '@/assets/icon-folder-tonal.svg';
+import fileIcon from '@/assets/icon-file-tonal.svg';
 
 export enum ShareOptions {
     Reddit = 'Reddit',
