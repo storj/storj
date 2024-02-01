@@ -125,6 +125,10 @@ func TestService(t *testing.T) {
 				segments, err := sat.Metabase.DB.TestingAllSegments(userCtx3)
 				require.NoError(t, err)
 
+				service.TestSetNow(func() time.Time {
+					return time.Date(now.Year(), now.Month(), 4, 0, 0, 0, 0, time.UTC)
+				})
+
 				projects, err = service.GetUsersProjects(userCtx3)
 				require.NoError(t, err)
 				require.Equal(t, settledAmount, projects[0].BandwidthUsed)
