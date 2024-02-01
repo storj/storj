@@ -193,6 +193,7 @@ const model = computed<boolean>({
 
 const emit = defineEmits<{
     'update:modelValue': [value: boolean];
+    'passphraseCreated': [];
 }>();
 
 const projectsStore = useProjectsStore();
@@ -261,7 +262,7 @@ function onNextClick(): void {
         step.value = next;
         return;
     }
-
+    emit('passphraseCreated');
     model.value = false;
 }
 

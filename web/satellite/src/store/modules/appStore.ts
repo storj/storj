@@ -101,6 +101,7 @@ export const useAppStore = defineStore('app', () => {
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
         state.pathBeforeAccountPage = null;
+        state.isAccountSetupDialogShown = false;
     }
 
     return {

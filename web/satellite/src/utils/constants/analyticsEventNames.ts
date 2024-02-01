@@ -104,4 +104,5 @@ export enum AnalyticsErrorEventSource {
     REMOVE_CC_MODAL = 'Remove credit card modal',
     EDIT_DEFAULT_CC_MODAL = 'Edit default credit card modal',
     ONBOARDING_FORM = 'Onboarding form',
+    ONBOARDING_STEPPER = 'Onboarding stepper',
 }

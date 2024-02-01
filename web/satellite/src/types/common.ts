@@ -30,6 +30,12 @@ export class PricingPlanInfo {
     ) {}
 }
 
+export interface OnboardingInfo {
+    accessText?: string;
+    accessBtnText?: string;
+    accessTitle?: string;
+}
+
 export enum PricingPlanType {
     FREE = 'free',
     PARTNER = 'partner',

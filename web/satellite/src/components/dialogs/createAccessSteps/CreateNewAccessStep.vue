@@ -125,11 +125,14 @@ const nameRules: ValidationRule<string>[] = [
     v => !agStore.state.allAGNames.includes(v) || 'This name is already in use',
 ];
 
-defineExpose<DialogStepComponent>({
+defineExpose<DialogStepComponent | { setTypes: (newTypes: AccessType[]) => void }>({
     title: 'New Access Key',
     validate: () => {
         form.value?.validate();
         return !!form.value?.isValid;
+    },
+    setTypes: (newTypes: AccessType[]) => {
+        types.value = newTypes;
     },
 });
 </script>

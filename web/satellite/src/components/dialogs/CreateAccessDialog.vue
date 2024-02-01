@@ -262,6 +262,7 @@ const model = computed<boolean>({
 
 const emit = defineEmits<{
     'update:modelValue': [value: boolean];
+    'accessCreated': [];
 }>();
 
 const bucketsStore = useBucketsStore();
@@ -421,6 +422,7 @@ async function nextStep(): Promise<void> {
 
     const next = info.next.value;
     if (!next) {
+        emit('accessCreated');
         model.value = false;
         return;
     }
@@ -564,6 +566,23 @@ async function createEdgeCredentials(): Promise<void> {
 }
 
 /**
+ * Set the types of access to be created
+ */
+function setTypes(newTypes: AccessType[]) {
+    const createStepRef = stepInfos[CreateAccessStep.CreateNewAccess].ref;
+    const unwatch = watch(createStepRef, value => {
+        if (!value) {
+            return;
+        }
+        unwatch();
+        if (value && typeof value['setTypes'] === 'function') {
+            const setType = value['setTypes'] as (newTypes: AccessType[]) => void;
+            setType(newTypes);
+        }
+    });
+}
+
+/**
  * Executes when the dialog's inner content has been added or removed.
  * If removed, refs are reset back to their initial values.
  * Otherwise, data is fetched and the current step is initialized.
@@ -598,6 +617,8 @@ watch(innerContent, async (comp: Component): Promise<void> => {
 
     stepInfos[step.value].ref.value?.onEnter?.();
 });
+
+defineExpose({ setTypes });
 </script>
 
 <style scoped lang="scss">
