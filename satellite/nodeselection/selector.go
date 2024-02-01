@@ -4,6 +4,8 @@
 package nodeselection
 
 import (
+	mathrand "math/rand"
+
 	"storj.io/common/storj"
 )
 
@@ -111,6 +113,17 @@ func included(alreadySelected []storj.NodeID, nodes ...*SelectedNode) bool {
 	return false
 }
 
+func includedInNodes(alreadySelected []*SelectedNode, nodes ...*SelectedNode) bool {
+	for _, node := range nodes {
+		for _, as := range alreadySelected {
+			if node.ID == as.ID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // RandomSelector selects any nodes with equal chance.
 func RandomSelector() NodeSelectorInit {
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
@@ -156,5 +169,60 @@ func FilterSelector(loadTimeFilter NodeFilter, init NodeSelectorInit) NodeSelect
 			}
 		}
 		return init(filtered, selectionFilter)
+	}
+}
+
+// BalancedGroupBasedSelector first selects a group with equal chance (like last_net) and choose one single node randomly. .
+// One group can be tried multiple times, and if the node is already selected, it will be ignored.
+func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
+	rng := mathrand.New(mathrand.NewSource(mathrand.Int63()))
+
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		nodeByAttribute := make(map[string][]*SelectedNode)
+		for _, node := range nodes {
+			if filter != nil && !filter.Match(node) {
+				continue
+			}
+			a := attribute(*node)
+			if _, found := nodeByAttribute[a]; !found {
+				nodeByAttribute[a] = make([]*SelectedNode, 0)
+			}
+			nodeByAttribute[a] = append(nodeByAttribute[a], node)
+		}
+
+		var groupedNodes [][]*SelectedNode
+		for _, nodeList := range nodeByAttribute {
+			groupedNodes = append(groupedNodes, nodeList)
+		}
+
+		return func(n int, alreadySelected []storj.NodeID) (selected []*SelectedNode, err error) {
+			if n == 0 {
+				return selected, nil
+			}
+
+			// upper limit: we should find at least one node in each full group loop.
+			// Ideally we find len(group) in each iteration, so we stop earlier
+			for i := 0; i < n; i++ {
+				r := NewRandomOrder(len(groupedNodes))
+
+				// check all the groups in random order
+				for r.Next() {
+					nodes := groupedNodes[r.At()]
+
+					// this group has one chance to give a candidate
+					randomOne := nodes[rng.Intn(len(nodes))].Clone()
+
+					if !included(alreadySelected, randomOne) && !includedInNodes(selected, randomOne) {
+						selected = append(selected, randomOne)
+					}
+
+					if len(selected) >= n {
+						return selected, nil
+					}
+				}
+
+			}
+			return nil, nil
+		}
 	}
 }

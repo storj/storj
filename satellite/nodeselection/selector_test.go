@@ -326,3 +326,51 @@ func TestFilterSelector(t *testing.T) {
 		}
 	}
 }
+
+func TestBalancedSelector(t *testing.T) {
+	attribute, err := nodeselection.CreateNodeAttribute("tag:owner")
+	require.NoError(t, err)
+
+	ownerCounts := map[string]int{"A": 3, "B": 30, "C": 30, "D": 5}
+	var nodes []*nodeselection.SelectedNode
+
+	idIndex := 0
+	for owner, count := range ownerCounts {
+		for i := 0; i < count; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testidentity.MustPregeneratedIdentity(idIndex, storj.LatestIDVersion()).ID,
+				Tags: nodeselection.NodeTags{
+					{
+						Name:  "owner",
+						Value: []byte(owner),
+					},
+				},
+			})
+			idIndex++
+		}
+	}
+
+	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+
+	badSelection := 0
+	for i := 0; i < 1000; i++ {
+		selectedNodes, err := selector(10, nil)
+		require.NoError(t, err)
+
+		require.Len(t, selectedNodes, 10)
+
+		histogram := map[string]int{}
+		for _, node := range selectedNodes {
+			histogram[attribute(*node)] = histogram[attribute(*node)] + 1
+		}
+		for _, c := range histogram {
+			if c > 5 {
+				badSelection++
+				break
+			}
+		}
+	}
+	// there is a very-very low chance to have wrong selection if we select one from A
+	// and all the other random selection will select the same node again
+	require.True(t, badSelection < 5)
+}
