@@ -101,7 +101,7 @@ func (opts *ListObjects) getSQLQuery() string {
 	} else {
 		if opts.AllVersions {
 			indexFields = `
-				DISTINCT ON (entry_key, entry_version)
+				DISTINCT ON (project_id, bucket_name, entry_key, entry_version)
 				(CASE
 					WHEN position('/' IN substring(object_key from $7)) <> 0
 					THEN substring(substring(object_key from $7) from 0 for (position('/' IN substring(object_key from $7)) +1))
@@ -117,7 +117,7 @@ func (opts *ListObjects) getSQLQuery() string {
 				position('/' IN substring(object_key from $7)) <> 0 AS is_prefix`
 		} else {
 			indexFields = `
-				DISTINCT ON (entry_key)
+				DISTINCT ON (project_id, bucket_name, entry_key)
 				(CASE
 					WHEN position('/' IN substring(object_key from $7)) <> 0
 					THEN substring(substring(object_key from $7) from 0 for (position('/' IN substring(object_key from $7)) +1))
@@ -143,10 +143,6 @@ func (opts *ListObjects) getSQLQuery() string {
 		`
 
 	case !opts.Pending && !opts.AllVersions:
-		// The following subquery for the highest-version can also be implemented via
-		//     SELECT MAX(sub.version) FROM objects ...
-		// however, that seems slower on benchmarks.
-
 		// query committed objects where the latest is not a delete marker
 		return `SELECT ` + indexFields + opts.selectedFields() + `
 			FROM objects main
@@ -156,14 +152,11 @@ func (opts *ListObjects) getSQLQuery() string {
 				AND status IN ` + statusesCommitted + `
 				AND (expires_at IS NULL OR expires_at > now())
 				AND version = (
-					SELECT sub.version
+					SELECT MAX(sub.version)
 					FROM objects sub
-					WHERE
-						(sub.project_id, sub.bucket_name, sub.object_key) = (main.project_id, main.bucket_name, main.object_key)
+					WHERE (sub.project_id, sub.bucket_name, sub.object_key) = (main.project_id, main.bucket_name, main.object_key)
 						AND status <> ` + statusPending + `
 						AND (expires_at IS NULL OR expires_at > now())
-					ORDER BY version DESC
-					LIMIT 1
 				)
 			ORDER BY ` + opts.orderBy() + `
 			LIMIT $6
@@ -189,9 +182,9 @@ func (opts *ListObjects) stopCondition() string {
 
 func (opts *ListObjects) orderBy() string {
 	if opts.Pending {
-		return "entry_key ASC, entry_version ASC"
+		return "project_id ASC, bucket_name ASC, entry_key ASC, entry_version ASC"
 	} else {
-		return "entry_key ASC, entry_version DESC"
+		return "project_id ASC, bucket_name ASC, entry_key ASC, entry_version DESC"
 	}
 }
 
