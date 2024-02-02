@@ -120,7 +120,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <login2-f-a
+                <mfa-component
                     v-else
                     v-model="useOTP"
                     v-model:error="isMFAError"
@@ -168,7 +168,7 @@ import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ROUTES } from '@poc/router';
 
-import Login2FA from '@poc/views/Login2FA.vue';
+import MfaComponent from '@poc/views/MfaComponent.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 
 const auth = new AuthHttpApi();
@@ -235,7 +235,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + '/login';
+            window.location.href = satellite.address + ROUTES.Login.path;
         }
     },
 });

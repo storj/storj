@@ -9,7 +9,7 @@
                 <v-otp-input
                     :model-value="otp"
                     :error="error"
-                    :loading="loading"
+                    :disabled="loading"
                     autofocus
                     class="my-2"
                     maxlength="6"
@@ -19,6 +19,7 @@
 
             <v-btn
                 :disabled="otp.length < 6"
+                :loading="loading"
                 color="primary"
                 block
                 @click="verifyCode()"
@@ -41,7 +42,7 @@
                 <v-text-field
                     :model-value="recovery"
                     :error="error"
-                    :loading="loading"
+                    :disabled="loading"
                     :rules="[RequiredRule]"
                     label="Recovery Code"
                     class="mt-5"
@@ -50,8 +51,9 @@
                     @update:modelValue="value => onValueChange(value)"
                 />
                 <v-btn
-                    color="primary"
                     :disabled="!formValid"
+                    :loading="loading"
+                    color="primary"
                     size="large"
                     block
                     @click="verifyCode()"
@@ -121,10 +123,14 @@ function verifyCode() {
 
 function onValueChange(value: string) {
     if (model.value) {
-        emit('update:otp', value);
         if (props.recovery) {
             emit('update:recovery', '');
         }
+        const val = value.slice(0, 6);
+        if (isNaN(+val)) {
+            return;
+        }
+        emit('update:otp', val);
     } else {
         emit('update:recovery', value);
         if (props.otp) {

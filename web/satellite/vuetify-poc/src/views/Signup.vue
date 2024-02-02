@@ -400,7 +400,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + '/signup';
+            window.location.href = satellite.address + ROUTES.Signup.path;
         }
     },
 });
@@ -516,7 +516,7 @@ async function signup(): Promise<void> {
             const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
-            const altRoute = `${window.location.origin}${configStore.optionalV2Path}/${nonBraveSuccessPath}`;
+            const altRoute = `${window.location.origin}/${nonBraveSuccessPath}`;
             await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = altRoute;
         } else {
             confirmCode.value = true;

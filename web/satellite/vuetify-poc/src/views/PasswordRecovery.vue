@@ -65,7 +65,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <login2-f-a
+                <mfa-component
                     v-else
                     v-model="useOTP"
                     v-model:error="isMFAError"
@@ -94,7 +94,7 @@ import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { ROUTES } from '@poc/router';
 
-import Login2FA from '@poc/views/Login2FA.vue';
+import MfaComponent from '@poc/views/MfaComponent.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@poc/components/PasswordStrength.vue';
 
