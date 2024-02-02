@@ -551,11 +551,6 @@ onBeforeMount(async () => {
         try {
             const config = (await import('@/views/registration/registrationViewConfig.json')).default;
             viewConfig.value = config[partner.value];
-
-            // Optionally handle the case where there is no configuration for the given partner
-            if (!viewConfig.value) {
-                notify.error('No configuration found for the specified partner.');
-            }
         } catch (e) {
         // Handle errors, such as a missing configuration file
             notify.error('No configuration file for registration page.');
