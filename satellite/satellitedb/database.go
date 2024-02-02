@@ -14,6 +14,7 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/lrucache"
 	"storj.io/common/tagsql"
+	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -131,7 +132,10 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
 	}
-	log.Debug("Connected to:", zap.String("db source", source))
+
+	if log.Level() == zap.DebugLevel {
+		log.Debug("Connected to:", zap.String("db source", logging.Redacted(source)))
+	}
 
 	name := "satellitedb"
 	if override != "" {

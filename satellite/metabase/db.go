@@ -20,6 +20,7 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/tagsql"
+	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"
 )
 
@@ -91,7 +92,9 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	}
 	db.aliasCache = NewNodeAliasCache(db)
 
-	log.Debug("Connected", zap.String("db source", connstr))
+	if log.Level() == zap.DebugLevel {
+		log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)))
+	}
 
 	return db, nil
 }
