@@ -306,6 +306,13 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		cmd.Ctx = ctx
 		peer.Storage2.LazyFileWalker.TestingSetGCCmd(cmd)
 	}
+	{
+		// set up the trash cleanup lazyfilewalker filewalker
+		cmd := internalcmd.NewTrashFilewalkerCmd()
+		cmd.Logger = log.Named("trash-filewalker")
+		cmd.Ctx = ctx
+		peer.Storage2.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
+	}
 
 	return &StorageNode{
 		Name:   prefix,

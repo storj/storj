@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Storj Labs, Inc.
+// Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package internalcmd
@@ -18,19 +18,19 @@ import (
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
-// NewUsedSpaceFilewalkerCmd creates a new cobra command for running used-space calculation filewalker.
-func NewUsedSpaceFilewalkerCmd() *LazyFilewalkerCmd {
+// NewTrashFilewalkerCmd creates a new cobra command for running a trash cleanup filewalker.
+func NewTrashFilewalkerCmd() *LazyFilewalkerCmd {
 	var cfg FilewalkerCfg
 	var runOpts RunOptions
 
 	cmd := &cobra.Command{
-		Use:   lazyfilewalker.UsedSpaceFilewalkerCmdName,
-		Short: "An internal subcommand used to run used-space calculation filewalker as a separate subprocess with lower IO priority",
+		Use:   lazyfilewalker.TrashCleanupFilewalkerCmdName,
+		Short: "An internal subcommand used to run a trash cleanup filewalker as a separate subprocess with lower IO priority",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runOpts.normalize(cmd)
 			runOpts.config = &cfg
 
-			return usedSpaceCmdRun(&runOpts)
+			return trashCmdRun(&runOpts)
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: true,
@@ -44,8 +44,8 @@ func NewUsedSpaceFilewalkerCmd() *LazyFilewalkerCmd {
 	return NewLazyFilewalkerCmd(cmd, &runOpts)
 }
 
-// Run runs the UsedSpaceLazyFileWalker.
-func usedSpaceCmdRun(opts *RunOptions) (err error) {
+// trashCmdRun runs the TrashLazyFileWalker.
+func trashCmdRun(opts *RunOptions) (err error) {
 	if opts.config.LowerIOPriority {
 		if runtime.GOOS == "linux" {
 			// Pin the current goroutine to the current OS thread, so we can set the IO priority
@@ -61,20 +61,25 @@ func usedSpaceCmdRun(opts *RunOptions) (err error) {
 			return err
 		}
 	}
+
 	log := opts.Logger
 
 	// Decode the data struct received from the main process
-	var req lazyfilewalker.UsedSpaceRequest
+	var req lazyfilewalker.TrashCleanupRequest
 	if err = json.NewDecoder(opts.stdin).Decode(&req); err != nil {
 		return errs.New("Error decoding data from stdin: %v", err)
 	}
 
-	if req.SatelliteID.IsZero() {
+	// Validate the request data
+	switch {
+	case req.SatelliteID.IsZero():
 		return errs.New("SatelliteID is required")
+	case req.DateBefore.IsZero():
+		return errs.New("DateBefore is required")
 	}
 
-	// We still need the DB in this case because we still have to deal with v0 pieces.
-	// Once we drop support for v0 pieces, we can remove this.
+	log.Info("trash-filewalker started", zap.Time("dateBefore", req.DateBefore))
+
 	db, err := storagenodedb.OpenExisting(opts.Ctx, log.Named("db"), opts.config.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storage node: %v", err)
@@ -84,16 +89,18 @@ func usedSpaceCmdRun(opts *RunOptions) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	log.Info("used-space-filewalker started")
-
 	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo())
-	total, contentSize, err := filewalker.WalkAndComputeSpaceUsedBySatellite(opts.Ctx, req.SatelliteID)
+	bytesDeleted, keysDeleted, err := filewalker.WalkCleanupTrash(opts.Ctx, req.SatelliteID, req.DateBefore)
 	if err != nil {
 		return err
 	}
-	resp := lazyfilewalker.UsedSpaceResponse{PiecesTotal: total, PiecesContentSize: contentSize}
 
-	log.Info("used-space-filewalker completed", zap.Int64("piecesTotal", total), zap.Int64("piecesContentSize", contentSize))
+	resp := lazyfilewalker.TrashCleanupResponse{
+		BytesDeleted: bytesDeleted,
+		KeysDeleted:  keysDeleted,
+	}
+
+	log.Info("trash-filewalker completed", zap.Int64("bytesDeleted", bytesDeleted), zap.Int("numKeysDeleted", len(keysDeleted)))
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(opts.stdout).Encode(resp)

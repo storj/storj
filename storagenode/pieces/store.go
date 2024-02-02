@@ -324,10 +324,14 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 // It returns nil if the piece was restored, or an error if the piece was not in the trash.
 func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.blobs.TryRestoreTrashBlob(ctx, blobstore.BlobRef{
+	err = store.blobs.TryRestoreTrashBlob(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}))
+	})
+	if os.IsNotExist(err) {
+		return err
+	}
+	return Error.Wrap(err)
 }
 
 // Delete deletes the specified piece.
@@ -414,20 +418,30 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, deletedIDs, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for _, deletedID := range deletedIDs {
-		pieceID, pieceIDErr := storj.PieceIDFromBytes(deletedID)
-		if pieceIDErr != nil {
-			return Error.Wrap(pieceIDErr)
+	var errList errs.Group
+	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+		_, deletedIDs, err := store.lazyFilewalker.WalkCleanupTrash(ctx, satelliteID, trashedBefore)
+		errList.Add(err)
+		// the lazyfilewalker has already transmitted PieceIDs; we don't have to parse them
+		for _, deletedID := range deletedIDs {
+			_, err := store.expirationInfo.DeleteExpiration(ctx, satelliteID, deletedID)
+			errList.Add(err)
 		}
-		_, deleteErr := store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
-		err = errs.Combine(err, deleteErr)
+	} else {
+		_, deletedIDs, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
+		errList.Add(err)
+		// we have this answer directly from the blobstore, and must translate the blob keys to PieceIDs
+		for _, deletedID := range deletedIDs {
+			pieceID, err := storj.PieceIDFromBytes(deletedID)
+			if err != nil {
+				store.log.Error("stored blob has invalid PieceID", zap.ByteString("deletedKey", deletedID), zap.Error(err))
+				continue
+			}
+			_, err = store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
+			errList.Add(err)
+		}
 	}
-	return Error.Wrap(err)
+	return Error.Wrap(errList.Err())
 }
 
 // RestoreTrash restores all pieces in the trash.

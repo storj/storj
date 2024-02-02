@@ -21,6 +21,8 @@ const (
 	UsedSpaceFilewalkerCmdName = "used-space-filewalker"
 	// GCFilewalkerCmdName is the name of the gc-filewalker subcommand.
 	GCFilewalkerCmdName = "gc-filewalker"
+	// TrashCleanupFilewalkerCmdName is the name of the trash-cleanup-filewalker subcommand.
+	TrashCleanupFilewalkerCmdName = "trash-cleanup-filewalker"
 )
 
 var (
@@ -36,21 +38,24 @@ var (
 type Supervisor struct {
 	log *zap.Logger
 
-	executable    string
-	gcArgs        []string
-	usedSpaceArgs []string
+	executable       string
+	gcArgs           []string
+	usedSpaceArgs    []string
+	trashCleanupArgs []string
 
-	testingGCCmd        execwrapper.Command
-	testingUsedSpaceCmd execwrapper.Command
+	testingGCCmd           execwrapper.Command
+	testingUsedSpaceCmd    execwrapper.Command
+	testingTrashCleanupCmd execwrapper.Command
 }
 
 // NewSupervisor creates a new lazy filewalker Supervisor.
 func NewSupervisor(log *zap.Logger, config Config, executable string) *Supervisor {
 	return &Supervisor{
-		log:           log,
-		gcArgs:        append([]string{GCFilewalkerCmdName}, config.Args()...),
-		usedSpaceArgs: append([]string{UsedSpaceFilewalkerCmdName}, config.Args()...),
-		executable:    executable,
+		log:              log,
+		gcArgs:           append([]string{GCFilewalkerCmdName}, config.Args()...),
+		usedSpaceArgs:    append([]string{UsedSpaceFilewalkerCmdName}, config.Args()...),
+		trashCleanupArgs: append([]string{TrashCleanupFilewalkerCmdName}, config.Args()...),
+		executable:       executable,
 	}
 }
 
@@ -64,6 +69,12 @@ func (fw *Supervisor) TestingSetGCCmd(cmd execwrapper.Command) {
 // The cmd acts as a replacement for the subprocess.
 func (fw *Supervisor) TestingSetUsedSpaceCmd(cmd execwrapper.Command) {
 	fw.testingUsedSpaceCmd = cmd
+}
+
+// TestingSetTrashCleanupCmd sets the command for the trash cleanup filewalker subprocess.
+// The cmd acts as a replacement for the subprocess.
+func (fw *Supervisor) TestingSetTrashCleanupCmd(cmd execwrapper.Command) {
+	fw.testingTrashCleanupCmd = cmd
 }
 
 // UsedSpaceRequest is the request struct for the used-space-filewalker process.
@@ -89,6 +100,18 @@ type GCFilewalkerResponse struct {
 	PieceIDs           []storj.PieceID `json:"pieceIDs"`
 	PiecesSkippedCount int64           `json:"piecesSkippedCount"`
 	PiecesCount        int64           `json:"piecesCount"`
+}
+
+// TrashCleanupRequest is the request struct for the trash-cleanup-filewalker process.
+type TrashCleanupRequest struct {
+	SatelliteID storj.NodeID `json:"satelliteID"`
+	DateBefore  time.Time    `json:"dateBefore"`
+}
+
+// TrashCleanupResponse is the response struct for the trash-cleanup-filewalker process.
+type TrashCleanupResponse struct {
+	BytesDeleted int64           `json:"bytesDeleted"`
+	KeysDeleted  []storj.PieceID `json:"keysDeleted"`
 }
 
 // WalkAndComputeSpaceUsedBySatellite returns the total used space by satellite.
@@ -133,4 +156,24 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	}
 
 	return resp.PieceIDs, resp.PiecesCount, resp.PiecesSkippedCount, nil
+}
+
+// WalkCleanupTrash deletes per-day trash directories which are older than the given time.
+func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storj.PieceID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	req := TrashCleanupRequest{
+		SatelliteID: satelliteID,
+		DateBefore:  dateBefore,
+	}
+	var resp TrashCleanupResponse
+
+	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
+
+	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, req, &resp)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return resp.BytesDeleted, resp.KeysDeleted, nil
 }

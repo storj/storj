@@ -175,7 +175,11 @@ func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (key
 // in the trash or could not be restored.
 func (store *blobStore) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.dir.TryRestoreTrashBlob(ctx, ref))
+	err = store.dir.TryRestoreTrashBlob(ctx, ref)
+	if os.IsNotExist(err) {
+		return err
+	}
+	return Error.Wrap(err)
 }
 
 // EmptyTrash removes files in trash that have been there since before trashedBefore.
