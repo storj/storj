@@ -119,8 +119,7 @@ func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref blobstore
 
 // Delete deletes blobs with the specified ref.
 //
-// It doesn't return an error if the blob isn't found for any reason or it cannot
-// be deleted at this moment and it's delayed.
+// It doesn't return an error if the blob isn't found for any reason.
 func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.Delete(ctx, ref)
@@ -174,13 +173,6 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 	defer mon.Task()(&ctx)(&err)
 	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
 	return bytesEmptied, keys, Error.Wrap(err)
-}
-
-// GarbageCollect tries to delete any files that haven't yet been deleted.
-func (store *blobStore) GarbageCollect(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	err = store.dir.GarbageCollect(ctx)
-	return Error.Wrap(err)
 }
 
 // Create creates a new blob that can be written.

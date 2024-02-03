@@ -11,11 +11,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -43,9 +41,7 @@ type Dir struct {
 	log  *zap.Logger
 	path string
 
-	mu          sync.Mutex
-	deleteQueue []string
-	trashnow    func() time.Time // the function used by trash to determine "now"
+	trashnow func() time.Time // the function used by trash to determine "now"
 }
 
 // OpenDir opens existing folder for storing blobs.
@@ -64,7 +60,6 @@ func OpenDir(log *zap.Logger, path string) (*Dir, error) {
 	return dir, errs.Combine(
 		stat(dir.blobsdir()),
 		stat(dir.tempdir()),
-		stat(dir.garbagedir()),
 		stat(dir.trashdir()),
 	)
 }
@@ -80,7 +75,6 @@ func NewDir(log *zap.Logger, path string) (*Dir, error) {
 	return dir, errs.Combine(
 		os.MkdirAll(dir.blobsdir(), dirPermission),
 		os.MkdirAll(dir.tempdir(), dirPermission),
-		os.MkdirAll(dir.garbagedir(), dirPermission),
 		os.MkdirAll(dir.trashdir(), dirPermission),
 	)
 }
@@ -93,9 +87,6 @@ func (dir *Dir) blobsdir() string { return filepath.Join(dir.path, "blobs") }
 
 // tempdir is used for temp files prior to being moved into blobsdir.
 func (dir *Dir) tempdir() string { return filepath.Join(dir.path, "temp") }
-
-// garbagedir contains files that failed to delete but should be deleted.
-func (dir *Dir) garbagedir() string { return filepath.Join(dir.path, "garbage") }
 
 // trashdir contains files staged for deletion for a period of time.
 func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
@@ -204,16 +195,6 @@ func blobPathForFormatVersion(path string, formatVersion blobstore.FormatVersion
 		return path + v1PieceFileSuffix
 	}
 	return path + unknownPieceFileSuffix
-}
-
-// blobToGarbagePath converts a blob reference to a filepath in transient
-// storage.  The files in garbage are deleted on an interval (in case the
-// initial deletion didn't work for some reason).
-func (dir *Dir) blobToGarbagePath(ref blobstore.BlobRef) string {
-	var name []byte
-	name = append(name, ref.Namespace...)
-	name = append(name, ref.Key...)
-	return filepath.Join(dir.garbagedir(), pathEncoding.EncodeToString(name))
 }
 
 // Commit commits the temporary file to permanent storage.
@@ -570,20 +551,14 @@ func (dir *Dir) iterateStorageFormatVersions(ctx context.Context, ref blobstore.
 
 // Delete deletes blobs with the specified ref (in all supported storage formats).
 //
-// It doesn't return an error if the blob is not found for any reason or it
-// cannot be deleted at this moment and it's delayed.
+// It doesn't return an error if the blob is not found for any reason.
 func (dir *Dir) Delete(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.iterateStorageFormatVersions(ctx, ref, dir.DeleteWithStorageFormat)
 }
 
 // DeleteWithStorageFormat deletes the blob with the specified ref for one
-// specific format version. The method tries the following strategies, in order
-// of preference until one succeeds:
-//
-// * moves the blob to garbage dir.
-// * directly deletes the blob.
-// * push the blobs to queue for retrying later.
+// specific format version.
 //
 // It doesn't return an error if the piece isn't found for any reason.
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
@@ -600,37 +575,15 @@ func (dir *Dir) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
 func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Ensure garbage dir exists so that we know any os.IsNotExist errors below
-	// are not from a missing garbage dir
-	_, err = os.Stat(dir.garbagedir())
-	if err != nil {
-		return err
-	}
-
 	pathBase, err := dir.refToDirPath(ref, path)
 	if err != nil {
 		return err
 	}
 
-	garbagePath := dir.blobToGarbagePath(ref)
 	verPath := blobPathForFormatVersion(pathBase, formatVer)
 
-	// move to garbage folder, this is allowed for some OS-es
-	moveErr := rename(verPath, garbagePath)
-	if os.IsNotExist(moveErr) {
-		// no piece at that path; either it has a different storage format
-		// version or there was a concurrent delete. (this function is expected
-		// by callers to return a nil error in the case of concurrent deletes.)
-		return nil
-	}
-	if moveErr != nil {
-		// piece could not be moved into the garbage dir; we'll try removing it
-		// directly
-		garbagePath = verPath
-	}
-
 	// try removing the file
-	err = os.Remove(garbagePath)
+	err = os.Remove(verPath)
 
 	// ignore concurrent deletes
 	if os.IsNotExist(err) {
@@ -639,19 +592,6 @@ func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, 
 		return nil
 	}
 
-	// the remove may have failed because of an open file handle. put it in a
-	// queue to be retried later.
-	if err != nil {
-		dir.mu.Lock()
-		dir.deleteQueue = append(dir.deleteQueue, garbagePath)
-		dir.mu.Unlock()
-		mon.Event("delete_deferred_to_queue")
-	}
-
-	// ignore is-busy errors, they are still in the queue but no need to notify
-	if isBusy(err) {
-		err = nil
-	}
 	return err
 }
 
@@ -664,38 +604,6 @@ func (dir *Dir) deleteNamespace(ctx context.Context, path string, ref []byte) (e
 
 	err = os.RemoveAll(folderPath)
 	return err
-}
-
-// GarbageCollect collects files that are pending deletion.
-func (dir *Dir) GarbageCollect(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	offset := int(math.MaxInt32)
-	// limited deletion loop to avoid blocking `Delete` for too long
-	for offset >= 0 {
-		dir.mu.Lock()
-		limit := 100
-		if offset >= len(dir.deleteQueue) {
-			offset = len(dir.deleteQueue) - 1
-		}
-		for offset >= 0 && limit > 0 {
-			path := dir.deleteQueue[offset]
-			err := os.Remove(path)
-			if os.IsNotExist(err) {
-				err = nil
-			}
-			if err == nil {
-				dir.deleteQueue = append(dir.deleteQueue[:offset], dir.deleteQueue[offset+1:]...)
-			}
-
-			offset--
-			limit--
-		}
-		dir.mu.Unlock()
-	}
-
-	// remove anything left in the garbagedir
-	_ = removeAllContent(ctx, dir.garbagedir())
-	return nil
 }
 
 const nameBatchSize = 1024
@@ -846,29 +754,6 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-		}
-	}
-}
-
-// removeAllContent deletes everything in the folder.
-func removeAllContent(ctx context.Context, path string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	dir, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-
-	for {
-		files, err := dir.Readdirnames(100)
-		for _, file := range files {
-			// the file might be still in use, so ignore the error
-			_ = os.RemoveAll(filepath.Join(path, file))
-		}
-		if errors.Is(err, io.EOF) || len(files) == 0 {
-			return dir.Close()
-		}
-		if err != nil {
-			return err
 		}
 	}
 }
