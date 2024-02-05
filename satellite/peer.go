@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/durability"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
@@ -208,6 +209,8 @@ type Config struct {
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config
+
+	Emission emission.Config
 
 	AccountFreeze accountfreeze.Config
 

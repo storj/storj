@@ -547,6 +547,78 @@ contact.external-address: ""
 # amount of time before sending second reminder to users who need to verify their email
 # email-reminders.second-verification-reminder: 120h0m0s
 
+# carbon from power per year of operations, in kg/TB-year
+# emission.carbon-from-drive-powering: 15.9
+
+# amount of carbon emission per unit of energy, in kg/kW-hours
+# emission.co2per-energy: 0.2826
+
+# expansion factor of corporate data center networks
+# emission.corporate-dc-expansion-factor: 4
+
+# region count of corporate data center networks
+# emission.corporate-dc-region-count: 2
+
+# utilization fraction of corporate data center networks, in fraction
+# emission.corporate-dc-utilization-fraction: 0.4
+
+# amount of expanded data, in TB
+# emission.expanded-data: 48689
+
+# extended hard drive life period, in years
+# emission.extended-drive-life: 6
+
+# expansion factor of hyperscaler networks
+# emission.hyperscaler-expansion-factor: 3
+
+# region count of hyperscaler networks
+# emission.hyperscaler-region-count: 2
+
+# utilization fraction of hyperscaler networks, in fraction
+# emission.hyperscaler-utilization-fraction: 0.75
+
+# carbon footprint of producing 1TB HDD, in kg/TB
+# emission.new-drive-embodied-carbon: 20
+
+# amount of repaired data, in TB
+# emission.repaired-data: 667
+
+# shortened hard drive life period, in years
+# emission.shortened-drive-life: 3
+
+# standard hard drive life period, in years
+# emission.standard-drive-life: 4
+
+# amount of carbon emission from storj CRDB, in kg
+# emission.storj-crdb-carbon: 2650
+
+# amount of carbon emission from storj Edge, in kg
+# emission.storj-edge-carbon: 10924
+
+# amount of expanded network storage, in TB
+# emission.storj-expanded-network-storage: 18933
+
+# expansion factor of storj network
+# emission.storj-expansion-factor: 2.7
+
+# amount of carbon emission from storj GCP, in kg
+# emission.storj-gcp-carbon: 3600
+
+# network weighting of new nodes, in fraction
+# emission.storj-new-network-weighting: 0.582
+
+# region count of storj network
+# emission.storj-region-count: 1
+
+# network weighting of already provisioned, powered drives, in fraction
+# emission.storj-standard-network-weighting: 0.21
+
+# utilization fraction of storj network, in fraction
+# emission.storj-utilization-fraction: 0.85
+
+# energy needed to write 1GB of data, in W-hours/GB
+# emission.write-energy: 0.005
+
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 
