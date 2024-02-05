@@ -28,10 +28,10 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 		return blobstore.DiskInfo{TotalSpace: -1, AvailableSpace: -1}, err
 	}
 
-	reservedBlocks := stat.Bfree - stat.Bavail
 	// the Bsize size depends on the OS and unconvert gives a false-positive
-	totalSpace := int64(stat.Blocks-reservedBlocks) * int64(stat.Bsize) //nolint: unconvert
-	availableSpace := int64(stat.Bavail) * int64(stat.Bsize)            //nolint: unconvert
+	reservedBlocks := int64(stat.Bfree) - int64(stat.Bavail)
+	totalSpace := (int64(stat.Blocks) - reservedBlocks) * int64(stat.Bsize) //nolint: unconvert
+	availableSpace := int64(stat.Bavail) * int64(stat.Bsize)                //nolint: unconvert
 	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return blobstore.DiskInfo{
