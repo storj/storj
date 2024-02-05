@@ -36,7 +36,11 @@ var (
 	_ blobstore.Blobs = (*blobStore)(nil)
 )
 
-func monFileInTrash(namespace []byte) *monkit.Meter {
+// MonFileInTrash returns a monkit meter which counts the times a requested blob is
+// found in the trash. It is exported so that it can be activated from outside this
+// package for backwards compatibility. (It is no longer activated from inside this
+// package.)
+func MonFileInTrash(namespace []byte) *monkit.Meter {
 	return monStorage.Meter("open_file_in_trash", monkit.NewSeriesTag("namespace", hex.EncodeToString(namespace))) //mon:locked
 }
 

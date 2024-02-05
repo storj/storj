@@ -34,6 +34,7 @@ import (
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
@@ -680,16 +681,13 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		// continue serving the download request.
 		tryRestoreErr := endpoint.store.TryRestoreTrashPiece(ctx, limit.SatelliteId, limit.PieceId)
 		if tryRestoreErr != nil {
-			if !errs.Is(tryRestoreErr, fs.ErrNotExist) {
-				// file is not in trash, and we don't want to return a file rename error,
-				// so we return the original "file does not exist" error
-				tryRestoreErr = err
-			}
 			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
-			return rpcstatus.Wrap(rpcstatus.NotFound, tryRestoreErr)
+			// we want to return the original "file does not exist" error to the rpc client
+			return rpcstatus.Wrap(rpcstatus.NotFound, err)
 		}
 		restoredFromTrash = true
 		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String()), monkit.NewSeriesTag("piece_id", limit.PieceId.String())).Mark(1)
+		filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
 		log.Warn("file found in trash")
 
 		// try to open the file again
