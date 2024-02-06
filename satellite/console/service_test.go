@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -852,6 +853,41 @@ func TestService(t *testing.T) {
 			})
 			t.Run("ApplyCredit fails with unknown user", func(t *testing.T) {
 				require.Error(t, service.Payments().ApplyCredit(ctx, 1000, "test"))
+			})
+			t.Run("GetEmissionImpact", func(t *testing.T) {
+				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "emission test")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				// Getting project emission impact as a member should work
+				impact, err := service.GetEmissionImpact(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, impact)
+				require.EqualValues(t, emission.Impact{}, *impact)
+
+				// Getting project salt as a non-member should not work
+				impact, err = service.GetEmissionImpact(userCtx2, pr.ID)
+				require.Error(t, err)
+				require.Nil(t, impact)
+
+				err = sat.API.Accounting.ProjectUsage.AddProjectStorageUsage(userCtx1, pr.ID, (2 * memory.TB).Int64())
+				require.NoError(t, err)
+
+				now := time.Now().UTC()
+				service.TestSetNow(func() time.Time {
+					return now.Add(24 * time.Hour)
+				})
+
+				zeroValue := float64(0)
+
+				impact, err = service.GetEmissionImpact(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, impact)
+				require.Greater(t, impact.EstimatedKgCO2eStorj, zeroValue)
+				require.Greater(t, impact.EstimatedKgCO2eHyperscaler, zeroValue)
+				require.Greater(t, impact.EstimatedKgCO2eCorporateDC, zeroValue)
+				require.Greater(t, impact.EstimatedFractionSavingsAgainstCorporateDC, zeroValue)
+				require.Greater(t, impact.EstimatedFractionSavingsAgainstHyperscaler, zeroValue)
 			})
 		})
 }

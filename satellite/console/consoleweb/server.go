@@ -284,6 +284,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
 

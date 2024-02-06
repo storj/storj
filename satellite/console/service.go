@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -192,6 +193,7 @@ type Service struct {
 	tokens                     *consoleauth.Service
 	mailService                *mailservice.Service
 	accountFreezeService       *AccountFreezeService
+	emission                   *emission.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -220,7 +222,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -266,6 +268,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		tokens:                     tokens,
 		mailService:                mailService,
 		accountFreezeService:       accountFreezeService,
+		emission:                   emission,
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
 		maxProjectBuckets:          maxProjectBuckets,
@@ -1723,6 +1726,36 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 	}
 
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
+}
+
+// GetEmissionImpact is a method for querying project emission impact by id.
+func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (impact *emission.Impact, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get project emission impact", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, isMember.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	now := s.nowFn()
+	period := now.Sub(isMember.project.CreatedAt)
+	dataInTB := memory.Size(storageUsed).TB()
+
+	impact, err = s.emission.CalculateImpact(dataInTB, period)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return impact, nil
 }
 
 // GetUsersProjects is a method for querying all projects.

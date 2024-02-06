@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -569,6 +570,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.AccountFreeze,
 		)
 
+		emissionService := emission.NewService(config.Emission)
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -583,6 +586,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
 			accountFreezeService,
+			emissionService,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
