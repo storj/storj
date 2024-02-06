@@ -19,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 // Projects is an api controller that exposes projects related functionality.
@@ -529,6 +530,12 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email = strings.TrimSpace(email)
+
+	isValidEmail := utils.ValidateEmail(email)
+	if !isValidEmail {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
 
 	_, err = p.service.InviteNewProjectMember(ctx, id, email)
 	if err != nil {

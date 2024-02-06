@@ -121,7 +121,7 @@ import {
 } from 'vuetify/components';
 import { mdiArrowRight } from '@mdi/js';
 
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -160,7 +160,7 @@ const isUpgradeDialogShown = ref<boolean>(false);
 
 const emailRules: ValidationRule<string>[] = [
     RequiredRule,
-    v => ((/.+@.+\..+/.test(v)) || 'E-mail must be valid.'),
+    (value) => EmailRule(value, true),
 ];
 
 /**
