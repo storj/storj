@@ -17,6 +17,7 @@ import {
     ProjectUsageDateRange,
     ProjectInvitation,
     ProjectInvitationResponse,
+    Emission,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
@@ -44,6 +45,7 @@ export class ProjectsState {
     public chartDataBefore: Date = new Date();
     public invitations: ProjectInvitation[] = [];
     public selectedInvitation: ProjectInvitation = DEFAULT_INVITATION;
+    public emission: Emission = new Emission();
 }
 
 export const useProjectsStore = defineStore('projects', () => {
@@ -284,6 +286,10 @@ export const useProjectsStore = defineStore('projects', () => {
         return await api.getSalt(projectID);
     }
 
+    async function getEmissionImpact(projectID: string): Promise<void> {
+        state.emission = await api.getEmissionImpact(projectID);
+    }
+
     async function getUserInvitations(): Promise<ProjectInvitation[]> {
         const invites = await api.getUserInvitations();
 
@@ -358,6 +364,7 @@ export const useProjectsStore = defineStore('projects', () => {
         getTotalLimits,
         getUsageReportLink,
         getProjectSalt,
+        getEmissionImpact,
         getUserInvitations,
         respondToInvitation,
         selectInvitation,

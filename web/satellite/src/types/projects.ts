@@ -59,6 +59,14 @@ export interface ProjectsApi {
     getSalt(projectID: string): Promise<string>;
 
     /**
+     * Get project emission impact
+     *
+     * @param projectID - project ID
+     * @throws Error
+     */
+    getEmissionImpact(projectID: string): Promise<Emission>;
+
+    /**
      * Get project limits.
      *
      * @throws Error
@@ -250,6 +258,16 @@ export class ProjectsStorageBandwidthDaily {
     public constructor(
         public storage: DataStamp[] = [],
         public allocatedBandwidth: DataStamp[] = [],
+    ) {}
+}
+
+/**
+ * Emission is used to describe project's emission impact done by different services.
+ */
+export class Emission {
+    public constructor(
+        public storjImpact: number = 0,
+        public hyperscalerImpact: number = 0,
     ) {}
 }
 

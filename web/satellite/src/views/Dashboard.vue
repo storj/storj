@@ -58,7 +58,7 @@
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent icon="file" title="Files" subtitle="Total files stored" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
-            <v-col cols="6" md="4" lg="2">
+            <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
                 <CardStatsComponent icon="globe" title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
@@ -69,6 +69,16 @@
             </v-col>
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
+            </v-col>
+            <v-col v-if="emissionImpactViewEnabled" cols="12" sm="6" md="4" lg="2">
+                <v-tooltip
+                    activator="parent"
+                    location="bottom"
+                    offset="-20"
+                >
+                    Estimated if using traditional cloud storage = {{ emission.hyperscalerImpact.toLocaleString(undefined, { maximumFractionDigits: 3 }) }} kg CO2e
+                </v-tooltip>
+                <CardStatsComponent icon="globe" title="CO2 Saved" subtitle="By using Storj" :data="`${emission.storjImpact.toLocaleString(undefined, { maximumFractionDigits: 3 })} kg CO2e`" />
             </v-col>
             <v-col v-if="billingEnabled" cols="6" md="4" lg="2">
                 <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
@@ -275,7 +285,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { DataStamp, LimitToChange, Project, ProjectLimits } from '@/types/projects';
+import { DataStamp, Emission, LimitToChange, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -557,6 +567,20 @@ const promptForPassphrase = computed((): boolean => {
 });
 
 /**
+ * Indicates if emission impact view should be shown.
+ */
+const emissionImpactViewEnabled = computed<boolean>(() => {
+    return configStore.state.config.emissionImpactViewEnabled;
+});
+
+/**
+ * Returns project's emission impact.
+ */
+const emission = computed<Emission>(()  => {
+    return projectsStore.state.emission;
+});
+
+/**
  * Returns formatted amount.
  */
 function usedLimitFormatted(value: number): string {
@@ -667,7 +691,7 @@ onMounted(async (): Promise<void> => {
     now.setMinutes(0, 0, 0);
     past.setMinutes(0, 0, 0);
 
-    let promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
+    const promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
         projectsStore.getDailyProjectData({ since: past, before: now }),
         projectsStore.getProjectLimits(projectID),
         pmStore.getProjectMembers(FIRST_PAGE, projectID),
@@ -675,14 +699,17 @@ onMounted(async (): Promise<void> => {
         bucketsStore.getBuckets(FIRST_PAGE, projectID),
     ];
 
+    if (emissionImpactViewEnabled.value) {
+        promises.push(projectsStore.getEmissionImpact(projectID));
+    }
+
     if (billingEnabled.value) {
-        promises = [
-            ...promises,
+        promises.push(
             billingStore.getProjectUsageAndChargesCurrentRollup(),
             billingStore.getBalance(),
             billingStore.getCreditCards(),
             billingStore.getCoupon(),
-        ];
+        );
     }
 
     if (configStore.state.config.nativeTokenPaymentsEnabled) {

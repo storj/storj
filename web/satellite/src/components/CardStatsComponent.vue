@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :subtitle="subtitle" variant="outlined" :border="true" rounded="xlg" :to="to">
+    <v-card :subtitle="subtitle" variant="outlined" border rounded="xlg" :to="to">
         <template #title>
             <v-card-title class="d-flex align-center">
                 <component :is="iconComponent" v-if="icon" v-bind="iconProps" class="mr-2" width="16" height="16" />
@@ -30,7 +30,7 @@ const props = defineProps<{
     title: string;
     subtitle: string;
     data: string;
-    to: string;
+    to?: string;
     icon?: keyof typeof iconComponents;
 }>();
 

@@ -13,6 +13,7 @@ import {
     ProjectsPage,
     ProjectsStorageBandwidthDaily,
     ProjectInvitationResponse,
+    Emission,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -262,6 +263,21 @@ export class ProjectsHttpApi implements ProjectsApi {
             message: 'Can not get project salt',
             requestID: response.headers.get('x-request-id'),
         });
+    }
+
+    public async getEmissionImpact(projectID: string): Promise<Emission> {
+        const path = `${this.ROOT_PATH}/${projectID}/emission`;
+        const response = await this.http.get(path);
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get project emission impact',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const json = await response.json();
+        return json ? new Emission(json.storjImpact, json.hyperscalerImpact) : new Emission();
     }
 
     /**
