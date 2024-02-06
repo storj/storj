@@ -10,7 +10,7 @@
         variant="tonal"
         type="success"
         rounded="lg"
-        class="mt-2 mb-4"
+        class="mt-4 mb-4"
         @click:close="dismiss"
     >
         <template #prepend />

@@ -4,9 +4,9 @@
 <template>
     <template v-if="!hideContainer">
         <page-title-component :title="'Welcome ' + user.fullName" />
-        <page-subtitle-component class="mb-3" subtitle="Your next steps" />
+        <page-subtitle-component class="mb-4" subtitle="Your next steps" />
 
-        <onboarding-component v-if="shouldShowOnboardStepper" :class="{'mb-3': partnerBannerVisible }" />
+        <onboarding-component v-if="shouldShowOnboardStepper" />
         <partner-upgrade-notice-banner v-if="partnerBannerVisible" v-model="partnerBannerVisible" :plan-info="planInfo" />
     </template>
 </template>

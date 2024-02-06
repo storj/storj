@@ -207,7 +207,7 @@ const accessStepInfo = computed(() => {
     const isRelevantStep = currentStep.value === OnboardingStep.CreateAccess
         || currentStep.value === OnboardingStep.UploadFiles;
     const color = isRelevantStep ? 'primary' : 'default';
-    const variant = onboardingInfo.value ? 'elevated' : 'outlined';
+    const variant = isRelevantStep ? (onboardingInfo.value ? 'elevated' : 'outlined') : 'tonal';
     const disabled = !isRelevantStep;
     const appendIcon = onboardingInfo.value ? '' : mdiArrowRight;
     return {
@@ -222,7 +222,7 @@ const uploadStepInfo = computed(() => {
     const isRelevantStep = currentStep.value === OnboardingStep.CreateAccess
         || currentStep.value === OnboardingStep.UploadFiles;
     const color = isRelevantStep ? 'primary' : 'default';
-    const variant = onboardingInfo.value ? 'outlined' : 'elevated';
+    const variant = isRelevantStep ? (onboardingInfo.value ? 'outlined' : 'elevated') : 'tonal';
     const disabled = !isRelevantStep;
     return {
         color,
