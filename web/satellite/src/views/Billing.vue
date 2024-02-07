@@ -49,11 +49,11 @@
                             :border="true"
                             rounded="xlg"
                         >
+                            <template #loader>
+                                <v-progress-linear v-if="isLoading" indeterminate />
+                            </template>
                             <v-card-text>
-                                <div v-if="isLoading" class="pb-2 text-center">
-                                    <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
-                                </div>
-                                <v-chip v-else rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -64,11 +64,11 @@
 
                     <v-col cols="12" sm="4">
                         <v-card title="STORJ Token Balance" subtitle="Your STORJ Token Wallet" variant="flat" :border="true" rounded="xlg">
+                            <template #loader>
+                                <v-progress-linear v-if="isLoading" indeterminate />
+                            </template>
                             <v-card-text>
-                                <div v-if="isLoading" class="pb-2 text-center">
-                                    <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
-                                </div>
-                                <v-chip v-else rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -87,7 +87,9 @@
                             rounded="xlg"
                             variant="flat"
                         >
-                            <v-progress-circular color="primary" size="48" indeterminate />
+                            <template #loader>
+                                <v-progress-linear v-if="isLoading" indeterminate />
+                            </template>
                         </v-card>
                         <v-card
                             v-else-if="coupon"
@@ -217,6 +219,7 @@ import {
     VDivider,
     VBtn,
     VProgressCircular,
+    VProgressLinear,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
 import { mdiCalendar, mdiPlus } from '@mdi/js';

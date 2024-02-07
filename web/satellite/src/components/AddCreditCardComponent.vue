@@ -24,7 +24,6 @@
             <template v-if="isCardInputShown">
                 <v-btn
                     color="primary" size="small" class="mr-2"
-                    :disabled="isLoading"
                     :loading="isLoading"
                     @click="onSaveCardClick"
                 >

@@ -4,6 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
+        :persistent="isLoading"
         width="auto"
         min-width="320px"
         max-width="460px"
@@ -21,6 +22,7 @@
                         variant="text"
                         size="small"
                         color="default"
+                        :disabled="isLoading"
                         @click="model = false"
                     />
                 </template>
@@ -98,6 +100,7 @@
                 <v-col v-if="isConfirmCode" class="pr-0">
                     <v-btn
                         :loading="isLoading"
+                        :disabled="!formValid"
                         color="primary"
                         variant="flat"
                         block
@@ -191,7 +194,7 @@ function toggleRecoveryCodeState(): void {
  * Regenerates user MFA codes and sets view to Recovery Codes state.
  */
 function regenerate(): void {
-    if (!confirmPasscode.value || isLoading.value || isError.value) return;
+    if (!confirmPasscode.value || isError.value || !formValid.value) return;
 
     withLoading(async () => {
         try {

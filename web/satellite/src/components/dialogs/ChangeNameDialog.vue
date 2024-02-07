@@ -4,6 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
+        :persistent="isLoading"
         width="auto"
         min-width="320px"
         max-width="410px"
@@ -54,7 +55,6 @@
                             color="default"
                             block
                             :disabled="isLoading"
-                            :loading="isLoading"
                             @click="model = false"
                         >
                             Cancel
@@ -65,7 +65,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            :disabled="isLoading || !formValid"
+                            :disabled="!formValid"
                             :loading="isLoading"
                             @click="onChangeName"
                         >

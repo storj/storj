@@ -4,6 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
+        :persistent="isLoading"
         width="auto"
         min-width="320px"
         max-width="450px"
@@ -34,6 +35,7 @@
                             variant="text"
                             size="small"
                             color="default"
+                            :disabled="isLoading"
                             @click="model = false"
                         />
                     </template>

@@ -23,6 +23,7 @@
                         variant="text"
                         size="small"
                         color="default"
+                        :disabled="loading"
                         @click="model = false"
                     />
                 </template>
