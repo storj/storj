@@ -130,11 +130,11 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		timespanHours := 2
+		const timespanHours = 2
 		numObjects := 10
 
 		now := time.Date(2020, 8, 8, 8, 8, 8, 0, time.UTC)
-		lastTally := now.Add(time.Duration(-1 * timespanHours * int(time.Hour)))
+		lastTally := now.Add(-timespanHours * time.Hour)
 		// Set previous accounting run timestamp
 		err := planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, now.Add(1*time.Second), 5000)
 		require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		timespanHours := 2
+		const timespanHours = 2
 		numObjects := 10
 
 		now := time.Date(2030, 8, 8, 8, 8, 8, 0, time.UTC)
@@ -217,7 +217,7 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 			return now
 		})
 
-		lastTally := now.Add(time.Duration(-1 * timespanHours * int(time.Hour)))
+		lastTally := now.Add(-timespanHours * time.Hour)
 		err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
 			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
 			[]float64{0, 0, 0, 0},
