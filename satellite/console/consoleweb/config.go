@@ -59,6 +59,7 @@ type FrontendConfig struct {
 	AllowedUsageReportDateRange     time.Duration         `json:"allowedUsageReportDateRange"`
 	OnboardingStepperEnabled        bool                  `json:"onboardingStepperEnabled"`
 	EnableRegionTag                 bool                  `json:"enableRegionTag"`
+	EmissionImpactViewEnabled       bool                  `json:"emissionImpactViewEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

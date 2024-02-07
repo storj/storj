@@ -55,6 +55,7 @@ export class FrontendConfig {
     allowedUsageReportDateRange: number;
     onboardingStepperEnabled: boolean;
     enableRegionTag: boolean;
+    emissionImpactViewEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
