@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/uuid"
 )

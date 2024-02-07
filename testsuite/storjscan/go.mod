@@ -1,6 +1,6 @@
 module storj.io/storj/testsuite/storjscan
 
-go 1.19
+go 1.20
 
 replace storj.io/storj => ../../
 

@@ -5,11 +5,11 @@ package emission
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 )
 
 // Q is a Val constructor function without any dimension.

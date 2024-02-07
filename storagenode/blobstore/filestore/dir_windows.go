@@ -36,15 +36,15 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 
 	totalSpace, availableSpace, err = getDiskFreeSpace(absPath)
 	if err != nil {
-		return blobstore.DiskInfo{"", -1, -1}, err
+		return blobstore.DiskInfo{ID: "", TotalSpace: -1, AvailableSpace: -1}, err
 	}
 
 	filesystemID, err = getVolumeSerialNumber(absPath)
 	if err != nil {
-		return blobstore.DiskInfo{"", totalSpace, availableSpace}, err
+		return blobstore.DiskInfo{ID: "", TotalSpace: totalSpace, AvailableSpace: availableSpace}, err
 	}
 
-	return blobstore.DiskInfo{filesystemID, totalSpace, availableSpace}, nil
+	return blobstore.DiskInfo{ID: filesystemID, TotalSpace: totalSpace, AvailableSpace: availableSpace}, nil
 }
 
 var (

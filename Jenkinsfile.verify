@@ -136,6 +136,7 @@ pipeline {
                 sh 'check-downgrades'
                 sh 'make check-monitoring'
                 sh 'make test-wasm-size'
+                sh 'go.min vet ./...'
 
                 sh 'protolock status'
 
