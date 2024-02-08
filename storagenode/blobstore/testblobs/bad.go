@@ -32,7 +32,7 @@ type BadDB struct {
 }
 
 // NewBadDB creates a new bad storage node DB.
-// Use SetError to manually configure the error returned by all piece operations.
+// Use SetError to manually configure the error returned by all blob operations.
 func NewBadDB(log *zap.Logger, db storagenode.DB) *BadDB {
 	return &BadDB{
 		DB:    db,
@@ -46,7 +46,7 @@ func (bad *BadDB) Pieces() blobstore.Blobs {
 	return bad.Blobs
 }
 
-// SetError sets an error to be returned for piece operations.
+// SetError sets an error to be returned for blob operations.
 func (bad *BadDB) SetError(err error) {
 	bad.Blobs.SetError(err)
 }
@@ -160,12 +160,12 @@ func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBe
 	return bad.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
 
-// TryRestoreTrashPiece attempts to restore a piece from the trash.
-func (bad *BadBlobs) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) error {
+// TryRestoreTrashBlob attempts to restore a blob from the trash.
+func (bad *BadBlobs) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
-	return bad.blobs.TryRestoreTrashPiece(ctx, ref)
+	return bad.blobs.TryRestoreTrashBlob(ctx, ref)
 }
 
 // Delete deletes the blob with the namespace and key.

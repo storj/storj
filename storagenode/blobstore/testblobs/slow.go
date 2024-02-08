@@ -24,7 +24,7 @@ type SlowDB struct {
 }
 
 // NewSlowDB creates a new slow storage node DB wrapping the provided db.
-// Use SetLatency to dynamically configure the latency of all piece operations.
+// Use SetLatency to dynamically configure the latency of all blob operations.
 func NewSlowDB(log *zap.Logger, db storagenode.DB) *SlowDB {
 	return &SlowDB{
 		DB:    db,
@@ -38,7 +38,7 @@ func (slow *SlowDB) Pieces() blobstore.Blobs {
 	return slow.blobs
 }
 
-// SetLatency enables a sleep for delay duration for all piece operations.
+// SetLatency enables a sleep for delay duration for all blob operations.
 // A zero or negative delay means no sleep.
 func (slow *SlowDB) SetLatency(delay time.Duration) {
 	slow.blobs.SetLatency(delay)
@@ -165,12 +165,12 @@ func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref blobstore.
 	return slow.blobs.StatWithStorageFormat(ctx, ref, formatVer)
 }
 
-// TryRestoreTrashPiece attempts to restore a piece from trash.
-func (slow *SlowBlobs) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) error {
+// TryRestoreTrashBlob attempts to restore a blob from trash.
+func (slow *SlowBlobs) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
-	return slow.blobs.TryRestoreTrashPiece(ctx, ref)
+	return slow.blobs.TryRestoreTrashBlob(ctx, ref)
 }
 
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.

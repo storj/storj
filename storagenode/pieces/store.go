@@ -323,7 +323,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 // It returns nil if the piece was restored, or an error if the piece was not in the trash.
 func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.blobs.TryRestoreTrashPiece(ctx, blobstore.BlobRef{
+	return Error.Wrap(store.blobs.TryRestoreTrashBlob(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}))

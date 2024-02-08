@@ -315,13 +315,13 @@ func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef
 	return nil, Error.New("unable to stat %q: %v", vPath, err)
 }
 
-// Trash moves the piece specified by ref to the trashdir for every format version.
+// Trash moves the blob specified by ref to the trash for every format version.
 func (dir *Dir) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.iterateStorageFormatVersions(ctx, ref, dir.TrashWithStorageFormat)
 }
 
-// TrashWithStorageFormat moves the piece specified by ref to the trashdir for the specified format version.
+// TrashWithStorageFormat moves the blob specified by ref to the trash for the specified format version.
 func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
 	// Ensure trashdir exists so that we know any os.IsNotExist errors below
 	// are not from a missing trash dir
@@ -370,7 +370,7 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRe
 	// move to trash
 	err = rename(blobsVerPath, trashVerPath)
 	if os.IsNotExist(err) {
-		// no piece at that path; either it has a different storage format
+		// no blob at that path; either it has a different storage format
 		// version or there was a concurrent call. (This function is expected
 		// by callers to return a nil error in the case of concurrent calls.)
 		return nil
@@ -384,7 +384,7 @@ func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
 	dir.trashnow = trashnow
 }
 
-// RestoreTrash moves every piece in the trash folder back into blobsdir.
+// RestoreTrash moves every blob in the trash folder back into blobsdir.
 func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
 	var errorsEncountered errs.Group
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info blobstore.BlobInfo) error {
@@ -414,7 +414,7 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 		// move back to blobsdir
 		err = rename(trashVerPath, blobsVerPath)
 		if os.IsNotExist(err) {
-			// no piece at that path; either it has a different storage format
+			// no blob at that path; either it has a different storage format
 			// version or there was a concurrent call. (This function is expected
 			// by callers to return a nil error in the case of concurrent calls.)
 			return nil
@@ -431,10 +431,10 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 	return keysRestored, errorsEncountered.Err()
 }
 
-// TryRestoreTrashPiece attempts to restore a piece from the trash if it exists.
-// It returns nil if the piece was restored, or an error if the piece was not
+// TryRestoreTrashBlob attempts to restore a blob from the trash if it exists.
+// It returns nil if the blob was restored, or an error if the blob was not
 // in the trash or could not be restored.
-func (dir *Dir) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) (err error) {
+func (dir *Dir) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	blobsBasePath, err := dir.blobToBasePath(ref)
@@ -509,15 +509,15 @@ func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err
 
 // iterateStorageFormatVersions executes f for all storage format versions,
 // starting with the oldest format version. It is more likely, in the general
-// case, that we will find the piece with the newest format version instead,
+// case, that we will find the blob with the newest format version instead,
 // but if we iterate backward here then we run the risk of a race condition:
-// the piece might have existed with _SomeOldVer before the call, and could
+// the blob might have existed with _SomeOldVer before the call, and could
 // then have been updated atomically with _MaxVer concurrently while we were
 // iterating. If we iterate _forwards_, this race should not occur because it
-// is assumed that pieces are never rewritten with an _older_ storage format
+// is assumed that blobs are never rewritten with an _older_ storage format
 // version.
 //
-// f will be executed for every storage formate version regardless of the
+// f will be executed for every storage format version regardless of the
 // result, and will aggregate errors into a single returned error.
 func (dir *Dir) iterateStorageFormatVersions(ctx context.Context, ref blobstore.BlobRef, f func(ctx context.Context, ref blobstore.BlobRef, i blobstore.FormatVersion) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -539,7 +539,7 @@ func (dir *Dir) Delete(ctx context.Context, ref blobstore.BlobRef) (err error) {
 // DeleteWithStorageFormat deletes the blob with the specified ref for one
 // specific format version.
 //
-// It doesn't return an error if the piece isn't found for any reason.
+// It doesn't return an error if the blob isn't found for any reason.
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)

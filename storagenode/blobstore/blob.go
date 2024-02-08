@@ -91,10 +91,10 @@ type Blobs interface {
 	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
 	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted.
 	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error)
-	// TryRestoreTrashPiece attempts to restore a piece from the trash.
-	// It returns nil if the piece was restored, or an error if the piece was not
+	// TryRestoreTrashBlob attempts to restore a blob from the trash.
+	// It returns nil if the blob was restored, or an error if the blob was not
 	// in the trash or could not be restored.
-	TryRestoreTrashPiece(ctx context.Context, ref BlobRef) error
+	TryRestoreTrashBlob(ctx context.Context, ref BlobRef) error
 	// Stat looks up disk metadata on the blob file.
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
@@ -138,7 +138,7 @@ type Blobs interface {
 type BlobInfo interface {
 	// BlobRef returns the relevant BlobRef for the blob.
 	BlobRef() BlobRef
-	// StorageFormatVersion indicates the storage format version used to store the piece.
+	// StorageFormatVersion indicates the storage format version used to store the blob.
 	StorageFormatVersion() FormatVersion
 	// FullPath gives the full path to the on-disk blob file.
 	FullPath(ctx context.Context) (string, error)
