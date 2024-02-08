@@ -323,13 +323,6 @@ func (dir *Dir) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
 
 // TrashWithStorageFormat moves the blob specified by ref to the trash for the specified format version.
 func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	// Ensure trashdir exists so that we know any os.IsNotExist errors below
-	// are not from a missing trash dir
-	_, err = os.Stat(dir.trashdir())
-	if err != nil {
-		return err
-	}
-
 	blobsBasePath, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return err
@@ -475,12 +468,11 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 			if errors.Is(err, ErrIsDir) {
 				return nil
 			}
-			// it would be best if we could report the actual problematic path
 			if thisBlobInfo, ok := info.(*blobInfo); ok {
-				errorsEncountered.Add(Error.New("%s: %s", thisBlobInfo.path, err))
+				errorsEncountered.Add(Error.New("%s: %w", thisBlobInfo.path, err))
 			} else {
-				// this is probably a v0PieceAccess; do what we can
-				errorsEncountered.Add(Error.New("blobRef %+v: %s", info.BlobRef(), err))
+				// if this happens, it's time to extend the code to handle the other type
+				errorsEncountered.Add(Error.New("%+v [unexpected type %T]: %w", info, info, err))
 			}
 			return nil
 		}
