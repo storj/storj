@@ -82,15 +82,14 @@ async function setup() {
         if (appStore.state.hasJustLoggedIn && !invites.length && projects.length <= 1) {
             if (!projects.length) {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
-            } else {
-                projectsStore.selectProject(projects[0].id);
-                await router.push({
-                    name: ROUTES.Dashboard.name,
-                    params: { id: projectsStore.state.selectedProject.urlId },
-                });
-                analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
-                analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
             }
+            projectsStore.selectProject(projects[0].id);
+            await router.push({
+                name: ROUTES.Dashboard.name,
+                params: { id: projectsStore.state.selectedProject.urlId },
+            });
+            analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
+            analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
         }
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
