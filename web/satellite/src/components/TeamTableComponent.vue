@@ -96,7 +96,7 @@
 
     <remove-project-member-dialog
         v-model="isRemoveMembersDialogShown"
-        :emails="selectedMembers"
+        :emails="membersToDelete"
         @deleted="onPostDelete"
     />
 
@@ -200,6 +200,7 @@ const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const sortBy = ref([{ key: 'date', order: 'asc' }]);
 const selectedMembers = ref<string[]>([]);
+const memberToDelete = ref<string>();
 
 const headers = ref([
     {
@@ -256,6 +257,14 @@ const projectMembers = computed((): RenderedItem[] => {
 });
 
 /**
+ * Returns the members to be deleted to the delete dialog.
+ */
+const membersToDelete = computed<string[]>(() => {
+    if (memberToDelete.value) return [memberToDelete.value];
+    return selectedMembers.value;
+});
+
+/**
  * Handles update table rows limit event.
  */
 async function onUpdateLimit(limit: number): Promise<void> {
@@ -280,11 +289,12 @@ async function onPostDelete(): Promise<void> {
 
     search.value = '';
     selectedMembers.value = [];
+    memberToDelete.value = '';
     await onUpdatePage(FIRST_PAGE);
 }
 
 function onSingleDelete(email: string): void {
-    selectedMembers.value = [email];
+    memberToDelete.value = email;
     isRemoveMembersDialogShown.value = true;
 }
 
@@ -379,6 +389,10 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
 function showDeleteDialog(): void {
     isRemoveMembersDialogShown.value = true;
 }
+
+watch(isRemoveMembersDialogShown, (value) => {
+    if (!value) memberToDelete.value = '';
+});
 
 /**
  * Handles update table search.
