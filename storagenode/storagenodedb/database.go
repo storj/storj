@@ -201,7 +201,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 
 // OpenExisting opens an existing master database for storage node.
 func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
-	piecesDir, err := filestore.OpenDir(log, config.Pieces)
+	piecesDir, err := filestore.OpenDir(log, config.Pieces, time.Now())
 	if err != nil {
 		return nil, err
 	}

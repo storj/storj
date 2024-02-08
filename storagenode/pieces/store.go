@@ -411,23 +411,23 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 }
 
 // EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval.
-func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (minPieceTimestamp time.Time, err error) {
+func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, deletedIDs, minPieceTimestamp, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
+	_, deletedIDs, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
 	if err != nil {
-		return time.Time{}, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	for _, deletedID := range deletedIDs {
 		pieceID, pieceIDErr := storj.PieceIDFromBytes(deletedID)
 		if pieceIDErr != nil {
-			return minPieceTimestamp, Error.Wrap(pieceIDErr)
+			return Error.Wrap(pieceIDErr)
 		}
 		_, deleteErr := store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
 		err = errs.Combine(err, deleteErr)
 	}
-	return minPieceTimestamp, Error.Wrap(err)
+	return Error.Wrap(err)
 }
 
 // RestoreTrash restores all pieces in the trash.
