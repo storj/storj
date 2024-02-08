@@ -7,8 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
@@ -172,6 +174,65 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 	return objs, nil
 }
 
+// TestingBatchInsertObjects batch inserts objects for testing.
+// This implementation does no verification on the correctness of objects.
+func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	cols := []string{
+		"project_id",
+		"bucket_name",
+		"object_key",
+		"version",
+		"stream_id",
+		"created_at",
+		"expires_at",
+		"status",
+		"segment_count",
+		"encrypted_metadata_nonce",
+		"encrypted_metadata",
+		"encrypted_metadata_encrypted_key",
+		"total_plain_size",
+		"total_encrypted_size",
+		"fixed_segment_size",
+		"encryption",
+		"zombie_deletion_deadline",
+	}
+
+	rows := make([][]any, 0, len(objects))
+	for i := range objects {
+		obj := &objects[i]
+		rows = append(rows, []any{
+			obj.ProjectID.Bytes(),
+			[]byte(obj.BucketName),
+			[]byte(obj.ObjectKey),
+			obj.Version,
+			obj.StreamID.Bytes(),
+
+			obj.CreatedAt,
+			obj.ExpiresAt,
+
+			obj.Status, // TODO: fix encoding
+			obj.SegmentCount,
+
+			obj.EncryptedMetadataNonce,
+			obj.EncryptedMetadata,
+			obj.EncryptedMetadataEncryptedKey,
+
+			obj.TotalPlainSize,
+			obj.TotalEncryptedSize,
+			obj.FixedSegmentSize,
+
+			encryptionParameters{&obj.Encryption},
+			obj.ZombieDeletionDeadline,
+		})
+	}
+
+	return Error.Wrap(pgxutil.Conn(ctx, db.db,
+		func(conn *pgx.Conn) error {
+			_, err := conn.CopyFrom(ctx, pgx.Identifier{"objects"}, cols, pgx.CopyFromRows(rows))
+			return err
+		}))
+}
+
 // testingGetAllSegments returns the state of the database.
 func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err error) {
 	segs := []RawSegment{}
@@ -194,6 +255,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 	if err != nil {
 		return nil, Error.New("testingGetAllSegments query: %w", err)
 	}
+
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
 		var seg RawSegment
