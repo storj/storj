@@ -31,18 +31,15 @@
             </v-col>
         </v-row>
 
-        <div v-if="!isFree" class="py-4">
-            <p class="text-caption">Add Card Info</p>
+        <div v-if="!isFree" class="my-4">
+            <p class="text-caption mb-2">Add Card Info</p>
             <StripeCardElement
                 v-if="paymentElementEnabled"
                 ref="stripeCardInput"
-                :is-dark-theme="theme.global.current.value.dark"
-                @pm-created="onCardAdded"
             />
             <StripeCardInput
                 v-else
                 ref="stripeCardInput"
-                :on-stripe-response-callback="onCardAdded"
             />
         </div>
 
@@ -50,7 +47,7 @@
             <v-btn
                 block
                 :color="plan.type === 'partner' ? 'success' : 'primary'"
-                :loading="isLoading"
+                :loading="loading"
                 @click="onActivateClick"
             >
                 <template v-if="plan.type !== 'free'" #prepend>
@@ -66,7 +63,7 @@
                 block
                 variant="outlined"
                 color="grey-lighten-1"
-                :disabled="isLoading"
+                :disabled="loading"
                 @click="emit('back')"
             >
                 Back
@@ -133,17 +130,17 @@ import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeCardInput from '@/components/StripeCardInput.vue';
 
 interface StripeForm {
-    onSubmit(): Promise<void>;
+    onSubmit(): Promise<string>;
 }
 
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
+
 const router = useRouter();
 const notify = useNotify();
 const theme = useTheme();
 
-const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
 const stripeCardInput = ref<StripeForm | null>(null);
@@ -159,6 +156,8 @@ const emit = defineEmits<{
     close: [];
     success: []; // emit this for parents that have custom success steps.
 }>();
+
+const loading = defineModel<boolean>('loading');
 
 /**
  * Indicates whether stripe payment element is enabled.
@@ -178,8 +177,7 @@ const isFree = computed((): boolean => {
  * Applies the selected pricing plan to the user.
  */
 async function onActivateClick() {
-    if (isLoading.value || !props.plan) return;
-    isLoading.value = true;
+    if (loading.value || !props.plan) return;
 
     if (isFree.value) {
         emit('success');
@@ -187,13 +185,16 @@ async function onActivateClick() {
         return;
     }
 
+    if (!stripeCardInput.value) return;
+
+    loading.value = true;
     try {
-        await stripeCardInput.value?.onSubmit();
+        const response = await stripeCardInput.value.onSubmit();
+        await onCardAdded(response);
     } catch (error) {
         notify.notifyError(error);
-    } finally {
-        isLoading.value = false;
     }
+    loading.value = false;
 }
 
 /**
@@ -203,7 +204,6 @@ async function onActivateClick() {
  */
 async function onCardAdded(res: string): Promise<void> {
     if (!props.plan) return;
-    isLoading.value = true;
     try {
         if (props.plan.type === PricingPlanType.PARTNER) {
             await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
@@ -214,13 +214,11 @@ async function onCardAdded(res: string): Promise<void> {
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
-        await usersStore.getUser();
+        usersStore.getUser().catch((_) => {});
         // Fetch cards to hide paid tier banner
-        await billingStore.getCreditCards();
+        billingStore.getCreditCards().catch((_) => {});
     } catch (error) {
         notify.notifyError(error);
     }
-
-    isLoading.value = false;
 }
 </script>

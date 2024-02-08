@@ -29,13 +29,6 @@ import { useConfigStore } from '@/store/modules/configStore';
 const configStore = useConfigStore();
 const notify = useNotify();
 
-const props = withDefaults(defineProps<{
-    onStripeResponseCallback: (tokenId: unknown) => Promise<void>,
-}>(), {
-    onStripeResponseCallback: () => Promise.reject('onStripeResponse is not reinitialized'),
-});
-
-const isLoading = ref<boolean>(false);
 /**
  * Stripe elements is used to create 'Add Card' form.
  */
@@ -87,45 +80,28 @@ async function initStripe(): Promise<void> {
 }
 
 /**
- * Event after card adding.
- * Returns token to callback and clears card input
- *
- * @param result stripe response
- */
-async function onStripeResponse(result: TokenResult): Promise<void> {
-    if (result.error) {
-        throw result.error;
-    }
-
-    if (result.token.card?.funding === 'prepaid') {
-        notify.error('Prepaid cards are not supported', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
-        return;
-    }
-
-    await props.onStripeResponseCallback(result.token.id);
-    cardElement.value?.clear();
-}
-
-/**
  * Fires stripe event after all inputs are filled.
+ * This method is called from the parent component.
+ *
+ * @returns {string} the card token.
+ * @throws {Error}
  */
-async function onSubmit(): Promise<void> {
+async function onSubmit(): Promise<string> {
     if (!(stripe.value && cardElement.value)) {
-        notify.error('Stripe is not initialized', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
-        return;
+        throw new Error('Stripe is not initialized');
     }
 
-    if (isLoading.value) return;
+    return await stripe.value.createToken(cardElement.value).then((result: TokenResult) => {
+        if (result.error) {
+            throw result.error;
+        }
 
-    isLoading.value = true;
+        if (result.token.card?.funding === 'prepaid') {
+            throw new Error('Prepaid cards are not supported');
+        }
 
-    try {
-        await stripe.value.createToken(cardElement.value).then(onStripeResponse);
-    } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
-    }
-
-    isLoading.value = false;
+        return result.token.id;
+    });
 }
 
 /**

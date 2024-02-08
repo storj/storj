@@ -50,6 +50,7 @@
 
                     <v-window-item :value="UpgradeAccountStep.AddCC">
                         <AddCreditCardStep
+                            v-model:loading="loading"
                             @success="() => setStep(UpgradeAccountStep.Success)"
                             @back="() => setStep(UpgradeAccountStep.Options)"
                         />
@@ -71,7 +72,12 @@
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.PricingPlan">
-                        <PricingPlanStep :plan="plan" @close="model = false" @back="setStep(UpgradeAccountStep.PricingPlanSelection)" />
+                        <PricingPlanStep
+                            v-model:loading="loading"
+                            :plan="plan"
+                            @close="model = false"
+                            @back="setStep(UpgradeAccountStep.PricingPlanSelection)"
+                        />
                     </v-window-item>
                 </v-window>
             </v-card-item>
