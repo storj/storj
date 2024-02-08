@@ -82,8 +82,15 @@ type Impact struct {
 // Row holds data row of predefined number of values.
 type Row [modalityCount]*Val
 
+// CalculationInput holds input data needed to perform emission impact calculations.
+type CalculationInput struct {
+	AmountOfDataInTB float64       // The amount of data in terabytes or terabyte-duration.
+	Duration         time.Duration // The Duration over which the data is measured.
+	IsTBDuration     bool          // true if AmountOfDataInTB is in terabytes-duration, false if in terabytes.
+}
+
 // CalculateImpact calculates emission impact coming from different sources e.g. Storj, hyperscaler or corporateDC.
-func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Duration) (*Impact, error) {
+func (sv *Service) CalculateImpact(input *CalculationInput) (*Impact, error) {
 	// Define a data row of services expansion factors.
 	expansionFactor := sv.prepareExpansionFactorRow()
 
@@ -111,7 +118,7 @@ func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Durat
 	// Define a data row of services carbon emission from powering hard drives.
 	carbonFromPower := sv.prepareCarbonFromDrivePoweringRow()
 
-	timeStored := H(duration.Seconds() / (60 * 60))
+	timeStored := H(input.Duration.Seconds() / (60 * 60))
 
 	// Define a data row of services carbon emission from write and repair actions.
 	carbonFromWritesAndRepairs, err := sv.prepareCarbonFromWritesAndRepairsRow(timeStored)
@@ -135,7 +142,7 @@ func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Durat
 	effectiveCarbonPerByte := prepareEffectiveCarbonPerByteRow(carbonTotalPerByte, modalityUtilization)
 
 	// Define a data row of services total carbon emission.
-	totalCarbon := prepareTotalCarbonRow(amountOfDataInTB, effectiveCarbonPerByte, expansionFactor, regionCount, timeStored)
+	totalCarbon := prepareTotalCarbonRow(input, effectiveCarbonPerByte, expansionFactor, regionCount, timeStored)
 
 	// Calculate Storj blended value.
 	storjBlended, err := calculateStorjBlended(networkWeighting, totalCarbon)
@@ -350,17 +357,22 @@ func (sv *Service) prepareCarbonPerByteMetadataOverheadRow() (*Row, error) {
 	return row, nil
 }
 
-func prepareEffectiveCarbonPerByteRow(carbonTotalOerByteRow, utilizationRow *Row) *Row {
+func prepareEffectiveCarbonPerByteRow(carbonTotalPerByteRow, utilizationRow *Row) *Row {
 	row := new(Row)
 	for modality := 0; modality < modalityCount; modality++ {
-		row[modality] = carbonTotalOerByteRow[modality].Div(utilizationRow[modality])
+		row[modality] = carbonTotalPerByteRow[modality].Div(utilizationRow[modality])
 	}
 
 	return row
 }
 
-func prepareTotalCarbonRow(amountOfDataInTB float64, effectiveCarbonPerByteRow, expansionFactorRow, regionCountRow *Row, timeStored *Val) *Row {
-	amountOfData := TB(amountOfDataInTB)
+func prepareTotalCarbonRow(input *CalculationInput, effectiveCarbonPerByteRow, expansionFactorRow, regionCountRow *Row, timeStored *Val) *Row {
+	amountOfData := TB(input.AmountOfDataInTB)
+
+	// We don't include timeStored amount value if data type is already TB-duration.
+	if input.IsTBDuration {
+		timeStored = H(1)
+	}
 
 	row := new(Row)
 	for modality := 0; modality < modalityCount; modality++ {

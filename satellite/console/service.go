@@ -1750,7 +1750,11 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (i
 	period := now.Sub(isMember.project.CreatedAt)
 	dataInTB := memory.Size(storageUsed).TB()
 
-	impact, err = s.emission.CalculateImpact(dataInTB, period)
+	impact, err = s.emission.CalculateImpact(&emission.CalculationInput{
+		AmountOfDataInTB: dataInTB,
+		Duration:         period,
+		IsTBDuration:     false,
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

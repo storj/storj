@@ -227,7 +227,8 @@ var (
 		RunE:  cmdCreateCustomerBalanceInvoiceItems,
 	}
 
-	aggregate = false
+	aggregate           = false
+	includeEmissionInfo = false
 
 	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
 		Use:   "prepare-invoice-records [period]",
@@ -436,8 +437,10 @@ func init() {
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerAggregatedProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
+	createCustomerInvoicesCmd.Flags().BoolVar(&includeEmissionInfo, "emission", false, "Used to enable CO2 emission impact calculation to be added to invoice footer.")
 	billingCmd.AddCommand(generateCustomerInvoicesCmd)
 	generateCustomerInvoicesCmd.Flags().BoolVar(&aggregate, "aggregate", false, "Used to enable invoice items aggregation in case users have many projects (more than 83).")
+	generateCustomerInvoicesCmd.Flags().BoolVar(&includeEmissionInfo, "emission", false, "Used to enable CO2 emission impact calculation to be added to invoice footer.")
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(payInvoicesWithTokenCmd)
 	billingCmd.AddCommand(payAllInvoicesCmd)
@@ -894,7 +897,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
-		return payments.CreateInvoices(ctx, periodStart)
+		return payments.CreateInvoices(ctx, periodStart, includeEmissionInfo)
 	})
 }
 
@@ -907,7 +910,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
-		return payments.GenerateInvoices(ctx, periodStart, aggregate)
+		return payments.GenerateInvoices(ctx, periodStart, aggregate, includeEmissionInfo)
 	})
 }
 

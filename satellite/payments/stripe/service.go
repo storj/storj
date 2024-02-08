@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -79,6 +80,7 @@ type Service struct {
 	stripeClient Client
 
 	analytics *analytics.Service
+	emission  *emission.Service
 
 	usagePrices         payments.ProjectUsagePriceModel
 	usagePriceOverrides map[string]payments.ProjectUsagePriceModel
@@ -101,7 +103,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)
@@ -117,6 +119,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		usageDB:                usageDB,
 		stripeClient:           stripeClient,
 		analytics:              analyticsService,
+		emission:               emissionService,
 		usagePrices:            usagePrices,
 		usagePriceOverrides:    usagePriceOverrides,
 		packagePlans:           packagePlans,
@@ -1031,7 +1034,7 @@ func (service *Service) applyFreeTierCoupon(ctx context.Context, cusID string) (
 }
 
 // CreateInvoices lists through all customers, removes expired credit if applicable, and creates invoices.
-func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (err error) {
+func (service *Service) CreateInvoices(ctx context.Context, period time.Time, includeEmissionInfo bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := service.nowFn().UTC()
@@ -1062,7 +1065,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			}
 		}
 
-		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start)
+		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start, includeEmissionInfo)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -1080,24 +1083,91 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 }
 
 // createInvoice creates invoice for Stripe customer.
-func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (stripeInvoice *stripe.Invoice, err error) {
+func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time, includeEmissionInfo bool) (stripeInvoice *stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	itemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
-		Customer: &cusID,
-		Pending:  stripe.Bool(true),
-		ListParams: stripe.ListParams{
-			Context: ctx,
-			Limit:   stripe.Int64(1),
-		},
-	})
+	var footer *string
 
-	hasItems := itemsIter.Next()
-	if err = itemsIter.Err(); err != nil {
-		return nil, err
-	}
-	if !hasItems {
-		return nil, nil
+	if includeEmissionInfo {
+		var (
+			lastItemID   string
+			totalStorage int64
+			hasItems     bool
+		)
+
+		for {
+			params := &stripe.InvoiceItemListParams{
+				Customer: &cusID,
+				Pending:  stripe.Bool(true),
+				ListParams: stripe.ListParams{
+					Context: ctx,
+					Limit:   stripe.Int64(100), // Max limit per request
+				},
+			}
+			if lastItemID != "" {
+				params.ListParams.StartingAfter = stripe.String(lastItemID)
+			}
+
+			itemsIter := service.stripeClient.InvoiceItems().List(params)
+			for itemsIter.Next() {
+				if !hasItems {
+					hasItems = true
+				}
+
+				item := itemsIter.InvoiceItem()
+				if strings.Contains(item.Description, storageInvoiceItemDesc) {
+					totalStorage += item.Quantity
+				}
+
+				lastItemID = item.ID
+			}
+
+			if err = itemsIter.Err(); err != nil {
+				return nil, err
+			}
+			if !hasItems {
+				return nil, nil
+			}
+
+			// Use HasMore to determine if we should break the loop.
+			if !itemsIter.InvoiceItemList().HasMore {
+				break
+			}
+		}
+
+		impact, err := service.emission.CalculateImpact(&emission.CalculationInput{
+			AmountOfDataInTB: float64(totalStorage * hoursPerMonth / 1000000), // convert MB-month to TB-hour.
+			Duration:         time.Hour * hoursPerMonth,
+			IsTBDuration:     true,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
+		footer = stripe.String(fmt.Sprintf(
+			"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
+			impact.EstimatedKgCO2eStorj,
+			impact.EstimatedKgCO2eHyperscaler,
+			whitePaperLink,
+		))
+	} else {
+		itemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+			Customer: &cusID,
+			Pending:  stripe.Bool(true),
+			ListParams: stripe.ListParams{
+				Context: ctx,
+				Limit:   stripe.Int64(1),
+			},
+		})
+
+		hasItems := itemsIter.Next()
+		if err = itemsIter.Err(); err != nil {
+			return nil, err
+		}
+		if !hasItems {
+			return nil, nil
+		}
 	}
 
 	description := fmt.Sprintf("Storj Cloud Storage for %s %d", period.Month(), period.Year())
@@ -1108,9 +1178,9 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 			AutoAdvance:                 stripe.Bool(service.AutoAdvance),
 			Description:                 stripe.String(description),
 			PendingInvoiceItemsBehavior: stripe.String("include"),
+			Footer:                      footer,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -1131,7 +1201,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 }
 
 // createInvoices creates invoices for Stripe customers.
-func (service *Service) createInvoices(ctx context.Context, customers []Customer, period time.Time) (scheduled, draft int, err error) {
+func (service *Service) createInvoices(ctx context.Context, customers []Customer, period time.Time, includeEmissionInfo bool) (scheduled, draft int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limiter := sync2.NewLimiter(service.maxParallelCalls)
@@ -1150,7 +1220,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 				return
 			}
 
-			inv, err := service.createInvoice(ctx, cus.ID, period)
+			inv, err := service.createInvoice(ctx, cus.ID, period, includeEmissionInfo)
 			if err != nil {
 				mu.Lock()
 				errGrp.Add(err)
@@ -1328,7 +1398,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 // GenerateInvoices performs tasks necessary to generate Stripe invoices.
 // This is equivalent to invoking PrepareInvoiceProjectRecords, InvoiceApplyProjectRecords,
 // and CreateInvoices in order.
-func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, shouldAggregate bool) (err error) {
+func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, shouldAggregate bool, includeEmissionInfo bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.log.Info("Preparing invoice project records")
@@ -1352,7 +1422,7 @@ func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, 
 	}
 
 	service.log.Info("Creating invoices")
-	err = service.CreateInvoices(ctx, period)
+	err = service.CreateInvoices(ctx, period, includeEmissionInfo)
 	if err != nil {
 		return err
 	}

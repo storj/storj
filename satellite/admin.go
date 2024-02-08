@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -209,6 +210,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			peer.Analytics.Service,
+			emission.NewService(config.Emission),
 		)
 
 		if err != nil {
