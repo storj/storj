@@ -595,34 +595,45 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			projectID, bucketName := uuid.UUID{1}, "bucky"
 
-			queries := []metabase.ObjectKey{""}
+			objects := []metabase.RawObject{}
+			baseObject := metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+			}
+
 			for a := 0; a <= 0xFF; a++ {
 				if 3 < a && a < 252 {
 					continue
 				}
-				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
+				baseObject.ObjectKey = metabase.ObjectKey([]byte{byte(a)})
+				baseObject.StreamID = testrand.UUID()
+				objects = append(objects, baseObject)
 				for b := 0; b <= 0xFF; b++ {
 					if 4 < b && b < 251 {
 						continue
 					}
-					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
+					baseObject.ObjectKey = metabase.ObjectKey([]byte{byte(a), byte(b)})
+					baseObject.StreamID = testrand.UUID()
+					objects = append(objects, baseObject)
 				}
 			}
 
-			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries[1:])
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
 
 			var collector metabasetest.IterateCollector
-			for _, cursor := range queries {
-				for _, prefix := range queries {
+			for _, cursor := range objects {
+				for _, prefix := range objects {
 					collector = collector[:0]
 					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Cursor: metabase.IterateCursor{
-							Key:     cursor,
+							Key:     cursor.ObjectKey,
 							Version: -1,
 						},
-						Prefix:                prefix,
+						Prefix:                prefix.ObjectKey,
 						Pending:               false,
 						IncludeCustomMetadata: true,
 					}, collector.Add)
@@ -633,10 +644,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Cursor: metabase.IterateCursor{
-							Key:     cursor,
+							Key:     cursor.ObjectKey,
 							Version: -1,
 						},
-						Prefix:                prefix,
+						Prefix:                prefix.ObjectKey,
 						Recursive:             true,
 						Pending:               false,
 						IncludeCustomMetadata: true,
@@ -2506,34 +2517,45 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			projectID, bucketName := uuid.UUID{1}, "bucky"
 
-			queries := []metabase.ObjectKey{""}
+			objects := []metabase.RawObject{}
+			baseObject := metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+			}
+
 			for a := 0; a <= 0xFF; a++ {
 				if 3 < a && a < 252 {
 					continue
 				}
-				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
+				baseObject.ObjectKey = metabase.ObjectKey([]byte{byte(a)})
+				baseObject.StreamID = testrand.UUID()
+				objects = append(objects, baseObject)
 				for b := 0; b <= 0xFF; b++ {
 					if 4 < b && b < 251 {
 						continue
 					}
-					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
+					baseObject.ObjectKey = metabase.ObjectKey([]byte{byte(a), byte(b)})
+					baseObject.StreamID = testrand.UUID()
+					objects = append(objects, baseObject)
 				}
 			}
 
-			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries[1:])
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
 
 			var collector metabasetest.IterateCollector
-			for _, cursor := range queries {
-				for _, prefix := range queries {
+			for _, cursor := range objects {
+				for _, prefix := range objects {
 					collector = collector[:0]
 					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Cursor: metabase.IterateCursor{
-							Key:     cursor,
+							Key:     cursor.ObjectKey,
 							Version: -1,
 						},
-						Prefix:                prefix,
+						Prefix:                prefix.ObjectKey,
 						Pending:               false,
 						IncludeCustomMetadata: true,
 					}, collector.Add)
@@ -2544,10 +2566,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Cursor: metabase.IterateCursor{
-							Key:     cursor,
+							Key:     cursor.ObjectKey,
 							Version: -1,
 						},
-						Prefix:                prefix,
+						Prefix:                prefix.ObjectKey,
 						Recursive:             true,
 						Pending:               false,
 						IncludeCustomMetadata: true,
