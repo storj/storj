@@ -77,7 +77,6 @@ pipeline {
 
                 stage('db') {
                     steps {
-                        sh 'service postgresql start'
                         dir('.build') {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
@@ -167,8 +166,6 @@ pipeline {
                 sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
-
-                sh 'psql -U postgres -c \'create database teststorj;\''
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
