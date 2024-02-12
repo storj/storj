@@ -28,7 +28,7 @@
                 </template>
             </v-card-item>
             <v-divider />
-            <v-card-item class="px-6 pt-6 pb-3">
+            <v-card-item class="px-6 pt-6 pb-2">
                 <p>Select your account session timeout duration.</p>
             </v-card-item>
             <v-card-item class="px-6 pb-7">

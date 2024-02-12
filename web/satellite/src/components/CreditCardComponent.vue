@@ -5,7 +5,7 @@
     <v-card title="Credit Card" variant="flat" border rounded="xlg">
         <v-card-text>
             <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
-            <v-chip v-if="card.isDefault" rounded color="primary" variant="tonal" class="font-weight-bold">Default</v-chip>
+            <v-chip v-if="card.isDefault" rounded color="info" variant="tonal" class="font-weight-bold">Default</v-chip>
             <v-divider class="my-4" />
             <p>Card Number</p>
             <v-chip rounded color="default" variant="text" class="pl-0 font-weight-bold mt-2">**** **** **** {{ card.last4 }}</v-chip>

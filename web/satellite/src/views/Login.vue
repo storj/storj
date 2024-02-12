@@ -5,7 +5,7 @@
     <v-container class="fill-height">
         <v-row align="top" justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" rounded="xlg" class="pa-2 pa-sm-7">
+                <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" rounded="xlg" class="pa-2 pa-sm-6">
                     <v-card-text>
                         <v-alert
                             v-if="captchaError"
@@ -25,7 +25,7 @@
                             :text="isActivatedError ? 'This account has already been verified.' : 'Account verified.'"
                             rounded="lg"
                             density="comfortable"
-                            class="mt-2 mb-3"
+                            class="mt-1 mb-3"
                             border
                         />
                         <v-alert
@@ -36,7 +36,7 @@
                             text="The invite link you used has expired or is invalid."
                             rounded="lg"
                             density="comfortable"
-                            class="mt-2 mb-3"
+                            class="mt-1 mb-3"
                             border
                         />
                         <v-alert
@@ -49,7 +49,7 @@
                             further instructions."
                             rounded="lg"
                             density="comfortable"
-                            class="mt-2 mb-3"
+                            class="mt-1 mb-3"
                             border
                         />
                         <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
@@ -62,7 +62,7 @@
                                 persistent-hint
                                 return-object
                                 chips
-                                class="mb-5"
+                                class="mb-6"
                             />
 
                             <v-text-field
@@ -99,7 +99,13 @@
                                 </template>
                             </v-text-field>
 
-                            <v-checkbox v-model="rememberForOneWeek" label="Remember Me" density="compact" class="mb-4 mt-n3" hide-details>
+                            <v-checkbox
+                                v-model="rememberForOneWeek"
+                                label="Remember Me"
+                                density="compact"
+                                class="mt-n4 mb-3"
+                                hide-details
+                            >
                                 <v-tooltip
                                     activator="parent"
                                     location="top"
@@ -139,8 +145,8 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link" :to="ROUTES.ForgotPassword.path">Reset password</router-link></p>
-                <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link" :to="ROUTES.Signup.path">Sign Up</router-link></p>
+                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link font-weight-bold" :to="ROUTES.ForgotPassword.path">Reset Password</router-link></p>
+                <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -208,6 +214,8 @@ const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
 
 const satellitesHints = [
+    { satellite: 'Storj', hint: 'Recommended satellite.' },
+    { satellite: 'QA-Satellite', hint: 'This is the Storj beta satellite.' },
     { satellite: 'US1', hint: 'Recommended for North and South America' },
     { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
     { satellite: 'AP1', hint: 'Recommended for Asia and Australia' },

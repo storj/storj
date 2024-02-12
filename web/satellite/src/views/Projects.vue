@@ -57,7 +57,7 @@
                             @click="isTableView = true"
                         >
                             <icon-table-view />
-                            Table
+                            List
                         </v-btn>
                     </v-btn-toggle>
                 </v-col>

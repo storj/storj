@@ -6,7 +6,7 @@
     <v-container v-else class="fill-height">
         <v-row align="top" justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                <v-card title="Create your Storj account" subtitle="Get 25GB free storage and download" class="pa-2 pa-sm-7 overflow-visible">
+                <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible">
                     <v-card-item v-if="isInvited">
                         <v-alert
                             variant="tonal"
@@ -22,13 +22,14 @@
                     </v-card-item>
 
                     <v-card-text>
-                        <v-form ref="form" v-model="formValid" class="pt-4">
+                        <v-form ref="form" v-model="formValid" class="pt-3">
                             <v-select
                                 v-model="satellite"
                                 label="Satellite"
                                 :items="satellites"
                                 item-title="satellite"
                                 :hint="satellite.hint"
+                                hide-details="auto"
                                 persistent-hint
                                 return-object
                                 chips
@@ -39,9 +40,10 @@
                                 v-if="isInvited"
                                 id="Email Address"
                                 :model-value="queryEmail"
-                                class="mb-2"
+                                class="mb-5"
                                 label="Email address"
                                 placeholder="Enter your email"
+                                hide-details="auto"
                                 name="email"
                                 type="email"
                                 :rules="emailRules"
@@ -54,9 +56,10 @@
                                 v-else
                                 id="Email Address"
                                 v-model="email"
-                                class="mb-2"
+                                class="mb-5"
                                 label="Email address"
                                 placeholder="Enter your email"
+                                hide-details="auto"
                                 maxlength="72"
                                 name="email"
                                 type="email"
@@ -70,10 +73,11 @@
                                 <v-text-field
                                     id="Password"
                                     v-model="password"
-                                    class="mb-2"
+                                    class="mb-5"
                                     label="Password"
                                     placeholder="Enter a password"
                                     color="secondary"
+                                    hide-details="auto"
                                     :type="showPassword ? 'text' : 'password'"
                                     :rules="passwordRules"
                                     @update:focused="showPasswordStrength = !showPasswordStrength"
@@ -99,6 +103,7 @@
                                 label="Retype password"
                                 placeholder="Enter a password"
                                 color="secondary"
+                                hide-details="auto"
                                 :type="showPassword ? 'text' : 'password'"
                                 :rules="repeatPasswordRules"
                             >
@@ -146,7 +151,7 @@
                             <v-checkbox
                                 id="Terms checkbox"
                                 v-model="acceptedTerms"
-                                class="mb-5"
+                                class="my-3"
                                 :rules="[RequiredRule]"
                                 density="compact"
                                 hide-details="auto"
@@ -155,9 +160,9 @@
                                 <template #label>
                                     <p class="text-body-2">
                                         I agree to the
-                                        <a class="link" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
+                                        <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>
                                         and
-                                        <a class="link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>.
+                                        <a class="link font-weight-medium" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">privacy policy</a>.
                                     </p>
                                 </template>
                             </v-checkbox>
@@ -188,7 +193,7 @@
             </v-col>
             <template v-if="partner">
                 <v-col v-if="viewConfig" cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                    <v-card class="pa-2 pa-sm-7 h-100 no-position">
+                    <v-card class="pa-2 pa-sm-6 h-100 no-position">
                         <v-card-item>
                             <v-card-title class="text-wrap">
                                 {{ viewConfig.title }}
@@ -212,41 +217,30 @@
             </template>
             <template v-else>
                 <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                    <v-card class="pa-2 pa-sm-7 h-100 no-position">
+                    <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                         <v-card-text>
-                            <p class="text-subtitle-2">
-                                Get unparalleled security
-                            </p>
-                            <p class="text-body-2">
-                                Every file is encrypted, split into pieces, then stored across thousands of nodes globally, helping to prevent breaches, ransomware attacks and downtime.
+                            <h1 class="font-weight-black">Start using Storj today.</h1>
+                            <p class="text-subtitle-1 mt-4">
+                                Whether migrating your data or just testing out Storj, your journey starts here.
                             </p>
 
-                            <p class="text-subtitle-2 mt-4">
-                                Cut your cloud costs
-                            </p>
-                            <p class="text-body-2">
-                                80% lower cost than competing storage solutions.
+                            <p class="mt-6">
+                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                You can upload and download up to 25GB for free.
                             </p>
 
-                            <p class="text-subtitle-2 mt-4">
-                                Best Performance
-                            </p>
-                            <p class="text-body-2">
-                                Get consistent, lightning fast, CDN-like performace globally. Legacy cloud storage simply can't match Storj.
+                            <p class="mt-4">
+                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                Integrate with any S3 compatible application.
                             </p>
 
-                            <p class="text-subtitle-2 mt-4">
-                                S3 Compatibility
-                            </p>
-                            <p class="text-body-2">
-                                Storj works with the tools you are already using, with drop-in S3 compatibility for simple integration.
+                            <p class="mt-4">
+                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                Total set up takes less than 5 min.
                             </p>
 
-                            <p class="text-subtitle-2 mt-4">
-                                Sustainability
-                            </p>
-                            <p class="text-body-2">
-                                Dramatically reduce your carbon footprint when you switch to the greenest data storage on earth.
+                            <p class="mt-6">
+                                Need help figuring out if Storj is a fit for your business? <a href="https://meetings.hubspot.com/tom144/meeting-with-tom-troy" target="_blank" class="link font-weight-bold">Schedule a meeting.</a>
                             </p>
                         </v-card-text>
                     </v-card>
@@ -255,7 +249,7 @@
         </v-row>
         <v-row justify="center" class="v-col-12">
             <v-col>
-                <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link" :to="ROUTES.Login.path">Login</router-link></p>
+                <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -277,10 +271,12 @@ import {
     VRow,
     VSelect,
     VTextField,
+    VIcon,
 } from 'vuetify/components';
 import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
+import { mdiCheckBold } from '@mdi/js';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -346,6 +342,8 @@ const repPasswordField = ref<VTextField | null>(null);
 const viewConfig = ref<ViewConfig | null>(null);
 
 const satellitesHints = [
+    { satellite: 'Storj', hint: 'Recommended satellite.' },
+    { satellite: 'QA-Satellite', hint: 'This is the Storj beta satellite.' },
     { satellite: 'US1', hint: 'Recommended for North and South America' },
     { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
     { satellite: 'AP1', hint: 'Recommended for Asia and Australia' },

@@ -3,7 +3,7 @@
 
 <template>
     <v-card
-        class="positioning"
+        class="positioning mt-n2"
         width="100%"
         position="absolute"
         elevation="12"
@@ -203,8 +203,6 @@ function scorePassword(): number {
 
 <style scoped lang="scss">
 .positioning {
-    top: calc(100% - 20px);
-    left: 0;
     z-index: 1;
 }
 </style>

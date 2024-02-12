@@ -65,7 +65,7 @@
                                     <IconNew size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
-                                    Invite Members
+                                    Add Members
                                 </v-list-item-title>
                             </v-list-item>
                         </v-list>

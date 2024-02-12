@@ -36,7 +36,7 @@
             <v-card-item class="px-7 py-0">
                 <v-divider />
 
-                <p class="py-4">The following team members will be removed. This action cannot be undone.</p>
+                <p class="py-4">The following team members will be removed.</p>
 
                 <v-divider />
             </v-card-item>
@@ -60,11 +60,9 @@
             </v-card-item>
 
             <v-card-item class="px-7 py-0">
-                <v-alert variant="tonal" class="mb-4 pa-4" color="warning">
+                <v-alert variant="tonal" class="mb-4 pa-4" color="warning" border="start">
                     <template #text>
-                        <strong>Please note:</strong> any access grants they have created will still provide
-                        them with full access. If necessary, please revoke these access grants to ensure
-                        the security of your data.
+                        <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
                     </template>
                 </v-alert>
 

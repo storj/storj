@@ -11,7 +11,7 @@
 
         <browser-breadcrumbs-component />
         <v-col>
-            <v-row align="center" class="mt-2 mb-4">
+            <v-row align="center" class="mt-2 mb-2 mb-sm-4">
                 <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
                     <template #activator="{ props }">
                         <v-btn
@@ -80,7 +80,7 @@
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col class="pa-0" cols="auto">
+                <v-col class="pa-0 pt-5 pa-sm-0" cols="auto">
                     <v-btn-toggle
                         mandatory
                         border
@@ -100,10 +100,10 @@
                                     @click="isCardView = true"
                                 >
                                     <icon-card-view />
-                                    <span class="hidden-xs">Cards</span>
+                                    Gallery
                                 </v-btn>
                             </template>
-                            Card view shows image previews using download bandwidth.
+                            Gallery view shows image previews using download bandwidth.
                         </v-tooltip>
                         <v-btn
                             size="small"
@@ -114,7 +114,7 @@
                             @click="isCardView = false"
                         >
                             <icon-table-view />
-                            <span class="hidden-xs">Table</span>
+                            List
                         </v-btn>
                     </v-btn-toggle>
                 </v-col>

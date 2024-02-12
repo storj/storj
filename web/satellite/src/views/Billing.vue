@@ -124,6 +124,7 @@
                                 </v-btn>
                             </v-card-text>
                         </v-card>
+
                         <v-card
                             v-else-if="couponCodeBillingUIEnabled"
                             title="Coupon"
@@ -132,7 +133,7 @@
                             rounded="xlg"
                         >
                             <v-card-text>
-                                <v-chip rounded color="green" variant="flat" class="font-weight-bold mb-2">
+                                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mb-2">
                                     No Coupon
                                 </v-chip>
 

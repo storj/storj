@@ -10,7 +10,7 @@
             </v-card-title>
         </template>
         <v-card-text>
-            <v-chip rounded color="default" variant="tonal" class="font-weight-bold">{{ data }}</v-chip>
+            <v-chip rounded color="default" variant="tonal" class="font-weight-bold" :to="to">{{ data }}</v-chip>
         </v-card-text>
     </v-card>
 </template>

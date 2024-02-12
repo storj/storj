@@ -4,64 +4,83 @@
 <template>
     <v-dialog
         v-model="model"
-        width="400px"
+        min-width="320px"
+        max-width="410px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg" class="pa-7 pt-12">
-            <v-btn
-                icon="$close"
-                variant="text"
-                color="default"
-                position="absolute"
-                location="top right"
-                class="mt-1 mr-1"
-                @disabled="isLoading"
-                @click="model = false"
-            />
-
-            <div cols="12" class="d-flex pb-6 justify-center">
-                <img src="@/assets/icon-green-coupon.svg" alt="Coupon">
-            </div>
-
-            <v-row>
-                <v-col cols="12" class="text-center">
-                    <p class="text-h5 font-weight-black pb-4">Apply New Coupon</p>
-                    If you have a coupon active, it will automatically be replaced.
-                </v-col>
-
-                <v-col cols="12">
-                    <v-form v-model="formValid" @submit.prevent="onApplyClick">
-                        <v-text-field
-                            v-model="couponCode"
-                            variant="outlined"
-                            :rules="[RequiredRule]"
-                            label="Coupon Code"
-                            :hide-details="false"
-                            maxlength="50"
-                            autofocus
-                        />
-                    </v-form>
-                </v-col>
-
-                <v-col cols="12" class="text-center">
+        <v-card rounded="xlg">
+            <v-card-item class="pl-6 py-4">
+                <template #prepend>
+                    <img class="d-block" src="@/assets/icon-green-coupon.svg" alt="Coupon">
+                </template>
+                <v-card-title class="font-weight-bold">Apply New Coupon</v-card-title>
+                <template #append>
                     <v-btn
-                        color="primary"
-                        variant="flat"
-                        :loading="isLoading"
-                        @click="onApplyClick"
-                    >
-                        Activate Coupon
-                    </v-btn>
-                </v-col>
-            </v-row>
+                        icon="$close"
+                        variant="text"
+                        size="small"
+                        color="default"
+                        :disabled="isLoading"
+                        @click="model = false"
+                    />
+                </template>
+            </v-card-item>
+
+            <v-divider />
+
+            <v-card-item class="px-6 pt-6 pb-2">
+                <p>If you have a coupon active, it will automatically be replaced.</p>
+            </v-card-item>
+
+            <v-card-item class="px-6 pb-4">
+                <v-form v-model="formValid" @submit.prevent="onApplyClick">
+                    <v-text-field
+                        v-model="couponCode"
+                        variant="outlined"
+                        :rules="[RequiredRule]"
+                        label="Coupon Code"
+                        :hide-details="false"
+                        maxlength="50"
+                        class="pt-2"
+                        autofocus
+                    />
+                </v-form>
+            </v-card-item>
+            <v-divider />
+
+            <v-card-actions class="pa-6">
+                <v-row>
+                    <v-col>
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            block
+                            @click="model = false"
+                        >
+                            Cancel
+                        </v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn
+                            color="primary"
+                            variant="flat"
+                            block
+                            :loading="isLoading"
+                            @click="onApplyClick"
+                        >
+                            Activate Coupon
+                        </v-btn>
+                    </v-col>
+                </v-row>
+            </v-card-actions>
         </v-card>
     </v-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn } from 'vuetify/components';
+import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions } from 'vuetify/components';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
