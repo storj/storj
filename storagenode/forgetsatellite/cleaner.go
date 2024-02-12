@@ -75,6 +75,13 @@ func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error)
 		}
 	}
 
+	logger.Info("removing satellite from trust cache")
+	err = c.trust.DeleteSatellite(ctx, satellite.SatelliteID)
+	if err != nil {
+		logger.Error("failed to remove satellite from trust cache", zap.Error(err))
+		return err
+	}
+
 	logger.Info("cleaning up satellite data")
 	if err := c.store.DeleteSatelliteBlobs(ctx, satellite.SatelliteID); err != nil {
 		return err
@@ -107,14 +114,6 @@ func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error)
 	if err != nil {
 		return err
 	}
-
-	logger.Info("removing satellite from trust cache")
-	err = c.trust.DeleteSatellite(ctx, satellite.SatelliteID)
-	if err != nil {
-		logger.Error("failed to remove satellite from trust cache", zap.Error(err))
-		return err
-	}
-	logger.Info("satellite removed from trust cache")
 
 	err = c.satelliteDB.UpdateSatelliteStatus(ctx, satellite.SatelliteID, satellites.CleanupSucceeded)
 	if err != nil {
