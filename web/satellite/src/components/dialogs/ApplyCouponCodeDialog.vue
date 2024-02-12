@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn } from 'vuetify/components';
+import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions } from 'vuetify/components';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

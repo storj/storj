@@ -129,8 +129,10 @@ import {
     VSheet,
     VList,
     VListItem,
+    VListItemTitle,
     VListItemSubtitle,
     VDivider,
+    VMenu,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 

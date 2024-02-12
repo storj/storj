@@ -148,6 +148,7 @@ import {
     VListItemTitle,
     VDataTableServer,
     VSnackbar,
+    VDivider,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';

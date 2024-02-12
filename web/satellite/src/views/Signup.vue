@@ -271,6 +271,7 @@ import {
     VRow,
     VSelect,
     VTextField,
+    VIcon,
 } from 'vuetify/components';
 import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
