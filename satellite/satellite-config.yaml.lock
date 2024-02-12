@@ -844,6 +844,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # address(es) to send telemetry to (comma-separated)
 # metrics.event-addr: eventkitd.datasci.storj.io:9002
 
+# size of the internal eventkit queue for UDP sending
+# metrics.event-queue: 10000
+
 # instance id prefix
 # metrics.instance-prefix: ""
 

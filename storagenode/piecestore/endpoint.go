@@ -981,6 +981,11 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	return &pb.RetainResponse{}, nil
 }
 
+// RetainBig keeps only piece ids specified in the request, supports big bloom filters.
+func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) error {
+	return errs.New("Not yet supported")
+}
+
 // TestLiveRequestCount returns the current number of live requests.
 func (endpoint *Endpoint) TestLiveRequestCount() int32 {
 	return atomic.LoadInt32(&endpoint.liveRequests)
