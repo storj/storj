@@ -112,6 +112,7 @@
                                 <v-divider class="my-4" />
 
                                 <v-btn
+                                    v-if="couponCodeBillingUIEnabled"
                                     variant="outlined"
                                     color="default"
                                     size="small"
