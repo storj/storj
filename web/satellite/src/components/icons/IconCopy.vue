@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-    size: number;
+    size?: number;
 }>(), {
     size: 18,
 });

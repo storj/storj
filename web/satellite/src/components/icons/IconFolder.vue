@@ -11,9 +11,9 @@
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-    size: number | string;
-    color: string;
-    bold: boolean;
+    size?: number | string;
+    color?: string;
+    bold?: boolean;
 }>(), {
     size: 16,
     color: 'currentColor',

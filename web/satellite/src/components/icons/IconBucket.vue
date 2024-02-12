@@ -11,7 +11,7 @@
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-    bold: boolean;
+    bold?: boolean;
 }>(), {
     bold: false,
 });

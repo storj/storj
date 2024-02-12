@@ -126,7 +126,7 @@ const plan = ref<PricingPlanInfo>();
 const content = ref<HTMLElement | null>(null);
 
 const props = withDefaults(defineProps<{
-    scrim: boolean,
+    scrim?: boolean,
 }>(), {
     scrim: true,
 });

@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-    color: string;
+    color?: string;
 }>(), {
     color: 'currentColor',
 });

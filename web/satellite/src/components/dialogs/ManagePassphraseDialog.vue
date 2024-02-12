@@ -179,7 +179,7 @@ class StepInfo {
 }
 
 const props = withDefaults(defineProps<{
-    isCreate: boolean;
+    isCreate?: boolean;
 }>(), {
     isCreate: false,
 });
