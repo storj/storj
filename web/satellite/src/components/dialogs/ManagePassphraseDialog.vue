@@ -269,9 +269,7 @@ function onNextClick(): void {
 /**
  * Initializes a step when it has been entered.
  */
-watch(step, newStep => {
-    if (!innerContent.value) return;
-
+function initializeStep(newStep: ManageProjectPassphraseStep) {
     // Window items are lazy loaded, so the component may not exist yet
     let unwatch: WatchStopHandle | null = null;
     let unwatchImmediately = false;
@@ -289,10 +287,19 @@ watch(step, newStep => {
         { immediate: true },
     );
     if (unwatchImmediately) unwatch();
+}
+
+watch(step, newStep => {
+    if (!innerContent.value) return;
+
+    initializeStep(newStep);
 });
 
 watch(innerContent, comp => {
-    if (comp) return;
+    if (comp) {
+        initializeStep(step.value);
+        return;
+    }
     step.value = props.isCreate
         ? ManageProjectPassphraseStep.EncryptionPassphrase
         : ManageProjectPassphraseStep.ManageOptions;

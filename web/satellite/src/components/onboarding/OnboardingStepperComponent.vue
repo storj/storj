@@ -117,7 +117,7 @@
     <manage-passphrase-dialog
         v-if="currentStep === OnboardingStep.EncryptionPassphrase"
         v-model="isManagePassphraseDialogOpen"
-        :is-create="true"
+        is-create
         @passphrase-created="progressStep"
     />
 </template>

@@ -3,34 +3,14 @@
 
 <template>
     <v-container class="pb-15">
+        <next-steps-container />
+
         <low-token-balance-banner
             v-if="isLowBalance && billingEnabled"
             cta-label="Go to billing"
             @click="redirectToBilling"
         />
         <limit-warning-banners v-if="billingEnabled" />
-        <v-row v-if="promptForPassphrase && !bucketWasCreated" class="my-0">
-            <v-col cols="12">
-                <p class="text-h5 font-weight-bold">Set an encryption passphrase<br>to start uploading files.</p>
-            </v-col>
-            <v-col cols="12">
-                <v-btn :append-icon="mdiChevronRight" @click="isSetPassphraseDialogShown = true">
-                    Set Encryption Passphrase
-                </v-btn>
-            </v-col>
-        </v-row>
-        <v-row v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsCount" class="my-0">
-            <v-col cols="12">
-                <p class="text-h5 font-weight-bold">Create a bucket to start<br>uploading data in your project.</p>
-            </v-col>
-            <v-col cols="12">
-                <v-btn :append-icon="mdiChevronRight" @click="isCreateBucketDialogShown = true">
-                    Create a Bucket
-                </v-btn>
-            </v-col>
-        </v-row>
-
-        <next-steps-container />
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
@@ -245,7 +225,6 @@
 
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
     <create-bucket-dialog v-model="isCreateBucketDialogShown" />
-    <manage-passphrase-dialog v-model="isSetPassphraseDialogShown" is-create />
     <CreateBucketDialog v-model="isCreateBucketDialogOpen" />
 
     <v-overlay v-model="isDatePicker" class="align-center justify-center">
@@ -333,14 +312,11 @@ const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
 
-const bucketWasCreated = !!LocalData.getBucketWasCreatedStatus();
-
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
 const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogShown = ref<boolean>(false);
-const isSetPassphraseDialogShown = ref<boolean>(false);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
@@ -557,13 +533,6 @@ const allocatedBandwidthUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
         projectsStore.state.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
-});
-
-/**
- * Indicates if user should be prompted to enter the project passphrase.
- */
-const promptForPassphrase = computed((): boolean => {
-    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
