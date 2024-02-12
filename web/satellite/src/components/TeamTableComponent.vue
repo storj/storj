@@ -82,7 +82,7 @@
                                 @click="() => onSingleDelete(item.email)"
                             >
                                 <template #prepend>
-                                    <icon-remove size="16" bold/>
+                                    <icon-remove size="16" bold />
                                 </template>
                                 <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
                                     Remove Member

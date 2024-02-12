@@ -43,8 +43,8 @@
             <v-chip rounded color="green" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
             <v-divider class="mt-4 mb-2" />
             <v-btn v-if="wallet.address" variant="flat" color="success" size="small" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
-            <v-btn v-else variant="flat" color="success" size="small" :loading="isLoading" @click="claimWalletClick" class="mt-2">Create New Wallet</v-btn>
-            <v-btn v-if="wallet.address" variant="outlined" color="default" size="small" :loading="isLoading" @click="emit('historyClicked')" class="mt-2">View Transactions</v-btn>
+            <v-btn v-else variant="flat" color="success" size="small" :loading="isLoading" class="mt-2" @click="claimWalletClick">Create New Wallet</v-btn>
+            <v-btn v-if="wallet.address" variant="outlined" color="default" size="small" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
         </v-card-text>
     </v-card>
 

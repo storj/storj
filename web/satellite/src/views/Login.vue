@@ -99,11 +99,11 @@
                                 </template>
                             </v-text-field>
 
-                            <v-checkbox 
-                                v-model="rememberForOneWeek" 
-                                label="Remember Me" 
-                                density="compact" 
-                                class="mt-n4 mb-3" 
+                            <v-checkbox
+                                v-model="rememberForOneWeek"
+                                label="Remember Me"
+                                density="compact"
+                                class="mt-n4 mb-3"
                                 hide-details
                             >
                                 <v-tooltip

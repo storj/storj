@@ -225,17 +225,17 @@
                             </p>
 
                             <p class="mt-6">
-                                <v-icon :icon="mdiCheckBold" color="primary"></v-icon>
+                                <v-icon :icon="mdiCheckBold" color="primary" />
                                 You can upload and download up to 25GB for free.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary"></v-icon>
+                                <v-icon :icon="mdiCheckBold" color="primary" />
                                 Integrate with any S3 compatible application.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary"></v-icon>
+                                <v-icon :icon="mdiCheckBold" color="primary" />
                                 Total set up takes less than 5 min.
                             </p>
 
