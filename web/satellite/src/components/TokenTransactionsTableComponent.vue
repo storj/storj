@@ -51,7 +51,7 @@
                 </v-chip>
             </template>
             <template #item.link="{ item }">
-                <a :href="item.link" target="_blank" rel="noopener noreferrer">View</a>
+                <a :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
             </template>
         </v-data-table>
     </v-card>
@@ -130,7 +130,7 @@ const nativePaymentHistoryItems = computed((): DisplayedItem[] => {
  * @param status
  */
 function getColor(status: string): string {
-    if (status === 'Confirmed' || status === 'Complete') return 'success';
+    if (status === 'Confirmed' || status === 'Completed') return 'success';
     if (status === 'Pending') return 'warning';
     return 'error';
 }

@@ -68,7 +68,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link" :to="ROUTES.Login.path">login</router-link></p>
+                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>

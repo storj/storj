@@ -60,7 +60,7 @@
                         <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" :to="ROUTES.Billing.path">
                             View Billing
                         </v-btn>
-                        <v-btn v-else variant="outlined" color="default" size="small" @click="appStore.toggleUpgradeFlow(true)">
+                        <v-btn v-else color="success" size="small" @click="appStore.toggleUpgradeFlow(true)">
                             Upgrade
                         </v-btn>
                     </v-card-text>

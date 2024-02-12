@@ -186,6 +186,10 @@ body {
   border-radius: 8px !important;
 }
 
+// High contrast labels
+.v-label {
+  opacity: var(--v-high-emphasis-opacity) !important;
+}
 
 // Ensure that the compact checkbox isn't too close to its label
 .v-selection-control--density-compact .v-label {
@@ -477,7 +481,7 @@ table {
   width: 100%;
   height: 100%;
   background-size: cover;
-  opacity: 0.25;
+  opacity: 0.15;
   pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
 }
 

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="model ? 'Enter your 2FA code' : 'Enter your recovery code'" class="pa-2 pa-sm-7">
+    <v-card :title="model ? 'Enter your 2FA code' : 'Enter your recovery code'" class="pa-2 pa-sm-6">
         <v-card-text v-if="model">
             <p>Enter the 6 digit code from your two factor authenticator application to continue.</p>
             <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
@@ -63,13 +63,13 @@
             </v-form>
         </v-card-text>
     </v-card>
-    <p class="pt-9 text-center text-body-2">
-        Or use <span
-            class="link"
+    <p class="mt-8 text-center text-body-2">
+        Or use a <a
+            class="link font-weight-bold"
             @click="model = !model"
         >
-            {{ model ? 'a recovery code' : 'an OTP code' }}
-        </span>
+            {{ model ? 'Recovery Code' : '2FA Code' }}
+        </a>
     </p>
 </template>
 

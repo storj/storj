@@ -71,9 +71,10 @@
                                     <icon-copy v-else />
                                 </template>
                                 <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
-                                    {{ item.expired ? 'Resend invite' : 'Copy invite link' }}
+                                    {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
                                 </v-list-item-title>
                             </v-list-item>
+                            <v-divider class="my-1" />
                             <v-list-item
                                 class="text-error"
                                 density="comfortable"
@@ -81,10 +82,10 @@
                                 @click="() => onSingleDelete(item.email)"
                             >
                                 <template #prepend>
-                                    <icon-trash bold />
+                                    <icon-remove size="16" bold/>
                                 </template>
                                 <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
-                                    Remove member
+                                    Remove Member
                                 </v-list-item-title>
                             </v-list-item>
                         </v-list>
@@ -121,7 +122,7 @@
                         @click="showDeleteDialog"
                     >
                         <template #prepend>
-                            <icon-trash bold />
+                            <icon-remove size="16" bold />
                         </template>
                         Remove
                     </v-btn>
@@ -174,7 +175,7 @@ import { ROUTES } from '@/router';
 import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberDialog.vue';
 import IconUpload from '@/components/icons/IconUpload.vue';
 import IconCopy from '@/components/icons/IconCopy.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
+import IconRemove from '@/components/icons/IconRemove.vue';
 
 type RenderedItem = {
     name: string,

@@ -46,6 +46,77 @@
                 </navigation-item>
 
                 <v-divider class="my-2" />
+
+                <v-menu location="end" transition="scale-transition">
+                    <template #activator="{ props: activatorProps }">
+                        <navigation-item title="Resources" v-bind="activatorProps">
+                            <template #prepend>
+                                <IconResources />
+                            </template>
+                            <template #append>
+                                <img src="@/assets/icon-right.svg" alt="Resources" width="10">
+                            </template>
+                        </navigation-item>
+                    </template>
+
+                    <v-list class="pa-2">
+                        <v-list-item
+                            class="py-3"
+                            href="https://docs.storj.io/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            @click="() => trackViewDocsEvent('https://docs.storj.io/')"
+                        >
+                            <template #prepend>
+                                <IconDocs />
+                            </template>
+                            <v-list-item-title class="mx-3">
+                                Documentation
+                            </v-list-item-title>
+                            <v-list-item-subtitle class="mx-3">
+                                <small>Go to the Storj docs.</small>
+                            </v-list-item-subtitle>
+                        </v-list-item>
+
+                        <v-list-item
+                            class="py-3"
+                            href="https://forum.storj.io/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            @click="() => trackViewForumEvent('https://forum.storj.io/')"
+                        >
+                            <template #prepend>
+                                <IconForum />
+                            </template>
+                            <v-list-item-title class="mx-3">
+                                Community Forum
+                            </v-list-item-title>
+                            <v-list-item-subtitle class="mx-3">
+                                <small>Join our global community.</small>
+                            </v-list-item-subtitle>
+                        </v-list-item>
+
+                        <v-list-item
+                            class="py-3"
+                            href="https://supportdcs.storj.io/hc/en-us"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
+                        >
+                            <template #prepend>
+                                <IconSupport />
+                            </template>
+                            <v-list-item-title class="mx-3">
+                                Storj Support
+                            </v-list-item-title>
+                            <v-list-item-subtitle class="mx-3">
+                                <small>Need help? Get support.</small>
+                            </v-list-item-subtitle>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+
+                <v-divider class="my-2" />
             </v-list>
         </v-sheet>
     </v-navigation-drawer>
@@ -72,6 +143,10 @@ import IconCard from '@/components/icons/IconCard.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
 import IconAllProjects from '@/components/icons/IconAllProjects.vue';
+import IconDocs from '@/components/icons/IconDocs.vue';
+import IconForum from '@/components/icons/IconForum.vue';
+import IconSupport from '@/components/icons/IconSupport.vue';
+import IconResources from '@/components/icons/IconResources.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();

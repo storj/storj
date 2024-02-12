@@ -5,7 +5,7 @@
     <v-container class="fill-height">
         <v-row align="top" justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card title="Check your email" class="pa-2 pa-sm-7">
+                <v-card title="Check your email" class="pa-2 pa-sm-6">
                     <v-card-text>
                         <p class="mb-4">We have sent you the password reset instructions to your email address.</p>
                         <v-btn color="primary" size="large" block router-link :to="ROUTES.Login.path">
@@ -15,8 +15,8 @@
                 </v-card>
                 <p class="pt-6 text-center text-body-2">Didn't get the password reset email?</p>
                 <p class="text-center text-body-2">Make sure you selected the correct satellite.</p>
-                <p class="text-center text-body-2">Go back to <router-link class="link" :to="ROUTES.ForgotPassword.path">password reset</router-link>.</p>
-                <p class="pt-6 text-center text-body-2">Still having problems? <a class="link" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
+                <p class="text-center text-body-2">Go back to <router-link class="link font-weight-bold" :to="ROUTES.ForgotPassword.path">Password Reset</router-link></p>
+                <p class="pt-6 text-center text-body-2">Still having problems? <a class="link font-weight-bold" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
             </v-col>
         </v-row>
     </v-container>

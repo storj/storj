@@ -18,6 +18,7 @@
                 <InfoBullet title="Download" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
                 <InfoBullet title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                 <InfoBullet title="Link Sharing" info="Link sharing with Storj domain" />
+                <InfoBullet title="Single User" info="Project can't be shared" />
             </v-card>
         </v-col>
         <v-col :cols="smAndDown ? 12 : '6'">
