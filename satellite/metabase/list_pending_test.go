@@ -21,6 +21,8 @@ import (
 )
 
 func TestListPendingObjects(t *testing.T) {
+	t.Skip("see https://github.com/storj/storj/issues/6734")
+
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
@@ -566,6 +568,8 @@ func TestListPendingObjects(t *testing.T) {
 }
 
 func TestListPendingObjectsSkipCursor(t *testing.T) {
+	t.Skip("see https://github.com/storj/storj/issues/6734")
+
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		projectID, bucketName := uuid.UUID{1}, "bucky"
 
@@ -818,6 +822,8 @@ func TestListPendingObjectsSkipCursor(t *testing.T) {
 }
 
 func TestListPendingObjectsVersions(t *testing.T) {
+	t.Skip("see https://github.com/storj/storj/issues/6734")
+
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 
 		t.Run("2 objects, one with versions one without", func(t *testing.T) {
@@ -1415,6 +1421,8 @@ func TestListPendingObjectsVersions(t *testing.T) {
 }
 
 func TestListPendingObjects_Limit(t *testing.T) {
+	t.Skip("see https://github.com/storj/storj/issues/6734")
+
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		projectID := testrand.UUID()
 		bucketName := testrand.BucketName()

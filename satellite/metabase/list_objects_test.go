@@ -1035,6 +1035,8 @@ func TestListObjectsVersioned(t *testing.T) {
 		})
 
 		t.Run("2 objects one with versions and one pending, list pending", func(t *testing.T) {
+			t.Skip("see https://github.com/storj/storj/issues/6734")
+
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			a0 := metabasetest.RandObjectStream()
