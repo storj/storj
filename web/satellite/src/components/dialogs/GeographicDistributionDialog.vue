@@ -106,18 +106,7 @@ import { PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrows
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const analyticsStore = useAnalyticsStore();
 const obStore = useObjectBrowserStore();

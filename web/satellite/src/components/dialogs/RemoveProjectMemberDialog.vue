@@ -113,19 +113,10 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const props = defineProps<{
-    modelValue: boolean,
     emails: string[],
 }>();
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
-    'deleted': [];
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();

@@ -110,18 +110,8 @@ const userStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
+const model = defineModel<boolean>({ required: true });
 
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 const formValid = ref<boolean>(false);
 const name = ref<string>(userStore.userName);
 
@@ -142,7 +132,7 @@ async function onChangeName(): Promise<void> {
             return;
         }
 
-        emit('update:modelValue', false);
+        model.value = false;
     });
 }
 </script>

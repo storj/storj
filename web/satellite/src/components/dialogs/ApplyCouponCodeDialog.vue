@@ -95,18 +95,7 @@ const analyticsStore = useAnalyticsStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
-const emit = defineEmits<{
-    'update:modelValue': [boolean];
-}>();
-
-const props = defineProps<{
-    modelValue: boolean;
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const formValid = ref<boolean>(false);
 const couponCode = ref<string>('');

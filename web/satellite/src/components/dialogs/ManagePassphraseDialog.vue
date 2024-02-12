@@ -179,20 +179,14 @@ class StepInfo {
 }
 
 const props = withDefaults(defineProps<{
-    modelValue: boolean;
     isCreate: boolean;
 }>(), {
-    modelValue: false,
     isCreate: false,
 });
 
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
     'passphraseCreated': [];
 }>();
 

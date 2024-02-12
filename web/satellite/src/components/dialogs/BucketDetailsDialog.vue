@@ -106,17 +106,12 @@ const isLoading = useLoading();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
+
 const props = defineProps<{
-    modelValue: boolean,
     bucketName: string,
 }>();
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+
+const model = defineModel<boolean>({ required: true });
 
 function redirectToBucketsPage(): void {
     router.push({

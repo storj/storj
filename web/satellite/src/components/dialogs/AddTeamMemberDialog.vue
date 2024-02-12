@@ -133,18 +133,10 @@ import { useConfigStore } from '@/store/modules/configStore';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
 const props = defineProps<{
-    modelValue: boolean;
     projectId: string;
 }>();
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const usersStore = useUsersStore();
 const analyticsStore = useAnalyticsStore();

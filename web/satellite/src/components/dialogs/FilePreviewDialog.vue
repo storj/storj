@@ -176,18 +176,7 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const constCarouselIndex = computed(() => carouselIndex.value);
 const carouselIndex = ref(0);
@@ -332,7 +321,7 @@ watch(filePath, () => {
     carouselIndex.value = fileIndex.value;
 });
 
-watch(() => props.modelValue, async (shown) => {
+watch(model, async (shown) => {
     if (!shown) {
         return;
     }

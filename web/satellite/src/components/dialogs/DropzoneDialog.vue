@@ -36,19 +36,10 @@ import { VAlert, VContainer, VDialog } from 'vuetify/components';
 import { computed } from 'vue';
 
 const props = defineProps<{
-    modelValue: boolean,
     bucket: string,
 }>();
 
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-    (event: 'fileDrop', value: Event): void,
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 </script>
 
 <style scoped lang="scss">

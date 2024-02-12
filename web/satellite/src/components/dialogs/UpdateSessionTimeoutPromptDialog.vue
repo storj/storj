@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -69,19 +69,11 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
+const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
     'showSetTimeoutModal': [],
 }>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 const usersStore = useUsersStore();
 const configStore = useConfigStore();

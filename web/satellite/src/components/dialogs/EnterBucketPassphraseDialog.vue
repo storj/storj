@@ -133,19 +133,11 @@ const isWarningState = ref<boolean>(false);
 const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
+const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
     (event: 'passphraseEntered'): void,
 }>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 /**
  * Returns chosen bucket name from store.

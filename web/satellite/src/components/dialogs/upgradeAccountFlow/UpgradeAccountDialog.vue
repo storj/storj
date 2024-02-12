@@ -126,20 +126,12 @@ const plan = ref<PricingPlanInfo>();
 const content = ref<HTMLElement | null>(null);
 
 const props = withDefaults(defineProps<{
-    modelValue: boolean,
     scrim: boolean,
 }>(), {
     scrim: true,
 });
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const stepTitles = computed(() => {
     return {

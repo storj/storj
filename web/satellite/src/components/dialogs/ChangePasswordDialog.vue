@@ -148,18 +148,8 @@ const { isLoading, withLoading } = useLoading();
 const router = useRouter();
 const notify = useNotify();
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
+const model = defineModel<boolean>({ required: true });
 
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 const formValid = ref<boolean>(false);
 const oldPassword = ref<string>('');
 const newPassword = ref<string>('');
@@ -193,7 +183,7 @@ async function onChangePassword(): Promise<void> {
             notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
         }
 
-        emit('update:modelValue', false);
+        model.value = false;
     });
 }
 </script>

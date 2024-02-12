@@ -88,18 +88,10 @@ import { ValidationRule } from '@/types/common';
 import { FieldToChange, ProjectFields, MAX_NAME_LENGTH, MAX_DESCRIPTION_LENGTH } from '@/types/projects';
 
 const props = defineProps<{
-    modelValue: boolean,
     field: FieldToChange,
 }>();
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();

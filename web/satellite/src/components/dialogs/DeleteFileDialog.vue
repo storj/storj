@@ -85,20 +85,15 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import IconTrash from '@/components/icons/IconTrash.vue';
 
 const props = defineProps<{
-    modelValue: boolean,
     files: BrowserObject[],
 }>();
 
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
     'contentRemoved': [],
     'filesDeleted': [],
 }>();
 
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();

@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
 
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
@@ -59,18 +59,7 @@ const step = ref(AddTokensDialogStep.AddTokens);
 const loading = ref<boolean>(false);
 const content = ref<HTMLElement | null>(null);
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 /**
  * Sets specific flow step.

@@ -248,20 +248,9 @@ function resettableRef<T>(value: T): Ref<T> {
     return thisRef;
 }
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => {
-        if (isCreating.value) return;
-        emit('update:modelValue', value);
-    },
-});
+const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
     'accessCreated': [];
 }>();
 

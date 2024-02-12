@@ -127,15 +127,14 @@ const configStore = useConfigStore();
 const ipRegexp = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
 
 const props = withDefaults(defineProps<{
-    modelValue: boolean,
     openCreated: boolean,
 }>(), {
-    modelValue: false,
     openCreated: true,
 });
 
+const model = defineModel<boolean>({ required: true });
+
 const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
     (event: 'created', value: string): void,
 }>();
 
@@ -143,11 +142,6 @@ const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 const bucketNameRules = computed(() => {
     return [

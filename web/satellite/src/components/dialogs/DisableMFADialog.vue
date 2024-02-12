@@ -113,23 +113,12 @@ const notify = useNotify();
 
 const innerContent = ref<Component | null>(null);
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
+const model = defineModel<boolean>({ required: true });
 
 const confirmCode = ref<string>('');
 const isError = ref<boolean>(false);
 const useRecoveryCode = ref<boolean>(false);
 const formValid = ref<boolean>(false);
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 /**
  * Returns validation rules based on whether recovery

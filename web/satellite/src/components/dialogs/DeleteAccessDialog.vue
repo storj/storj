@@ -94,19 +94,14 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
-    modelValue: boolean;
     accessNames: string[];
 }>();
 
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
     'deleted': [];
 }>();
 
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 async function onDeleteClick(): Promise<void> {
     await withLoading(async () => {

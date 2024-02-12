@@ -83,19 +83,11 @@ import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 
 const props = defineProps<{
-    modelValue: boolean,
     name: string,
     id: string,
 }>();
 
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
-
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
+const model = defineModel<boolean>({ required: true });
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();

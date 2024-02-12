@@ -40,28 +40,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { VDialog, VCard, VCardItem, VCardTitle, VBtn, VDivider, VCardActions } from 'vuetify/components';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
-}>();
-
 const analyticsStore = useAnalyticsStore();
 const router = useRouter();
 
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 /**
  * Redirects to login screen.

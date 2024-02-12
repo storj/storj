@@ -61,18 +61,10 @@ const isUpgradeDialogShown = ref<boolean>(false);
 const upgradeDialog = ref<{ setSecondStep: ()=>void }>();
 
 const props = defineProps<{
-    modelValue: boolean,
     planInfo: PricingPlanInfo,
 }>();
 
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
-
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
+const model = defineModel<boolean>({ required: true });
 
 async function dismiss() {
     try {

@@ -493,6 +493,12 @@ table {
   background: rgb(var(--v-theme-background));
 }
 
+// fix for the table footer info width being too big for its small content
+// a huge min-width was added in Vuetify 3.4.11
+// https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2
+.v-data-table-footer__info {
+  min-width: unset !important;
+}
 
 @media (min-width: 600px) {
   .signup-background::before {

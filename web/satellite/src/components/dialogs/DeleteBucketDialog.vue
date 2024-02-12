@@ -89,18 +89,10 @@ import { useNotify } from '@/utils/hooks';
 import IconTrash from '@/components/icons/IconTrash.vue';
 
 const props = defineProps<{
-    modelValue: boolean,
     bucketName: string;
 }>();
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
-}>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
+const model = defineModel<boolean>({ required: true });
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();

@@ -81,19 +81,14 @@ import { CreditCard } from '@/types/payments';
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
 
 const props = defineProps<{
-    modelValue: boolean,
     card: CreditCard,
 }>();
 
+const model = defineModel<boolean>({ required: true });
+
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
     'editDefault': [];
 }>();
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
@@ -118,7 +113,7 @@ async function onDelete(): Promise<void> {
 }
 
 function onEditDefault(): void {
-    emit('update:modelValue', false);
+    model.value = false;
     emit('editDefault');
 }
 </script>

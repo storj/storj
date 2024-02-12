@@ -100,14 +100,6 @@ const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
-
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: boolean): void,
-}>();
-
 const options = [
     Duration.MINUTES_15,
     Duration.MINUTES_30,
@@ -117,16 +109,13 @@ const options = [
     Duration.DAY_30,
 ];
 
+const model = defineModel<boolean>({ required: true });
+
 /**
  * Returns user's session duration from store.
  */
 const storedDuration = computed((): Duration | null => {
     return usersStore.state.settings.sessionDuration;
-});
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
 });
 
 const duration = ref<Duration>(storedDuration.value || Duration.MINUTES_15);
@@ -144,7 +133,7 @@ async function onChangeTimeout(): Promise<void> {
             return;
         }
 
-        emit('update:modelValue', false);
+        model.value = false;
     });
 }
 </script>

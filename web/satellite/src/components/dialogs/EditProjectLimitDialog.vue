@@ -185,23 +185,15 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
 const props = defineProps<{
-    modelValue: boolean,
     limitType: LimitToChange,
 }>();
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
-}>();
+const model = defineModel<boolean>({ required: true });
 
 const formValid = ref<boolean>(false);
 const activeMeasurement = ref<Dimensions.GB | Dimensions.TB>(Dimensions.TB);
 const inputText = ref<string>('0');
 const input = ref<number>(0);
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 const dropdownModel = computed<(Dimensions.GB | Dimensions.TB)[]>({
     get: () => [ activeMeasurement.value ],

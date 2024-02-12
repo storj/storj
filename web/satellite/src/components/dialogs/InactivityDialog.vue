@@ -75,24 +75,16 @@ import { VDialog, VCard, VCardItem, VCardTitle, VBtn, VDivider, VCardActions, VR
 import { INACTIVITY_MODAL_DURATION } from '@/composables/useSessionTimeout';
 
 const props = defineProps<{
-    modelValue: boolean,
     onContinue: () => Promise<void>;
     onLogout: () => Promise<void>;
 }>();
 
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
-}>();
+const model = defineModel<boolean>({ required: true });
 
 const seconds = ref<number>(0);
 const isLogOutLoading = ref<boolean>(false);
 const isContinueLoading = ref<boolean>(false);
 const intervalId = ref<ReturnType<typeof setInterval> | null>(null);
-
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
 
 /**
  * Indicates whether the dialog is processing an action.
@@ -122,7 +114,7 @@ async function continueClick(): Promise<void> {
 /**
  * Starts timer that decreases number of seconds until session expiration.
  */
-watch(() => props.modelValue, shown => {
+watch(model, shown => {
     if (!shown) {
         if (intervalId.value) clearInterval(intervalId.value);
         return;

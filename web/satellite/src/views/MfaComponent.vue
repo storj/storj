@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -87,35 +87,19 @@ import {
 import { RequiredRule } from '@/types/common';
 
 const props = defineProps<{
-    modelValue: boolean;
     loading: boolean;
-    error: boolean;
-    recovery: string;
-    otp: string;
 }>();
 
+const model = defineModel<boolean>({ required: true });
+const error = defineModel<boolean>('error', { required: true });
+const recovery = defineModel<string>('recovery', { required: true });
+const otp = defineModel<string>('otp', { required: true });
+
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
-    'update:error': [value: boolean];
-    'update:recovery': [value: string];
-    'update:otp': [value: string];
     verify: [];
 }>();
 
 const formValid = ref(false);
-
-/**
- * Whether to use the OTP code or recovery code.
- */
-const model = computed<boolean>({
-    get: () => props.modelValue,
-    set: value => {
-        emit('update:otp', '');
-        emit('update:recovery', '');
-        emit('update:error', false);
-        emit('update:modelValue', value);
-    },
-});
 
 function verifyCode() {
     emit('verify');
@@ -123,20 +107,26 @@ function verifyCode() {
 
 function onValueChange(value: string) {
     if (model.value) {
-        if (props.recovery) {
-            emit('update:recovery', '');
+        if (recovery.value) {
+            recovery.value = '';
         }
         const val = value.slice(0, 6);
         if (isNaN(+val)) {
             return;
         }
-        emit('update:otp', val);
+        otp.value = val;
     } else {
-        emit('update:recovery', value);
-        if (props.otp) {
-            emit('update:otp', '');
+        recovery.value = value;
+        if (otp.value) {
+            otp.value = '';
         }
     }
-    emit('update:error', false);
+    error.value = false;
 }
+
+watch(model, () => {
+    otp.value = '';
+    recovery.value = '';
+    error.value = false;
+});
 </script>
