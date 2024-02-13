@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/cockroachutil"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/cockroachutil"
+	"storj.io/common/dbutil/pgutil"
+	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
 )
 
@@ -2585,6 +2585,31 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     253,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes DROP COLUMN type;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update default versioning for projects to match default versioning values for buckets DB",
+				Version:     254,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ALTER COLUMN default_versioning SET DEFAULT 1;`,
+					`UPDATE projects SET default_versioning = 1 WHERE default_versioning = 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add last_ip_port to node_events",
+				Version:     255,
+				Action: migrate.SQL{
+					`ALTER TABLE node_events ADD COLUMN last_ip_port TEXT;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add notice_dismissal column to user_settings to track dismissed notices",
+				Version:     256,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN notice_dismissal jsonb NOT NULL DEFAULT '{}';`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

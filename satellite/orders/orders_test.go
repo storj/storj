@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
@@ -189,12 +190,12 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 
 		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
 		require.NoError(t, err)
-		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
+		assert.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
 		for _, storageNode := range planet.StorageNodes {
 			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), beforeRollup, afterRollup)
-			require.NoError(t, err)
-			require.Equal(t, expectedStorageBandwidth[storageNode.ID()], nodeBandwidth)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedStorageBandwidth[storageNode.ID()], nodeBandwidth)
 		}
 	})
 }
@@ -395,8 +396,8 @@ func TestProjectBandwidthDailyRollups(t *testing.T) {
 		year, month, day := now.Year(), now.Month(), now.Day()
 		allocated, settled, dead, err := projectAccountingDB.GetProjectDailyBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, year, month, day)
 		require.NoError(t, err)
-		require.NotZero(t, allocated)
-		require.Equal(t, allocated, settled)
-		require.Zero(t, dead)
+		assert.NotZero(t, allocated)
+		assert.Equal(t, allocated, settled)
+		assert.Zero(t, dead)
 	})
 }

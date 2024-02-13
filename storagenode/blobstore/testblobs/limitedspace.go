@@ -56,3 +56,11 @@ func newLimitedSpaceBlobs(log *zap.Logger, blobs blobstore.Blobs, freeSpace int6
 func (limspace *LimitedSpaceBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	return limspace.freeSpace, nil
 }
+
+// DiskInfo returns the disk info.
+func (limspace *LimitedSpaceBlobs) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
+	return blobstore.DiskInfo{
+		TotalSpace:     limspace.freeSpace,
+		AvailableSpace: limspace.freeSpace,
+	}, nil
+}

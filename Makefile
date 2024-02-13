@@ -2,7 +2,7 @@ GO_VERSION ?= 1.21.3
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
-NODE_VERSION ?= 18.17.0
+NODE_VERSION ?= 20.10.0
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
@@ -131,27 +131,6 @@ lint:
 		storjlabs/ci:slim \
 		make .lint LINT_TARGET="$(LINT_TARGET)"
 
-.PHONY: .lint/testsuite/ui
-.lint/testsuite/ui:
-	go run ./scripts/lint.go \
-		-work-dir testsuite/ui \
-		-parallel 4 \
-		-imports \
-		-atomic-align \
-		-errs \
-		-staticcheck \
-		-golangci \
-		$(LINT_TARGET)
-
-.PHONY: lint/testsuite/ui
-lint/testsuite/ui:
-	docker run --rm -it \
-		-v ${GOPATH}/pkg:/go/pkg \
-		-v ${PWD}:/storj \
-		-w /storj \
-		storjlabs/ci \
-		make .lint/testsuite/ui LINT_TARGET="$(LINT_TARGET)"
-
 ##@ Test
 
 TEST_TARGET ?= "./..."
@@ -177,7 +156,7 @@ test/postgres: test/setup ## Run tests against Postgres (developer)
 		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
 		STORJ_TEST_COCKROACH='omit' \
 		STORJ_TEST_LOG_LEVEL='info' \
-		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml down -v; \
 		}
 	@docker compose -f docker-compose.tests.yaml down -v
@@ -194,7 +173,7 @@ test/cockroach: test/setup ## Run tests against CockroachDB (developer)
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
 		STORJ_TEST_LOG_LEVEL='info' \
-		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml down -v; \
 		}
 	@docker compose -f docker-compose.tests.yaml down -v
@@ -211,7 +190,7 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
 		STORJ_TEST_LOG_LEVEL='info' \
-		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml rm -fs; \
 		}
 	@docker compose -f docker-compose.tests.yaml rm -fs
@@ -220,23 +199,23 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/tests/integration/test-sim.sh
+	@./testsuite/basic/start-sim.sh
 
 .PHONY: test-sim-redis-unavailability
 test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/tests/redis/test-sim-redis-up-and-down.sh
+	@./testsuite/redis/start-sim.sh
 
 
 .PHONY: test-certificates
 test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-certificates.sh
+	@./testsuite/test-certificates.sh
 
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
-	@./scripts/tests/backwardcompatibility/test-sim-backwards.sh
+	@./testsuite/backward-compatibility/start-sim.sh
 
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
@@ -248,7 +227,7 @@ check-monitoring: ## Check for locked monkit calls that have changed
 .PHONY: test-wasm-size
 test-wasm-size: ## Test that the built .wasm code has not increased in size
 	@echo "Running ${@}"
-	@./scripts/test-wasm-size.sh
+	@./testsuite/wasm/check-size.sh
 
 ##@ Build
 
@@ -306,7 +285,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image uplink-image versioncontrol-image ## Build multinode, satellite and versioncontrol Docker images
+images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image## Build multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
@@ -330,6 +309,13 @@ uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build up
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/uplink/Dockerfile .
+
+# THIS IS NOT THE PRODUCTION STORAGENODE!!! Only for testing.
+# See https://github.com/storj/storagenode-docker for the prod image.
+.PHONY: storagenode-image
+storagenode-image: storagenode_linux_amd64 identity_linux_amd64
+	${DOCKER_BUILD} --pull=true -t img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/storagenode/Dockerfile.dev .
 
 .PHONY: satellite-image
 satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image
@@ -460,6 +446,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
+	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
@@ -496,6 +483,7 @@ clean-images:
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 
@@ -517,13 +505,10 @@ diagrams-graphml:
 
 .PHONY: bump-dependencies
 bump-dependencies:
-	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
+	go get storj.io/common@main storj.io/uplink@main
 	go mod tidy
-	cd testsuite/ui;\
-		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
-		go mod tidy;
 	cd testsuite/storjscan;\
-		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
+		go get storj.io/common@main storj.io/uplink@main;\
 		go mod tidy;
 
 update-proto-lock:

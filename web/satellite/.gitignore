@@ -1,13 +1,14 @@
 .DS_Store
 node_modules
 dist
-dist_vuetify_poc
 coverage
 temp
 
 # wasm related files
 wasm_exec.js
 wasm_exec.js.br
+wasm_exec.*.js
+wasm_exec.*.js.br
 *.wasm
 *.wasm.br
 wasm-manifest.json

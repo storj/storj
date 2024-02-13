@@ -196,6 +196,14 @@ func (slow *SlowBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	return slow.blobs.FreeSpace(ctx)
 }
 
+// DiskInfo returns the disk space information.
+func (slow *SlowBlobs) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
+	if err := slow.sleep(ctx); err != nil {
+		return blobstore.DiskInfo{}, errs.Wrap(err)
+	}
+	return slow.blobs.DiskInfo(ctx)
+}
+
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (slow *SlowBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if err := slow.sleep(ctx); err != nil {

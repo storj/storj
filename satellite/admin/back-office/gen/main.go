@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
 	backoffice "storj.io/storj/satellite/admin/back-office"
 )
@@ -26,7 +27,17 @@ func main() {
 		BasePath:    path.Join(backoffice.PathPrefix, "/api"),
 	}
 
-	group := api.Group("PlacementManagement", "placements")
+	group := api.Group("Settings", "settings")
+
+	group.Get("/", &apigen.Endpoint{
+		Name:           "Get settings",
+		Description:    "Gets the settings of the service and relevant Storj services settings",
+		GoName:         "GetSettings",
+		TypeScriptName: "get",
+		Response:       backoffice.Settings{},
+	})
+
+	group = api.Group("PlacementManagement", "placements")
 
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Get placements",
@@ -47,16 +58,47 @@ func main() {
 		PathParams: []apigen.Param{
 			apigen.NewParam("email", ""),
 		},
-		Response: backoffice.User{},
+		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
 		},
 	})
 
-	modroot := findModuleRootDir()
-	api.MustWriteGo(filepath.Join(modroot, "satellite", "admin", "back-office", "handlers.gen.go"))
-	api.MustWriteTS(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))
-	api.MustWriteDocs(filepath.Join(modroot, "satellite", "admin", "back-office", "api-docs.gen.md"))
+	group = api.Group("ProjectManagement", "projects")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/{publicID}", &apigen.Endpoint{
+		Name:           "Get project",
+		Description:    "Gets project by ID",
+		GoName:         "GetProject",
+		TypeScriptName: "getProject",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Response: backoffice.Project{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
+		},
+	})
+
+	group.Put("/limits/{publicID}", &apigen.Endpoint{
+		Name:           "Update project limits",
+		Description:    "Updates project limits by ID",
+		GoName:         "UpdateProjectLimits",
+		TypeScriptName: "updateProjectLimits",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Request: backoffice.ProjectLimitsUpdate{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectSetLimits},
+		},
+	})
+
+	api.OutputRootDir = findModuleRootDir()
+	api.MustWriteGo(filepath.Join("satellite", "admin", "back-office", "handlers.gen.go"))
+	api.MustWriteTS(filepath.Join("satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))
+	api.MustWriteDocs(filepath.Join("satellite", "admin", "back-office", "api-docs.gen.md"))
 }
 
 type authMiddleware struct {

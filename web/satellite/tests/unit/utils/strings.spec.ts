@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { describe, beforeEach, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { decimalShift, formatPrice, hexToBase64 } from '@/utils/strings';
 

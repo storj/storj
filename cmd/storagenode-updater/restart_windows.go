@@ -17,8 +17,8 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
+	"storj.io/common/process"
 	"storj.io/common/sync2"
-	"storj.io/private/process"
 )
 
 var unrecoverableErr = errs.Class("unable to recover binary from backup")

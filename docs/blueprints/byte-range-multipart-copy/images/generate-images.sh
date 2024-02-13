@@ -1,1 +1,0 @@
-plantuml -tsvg *.plantuml

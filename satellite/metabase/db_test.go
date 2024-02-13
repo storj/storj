@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/dbutil/pgutil/pgerrcode"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )

@@ -5,6 +5,7 @@ package consoleweb
 
 import (
 	"encoding/json"
+	"time"
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/console"
@@ -48,7 +49,6 @@ type FrontendConfig struct {
 	GalleryViewEnabled              bool                  `json:"galleryViewEnabled"`
 	NeededTransactionConfirmations  int                   `json:"neededTransactionConfirmations"`
 	ObjectBrowserPaginationEnabled  bool                  `json:"objectBrowserPaginationEnabled"`
-	ObjectBrowserCardViewEnabled    bool                  `json:"objectBrowserCardViewEnabled"`
 	BillingFeaturesEnabled          bool                  `json:"billingFeaturesEnabled"`
 	StripePaymentElementEnabled     bool                  `json:"stripePaymentElementEnabled"`
 	UnregisteredInviteEmailsEnabled bool                  `json:"unregisteredInviteEmailsEnabled"`
@@ -56,7 +56,10 @@ type FrontendConfig struct {
 	UserBalanceForUpgrade           int64                 `json:"userBalanceForUpgrade"`
 	LimitIncreaseRequestEnabled     bool                  `json:"limitIncreaseRequestEnabled"`
 	SignupActivationCodeEnabled     bool                  `json:"signupActivationCodeEnabled"`
-	NewSignupFlowEnabled            bool                  `json:"newSignupFlowEnabled"`
+	AllowedUsageReportDateRange     time.Duration         `json:"allowedUsageReportDateRange"`
+	OnboardingStepperEnabled        bool                  `json:"onboardingStepperEnabled"`
+	EnableRegionTag                 bool                  `json:"enableRegionTag"`
+	EmissionImpactViewEnabled       bool                  `json:"emissionImpactViewEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

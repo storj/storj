@@ -6,8 +6,10 @@ package nodestats
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -52,13 +54,15 @@ type Cache struct {
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
 	Storage    *sync2.Cycle
+
+	UsageStat *UsageStat
 }
 
 // NewCache creates new caching service instance.
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 	payoutEndpoint *payouts.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
 
-	return &Cache{
+	cache := &Cache{
 		log:               log,
 		db:                db,
 		service:           service,
@@ -68,7 +72,11 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 		maxSleep:          config.MaxSleep,
 		Reputation:        sync2.NewCycle(config.ReputationSync),
 		Storage:           sync2.NewCycle(config.StorageSync),
+
+		UsageStat: NewUsageStat(),
 	}
+	mon.Chain(cache.UsageStat)
+	return cache
 }
 
 // Run runs loop.
@@ -163,6 +171,37 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 	})
 }
 
+// UsageStat caches last space usage value for each satellite, to make it available for monkit.
+type UsageStat struct {
+	mu        sync.Mutex
+	usedBytes map[storj.NodeID]float64
+}
+
+// NewUsageStat initializes a UsageState.
+func NewUsageStat() *UsageStat {
+	return &UsageStat{
+		usedBytes: make(map[storj.NodeID]float64),
+	}
+}
+
+// Stats implements monkit.StatSource.
+func (u *UsageStat) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	for satellite, space := range u.usedBytes {
+		cb(monkit.NewSeriesKey("satellite_usage").WithTag("satellite", satellite.String()), "used_bytes", space)
+	}
+}
+
+// Update updates the cached value.
+func (u *UsageStat) Update(satellite storj.NodeID, usedSpace float64) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.usedBytes[satellite] = usedSpace
+}
+
+var _ monkit.StatSource = &UsageStat{}
+
 // CacheSpaceUsage queries disk space usage from all the satellites
 // known to the storagenode and stores information into db.
 func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
@@ -177,6 +216,12 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 		spaceUsages, err := cache.service.GetDailyStorageUsage(ctx, satellite, startDate, endDate)
 		if err != nil {
 			return err
+		}
+
+		// update monkit cache
+		if len(spaceUsages) > 1 {
+			lastRec := spaceUsages[len(spaceUsages)-1]
+			cache.UsageStat.Update(satellite, lastRec.AtRestTotal/lastRec.IntervalEndTime.Sub(spaceUsages[len(spaceUsages)-2].IntervalEndTime).Hours())
 		}
 
 		err = cache.db.StorageUsage.Store(ctx, spaceUsages)

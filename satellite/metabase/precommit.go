@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"go.uber.org/zap"
 
@@ -82,10 +83,15 @@ func (db *DB) precommitQueryHighest(ctx context.Context, loc ObjectLocation, tx 
 	}
 
 	err = tx.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(version), 0) as version
+		SELECT version
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+		ORDER BY version DESC
+		LIMIT 1
 	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).Scan(&highest)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
@@ -101,12 +107,15 @@ func (db *DB) precommitQueryHighestAndUnversioned(ctx context.Context, loc Objec
 		return 0, false, Error.Wrap(err)
 	}
 
+	var version sql.NullInt64
 	err = tx.QueryRowContext(ctx, `
 		SELECT
 			(
-				SELECT COALESCE(MAX(version), 0) as version
+				SELECT version
 				FROM objects
 				WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+				ORDER BY version DESC
+				LIMIT 1
 			),
 			(
 				SELECT EXISTS (
@@ -116,9 +125,12 @@ func (db *DB) precommitQueryHighestAndUnversioned(ctx context.Context, loc Objec
 						status IN `+statusesUnversioned+`
 				)
 			)
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).Scan(&highest, &unversionedExists)
+	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).Scan(&version, &unversionedExists)
 	if err != nil {
 		return 0, false, Error.Wrap(err)
+	}
+	if version.Valid {
+		highest = Version(version.Int64)
 	}
 
 	return highest, unversionedExists, nil
@@ -147,9 +159,11 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation
 
 	err = tx.QueryRowContext(ctx, `
 		WITH highest_object AS (
-			SELECT MAX(version) as version
+			SELECT version
 			FROM objects
 			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+			ORDER BY version DESC
+			LIMIT 1
 		), deleted_objects AS (
 			DELETE FROM objects
 			WHERE
@@ -284,14 +298,18 @@ func (db *DB) precommitDeleteUnversionedWithNonPending(ctx context.Context, loc 
 
 	err = tx.QueryRowContext(ctx, `
 		WITH highest_object AS (
-			SELECT MAX(version) as version
+			SELECT version
 			FROM objects
 			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+			ORDER BY version DESC
+			LIMIT 1
 		), highest_non_pending_object AS (
-			SELECT MAX(version) as version
+			SELECT version
 			FROM objects
 			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND status <> `+statusPending+`
+			ORDER BY version DESC
+			LIMIT 1
 		), deleted_objects AS (
 			DELETE FROM objects
 			WHERE

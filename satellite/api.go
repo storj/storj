@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/nodetag"
 	"storj.io/common/pb"
@@ -25,8 +26,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -116,10 +117,6 @@ type API struct {
 
 	LiveAccounting struct {
 		Cache accounting.Cache
-	}
-
-	ProjectLimits struct {
-		Cache *accounting.ProjectLimitCache
 	}
 
 	Mail struct {
@@ -281,7 +278,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	placements, err := config.Placement.Parse()
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +286,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -339,22 +336,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
-	{ // setup project limits
-		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
-			config.Console.Config.UsageLimits.Storage.Free,
-			config.Console.Config.UsageLimits.Bandwidth.Free,
-			config.Console.Config.UsageLimits.Segment.Free,
-			config.ProjectLimit,
-		)
-	}
-
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			peer.ProjectLimits.Cache,
 			*metabaseDB,
 			config.LiveAccounting.BandwidthCacheTTL,
+			config.Console.Config.UsageLimits.Storage.Free,
+			config.Console.Config.UsageLimits.Bandwidth.Free,
+			config.Console.Config.UsageLimits.Segment.Free,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
 	}
@@ -363,7 +353,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +427,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
-			peer.ProjectLimits.Cache,
 			peer.DB.Console().Projects(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
@@ -575,6 +564,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress = "http://" + peer.Console.Listener.Addr().String()
 		}
 
+		accountFreezeService := console.NewAccountFreezeService(
+			db.Console(),
+			peer.Analytics.Service,
+			consoleConfig.AccountFreeze,
+		)
+
+		emissionService := emission.NewService(config.Emission)
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -588,20 +585,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
+			accountFreezeService,
+			emissionService,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
+			placement,
 			consoleConfig.Config,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
-		accountFreezeService := console.NewAccountFreezeService(
-			db.Console(),
-			peer.Analytics.Service,
-			consoleConfig.AccountFreeze,
-		)
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
@@ -660,7 +654,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
 				peer.Log.Named("gracefulexit:endpoint"),
 				signing.SignerFromFullIdentity(peer.Identity),
-				peer.DB.GracefulExit(),
 				peer.Overlay.DB,
 				peer.Overlay.Service,
 				peer.Reputation.Service,

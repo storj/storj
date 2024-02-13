@@ -21,7 +21,7 @@ type Config struct {
 	LoginAttemptsWithoutPenalty     int                       `help:"number of times user can try to login without penalty" default:"3"`
 	FailedLoginPenalty              float64                   `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
 	ProjectInvitationExpiration     time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
-	UnregisteredInviteEmailsEnabled bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"false"`
+	UnregisteredInviteEmailsEnabled bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	FreeTierInvitesEnabled          bool                      `help:"indicates whether free tier users can send project invitations" default:"false"`
 	UserBalanceForUpgrade           int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides       PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
@@ -29,7 +29,6 @@ type Config struct {
 	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`
-	NewSignupFlowEnabled            bool                      `help:"indicates whether the v2 app signup flow is enabled" default:"false"`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig
@@ -38,8 +37,10 @@ type Config struct {
 
 // CaptchaConfig contains configurations for login/registration captcha system.
 type CaptchaConfig struct {
-	FlagBotsEnabled      bool               `help:"indicates if flagging bot accounts is enabled" default:"false"`
-	ScoreCutoffThreshold float64            `help:"bad captcha score threshold which is used to prevent bot user activity" default:"0.8"`
+	FlagBotsEnabled      bool               `help:"indicates if flagging bot accounts is enabled" default:"false" json:"-"`
+	ScoreCutoffThreshold float64            `help:"bad captcha score threshold which is used to prevent bot user activity" default:"0.8" json:"-"`
+	MinFlagBotDelay      int                `help:"min number of days before flagging a bot account" default:"1" json:"-"`
+	MaxFlagBotDelay      int                `help:"max number of days before flagging a bot account" default:"7" json:"-"`
 	Login                MultiCaptchaConfig `json:"login"`
 	Registration         MultiCaptchaConfig `json:"registration"`
 }
@@ -60,7 +61,7 @@ type SingleCaptchaConfig struct {
 // SessionConfig contains configurations for session management.
 type SessionConfig struct {
 	InactivityTimerEnabled       bool          `help:"indicates if session can be timed out due inactivity" default:"true"`
-	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"600"`
+	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"1800"` // 1800s=30m
 	InactivityTimerViewerEnabled bool          `help:"indicates whether remaining session time is shown for debugging" default:"false"`
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
 }

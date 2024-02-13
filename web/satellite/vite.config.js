@@ -3,25 +3,28 @@
 
 import { resolve } from 'path';
 
+import vue from '@vitejs/plugin-vue';
+import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 import { defineConfig } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
-import vue from '@vitejs/plugin-vue';
 import viteCompression from 'vite-plugin-compression';
-import vitePluginRequire from 'vite-plugin-require';
-import svgLoader from 'vite-svg-loader';
 
+import vuetifyThemeCSS from './vitePlugins/vuetifyThemeCSS';
 import papaParseWorker from './vitePlugins/papaParseWorker';
 
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 
 const plugins = [
-    vue(),
-    svgLoader({
-        svgoConfig: {
-            plugins: [{ name: 'removeViewBox', fn: () => {} }],
+    vue({
+        template: { transformAssetUrls },
+    }),
+    vuetify({
+        autoImport: true,
+        styles: {
+            configFile: 'src/styles/settings.scss',
         },
     }),
-    vitePluginRequire.default(),
+    vuetifyThemeCSS(),
     papaParseWorker(),
 ];
 
@@ -50,14 +53,23 @@ export default defineConfig(({ mode }) => {
     return {
         base: '/static/dist',
         plugins,
+        define: {
+            'process.env': {},
+        },
         resolve: {
             alias: {
                 '@': resolve(__dirname, './src'),
-                '@poc': resolve(__dirname, './vuetify-poc/src'),
-                'stream': 'stream-browserify',
-                'util': 'util/',
+                'stream': 'stream-browserify', // Passphrase mnemonic generation will not work without this
             },
-            extensions: ['.js', '.ts', '.svg', '.vue'],
+            extensions: [
+                '.js',
+                '.json',
+                '.jsx',
+                '.mjs',
+                '.ts',
+                '.tsx',
+                '.vue',
+            ],
         },
         build: {
             outDir: resolve(__dirname, 'dist'),
@@ -69,10 +81,6 @@ export default defineConfig(({ mode }) => {
                 },
             },
             chunkSizeWarningLimit: 3000,
-        },
-        define: {
-            'process.env': {},
-            __UI_TYPE__: JSON.stringify('legacy'),
         },
         test: {
             globals: true,

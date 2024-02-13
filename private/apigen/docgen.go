@@ -6,6 +6,7 @@ package apigen
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -22,7 +23,14 @@ import (
 func (api *API) MustWriteDocs(path string) {
 	docs := api.generateDocumentation()
 
-	err := os.WriteFile(path, []byte(docs), 0644)
+	rootDir := api.outputRootDir()
+	fullpath := filepath.Join(rootDir, path)
+	err := os.MkdirAll(filepath.Dir(fullpath), 0700)
+	if err != nil {
+		panic(errs.Wrap(err))
+	}
+
+	err = os.WriteFile(fullpath, []byte(docs), 0644)
 	if err != nil {
 		panic(errs.Wrap(err))
 	}
@@ -162,14 +170,12 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 			return toReturn
 		}
 
-		var fields []string
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-			jsonInfo := parseJSONTag(t, field)
-			if !jsonInfo.Skip {
-				fields = append(fields, prefix+"\t"+jsonInfo.FieldName+": "+getTypeNameRecursively(field.Type, level+1))
-			}
+		cfields := GetClassFieldsFromStruct(t)
+		fields := make([]string, 0, len(cfields))
+		for _, f := range cfields {
+			fields = append(fields, prefix+"\t"+f.Name+": "+getTypeNameRecursively(f.Type, level+1))
 		}
+
 		return fmt.Sprintf("%s{\n%s\n%s}\n", prefix, strings.Join(fields, "\n"), prefix)
 	default:
 		typeName, elaboration := getDocType(t)

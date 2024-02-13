@@ -372,6 +372,9 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	}
 
 	if dest.Remote() && source.Remote() {
+		if !c.expires.IsZero() {
+			return errs.New("expiration time cannot be changed with server-side copy")
+		}
 		return fs.Copy(ctx, source, dest)
 	}
 
@@ -386,25 +389,31 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	}
 	defer func() { _ = mrh.Close() }()
 
+	parallelism := c.parallelism
+	partSize, singlePart, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
+	if err != nil {
+		return err
+	}
+	if singlePart {
+		parallelism = 1
+	}
+	singlePart = singlePart || parallelism == 1
+
 	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
-		Expires:  c.expires,
-		Metadata: c.metadata,
+		Expires:    c.expires,
+		Metadata:   c.metadata,
+		SinglePart: singlePart,
 	})
 	if err != nil {
 		return err
 	}
 	defer func() { _ = mwh.Abort(ctx) }()
 
-	partSize, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
-	if err != nil {
-		return err
-	}
-
 	return errs.Wrap(c.parallelCopy(
 		ctx,
 		source, dest,
 		mrh, mwh,
-		c.parallelism, partSize,
+		parallelism, partSize,
 		offset, length,
 		bar,
 	))
@@ -412,18 +421,18 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 
 // calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
 // It hereby respects if the client requests/prefers a certain size and only increases if needed.
-func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, err error) {
+func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, singlePart bool, err error) {
 	segC := (length / maxPartCount / memory.GiB.Int64()) + 1
 	requiredSize = segC * memory.GiB.Int64()
 	switch {
 	case preferredSize == 0:
-		return requiredSize, nil
+		return requiredSize, requiredSize <= length, nil
 	case requiredSize <= preferredSize:
-		return preferredSize, nil
+		return preferredSize, preferredSize <= length, nil
 	case length < 0: // let the user pick their size if we don't have a length to know better
-		return preferredSize, nil
+		return preferredSize, false, nil
 	default:
-		return 0, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
+		return 0, false, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
 			memory.FormatBytes(preferredSize), memory.FormatBytes(requiredSize)))
 	}
 }

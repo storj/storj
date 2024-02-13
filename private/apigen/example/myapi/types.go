@@ -41,4 +41,22 @@ type User struct {
 	Name    string `json:"name"`
 	Surname string `json:"surname"`
 	Email   string `json:"email"`
+	Professional
+}
+
+// Professional contains the company and the position where a person works.
+type Professional struct {
+	Company  string `json:"company"`
+	Position string `json:"position"`
+}
+
+// UserAge represents a user's age.
+//
+// The value is generic for being able to increase the year's size to afford to recompile the code
+// when we have users that were born in a too far DC year or allow to register users in a few years
+// in the future. JOKING, we need it for testing that the API generator works fine with them.
+type UserAge[T ~int16 | int32 | int64] struct {
+	Day   uint8 `json:"day"`
+	Month uint8 `json:"month"`
+	Year  T     `json:"year"`
 }

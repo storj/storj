@@ -1,29 +1,42 @@
 #!/usr/bin/env bash
 
-# Copy wasm javascript to match the go version
+# Copy wasm helper file
 cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ./static/wasm
 
-# Compress wasm javascript using brotli
-brotli -k -f ./static/wasm/wasm_exec.js
-
-# Build wasm code
-GOOS=js GOARCH=wasm go build -o ./static/wasm/access.wasm storj.io/storj/satellite/console/wasm
-
-# Take a hash of generated wasm code
+# Take a hash of a wasm helper file
 if command -v sha256sum > /dev/null; then
-    hash=$(sha256sum ./static/wasm/access.wasm | awk '{print $1}')
+    helper_hash=$(sha256sum ./static/wasm/wasm_exec.js | awk '{print $1}')
 else
-    hash=$(shasum -a 256 ./static/wasm/access.wasm | awk '{print $1}')
+    helper_hash=$(shasum -a 256 ./static/wasm/wasm_exec.js | awk '{print $1}')
 fi
 
-# Define new file name
-filename="access.${hash:0:8}.wasm"
+# Define new helper file name
+helper_filename="wasm_exec.${helper_hash:0:8}.js"
 
-# Rename the file to include the hash
-mv ./static/wasm/access.wasm ./static/wasm/$filename
+# Rename helper file to include the hash
+mv ./static/wasm/wasm_exec.js ./static/wasm/$helper_filename
 
-# Compress wasm code using brotli
-brotli -k -f ./static/wasm/$filename
+# Compress wasm helper file using brotli
+brotli -k -f ./static/wasm/$helper_filename
 
-# Generate the manifest which would contain our new file name
-echo "{\"fileName\": \"$filename\"}" > ./static/wasm/wasm-manifest.json
+# Build wasm module
+GOOS=js GOARCH=wasm go build -o ./static/wasm/access.wasm storj.io/storj/satellite/console/wasm
+
+# Take a hash of generated wasm module
+if command -v sha256sum > /dev/null; then
+    module_hash=$(sha256sum ./static/wasm/access.wasm | awk '{print $1}')
+else
+    module_hash=$(shasum -a 256 ./static/wasm/access.wasm | awk '{print $1}')
+fi
+
+# Define new module file name
+module_filename="access.${module_hash:0:8}.wasm"
+
+# Rename module file to include the hash
+mv ./static/wasm/access.wasm ./static/wasm/$module_filename
+
+# Compress wasm module using brotli
+brotli -k -f ./static/wasm/$module_filename
+
+# Generate the manifest which would contain new helper and module file names
+echo "{\"helperFileName\": \"$helper_filename\", \"moduleFileName\": \"$module_filename\"}" > ./static/wasm/wasm-manifest.json

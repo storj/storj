@@ -14,13 +14,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -252,7 +252,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 
 		peer.Overlay.DB = peer.DB.OverlayCache()
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -567,6 +567,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.Analytics.Service,
 				config.AccountFreeze,
+				config.Console.Captcha.FlagBotsEnabled,
 			)
 
 			peer.Services.Add(lifecycle.Item{

@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripe"
@@ -39,9 +40,7 @@ func TestSignupCouponCodes(t *testing.T) {
 		cache, err := live.OpenCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
-
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, *sat.API.Metainfo.Metabase, 5*time.Minute, -10*time.Second)
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, *sat.API.Metainfo.Metabase, 5*time.Minute, 0, 0, 0, -10*time.Second)
 
 		pc := paymentsconfig.Config{
 			UsagePrice: paymentsconfig.ProjectUsagePrice{
@@ -94,9 +93,12 @@ func TestSignupCouponCodes(t *testing.T) {
 				TokenExpirationTime: 24 * time.Hour,
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
 			nil,
+			nil,
+			nil,
 			"",
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
+			nodeselection.NewPlacementDefinitions(),
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

@@ -127,10 +127,10 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 			Bytes  int64       `json:"bytes"`
 		} `json:"bandwidth"`
 		Rate struct {
-			RPS int `json:"rps"`
+			RPS *int `json:"rps"`
 		} `json:"rate"`
-		Burst    int   `json:"burst"`
-		Buckets  int   `json:"maxBuckets"`
+		Burst    *int  `json:"burst"`
+		Buckets  *int  `json:"maxBuckets"`
 		Segments int64 `json:"maxSegments"`
 	}
 	if project.StorageLimit != nil {
@@ -141,15 +141,11 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		output.Bandwidth.Amount = *project.BandwidthLimit
 		output.Bandwidth.Bytes = project.BandwidthLimit.Int64()
 	}
-	if project.MaxBuckets != nil {
-		output.Buckets = *project.MaxBuckets
-	}
-	if project.RateLimit != nil {
-		output.Rate.RPS = *project.RateLimit
-	}
-	if project.BurstLimit != nil {
-		output.Burst = *project.BurstLimit
-	}
+
+	output.Buckets = project.MaxBuckets
+	output.Rate.RPS = project.RateLimit
+	output.Burst = project.BurstLimit
+
 	if project.SegmentLimit != nil {
 		output.Segments = *project.SegmentLimit
 	}
@@ -242,10 +238,9 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if arguments.Rate != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
 		if *arguments.Rate < 0 {
-			sendJSONError(w, "negative rate",
-				fmt.Sprintf("%v", arguments.Rate), http.StatusBadRequest)
-			return
+			arguments.Rate = nil
 		}
 
 		err = server.db.Console().Projects().UpdateRateLimit(ctx, project.ID, arguments.Rate)
@@ -257,13 +252,12 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if arguments.Burst != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
 		if *arguments.Burst < 0 {
-			sendJSONError(w, "negative burst rate",
-				fmt.Sprintf("%v", arguments.Burst), http.StatusBadRequest)
-			return
+			arguments.Burst = nil
 		}
 
-		err = server.db.Console().Projects().UpdateBurstLimit(ctx, project.ID, *arguments.Burst)
+		err = server.db.Console().Projects().UpdateBurstLimit(ctx, project.ID, arguments.Burst)
 		if err != nil {
 			sendJSONError(w, "failed to update burst",
 				err.Error(), http.StatusInternalServerError)
@@ -272,13 +266,12 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if arguments.Buckets != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
 		if *arguments.Buckets < 0 {
-			sendJSONError(w, "negative bucket count",
-				fmt.Sprintf("t: %v", arguments.Buckets), http.StatusBadRequest)
-			return
+			arguments.Buckets = nil
 		}
 
-		err = server.db.Console().Projects().UpdateBucketLimit(ctx, project.ID, *arguments.Buckets)
+		err = server.db.Console().Projects().UpdateBucketLimit(ctx, project.ID, arguments.Buckets)
 		if err != nil {
 			sendJSONError(w, "failed to update bucket limit",
 				err.Error(), http.StatusInternalServerError)
@@ -606,7 +599,9 @@ func (server *Server) checkInvoicing(ctx context.Context, w http.ResponseWriter,
 	// Check if an invoice project record exists already
 	err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 	if errors.Is(err, stripe.ErrProjectRecordExists) {
-		record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+		record, err := server.db.StripeCoinPayments().
+			ProjectRecords().
+			Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if err != nil {
 			sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
 			return true
@@ -658,14 +653,17 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 		}
 
 		// check usage for last month, if exists, ensure we have an invoice item created.
-		lastMonthUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+		lastMonthUsage, err := server.db.ProjectAccounting().
+			GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 		if err != nil {
 			sendJSONError(w, "error getting project totals",
 				"", http.StatusInternalServerError)
 			return true
 		}
 		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
-			err = server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			err = server.db.StripeCoinPayments().
+				ProjectRecords().
+				Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 			if !errors.Is(err, stripe.ErrProjectRecordExists) {
 				sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
 				return true

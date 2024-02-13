@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/private/version"
+	"storj.io/common/version"
 )
 
 func update(ctx context.Context, serviceName, binaryLocation string, ver version.Process) error {

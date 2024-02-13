@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/tagsql"
 )
 
 // objectIterator enables iteration on objects in a bucket.
@@ -46,7 +46,7 @@ type iterateCursor struct {
 	Inclusive bool
 }
 
-func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
@@ -71,6 +71,38 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 	// start from either the cursor or prefix, depending on which is larger
 	if lessKey(it.cursor.Key, opts.Prefix) {
 		it.cursor.Key = opts.Prefix
+		it.cursor.Version = MaxVersion
+		it.cursor.Inclusive = true // TODO: we probably won't need this `Inclusive` handling, if we specify MaxVersion already
+	}
+
+	return iterate(ctx, it, fn)
+}
+
+func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	it := &objectsIterator{
+		db: db,
+
+		projectID:             opts.ProjectID,
+		bucketName:            []byte(opts.BucketName),
+		pending:               opts.Pending,
+		prefix:                opts.Prefix,
+		prefixLimit:           prefixLimit(opts.Prefix),
+		batchSize:             opts.BatchSize,
+		recursive:             opts.Recursive,
+		includeCustomMetadata: opts.IncludeCustomMetadata,
+		includeSystemMetadata: opts.IncludeSystemMetadata,
+
+		curIndex: 0,
+		cursor:   firstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+
+		doNextQuery: doNextQueryAllVersionsWithStatusAscending,
+	}
+
+	// start from either the cursor or prefix, depending on which is larger
+	if lessKey(it.cursor.Key, opts.Prefix) {
+		it.cursor.Key = opts.Prefix
 		it.cursor.Version = -1
 		it.cursor.Inclusive = true
 	}
@@ -80,12 +112,6 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 
 func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	cursor := opts.Cursor
-
-	if cursor.StreamID.IsZero() {
-		cursor.StreamID = uuid.UUID{}
-	}
 
 	it := &objectsIterator{
 		db: db,
@@ -103,7 +129,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		curIndex: 0,
 		cursor: iterateCursor{
 			Key:      opts.ObjectKey,
-			Version:  0,
+			Version:  MaxVersion, // TODO: this needs to come as an argument
 			StreamID: opts.Cursor.StreamID,
 		},
 		doNextQuery: doNextQueryPendingObjectsByKey,
@@ -187,7 +213,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 			if p >= 0 {
 				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
 				it.cursor.StreamID = uuid.UUID{}
-				it.cursor.Version = 0
+				it.cursor.Version = MaxVersion
 			}
 		}
 
@@ -224,6 +250,76 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 }
 
 func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursorCompare := ">"
+	if it.cursor.Inclusive {
+		cursorCompare = ">="
+	}
+
+	statusFilter := `AND status <> ` + statusPending
+	if it.pending {
+		statusFilter = `AND status = ` + statusPending
+	}
+
+	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
+		return it.db.db.QueryContext(ctx, `
+			SELECT
+				`+querySelectFields+`
+			FROM objects
+			WHERE
+				(
+					(project_id, bucket_name, object_key) `+cursorCompare+` ($1, $2, $3)
+					OR (
+						(project_id, bucket_name, object_key) = ($1, $2, $3)
+						AND $4::INT8 `+cursorCompare+` version
+					)
+				)
+				AND (project_id, bucket_name) < ($1, $6)
+				`+statusFilter+`
+				AND (expires_at IS NULL OR expires_at > now())
+				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
+			LIMIT $5
+			`, it.projectID, it.bucketName,
+			[]byte(it.cursor.Key), int(it.cursor.Version),
+			it.batchSize,
+			nextBucket(it.bucketName),
+		)
+	}
+
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
+	return it.db.db.QueryContext(ctx, `
+		SELECT
+			`+querySelectFields+`
+		FROM objects
+		WHERE
+			(
+				(project_id, bucket_name, object_key) `+cursorCompare+` ($1, $2, $3)
+				OR (
+					(project_id, bucket_name, object_key) = ($1, $2, $3)
+					AND $4::INT8 `+cursorCompare+` version
+				)
+			)
+			AND (project_id, bucket_name, object_key) < ($1, $2, $5)
+			`+statusFilter+`
+			AND (expires_at IS NULL OR expires_at > now())
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
+		LIMIT $6
+		`, it.projectID, it.bucketName,
+		[]byte(it.cursor.Key), int(it.cursor.Version),
+		[]byte(it.prefixLimit),
+		it.batchSize,
+		fromSubstring,
+	)
+}
+
+func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -435,7 +531,7 @@ func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 	// return the next prefix given a scoped path
 	return iterateCursor{
 		Key:       cursor.Key[:len(prefix)+p] + ObjectKey(Delimiter+1),
-		Version:   -1,
+		Version:   MaxVersion,
 		Inclusive: true,
 	}
 }

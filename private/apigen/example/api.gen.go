@@ -23,6 +23,7 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 
 var ErrDocsAPI = errs.Class("example docs api")
 var ErrUsersAPI = errs.Class("example users api")
+var ErrProjectsAPI = errs.Class("example projects api")
 
 type DocumentsService interface {
 	Get(ctx context.Context) ([]myapi.Document, api.HTTPError)
@@ -35,6 +36,11 @@ type DocumentsService interface {
 type UsersService interface {
 	Get(ctx context.Context) ([]myapi.User, api.HTTPError)
 	Create(ctx context.Context, request []myapi.User) api.HTTPError
+	GetAge(ctx context.Context) (*myapi.UserAge[int16], api.HTTPError)
+}
+
+type ProjectsService interface {
+	CreateProject(ctx context.Context, request Project) (*Project, api.HTTPError)
 }
 
 // DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
@@ -50,6 +56,13 @@ type UsersHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service UsersService
+}
+
+// ProjectsHandler is an api handler that implements all Projects API endpoints functionality.
+type ProjectsHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service ProjectsService
 }
 
 func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, router *mux.Router, auth api.Auth) *DocumentsHandler {
@@ -80,6 +93,20 @@ func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *
 	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
 	usersRouter.HandleFunc("/", handler.handleGet).Methods("GET")
 	usersRouter.HandleFunc("/", handler.handleCreate).Methods("POST")
+	usersRouter.HandleFunc("/age", handler.handleGetAge).Methods("GET")
+
+	return handler
+}
+
+func NewProjects(log *zap.Logger, mon *monkit.Scope, service ProjectsService, router *mux.Router) *ProjectsHandler {
+	handler := &ProjectsHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+	}
+
+	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
+	projectsRouter.HandleFunc("/", handler.handleCreateProject).Methods("POST")
 
 	return handler
 }
@@ -302,5 +329,49 @@ func (h *UsersHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	httpErr := h.service.Create(ctx, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UsersHandler) handleGetAge(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	retVal, httpErr := h.service.GetAge(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetAge response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectsHandler) handleCreateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := Project{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.CreateProject(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json CreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }

@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	_ "storj.io/common/dbutil/cockroachutil" // register cockroach driver
 	"storj.io/common/testcontext"
-	_ "storj.io/private/dbutil/cockroachutil" // register cockroach driver
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )

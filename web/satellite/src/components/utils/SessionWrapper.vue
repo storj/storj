@@ -3,43 +3,59 @@
 
 <template>
     <slot v-bind="sessionTimeout" />
-    <InactivityModal
-        v-if="sessionTimeout.inactivityModalShown.value"
+
+    <v-snackbar
+        :model-value="sessionTimeout.debugTimerShown.value"
+        :timeout="-1"
+        color="warning"
+        rounded="pill"
+        min-width="0"
+        location="top"
+    >
+        <v-icon :icon="mdiClock" />
+        Remaining session time:
+        <span class="font-weight-bold">{{ sessionTimeout.debugTimerText.value }}</span>
+    </v-snackbar>
+
+    <set-session-timeout-dialog v-model="isSetTimeoutModalShown" />
+    <inactivity-dialog
+        v-model="sessionTimeout.inactivityModalShown.value"
         :on-continue="() => sessionTimeout.refreshSession(true)"
         :on-logout="sessionTimeout.handleInactive"
-        :on-close="() => sessionTimeout.inactivityModalShown.value = false"
-        :initial-seconds="INACTIVITY_MODAL_DURATION / 1000"
     />
-    <SessionExpiredModal v-if="sessionTimeout.sessionExpiredModalShown.value" :on-redirect="redirectToLogin" />
+    <update-session-timeout-prompt-dialog
+        v-model="isUpdateTimeoutPromptModalShown"
+        @showSetTimeoutModal="isSetTimeoutModalShown = true"
+    />
+    <session-expired-dialog v-model="sessionTimeout.sessionExpiredModalShown.value" />
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
+import { onMounted, ref } from 'vue';
+import { VSnackbar, VIcon } from 'vuetify/lib/components/index.mjs';
+import { mdiClock } from '@mdi/js';
 
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useSessionTimeout, INACTIVITY_MODAL_DURATION } from '@/composables/useSessionTimeout';
-import { RouteConfig } from '@/types/router';
-import { useAppStore } from '@/store/modules/appStore';
-import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useSessionTimeout } from '@/composables/useSessionTimeout';
+import { LocalData } from '@/utils/localData';
+import { useUsersStore } from '@/store/modules/usersStore';
 
-import InactivityModal from '@/components/modals/InactivityModal.vue';
-import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
+import InactivityDialog from '@/components/dialogs/InactivityDialog.vue';
+import SessionExpiredDialog from '@/components/dialogs/SessionExpiredDialog.vue';
+import SetSessionTimeoutDialog from '@/components/dialogs/SetSessionTimeoutDialog.vue';
+import UpdateSessionTimeoutPromptDialog from '@/components/dialogs/UpdateSessionTimeoutPromptDialog.vue';
 
-const analyticsStore = useAnalyticsStore();
-const appStore = useAppStore();
+const usersStore = useUsersStore();
+
+const isSetTimeoutModalShown = ref<boolean>(false);
+const isUpdateTimeoutPromptModalShown = ref<boolean>(false);
 
 const sessionTimeout = useSessionTimeout({
-    showEditSessionTimeoutModal: () => appStore.updateActiveModal(MODALS.editSessionTimeout),
+    showEditSessionTimeoutModal: () => isSetTimeoutModalShown.value = true,
 });
-const router = useRouter();
 
-/**
- * Redirects to log in screen.
- */
-function redirectToLogin(): void {
-    analyticsStore.pageVisit(RouteConfig.Login.path);
-    router.push(RouteConfig.Login.path);
-
-    sessionTimeout.sessionExpiredModalShown.value = false;
-}
+onMounted(() => {
+    if (LocalData.getSessionHasExpired() && !usersStore.state.settings.sessionDuration) {
+        isUpdateTimeoutPromptModalShown.value = true;
+    }
+});
 </script>

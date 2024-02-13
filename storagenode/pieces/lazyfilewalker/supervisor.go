@@ -132,5 +132,5 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		return nil, 0, 0, err
 	}
 
-	return resp.PieceIDs, resp.PiecesSkippedCount, resp.PiecesCount, nil
+	return resp.PieceIDs, resp.PiecesCount, resp.PiecesSkippedCount, nil
 }

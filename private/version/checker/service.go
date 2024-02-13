@@ -5,14 +5,14 @@ package checker
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/private/version"
+	"storj.io/common/version"
 )
 
 // Config contains the necessary Information to check the Software Version.
@@ -21,6 +21,9 @@ type Config struct {
 
 	CheckInterval time.Duration `help:"Interval to check the version" default:"0h15m0s"`
 }
+
+// ErrOutdatedVersion is returned when the software is below the minimum allowed version.
+var ErrOutdatedVersion = errs.Class("software outdated")
 
 // Service contains the information and variables to ensure the Software is up to date.
 //
@@ -74,7 +77,7 @@ func (service *Service) CheckVersion(ctx context.Context) (latest version.SemVer
 	defer mon.Task()(&ctx)(&err)
 	latest, allowed := service.checkVersion(ctx)
 	if !allowed {
-		return latest, fmt.Errorf("outdated software version (%s), please update", service.Info.Version.String())
+		return latest, ErrOutdatedVersion.New("outdated software version (%s), please update", service.Info.Version.String())
 	}
 	return latest, nil
 }

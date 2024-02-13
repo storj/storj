@@ -18,6 +18,7 @@ const (
 	eventInviteLinkClicked            = "Invite Link Clicked"
 	eventInviteLinkSignup             = "Invite Link Signup"
 	eventAccountCreated               = "Account Created"
+	eventAccountSetUp                 = "Account Set Up"
 	eventSignedIn                     = "Signed In"
 	eventProjectCreated               = "Project Created"
 	eventAccessGrantCreated           = "Access Grant Created"
@@ -98,6 +99,13 @@ const (
 	eventCopyInviteLinkClicked        = "Copy Invite Link Clicked"
 	eventRemoveProjectMemberCLicked   = "Remove Member Clicked"
 	eventLimitIncreaseRequested       = "Limit Increase Requested"
+	eventUserSignUp                   = "User Sign Up"
+	eventPersonalInfoSubmitted        = "Personal Info Submitted"
+	eventBusinessInfoSubmitted        = "Business Info Submitted"
+	eventUseCaseSelected              = "Use Case Selected"
+	eventOnboardingCompleted          = "Onboarding Completed"
+	eventPersonalSelected             = "Personal Selected"
+	eventBusinessSelected             = "Business Selected"
 )
 
 var (
@@ -182,7 +190,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventApplyNewCouponClicked, eventCreditCardRemoved, eventCouponCodeApplied, eventInvoiceDownloaded, eventCreditCardAddedFromBilling,
 		eventStorjTokenAddedFromBilling, eventAddFundsClicked, eventProjectMembersInviteSent, eventError, eventProjectNameUpdated, eventProjectDescriptionUpdated,
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
-		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked} {
+		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
+		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventPersonalSelected, eventBusinessSelected} {
 		service.clientEvents[name] = true
 	}
 
@@ -232,6 +241,21 @@ type TrackCreateUserFields struct {
 	HubspotUTK       string
 	UserAgent        string
 	SignupCaptcha    *float64
+}
+
+// TrackOnboardingInfoFields contains input data entered after first login.
+type TrackOnboardingInfoFields struct {
+	ID               uuid.UUID
+	FullName         string
+	Email            string
+	Type             UserType
+	EmployeeCount    string
+	CompanyName      string
+	StorageNeeds     string
+	JobTitle         string
+	StorageUseCase   string
+	FunctionalArea   string
+	HaveSalesContact bool
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -306,7 +330,67 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Properties:  props,
 	})
 
+	if fields.FullName == "" {
+		// the new minimal signup flow does not require a name.
+		service.hubspot.EnqueueCreateUserMinimal(fields)
+		return
+	}
 	service.hubspot.EnqueueCreateUser(fields)
+}
+
+// TrackUserOnboardingInfo sends onboarding info to Hubspot.
+func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields) {
+	if !service.config.Enabled {
+		return
+	}
+
+	fullName := fields.FullName
+	names := strings.SplitN(fullName, " ", 2)
+
+	var firstName string
+	var lastName string
+
+	if len(names) > 1 {
+		firstName = names[0]
+		lastName = names[1]
+	} else {
+		firstName = fullName
+	}
+
+	traits := segment.NewTraits()
+	traits.SetFirstName(firstName)
+	traits.SetLastName(lastName)
+	traits.SetEmail(fields.Email)
+	if fields.Type == Professional {
+		traits.Set("have_sales_contact", fields.HaveSalesContact)
+	}
+
+	service.enqueueMessage(segment.Identify{
+		UserId: fields.ID.String(),
+		Traits: traits,
+	})
+
+	props := segment.NewProperties()
+	props.Set("email", fields.Email)
+	props.Set("name", fields.FullName)
+	props.Set("account_type", fields.Type)
+	props.Set("storage_use", fields.StorageUseCase)
+
+	if fields.Type == Professional {
+		props.Set("company_size", fields.EmployeeCount)
+		props.Set("company_name", fields.CompanyName)
+		props.Set("job_title", fields.JobTitle)
+		props.Set("storage_needs", fields.StorageNeeds)
+		props.Set("functional_area", fields.FunctionalArea)
+	}
+
+	service.enqueueMessage(segment.Track{
+		UserId:     fields.ID.String(),
+		Event:      service.satelliteName + " " + eventAccountSetUp,
+		Properties: props,
+	})
+
+	service.hubspot.EnqueueUserOnboardingInfo(fields)
 }
 
 // TrackSignedIn sends an "Signed In" event to Segment.
@@ -549,7 +633,7 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 
 // TrackEvent sends an arbitrary event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email, uiType string, customProps map[string]string) {
+func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string, customProps map[string]string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -562,7 +646,6 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email, ui
 
 	props := segment.NewProperties()
 	props.Set("email", email)
-	props.Set("ui_type", uiType)
 
 	for key, value := range customProps {
 		props.Set(key, value)
@@ -577,7 +660,7 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email, ui
 
 // TrackErrorEvent sends an arbitrary error event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side errors.
-func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, uiType string) {
+func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -585,7 +668,6 @@ func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, uiType 
 	props := segment.NewProperties()
 	props.Set("email", email)
 	props.Set("source", source)
-	props.Set("ui_type", uiType)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
@@ -596,7 +678,7 @@ func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, uiType 
 
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link, uiType string) {
+func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -610,7 +692,6 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 	props := segment.NewProperties()
 	props.Set("link", link)
 	props.Set("email", email)
-	props.Set("ui_type", uiType)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),

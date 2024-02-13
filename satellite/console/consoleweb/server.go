@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -40,7 +38,6 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
@@ -48,10 +45,8 @@ import (
 )
 
 const (
-	contentType = "Content-Type"
-
-	applicationJSON    = "application/json"
-	applicationGraphql = "application/graphql"
+	contentType     = "Content-Type"
+	applicationJSON = "application/json"
 )
 
 var (
@@ -76,39 +71,40 @@ type Config struct {
 	AuthTokenSecret  string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
-	ContactInfoURL                  string     `help:"url link to contacts page" default:"https://forum.storj.io"`
-	LetUsKnowURL                    string     `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                             string     `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                   string     `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator               string     `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string     `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
-	AccountActivationRedirectURL    string     `help:"url link for account activation redirect" default:""`
-	PartneredSatellites             Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
-	GeneralRequestURL               string     `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string     `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
-	IsBetaSatellite                 bool       `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string     `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL         string     `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                string     `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled      bool       `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
-	CouponCodeSignupUIEnabled       bool       `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled         bool       `help:"indicates if file browser flow is disabled" default:"false"`
-	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
-	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
-	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"true"`
-	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
-	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
-	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
-	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
-	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
-	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"true"`
-	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
-	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
-	ObjectBrowserPaginationEnabled  bool       `help:"whether to use object browser pagination" default:"false"`
-	ObjectBrowserCardViewEnabled    bool       `help:"whether to use object browser card view" default:"false"`
-	LimitIncreaseRequestEnabled     bool       `help:"whether to allow request limit increases directly from the UI" default:"false"`
+	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storj.io"`
+	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string        `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string        `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
+	AccountActivationRedirectURL    string        `help:"url link for account activation redirect" default:""`
+	PartneredSatellites             Satellites    `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
+	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
+	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL        string        `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL         string        `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
+	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
+	LinksharingURL                  string        `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
+	PublicLinksharingURL            string        `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
+	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"false"`
+	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
+	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
+	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
+	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
+	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
+	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
+	OnboardingStepperEnabled        bool          `help:"whether the onboarding stepper should be enabled" default:"false"`
+	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
+	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -154,8 +150,6 @@ type Server struct {
 	neededTokenPaymentConfirmations int
 
 	packagePlans paymentsconfig.PackagePlans
-
-	schema graphql.Schema
 
 	errorTemplate *template.Template
 }
@@ -273,9 +267,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
-
-	router.Handle("/api/v0/graphql", server.withCORS(server.withAuth(http.HandlerFunc(server.graphqlHandler))))
-
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
@@ -294,14 +285,15 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
 
-	usageLimitsController := consoleapi.NewUsageLimits(logger, service)
+	usageLimitsController := consoleapi.NewUsageLimits(logger, service, server.config.AllowedUsageReportDateRange)
 	projectsRouter.Handle("/{id}/usage-limits", http.HandlerFunc(usageLimitsController.ProjectUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-limits", http.HandlerFunc(usageLimitsController.TotalUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/daily-usage", http.HandlerFunc(usageLimitsController.DailyUsage)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/usage-report", http.HandlerFunc(usageLimitsController.UsageReport)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/daily-usage", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
 
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -309,7 +301,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/account/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
@@ -374,6 +365,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.Use(server.withCORS)
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketPlacements).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)
@@ -412,15 +404,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
-
-		if server.config.UseVuetifyProject {
-			if server.config.VuetifyHost != "" {
-				router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-			} else {
-				// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
-				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
-			}
-		}
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}
 
@@ -435,11 +418,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 // Run starts the server that host webapp and api endpoint.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
 	_, err = server.loadErrorTemplate()
 	if err != nil {
@@ -530,10 +508,8 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	router.HandleFunc("/robots.txt", server.seoHandler)
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
-	if server.config.UseVuetifyProject {
-		router.PathPrefix("/v2").Handler(http.HandlerFunc(server.vuetifyAppHandler))
-	}
-	router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
+	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
+
 	server.server = http.Server{
 		Handler:        server.withRequest(router),
 		MaxHeaderBytes: ContentLengthLimit.Int(),
@@ -648,36 +624,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, path, info.ModTime(), file)
 }
 
-// vuetifyAppHandler is web app http handler function.
-func (server *Server) vuetifyAppHandler(w http.ResponseWriter, r *http.Request) {
-	server.setAppHeaders(w, r)
-
-	path := filepath.Join(server.config.StaticDir, "dist_vuetify_poc", "index-vuetify.html")
-	file, err := os.Open(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			server.log.Error("index-vuetify.html was not generated. run 'npm run build-vuetify' in the "+server.config.StaticDir+" directory", zap.Error(err))
-		} else {
-			server.log.Error("error loading index-vuetify.html", zap.String("path", path), zap.Error(err))
-		}
-		return
-	}
-
-	defer func() {
-		if err := file.Close(); err != nil {
-			server.log.Error("error closing index-vuetify.html", zap.String("path", path), zap.Error(err))
-		}
-	}()
-
-	info, err := file.Stat()
-	if err != nil {
-		server.log.Error("failed to retrieve index-vuetify.html file info", zap.Error(err))
-		return
-	}
-
-	http.ServeContent(w, r, path, info.ModTime(), file)
-}
-
 // withCORS handles setting CORS-related headers on an http request.
 func (server *Server) withCORS(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -781,7 +727,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		GalleryViewEnabled:              server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
 		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
-		ObjectBrowserCardViewEnabled:    server.config.ObjectBrowserCardViewEnabled,
 		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
 		StripePaymentElementEnabled:     server.config.StripePaymentElementEnabled,
 		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
@@ -789,7 +734,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
-		NewSignupFlowEnabled:            server.config.NewSignupFlowEnabled,
+		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
+		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
+		EnableRegionTag:                 server.config.EnableRegionTag,
+		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
@@ -899,7 +847,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return
@@ -972,130 +920,6 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, server.config.ExternalAddress+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
-}
-
-// graphqlHandler is graphql endpoint http handler function.
-func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	handleError := func(code int, err error) {
-		w.WriteHeader(code)
-
-		var jsonError struct {
-			Error     string `json:"error"`
-			RequestID string `json:"requestID"`
-		}
-
-		jsonError.Error = err.Error()
-
-		if requestID := requestid.FromContext(ctx); requestID != "" {
-			jsonError.RequestID = requestID
-		}
-
-		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
-			server.log.Error("error graphql error", zap.Error(err))
-		}
-	}
-
-	w.Header().Set(contentType, applicationJSON)
-
-	query, err := getQuery(w, r)
-	if err != nil {
-		handleError(http.StatusBadRequest, err)
-		return
-	}
-
-	rootObject := make(map[string]interface{})
-
-	rootObject["origin"] = server.config.ExternalAddress
-	rootObject[consoleql.ActivationPath] = "activation?token="
-	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery?token="
-	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery?token="
-	rootObject[consoleql.SignInPath] = "login"
-	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
-	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
-	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
-	rootObject[consoleql.SatelliteRegion] = server.config.SatelliteName
-
-	result := graphql.Do(graphql.Params{
-		Schema:         server.schema,
-		Context:        ctx,
-		RequestString:  query.Query,
-		VariableValues: query.Variables,
-		OperationName:  query.OperationName,
-		RootObject:     rootObject,
-	})
-
-	getGqlError := func(err gqlerrors.FormattedError) error {
-		var gerr *gqlerrors.Error
-		if errors.As(err.OriginalError(), &gerr) {
-			return gerr.OriginalError
-		}
-		return nil
-	}
-
-	parseConsoleError := func(err error) (int, error) {
-		switch {
-		case console.ErrUnauthorized.Has(err):
-			return http.StatusUnauthorized, err
-		case console.Error.Has(err):
-			return http.StatusInternalServerError, err
-		}
-
-		return 0, nil
-	}
-
-	handleErrors := func(code int, errors gqlerrors.FormattedErrors) {
-		w.WriteHeader(code)
-
-		var jsonError struct {
-			Errors    []string `json:"errors"`
-			RequestID string   `json:"requestID"`
-		}
-
-		for _, err := range errors {
-			jsonError.Errors = append(jsonError.Errors, err.Message)
-		}
-
-		if requestID := requestid.FromContext(ctx); requestID != "" {
-			jsonError.RequestID = requestID
-		}
-
-		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
-			server.log.Error("error graphql error", zap.Error(err))
-		}
-	}
-
-	handleGraphqlErrors := func() {
-		for _, err := range result.Errors {
-			gqlErr := getGqlError(err)
-			if gqlErr == nil {
-				continue
-			}
-
-			code, err := parseConsoleError(gqlErr)
-			if err != nil {
-				handleError(code, err)
-				return
-			}
-		}
-
-		handleErrors(http.StatusOK, result.Errors)
-	}
-
-	if result.HasErrors() {
-		handleGraphqlErrors()
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(result)
-	if err != nil {
-		server.log.Error("error encoding grapql result", zap.Error(err))
-		return
-	}
-
-	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
 // serveError serves a static error page.

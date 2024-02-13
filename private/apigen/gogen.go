@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/uuid"
 )
@@ -29,7 +29,14 @@ func (a *API) MustWriteGo(path string) {
 		panic(err)
 	}
 
-	err = os.WriteFile(path, generated, 0644)
+	rootDir := a.outputRootDir()
+	fullpath := filepath.Join(rootDir, path)
+	err = os.MkdirAll(filepath.Dir(fullpath), 0700)
+	if err != nil {
+		panic(errs.Wrap(err))
+	}
+
+	err = os.WriteFile(fullpath, generated, 0644)
 	if err != nil {
 		panic(errs.Wrap(err))
 	}
@@ -138,7 +145,7 @@ func (a *API) generateGo() ([]byte, error) {
 				paramStr += ", "
 			}
 			if e.Request != nil {
-				paramStr += "request " + reflect.TypeOf(e.Request).String() + ", "
+				paramStr += "request " + a.handleTypesPackage(reflect.TypeOf(e.Request)) + ", "
 			}
 
 			i("context", "storj.io/storj/private/api")
@@ -281,7 +288,7 @@ func (a *API) generateGo() ([]byte, error) {
 			}
 
 			if endpoint.Request != nil {
-				handleBody(pf, endpoint.Request)
+				a.handleBody(pf, endpoint.Request)
 			}
 
 			for _, m := range group.Middleware {
@@ -394,6 +401,16 @@ func (a *API) handleTypesPackage(t reflect.Type) string {
 	return t.String()
 }
 
+// handleBody handles request body.
+func (a *API) handleBody(pf func(format string, a ...interface{}), body interface{}) {
+	pf("payload := %s{}", a.handleTypesPackage(reflect.TypeOf(body)))
+	pf("if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {")
+	pf("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+	pf("return")
+	pf("}")
+	pf("")
+}
+
 // handleParams handles parsing of URL path parameters or query parameters.
 func handleParams(builder *StringBuilder, i func(paths ...string), pathParams, queryParams []Param) error {
 	pf := builder.Writelnf
@@ -465,16 +482,6 @@ func handleParams(builder *StringBuilder, i func(paths ...string), pathParams, q
 	}
 
 	return nil
-}
-
-// handleBody handles request body.
-func handleBody(pf func(format string, a ...interface{}), body interface{}) {
-	pf("payload := %s{}", reflect.TypeOf(body).String())
-	pf("if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {")
-	pf("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-	pf("return")
-	pf("}")
-	pf("")
 }
 
 type importPath string

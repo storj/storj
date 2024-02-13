@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
@@ -72,7 +72,6 @@ type Endpoint struct {
 	attributions           attribution.DB
 	pointerVerification    *pointerverification.Service
 	projectUsage           *accounting.Service
-	projectLimits          *accounting.ProjectLimitCache
 	projects               console.Projects
 	apiKeys                APIKeys
 	satellite              signing.Signer
@@ -88,7 +87,7 @@ type Endpoint struct {
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, projectLimits *accounting.ProjectLimitCache, projects console.Projects,
+	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
 
@@ -124,7 +123,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		pointerVerification: pointerverification.NewService(peerIdentities),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
-		projectLimits:       projectLimits,
 		projects:            projects,
 		satellite:           satellite,
 		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{
@@ -338,6 +336,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, tags ...eventkit.Tag) {
 	evs.Event("usage", append([]eventkit.Tag{
 		eventkit.Bytes("project-public-id", keyInfo.ProjectPublicID[:]),
+		eventkit.Bytes("macaroon-head", keyInfo.Head),
 		eventkit.String("user-agent", string(header.UserAgent)),
 		eventkit.String("request", name),
 	}, tags...)...)

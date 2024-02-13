@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { RouteConfig } from '@/types/router';
 
 /**
  * HttpClient is a custom wrapper around fetch api.
@@ -82,8 +83,8 @@ export class HttpClient {
      * Call logout and redirect to login.
      */
     private async handleUnauthorized(): Promise<void> {
-        const path = window.location.href;
-        if (!path.includes('/login') && !path.includes('/signup')) {
+        let path = window.location.href;
+        if (!this.isAuthRoute(path)) {
             try {
                 const logoutPath = '/api/v0/auth/logout';
                 const request: RequestInit = {
@@ -101,8 +102,17 @@ export class HttpClient {
             }
 
             setTimeout(() => {
-                window.location.href = window.location.origin + '/login';
+                // path may have changed after timeout.
+                path = window.location.href;
+                if (this.isAuthRoute(path)) {
+                    return;
+                }
+                window.location.href = `${window.location.origin}/login`;
             }, 2000);
         }
+    }
+
+    private isAuthRoute(path: string): boolean {
+        return RouteConfig.AuthRoutes.some((route) => path.includes(route));
     }
 }

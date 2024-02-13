@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 )
 
@@ -47,16 +46,13 @@ func TestObserverForkProcess(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
-	placementRules := overlay.ConfigurablePlacementRule{}
-	parsed, err := placementRules.Parse()
-	require.NoError(t, err)
 	createDefaultObserver := func() *Observer {
 		o := &Observer{
 			statsCollector: make(map[storj.RedundancyScheme]*observerRSStats),
 			nodesCache: &ReliabilityCache{
 				staleness: time.Hour,
 			},
-			placementRules: parsed.CreateFilters,
+			placements: nodeselection.TestPlacementDefinitions(),
 		}
 
 		o.nodesCache.state.Store(&reliabilityState{
@@ -75,7 +71,7 @@ func TestObserverForkProcess(t *testing.T) {
 			rsStats:          make(map[storj.RedundancyScheme]*partialRSStats),
 			doDeclumping:     o.doDeclumping,
 			doPlacementCheck: o.doPlacementCheck,
-			placementRules:   o.placementRules,
+			placements:       o.placements,
 			getNodesEstimate: o.getNodesEstimate,
 			nodesCache:       o.nodesCache,
 			repairQueue:      queue.NewInsertBuffer(q, 1000),
@@ -146,11 +142,11 @@ func TestObserverForkProcess(t *testing.T) {
 		o := createDefaultObserver()
 		o.doDeclumping = true
 
-		placements := overlay.ConfigurablePlacementRule{}
+		placements := nodeselection.ConfigurablePlacementRule{}
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
-		parsed, err := placements.Parse()
+		parsed, err := placements.Parse(nil)
 		require.NoError(t, err)
-		o.placementRules = parsed.CreateFilters
+		o.placements = parsed
 
 		q := queue.MockRepairQueue{}
 		fork := createFork(o, &q)

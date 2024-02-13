@@ -143,16 +143,10 @@ read count (
 	where bucket_metainfo.project_id = ?
 )
 
-read limitoffset (
+read paged (
 	select bucket_metainfo.project_id bucket_metainfo.name
-	where bucket_metainfo.project_id >= ?
-	where bucket_metainfo.name > ?
-	groupby bucket_metainfo.project_id bucket_metainfo.name
-	orderby (
-		asc bucket_metainfo.project_id
-		asc bucket_metainfo.name
-	)
 )
+
 
 // value_attribution table contains information about which user-agent
 // is used to create the project. It's being stored outside of the projects

@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"strings"
@@ -19,9 +20,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/satellite/accounting"
 	backoffice "storj.io/storj/satellite/admin/back-office"
-	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
@@ -32,6 +33,9 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
 )
+
+// Assets contains either the built admin/back-office/ui or it is nil.
+var Assets fs.FS = emptyfs.FS{}
 
 const (
 	// UnauthorizedNotInGroup - message for when api user is not part of a required access group.
@@ -140,7 +144,8 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
-	fullAccessAPI.HandleFunc("/users/{useremail}/activate-account/disable-bot-restriction", server.disableBotRestriction).Methods("PATCH")
+	fullAccessAPI.HandleFunc("/users/{useremail}/activate-account/disable-bot-restriction", server.disableBotRestriction).
+		Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/useragent", server.updateUsersUserAgent).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/geofence", server.createGeofenceForAccount).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/geofence", server.deleteGeofenceForAccount).Methods("DELETE")
@@ -181,7 +186,7 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/users/{useremail}/legal-freeze", server.legalUnfreezeUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/users/pending-deletion", server.usersPendingDeletion).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
-	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT")
 
 	// NewServer adds the backoffice.PahtPrefix for the static assets, but not for the API because the
 	// generator already add the PathPrefix to router when the API handlers are hooked.
@@ -196,7 +201,7 @@ func NewServer(
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
 	if config.StaticDir == "" {
-		root.PathPrefix("/").Handler(http.FileServer(http.FS(adminui.Assets))).Methods("GET")
+		root.PathPrefix("/").Handler(http.FileServer(http.FS(Assets))).Methods("GET")
 	} else {
 		root.PathPrefix("/").Handler(http.FileServer(http.Dir(config.StaticDir))).Methods("GET")
 	}

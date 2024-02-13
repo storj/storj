@@ -40,7 +40,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/uplink"
@@ -136,22 +136,19 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.Equal(t, item.EncryptedObjectKey, response.Object.EncryptedObjectKey)
 
 				// get with WRONG version, should return error
-				version, err := metabase.VersionFromBytes(response.Object.ObjectVersion)
-				require.NoError(t, err)
-				version++
-				nonExistingVersion := version.Encode()
+				object := metabase.Object{}
+				object.Version = metabase.Version(response.Object.Version) + 1
+				copy(object.StreamID[:], response.Object.StreamId[:])
 				_, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
 					Header: &pb.RequestHeader{
 						ApiKey: apiKey.SerializeRaw(),
 					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
-					ObjectVersion:      nonExistingVersion,
+					ObjectVersion:      object.StreamVersionID().Bytes(),
 				})
 				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
-
-			// TODO(ver): add tests with delete marker
 
 			items, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 				Bucket: []byte(expectedBucketName),
@@ -734,27 +731,28 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
-			require.EqualValues(t, committedObject.Version.Encode(), downloadObjectResponse.Object.ObjectVersion)
+			require.EqualValues(t, committedObject.StreamVersionID().Bytes(), downloadObjectResponse.Object.ObjectVersion)
 
 			// download using explicit version
 			downloadObjectResponse, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
-				ObjectVersion:      committedObject.Version.Encode(),
+				ObjectVersion:      committedObject.StreamVersionID().Bytes(),
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
-			require.EqualValues(t, committedObject.Version.Encode(), downloadObjectResponse.Object.ObjectVersion)
+			require.EqualValues(t, committedObject.StreamVersionID().Bytes(), downloadObjectResponse.Object.ObjectVersion)
 
 			// download using NON EXISTING version
-			nonExistingVersion := committedObject.Version + 1
+			nonExistingObject := committedObject
+			nonExistingObject.Version++
 			_, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
-				ObjectVersion:      nonExistingVersion.Encode(),
+				ObjectVersion:      nonExistingObject.StreamVersionID().Bytes(),
 			})
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
@@ -774,14 +772,15 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			endpoint := planet.Satellites[0].Metainfo.Endpoint
 
 			// first try to delete not existing version
-			nonExistingVersion := objects[0].Version + 1
+			nonExistingObject := objects[0]
+			nonExistingObject.Version++
 			response, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
-				ObjectVersion:      nonExistingVersion.Encode(),
+				ObjectVersion:      nonExistingObject.StreamVersionID().Bytes(),
 			})
 			require.NoError(t, err)
 			require.Nil(t, response.Object)
@@ -793,7 +792,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
-				ObjectVersion:      objects[0].Version.Encode(),
+				ObjectVersion:      objects[0].StreamVersionID().Bytes(),
 			})
 			require.NoError(t, err)
 			require.NotNil(t, response.Object)
@@ -1265,7 +1264,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
 			require.NoError(t, err)
 			require.Len(t, allObjects, 1)
-			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].Version.Encode())
+			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].StreamVersionID().Bytes())
 		})
 
 		t.Run("get object IP", func(t *testing.T) {
@@ -2654,7 +2653,7 @@ func TestNodeTagPlacement(t *testing.T) {
 
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 
-	placementRules := overlay.ConfigurablePlacementRule{}
+	placementRules := nodeselection.ConfigurablePlacementRule{}
 	tag := fmt.Sprintf(`tag("%s", "certified","true")`, satelliteIdentity.ID())
 	err := placementRules.Set(fmt.Sprintf(`0:exclude(%s);16:%s`, tag, tag))
 	require.NoError(t, err)
@@ -2938,6 +2937,146 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, lposResponse.Items, 1)
 			require.Equal(t, response.StreamId.Bytes(), lposResponse.Items[0].StreamId.Bytes())
+		})
+
+		t.Run("listing objects, all versions, version cursor handling", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			expectedVersions := [][]byte{}
+			for i := 0; i < 5; i++ {
+				object, err := planet.Uplinks[0].UploadWithOptions(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100), nil)
+				require.NoError(t, err)
+				expectedVersions = append(expectedVersions, object.Version)
+			}
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.NotEmpty(t, objects)
+
+			listObjectVersions := func(version []byte, limit int) *pb.ListObjectsResponse {
+				response, err := satelliteSys.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+					Header: &pb.RequestHeader{ApiKey: apiKey},
+					Bucket: []byte(bucketName),
+					// all objects have the same key but different versions
+					EncryptedCursor:    []byte(objects[0].ObjectKey),
+					VersionCursor:      version,
+					IncludeAllVersions: true,
+					Limit:              int32(limit),
+				})
+				require.NoError(t, err)
+				return response
+			}
+
+			for i, version := range expectedVersions {
+				response := listObjectVersions(version, 0)
+				require.Len(t, response.Items, i)
+
+				versions := [][]byte{}
+				for i := len(response.Items) - 1; i >= 0; i-- {
+					item := response.Items[i]
+					versions = append(versions, item.ObjectVersion)
+				}
+
+				require.Equal(t, expectedVersions[:i], versions)
+			}
+
+			response := listObjectVersions(expectedVersions[4], 2)
+			require.NoError(t, err)
+			require.Len(t, response.Items, 2)
+			require.True(t, response.More)
+
+			response = listObjectVersions(expectedVersions[2], 2)
+			require.Len(t, response.Items, 2)
+			require.False(t, response.More)
+		})
+
+		t.Run("get objects with delete marker", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			// upload first version of the item
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			// upload second version of the item
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			// delete the second version (latest). Should create a delete marker.
+			deleteResponse, err := planet.Satellites[0].Metainfo.Endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey,
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("objectA"),
+				ObjectVersion:      nil,
+			})
+			require.NoError(t, err)
+			require.NotEmpty(t, deleteResponse)
+			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, deleteResponse.Object.Status)
+
+			// get the delete marker (latest), should return error
+			_, err = planet.Satellites[0].Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey,
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("objectA"),
+				ObjectVersion:      nil,
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		})
+
+		t.Run("begin copy object from older version", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			objectKeyA := "test-object-a"
+			versionIDs := make([][]byte, 2)
+			for i := range versionIDs {
+				object, err := planet.Uplinks[0].UploadWithOptions(ctx, satelliteSys, bucketName, objectKeyA, testrand.Bytes(100), nil)
+				require.NoError(t, err)
+
+				versionIDs[i] = object.Version
+			}
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 2)
+
+			_, err = planet.Satellites[0].Metainfo.Endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      versionIDs[0],
+
+				NewBucket:             []byte(bucketName),
+				NewEncryptedObjectKey: []byte("copied-object"),
+			})
+			require.NoError(t, err)
+
+			// NOT existing source version
+			nonExistingVersion := versionIDs[0]
+			nonExistingVersion[0]++
+			_, err = planet.Satellites[0].Metainfo.Endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      nonExistingVersion,
+
+				NewBucket:             []byte(bucketName),
+				NewEncryptedObjectKey: []byte("copied-object"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
 	})
 }

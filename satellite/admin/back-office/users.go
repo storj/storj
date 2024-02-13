@@ -10,43 +10,38 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
-	"storj.io/storj/satellite/accounting"
 )
 
-// User holds information about a user account.
+// User holds the user's information.
 type User struct {
-	ID                 uuid.UUID                 `json:"id"`
-	FullName           string                    `json:"fullName"`
-	Email              string                    `json:"email"`
-	PaidTier           bool                      `json:"paidTier"`
-	CreatedAt          time.Time                 `json:"createdAt"`
-	Status             string                    `json:"status"`
-	UserAgent          string                    `json:"userAgent"`
-	DefaultPlacement   storj.PlacementConstraint `json:"defaultPlacement"`
-	ProjectUsageLimits []ProjectUsageLimits      `json:"projectUsageLimits"`
+	ID       uuid.UUID `json:"id"`
+	FullName string    `json:"fullName"`
+	Email    string    `json:"email"`
 }
 
-// ProjectUsageLimits holds project usage limits and current usage.
-// StorageUsed, BandwidthUsed, and SegmentUsed are nil if there was
-// an error connecting to the Redis live accounting cache.
-type ProjectUsageLimits struct {
-	ID             uuid.UUID `json:"id"` // This is the public ID
-	Name           string    `json:"name"`
-	StorageLimit   int64     `json:"storageLimit"`
-	StorageUsed    *int64    `json:"storageUsed"`
-	BandwidthLimit int64     `json:"bandwidthLimit"`
-	BandwidthUsed  int64     `json:"bandwidthUsed"`
-	SegmentLimit   int64     `json:"segmentLimit"`
-	SegmentUsed    *int64    `json:"segmentUsed"`
+// UserAccount holds information about a user's account.
+type UserAccount struct {
+	User
+	PaidTier         bool                      `json:"paidTier"`
+	CreatedAt        time.Time                 `json:"createdAt"`
+	Status           string                    `json:"status"`
+	UserAgent        string                    `json:"userAgent"`
+	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	Projects         []UserProject             `json:"projects"`
+}
+
+// UserProject is project owned by a user with  basic information, usage, and limits.
+type UserProject struct {
+	ID   uuid.UUID `json:"id"` // This is the public ID
+	Name string    `json:"name"`
+	ProjectUsageLimits[int64]
 }
 
 // GetUserByEmail returns a verified user by its email address.
-func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, api.HTTPError) {
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -70,90 +65,55 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, api.
 		}
 	}
 
-	// We return status 409 in the rare case that a project is deleted
-	// before its limits can be obtained.
-	makeDBErr := func(err error) api.HTTPError {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusConflict
-		}
-		return api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	var cacheErrs []error
-	usageLimits := make([]ProjectUsageLimits, 0, len(projects))
-	for _, project := range projects {
-		usage := ProjectUsageLimits{
-			ID:   project.PublicID,
-			Name: project.Name,
-		}
-
-		storageLimit, err := s.accounting.GetProjectStorageLimit(ctx, project.ID)
-		if err != nil {
-			return nil, makeDBErr(err)
-		}
-		usage.StorageLimit = storageLimit.Int64()
-
-		bandwidthLimit, err := s.accounting.GetProjectBandwidthLimit(ctx, project.ID)
-		if err != nil {
-			return nil, makeDBErr(err)
-		}
-		usage.BandwidthLimit = bandwidthLimit.Int64()
-
-		segmentLimit, err := s.accounting.GetProjectSegmentLimit(ctx, project.ID)
-		if err != nil {
-			return nil, makeDBErr(err)
-		}
-		usage.SegmentLimit = segmentLimit.Int64()
-
-		storageUsed, err := s.accounting.GetProjectStorageTotals(ctx, project.ID)
-		if err == nil {
-			usage.StorageUsed = &storageUsed
-		} else if accounting.ErrSystemOrNetError.Has(err) {
-			cacheErrs = append(cacheErrs, err)
-		} else {
-			return nil, api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
+	usageLimits := make([]UserProject, 0, len(projects))
+	for _, p := range projects {
+		bandwidthl, storagel, segmentl, apiErr := s.getProjectLimits(ctx, p.ID)
+		if apiErr.Err != nil {
+			if apiErr.Status == http.StatusNotFound {
+				// We return a conflict if a project doesn't exists because it means that the project was
+				// deleted between getting the list of projects of the user and retrieving the usage and
+				// limits of the project.
+				apiErr.Status = http.StatusConflict
 			}
+			return nil, apiErr
 		}
 
-		usage.BandwidthUsed, err = s.accounting.GetProjectBandwidthTotals(ctx, project.ID)
-		if err != nil {
-			return nil, makeDBErr(err)
-		}
-
-		segmentUsed, err := s.accounting.GetProjectSegmentTotals(ctx, project.ID)
-		if err == nil {
-			usage.SegmentUsed = &segmentUsed
-		} else if accounting.ErrSystemOrNetError.Has(err) {
-			cacheErrs = append(cacheErrs, err)
-		} else {
-			return nil, api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
+		bandwidthu, storageu, segmentu, apiErr := s.getProjectUsage(ctx, p.ID)
+		if apiErr.Err != nil {
+			if apiErr.Status == http.StatusNotFound {
+				// We return a conflict if a project doesn't exists because it means that the project was
+				// deleted between getting the list of projects of the user and retrieving the usage and
+				// limits of the project.
+				apiErr.Status = http.StatusConflict
 			}
+			return nil, apiErr
 		}
 
-		usageLimits = append(usageLimits, usage)
+		usageLimits = append(usageLimits, UserProject{
+			ID:   p.PublicID,
+			Name: p.Name,
+			ProjectUsageLimits: ProjectUsageLimits[int64]{
+				BandwidthLimit: bandwidthl,
+				BandwidthUsed:  bandwidthu,
+				StorageLimit:   storagel,
+				StorageUsed:    storageu,
+				SegmentLimit:   segmentl,
+				SegmentUsed:    segmentu,
+			},
+		})
 	}
 
-	if len(cacheErrs) != 0 {
-		s.log.Warn("Error getting project usage data from live accounting cache", zap.Errors("errors", cacheErrs))
-	}
-
-	return &User{
-		ID:                 user.ID,
-		FullName:           user.FullName,
-		Email:              user.Email,
-		PaidTier:           user.PaidTier,
-		CreatedAt:          user.CreatedAt,
-		Status:             user.Status.String(),
-		UserAgent:          string(user.UserAgent),
-		DefaultPlacement:   user.DefaultPlacement,
-		ProjectUsageLimits: usageLimits,
+	return &UserAccount{
+		User: User{
+			ID:       user.ID,
+			FullName: user.FullName,
+			Email:    user.Email,
+		},
+		PaidTier:         user.PaidTier,
+		CreatedAt:        user.CreatedAt,
+		Status:           user.Status.String(),
+		UserAgent:        string(user.UserAgent),
+		DefaultPlacement: user.DefaultPlacement,
+		Projects:         usageLimits,
 	}, api.HTTPError{}
 }

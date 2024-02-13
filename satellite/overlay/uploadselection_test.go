@@ -25,7 +25,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
@@ -65,7 +65,7 @@ func TestRefresh(t *testing.T) {
 			lowStaleness,
 			nodeSelectionConfig,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.TestPlacementDefinitions(),
 		)
 		require.NoError(t, err)
 
@@ -162,7 +162,7 @@ func TestRefreshConcurrent(t *testing.T) {
 		highStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.TestPlacementDefinitions(),
 	)
 	require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestRefreshConcurrent(t *testing.T) {
 		lowStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.TestPlacementDefinitions(),
 	)
 	require.NoError(t, err)
 	ctx.Go(func() error { return cache.Run(cacheCtx) })
@@ -214,7 +214,7 @@ func TestSelectNodes(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
-		placementRules := overlay.NewPlacementDefinitions()
+		placementRules := nodeselection.TestPlacementDefinitionsWithFraction(nodeSelectionConfig.NewNodeFraction)
 		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
 		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
 
@@ -223,7 +223,7 @@ func TestSelectNodes(t *testing.T) {
 			lowStaleness,
 			nodeSelectionConfig,
 			nodeselection.NodeFilters{},
-			placementRules.CreateFilters,
+			placementRules,
 		)
 		require.NoError(t, err)
 
@@ -389,7 +389,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 		highStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.TestPlacementDefinitionsWithFraction(1),
 	)
 	require.NoError(t, err)
 
@@ -436,7 +436,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 		lowStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.TestPlacementDefinitionsWithFraction(1),
 	)
 	require.NoError(t, err)
 
@@ -528,7 +528,7 @@ func TestGetNodesDistinct(t *testing.T) {
 			highStaleness,
 			config,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.TestPlacementDefinitions(),
 		)
 		require.NoError(t, err)
 
@@ -569,7 +569,7 @@ func TestGetNodesDistinct(t *testing.T) {
 			highStaleness,
 			config,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.TestPlacementDefinitions(),
 		)
 		require.NoError(t, err)
 
@@ -594,7 +594,7 @@ func TestGetNodesError(t *testing.T) {
 		highStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.TestPlacementDefinitions(),
 	)
 	require.NoError(t, err)
 
@@ -623,7 +623,7 @@ func TestNewNodeFraction(t *testing.T) {
 			lowStaleness,
 			nodeSelectionConfig,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.TestPlacementDefinitionsWithFraction(newNodeFraction),
 		)
 		require.NoError(t, err)
 
@@ -674,7 +674,7 @@ func BenchmarkGetNodes(b *testing.B) {
 	defer cancel()
 	log, err := zap.NewDevelopment()
 	require.NoError(b, err)
-	placement := overlay.NewPlacementDefinitions()
+	placement := nodeselection.TestPlacementDefinitions()
 	placement.AddLegacyStaticRules()
 	defaultFilter := nodeselection.NodeFilters{}
 
@@ -684,7 +684,7 @@ func BenchmarkGetNodes(b *testing.B) {
 	)
 	cache, err := overlay.NewUploadSelectionCache(log, db, 10*time.Minute, overlay.NodeSelectionConfig{
 		NewNodeFraction: 0.1,
-	}, defaultFilter, placement.CreateFilters)
+	}, defaultFilter, placement)
 	require.NoError(b, err)
 
 	go func() {
@@ -935,5 +935,10 @@ func (m *mockdb) UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags
 
 // GetNodeTags satisfies nodeevents.DB interface.
 func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
+	panic("implement me")
+}
+
+// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
+func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
 	panic("implement me")
 }

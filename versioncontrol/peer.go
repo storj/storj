@@ -23,7 +23,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/sync2"
-	"storj.io/private/version"
+	"storj.io/common/version"
 )
 
 // seedLength is the number of bytes in a rollout seed.

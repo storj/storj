@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/process"
 	"storj.io/common/uuid"
-	"storj.io/private/process"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/payments/stripe"

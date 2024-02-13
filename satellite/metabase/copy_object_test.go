@@ -83,6 +83,32 @@ func TestBeginCopyObject(t *testing.T) {
 				Segments: expectedRawSegments,
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("begin copy object multiple versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := obj
+			obj.Version = 1
+			obj1 := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 2
+			obj2 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+			obj.Version = 3
+			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			for _, object := range []metabase.Object{obj1, obj2, obj3} {
+				metabasetest.BeginCopyObject{
+					Opts: metabase.BeginCopyObject{
+						ObjectLocation: object.Location(),
+						Version:        object.Version,
+					},
+					Result: metabase.BeginCopyObjectResult{
+						StreamID:             object.StreamID,
+						Version:              object.Version,
+						EncryptionParameters: object.Encryption,
+					},
+				}.Check(ctx, t, db)
+			}
+		})
 	})
 }
 
@@ -1451,6 +1477,65 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(unversionedObject),
 					metabase.RawObject(versionedObject),
 				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("copy object from versioned source object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj.Version = 1
+			sourceObject, sourceSegments := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj, 1)
+			obj.Version = 2
+			latestObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			results, err := db.BeginCopyObject(ctx, metabase.BeginCopyObject{
+				ObjectLocation: sourceObject.Location(),
+				Version:        sourceObject.Version,
+			})
+			require.NoError(t, err)
+
+			expectedCopiedObject := metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  sourceObject.ProjectID,
+					BucketName: sourceObject.BucketName,
+					ObjectKey:  metabase.ObjectKey("new key"),
+					StreamID:   testrand.UUID(),
+					Version:    1,
+				},
+				Status:       metabase.CommittedVersioned,
+				SegmentCount: 1,
+
+				CreatedAt:          time.Now(),
+				TotalPlainSize:     sourceObject.TotalPlainSize,
+				TotalEncryptedSize: sourceObject.TotalEncryptedSize,
+				FixedSegmentSize:   sourceObject.FixedSegmentSize,
+				Encryption:         sourceObject.Encryption,
+			}
+
+			expectedTargetSegment := sourceSegments[0]
+			expectedTargetSegment.StreamID = expectedCopiedObject.StreamID
+			expectedTargetSegment.EncryptedETag = nil
+
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:          sourceObject.ObjectStream,
+					NewBucket:             sourceObject.BucketName,
+					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+					NewStreamID:           expectedCopiedObject.StreamID,
+					NewVersioned:          true,
+
+					NewSegmentKeys: results.EncryptedKeysNonces,
+				},
+				Result: expectedCopiedObject,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(sourceObject),
+					metabase.RawObject(latestObject),
+					metabase.RawObject(expectedCopiedObject),
+				},
+				Segments: metabasetest.SegmentsToRaw(append(sourceSegments, expectedTargetSegment)),
 			}.Check(ctx, t, db)
 		})
 	})

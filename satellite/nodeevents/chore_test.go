@@ -200,7 +200,7 @@ func TestNodeEventsChoreInvalidEmails(t *testing.T) {
 
 		event := nodeevents.Disqualified
 		for _, e := range emails {
-			_, err := sat.DB.NodeEvents().Insert(ctx, e, teststorj.NodeIDFromString("test"), event)
+			_, err := sat.DB.NodeEvents().Insert(ctx, e, nil, teststorj.NodeIDFromString("test"), event)
 			require.NoError(t, err)
 		}
 

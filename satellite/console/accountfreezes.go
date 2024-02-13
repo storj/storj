@@ -30,7 +30,7 @@ type AccountFreezeEvents interface {
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
 	// GetAllEvents is a method for querying all account freeze events from the database.
-	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor) (events *FreezeEventsPage, err error)
+	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, eventType *AccountFreezeEventType) (events *FreezeEventsPage, err error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
 	GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
@@ -73,7 +73,7 @@ type FreezeEventsPage struct {
 
 // UserFreezeEvents holds the freeze events for a user.
 type UserFreezeEvents struct {
-	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze *AccountFreezeEvent
+	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze, DelayedBotFreeze, BotFreeze *AccountFreezeEvent
 }
 
 // AccountFreezeEventType is used to indicate the account freeze event's type.
@@ -89,6 +89,10 @@ const (
 	ViolationFreeze AccountFreezeEventType = 2
 	// LegalFreeze signifies that the user has been frozen for legal review.
 	LegalFreeze AccountFreezeEventType = 3
+	// DelayedBotFreeze signifies that the user has to be set to be verified by an admin after some delay.
+	DelayedBotFreeze AccountFreezeEventType = 4
+	// BotFreeze signifies that the user has been set to be verified by an admin.
+	BotFreeze AccountFreezeEventType = 5
 )
 
 // String returns a string representation of this event.
@@ -102,6 +106,10 @@ func (et AccountFreezeEventType) String() string {
 		return "Violation Freeze"
 	case LegalFreeze:
 		return "Legal Freeze"
+	case DelayedBotFreeze:
+		return "Delayed Bot Freeze"
+	case BotFreeze:
+		return "Bot Freeze"
 	default:
 		return ""
 	}
@@ -164,87 +172,41 @@ func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uui
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		user, err := tx.Users().Get(ctx, userID)
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
+			return err
 		}
 
 		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
+			return err
 		}
 		if freezes.ViolationFreeze != nil {
-			return ErrAccountFreeze.New("User is already frozen due to ToS violation")
+			return errs.New("User is already frozen due to ToS violation")
 		}
 		if freezes.LegalFreeze != nil {
-			return ErrAccountFreeze.New("User is already frozen for legal review")
+			return errs.New("User is already frozen for legal review")
 		}
-
-		userLimits := UsageLimits{
-			Storage:   user.ProjectStorageLimit,
-			Bandwidth: user.ProjectBandwidthLimit,
-			Segment:   user.ProjectSegmentLimit,
+		if freezes.DelayedBotFreeze != nil {
+			return errs.New("User is already set to be frozen for bot review")
+		}
+		if freezes.BotFreeze != nil {
+			return errs.New("User is already frozen for bot review")
 		}
 
 		daysTillEscalation := int(s.config.BillingFreezeGracePeriod.Hours() / 24)
-		billingFreeze := freezes.BillingFreeze
-		if billingFreeze == nil {
-			billingFreeze = &AccountFreezeEvent{
-				UserID:             userID,
-				Type:               BillingFreeze,
-				DaysTillEscalation: &daysTillEscalation,
-				Limits: &AccountFreezeEventLimits{
-					User:     userLimits,
-					Projects: make(map[uuid.UUID]UsageLimits),
-				},
-			}
-		}
-
-		// If user limits have been zeroed already, we should not override what is in the freeze table.
-		if userLimits != (UsageLimits{}) {
-			billingFreeze.Limits.User = userLimits
-		}
-
-		projects, err := tx.Projects().GetOwn(ctx, userID)
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:               user,
+			newFreezeEvent:     freezes.BillingFreeze,
+			daysTillEscalation: &daysTillEscalation,
+			eventType:          BillingFreeze,
+		})
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
-		}
-		for _, p := range projects {
-			projLimits := UsageLimits{}
-			if p.StorageLimit != nil {
-				projLimits.Storage = p.StorageLimit.Int64()
-			}
-			if p.BandwidthLimit != nil {
-				projLimits.Bandwidth = p.BandwidthLimit.Int64()
-			}
-			if p.SegmentLimit != nil {
-				projLimits.Segment = *p.SegmentLimit
-			}
-			// If project limits have been zeroed already, we should not override what is in the freeze table.
-			if projLimits != (UsageLimits{}) {
-				billingFreeze.Limits.Projects[p.ID] = projLimits
-			}
-		}
-
-		_, err = tx.AccountFreezeEvents().Upsert(ctx, billingFreeze)
-		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
-		}
-
-		err = tx.Users().UpdateUserProjectLimits(ctx, userID, UsageLimits{})
-		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
-		}
-
-		for _, proj := range projects {
-			err := tx.Projects().UpdateUsageLimits(ctx, proj.ID, UsageLimits{})
-			if err != nil {
-				return ErrAccountFreeze.Wrap(err)
-			}
+			return err
 		}
 
 		if freezes.BillingWarning != nil {
 			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingWarning)
 			if err != nil {
-				return ErrAccountFreeze.Wrap(err)
+				return err
 			}
 		}
 		s.tracker.TrackAccountFrozen(userID, user.Email)
@@ -252,7 +214,7 @@ func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uui
 		return nil
 	})
 
-	return err
+	return ErrAccountFreeze.Wrap(err)
 }
 
 // BillingUnfreezeUser reverses the billing freeze placed on the user specified by the given ID.
@@ -395,74 +357,24 @@ func (s *AccountFreezeService) ViolationFreezeUser(ctx context.Context, userID u
 		if freezes.LegalFreeze != nil {
 			return errs.New("User is already frozen for legal review")
 		}
+		if freezes.BotFreeze != nil {
+			return errs.New("User is already frozen for bot review")
+		}
 
 		var limits *AccountFreezeEventLimits
 		if freezes.BillingFreeze != nil {
 			limits = freezes.BillingFreeze.Limits
 		}
 
-		userLimits := UsageLimits{
-			Storage:   user.ProjectStorageLimit,
-			Bandwidth: user.ProjectBandwidthLimit,
-			Segment:   user.ProjectSegmentLimit,
-		}
-
-		violationFreeze := freezes.ViolationFreeze
-		if violationFreeze == nil {
-			if limits == nil {
-				limits = &AccountFreezeEventLimits{
-					User:     userLimits,
-					Projects: make(map[uuid.UUID]UsageLimits),
-				}
-			}
-			violationFreeze = &AccountFreezeEvent{
-				UserID: userID,
-				Type:   ViolationFreeze,
-				Limits: limits,
-			}
-		}
-
-		// If user limits have been zeroed already, we should not override what is in the freeze table.
-		if userLimits != (UsageLimits{}) {
-			violationFreeze.Limits.User = userLimits
-		}
-
-		projects, err := tx.Projects().GetOwn(ctx, userID)
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:                user,
+			newFreezeEvent:      freezes.ViolationFreeze,
+			existingFreezeEvent: freezes.BillingFreeze,
+			limits:              limits,
+			eventType:           ViolationFreeze,
+		})
 		if err != nil {
 			return err
-		}
-		for _, p := range projects {
-			projLimits := UsageLimits{}
-			if p.StorageLimit != nil {
-				projLimits.Storage = p.StorageLimit.Int64()
-			}
-			if p.BandwidthLimit != nil {
-				projLimits.Bandwidth = p.BandwidthLimit.Int64()
-			}
-			if p.SegmentLimit != nil {
-				projLimits.Segment = *p.SegmentLimit
-			}
-			// If project limits have been zeroed already, we should not override what is in the freeze table.
-			if projLimits != (UsageLimits{}) {
-				violationFreeze.Limits.Projects[p.ID] = projLimits
-			}
-		}
-
-		_, err = tx.AccountFreezeEvents().Upsert(ctx, violationFreeze)
-		if err != nil {
-			return err
-		}
-
-		err = tx.Users().UpdateUserProjectLimits(ctx, userID, UsageLimits{})
-		if err != nil {
-			return err
-		}
-
-		for _, proj := range projects {
-			err := tx.Projects().UpdateUsageLimits(ctx, proj.ID, UsageLimits{})
-			if err != nil {
-				return err
-			}
 		}
 
 		status := PendingDeletion
@@ -555,87 +467,25 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 		if freezes.ViolationFreeze != nil {
 			return errs.New("User is already frozen due to ToS violation")
 		}
+		if freezes.BotFreeze != nil {
+			return errs.New("User is already frozen for bot review")
+		}
 
 		var limits *AccountFreezeEventLimits
 		if freezes.BillingFreeze != nil {
 			limits = freezes.BillingFreeze.Limits
 		}
 
-		userLimits := UsageLimits{
-			Storage:   user.ProjectStorageLimit,
-			Bandwidth: user.ProjectBandwidthLimit,
-			Segment:   user.ProjectSegmentLimit,
-		}
-
-		legalFreeze := freezes.LegalFreeze
-		if legalFreeze == nil {
-			if limits == nil {
-				limits = &AccountFreezeEventLimits{
-					User:     userLimits,
-					Projects: make(map[uuid.UUID]UsageLimits),
-				}
-			}
-			legalFreeze = &AccountFreezeEvent{
-				UserID: userID,
-				Type:   LegalFreeze,
-				Limits: limits,
-			}
-		}
-
-		// If user limits have been zeroed already, we should not override what is in the freeze table.
-		if userLimits != (UsageLimits{}) {
-			legalFreeze.Limits.User = userLimits
-		}
-
-		projects, err := tx.Projects().GetOwn(ctx, userID)
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:                 user,
+			newFreezeEvent:       freezes.LegalFreeze,
+			existingFreezeEvent:  freezes.BillingFreeze,
+			limits:               limits,
+			eventType:            LegalFreeze,
+			zeroProjectRateLimit: true,
+		})
 		if err != nil {
 			return err
-		}
-		for _, p := range projects {
-			projLimits := UsageLimits{}
-			if p.StorageLimit != nil {
-				projLimits.Storage = p.StorageLimit.Int64()
-			}
-			if p.BandwidthLimit != nil {
-				projLimits.Bandwidth = p.BandwidthLimit.Int64()
-			}
-			if p.SegmentLimit != nil {
-				projLimits.Segment = *p.SegmentLimit
-			}
-			// If project limits have been zeroed already, we should not override what is in the freeze table.
-			if projLimits == (UsageLimits{}) {
-				if freezes.BillingFreeze == nil {
-					continue
-				}
-				// if limits were zeroed in a billing freeze, we should use those
-				projLimits = freezes.BillingFreeze.Limits.Projects[p.ID]
-			}
-			projLimits.RateLimit = p.RateLimit
-			legalFreeze.Limits.Projects[p.ID] = projLimits
-		}
-
-		_, err = tx.AccountFreezeEvents().Upsert(ctx, legalFreeze)
-		if err != nil {
-			return err
-		}
-
-		err = tx.Users().UpdateUserProjectLimits(ctx, userID, UsageLimits{})
-		if err != nil {
-			return err
-		}
-
-		for _, proj := range projects {
-			err := tx.Projects().UpdateUsageLimits(ctx, proj.ID, UsageLimits{})
-			if err != nil {
-				return err
-			}
-
-			// zero project's rate limit to prevent lists/deletes
-			zeroLimit := 0
-			err = tx.Projects().UpdateRateLimit(ctx, proj.ID, &zeroLimit)
-			if err != nil {
-				return ErrAccountFreeze.Wrap(err)
-			}
 		}
 
 		if freezes.BillingWarning != nil {
@@ -649,6 +499,12 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 		err = tx.Users().Update(ctx, userID, UpdateUserRequest{
 			Status: &status,
 		})
+		if err != nil {
+			return err
+		}
+
+		// Invalidate all user sessions.
+		_, err = tx.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 		if err != nil {
 			return err
 		}
@@ -689,6 +545,11 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 			if err != nil {
 				return ErrAccountFreeze.Wrap(err)
 			}
+			// remove burst limit
+			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
+			if err != nil {
+				return ErrAccountFreeze.Wrap(err)
+			}
 		}
 
 		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
@@ -717,6 +578,135 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 	return ErrAccountFreeze.Wrap(err)
 }
 
+// DelayedBotFreezeUser sets the user specified by the given ID for bot review with some delay.
+func (s *AccountFreezeService) DelayedBotFreezeUser(ctx context.Context, userID uuid.UUID, days *int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.store.AccountFreezeEvents().Upsert(ctx, &AccountFreezeEvent{
+		UserID:             userID,
+		Type:               DelayedBotFreeze,
+		DaysTillEscalation: days,
+	})
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
+
+	return nil
+}
+
+// BotFreezeUser freezes the user specified by the given ID for bot review.
+func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.Status == PendingBotVerification {
+			return errs.New("user is frozen pending bot verification")
+		}
+
+		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if freezes.BotFreeze != nil {
+			return errs.New("User is already frozen for bot review")
+		}
+
+		var limits *AccountFreezeEventLimits
+		if freezes.BillingFreeze != nil {
+			limits = freezes.BillingFreeze.Limits
+		}
+
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:                 user,
+			existingFreezeEvent:  freezes.BillingFreeze,
+			limits:               limits,
+			eventType:            BotFreeze,
+			zeroProjectRateLimit: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, DelayedBotFreeze)
+		if err != nil {
+			return err
+		}
+
+		botStatus := PendingBotVerification
+		err = tx.Users().Update(ctx, userID, UpdateUserRequest{Status: &botStatus})
+		if err != nil {
+			return err
+		}
+
+		// Invalidate all user sessions.
+		_, err = tx.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// BotUnfreezeUser reverses the bot freeze placed on the user specified by the given ID.
+func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		event, err := tx.AccountFreezeEvents().Get(ctx, userID, BotFreeze)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+			return err
+		}
+
+		if event.Limits == nil {
+			return errs.New("freeze event limits are nil")
+		}
+
+		for id, limits := range event.Limits.Projects {
+			err = tx.Projects().UpdateUsageLimits(ctx, id, limits)
+			if err != nil {
+				return err
+			}
+
+			// remove rate limit
+			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
+		if err != nil {
+			return err
+		}
+
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BotFreeze)
+		if err != nil {
+			return err
+		}
+
+		activeStatus := Active
+		err = tx.Users().Update(ctx, userID, UpdateUserRequest{Status: &activeStatus})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
 // GetAll returns all events for a user.
 func (s *AccountFreezeService) GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -733,7 +723,19 @@ func (s *AccountFreezeService) GetAll(ctx context.Context, userID uuid.UUID) (fr
 func (s *AccountFreezeService) GetAllEvents(ctx context.Context, cursor FreezeEventsCursor) (events *FreezeEventsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor)
+	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor, nil)
+	if err != nil {
+		return nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return events, nil
+}
+
+// GetAllEventsByType returns all events by event type.
+func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor FreezeEventsCursor, eventType AccountFreezeEventType) (events *FreezeEventsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor, &eventType)
 	if err != nil {
 		return nil, ErrAccountFreeze.Wrap(err)
 	}
@@ -770,4 +772,108 @@ func (s *AccountFreezeService) EscalateBillingFreeze(ctx context.Context, userID
 // TestChangeFreezeTracker changes the freeze tracker service for tests.
 func (s *AccountFreezeService) TestChangeFreezeTracker(t analytics.FreezeTracker) {
 	s.tracker = t
+}
+
+type upsertData struct {
+	user                 *User
+	newFreezeEvent       *AccountFreezeEvent
+	existingFreezeEvent  *AccountFreezeEvent
+	limits               *AccountFreezeEventLimits
+	daysTillEscalation   *int
+	eventType            AccountFreezeEventType
+	zeroProjectRateLimit bool
+}
+
+func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, data *upsertData) error {
+	userLimits := UsageLimits{
+		Storage:   data.user.ProjectStorageLimit,
+		Bandwidth: data.user.ProjectBandwidthLimit,
+		Segment:   data.user.ProjectSegmentLimit,
+	}
+
+	if data.newFreezeEvent == nil {
+		if data.limits == nil {
+			data.limits = &AccountFreezeEventLimits{
+				User:     userLimits,
+				Projects: make(map[uuid.UUID]UsageLimits),
+			}
+		}
+
+		data.newFreezeEvent = &AccountFreezeEvent{
+			UserID:             data.user.ID,
+			Type:               data.eventType,
+			DaysTillEscalation: data.daysTillEscalation,
+			Limits:             data.limits,
+		}
+	}
+
+	// If user limits have been zeroed already, we should not override what is in the freeze table.
+	if userLimits != (UsageLimits{}) {
+		data.newFreezeEvent.Limits.User = userLimits
+	}
+
+	projects, err := tx.Projects().GetOwn(ctx, data.user.ID)
+	if err != nil {
+		return err
+	}
+	for _, p := range projects {
+		projLimits := UsageLimits{}
+		if p.StorageLimit != nil {
+			projLimits.Storage = p.StorageLimit.Int64()
+		}
+		if p.BandwidthLimit != nil {
+			projLimits.Bandwidth = p.BandwidthLimit.Int64()
+		}
+		if p.SegmentLimit != nil {
+			projLimits.Segment = *p.SegmentLimit
+		}
+		// If project limits have been zeroed already, we should not override what is in the freeze table.
+		if projLimits == (UsageLimits{}) {
+			if data.existingFreezeEvent == nil {
+				continue
+			}
+			// if limits were zeroed in a billing freeze, we should use those
+			projLimits = data.existingFreezeEvent.Limits.Projects[p.ID]
+		}
+
+		if data.zeroProjectRateLimit {
+			projLimits.RateLimit = p.RateLimit
+			projLimits.BurstLimit = p.BurstLimit
+		}
+
+		data.newFreezeEvent.Limits.Projects[p.ID] = projLimits
+	}
+
+	_, err = tx.AccountFreezeEvents().Upsert(ctx, data.newFreezeEvent)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Users().UpdateUserProjectLimits(ctx, data.user.ID, UsageLimits{})
+	if err != nil {
+		return err
+	}
+
+	for _, proj := range projects {
+		err := tx.Projects().UpdateUsageLimits(ctx, proj.ID, UsageLimits{})
+		if err != nil {
+			return err
+		}
+
+		if data.zeroProjectRateLimit {
+			// zero project's rate limit to prevent lists/deletes
+			zeroLimit := 0
+			err = tx.Projects().UpdateRateLimit(ctx, proj.ID, &zeroLimit)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Projects().UpdateBurstLimit(ctx, proj.ID, &zeroLimit)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

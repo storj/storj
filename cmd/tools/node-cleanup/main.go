@@ -17,9 +17,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/private/process"
-	"storj.io/private/tagsql"
+	"storj.io/common/tagsql"
 	"storj.io/storj/satellite/satellitedb"
 )
 

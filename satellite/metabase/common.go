@@ -6,6 +6,7 @@ package metabase
 import (
 	"database/sql/driver"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -279,7 +280,7 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 		return obj.ObjectKey < b.ObjectKey
 	}
 	if obj.Version != b.Version {
-		return obj.Version < b.Version
+		return obj.Version > b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }
@@ -366,24 +367,48 @@ const DefaultVersion = Version(1)
 const PendingVersion = Version(0)
 
 // MaxVersion represents maximum version.
-// Version in DB is represented as INT4.
-const MaxVersion = Version(math.MaxInt32)
+// Version in DB is represented as INT8.
+//
+// It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
+const MaxVersion = Version(math.MaxInt64 - 64)
 
-// Encode encodes version to bytes.
-// TODO(ver): this is not final approach to version encoding. It's simplified
-// version for internal testing purposes. Will be changed in future.
-func (v Version) Encode() []byte {
-	var bytes [16]byte
-	binary.BigEndian.PutUint64(bytes[:], uint64(v))
-	return bytes[:]
+// StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
+// First 8 bytes represents Version and rest are object StreamID suffix.
+// TODO(ver): we may consider renaming this type to VersionID but to do that
+// we would need to rename metabase.Version into metabase.SequenceNumber/metabase.Sequence to
+// avoid confusion.
+type StreamVersionID uuid.UUID
+
+// Version returns Version encoded into stream version id.
+func (s StreamVersionID) Version() Version {
+	return Version(binary.BigEndian.Uint64(s[:8]))
 }
 
-// VersionFromBytes decodes version from bytes.
-func VersionFromBytes(bytes []byte) (Version, error) {
-	if len(bytes) != 16 {
-		return Version(0), ErrInvalidRequest.New("invalid version")
+// StreamIDSuffix returns StreamID suffix encoded into stream version id.
+func (s StreamVersionID) StreamIDSuffix() []byte {
+	return s[8:]
+}
+
+// Bytes returnes stream version id bytes.
+func (s StreamVersionID) Bytes() []byte {
+	return s[:]
+}
+
+func newStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
+	var sv StreamVersionID
+	binary.BigEndian.PutUint64(sv[:8], uint64(version))
+	copy(sv[8:], streamID[8:])
+	return sv
+}
+
+// StreamVersionIDFromBytes decodes stream version id from bytes.
+func StreamVersionIDFromBytes(bytes []byte) (_ StreamVersionID, err error) {
+	if len(bytes) != len(StreamVersionID{}) {
+		return StreamVersionID{}, ErrInvalidRequest.New("invalid stream version id")
 	}
-	return Version(binary.BigEndian.Uint64(bytes)), nil
+	var sv StreamVersionID
+	copy(sv[:], bytes)
+	return sv, nil
 }
 
 // ObjectStatus defines the status that the object is in.
@@ -443,6 +468,28 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
+// String returns textual representation of status.
+func (status ObjectStatus) String() string {
+	switch status {
+	case Pending:
+		return "Pending"
+	case ObjectStatus(2):
+		return "Deleted" // Deprecated
+	case CommittedUnversioned:
+		return "CommittedUnversioned"
+	case CommittedVersioned:
+		return "CommittedVersioned"
+	case DeleteMarkerVersioned:
+		return "DeleteMarkerVersioned"
+	case DeleteMarkerUnversioned:
+		return "DeleteMarkerUnversioned"
+	case Prefix:
+		return "Prefix"
+	default:
+		return fmt.Sprintf("ObjectStatus(%d)", int(status))
+	}
 }
 
 // Pieces defines information for pieces.

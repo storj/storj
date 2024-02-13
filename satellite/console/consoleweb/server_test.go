@@ -231,7 +231,6 @@ func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.FrontendEnable = false
-				config.Console.UseVuetifyProject = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -239,11 +238,9 @@ func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 		uiAddr := planet.Satellites[0].UI.Console.Listener.Addr().String()
 
 		testEndpoint(ctx, t, apiAddr, "/", http.StatusNotFound)
-		testEndpoint(ctx, t, apiAddr, "/v2", http.StatusNotFound)
 		testEndpoint(ctx, t, apiAddr, "/static/", http.StatusNotFound)
 
 		testEndpoint(ctx, t, uiAddr, "/", http.StatusOK)
-		testEndpoint(ctx, t, uiAddr, "/v2", http.StatusOK)
 		testEndpoint(ctx, t, uiAddr, "/static/", http.StatusOK)
 	})
 }
@@ -251,16 +248,10 @@ func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.UseVuetifyProject = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
 
 		testEndpoint(ctx, t, apiAddr, "/", http.StatusOK)
-		testEndpoint(ctx, t, apiAddr, "/v2", http.StatusOK)
 		testEndpoint(ctx, t, apiAddr, "/static/", http.StatusOK)
 	})
 }

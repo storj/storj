@@ -218,6 +218,8 @@ model node_event (
     field id             blob
     // emails is the storagenode operators contact address.
     field email          text
+    // last_ip_port is the last known ip and port of the storage node. Set if we want to send it to operator.
+    field last_ip_port    text  ( nullable )
     // node_id is the storagenode storj.NodeID.
     field node_id        blob
     // event is the event kind, which refers to satellite/nodeevents.Type.

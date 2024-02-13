@@ -18,17 +18,18 @@ import (
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/multinodedb"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/multinodeauth"
+	_ "storj.io/storj/web/multinode" // This embeds multinode assets.
 )
 
 // Config defines multinode configuration.

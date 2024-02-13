@@ -262,7 +262,7 @@ export class Admin {
 			},
 			{
 				name: 'get project limits',
-				desc: 'Get the current limits of a specific project',
+				desc: 'Get the current limits of a specific project. NULL values means that the satellite applies the configured defaults',
 				params: [['Project ID', new InputText('text', true)]],
 				func: async (projectId: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `projects/${projectId}/limit`);
@@ -270,25 +270,32 @@ export class Admin {
 			},
 			{
 				name: 'update project limits',
-				desc: 'Update the limits of a specific project',
+				desc: 'Update the limits of a specific project. Only the no blank fields are updated. Fields with the 0 value are set to 0, which is not the default value. The fields that accept -1 set the value to null, which is the value that indicate the satellite to apply the configured defaults',
 				params: [
 					['Project ID', new InputText('text', true)],
-					['Storage (in bytes)', new InputText('number', false)],
-					['Bandwidth (in bytes)', new InputText('number', false)],
-					['Rate (requests per second)', new InputText('number', false)],
-					['Buckets (maximum number)', new InputText('number', false)],
-					['Burst (max concurrent requests)', new InputText('number', false)],
+					['Storage (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
+					['Bandwidth (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
+					['Rate: requests per second (accepts -1)', new InputText('number', false)],
+					['Buckets: maximum number (accepts -1)', new InputText('number', false)],
+					['Burst: max concurrent requests (accepts -1)', new InputText('number', false)],
 					['Segments (maximum number)', new InputText('number', false)]
 				],
 				func: async (
 					projectId: string,
-					usage: number,
-					bandwidth: number,
+					usage: string,
+					bandwidth: string,
 					rate: number,
 					buckets: number,
 					burst: number,
 					segments: number
 				): Promise<null> => {
+					usage = this.emptyToUndefined(usage);
+					bandwidth = this.emptyToUndefined(bandwidth);
+					rate = this.nullToUndefined(rate);
+					buckets = this.nullToUndefined(buckets);
+					burst = this.nullToUndefined(burst);
+					segments = this.nullToUndefined(segments);
+
 					const query = this.urlQueryFromObject({
 						usage,
 						bandwidth,
@@ -454,7 +461,7 @@ Blank fields will not be updated.`,
 			},
 			{
 				name: 'activate account/disable bot restriction',
-				desc: 'disables account bot restriction by activating it. Must be used only for accounts with PendingBotVerification status.',
+				desc: 'Disables account bot restrictions by activating the account and restoring its limit values. This is used only for accounts with the PendingBotVerification status.',
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch(
@@ -520,8 +527,8 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
-				name: 'unwarn user',
-				desc: "Remove a user's warning status",
+				name: 'remove billing warning',
+				desc: "Remove the billing warning status from a user's account",
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/billing-warning`) as Promise<null>;
@@ -561,7 +568,7 @@ Blank fields will not be updated.`,
 		rest_api_keys: [
 			{
 				name: 'create',
-				desc: 'Create a REST key',
+				desc: 'Create a REST key. The expiration format must be accepted by https://pkg.go.dev/time#ParseDuration (e.g 20d4h20s) and if it is blank the default applies',
 				params: [
 					["user's email", new InputText('text', true)],
 					['expiration', new InputText('text', false)]
@@ -650,6 +657,22 @@ Blank fields will not be updated.`,
 		}
 
 		return queryParts.join('&');
+	}
+
+	protected nullToUndefined<Type>(val: Type): Type {
+		if (val === null) {
+			return undefined;
+		}
+
+		return val;
+	}
+
+	protected emptyToUndefined(s: string): string {
+		if (s === '') {
+			return undefined;
+		}
+
+		return s;
 	}
 }
 

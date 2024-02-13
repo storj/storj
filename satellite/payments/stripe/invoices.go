@@ -317,14 +317,17 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 		Customer:   &customerID,
 	}
 
+	isNext := cursor.StartingAfter != ""
+	isPrevious := cursor.EndingBefore != ""
+
 	// stripe will initially fetch this number of invoices.
 	// Calling iter.Next() at the end will fetch another batch
 	// if there's more.
 	params.Limit = stripe.Int64(int64(cursor.Limit))
-	if cursor.StartingAfter != "" {
+	if isNext {
 		page.Previous = true
 		params.StartingAfter = stripe.String(cursor.StartingAfter)
-	} else if cursor.EndingBefore != "" {
+	} else if isPrevious {
 		page.Next = true
 		params.EndingBefore = stripe.String(cursor.EndingBefore)
 	}
@@ -338,10 +341,11 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 		}
 
 		if len(page.Invoices) == cursor.Limit {
-			// in this case, cursor.EndingBefore was
-			// not provided, so we have to check if
-			// there's a (cursor.Limit+1)th invoice.
-			page.Next = true
+			if isPrevious {
+				page.Previous = true
+			} else {
+				page.Next = true
+			}
 			break
 		}
 
@@ -363,14 +367,18 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
-
-		if page.Next && len(page.Invoices) >= cursor.Limit {
-			break
-		}
 	}
 
 	if err = invoicesIterator.Err(); err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	// Reverse the slice if we are fetching the previous page.
+	// Providing cursor.EndingBefore makes iterator to return items in reversed order.
+	if isPrevious {
+		for i, j := 0, len(page.Invoices)-1; i < j; i, j = i+1, j-1 {
+			page.Invoices[i], page.Invoices[j] = page.Invoices[j], page.Invoices[i]
+		}
 	}
 
 	return page, nil

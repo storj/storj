@@ -49,13 +49,13 @@ pipeline {
                 stage('go') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
                         sh 'go install -race -v storj.io/storj/cmd/satellite '+
@@ -77,13 +77,9 @@ pipeline {
 
                 stage('db') {
                     steps {
-                        sh 'service postgresql start'
                         dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
                         }
                     }
                 }
@@ -96,6 +92,11 @@ pipeline {
                 stage('web/satellite') {
                     steps {
                         sh './web/satellite/build-if-changed.sh'
+                    }
+                }
+                stage('wasm') {
+                    steps {
+                        sh './testsuite/wasm/start.sh'
                     }
                 }
                 stage('web/storagenode') {
@@ -131,14 +132,12 @@ pipeline {
                 sh 'check-downgrades'
                 sh 'make check-monitoring'
                 sh 'make test-wasm-size'
+                sh 'go.min vet ./...'
 
                 sh 'protolock status'
 
                 sh './scripts/check-package-lock.sh'
 
-                dir("testsuite/ui") {
-                    sh 'go vet ./...'
-                }
                 dir("testsuite/storjscan") {
                     sh 'go vet ./...'
                 }
@@ -149,11 +148,8 @@ pipeline {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
@@ -161,28 +157,15 @@ pipeline {
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
-
-                sh 'psql -U postgres -c \'create database teststorj;\''
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
-                sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256256.txt'
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256257.txt'
-                sh 'cockroach sql --insecure --host=localhost:26258 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256258.txt'
-                sh 'cockroach sql --insecure --host=localhost:26259 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256259.txt'
-                sh 'cockroach sql --insecure --host=localhost:26260 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256260.txt'
-                sh 'cat .build/fts_node_256256.txt .build/fts_node_256257.txt .build/fts_node_256258.txt .build/fts_node_256259.txt .build/fts_node_256260.txt| sort | uniq > .build/full_table_scan.txt'
+                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
             }
 
             post {
                 always {
                     archiveArtifacts artifacts: '.build/tests.json'
-                    archiveArtifacts artifacts: '.build/full_table_scan.txt'
                     sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                     junit '.build/tests.xml'
 

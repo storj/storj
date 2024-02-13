@@ -140,22 +140,22 @@ func TestGetProjectMembersAndInvitationsOrdering(t *testing.T) {
 				case int(console.Ascending):
 					switch tt.order {
 					case int(console.Name):
-						require.Less(t, members[respMembers[i-1].User.ID].FullName, members[respMembers[i].User.ID].FullName)
+						require.Less(t, members[respMembers[i-1].ID].FullName, members[respMembers[i].ID].FullName)
 					case int(console.Email):
-						require.Less(t, members[respMembers[i-1].User.ID].Email, members[respMembers[i].User.ID].Email)
+						require.Less(t, members[respMembers[i-1].ID].Email, members[respMembers[i].ID].Email)
 					case int(console.Created):
-						require.Less(t, members[respMembers[i-1].User.ID].CreatedAt, members[respMembers[i].User.ID].CreatedAt)
+						require.Less(t, members[respMembers[i-1].ID].CreatedAt, members[respMembers[i].ID].CreatedAt)
 					default:
 						t.Error("invalid order", tt.order)
 					}
 				case int(console.Descending):
 					switch tt.order {
 					case int(console.Name):
-						require.Greater(t, members[respMembers[i-1].User.ID].FullName, members[respMembers[i].User.ID].FullName)
+						require.Greater(t, members[respMembers[i-1].ID].FullName, members[respMembers[i].ID].FullName)
 					case int(console.Email):
-						require.Greater(t, members[respMembers[i-1].User.ID].Email, members[respMembers[i].User.ID].Email)
+						require.Greater(t, members[respMembers[i-1].ID].Email, members[respMembers[i].ID].Email)
 					case int(console.Created):
-						require.Greater(t, members[respMembers[i-1].User.ID].CreatedAt, members[respMembers[i].User.ID].CreatedAt)
+						require.Greater(t, members[respMembers[i-1].ID].CreatedAt, members[respMembers[i].ID].CreatedAt)
 					default:
 						t.Error("invalid order", tt.order)
 					}
@@ -263,7 +263,7 @@ func TestGetProjectMembersAndInvitationsSearch(t *testing.T) {
 			require.Equal(t, tt.expectedInvitees, len(respInvitees))
 			if tt.search != "" {
 				for _, m := range respMembers {
-					containsSearch := strings.Contains(members[m.User.ID].Email, tt.search) || strings.Contains(members[m.User.ID].FullName, tt.search) || strings.Contains(members[m.User.ID].ShortName, tt.search)
+					containsSearch := strings.Contains(members[m.ID].Email, tt.search) || strings.Contains(members[m.ID].FullName, tt.search) || strings.Contains(members[m.ID].ShortName, tt.search)
 					require.True(t, containsSearch)
 				}
 				for _, inv := range respInvitees {

@@ -23,5 +23,11 @@ onMounted(async () => {
     } catch (error) {
         notify.notifyError(`Failed to get placements. ${error.message}`);
     }
+
+    try {
+        await appStore.getSettings();
+    } catch (error) {
+        notify.notifyError(`Failed to get settings. ${error.message}`);
+    }
 });
 </script>

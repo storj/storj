@@ -11,11 +11,14 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/zeebo/errs/v2"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 )
+
+// ErrGetProjectLimitCache error for getting project limits from cache.
+var ErrGetProjectLimitCache = errs.Class("get project limits from cache")
 
 type redisLiveAccounting struct {
 	client *redis.Client
@@ -268,12 +271,12 @@ func (cache *redisLiveAccounting) fillUsage(ctx context.Context, projects map[uu
 
 		segmentResult, err := cache.client.MGet(ctx, segmentKeys...).Result()
 		if err != nil {
-			return accounting.ErrGetProjectLimitCache.Wrap(err)
+			return ErrGetProjectLimitCache.Wrap(err)
 		}
 
 		storageResult, err := cache.client.MGet(ctx, storageKeys...).Result()
 		if err != nil {
-			return accounting.ErrGetProjectLimitCache.Wrap(err)
+			return ErrGetProjectLimitCache.Wrap(err)
 		}
 
 		// Note, because we are using a cache, it might be empty and not contain the

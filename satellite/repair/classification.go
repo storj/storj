@@ -6,6 +6,7 @@ package repair
 import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
+	"storj.io/storj/private/intset"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 )
@@ -20,46 +21,46 @@ type PiecesCheckResult struct {
 
 	// Missing is a set of Piece Numbers which are to be considered as lost and irretrievable.
 	// (They reside on offline/disqualified/unknown nodes.)
-	Missing IntSet
+	Missing intset.Set
 	// Retrievable contains all Piece Numbers that are retrievable; that is, all piece numbers
 	// from the segment that are NOT in Missing.
-	Retrievable IntSet
+	Retrievable intset.Set
 
 	// Suspended is a set of Piece Numbers which reside on nodes which are suspended.
-	Suspended IntSet
+	Suspended intset.Set
 	// Clumped is a set of Piece Numbers which are to be considered unhealthy because of IP
 	// clumping. (If DoDeclumping is disabled, this set will be empty.)
-	Clumped IntSet
+	Clumped intset.Set
 	// Exiting is a set of Piece Numbers which are considered unhealthy because the node on
 	// which they reside has initiated graceful exit.
-	Exiting IntSet
+	Exiting intset.Set
 	// OutOfPlacement is a set of Piece Numbers which are unhealthy because of placement rules.
 	// (If DoPlacementCheck is disabled, this set will be empty.)
-	OutOfPlacement IntSet
+	OutOfPlacement intset.Set
 	// InExcludedCountry is a set of Piece Numbers which are unhealthy because they are in
 	// Excluded countries.
-	InExcludedCountry IntSet
+	InExcludedCountry intset.Set
 
 	// ForcingRepair is the set of pieces which force a repair operation for this segment (that
 	// includes, currently, only pieces in OutOfPlacement).
-	ForcingRepair IntSet
+	ForcingRepair intset.Set
 	// Unhealthy contains all Piece Numbers which are in Missing OR Suspended OR Clumped OR
 	// Exiting OR OutOfPlacement OR InExcludedCountry.
-	Unhealthy IntSet
+	Unhealthy intset.Set
 	// UnhealthyRetrievable is the set of pieces that are "unhealthy-but-retrievable". That is,
 	// pieces that are in Unhealthy AND Retrievable.
-	UnhealthyRetrievable IntSet
+	UnhealthyRetrievable intset.Set
 	// Healthy contains all Piece Numbers from the segment which are not in Unhealthy.
 	// (Equivalently: all Piece Numbers from the segment which are NOT in Missing OR
 	// Suspended OR Clumped OR Exiting OR OutOfPlacement OR InExcludedCountry).
-	Healthy IntSet
+	Healthy intset.Set
 }
 
 // ClassifySegmentPieces classifies the pieces of a segment into the categories
 // represented by a PiecesCheckResult. Pieces may be put into multiple
 // categories.
 func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.SelectedNode, excludedCountryCodes map[location.CountryCode]struct{},
-	doPlacementCheck, doDeclumping bool, filter nodeselection.NodeFilter, excludeNodeIDs []storj.NodeID) (result PiecesCheckResult) {
+	doPlacementCheck, doDeclumping bool, placement nodeselection.Placement, excludeNodeIDs []storj.NodeID) (result PiecesCheckResult) {
 	result.ExcludeNodeIDs = excludeNodeIDs
 
 	maxPieceNum := 0
@@ -71,11 +72,11 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	maxPieceNum++
 
 	// check excluded countries and remove online nodes from missing pieces
-	result.Missing = NewIntSet(maxPieceNum)
-	result.Suspended = NewIntSet(maxPieceNum)
-	result.Exiting = NewIntSet(maxPieceNum)
-	result.Retrievable = NewIntSet(maxPieceNum)
-	result.InExcludedCountry = NewIntSet(maxPieceNum)
+	result.Missing = intset.NewSet(maxPieceNum)
+	result.Suspended = intset.NewSet(maxPieceNum)
+	result.Exiting = intset.NewSet(maxPieceNum)
+	result.Retrievable = intset.NewSet(maxPieceNum)
+	result.InExcludedCountry = intset.NewSet(maxPieceNum)
 	for index, nodeRecord := range nodes {
 		pieceNum := pieces[index].Number
 
@@ -104,47 +105,19 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 		}
 	}
 
-	if doDeclumping && nodeselection.GetAnnotation(filter, nodeselection.AutoExcludeSubnet) != nodeselection.AutoExcludeSubnetOFF {
-		// if multiple pieces are on the same last_net, keep only the first one. The rest are
-		// to be considered retrievable but unhealthy.
-
-		lastNets := make(map[string]struct{}, len(pieces))
-		result.Clumped = NewIntSet(maxPieceNum)
-
-		collectClumpedPieces := func(onlineness bool) {
-			for index, nodeRecord := range nodes {
-				if nodeRecord.Online != onlineness {
-					continue
-				}
-				if nodeRecord.LastNet == "" {
-					continue
-				}
-				pieceNum := pieces[index].Number
-				_, ok := lastNets[nodeRecord.LastNet]
-				if ok {
-					// this LastNet was already seen
-					result.Clumped.Include(int(pieceNum))
-				} else {
-					// add to the list of seen LastNets
-					lastNets[nodeRecord.LastNet] = struct{}{}
-				}
-			}
-		}
-		// go over online nodes first, so that if we have to remove clumped pieces, we prefer
-		// to remove offline ones over online ones.
-		collectClumpedPieces(true)
-		collectClumpedPieces(false)
+	if doDeclumping && placement.Invariant != nil {
+		result.Clumped = placement.Invariant(pieces, nodes)
 	}
 
 	if doPlacementCheck {
 		// mark all pieces that are out of placement.
 
-		result.OutOfPlacement = NewIntSet(maxPieceNum)
+		result.OutOfPlacement = intset.NewSet(maxPieceNum)
 		for index, nodeRecord := range nodes {
 			if nodeRecord.ID.IsZero() {
 				continue
 			}
-			if filter.Match(&nodeRecord) {
+			if placement.NodeFilter.Match(&nodeRecord) {
 				continue
 			}
 			pieceNum := pieces[index].Number
@@ -153,12 +126,12 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	}
 
 	// ForcingRepair = OutOfPlacement only, for now
-	result.ForcingRepair = copyIntSet(NewIntSet(maxPieceNum),
-		result.OutOfPlacement,
-	)
+	result.ForcingRepair = intset.NewSet(maxPieceNum)
+	result.ForcingRepair.Add(result.OutOfPlacement)
 
 	// Unhealthy = Missing OR Suspended OR Clumped OR Exiting OR OutOfPlacement OR InExcludedCountry
-	result.Unhealthy = copyIntSet(NewIntSet(maxPieceNum),
+	result.Unhealthy = intset.NewSet(maxPieceNum)
+	result.Unhealthy.Add(
 		result.Missing,
 		result.Suspended,
 		result.Clumped,
@@ -169,8 +142,8 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 
 	// UnhealthyRetrievable = Unhealthy AND Retrievable
 	// Healthy = NOT Unhealthy
-	result.UnhealthyRetrievable = NewIntSet(maxPieceNum)
-	result.Healthy = NewIntSet(maxPieceNum)
+	result.UnhealthyRetrievable = intset.NewSet(maxPieceNum)
+	result.Healthy = intset.NewSet(maxPieceNum)
 	for _, piece := range pieces {
 		if !result.Unhealthy.Contains(int(piece.Number)) {
 			result.Healthy.Include(int(piece.Number))
@@ -180,60 +153,4 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	}
 
 	return result
-}
-
-func copyIntSet(destination IntSet, sources ...IntSet) IntSet {
-	for element := 0; element < destination.Cap(); element++ {
-		for _, sources := range sources {
-			if sources.Contains(element) {
-				destination.Include(element)
-				break
-			}
-		}
-	}
-	return destination
-}
-
-// IntSet set of pieces.
-type IntSet struct {
-	bits []bool
-	size int
-}
-
-// NewIntSet creates new int set.
-func NewIntSet(n int) IntSet {
-	return IntSet{
-		bits: make([]bool, n),
-	}
-}
-
-// Contains returns true if set includes int value.
-func (i IntSet) Contains(value int) bool {
-	if value >= cap(i.bits) {
-		return false
-	}
-	return i.bits[value]
-}
-
-// Include includes int value into set.
-// Ignores values above set size.
-func (i *IntSet) Include(value int) {
-	i.bits[value] = true
-	i.size++
-}
-
-// Remove removes int value from set.
-func (i *IntSet) Remove(value int) {
-	i.bits[value] = true
-	i.size--
-}
-
-// Size returns size of set.
-func (i IntSet) Size() int {
-	return i.size
-}
-
-// Cap returns set capacity.
-func (i IntSet) Cap() int {
-	return cap(i.bits)
 }

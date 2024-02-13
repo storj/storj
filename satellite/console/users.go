@@ -149,13 +149,14 @@ type ProjectLimits struct {
 
 // AuthUser holds info for user authentication token requests.
 type AuthUser struct {
-	Email           string `json:"email"`
-	Password        string `json:"password"`
-	MFAPasscode     string `json:"mfaPasscode"`
-	MFARecoveryCode string `json:"mfaRecoveryCode"`
-	CaptchaResponse string `json:"captchaResponse"`
-	IP              string `json:"-"`
-	UserAgent       string `json:"-"`
+	Email              string `json:"email"`
+	Password           string `json:"password"`
+	MFAPasscode        string `json:"mfaPasscode"`
+	MFARecoveryCode    string `json:"mfaRecoveryCode"`
+	CaptchaResponse    string `json:"captchaResponse"`
+	RememberForOneWeek bool   `json:"rememberForOneWeek"`
+	IP                 string `json:"-"`
+	UserAgent          string `json:"-"`
 }
 
 // TokenInfo holds info for user authentication token responses.
@@ -210,7 +211,7 @@ type User struct {
 	ShortName string `json:"shortName"`
 
 	Email        string `json:"email"`
-	PasswordHash []byte `json:"passwordHash"`
+	PasswordHash []byte `json:"-"`
 
 	Status    UserStatus `json:"status"`
 	UserAgent []byte     `json:"userAgent"`
@@ -233,8 +234,8 @@ type User struct {
 	HaveSalesContact bool `json:"haveSalesContact"`
 
 	MFAEnabled       bool     `json:"mfaEnabled"`
-	MFASecretKey     string   `json:"mfaSecretKey"`
-	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
+	MFASecretKey     string   `json:"-"`
+	MFARecoveryCodes []string `json:"-"`
 
 	SignupPromoCode string `json:"signupPromoCode"`
 
@@ -293,11 +294,12 @@ type UpdateUserRequest struct {
 	FullName  *string
 	ShortName **string
 
-	Position       *string
-	CompanyName    *string
-	WorkingOn      *string
-	IsProfessional *bool
-	EmployeeCount  *string
+	Position         *string
+	CompanyName      *string
+	WorkingOn        *string
+	IsProfessional   *bool
+	HaveSalesContact *bool
+	EmployeeCount    *string
 
 	Email        *string
 	PasswordHash []byte
@@ -328,11 +330,12 @@ type UpdateUserRequest struct {
 
 // UserSettings contains configurations for a user.
 type UserSettings struct {
-	SessionDuration  *time.Duration `json:"sessionDuration"`
-	OnboardingStart  bool           `json:"onboardingStart"`
-	OnboardingEnd    bool           `json:"onboardingEnd"`
-	PassphrasePrompt bool           `json:"passphrasePrompt"`
-	OnboardingStep   *string        `json:"onboardingStep"`
+	SessionDuration  *time.Duration  `json:"sessionDuration"`
+	OnboardingStart  bool            `json:"onboardingStart"`
+	OnboardingEnd    bool            `json:"onboardingEnd"`
+	PassphrasePrompt bool            `json:"passphrasePrompt"`
+	OnboardingStep   *string         `json:"onboardingStep"`
+	NoticeDismissal  NoticeDismissal `json:"noticeDismissal"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
@@ -343,14 +346,26 @@ type UpsertUserSettingsRequest struct {
 	OnboardingEnd    *bool
 	PassphrasePrompt *bool
 	OnboardingStep   *string
+	NoticeDismissal  *NoticeDismissal
+}
+
+// NoticeDismissal contains whether notices should be shown to a user.
+type NoticeDismissal struct {
+	FileGuide                bool `json:"fileGuide"`
+	ServerSideEncryption     bool `json:"serverSideEncryption"`
+	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
+	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.
 type SetUpAccountRequest struct {
-	FullName       string  `json:"fullName"`
-	IsProfessional bool    `json:"isProfessional"`
-	Position       *string `json:"position"`
-	CompanyName    *string `json:"companyName"`
-	EmployeeCount  *string `json:"employeeCount"`
-	StorageNeeds   *string `json:"storageNeeds"`
+	FullName         string  `json:"fullName"`
+	IsProfessional   bool    `json:"isProfessional"`
+	Position         *string `json:"position"`
+	CompanyName      *string `json:"companyName"`
+	EmployeeCount    *string `json:"employeeCount"`
+	StorageNeeds     *string `json:"storageNeeds"`
+	StorageUseCase   *string `json:"storageUseCase"`
+	FunctionalArea   *string `json:"functionalArea"`
+	HaveSalesContact bool    `json:"haveSalesContact"`
 }

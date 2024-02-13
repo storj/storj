@@ -10,65 +10,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storagenode/blobstore"
 )
-
-func TestChoreOld(t *testing.T) {
-	const successThreshold = 4
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: successThreshold + 2,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.GracefulExit.TimeBased = false
-				},
-			),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite1 := planet.Satellites[0]
-		uplinkPeer := planet.Uplinks[0]
-
-		err := uplinkPeer.Upload(ctx, satellite1, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
-		require.NoError(t, err)
-
-		exitingNode, err := findNodeToExit(ctx, planet)
-		require.NoError(t, err)
-
-		nodePieceCounts, err := getNodePieceCounts(ctx, planet)
-		require.NoError(t, err)
-
-		exitSatellite(ctx, t, planet, exitingNode)
-
-		newNodePieceCounts, err := getNodePieceCounts(ctx, planet)
-		require.NoError(t, err)
-		var newExitingNodeID storj.NodeID
-		for k, v := range newNodePieceCounts {
-			if v > nodePieceCounts[k] {
-				newExitingNodeID = k
-			}
-		}
-		require.NotNil(t, newExitingNodeID)
-		require.NotEqual(t, exitingNode.ID(), newExitingNodeID)
-
-		newExitingNode := planet.FindNode(newExitingNodeID)
-		require.NotNil(t, newExitingNode)
-
-		exitSatellite(ctx, t, planet, newExitingNode)
-	})
-}
 
 func TestChore(t *testing.T) {
 	const successThreshold = 4
@@ -77,12 +26,7 @@ func TestChore(t *testing.T) {
 		StorageNodeCount: successThreshold + 2,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.GracefulExit.TimeBased = true
-				},
-			),
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite1 := planet.Satellites[0]
@@ -139,23 +83,11 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	timeForward += time.Duration(satellite1.Config.GracefulExit.GracefulExitDurationInDays*24+2) * time.Hour
 	timeMutex.Unlock()
 
-	if !satellite1.Config.GracefulExit.TimeBased {
-		// run the satellite ranged loop to build the transfer queue.
-		_, err = satellite1.RangedLoop.RangedLoop.Service.RunOnce(ctx)
-		require.NoError(t, err)
-	}
-
 	// check that the satellite knows the storage node is exiting.
 	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
 	require.NoError(t, err)
 	require.Len(t, exitingNodes, 1)
 	require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
-
-	if !satellite1.Config.GracefulExit.TimeBased {
-		queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 1)
-	}
 
 	// run the SN chore again to start processing transfers.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
@@ -163,60 +95,15 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	err = exitingNode.GracefulExit.Chore.TestWaitForNoWorkers(ctx)
 	require.NoError(t, err)
 
-	if !satellite1.Config.GracefulExit.TimeBased {
-		// check that there are no more items to process
-		queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 0)
-	}
-
 	exitProgress, err = exitingNode.DB.Satellites().ListGracefulExits(ctx)
 	require.NoError(t, err)
 	for _, progress := range exitProgress {
 		if progress.SatelliteID == satellite1.ID() {
 			require.NotNil(t, progress.CompletionReceipt)
 			require.NotNil(t, progress.FinishedAt)
-			if satellite1.Config.GracefulExit.TimeBased {
-				require.EqualValues(t, 0, progress.BytesDeleted)
-			} else {
-				require.EqualValues(t, progress.StartingDiskUsage, progress.BytesDeleted)
-			}
+			require.EqualValues(t, 0, progress.BytesDeleted)
 		}
 	}
-
-	if !satellite1.Config.GracefulExit.TimeBased {
-		// make sure there are no more pieces on the node.
-		namespaces, err := exitingNode.DB.Pieces().ListNamespaces(ctx)
-		require.NoError(t, err)
-		for _, ns := range namespaces {
-			err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo blobstore.BlobInfo) error {
-				return errs.New("found a piece on the node. this shouldn't happen.")
-			})
-			require.NoError(t, err)
-		}
-	}
-}
-
-// getNodePieceCounts tallies all the pieces per node.
-func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[storj.NodeID]int, err error) {
-	nodePieceCounts := make(map[storj.NodeID]int)
-	for _, n := range planet.StorageNodes {
-		node := n
-		namespaces, err := node.DB.Pieces().ListNamespaces(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, ns := range namespaces {
-			err = node.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo blobstore.BlobInfo) error {
-				nodePieceCounts[node.ID()]++
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	return nodePieceCounts, err
 }
 
 // findNodeToExit selects the node storing the most pieces as the node to graceful exit.

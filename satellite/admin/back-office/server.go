@@ -6,6 +6,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
 	"net/http"
 
@@ -16,8 +17,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	ui "storj.io/storj/satellite/admin/back-office/ui"
+	"storj.io/storj/private/emptyfs"
 )
+
+// Assets contains either the built admin/back-office/ui or it is nil.
+var Assets fs.FS = emptyfs.FS{}
 
 // PathPrefix is the path that will be prefixed to the router passed to the NewServer constructor.
 // This is temporary until this server will replace the storj.io/storj/satellite/admin/server.go.
@@ -84,6 +88,8 @@ func NewServer(
 	// API generator already add the PathPrefix.
 	NewPlacementManagement(log, mon, service, root)
 	NewUserManagement(log, mon, service, root, auth)
+	NewProjectManagement(log, mon, service, root, auth)
+	NewSettings(log, mon, service, root)
 
 	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.
@@ -91,7 +97,7 @@ func NewServer(
 	// all the paths defined by the handlers set after this one.
 	var staticHandler http.Handler
 	if config.StaticDir == "" {
-		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.FS(ui.Assets)))
+		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.FS(Assets)))
 	} else {
 		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.Dir(config.StaticDir)))
 	}

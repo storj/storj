@@ -8,11 +8,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/private/process"
-	"storj.io/private/version"
+	"storj.io/common/process"
+	"storj.io/common/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	_ "storj.io/storj/satellite/admin/back-office/ui" // embed ui
+	_ "storj.io/storj/satellite/admin/ui"             // embed ui
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 )

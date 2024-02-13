@@ -169,6 +169,7 @@ CREATE TABLE node_api_versions (
 CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	last_ip_port text,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
@@ -241,7 +242,7 @@ CREATE TABLE projects (
 	salt bytea,
 	created_at timestamp with time zone NOT NULL,
 	default_placement integer,
-	default_versioning integer NOT NULL DEFAULT 0,
+	default_versioning integer NOT NULL DEFAULT 1,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_bandwidth_daily_rollups (
@@ -482,6 +483,7 @@ CREATE TABLE user_settings (
 	onboarding_start boolean NOT NULL DEFAULT true,
 	onboarding_end boolean NOT NULL DEFAULT true,
 	onboarding_step text,
+	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (

@@ -12,11 +12,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgtest"
+	"storj.io/common/dbutil/pgutil"
+	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/pgtest"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/tagsql"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )

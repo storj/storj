@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/storj"
+	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/private/tagsql"
 	nodecleanup "storj.io/storj/cmd/tools/node-cleanup"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"

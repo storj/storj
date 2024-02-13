@@ -4,6 +4,8 @@
 package nodeselection
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -48,6 +50,7 @@ type SelectedNode struct {
 	Exiting     bool
 	Suspended   bool
 	Online      bool
+	Vetted      bool
 	Tags        NodeTags
 }
 
@@ -57,4 +60,80 @@ func (node *SelectedNode) Clone() *SelectedNode {
 	newNode.Address = pb.CopyNodeAddress(node.Address)
 	newNode.Tags = slices.Clone(node.Tags)
 	return &newNode
+}
+
+// NodeAttribute returns a string (like last_net or tag value) for each SelectedNode.
+type NodeAttribute func(SelectedNode) string
+
+// LastNetAttribute is used for subnet based declumping/selection.
+var LastNetAttribute = mustCreateNodeAttribute("last_net")
+
+func mustCreateNodeAttribute(attr string) NodeAttribute {
+	nodeAttr, err := CreateNodeAttribute(attr)
+	if err != nil {
+		panic(err)
+	}
+	return nodeAttr
+}
+
+// NodeTagAttribute selects a tag value from node.
+func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
+	return func(node SelectedNode) string {
+		tag, err := node.Tags.FindBySignerAndName(signer, tagName)
+		if err != nil {
+			return ""
+		}
+		return string(tag.Value)
+	}
+}
+
+// AnyNodeTagAttribute selects a tag value from node, accepts any signer.
+func AnyNodeTagAttribute(tagName string) NodeAttribute {
+	return func(node SelectedNode) string {
+		for _, tag := range node.Tags {
+			if tag.Name == tagName {
+				return string(tag.Value)
+			}
+		}
+		return ""
+	}
+}
+
+// CreateNodeAttribute creates the NodeAttribute selected based on a string definition.
+func CreateNodeAttribute(attr string) (NodeAttribute, error) {
+	if strings.HasPrefix(attr, "tag:") {
+		parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
+		switch len(parts) {
+		case 1:
+			return AnyNodeTagAttribute(parts[0]), nil
+		case 2:
+			id, err := storj.NodeIDFromString(parts[0])
+			if err != nil {
+				return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
+			}
+			return NodeTagAttribute(id, parts[1]), nil
+		default:
+			return nil, errs.New("tag attribute should be defined as `tag:key` (any signer) or `tag:signer/key`")
+		}
+	}
+	switch attr {
+	case "last_net":
+		return func(node SelectedNode) string {
+			return node.LastNet
+		}, nil
+	case "wallet":
+		return func(node SelectedNode) string {
+			return node.Wallet
+		}, nil
+	case "email":
+		return func(node SelectedNode) string {
+			return node.Email
+		}, nil
+	case "country":
+		return func(node SelectedNode) string {
+			return node.CountryCode.String()
+		}, nil
+	default:
+		return nil, errors.New("Unsupported node attribute: " + attr)
+	}
 }

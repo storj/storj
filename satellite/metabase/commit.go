@@ -12,11 +12,12 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgutil/pgerrcode"
+	"storj.io/common/dbutil/txutil"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
-	"storj.io/private/dbutil/txutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/tagsql"
 )
 
 // we need to disable PlainSize validation for old uplinks.
@@ -336,44 +337,75 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	}
 
 	// Verify that object exists and is partial.
-
-	_, err = db.db.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position, expires_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size, encrypted_etag,
-			redundancy,
-			remote_alias_pieces,
-			placement
-		) VALUES (
-			(
-				SELECT stream_id
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $16) AND
-					status = `+statusPending+`
-			), $1, $2,
-			$3, $4, $5,
-			$6, $7, $8, $9,
-			$10,
-			$11,
-			$17
+	switch db.impl {
+	case dbutil.Cockroach:
+		_, err = db.db.ExecContext(ctx, `
+			UPSERT INTO segments (
+				stream_id, position,
+				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				redundancy,
+				remote_alias_pieces,
+				placement
+			) VALUES (
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $16) AND
+						status = `+statusPending+`
+				), $1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10,
+				$11,
+				$17
+			)`, opts.Position, opts.ExpiresAt,
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			redundancyScheme{&opts.Redundancy},
+			aliasPieces,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			opts.Placement,
 		)
-		ON CONFLICT(stream_id, position)
-		DO UPDATE SET
-			expires_at = $2,
-			root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
-			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
-			redundancy = $10,
-			remote_alias_pieces = $11,
-			placement = $17
-		`, opts.Position, opts.ExpiresAt,
-		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-		redundancyScheme{&opts.Redundancy},
-		aliasPieces,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-		opts.Placement,
-	)
+	case dbutil.Postgres:
+		_, err = db.db.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				redundancy,
+				remote_alias_pieces,
+				placement
+			) VALUES (
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $16) AND
+						status = `+statusPending+`
+				), $1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10,
+				$11,
+				$17
+			)
+			ON CONFLICT(stream_id, position)
+			DO UPDATE SET
+				expires_at = $2,
+				root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+				redundancy = $10,
+				remote_alias_pieces = $11,
+				placement = $17
+			`, opts.Position, opts.ExpiresAt,
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			redundancyScheme{&opts.Redundancy},
+			aliasPieces,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			opts.Placement,
+		)
+	}
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return ErrPendingObjectMissing.New("")

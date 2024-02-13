@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
+	"storj.io/uplink/private/object"
 	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
@@ -50,12 +51,13 @@ type Uplink struct {
 	Projects []*Project
 }
 
-// Project contains all necessary information about a user.
+// Project contains all necessary information about a project.
 type Project struct {
 	client *Uplink
 
-	ID    uuid.UUID
-	Owner ProjectOwner
+	ID       uuid.UUID
+	PublicID uuid.UUID
+	Owner    ProjectOwner
 
 	Satellite Peer
 	APIKey    string
@@ -169,7 +171,8 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 		planetUplink.Projects = append(planetUplink.Projects, &Project{
 			client: planetUplink,
 
-			ID: project.ID,
+			ID:       project.ID,
+			PublicID: project.PublicID,
 			Owner: ProjectOwner{
 				ID:    user.ID,
 				Email: user.Email,
@@ -253,11 +256,21 @@ func (client *Uplink) OpenProject(ctx context.Context, satellite *Satellite) (_ 
 // Upload data to specific satellite.
 func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storj.Path, data []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
+	return errs.Wrap(client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{}))
 }
 
 // UploadWithExpiration data to specific satellite and expiration time.
-func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
+func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, key string, data []byte, expiration time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &uplink.UploadOptions{
+		Expires: expiration,
+	})
+	return errs.Wrap(err)
+}
+
+// UploadWithOptions uploads data to specific satellite, with defined options.
+func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *uplink.UploadOptions) (obj *object.VersionedObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, found := testuplink.GetMaxSegmentSize(ctx)
@@ -267,30 +280,33 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	_, err = project.EnsureBucket(ctx, bucketName)
 	if err != nil {
-		return errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	upload, err := project.UploadObject(ctx, bucketName, path, &uplink.UploadOptions{
-		Expires: expiration,
-	})
+	upload, err := object.UploadObject(ctx, project, bucketName, key, options)
 	if err != nil {
-		return errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
 	_, err = io.Copy(upload, bytes.NewReader(data))
 	if err != nil {
 		abortErr := upload.Abort()
 		err = errs.Combine(err, abortErr)
-		return errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	return upload.Commit()
+	err = upload.Commit()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return upload.Info(), nil
 }
 
 // Download data from specific satellite.

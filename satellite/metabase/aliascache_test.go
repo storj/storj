@@ -156,7 +156,15 @@ func TestNodeAliasCache_DB(t *testing.T) {
 
 			n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-			aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
+			aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1})
+			require.NoError(t, err)
+			require.Equal(t, []metabase.NodeAlias{1}, aliases)
+
+			aliases, err = cache.EnsureAliases(ctx, []storj.NodeID{n2})
+			require.NoError(t, err)
+			require.Equal(t, []metabase.NodeAlias{2}, aliases)
+
+			aliases, err = cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
 			require.NoError(t, err)
 			require.Equal(t, []metabase.NodeAlias{1, 2}, aliases)
 

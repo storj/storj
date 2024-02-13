@@ -133,13 +133,13 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		err := IterateZipContent(ctx, *project, service.Config.Bucket, objectKey, func(zipEntry *zip.File) error {
 			retainInfo, err := UnpackZipEntry(zipEntry)
 			if err != nil {
-				service.log.Warn("Skipping retain filter entry: %s", zap.Error(err))
+				service.log.Warn("Skipping retain filter entry", zap.Error(err))
 				return nil
 			}
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, retainInfo)
 				if err != nil {
-					service.log.Error("Error sending retain filter: %s", zap.Error(err))
+					service.log.Warn("Error sending retain filter", zap.Error(err))
 				}
 			})
 			return nil

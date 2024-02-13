@@ -22,10 +22,23 @@ export class NewDocument {
     content: string;
 }
 
+export class Project {
+    id: UUID;
+    ownerName: string;
+}
+
 export class User {
     name: string;
     surname: string;
     email: string;
+    company: string;
+    position: string;
+}
+
+export class UserAge {
+    day: number;
+    month: number;
+    year: number;
 }
 
 export class Version {
@@ -119,6 +132,31 @@ export class UsersHttpApiV0 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getAge(): Promise<UserAge> {
+        const fullPath = `${this.ROOT_PATH}/age`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserAge);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class ProjectsHttpApiV0 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/projects';
+
+    public async createProject(request: Project): Promise<Project> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as Project);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

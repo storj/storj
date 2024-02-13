@@ -13,6 +13,7 @@ import {
     ProjectsPage,
     ProjectsStorageBandwidthDaily,
     ProjectInvitationResponse,
+    Emission,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -83,6 +84,8 @@ export class ProjectsHttpApi implements ProjectsApi {
             false,
             p.memberCount,
             p.edgeURLOverrides,
+            p.storageUsed,
+            p.bandwidthUsed,
         ));
     }
 
@@ -206,10 +209,8 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @throws Error
      */
-    public getTotalUsageReportLink(start: Date, end: Date, projectID: string): string {
-        const since = Time.toUnixTimestamp(start).toString();
-        const before = Time.toUnixTimestamp(end).toString();
-        return `${this.ROOT_PATH}/usage-report?since=${since}&before=${before}&projectID=${projectID}`;
+    public getTotalUsageReportLink(start: number, end: number, projectID: string): string {
+        return `${this.ROOT_PATH}/usage-report?since=${start.toString()}&before=${end.toString()}&projectID=${projectID}`;
     }
 
     /**
@@ -262,6 +263,21 @@ export class ProjectsHttpApi implements ProjectsApi {
             message: 'Can not get project salt',
             requestID: response.headers.get('x-request-id'),
         });
+    }
+
+    public async getEmissionImpact(projectID: string): Promise<Emission> {
+        const path = `${this.ROOT_PATH}/${projectID}/emission`;
+        const response = await this.http.get(path);
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get project emission impact',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const json = await response.json();
+        return json ? new Emission(json.storjImpact, json.hyperscalerImpact) : new Emission();
     }
 
     /**

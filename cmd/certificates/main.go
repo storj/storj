@@ -8,9 +8,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
+	"storj.io/common/process"
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/private/revocation"
@@ -99,6 +99,7 @@ func main() {
 
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(signCmd)
 	rootCmd.AddCommand(verifyCmd)
@@ -113,6 +114,7 @@ func main() {
 	process.Bind(authInfoCmd, &authCfg, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(authExportCmd, &authCfg, defaults, cfgstruct.ConfDir(confDir))
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(migrateCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(signCmd, &signCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyCmd, &verifyCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

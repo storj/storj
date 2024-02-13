@@ -17,12 +17,12 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/storagenode/internalpb"
 )
 

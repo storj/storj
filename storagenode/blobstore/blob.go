@@ -104,6 +104,8 @@ type Blobs interface {
 
 	// FreeSpace return how much free space is left on the whole disk, not just the allocated disk space.
 	FreeSpace(ctx context.Context) (int64, error)
+	// DiskInfo returns information about the disk.
+	DiskInfo(ctx context.Context) (DiskInfo, error)
 	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)
 	// SpaceUsedForBlobs adds up how much is used in all namespaces.
@@ -142,4 +144,11 @@ type BlobInfo interface {
 	FullPath(ctx context.Context) (string, error)
 	// Stat does a stat on the on-disk blob file.
 	Stat(ctx context.Context) (os.FileInfo, error)
+}
+
+// DiskInfo contains information about the disk.
+type DiskInfo struct {
+	ID             string
+	TotalSpace     int64
+	AvailableSpace int64
 }

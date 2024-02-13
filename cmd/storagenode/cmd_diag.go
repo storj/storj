@@ -15,10 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
+	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )

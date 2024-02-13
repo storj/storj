@@ -17,6 +17,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
@@ -32,9 +33,12 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -44,11 +48,20 @@ import (
 )
 
 func TestService(t *testing.T) {
+	placements := make(map[int]string)
+	for i := 0; i < 4; i++ {
+		placements[i] = fmt.Sprintf("loc-%d", i)
+	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
+				var plcStr string
+				for k, v := range placements {
+					plcStr += fmt.Sprintf(`%d:annotation("location", "%s"); `, k, v)
+				}
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
 			},
 		},
 	},
@@ -61,6 +74,10 @@ func TestService(t *testing.T) {
 			up2Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[1].Projects[0].ID)
 			require.NoError(t, err)
 
+			uplink3 := planet.Uplinks[2]
+			up3Proj, err := sat.API.DB.Console().Projects().Get(ctx, uplink3.Projects[0].ID)
+			require.NoError(t, err)
+
 			require.NotEqual(t, up1Proj.ID, up2Proj.ID)
 			require.NotEqual(t, up1Proj.OwnerID, up2Proj.OwnerID)
 
@@ -68,6 +85,9 @@ func TestService(t *testing.T) {
 			require.NoError(t, err)
 
 			userCtx2, err := sat.UserContext(ctx, up2Proj.OwnerID)
+			require.NoError(t, err)
+
+			userCtx3, err := sat.UserContext(ctx, up3Proj.OwnerID)
 			require.NoError(t, err)
 
 			getOwnerAndCtx := func(ctx context.Context, proj *console.Project) (user *console.User, userCtx context.Context) {
@@ -88,6 +108,43 @@ func TestService(t *testing.T) {
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, project)
+			})
+
+			t.Run("GetUsersProjects", func(t *testing.T) {
+				projects, err := service.GetUsersProjects(userCtx3)
+				require.NoError(t, err)
+				require.Len(t, projects, 1)
+				require.Equal(t, up3Proj.ID, projects[0].ID)
+				require.Zero(t, projects[0].BandwidthUsed)
+				require.Zero(t, projects[0].StorageUsed)
+
+				bucket := "testbucket1"
+				require.NoError(t, uplink3.CreateBucket(userCtx3, sat, bucket))
+
+				settledAmount := int64(2000)
+				now := time.Now().UTC()
+				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up3Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
+				require.NoError(t, err)
+
+				sat.API.Accounting.ProjectUsage.TestSetAsOfSystemInterval(0)
+
+				data := testrand.Bytes(50 * memory.KiB)
+
+				require.NoError(t, uplink3.Upload(ctx, sat, bucket, "1", data))
+
+				segments, err := sat.Metabase.DB.TestingAllSegments(userCtx3)
+				require.NoError(t, err)
+
+				service.TestSetNow(func() time.Time {
+					return time.Date(now.Year(), now.Month(), 4, 0, 0, 0, 0, time.UTC)
+				})
+
+				projects, err = service.GetUsersProjects(userCtx3)
+				require.NoError(t, err)
+				require.Equal(t, settledAmount, projects[0].BandwidthUsed)
+				require.EqualValues(t, segments[0].EncryptedSize, projects[0].StorageUsed)
 			})
 
 			t.Run("GetSalt", func(t *testing.T) {
@@ -203,7 +260,6 @@ func TestService(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Equal(t, storj.EU, p.DefaultPlacement)
-
 			})
 
 			t.Run("UpdateProject", func(t *testing.T) {
@@ -278,6 +334,24 @@ func TestService(t *testing.T) {
 				err = sat.DB.Console().Projects().Update(ctx, up1Proj)
 				require.NoError(t, err)
 
+				// should not be able to set limit to zero.
+				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
+					Name:           up1Proj.Name,
+					StorageLimit:   memory.Size(0),
+					BandwidthLimit: memory.Size(0),
+				})
+				require.True(t, console.ErrInvalidProjectLimit.Has(err))
+				require.Nil(t, updatedProject)
+
+				// should not be able to set limit more than tier limit.
+				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
+					Name:           up1Proj.Name,
+					StorageLimit:   sat.Config.Console.UsageLimits.Storage.Paid + memory.MB,
+					BandwidthLimit: sat.Config.Console.UsageLimits.Bandwidth.Paid + memory.MB,
+				})
+				require.True(t, console.ErrInvalidProjectLimit.Has(err))
+				require.Nil(t, updatedProject)
+
 				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, updateInfo)
 				require.NoError(t, err)
 				require.Equal(t, updateInfo.Name, updatedProject.Name)
@@ -330,17 +404,29 @@ func TestService(t *testing.T) {
 
 			t.Run("GetProjectMembersAndInvitations", func(t *testing.T) {
 				// Getting the project members of an own project that one is a part of should work
-				userPage, err := service.GetProjectMembersAndInvitations(userCtx1, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err := service.GetProjectMembersAndInvitations(
+					userCtx1,
+					up1Proj.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is a part of should work
-				userPage, err = service.GetProjectMembersAndInvitations(userCtx2, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err = service.GetProjectMembersAndInvitations(
+					userCtx2,
+					up1Proj.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is not a part of should not work
-				userPage, err = service.GetProjectMembersAndInvitations(userCtx1, up2Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err = service.GetProjectMembersAndInvitations(
+					userCtx1,
+					up2Proj.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
 				require.Error(t, err)
 				require.Nil(t, userPage)
 			})
@@ -372,7 +458,11 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 
 				// An invalid email should cause the operation to fail.
-				err = service.DeleteProjectMembersAndInvitations(user2Ctx, up2Proj.ID, []string{invitedUser.Email, "nobody@mail.test"})
+				err = service.DeleteProjectMembersAndInvitations(
+					user2Ctx,
+					up2Proj.ID,
+					[]string{invitedUser.Email, "nobody@mail.test"},
+				)
 				require.Error(t, err)
 				_, err = sat.DB.Console().ProjectInvitations().Get(ctx, up2Proj.ID, invitedUser.Email)
 				require.NoError(t, err)
@@ -454,7 +544,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 
 				updatedBucketsLimit := 20
-				err = sat.DB.Console().Projects().UpdateBucketLimit(ctx, up2Proj.ID, updatedBucketsLimit)
+				err = sat.DB.Console().Projects().UpdateBucketLimit(ctx, up2Proj.ID, &updatedBucketsLimit)
 				require.NoError(t, err)
 
 				limits1, err = service.GetProjectUsageLimits(userCtx2, up2Proj.ID)
@@ -490,9 +580,11 @@ func TestService(t *testing.T) {
 				})
 
 				// add allocated and settled bandwidth for the beginning of the month.
-				err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, allocatedAmount, startOfMonth)
+				err = sat.DB.Orders().
+					UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, allocatedAmount, startOfMonth)
 				require.NoError(t, err)
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
+				err = sat.DB.Orders().
+					UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
 				require.NoError(t, err)
 
 				sat.API.Accounting.ProjectUsage.TestSetAsOfSystemInterval(0)
@@ -516,7 +608,8 @@ func TestService(t *testing.T) {
 				require.Equal(t, settledAmount, limits2.BandwidthUsed)
 
 				// add settled traffic for the third day of the month.
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, thirdDayOfMonth)
+				err = sat.DB.Orders().
+					UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, thirdDayOfMonth)
 				require.NoError(t, err)
 
 				// at this point only settled traffic for the first day is expected because now is still set to fourth day.
@@ -535,20 +628,6 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, limits2)
 				require.Equal(t, settledAmount+settledAmount, limits2.BandwidthUsed)
-			})
-
-			t.Run("ChangeEmail", func(t *testing.T) {
-				const newEmail = "newEmail@example.com"
-
-				err = service.ChangeEmail(userCtx2, newEmail)
-				require.NoError(t, err)
-
-				user, _, err := service.GetUserByEmailWithUnverified(userCtx2, newEmail)
-				require.NoError(t, err)
-				require.Equal(t, newEmail, user.Email)
-
-				err = service.ChangeEmail(userCtx2, newEmail)
-				require.Error(t, err)
 			})
 
 			t.Run("GetAllBucketNames", func(t *testing.T) {
@@ -584,6 +663,47 @@ func TestService(t *testing.T) {
 				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, bucketsForUnauthorizedUser)
+			})
+
+			t.Run("GetBucketTotals", func(t *testing.T) {
+				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+				require.NoError(t, err)
+				for i, item := range list.Items {
+					item.Placement = storj.PlacementConstraint(i)
+					if i > len(placements)-1 {
+						item.Placement = storj.PlacementConstraint(len(placements) - 1)
+					}
+					b, err := sat.DB.Buckets().UpdateBucket(ctx, item)
+					require.NoError(t, err)
+					require.Equal(t, i, int(b.Placement))
+				}
+				bt, err := service.GetBucketTotals(userCtx2, up2Proj.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+				require.NoError(t, err)
+				for _, b := range bt.BucketUsages {
+					require.Equal(t, placements[int(b.DefaultPlacement)], b.Location)
+				}
+			})
+
+			t.Run("GetBucketPlacements", func(t *testing.T) {
+				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+				require.NoError(t, err)
+				bp, err := service.GetBucketPlacements(userCtx2, up2Proj.ID)
+				require.NoError(t, err)
+				for _, b := range bp {
+					var found bool
+					for _, item := range list.Items {
+						if item.Name == b.Name {
+							found = true
+							require.Equal(t, item.Placement, b.Placement.DefaultPlacement)
+							require.Equal(t, placements[int(item.Placement)], b.Placement.Location)
+							break
+						}
+					}
+					if found {
+						continue
+					}
+					require.Fail(t, "bucket name not in list", b.Name)
+				}
 			})
 
 			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
@@ -650,7 +770,6 @@ func TestService(t *testing.T) {
 				coupon, err = sat.API.Payments.Accounts.Coupons().GetByUserID(ctx, up1Proj.OwnerID)
 				require.NoError(t, err)
 				require.Equal(t, freeTier, coupon.ID)
-
 			})
 			t.Run("ApplyFreeTierCoupon fails with unknown user", func(t *testing.T) {
 				coupon, err := service.Payments().ApplyFreeTierCoupon(ctx)
@@ -684,7 +803,9 @@ func TestService(t *testing.T) {
 				purchaseTime := time.Now()
 
 				check := func() {
-					dbPackagePlan, dbPurchaseTime, err := sat.DB.StripeCoinPayments().Customers().GetPackageInfo(ctx, up1Proj.OwnerID)
+					dbPackagePlan, dbPurchaseTime, err := sat.DB.StripeCoinPayments().
+						Customers().
+						GetPackageInfo(ctx, up1Proj.OwnerID)
 					require.NoError(t, err)
 					require.NotNil(t, dbPackagePlan)
 					require.NotNil(t, dbPurchaseTime)
@@ -732,6 +853,41 @@ func TestService(t *testing.T) {
 			})
 			t.Run("ApplyCredit fails with unknown user", func(t *testing.T) {
 				require.Error(t, service.Payments().ApplyCredit(ctx, 1000, "test"))
+			})
+			t.Run("GetEmissionImpact", func(t *testing.T) {
+				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "emission test")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				// Getting project emission impact as a member should work
+				impact, err := service.GetEmissionImpact(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, impact)
+				require.EqualValues(t, emission.Impact{}, *impact)
+
+				// Getting project salt as a non-member should not work
+				impact, err = service.GetEmissionImpact(userCtx2, pr.ID)
+				require.Error(t, err)
+				require.Nil(t, impact)
+
+				err = sat.API.Accounting.ProjectUsage.AddProjectStorageUsage(userCtx1, pr.ID, (2 * memory.TB).Int64())
+				require.NoError(t, err)
+
+				now := time.Now().UTC()
+				service.TestSetNow(func() time.Time {
+					return now.Add(24 * time.Hour)
+				})
+
+				zeroValue := float64(0)
+
+				impact, err = service.GetEmissionImpact(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, impact)
+				require.Greater(t, impact.EstimatedKgCO2eStorj, zeroValue)
+				require.Greater(t, impact.EstimatedKgCO2eHyperscaler, zeroValue)
+				require.Greater(t, impact.EstimatedKgCO2eCorporateDC, zeroValue)
+				require.Greater(t, impact.EstimatedFractionSavingsAgainstCorporateDC, zeroValue)
+				require.Greater(t, impact.EstimatedFractionSavingsAgainstHyperscaler, zeroValue)
 			})
 		})
 }
@@ -1115,7 +1271,14 @@ func TestResetPassword(t *testing.T) {
 		require.True(t, console.ErrRecoveryToken.Has(err))
 
 		// Expect error when providing good but expired token.
-		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", "", token.CreatedAt.Add(sat.Config.ConsoleAuth.TokenExpirationTime).Add(time.Second))
+		err = service.ResetPassword(
+			ctx,
+			token.Secret.String(),
+			newPass,
+			"",
+			"",
+			token.CreatedAt.Add(sat.Config.ConsoleAuth.TokenExpirationTime).Add(time.Second),
+		)
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		// Expect error when providing good token with bad (too short) password.
@@ -1188,7 +1351,14 @@ func TestChangePassword(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(newPass)))
 
-		err = sat.API.Console.Service.ResetPassword(userCtx, passwordRecoveryToken, "aDifferentPassword123!", "", "", time.Now())
+		err = sat.API.Console.Service.ResetPassword(
+			userCtx,
+			passwordRecoveryToken,
+			"aDifferentPassword123!",
+			"",
+			"",
+			time.Now(),
+		)
 		require.Error(t, err)
 		require.True(t, console.ErrRecoveryToken.Has(err))
 	})
@@ -1214,7 +1384,7 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token1, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "")
+		token1, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
 		require.NoError(t, err)
 		require.NotNil(t, token1)
 
@@ -1227,7 +1397,7 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token2, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "")
+		token2, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
 		require.NoError(t, err)
 		token2Duration := token2.ExpiresAt.Sub(now)
 		require.Greater(t, token2Duration, token1Duration)
@@ -1240,10 +1410,17 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token3, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "")
+		token3, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
 		require.NoError(t, err)
 		token3Duration := token3.ExpiresAt.Sub(now)
 		require.Less(t, token3Duration, token1Duration)
+
+		now = time.Now()
+		customDuration := 7 * 24 * time.Hour
+		inAWeek := now.Add(customDuration)
+		token4, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", &customDuration)
+		require.NoError(t, err)
+		require.True(t, token4.ExpiresAt.After(inAWeek))
 	})
 }
 
@@ -1267,7 +1444,7 @@ func TestRefreshSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "")
+		token, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
 		require.NoError(t, err)
 		require.NotNil(t, token)
 
@@ -1301,6 +1478,44 @@ func TestRefreshSessionToken(t *testing.T) {
 	})
 }
 
+func TestLoginRestricted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+		user := planet.Uplinks[0].User[sat.ID()]
+
+		dbUser, _, err := service.GetUserByEmailWithUnverified(ctx, user.Email)
+		require.NoError(t, err)
+
+		status := console.PendingBotVerification
+		err = userDB.Update(ctx, dbUser.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.Password})
+		require.True(t, console.ErrLoginRestricted.Has(err))
+		require.Nil(t, tokenInfo)
+
+		status = console.LegalHold
+		err = userDB.Update(ctx, dbUser.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.Password})
+		require.True(t, console.ErrLoginRestricted.Has(err))
+		require.Nil(t, tokenInfo)
+
+		status = console.Active
+		err = userDB.Update(ctx, dbUser.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.Password})
+		require.NoError(t, err)
+		require.NotNil(t, tokenInfo)
+	})
+}
+
 func TestUserSettings(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -1315,6 +1530,7 @@ func TestUserSettings(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, existingUser.ID)
 		require.NoError(t, err)
 
+		// getting non-existing settings directly from db should return error
 		_, err = userDB.GetSettings(userCtx, existingUser.ID)
 		require.Error(t, err)
 
@@ -1326,6 +1542,14 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, true, settings.OnboardingEnd)
 		require.Nil(t, settings.OnboardingStep)
 		require.Nil(t, settings.SessionDuration)
+
+		noticeDismissal := console.NoticeDismissal{
+			FileGuide:                false,
+			ServerSideEncryption:     false,
+			PartnerUpgradeBanner:     false,
+			ProjectMembersPassphrase: false,
+		}
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		newUser, err := userDB.Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
@@ -1345,22 +1569,29 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, false, settings.OnboardingEnd)
 		require.Nil(t, settings.OnboardingStep)
 		require.Nil(t, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		onboardingBool := true
 		onboardingStep := "Overview"
 		sessionDur := time.Duration(rand.Int63()).Round(time.Minute)
 		sessionDurPtr := &sessionDur
+		noticeDismissal.ServerSideEncryption = true
+		noticeDismissal.FileGuide = true
+		noticeDismissal.PartnerUpgradeBanner = true
+		noticeDismissal.ProjectMembersPassphrase = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,
 			OnboardingEnd:   &onboardingBool,
 			OnboardingStep:  &onboardingStep,
+			NoticeDismissal: &noticeDismissal,
 		})
 		require.NoError(t, err)
 		require.Equal(t, onboardingBool, settings.OnboardingStart)
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
@@ -1368,6 +1599,7 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		// passing nil should not override existing values
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
@@ -1375,12 +1607,14 @@ func TestUserSettings(t *testing.T) {
 			OnboardingStart: nil,
 			OnboardingEnd:   nil,
 			OnboardingStep:  nil,
+			NoticeDismissal: nil,
 		})
 		require.NoError(t, err)
 		require.Equal(t, onboardingBool, settings.OnboardingStart)
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
 		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
@@ -1388,6 +1622,7 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
 		require.Equal(t, &onboardingStep, settings.OnboardingStep)
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 	})
 }
 
@@ -1589,7 +1824,6 @@ func TestWalletJsonMarshall(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(out), "\"address\":\"0x0102030000000000000000000000000000000000\"")
 	require.Contains(t, string(out), "\"balance\":{\"value\":\"100\",\"currency\":\"USD\"}")
-
 }
 
 func TestSessionExpiration(t *testing.T) {
@@ -1597,6 +1831,7 @@ func TestSessionExpiration(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Session.InactivityTimerEnabled = false
 				config.Console.Session.Duration = time.Hour
 			},
 		},
@@ -1827,11 +2062,19 @@ func (dw mockDepositWallets) Get(_ context.Context, _ uuid.UUID) (blockchain.Add
 	return dw.address, nil
 }
 
-func (dw mockDepositWallets) Payments(_ context.Context, _ blockchain.Address, _ int, _ int64) (p []payments.WalletPayment, err error) {
+func (dw mockDepositWallets) Payments(
+	_ context.Context,
+	_ blockchain.Address,
+	_ int,
+	_ int64,
+) (p []payments.WalletPayment, err error) {
 	return
 }
 
-func (dw mockDepositWallets) PaymentsWithConfirmations(_ context.Context, _ blockchain.Address) ([]payments.WalletPaymentWithConfirmations, error) {
+func (dw mockDepositWallets) PaymentsWithConfirmations(
+	_ context.Context,
+	_ blockchain.Address,
+) ([]payments.WalletPaymentWithConfirmations, error) {
 	return dw.payments, nil
 }
 
@@ -1958,7 +2201,6 @@ func TestPaymentsPurchase(t *testing.T) {
 				}
 			})
 		}
-
 	})
 }
 
@@ -2558,5 +2800,41 @@ func TestProjectInvitations(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, console.ErrBotUser.Has(err))
 		})
+	})
+}
+
+func TestDelayedBotFreeze(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Captcha.FlagBotsEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		captchaConfig := sat.Config.Console.Captcha
+		accFreezeDB := sat.DB.Console().AccountFreezeEvents()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		user.SignupCaptcha = &captchaConfig.ScoreCutoffThreshold
+
+		err = sat.API.Console.Service.SetAccountActive(ctx, user)
+		require.NoError(t, err)
+
+		event, err := accFreezeDB.Get(ctx, user.ID, console.DelayedBotFreeze)
+		require.NoError(t, err)
+		require.NotNil(t, event)
+		require.GreaterOrEqual(t, *event.DaysTillEscalation, captchaConfig.MinFlagBotDelay)
+		require.LessOrEqual(t, *event.DaysTillEscalation, captchaConfig.MaxFlagBotDelay)
+
+		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
+		require.True(t, errs.Is(err, sql.ErrNoRows))
+		require.Nil(t, event)
 	})
 }

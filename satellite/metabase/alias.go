@@ -5,11 +5,12 @@ package metabase
 
 import (
 	"context"
+	"sort"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
-	"storj.io/private/dbutil/pgutil"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.
@@ -31,17 +32,26 @@ type EnsureNodeAliases struct {
 func (db *DB) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	unique := make([]storj.NodeID, 0, len(opts.Nodes))
+	seen := make(map[storj.NodeID]bool, len(opts.Nodes))
+
 	for _, node := range opts.Nodes {
 		if node.IsZero() {
 			return Error.New("tried to add alias to zero node")
 		}
+		if !seen[node] {
+			seen[node] = true
+			unique = append(unique, node)
+		}
 	}
+
+	sort.Sort(storj.NodeIDList(unique))
 
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO node_aliases(node_id)
 		SELECT unnest($1::BYTEA[])
 		ON CONFLICT DO NOTHING
-	`, pgutil.NodeIDArray(opts.Nodes))
+	`, pgutil.NodeIDArray(unique))
 	return Error.Wrap(err)
 }
 

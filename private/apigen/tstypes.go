@@ -76,10 +76,26 @@ func (types *Types) All() map[reflect.Type]string {
 				panic(fmt.Sprintf("BUG: found an anonymous 'struct'. Found type=%q", t))
 			}
 
-			all[t] = t.Name()
+			all[t] = typeNameWithoutGenerics(t.Name())
 
 			for i := 0; i < t.NumField(); i++ {
 				field := t.Field(i)
+				if field.Anonymous {
+					if field.Type.Kind() != reflect.Struct {
+						panic(fmt.Sprintf("only embedded struct types are allowed. (%s).%s", field.Type, field.Name))
+					}
+
+					_, has, err := parseJSONTag(field.Type, field)
+					if err != nil {
+						panic(err)
+					}
+
+					if !has {
+						// We don't want to create Typescript classes of fields which are structs anonymous, and
+						// without JSON tag their fields are flatten into the parent.
+						continue
+					}
+				}
 				walk(field.Type)
 			}
 		case reflect.Bool,
@@ -128,21 +144,9 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 			pf("\nexport class %s {", name)
 			defer pf("}")
 
-			for i := 0; i < t.Type.NumField(); i++ {
-				field := t.Type.Field(i)
-				jsonInfo := parseJSONTag(t.Type, field)
-				if jsonInfo.Skip {
-					continue
-				}
-
-				var isOptional, isNullable string
-				if jsonInfo.OmitEmpty {
-					isOptional = "?"
-				} else if isNillableType(field.Type) {
-					isNullable = " | null"
-				}
-
-				pf("\t%s%s: %s%s;", jsonInfo.FieldName, isOptional, TypescriptTypeName(field.Type), isNullable)
+			fields := GetClassFieldsFromStruct(t.Type)
+			for _, f := range fields {
+				pf(f.String())
 			}
 		}()
 	}
@@ -207,8 +211,107 @@ func TypescriptTypeName(t reflect.Type) string {
 		if t.Name() == "" {
 			panic(fmt.Sprintf(`anonymous struct aren't accepted because their type doesn't have a name. Type="%+v"`, t))
 		}
-		return capitalize(t.Name())
+		return capitalize(typeNameWithoutGenerics(t.Name()))
 	default:
 		panic(fmt.Sprintf(`unhandled type. Type="%+v"`, t))
 	}
+}
+
+// ClassField is a description of a field to generate a string representation of a TypeScript class
+// field.
+type ClassField struct {
+	Name     string
+	Type     reflect.Type
+	TypeName string
+	Optional bool
+	Nullable bool
+}
+
+// String returns the c string representation.
+func (c *ClassField) String() string {
+	isOptional := ""
+	if c.Optional {
+		isOptional = "?"
+	}
+
+	isNullable := ""
+	if c.Nullable {
+		isNullable = " | null"
+	}
+
+	return fmt.Sprintf("\t%s%s: %s%s;", c.Name, isOptional, c.TypeName, isNullable)
+}
+
+// GetClassFieldsFromStruct takes a struct type and returns the list of Class fields definition to
+// create a TypeScript class based on t JSON representation.
+//
+// It panics if t is not a struct, it has embedded fields that aren't structs, it has JSON tags
+// names which aren't unique (considering that embedded ones are flatten into the class),
+// a non-embedded field has no JSON tag, or a JSON tag is malformed.
+func GetClassFieldsFromStruct(t reflect.Type) []ClassField {
+	fieldNames := map[string]struct{}{}
+
+	var walk func(t reflect.Type) []ClassField
+	walk = func(t reflect.Type) []ClassField {
+		if t.Kind() != reflect.Struct {
+			panic("BUG: getClassFields must only be called with struct types")
+		}
+
+		fields := []ClassField{}
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			jsonInfo, ok, err := parseJSONTag(t, field)
+			if err != nil {
+				panic(err)
+			}
+
+			if jsonInfo.Skip {
+				continue
+			}
+
+			if !ok && !field.Anonymous {
+				panic(
+					fmt.Sprintf(
+						"only embedded struct fields are allowed to not have a JSON tag definition. (%s).%s",
+						t, field.Name,
+					),
+				)
+			}
+
+			if field.Anonymous {
+				if field.Type.Kind() != reflect.Struct {
+					panic(fmt.Sprintf("only embedded struct types are allowed. (%s).%s", t, field.Name))
+				}
+
+				fields = append(fields, walk(field.Type)...)
+				continue
+			}
+
+			if _, ok := fieldNames[jsonInfo.FieldName]; ok {
+				panic(fmt.Sprintf(
+					"duplicated field name for TypeScript class. Go embedded struct fields are only accepted if their JSON field name is unique across all the fields that flatten into the parent struct. Found duplicated on (%s).%s (json name: %s)",
+					t,
+					field.Name,
+					jsonInfo.FieldName,
+				))
+			}
+
+			fieldNames[jsonInfo.FieldName] = struct{}{}
+
+			fields = append(
+				fields,
+				ClassField{
+					Name:     jsonInfo.FieldName,
+					Type:     field.Type,
+					TypeName: TypescriptTypeName(field.Type),
+					Optional: jsonInfo.OmitEmpty,
+					Nullable: isNillableType(field.Type),
+				},
+			)
+		}
+
+		return fields
+	}
+
+	return walk(t)
 }

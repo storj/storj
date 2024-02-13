@@ -9,11 +9,11 @@ import (
 	"errors"
 	"time"
 
+	"storj.io/common/dbutil/pgutil"
+	"storj.io/common/dbutil/txutil"
 	"storj.io/common/storj"
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/dbutil/txutil"
-	"storj.io/private/tagsql"
 )
 
 // BeginCopyObjectResult holds data needed to begin copy object.
@@ -22,6 +22,7 @@ type BeginCopyObjectResult BeginMoveCopyResults
 // BeginCopyObject holds all data needed begin copy object method.
 type BeginCopyObject struct {
 	ObjectLocation
+	Version Version
 
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
 	// if it turns out the copy would exceed a limit.
@@ -30,7 +31,7 @@ type BeginCopyObject struct {
 
 // BeginCopyObject collects all data needed to begin object copy procedure.
 func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (_ BeginCopyObjectResult, err error) {
-	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, CopySegmentLimit, opts.VerifyLimits)
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, opts.Version, CopySegmentLimit, opts.VerifyLimits)
 	if err != nil {
 		return BeginCopyObjectResult{}, err
 	}

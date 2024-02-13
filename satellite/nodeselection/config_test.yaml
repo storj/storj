@@ -1,0 +1,14 @@
+templates:
+  SIGNER_ZERO: 1111111111111111111111111111111VyS547o
+  NORMAL: exclude(tag("$SIGNER_ZERO","soc2","true")) && exclude(tag("$SIGNER_ZERO","datacenter","true"))
+placements:
+  - id: 0
+    name: global
+    filter: $NORMAL
+    invariant: maxcontrol("tag:owner",2)
+    selector: unvetted(0.0,random())
+  - id: 1
+    name: eu-1
+    filter: country("EU") && $NORMAL
+    invariant: maxcontrol("last_net",1)
+    selector: attribute("last_net")

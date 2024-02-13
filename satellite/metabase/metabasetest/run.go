@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/cfgstruct"
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"

@@ -14,13 +14,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/private/debug"
+	"storj.io/common/debug"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/gc/piecetracker"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
@@ -58,10 +57,6 @@ type RangedLoop struct {
 
 	Repair struct {
 		Observer *checker.Observer
-	}
-
-	GracefulExit struct {
-		Observer rangedloop.Observer
 	}
 
 	Accounting struct {
@@ -118,18 +113,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		peer.Metrics.Observer = metrics.NewObserver()
 	}
 
-	{ // setup gracefulexit
-		if config.GracefulExit.Enabled && !config.GracefulExit.TimeBased {
-			peer.GracefulExit.Observer = gracefulexit.NewObserver(
-				peer.Log.Named("gracefulexit:observer"),
-				peer.DB.GracefulExit(),
-				peer.DB.OverlayCache(),
-				metabaseDB,
-				config.GracefulExit,
-			)
-		}
-	}
-
 	{ // setup node tally observer
 		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
@@ -157,9 +140,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			"net": func(node *nodeselection.SelectedNode) string {
 				return node.LastNet
 			},
-			"country": func(node *nodeselection.SelectedNode) string {
-				return node.CountryCode.String()
-			},
 		}
 		for class, f := range classes {
 			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, class, f, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
@@ -167,12 +147,12 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup overlay
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -184,7 +164,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +177,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,
-			placement.CreateFilters,
+			placement,
 			config.Checker,
 		)
 	}
@@ -214,10 +194,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.Tally.UseRangedLoop {
 			observers = append(observers, peer.Accounting.NodeTallyObserver)
-		}
-
-		if peer.GracefulExit.Observer != nil && config.GracefulExit.UseRangedLoop {
-			observers = append(observers, peer.GracefulExit.Observer)
 		}
 
 		if config.Repairer.UseRangedLoop {

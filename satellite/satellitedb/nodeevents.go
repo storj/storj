@@ -10,9 +10,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -24,7 +24,7 @@ type nodeEvents struct {
 }
 
 // Insert a node event into the node events table.
-func (ne *nodeEvents) Insert(ctx context.Context, email string, nodeID storj.NodeID, eventType nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
+func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *string, nodeID storj.NodeID, eventType nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	id, err := uuid.New()
@@ -35,7 +35,13 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, nodeID storj.Nod
 	if err != nil {
 		return nodeEvent, err
 	}
-	entry, err := ne.db.Create_NodeEvent(ctx, dbx.NodeEvent_Id(id.Bytes()), dbx.NodeEvent_Email(email), dbx.NodeEvent_NodeId(nodeID.Bytes()), dbx.NodeEvent_Event(int(eventType)), dbx.NodeEvent_Create_Fields{})
+
+	var optional dbx.NodeEvent_Create_Fields
+	if lastIPPort != nil {
+		optional.LastIpPort = dbx.NodeEvent_LastIpPort(*lastIPPort)
+	}
+
+	entry, err := ne.db.Create_NodeEvent(ctx, dbx.NodeEvent_Id(id.Bytes()), dbx.NodeEvent_Email(email), dbx.NodeEvent_NodeId(nodeID.Bytes()), dbx.NodeEvent_Event(int(eventType)), optional)
 	if err != nil {
 		return nodeEvent, err
 	}
@@ -75,7 +81,7 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := ne.db.QueryContext(ctx, `
-		SELECT node_events.id, node_events.email, node_events.node_id, node_events.event
+		SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event
 		FROM node_events
 		INNER JOIN (
 			SELECT email, event
@@ -97,9 +103,10 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 	for rows.Next() {
 		var idBytes []byte
 		var email string
+		var lastIPPort *string
 		var nodeIDBytes []byte
 		var event int
-		err = rows.Scan(&idBytes, &email, &nodeIDBytes, &event)
+		err = rows.Scan(&idBytes, &email, &lastIPPort, &nodeIDBytes, &event)
 		if err != nil {
 			return nil, err
 		}
@@ -112,10 +119,11 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 			return nil, err
 		}
 		events = append(events, nodeevents.NodeEvent{
-			ID:     id,
-			Email:  email,
-			NodeID: nodeID,
-			Event:  nodeevents.Type(event),
+			ID:         id,
+			Email:      email,
+			LastIPPort: lastIPPort,
+			NodeID:     nodeID,
+			Event:      nodeevents.Type(event),
 		})
 	}
 
@@ -134,6 +142,7 @@ func fromDBX(dbxNE *dbx.NodeEvent) (event nodeevents.NodeEvent, err error) {
 	return nodeevents.NodeEvent{
 		ID:            id,
 		Email:         dbxNE.Email,
+		LastIPPort:    dbxNE.LastIpPort,
 		NodeID:        nodeID,
 		Event:         nodeevents.Type(dbxNE.Event),
 		CreatedAt:     dbxNE.CreatedAt,

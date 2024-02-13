@@ -19,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -360,7 +361,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), overlay.NewPlacementDefinitions().CreateFilters, "", "", overlay.Config{
+		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), nodeselection.TestPlacementDefinitions(), "", "", overlay.Config{
 			Node: nodeSelectionConfig,
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,
@@ -377,10 +378,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount:     SelectCount,
-					ExcludedIDs:        nil,
-					MinimumVersion:     "v1.0.0",
-					AsOfSystemInterval: -time.Microsecond,
+					RequestedCount: SelectCount,
+					ExcludedIDs:    nil,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -390,10 +389,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount:     SelectCount,
-					ExcludedIDs:        excludedIDs,
-					MinimumVersion:     "v1.0.0",
-					AsOfSystemInterval: -time.Microsecond,
+					RequestedCount: SelectCount,
+					ExcludedIDs:    excludedIDs,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -403,10 +400,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("UploadSelectionCacheGetNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount:     SelectCount,
-					ExcludedIDs:        nil,
-					MinimumVersion:     "v1.0.0",
-					AsOfSystemInterval: -time.Microsecond,
+					RequestedCount: SelectCount,
+					ExcludedIDs:    nil,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -416,10 +411,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("UploadSelectionCacheGetNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount:     SelectCount,
-					ExcludedIDs:        excludedIDs,
-					MinimumVersion:     "v1.0.0",
-					AsOfSystemInterval: -time.Microsecond,
+					RequestedCount: SelectCount,
+					ExcludedIDs:    excludedIDs,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)

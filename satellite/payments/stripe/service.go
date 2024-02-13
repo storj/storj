@@ -5,6 +5,7 @@ package stripe
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -183,19 +184,19 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
 		if inactive, err := service.isUserInactive(ctx, customer.UserID); err != nil {
-			return 0, err
+			return 0, Error.New("unable to determine if user is inactive: %w", err)
 		} else if inactive {
 			continue
 		}
 
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("unable to get own projects: %w", err)
 		}
 
 		records, err := service.createProjectRecords(ctx, customer.ID, projects, start, end)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("unable to create project records: %w", err)
 		}
 
 		// We generate 3 invoice items for each user project which means,
@@ -209,7 +210,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 	err := service.db.ProjectRecords().Create(ctx, regularRecords, start, end)
 	if err != nil {
-		return 0, err
+		return 0, Error.New("failed to create regular project records: %w", err)
 	}
 
 	recordsCount := len(regularRecords)
@@ -217,7 +218,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	if shouldAggregate {
 		err = service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("failed to create aggregated project records: %w", err)
 		}
 
 		recordsCount += len(recordsToAggregate)
@@ -1300,14 +1301,16 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 			continue
 		}
 		service.log.Info("Updating customer balance to 0", zap.String("CustomerID", itr.Customer().ID))
-		custParams := &stripe.CustomerParams{
+		balanceParams := &stripe.CustomerBalanceTransactionParams{
 			Params: stripe.Params{
 				Context: ctx,
 			},
-			Balance:     stripe.Int64(0),
+			Amount:      stripe.Int64(-itr.Customer().Balance),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Customer:    stripe.String(itr.Customer().ID),
 			Description: stripe.String("Customer balance adjusted to 0 after adding invoice item " + invoiceItem.ID),
 		}
-		_, err = service.stripeClient.Customers().Update(itr.Customer().ID, custParams)
+		_, err = service.stripeClient.CustomerBalanceTransactions().New(balanceParams)
 		if err != nil {
 			service.log.Error("Failed to update customer balance to 0 after adding invoice item", zap.Error(err))
 			errGrp.Add(err)
@@ -1372,6 +1375,10 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 
 		userID, err := service.db.Customers().GetUserID(ctx, stripeInvoice.Customer.ID)
 		if err != nil {
+			if errors.Is(err, ErrNoCustomer) {
+				service.log.Warn("User ID does not exist for invoiced customer.", zap.String("stripe customer", stripeInvoice.Customer.ID))
+				continue
+			}
 			return Error.Wrap(err)
 		}
 		if inactive, err := service.isUserInactive(ctx, userID); err != nil {
@@ -1611,7 +1618,10 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 func (service *Service) isUserInactive(ctx context.Context, userID uuid.UUID) (bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
-		return false, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return true, nil
+		}
+		return false, Error.New("unable to look up user %s: %w", userID, err)
 	}
 	return user.Status != console.Active, nil
 }

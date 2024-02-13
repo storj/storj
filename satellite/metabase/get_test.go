@@ -4,11 +4,11 @@
 package metabase_test
 
 import (
-	"slices"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"

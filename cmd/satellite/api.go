@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
-	"storj.io/private/process"
-	"storj.io/private/version"
+	"storj.io/common/process"
+	"storj.io/common/version"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"

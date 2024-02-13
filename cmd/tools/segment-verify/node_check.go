@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/process"
 	"storj.io/common/uuid"
-	"storj.io/private/process"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"

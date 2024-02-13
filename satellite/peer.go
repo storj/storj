@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
-	"storj.io/private/debug"
-	"storj.io/private/tagsql"
+	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/durability"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
@@ -55,6 +56,7 @@ import (
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -120,8 +122,6 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
-	// GracefulExit returns database for graceful exit
-	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
@@ -163,7 +163,7 @@ type Config struct {
 	Server   server.Config
 	Debug    debug.Config
 
-	Placement overlay.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
+	Placement nodeselection.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
 
 	Admin admin.Config
 
@@ -210,6 +210,8 @@ type Config struct {
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config
 
+	Emission emission.Config
+
 	AccountFreeze accountfreeze.Config
 
 	Version version_checker.Config
@@ -217,8 +219,6 @@ type Config struct {
 	GracefulExit gracefulexit.Config
 
 	Compensation compensation.Config
-
-	ProjectLimit accounting.ProjectLimitConfig
 
 	Analytics analytics.Config
 

@@ -15,11 +15,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/process"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
-	"storj.io/private/process"
 	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
 )
 
 var (
@@ -90,7 +89,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	}
 
-	placement, err := config.Placement.Parse()
+	placement, err := config.Placement.Parse(nil)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -123,7 +122,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 // Config contains configuration of placement.
 type Config struct {
-	Placement overlay.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
+	Placement nodeselection.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
 }
 
 func init() {

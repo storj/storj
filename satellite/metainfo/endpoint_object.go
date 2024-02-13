@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,6 +21,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -96,7 +96,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
-	err = endpoint.checkUploadLimits(ctx, keyInfo.ProjectID)
+	err = endpoint.checkUploadLimits(ctx, keyInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -378,14 +378,14 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			ObjectLocation: objectLocation,
 		})
 	} else {
-		var v metabase.Version
-		v, err = metabase.VersionFromBytes(req.ObjectVersion)
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
 		mbObject, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: objectLocation,
-			Version:        v,
+			Version:        sv.Version(),
 		})
 	}
 	if err != nil {
@@ -488,22 +488,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		if errs2.IsCanceled(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
-
-		endpoint.log.Error(
-			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
-	} else if exceeded {
-		endpoint.log.Warn("Monthly bandwidth limit exceeded",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
+		return nil, err
 	}
 
 	var object metabase.Object
@@ -516,8 +502,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			},
 		})
 	} else {
-		var v metabase.Version
-		v, err = metabase.VersionFromBytes(req.ObjectVersion)
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
@@ -527,7 +513,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				BucketName: string(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
-			Version: v,
+			Version: sv.Version(),
 		})
 	}
 	if err != nil {
@@ -917,19 +903,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 	metabase.ListLimit.Ensure(&limit)
 
-	// TODO(ver): this is only temporary logic for testing, may require cleanup later
-	// Current logic is:
-	// * VersioningUnsupported || Unversioned - use metabase.IterateObjectsAllVersionsWithStatus
-	// * VersioningEnabled || VersioningSuspended
-	//    * IncludeAllVersions == true - use metabase.IterateObjectsAllVersionsWithStatus
-	//    * IncludeAllVersions == false - use metabase.ListObjects
-	// For now we want to use metabase.ListObjects only for versioned and suspended buckets because
-	// we need to verify performance of this method before we will use it globally
-	useListObjects := false
-	if bucket.Versioning == buckets.VersioningEnabled || bucket.Versioning == buckets.VersioningSuspended {
-		useListObjects = !req.IncludeAllVersions
-	}
-
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
@@ -959,6 +932,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursorVersion = metabase.MaxVersion
 	}
 
+	if len(req.VersionCursor) != 0 {
+		sv, err := metabase.StreamVersionIDFromBytes(req.VersionCursor)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+		cursorVersion = sv.Version()
+	}
+
 	includeCustomMetadata := true
 	includeSystemMetadata := true
 	if req.UseObjectIncludes {
@@ -970,35 +951,116 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	resp = &pb.ObjectListResponse{}
-	if endpoint.config.TestListingQuery || useListObjects {
-		result, err := endpoint.metabase.ListObjects(ctx,
-			metabase.ListObjects{
+
+	// Currently for old and new uplinks both we iterate only the latest version.
+	//
+	// Old clients always have IncludeAllVersions = False.
+	// We need to only list the latest version for old clients because
+	// they do not have the necessary cursor logic to iterate over versions.
+	//
+	// New clients specify what they need.
+
+	// For pending objects, we always need to list the versions.
+	if status == metabase.Pending {
+		// handles listing pending objects for all types of buckets
+		err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
+			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				Prefix:     prefix,
-				Cursor: metabase.ListObjectsCursor{
+				Cursor: metabase.IterateCursor{
 					Key:     cursorKey,
 					Version: cursorVersion,
 				},
 				Recursive:             req.Recursive,
-				Limit:                 limit,
-				Pending:               status == metabase.Pending,
+				BatchSize:             limit + 1,
+				Pending:               true,
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
-			})
+			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+				entry := metabase.ObjectEntry{}
+				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+					if err != nil {
+						return err
+					}
+					resp.Items = append(resp.Items, item)
+				}
+
+				resp.More = it.Next(ctx, &entry)
+				return nil
+			},
+		)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
+	} else if !req.IncludeAllVersions {
+		if bucket.Versioning.IsUnversioned() {
+			// handles listing for VersioningUnsupported and Unversioned buckets
+			err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
+				metabase.IterateObjectsWithStatus{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					Prefix:     prefix,
+					Cursor: metabase.IterateCursor{
+						Key:     cursorKey,
+						Version: cursorVersion,
+					},
+					Recursive:             req.Recursive,
+					BatchSize:             limit + 1,
+					Pending:               false,
+					IncludeCustomMetadata: includeCustomMetadata,
+					IncludeSystemMetadata: includeSystemMetadata,
+				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for len(resp.Items) < limit && it.Next(ctx, &entry) {
+						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+						if err != nil {
+							return err
+						}
+						resp.Items = append(resp.Items, item)
+					}
 
-		for _, entry := range result.Objects {
-			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+					resp.More = it.Next(ctx, &entry)
+					return nil
+				},
+			)
 			if err != nil {
 				return nil, endpoint.convertMetabaseErr(err)
 			}
-			resp.Items = append(resp.Items, item)
+		} else {
+			result, err := endpoint.metabase.ListObjects(ctx,
+				metabase.ListObjects{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					Prefix:     prefix,
+					Cursor: metabase.ListObjectsCursor{
+						Key:     cursorKey,
+						Version: cursorVersion,
+					},
+					Pending:     false,
+					AllVersions: false,
+					Recursive:   req.Recursive,
+					Limit:       limit,
+
+					IncludeCustomMetadata: includeCustomMetadata,
+					IncludeSystemMetadata: includeSystemMetadata,
+				})
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
+
+			for _, entry := range result.Objects {
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+				if err != nil {
+					return nil, endpoint.convertMetabaseErr(err)
+				}
+				resp.Items = append(resp.Items, item)
+			}
+			resp.More = result.More
 		}
-		resp.More = result.More
 	} else {
+		// handles listing all versions
 		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
 			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,
@@ -1010,7 +1072,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				},
 				Recursive:             req.Recursive,
 				BatchSize:             limit + 1,
-				Pending:               status == metabase.Pending,
+				Pending:               false,
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
 			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
@@ -1480,7 +1542,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
 		Version:            int32(object.Version), // TODO incompatible types
-		ObjectVersion:      object.Version.Encode(),
+		ObjectVersion:      object.StreamVersionID().Bytes(),
 		StreamId:           streamID,
 		Status:             pb.Object_Status(object.Status),
 		ExpiresAt:          expires,
@@ -1511,7 +1573,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		EncryptedObjectKey: []byte(entry.ObjectKey),
 		Version:            int32(entry.Version), // TODO incompatible types
 		Status:             pb.Object_Status(entry.Status),
-		ObjectVersion:      entry.Version.Encode(),
+		ObjectVersion:      entry.StreamVersionID().Bytes(),
 	}
 
 	expiresAt := time.Time{}
@@ -1617,6 +1679,9 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			// TODO(ver): for production we need to avoid somehow additional GetBucket call
 			bucket, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
 			if err != nil {
+				if buckets.ErrBucketNotFound.Has(err) {
+					return nil, nil
+				}
 				endpoint.log.Error("unable to check bucket", zap.Error(err))
 				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket versioning state")
 			}
@@ -1631,14 +1696,14 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			Suspended:      suspended,
 		})
 	} else {
-		var v metabase.Version
-		v, err = metabase.VersionFromBytes(version)
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(version)
 		if err != nil {
 			return nil, err
 		}
 		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: req,
-			Version:        v,
+			Version:        sv.Version(),
 		})
 	}
 	if err != nil {
@@ -1972,6 +2037,10 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
+	if err := validateObjectVersion(req.ObjectVersion); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
 		// TODO we may try to combine those two DB calls into single one
@@ -1996,14 +2065,25 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
+	var version metabase.Version
+	if len(req.ObjectVersion) != 0 {
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+		version = sv.Version()
+	}
+
 	result, err := endpoint.metabase.BeginCopyObject(ctx, metabase.BeginCopyObject{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
+		Version: version,
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
-			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
+			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},
 	})
 	if err != nil {
@@ -2126,7 +2206,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewDisallowDelete: false,
 
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
-			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
+			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},
 	})
 	if err != nil {

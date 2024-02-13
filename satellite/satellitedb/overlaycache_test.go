@@ -23,7 +23,7 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
@@ -404,7 +404,10 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 					},
 				})
 				require.NoError(t, err)
+				_, err = cache.TestVetNode(ctx, id)
+				require.NoError(t, err)
 			}
+
 		}
 
 		checkNodes := func(selectedNodes []*nodeselection.SelectedNode) {
@@ -429,8 +432,10 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 					require.Len(t, selectedNode.Tags, 1)
 					require.Equal(t, "even", selectedNode.Tags[0].Name)
 					require.Equal(t, []byte{1}, selectedNode.Tags[0].Value)
+					require.True(t, selectedNode.Vetted)
 				} else {
 					require.Len(t, selectedNode.Tags, 0)
+					require.False(t, selectedNode.Vetted)
 				}
 			}
 		}
@@ -463,6 +468,7 @@ type nodeDisposition struct {
 	offlineSuspended bool
 	exiting          bool
 	exited           bool
+	vetted           bool
 }
 
 func TestOverlayCache_GetNodes(t *testing.T) {
@@ -576,6 +582,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
 		require.Equal(t, "test@storj.io", selection[0].Email)
+		require.True(t, selection[0].Vetted)
 	})
 }
 
@@ -636,6 +643,7 @@ func TestOverlayCache_GetParticipatingNodes(t *testing.T) {
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
 		require.Equal(t, "test@storj.io", selection[0].Email)
+		require.True(t, selection[0].Vetted)
 	})
 }
 
@@ -654,6 +662,7 @@ func nodeDispositionToSelectedNode(disp nodeDisposition, onlineWindow time.Durat
 		Exiting:     disp.exiting,
 		Suspended:   disp.auditSuspended || disp.offlineSuspended,
 		Online:      disp.offlineInterval <= onlineWindow,
+		Vetted:      disp.vetted,
 	}
 }
 
@@ -671,6 +680,7 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 		exited:           exited,
 		email:            "test@storj.io",
 		wallet:           "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0",
+		vetted:           true,
 	}
 
 	checkInInfo := overlay.NodeCheckInInfo{
@@ -723,6 +733,11 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 			ExitFinishedAt:      now,
 			ExitSuccess:         true,
 		})
+		require.NoError(t, err)
+	}
+
+	if disp.vetted {
+		_, err = cache.TestVetNode(ctx, disp.id)
 		require.NoError(t, err)
 	}
 
@@ -821,5 +836,95 @@ func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
 				require.Len(t, node.Tags, 0)
 			}
 		}
+	})
+}
+
+func TestOverlayCache_GetLastIPPortByNodeTagName(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		var ids storj.NodeIDList
+		for i := 0; i < 6; i++ {
+			ids = append(ids, testrand.NodeID())
+		}
+		lastIPPorts := []string{"127.0.0.1:0", "127.0.0.1:1", "127.0.0.1:2", "127.0.0.1:3", "127.0.0.1:4", ""}
+		tagNames := []string{"test-tag-name-1", "test-tag-name-2"}
+
+		for i, id := range ids {
+			require.NoError(t, cache.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+				NodeID:     id,
+				Address:    &pb.NodeAddress{Address: "127.0.0.1"},
+				LastIPPort: lastIPPorts[i],
+				LastNet:    "127.0.0",
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				IsUp:       true,
+			}, time.Now(), overlay.NodeSelectionConfig{}))
+		}
+
+		require.NoError(t, cache.UpdateNodeTags(ctx, nodeselection.NodeTags{
+			{
+				NodeID:   ids[0],
+				SignedAt: time.Now(),
+				Signer:   ids[0],
+				Name:     tagNames[0],
+				Value:    []byte("testvalue"),
+			},
+			{
+				NodeID:   ids[1],
+				SignedAt: time.Now(),
+				Signer:   ids[1],
+				Name:     tagNames[0],
+				Value:    []byte("testvalue"),
+			},
+			{
+				NodeID:   ids[5],
+				SignedAt: time.Now(),
+				Signer:   ids[5],
+				Name:     tagNames[0],
+				Value:    []byte("testvalue"),
+			},
+			{
+				NodeID:   ids[2],
+				SignedAt: time.Now(),
+				Signer:   ids[2],
+				Name:     "some-other-tag",
+				Value:    []byte("testvalue"),
+			},
+			{
+				NodeID:   ids[3],
+				SignedAt: time.Now(),
+				Signer:   ids[3],
+				Name:     tagNames[1],
+				Value:    []byte("testvalue"),
+			},
+		}))
+
+		queriedLastIPPorts, err := cache.GetLastIPPortByNodeTagNames(ctx, ids, tagNames)
+		require.NoError(t, err)
+		require.Len(t, queriedLastIPPorts, 3)
+
+		lastIPPort, ok := queriedLastIPPorts[ids[0]]
+		require.True(t, ok)
+		require.NotNil(t, lastIPPort)
+		require.Equal(t, lastIPPorts[0], *lastIPPort)
+
+		lastIPPort, ok = queriedLastIPPorts[ids[1]]
+		require.True(t, ok)
+		require.NotNil(t, lastIPPort)
+		require.Equal(t, lastIPPorts[1], *lastIPPort)
+
+		lastIPPort, ok = queriedLastIPPorts[ids[3]]
+		require.True(t, ok)
+		require.NotNil(t, lastIPPort)
+		require.Equal(t, lastIPPorts[3], *lastIPPort)
+
+		_, ok = queriedLastIPPorts[ids[2]]
+		require.False(t, ok)
+
+		_, ok = queriedLastIPPorts[ids[4]]
+		require.False(t, ok)
+
+		_, ok = queriedLastIPPorts[ids[5]]
+		require.False(t, ok)
 	})
 }

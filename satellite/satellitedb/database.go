@@ -10,10 +10,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/lrucache"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/tagsql"
+	"storj.io/common/tagsql"
+	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -22,7 +23,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
@@ -132,7 +132,10 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
 	}
-	log.Debug("Connected to:", zap.String("db source", source))
+
+	if log.Level() == zap.DebugLevel {
+		log.Debug("Connected to:", zap.String("db source", logging.Redacted(source)))
+	}
 
 	name := "satellitedb"
 	if override != "" {
@@ -262,11 +265,6 @@ func (dbc *satelliteDBCollection) Orders() orders.DB {
 // It does all of its work by way of the ReverifyQueue.
 func (dbc *satelliteDBCollection) Containment() audit.Containment {
 	return &containment{reverifyQueue: dbc.ReverifyQueue()}
-}
-
-// GracefulExit returns database for graceful exit.
-func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
-	return &gracefulexitDB{db: dbc.getByName("gracefulexit")}
 }
 
 // StripeCoinPayments returns database for stripecoinpayments.

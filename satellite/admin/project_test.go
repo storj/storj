@@ -48,7 +48,7 @@ func TestProjectGet(t *testing.T) {
 		t.Run("OK", func(t *testing.T) {
 			link := "http://" + address.String() + "/api/projects/" + project.ID.String()
 			expected := fmt.Sprintf(
-				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"defaultPlacement":0}`,
+				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"defaultPlacement":0,"defaultVersioning":1}`,
 				project.ID.String(),
 				project.PublicID.String(),
 				project.Name,
@@ -64,7 +64,16 @@ func TestProjectGet(t *testing.T) {
 			require.NoError(t, err)
 
 			link := "http://" + address.String() + "/api/projects/" + id.String() + "/limit"
-			body := assertReq(ctx, t, link, http.MethodGet, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodGet,
+				"",
+				http.StatusNotFound,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 			require.Contains(t, string(body), "does not exist")
 		})
 	})
@@ -89,7 +98,7 @@ func TestProjectGetByAnyID(t *testing.T) {
 		testGetProject := func(pid string) {
 			link := "http://" + address.String() + "/api/projects/" + pid
 			expected := fmt.Sprintf(
-				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"defaultPlacement":0}`,
+				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"defaultPlacement":0,"defaultVersioning":1}`,
 				project.ID.String(),
 				project.PublicID.String(),
 				project.Name,
@@ -98,7 +107,6 @@ func TestProjectGetByAnyID(t *testing.T) {
 				project.CreatedAt.Format(time.RFC3339Nano),
 			)
 			assertGet(ctx, t, link, expected, planet.Satellites[0].Config.Console.AuthToken)
-
 		}
 
 		// should work with either public or private ID
@@ -120,7 +128,7 @@ func TestProjectGetByAnyID(t *testing.T) {
 	})
 }
 
-func TestProjectLimit(t *testing.T) {
+func TestProjectLimitGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -139,7 +147,13 @@ func TestProjectLimit(t *testing.T) {
 		linkLimit := "http://" + address.String() + "/api/projects/" + project.ID.String() + "/limit"
 
 		t.Run("Get OK", func(t *testing.T) {
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"25.00 GB","bytes":25000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(
+				ctx,
+				t,
+				linkLimit,
+				`{"usage":{"amount":"25.00 GB","bytes":25000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 		})
 
 		t.Run("Get Not Found", func(t *testing.T) {
@@ -147,23 +161,70 @@ func TestProjectLimit(t *testing.T) {
 			require.NoError(t, err)
 
 			link := "http://" + address.String() + "/api/projects/" + id.String() + "/limit"
-			body := assertReq(ctx, t, link, http.MethodGet, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodGet,
+				"",
+				http.StatusNotFound,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 			require.Contains(t, string(body), "does not exist")
 		})
+	})
+}
+
+func TestProjectLimitUpdate(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		address := sat.Admin.Admin.Listener.Addr()
+		project, err := sat.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+
+		linkLimit := "http://" + address.String() + "/api/projects/" + project.ID.String() + "/limit"
 
 		t.Run("Update Not Found", func(t *testing.T) {
 			id, err := uuid.New()
 			require.NoError(t, err)
 
 			link := "http://" + address.String() + "/api/projects/" + id.String() + "/limit?usage=100000000"
-			body := assertReq(ctx, t, link, http.MethodPut, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodPut,
+				"",
+				http.StatusNotFound,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 			require.Contains(t, string(body), "does not exist")
 		})
 
 		t.Run("Update Nothing", func(t *testing.T) {
-			expectedBody := assertReq(ctx, t, linkLimit, http.MethodGet, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			expectedBody := assertReq(
+				ctx,
+				t,
+				linkLimit,
+				http.MethodGet,
+				"",
+				http.StatusOK,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, linkLimit, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit, nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -175,82 +236,261 @@ func TestProjectLimit(t *testing.T) {
 			assertGet(ctx, t, linkLimit, string(expectedBody), planet.Satellites[0].Config.Console.AuthToken)
 		})
 
-		t.Run("Update Usage", func(t *testing.T) {
-			data := url.Values{"usage": []string{"1TiB"}}
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, linkLimit, strings.NewReader(data.Encode()))
-			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		t.Run("Update Bandwidth", func(t *testing.T) {
+			t.Run("without units", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?usage=35000000000", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-			response, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, response.StatusCode)
-			require.NoError(t, response.Body.Close())
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"35.00 GB","bytes":35000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
 
-			req, err = http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?usage=1GB", nil)
-			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			t.Run("with units", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?usage=1GB", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-			response, err = http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, response.StatusCode)
-			require.NoError(t, response.Body.Close())
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
 		})
 
 		t.Run("Update Bandwidth", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?bandwidth=1MB", nil)
-			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			t.Run("without unit", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?bandwidth=99000000", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-			response, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, response.StatusCode)
-			require.NoError(t, response.Body.Close())
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"99.00 MB","bytes":99000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("with unit", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?bandwidth=1MB", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
 		})
 
 		t.Run("Update Rate", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rate=100", nil)
-			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			t.Run("set not zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rate=100", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-			response, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, response.StatusCode)
-			require.NoError(t, response.Body.Close())
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set default", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rate=-1", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rate=0", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
 		})
 
 		t.Run("Update Burst", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?burst=50", nil)
-			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			t.Run("set not 0", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?burst=50", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-			response, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, response.StatusCode)
-			require.NoError(t, response.Body.Close())
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":50,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":50,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set default", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?burst=-99", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set 0", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?burst=0", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
 		})
 
 		t.Run("Update Buckets", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?buckets=2000", nil)
-			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			t.Run("set not zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?buckets=2000", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-			response, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, response.StatusCode)
-			require.NoError(t, response.Body.Close())
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":50,"maxBuckets":2000,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":2000,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set not zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?buckets=-38", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":null,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?buckets=0", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
 		})
 
 		t.Run("Update Segment Limit", func(t *testing.T) {
@@ -263,7 +503,41 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":50,"maxBuckets":2000,"maxSegments":500}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(
+				ctx,
+				t,
+				linkLimit,
+				`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":500}`,
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
+		})
+
+		t.Run("Update via body", func(t *testing.T) {
+			data := url.Values{
+				"usage":     []string{"1TiB"},
+				"bandwidth": []string{"2000000000"},
+				"rate":      []string{"25"},
+				"burst":     []string{"7"},
+				"buckets":   []string{"-1"},
+				"segments":  []string{"999"},
+			}
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit, strings.NewReader(data.Encode()))
+			require.NoError(t, err)
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			assertGet(
+				ctx,
+				t,
+				linkLimit,
+				`{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"2.00 GB","bytes":2000000000},"rate":{"rps":25},"burst":7,"maxBuckets":null,"maxSegments":999}`,
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 		})
 	})
 }
@@ -364,7 +638,12 @@ func TestUpdateProjectsUserAgent(t *testing.T) {
 			require.NoError(t, err)
 
 			body := strings.NewReader(fmt.Sprintf(`{"userAgent":"%s"}`, newUserAgent))
-			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/useragent", project.ID.String()), body)
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodPatch,
+				fmt.Sprintf("http://"+address.String()+"/api/projects/%s/useragent", project.ID.String()),
+				body,
+			)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -379,7 +658,12 @@ func TestUpdateProjectsUserAgent(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, newUserAgentBytes, updatedProject.UserAgent)
 
-			projectBuckets, err := planet.Satellites[0].API.Buckets.Service.ListBuckets(ctx, updatedProject.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+			projectBuckets, err := planet.Satellites[0].API.Buckets.Service.ListBuckets(
+				ctx,
+				updatedProject.ID,
+				buckets.ListOptions{Direction: buckets.DirectionForward},
+				macaroon.AllowedBuckets{All: true},
+			)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(projectBuckets.Items))
 
@@ -405,7 +689,16 @@ func TestUpdateProjectsUserAgent(t *testing.T) {
 
 			link := fmt.Sprintf("http://"+address.String()+"/api/projects/%s/useragent", newProject.ID)
 			body := fmt.Sprintf(`{"userAgent":"%s"}`, newUserAgent)
-			responseBody := assertReq(ctx, t, link, http.MethodPatch, body, http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			responseBody := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodPatch,
+				body,
+				http.StatusBadRequest,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 			require.Contains(t, string(responseBody), "new UserAgent is equal to existing projects UserAgent")
 		})
 	})
@@ -432,7 +725,12 @@ func TestProjectRename(t *testing.T) {
 
 		t.Run("OK", func(t *testing.T) {
 			body := strings.NewReader(fmt.Sprintf(`{"projectName":"%s","description":"This project got renamed"}`, newName))
-			req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", project.ID.String()), body)
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodPut,
+				fmt.Sprintf("http://"+address.String()+"/api/projects/%s", project.ID.String()),
+				body,
+			)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -453,7 +751,16 @@ func TestProjectRename(t *testing.T) {
 
 			link := fmt.Sprintf("http://"+address.String()+"/api/projects/%s", id.String())
 			putBody := fmt.Sprintf(`{"projectName":"%s","description":"This project got renamed"}`, newName)
-			body := assertReq(ctx, t, link, http.MethodPut, putBody, http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodPut,
+				putBody,
+				http.StatusNotFound,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
 			require.Contains(t, string(body), "does not exist")
 		})
 	})
@@ -474,7 +781,12 @@ func TestProjectDelete(t *testing.T) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
 		// Ensure there are no buckets left
-		buckets, err := planet.Satellites[0].API.Buckets.Service.ListBuckets(ctx, projectID, buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+		buckets, err := planet.Satellites[0].API.Buckets.Service.ListBuckets(
+			ctx,
+			projectID,
+			buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward},
+			macaroon.AllowedBuckets{All: true},
+		)
 		require.NoError(t, err)
 		require.Len(t, buckets.Items, 0)
 
@@ -487,7 +799,12 @@ func TestProjectDelete(t *testing.T) {
 		require.Len(t, apikeys.APIKeys, 1)
 
 		// the deletion with an existing API key should fail
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -500,7 +817,12 @@ func TestProjectDelete(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apikeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -541,7 +863,12 @@ func TestProjectCheckUsage_withoutUsage(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -611,7 +938,12 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, paid)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -626,7 +958,9 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		err = planet.Satellites[0].DB.Console().
+			Users().
+			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -634,7 +968,12 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, paid)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -712,7 +1051,12 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		err = planet.Satellites[0].API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, now, false)
 		require.NoError(t, err)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -781,7 +1125,9 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		err = planet.Satellites[0].DB.Console().
+			Users().
+			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -789,7 +1135,12 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, paid)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -804,7 +1155,9 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 
 		// Make User free tier again.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
+		err = planet.Satellites[0].DB.Console().
+			Users().
+			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is free tier.
@@ -812,7 +1165,12 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, paid)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -883,7 +1241,9 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		err = planet.Satellites[0].DB.Console().
+			Users().
+			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -891,7 +1251,12 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, paid)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -899,12 +1264,18 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
-		require.Equal(t, "{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}", string(responseBody))
+		require.Equal(
+			t,
+			"{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}",
+			string(responseBody),
+		)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
 		// Make User free tier again.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
+		err = planet.Satellites[0].DB.Console().
+			Users().
+			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is free tier.
@@ -912,7 +1283,12 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, paid)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -984,7 +1360,9 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		err = planet.Satellites[0].DB.Console().
+			Users().
+			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -992,7 +1370,12 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, paid)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -1000,7 +1383,11 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.NoError(t, err)
 		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
-		require.Equal(t, "{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}", string(responseBody))
+		require.Equal(
+			t,
+			"{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}",
+			string(responseBody),
+		)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
@@ -1011,10 +1398,16 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 				ProjectID: projectID,
 				Storage:   100,
 				Egress:    100,
-				Segments:  100}}, firstOfMonth, firstOfMonth.AddDate(0, 1, 0))
+				Segments:  100,
+			}}, firstOfMonth, firstOfMonth.AddDate(0, 1, 0))
 		require.NoError(t, err)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -1028,13 +1421,20 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
 		// Retrieve its ID and consume(mark as billed) it.
-		dbRecord, err := planet.Satellites[0].DB.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth, firstOfMonth.AddDate(0, 1, 0))
+		dbRecord, err := planet.Satellites[0].DB.StripeCoinPayments().
+			ProjectRecords().
+			Get(ctx, projectID, firstOfMonth, firstOfMonth.AddDate(0, 1, 0))
 		require.NoError(t, err)
 		require.Equal(t, projectID, dbRecord.ProjectID)
 		err = planet.Satellites[0].DB.StripeCoinPayments().ProjectRecords().Consume(ctx, dbRecord.ID)
 		require.NoError(t, err)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodDelete,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
+			nil,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 

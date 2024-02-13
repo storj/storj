@@ -1,0 +1,59 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/storagenode/internalpb";
+
+import "gogo.proto";
+
+package storagenode.forgetsatellite;
+
+// NodeForgetSatellite is a private service for the storagenode.
+service NodeForgetSatellite {
+  // ForgetSatellite removes a satellite from the trust cache and deletes all data.
+  rpc InitForgetSatellite(InitForgetSatelliteRequest) returns (InitForgetSatelliteResponse);
+  // GetUntrustedSatellites returns a list of satellites that are not trusted.
+  rpc GetUntrustedSatellites(GetUntrustedSatellitesRequest) returns (GetUntrustedSatellitesResponse);
+  // ForgetSatelliteStatus returns the status of the forget satellite operation.
+  rpc ForgetSatelliteStatus(ForgetSatelliteStatusRequest) returns (ForgetSatelliteStatusResponse);
+  // GetAllForgetSatelliteStatus returns the status of all forget satellite operations.
+  rpc GetAllForgetSatelliteStatus(GetAllForgetSatelliteStatusRequest) returns (GetAllForgetSatelliteStatusResponse);
+}
+
+message InitForgetSatelliteRequest {
+  // satellite_id is the satellite to forget.
+  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bool force_cleanup = 2;
+}
+
+message InitForgetSatelliteResponse {
+  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bool in_progress = 2;
+}
+
+message GetUntrustedSatellitesRequest {}
+
+message GetUntrustedSatellitesResponse {
+  // satellite_ids is the list of satellite ids that are not trusted.
+  repeated string satellite_ids = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message ForgetSatelliteStatusRequest {
+  // satellite_id is the satellite to forget.
+  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message ForgetSatelliteStatusResponse {
+  // satellite_id is the satellite to forget.
+  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  // in_progress is true if the forget satellite operation is in progress.
+  bool in_progress = 2;
+  bool successful = 3;
+}
+
+message GetAllForgetSatelliteStatusRequest {}
+
+message GetAllForgetSatelliteStatusResponse {
+  // statuses is the list of forget satellite statuses.
+  repeated ForgetSatelliteStatusResponse statuses = 1;
+}

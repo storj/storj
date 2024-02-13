@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
@@ -188,6 +189,21 @@ func TestCountryFilter_FromString(t *testing.T) {
 			require.Equal(t, tc.canonical, filter.String())
 		})
 	}
+}
+
+func TestNodeListFilter(t *testing.T) {
+	filter, err := AllowedNodesFromFile("filter_testdata.txt")
+	require.NoError(t, err)
+	selectedNode := func(pregeneratedIdentity int) *SelectedNode {
+		return &SelectedNode{
+			ID: testidentity.MustPregeneratedIdentity(pregeneratedIdentity, storj.LatestIDVersion()).ID,
+		}
+	}
+	fmt.Println(testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID.String())
+	fmt.Println(hex.EncodeToString(testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID.Bytes()))
+	require.True(t, filter.Match(selectedNode(1)))
+	require.True(t, filter.Match(selectedNode(2)))
+	require.False(t, filter.Match(selectedNode(3)))
 }
 
 // BenchmarkNodeFilterFullTable checks performances of rule evaluation on ALL storage nodes.

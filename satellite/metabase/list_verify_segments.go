@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/tagsql"
 )
 
 // ListVerifyLimit is the maximum number of items the client can request for listing.

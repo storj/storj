@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/dbutil/pgtest"
+	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgtest"
-	"storj.io/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"

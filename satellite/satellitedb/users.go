@@ -13,10 +13,10 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -486,6 +486,11 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 		settings.SessionDuration = &dur
 	}
 
+	err = json.Unmarshal(row.NoticeDismissal, &settings.NoticeDismissal)
+	if err != nil {
+		return nil, err
+	}
+
 	return settings, nil
 }
 
@@ -519,6 +524,15 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 	if settings.OnboardingStep != nil {
 		update.OnboardingStep = dbx.UserSettings_OnboardingStep(*settings.OnboardingStep)
+		fieldCount++
+	}
+
+	if settings.NoticeDismissal != nil {
+		noticesBytes, err := json.Marshal(settings.NoticeDismissal)
+		if err != nil {
+			return err
+		}
+		update.NoticeDismissal = dbx.UserSettings_NoticeDismissal(noticesBytes)
 		fieldCount++
 	}
 
@@ -632,6 +646,9 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 
 	if request.IsProfessional != nil {
 		update.IsProfessional = dbx.User_IsProfessional(*request.IsProfessional)
+	}
+	if request.HaveSalesContact != nil {
+		update.HaveSalesContact = dbx.User_HaveSalesContact(*request.HaveSalesContact)
 	}
 	if request.Position != nil {
 		update.Position = dbx.User_Position(*request.Position)

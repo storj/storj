@@ -21,8 +21,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -30,11 +32,13 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	satbuckets "storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	snorders "storj.io/storj/storagenode/orders"
 	"storj.io/uplink"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -157,7 +161,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projectUsage.SetNow(func() time.Time {
 					return now
 				})
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID, accounting.ProjectLimits{})
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
@@ -486,20 +490,22 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 		project := projects[0]
 		// set custom usage limit for project
-		expectedLimit := memory.Size(memory.GiB.Int64() * 10)
-		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, expectedLimit)
+		expectedLimit := memory.GiB.Int64() * 10
+		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, memory.Size(expectedLimit))
 		require.NoError(t, err)
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		// Setup: add data to live accounting to exceed new limit
-		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
+		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1)
+		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
+			Usage: &expectedLimit,
+		})
 		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
-		require.Equal(t, expectedLimit.Int64(), limit.StorageLimit.Int64())
+		require.Equal(t, expectedLimit, limit.StorageLimit.Int64())
 
 		// Setup: create some bytes for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)
@@ -513,6 +519,11 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			numBuckets     = 5
@@ -790,6 +801,70 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(0), bucketsPage.PageCount)
 			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
 		})
+
+		t.Run("enable/suspend versioning", func(t *testing.T) {
+			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
+			require.NoError(t, err)
+
+			for _, bucket := range buckets {
+				err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+					Name:       []byte(bucket),
+					Versioning: true,
+				})
+				require.NoError(t, err)
+			}
+
+			cursor := accounting.BucketUsageCursor{Limit: 20, Page: 1}
+
+			totals, err := usageRollups.GetBucketTotals(ctx, project1, cursor, now)
+			require.NoError(t, err)
+			require.NotNil(t, totals)
+			require.NotZero(t, len(totals.BucketUsages))
+
+			for _, usage := range totals.BucketUsages {
+				require.Equal(t, satbuckets.VersioningEnabled, usage.Versioning)
+			}
+
+			for _, bucket := range buckets {
+				err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+					Name:       []byte(bucket),
+					Versioning: false,
+				})
+				require.NoError(t, err)
+			}
+
+			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, now)
+			require.NoError(t, err)
+			require.NotNil(t, totals)
+
+			for _, usage := range totals.BucketUsages {
+				require.Equal(t, satbuckets.VersioningSuspended, usage.Versioning)
+			}
+		})
+
+		t.Run("placement", func(t *testing.T) {
+			bList, err := db.Buckets().ListBuckets(ctx, planet.Uplinks[0].Projects[0].ID, satbuckets.ListOptions{Direction: satbuckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
+			require.NoError(t, err)
+			for _, b := range bList.Items {
+				// this is a number. See earlier in test where bucket is created
+				elems := strings.Split(b.Name, "-")
+				n, err := strconv.Atoi(elems[1])
+				require.NoError(t, err)
+				b.Placement = storj.PlacementConstraint(n)
+				_, err = db.Buckets().UpdateBucket(ctx, b)
+				require.NoError(t, err)
+			}
+			page, err := usageRollups.GetBucketTotals(ctx, planet.Uplinks[0].Projects[0].ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+			require.NoError(t, err)
+			require.NotNil(t, page)
+			for _, b := range page.BucketUsages {
+				// this is a number. See earlier in test where bucket is created
+				elems := strings.Split(b.BucketName, "-")
+				n, err := strconv.Atoi(elems[1])
+				require.NoError(t, err)
+				require.True(t, int(b.DefaultPlacement) == n)
+			}
+		})
 	})
 }
 
@@ -890,7 +965,7 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 				return tt.now
 			})
 
-			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
+			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID, accounting.ProjectLimits{})
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
 		}
@@ -1115,7 +1190,7 @@ func TestProjectUsage_BandwidthDeadAllocation(t *testing.T) {
 			project.ID, now.Year(), now.Month(), now.Day(), 0)
 		require.NoError(t, err)
 
-		require.Equal(t, int64(segments[0].Redundancy.DownloadNodes())*pieceSize, bandwidthUsage)
+		require.Equal(t, int64(planet.Satellites[0].Orders.Service.DownloadNodes(segments[0].Redundancy))*pieceSize, bandwidthUsage)
 
 		initialBandwidthUsage := bandwidthUsage
 		var updatedBandwidthUsage int64

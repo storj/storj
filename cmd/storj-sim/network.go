@@ -24,13 +24,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/base58"
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/processgroup"
 	"storj.io/common/storj"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/uplink"
 )
 

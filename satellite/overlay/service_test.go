@@ -73,7 +73,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, overlay.NewPlacementDefinitions().CreateFilters, "", "", serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nodeselection.TestPlacementDefinitions(), "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
@@ -1001,5 +1001,80 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 
 		ne2 := getNE()
 		require.True(t, ne2.CreatedAt.After(ne1.CreatedAt))
+	})
+}
+
+func TestInsertOfflineNodeEvents(t *testing.T) {
+	tagName := "test-tag-name"
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				// testplanet storagenode default version is "v0.0.1".
+				// set this as minimum version so storagenode doesn't start below it.
+				config.Overlay.Node.MinimumVersion = "v0.0.1"
+				config.Overlay.NodeTagsIPPortEmails = []string{tagName}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node1 := planet.StorageNodes[0]
+		node2 := planet.StorageNodes[1]
+		node1.Contact.Chore.Pause(ctx)
+		node2.Contact.Chore.Pause(ctx)
+
+		require.NoError(t, service.UpdateNodeTags(ctx, []nodeselection.NodeTag{
+			{
+				NodeID:   node1.ID(),
+				SignedAt: time.Now(),
+				Signer:   node1.ID(),
+				Name:     tagName,
+				Value:    []byte{1, 2, 3},
+			},
+		}))
+
+		n1LastIPPort := "127.0.0.1:1234"
+
+		for i := 0; i < 2; i++ {
+			n := planet.StorageNodes[i]
+			lastIPPort := n1LastIPPort
+			if i == 1 {
+				lastIPPort = ""
+			}
+			require.NoError(t, planet.Satellites[0].DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+				NodeID:     n.ID(),
+				IsUp:       true,
+				LastIPPort: lastIPPort,
+				Address:    &pb.NodeAddress{Address: "127.0.0.1"},
+				Operator: &pb.NodeOperator{
+					Email: n.Config.Operator.Email,
+				},
+				Version: &pb.NodeVersion{Version: "v1.1.1"},
+			}, time.Now().Add(-48*time.Hour), overlay.NodeSelectionConfig{}))
+		}
+
+		n, err := service.Get(ctx, node1.ID())
+		require.NoError(t, err)
+		require.NotNil(t, n)
+
+		count, err := service.InsertOfflineNodeEvents(ctx, 0, 72*time.Hour, 3)
+		require.NoError(t, err)
+		require.Equal(t, 2, count)
+
+		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, node1.Config.Operator.Email, nodeevents.Offline)
+		require.NoError(t, err)
+		require.Equal(t, node1.ID(), ne.NodeID)
+		require.Equal(t, node1.Config.Operator.Email, ne.Email)
+		require.Equal(t, nodeevents.Offline, ne.Event)
+		require.NotNil(t, ne.LastIPPort)
+		require.Equal(t, n1LastIPPort, *ne.LastIPPort)
+
+		ne, err = planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, node2.Config.Operator.Email, nodeevents.Offline)
+		require.NoError(t, err)
+		require.Equal(t, node2.ID(), ne.NodeID)
+		require.Equal(t, node2.Config.Operator.Email, ne.Email)
+		require.Equal(t, nodeevents.Offline, ne.Event)
+		require.Nil(t, ne.LastIPPort)
 	})
 }

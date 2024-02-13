@@ -46,15 +46,22 @@ type Projects interface {
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// UpdateBurstLimit is a method for updating projects burst limit.
-	UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+	UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)
+	// GetDefaultVersioning is a method to get the default versioning state of a new bucket in the project.
+	GetDefaultVersioning(ctx context.Context, id uuid.UUID) (DefaultVersioning, error)
+	// UpdateDefaultVersioning is a method to update the default versioning state of a new bucket in the project.
+	UpdateDefaultVersioning(ctx context.Context, id uuid.UUID, versioning DefaultVersioning) error
 	// UpdateBucketLimit is a method for updating projects bucket limit.
-	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// UpdateUsageLimits is a method for updating project's usage limits.
 	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
+
+	// UpdateAllLimits is a method for updating max buckets, storage, bandwidth, segment, rate, and burst limits.
+	UpdateAllLimits(ctx context.Context, id uuid.UUID, storage, bandwidth, segment *int64, buckets, rate, burst *int) error
 
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
@@ -79,7 +86,7 @@ type StorageLimitConfig struct {
 
 // BandwidthLimitConfig is a configuration struct for default bandwidth per-project usage limits.
 type BandwidthLimitConfig struct {
-	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"25.00GB" testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"25.00GB"  testDefault:"25.00 GB"`
 	Paid memory.Size `help:"the default paid-tier bandwidth usage limit" default:"100.00TB" testDefault:"25.00 GB"`
 }
 
@@ -110,11 +117,14 @@ type Project struct {
 	CreatedAt                   time.Time                 `json:"createdAt"`
 	MemberCount                 int                       `json:"memberCount"`
 	StorageLimit                *memory.Size              `json:"storageLimit"`
+	StorageUsed                 int64                     `json:"-"`
 	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
+	BandwidthUsed               int64                     `json:"-"`
 	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
 	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
 	SegmentLimit                *int64                    `json:"segmentLimit"`
 	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.
@@ -135,7 +145,22 @@ type ProjectInfo struct {
 	MemberCount      int               `json:"memberCount"`
 	CreatedAt        time.Time         `json:"createdAt"`
 	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
+	StorageUsed      int64             `json:"storageUsed"`
+	BandwidthUsed    int64             `json:"bandwidthUsed"`
 }
+
+// DefaultVersioning represents the default versioning state of a new bucket in the project.
+type DefaultVersioning int
+
+const (
+	// VersioningUnsupported - versioning for created buckets is not supported.
+	VersioningUnsupported DefaultVersioning = 0
+	// Unversioned - versioning for created buckets is supported but not enabled.
+	Unversioned DefaultVersioning = 1
+	// VersioningEnabled - versioning for created buckets is supported and enabled.
+	VersioningEnabled DefaultVersioning = 2
+	// Note: suspended is not a valid state for new buckets.
+)
 
 // ProjectsCursor holds info for project
 // cursor pagination.

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { ProjectRole } from '@/types/projectMembers';
 
 /**
  * Exposes all project-related functionality.
@@ -58,6 +59,14 @@ export interface ProjectsApi {
     getSalt(projectID: string): Promise<string>;
 
     /**
+     * Get project emission impact
+     *
+     * @param projectID - project ID
+     * @throws Error
+     */
+    getEmissionImpact(projectID: string): Promise<Emission>;
+
+    /**
      * Get project limits.
      *
      * @throws Error
@@ -69,7 +78,7 @@ export interface ProjectsApi {
      *
      * @throws Error
      */
-    getTotalUsageReportLink(start: Date, end: Date, projectID: string): string
+    getTotalUsageReportLink(start: number, end: number, projectID: string): string
 
     /**
      * Get project daily usage by specific date range.
@@ -126,6 +135,8 @@ export class Project {
         public isSelected: boolean = false,
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
+        public storageUsed: number = 0,
+        public bandwidthUsed: number = 0,
     ) {}
 
     /**
@@ -197,15 +208,6 @@ export class ProjectLimits {
     ) {}
 }
 
-export class ProjectPage {
-    public constructor(
-        public projects: Project[] = [],
-        public pageCount: number = 0,
-        public currentPage: number = 0,
-        public totalCount: number = 0,
-    ) {}
-}
-
 /**
  * ProjectsPage class, used to describe paged projects list.
  */
@@ -256,6 +258,16 @@ export class ProjectsStorageBandwidthDaily {
     public constructor(
         public storage: DataStamp[] = [],
         public allocatedBandwidth: DataStamp[] = [],
+    ) {}
+}
+
+/**
+ * Emission is used to describe project's emission impact done by different services.
+ */
+export class Emission {
+    public constructor(
+        public storjImpact: number = 0,
+        public hyperscalerImpact: number = 0,
     ) {}
 }
 
@@ -329,3 +341,34 @@ export enum LimitType {
 }
 
 export type LimitThresholdsReached = Record<LimitThreshold, LimitType[]>;
+
+/**
+ * ProjectItemModel represents the view model for project items in the all projects dashboard.
+ */
+export class ProjectItemModel {
+    public constructor(
+        public id: string,
+        public name: string,
+        public description: string,
+        public role: ProjectItemRole,
+        public memberCount: number | null,
+        public createdAt: Date,
+        public storageUsed: string = '',
+        public bandwidthUsed: string = '',
+    ) {}
+}
+
+/**
+ * ProjectItemRole represents the role of a user for a project item.
+ */
+export type ProjectItemRole = Exclude<ProjectRole, ProjectRole.InviteExpired>;
+
+/**
+ * PROJECT_ROLE_COLORS defines what colors project role tags should use.
+ */
+export const PROJECT_ROLE_COLORS: Record<ProjectRole, string> = {
+    [ProjectRole.Member]: 'green',
+    [ProjectRole.Owner]: 'secondary',
+    [ProjectRole.Invited]: 'warning',
+    [ProjectRole.InviteExpired]: 'error',
+};

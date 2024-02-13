@@ -10,6 +10,8 @@ import (
 	"io"
 	"math"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,6 +20,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
@@ -30,6 +34,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
@@ -3333,5 +3338,125 @@ func TestRepairClumpedPieces(t *testing.T) {
 		}
 		require.Equalf(t, 1, foundOnFirstNetwork,
 			"%v should only include one of %s or %s", segment.Pieces, node0.ID(), node1.ID())
+	})
+}
+
+func TestRepairClumpedPiecesBasedOnTags(t *testing.T) {
+	signer := testidentity.MustPregeneratedIdentity(50, storj.LatestIDVersion())
+	tempDir := t.TempDir()
+	pc := identity.PeerConfig{
+		CertPath: filepath.Join(tempDir, "identity.cert"),
+	}
+	require.NoError(t, pc.Save(signer.PeerIdentity()))
+
+	placementConfig := fmt.Sprintf(`
+placements:
+- id: 0
+  name: default
+  invariant: maxcontrol("tag:%s/datacenter", 2)`, signer.ID.String())
+
+	placementConfigPath := filepath.Join(tempDir, "placement.yaml")
+	require.NoError(t, os.WriteFile(placementConfigPath, []byte(placementConfig), 0755))
+
+	// Test that if nodes change IPs such that multiple pieces of a segment
+	// reside in the same network, that segment will be considered unhealthy
+	// by the repair checker and it will be repaired by the repair worker.
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Checker.DoDeclumping = true
+					config.Repairer.DoDeclumping = true
+					config.Placement.PlacementRules = placementConfigPath
+					config.TagAuthorities = pc.CertPath
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		remotePiecesBefore := segment.Pieces
+
+		// that segment should be ignored by repair checker for now
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		injuredSegment, err := satellite.DB.RepairQueue().Select(ctx, nil, nil)
+		require.Error(t, err)
+		if !queue.ErrEmpty.Has(err) {
+			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
+		}
+		require.Nil(t, injuredSegment)
+
+		// pieces list has not changed
+		segment, _ = getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		remotePiecesAfter := segment.Pieces
+		require.Equal(t, remotePiecesBefore, remotePiecesAfter)
+
+		// now move the network of one storage node holding a piece, so that it's the same as another
+		require.NoError(t, satellite.DB.OverlayCache().UpdateNodeTags(ctx, []nodeselection.NodeTag{
+			{
+				NodeID:   planet.FindNode(remotePiecesAfter[0].StorageNode).ID(),
+				SignedAt: time.Now(),
+				Name:     "datacenter",
+				Value:    []byte("dc1"),
+				Signer:   signer.ID,
+			},
+			{
+				NodeID:   planet.FindNode(remotePiecesAfter[1].StorageNode).ID(),
+				SignedAt: time.Now(),
+				Name:     "datacenter",
+				Value:    []byte("dc1"),
+				Signer:   signer.ID,
+			},
+			{
+				NodeID:   planet.FindNode(remotePiecesAfter[2].StorageNode).ID(),
+				SignedAt: time.Now(),
+				Name:     "datacenter",
+				Value:    []byte("dc1"),
+				Signer:   signer.ID,
+			},
+		}))
+
+		require.NoError(t, satellite.RangedLoop.Repair.Observer.RefreshReliabilityCache(ctx))
+
+		// running repair checker again should put the segment into the repair queue
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// and subsequently running the repair worker should pull that off the queue and repair it
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// confirm that the segment now has exactly one piece on (node0 or node1)
+		// and still has the right number of pieces.
+		segment, _ = getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		require.Len(t, segment.Pieces, 4)
+		foundOnDC1 := 0
+		for _, piece := range segment.Pieces {
+			for i := 0; i < 3; i++ {
+				if piece.StorageNode.Compare(remotePiecesAfter[i].StorageNode) == 0 {
+					foundOnDC1++
+				}
+			}
+		}
+		require.Equalf(t, 2, foundOnDC1,
+			"%v should be moved out from at least one node", segment.Pieces)
 	})
 }

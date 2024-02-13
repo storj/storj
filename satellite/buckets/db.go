@@ -69,6 +69,11 @@ const (
 	VersioningSuspended Versioning = 3
 )
 
+// IsUnversioned returns true if bucket state represents unversioned bucket.
+func (v Versioning) IsUnversioned() bool {
+	return v == VersioningUnsupported || v == Unversioned
+}
+
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
 	Name      []byte
@@ -131,6 +136,6 @@ type DB interface {
 	ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts ListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList List, err error)
 	// CountBuckets returns the number of buckets a project currently has
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
-	// IterateBucketLocations iterates through all buckets from some point with limit.
-	IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (more bool, err error)
+	// IterateBucketLocations iterates through all buckets with specific page size.
+	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
 }

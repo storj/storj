@@ -1,6 +1,6 @@
 # API Docs
 
-**Description: **Interacts with projects
+**Description:** Interacts with projects
 
 **Version:** `v0`
 
@@ -60,6 +60,7 @@ Creates new Project with given info
 	userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 	segmentLimit: number
 	defaultPlacement: number
+	defaultVersioning: number
 }
 
 ```
@@ -110,6 +111,7 @@ Updates project with given info
 	userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 	segmentLimit: number
 	defaultPlacement: number
+	defaultVersioning: number
 }
 
 ```
@@ -154,6 +156,7 @@ Gets all projects user has
 		userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 		segmentLimit: number
 		defaultPlacement: number
+		defaultVersioning: number
 	}
 
 ]

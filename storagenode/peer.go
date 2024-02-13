@@ -18,14 +18,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
-	"storj.io/private/version"
+	"storj.io/common/version"
+	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/private/server"
@@ -38,6 +39,7 @@ import (
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/forgetsatellite"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
@@ -54,7 +56,6 @@ import (
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
-	"storj.io/storj/storagenode/piecetransfer"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -63,13 +64,15 @@ import (
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	version2 "storj.io/storj/storagenode/version"
-	storagenodeweb "storj.io/storj/web/storagenode"
+	snVersion "storj.io/storj/storagenode/version"
 )
 
 var (
 	mon = monkit.Package()
 )
+
+// Assets contains either the built admin/back-office/ui or it is nil.
+var Assets fs.FS = emptyfs.FS{}
 
 // DB is the master database for Storage Node.
 //
@@ -130,11 +133,13 @@ type Config struct {
 
 	Healthcheck healthcheck.Config
 
-	Version checker.Config
+	Version snVersion.Config
 
 	Bandwidth bandwidth.Config
 
 	GracefulExit gracefulexit.Config
+
+	ForgetSatellite forgetsatellite.Config
 }
 
 // DatabaseConfig returns the storagenodedb.Config that should be used with this Config.
@@ -211,7 +216,7 @@ type Peer struct {
 	Server *server.Server
 
 	Version struct {
-		Chore   *version2.Chore
+		Chore   *snVersion.Chore
 		Service *checker.Service
 	}
 
@@ -275,15 +280,17 @@ type Peer struct {
 		Endpoint *consoleserver.Server
 	}
 
-	PieceTransfer struct {
-		Service piecetransfer.Service
-	}
-
 	GracefulExit struct {
 		Service      *gracefulexit.Service
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner
+	}
+
+	ForgetSatellite struct {
+		Endpoint *forgetsatellite.Endpoint
+		Chore    *forgetsatellite.Chore
+		Cleaner  *forgetsatellite.Cleaner
 	}
 
 	Notifications struct {
@@ -353,13 +360,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			)
 		}
 
-		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
-		versionCheckInterval := 12 * time.Hour
-		peer.Version.Chore = version2.NewChore(peer.Log.Named("version:chore"), peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
-		peer.Services.Add(lifecycle.Item{
-			Name: "version",
-			Run:  peer.Version.Chore.Run,
-		})
+		if !config.Version.RunMode.Disabled() {
+			peer.Version.Service = checker.NewService(log.Named("version"), config.Version.Config, versionInfo, "Storagenode")
+			versionCheckInterval := 12 * time.Hour
+			peer.Version.Chore = snVersion.NewChore(peer.Log.Named("version:chore"), peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
+			versionChore := lifecycle.Item{
+				Name: "version:chore",
+				Run:  peer.Version.Chore.Run,
+			}
+
+			if config.Version.RunMode.Once() {
+				versionChore.Run = peer.Version.Chore.RunOnce
+			}
+			peer.Services.Add(versionChore)
+		}
 	}
 
 	{
@@ -720,8 +734,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		var assets fs.FS
-		assets = storagenodeweb.Assets
+		assets := Assets
 		if config.Console.StaticDir != "" {
 			// HACKFIX: Previous setups specify the directory for web/storagenode,
 			// instead of the actual built data. This is for backwards compatibility.
@@ -762,18 +775,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
-	{ // setup piecetransfer service
-		peer.PieceTransfer.Service = piecetransfer.NewService(
-			peer.Log.Named("piecetransfer"),
-			peer.Storage2.Store,
-			peer.Storage2.Trust,
-			peer.Dialer,
-			// using GracefulExit config here for historical reasons
-			config.GracefulExit.MinDownloadTimeout,
-			config.GracefulExit.MinBytesPerSecond,
-		)
-	}
-
 	{ // setup graceful exit service
 		peer.GracefulExit.Service = gracefulexit.NewService(
 			peer.Log.Named("gracefulexit:service"),
@@ -798,7 +799,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
 			peer.GracefulExit.Service,
-			peer.PieceTransfer.Service,
 			peer.Dialer,
 			config.GracefulExit,
 		)
@@ -820,6 +820,41 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
+	}
+
+	{ // setup forget-satellite
+		peer.ForgetSatellite.Endpoint = forgetsatellite.NewEndpoint(
+			peer.Log.Named("forgetsatellite:endpoint"),
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+		)
+		if err := internalpb.DRPCRegisterNodeForgetSatellite(peer.Server.PrivateDRPC(), peer.ForgetSatellite.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.ForgetSatellite.Cleaner = forgetsatellite.NewCleaner(
+			peer.Log.Named("forgetsatellite:cleaner"),
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Storage2.BlobsCache,
+			peer.DB.Satellites(),
+			peer.DB.Reputation(),
+			peer.DB.V0PieceInfo(),
+		)
+
+		peer.ForgetSatellite.Chore = forgetsatellite.NewChore(
+			peer.Log.Named("forgetsatellite:chore"),
+			peer.ForgetSatellite.Cleaner,
+			config.ForgetSatellite,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "forgetsatellite:chore",
+			Run:   peer.ForgetSatellite.Chore.Run,
+			Close: peer.ForgetSatellite.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Forget Satellite", peer.ForgetSatellite.Chore.Loop))
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)

@@ -7,15 +7,18 @@ import { createRouter, createWebHistory } from 'vue-router';
 const routes = [
     {
         path: '/',
-        redirect: '/login', // directly redirect
-        component: () => import('@/layouts/default/Login.vue'),
-        children: [
-            {
-                path: '/login',
-                name: 'Login',
-                component: () => import(/* webpackChunkName: "Login" */ '@/views/Login.vue'),
-            },
-        ],
+        // redirect: '/login', // directly redirect
+        // component: () => import('@/layouts/default/Login.vue'),
+        // children: [
+        //     {
+        //         path: '/login',
+        //         name: 'Login',
+        //         component: () => import(/* webpackChunkName: "Login" */ '@/views/Login.vue'),
+        //     },
+        // ],
+        // TODO: once the switch satellite feature is implemented, remove the redirection below and
+        // uncomment the above code.
+        redirect: '/account-search', // directly redirect
     },
     {
         path: '/admin',
@@ -30,6 +33,11 @@ const routes = [
                 path: '/accounts',
                 name: 'Accounts',
                 component: () => import(/* webpackChunkName: "Users" */ '@/views/Accounts.vue'),
+            },
+            {
+                path: '/account-search',
+                name: 'Search Account',
+                component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountSearch.vue'),
             },
             {
                 path: '/account-details',

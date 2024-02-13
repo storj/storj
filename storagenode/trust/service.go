@@ -252,17 +252,39 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 	return nil
 }
 
-// DeleteSatellite deletes a satellite from the pool.
+// DeleteSatellite deletes a satellite from the pool and marks it as untrusted in the database.
 func (pool *Pool) DeleteSatellite(ctx context.Context, id storj.NodeID) error {
 	pool.satellitesMu.Lock()
 	defer pool.satellitesMu.Unlock()
 
 	if _, ok := pool.satellites[id]; !ok {
-		return ErrUntrusted
+		// satellite is already removed from the trust cache
+		return nil
 	}
 
+	// remove the satellite from the pool cache
 	delete(pool.satellites, id)
+
+	// remove the satellite from the trust cache
+	err := pool.deleteSatelliteFromCache(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	return pool.satellitesDB.UpdateSatelliteStatus(ctx, id, satellites.Untrusted)
+}
+
+// deleteSatelliteFromCache removes a satellite from the trust cache and saves the cache.
+func (pool *Pool) deleteSatelliteFromCache(ctx context.Context, id storj.NodeID) error {
+	pool.listMu.Lock()
+	defer pool.listMu.Unlock()
+
+	if !pool.list.cache.DeleteSatelliteEntry(id) {
+		// satellite is already not in the cache
+		return nil
+	}
+
+	return pool.list.saveCache(ctx)
 }
 
 func (pool *Pool) getInfo(id storj.NodeID) (*satelliteInfoCache, error) {

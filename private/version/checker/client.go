@@ -18,7 +18,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"storj.io/private/version"
+	"storj.io/common/version"
 )
 
 var (

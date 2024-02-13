@@ -4,7 +4,6 @@
 package buckets_test
 
 import (
-	"sort"
 	"strconv"
 	"testing"
 
@@ -16,9 +15,11 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
@@ -245,69 +246,85 @@ func TestListBucketsNotAllowed(t *testing.T) {
 	})
 }
 
-func TestBatchBuckets(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		db := sat.DB
-		consoleDB := db.Console()
+func TestIterateBucketLocations_ProjectsWithMutipleBuckets(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		var expectedBucketLocations []metabase.BucketLocation
 
 		var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
 			"test.bucket", "123", "0test", "999", "test-bucket.thing",
 		}
 
-		bucketsService := sat.API.Buckets.Service
-		var expectedBucketLocations []metabase.BucketLocation
-
 		for i := 1; i < 4; i++ {
-			project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject" + strconv.Itoa(i)})
+			project, err := db.Console().Projects().Insert(ctx, &console.Project{
+				ID:   testrand.UUID(),
+				Name: "testproject" + strconv.Itoa(i),
+			})
 			require.NoError(t, err)
 
-			for _, bucket := range testBucketNames {
-				testBucket := newTestBucket(bucket, project.ID)
-				_, err := bucketsService.CreateBucket(ctx, testBucket)
-				require.NoError(t, err)
+			for _, bucketName := range testBucketNames {
 				expectedBucketLocations = append(expectedBucketLocations, metabase.BucketLocation{
 					ProjectID:  project.ID,
-					BucketName: bucket,
+					BucketName: bucketName,
 				})
+
+				_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
+					ID:        testrand.UUID(),
+					ProjectID: project.ID,
+					Name:      bucketName,
+				})
+				require.NoError(t, err)
 			}
 		}
 
-		sortBucketLocations(expectedBucketLocations)
+		for _, pageSize := range []int{1, 3, 30, 1000, len(expectedBucketLocations)} {
+			bucketLocations := []metabase.BucketLocation{}
 
-		testLimits := []int{1, 3, 30, 1000, len(expectedBucketLocations)}
-
-		for _, testLimit := range testLimits {
-			more, err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "", testLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
-				if testLimit > len(expectedBucketLocations) {
-					testLimit = len(expectedBucketLocations)
-				}
-
-				expectedResult := expectedBucketLocations[:testLimit]
-				require.Equal(t, expectedResult, bucketLocations)
+			err := db.Buckets().IterateBucketLocations(ctx, pageSize, func(bl []metabase.BucketLocation) error {
+				bucketLocations = append(bucketLocations, bl...)
 				return nil
 			})
 			require.NoError(t, err)
-			if testLimit < len(expectedBucketLocations) {
-				require.True(t, more)
-			} else {
-				require.False(t, more)
-			}
-		}
 
-		// check if invalid bucket name 'a\' won't throw an error
-		_, err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "a\\", 1, func(bucketLocations []metabase.BucketLocation) (err error) {
-			return nil
-		})
-		require.NoError(t, err)
+			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
+		}
 	})
 }
 
-func sortBucketLocations(locations []metabase.BucketLocation) {
-	sort.Slice(locations, func(i, j int) bool {
-		if locations[i].ProjectID == locations[j].ProjectID {
-			return locations[i].BucketName < locations[j].BucketName
+func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		expectedBucketLocations := []metabase.BucketLocation{}
+
+		for i := 1; i < 16; i++ {
+			location := metabase.BucketLocation{
+				ProjectID:  testrand.UUID(),
+				BucketName: "bucket" + strconv.Itoa(i),
+			}
+			expectedBucketLocations = append(expectedBucketLocations, location)
+
+			project, err := db.Console().Projects().Insert(ctx, &console.Project{
+				ID:   location.ProjectID,
+				Name: "test",
+			})
+			require.NoError(t, err)
+
+			_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: project.ID,
+				Name:      location.BucketName,
+			})
+			require.NoError(t, err)
 		}
-		return locations[i].ProjectID.Less(locations[j].ProjectID)
+
+		for pageSize := 1; pageSize < len(expectedBucketLocations)+1; pageSize++ {
+			bucketLocations := []metabase.BucketLocation{}
+
+			err := db.Buckets().IterateBucketLocations(ctx, pageSize, func(bl []metabase.BucketLocation) error {
+				bucketLocations = append(bucketLocations, bl...)
+				return nil
+			})
+			require.NoError(t, err)
+
+			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
+		}
 	})
 }

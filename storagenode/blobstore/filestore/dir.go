@@ -873,17 +873,11 @@ func removeAllContent(ctx context.Context, path string) (err error) {
 	}
 }
 
-// DiskInfo contains statistics about this dir.
-type DiskInfo struct {
-	ID             string
-	AvailableSpace int64
-}
-
 // Info returns information about the current state of the dir.
-func (dir *Dir) Info(ctx context.Context) (DiskInfo, error) {
+func (dir *Dir) Info(ctx context.Context) (blobstore.DiskInfo, error) {
 	path, err := filepath.Abs(dir.path)
 	if err != nil {
-		return DiskInfo{}, err
+		return blobstore.DiskInfo{}, err
 	}
 	return diskInfoFromPath(path)
 }

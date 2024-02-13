@@ -157,10 +157,13 @@ export class UpdatedUser {
 export interface AccountSetupData {
     fullName: string
     isProfessional: boolean
+    haveSalesContact: boolean
     position?: string
     companyName?: string
     employeeCount?: string
     storageNeeds?: string
+    storageUseCase?: string
+    functionalArea?: string
 }
 
 /**
@@ -193,6 +196,7 @@ export class UserSettings {
         public onboardingEnd = false,
         public passphrasePrompt = true,
         public onboardingStep: string | null = null,
+        public noticeDismissal: NoticeDismissal = { fileGuide: false, serverSideEncryption: false, partnerUpgradeBanner: false, projectMembersPassphrase: false },
     ) { }
 
     public get sessionDuration(): Duration | null {
@@ -203,12 +207,20 @@ export class UserSettings {
     }
 }
 
+export interface NoticeDismissal {
+    fileGuide: boolean
+    serverSideEncryption: boolean
+    partnerUpgradeBanner: boolean
+    projectMembersPassphrase: boolean
+}
+
 export interface SetUserSettingsData {
     onboardingStart?: boolean
     onboardingEnd?: boolean;
     passphrasePrompt?: boolean;
     onboardingStep?: string | null;
     sessionDuration?: number;
+    noticeDismissal?: NoticeDismissal;
 }
 
 /**
@@ -222,11 +234,33 @@ export class FreezeStatus {
 }
 
 /**
- * AccountSetupStep are the steps in the account setup dialog.
+ * OnboardingStep are the steps in the account setup dialog and onboarding stepper.
  */
-export enum AccountSetupStep {
-    Choice,
-    Personal,
-    Business,
-    Success,
+export enum OnboardingStep {
+    AccountTypeSelection = 'AccountTypeSelection',
+    PersonalAccountForm = 'PersonalAccountForm',
+    PricingPlanSelection = 'PricingPlanSelection',
+    PricingPlan = 'PricingPlan',
+    BusinessAccountForm = 'BusinessAccountForm',
+    SetupComplete = 'SetupComplete',
+    EncryptionPassphrase = 'EncryptionPassphrase',
+    CreateBucket = 'CreateBucket',
+    UploadFiles = 'UploadFiles',
+    CreateAccess = 'CreateAccess',
 }
+
+export const ONBOARDING_STEPPER_STEPS = [
+    OnboardingStep.EncryptionPassphrase,
+    OnboardingStep.CreateBucket,
+    OnboardingStep.UploadFiles,
+    OnboardingStep.CreateAccess,
+];
+
+export const ACCOUNT_SETUP_STEPS = [
+    OnboardingStep.AccountTypeSelection,
+    OnboardingStep.PersonalAccountForm,
+    OnboardingStep.PricingPlanSelection,
+    OnboardingStep.PricingPlan,
+    OnboardingStep.BusinessAccountForm,
+    OnboardingStep.SetupComplete,
+];

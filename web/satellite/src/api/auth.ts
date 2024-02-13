@@ -62,9 +62,10 @@ export class AuthHttpApi implements UsersApi {
      * @param captchaResponse - captcha response token
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
+     * @param rememberForOneWeek - flag to remember user
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<TokenInfo> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, rememberForOneWeek = false): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -72,6 +73,7 @@ export class AuthHttpApi implements UsersApi {
             captchaResponse,
             mfaPasscode: mfaPasscode || null,
             mfaRecoveryCode: mfaRecoveryCode || null,
+            rememberForOneWeek,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
@@ -363,6 +365,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.onboardingEnd,
                 responseData.passphrasePrompt,
                 responseData.onboardingStep,
+                responseData.noticeDismissal,
             );
         }
 
@@ -392,6 +395,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.onboardingEnd,
                 responseData.passphrasePrompt,
                 responseData.onboardingStep,
+                responseData.noticeDismissal,
             );
         }
 
@@ -412,7 +416,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns requestID to be used for code activation.
      * @throws Error
      */
-    public async register(user: Partial<User & { storageNeeds: string }>, secret: string, captchaResponse: string): Promise<string> {
+    public async register(user: Partial<User & { storageNeeds: string, isMinimal: boolean }>, secret: string, captchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -429,6 +433,7 @@ export class AuthHttpApi implements UsersApi {
             haveSalesContact: user.haveSalesContact,
             captchaResponse: captchaResponse,
             signupPromoCode: user.signupPromoCode,
+            isMinimal: user.isMinimal,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));

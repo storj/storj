@@ -15,13 +15,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/uuid"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
@@ -205,13 +205,18 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	// setup dependencies for verification
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), overlay.NewPlacementDefinitions().CreateFilters, "", "", satelliteCfg.Overlay)
+	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlayService, orders.NewNoopDB(), overlay.NewPlacementDefinitions().CreateFilters, satelliteCfg.Orders)
+	// setup dependencies for verification
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placements, "", "", satelliteCfg.Overlay)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlayService, orders.NewNoopDB(), placements.CreateFilters, satelliteCfg.Orders)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -22,13 +22,16 @@ func TestNodeEvents(t *testing.T) {
 		testID := teststorj.NodeIDFromString("test")
 		testEmail := "test@storj.test"
 		eventType := nodeevents.Disqualified
+		ipPort := "127.0.0.1:1234"
 
-		neFromInsert, err := db.NodeEvents().Insert(ctx, testEmail, testID, eventType)
+		neFromInsert, err := db.NodeEvents().Insert(ctx, testEmail, &ipPort, testID, eventType)
 		require.NoError(t, err)
 		require.NotNil(t, neFromInsert.ID)
 		require.Equal(t, testID, neFromInsert.NodeID)
 		require.Equal(t, testEmail, neFromInsert.Email)
 		require.Equal(t, eventType, neFromInsert.Event)
+		require.NotNil(t, neFromInsert.LastIPPort)
+		require.Equal(t, ipPort, *neFromInsert.LastIPPort)
 		require.NotNil(t, neFromInsert.CreatedAt)
 		require.Nil(t, neFromInsert.EmailSent)
 
@@ -46,10 +49,10 @@ func TestNodeEventsUpdateEmailSent(t *testing.T) {
 		eventType := nodeevents.Disqualified
 
 		// Insert into node events
-		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, eventType)
 		require.NoError(t, err)
 
-		event2, err := db.NodeEvents().Insert(ctx, testEmail1, testID2, eventType)
+		event2, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID2, eventType)
 		require.NoError(t, err)
 
 		// GetNextBatch should get them.
@@ -88,14 +91,14 @@ func TestNodeEventsUpdateLastAttempted(t *testing.T) {
 		testEmail1 := "test1@storj.test"
 		eventType := nodeevents.Disqualified
 
-		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, eventType)
 		require.NoError(t, err)
 
 		event1, err = db.NodeEvents().GetByID(ctx, event1.ID)
 		require.NoError(t, err)
 		require.Nil(t, event1.LastAttempted)
 
-		event2, err := db.NodeEvents().Insert(ctx, testEmail1, testID2, eventType)
+		event2, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID2, eventType)
 		require.NoError(t, err)
 
 		event2, err = db.NodeEvents().GetByID(ctx, event2.ID)
@@ -123,10 +126,10 @@ func TestNodeEventsGetByID(t *testing.T) {
 
 		eventType := nodeevents.Disqualified
 
-		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, eventType)
 		require.NoError(t, err)
 
-		event2, err := db.NodeEvents().Insert(ctx, testEmail2, testID2, eventType)
+		event2, err := db.NodeEvents().Insert(ctx, testEmail2, nil, testID2, eventType)
 		require.NoError(t, err)
 
 		res, err := db.NodeEvents().GetByID(ctx, event1.ID)
@@ -152,25 +155,25 @@ func TestNodeEventsGetNextBatch(t *testing.T) {
 
 		eventType := nodeevents.Disqualified
 
-		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, eventType)
 		require.NoError(t, err)
 
 		// insert one event with same email and event type, but with different node ID. It should be selected.
-		event2, err := db.NodeEvents().Insert(ctx, testEmail1, testID2, eventType)
+		event2, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID2, eventType)
 		require.NoError(t, err)
 
 		// insert one event with same email and event type, but email_sent is not null. Should not be selected.
-		event3, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		event3, err := db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, eventType)
 		require.NoError(t, err)
 
 		require.NoError(t, db.NodeEvents().UpdateEmailSent(ctx, []uuid.UUID{event3.ID}, time.Now()))
 
 		// insert one event with same email, but different type. Should not be selected.
-		_, err = db.NodeEvents().Insert(ctx, testEmail1, testID1, nodeevents.BelowMinVersion)
+		_, err = db.NodeEvents().Insert(ctx, testEmail1, nil, testID1, nodeevents.BelowMinVersion)
 		require.NoError(t, err)
 
 		// insert one event with same event type, but different email. Should not be selected.
-		_, err = db.NodeEvents().Insert(ctx, testEmail2, testID1, eventType)
+		_, err = db.NodeEvents().Insert(ctx, testEmail2, nil, testID1, eventType)
 		require.NoError(t, err)
 
 		batch, err := db.NodeEvents().GetNextBatch(ctx, time.Now())
@@ -216,20 +219,20 @@ func TestNodeEventsGetNextBatchSelectionOrder(t *testing.T) {
 			email0, email3, email2, email1,
 		}
 
-		_, err := db.NodeEvents().Insert(ctx, email0, id0, eventType)
+		_, err := db.NodeEvents().Insert(ctx, email0, nil, id0, eventType)
 		require.NoError(t, err)
 
-		insert1, err := db.NodeEvents().Insert(ctx, email1, id1, eventType)
+		insert1, err := db.NodeEvents().Insert(ctx, email1, nil, id1, eventType)
 		require.NoError(t, err)
 		require.NoError(t, err)
 		require.NoError(t, db.NodeEvents().UpdateLastAttempted(ctx, []uuid.UUID{insert1.ID}, time.Now().Add(5*time.Minute)))
 
-		insert2, err := db.NodeEvents().Insert(ctx, email2, id2, eventType)
+		insert2, err := db.NodeEvents().Insert(ctx, email2, nil, id2, eventType)
 		require.NoError(t, err)
 		require.NoError(t, err)
 		require.NoError(t, db.NodeEvents().UpdateLastAttempted(ctx, []uuid.UUID{insert2.ID}, time.Now()))
 
-		_, err = db.NodeEvents().Insert(ctx, email3, id3, eventType)
+		_, err = db.NodeEvents().Insert(ctx, email3, nil, id3, eventType)
 		require.NoError(t, err)
 
 		for i := 0; i < 4; i++ {

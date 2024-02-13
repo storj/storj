@@ -13,14 +13,14 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/process"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/process"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/private/version/checker"
 )

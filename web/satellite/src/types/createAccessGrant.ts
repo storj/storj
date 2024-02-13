@@ -1,21 +1,15 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import CreateNewAccessIcon from '@/../static/images/accessGrants/newCreateFlow/createNewAccess.svg';
-import ChoosePermissionIcon from '@/../static/images/accessGrants/newCreateFlow/choosePermission.svg';
-import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
-import PassphraseGeneratedIcon from '@/../static/images/accessGrants/newCreateFlow/passphraseGenerated.svg';
-import AccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/accessCreated.svg';
-import CLIAccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/cliAccessCreated.svg';
-import CredentialsCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/credentialsCreated.svg';
-import EncryptionInfoIcon from '@/../static/images/accessGrants/newCreateFlow/encryptionInfo.svg';
-import ConfirmDetailsIcon from '@/../static/images/accessGrants/newCreateFlow/confirmDetails.svg';
-import TypeIcon from '@/../static/images/accessGrants/newCreateFlow/typeIcon.svg';
-import NameIcon from '@/../static/images/accessGrants/newCreateFlow/nameIcon.svg';
-import PermissionsIcon from '@/../static/images/accessGrants/newCreateFlow/permissionsIcon.svg';
-import BucketsIcon from '@/../static/images/accessGrants/newCreateFlow/bucketsIcon.svg';
-import EndDateIcon from '@/../static/images/accessGrants/newCreateFlow/endDateIcon.svg';
-import EncryptionPassphraseIcon from '@/../static/images/accessGrants/newCreateFlow/encryptionPassphraseIcon.svg';
+import CreateNewAccessIcon from '@/assets/createAccessGrantFlow/createNewAccess.svg';
+import ChoosePermissionIcon from '@/assets/createAccessGrantFlow/choosePermission.svg';
+import AccessEncryptionIcon from '@/assets/createAccessGrantFlow/accessEncryption.svg';
+import PassphraseGeneratedIcon from '@/assets/createAccessGrantFlow/passphraseGenerated.svg';
+import AccessCreatedIcon from '@/assets/createAccessGrantFlow/accessCreated.svg';
+import CLIAccessCreatedIcon from '@/assets/createAccessGrantFlow/cliAccessCreated.svg';
+import CredentialsCreatedIcon from '@/assets/createAccessGrantFlow/credentialsCreated.svg';
+import EncryptionInfoIcon from '@/assets/createAccessGrantFlow/encryptionInfo.svg';
+import ConfirmDetailsIcon from '@/assets/createAccessGrantFlow/confirmDetails.svg';
 
 export interface IconAndTitle {
     icon: string;
@@ -56,6 +50,17 @@ export enum Permission {
     List = 'List',
     Delete = 'Delete',
 }
+
+export interface AccessGrantEndDate {
+    title: string;
+    date: Date | null;
+}
+
+export const ACCESS_TYPE_LINKS: Record<AccessType, string> = {
+    [AccessType.AccessGrant]: 'https://docs.storj.io/dcs/concepts/access/access-grants',
+    [AccessType.S3]: 'https://docs.storj.io/dcs/api-reference/s3-compatible-gateway',
+    [AccessType.APIKey]: 'https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token',
+};
 
 export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.CreateNewAccess]: {
@@ -101,41 +106,5 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.CLIAccessCreated]: {
         icon: CLIAccessCreatedIcon,
         title: 'CLI access created',
-    },
-};
-
-export enum FunctionalContainer {
-    Type = 'type',
-    Name = 'name',
-    Permissions = 'permissions',
-    Buckets = 'buckets',
-    EndDate = 'endDate',
-    EncryptionPassphrase = 'encryptionPassphrase',
-}
-
-export const FUNCTIONAL_CONTAINER_ICON_AND_TITLE: Record<FunctionalContainer, IconAndTitle> = {
-    [FunctionalContainer.Type]: {
-        icon: TypeIcon,
-        title: 'Type',
-    },
-    [FunctionalContainer.Name]: {
-        icon: NameIcon,
-        title: 'Name',
-    },
-    [FunctionalContainer.Permissions]: {
-        icon: PermissionsIcon,
-        title: 'Permissions',
-    },
-    [FunctionalContainer.Buckets]: {
-        icon: BucketsIcon,
-        title: 'Buckets',
-    },
-    [FunctionalContainer.EndDate]: {
-        icon: EndDateIcon,
-        title: 'End Date',
-    },
-    [FunctionalContainer.EncryptionPassphrase]: {
-        icon: EncryptionPassphraseIcon,
-        title: 'Encryption Passphrase',
     },
 };

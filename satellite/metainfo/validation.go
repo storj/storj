@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -25,6 +24,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -171,7 +171,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
 
-	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
+	if err = endpoint.checkRate(ctx, keyInfo); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, nil, err
 	}
@@ -205,26 +205,22 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized attempt to revoke macaroon")
 }
 
-func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (err error) {
+func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.APIKeyInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
 	}
-	limiter, err := endpoint.limiterCache.Get(ctx, projectID.String(), func() (*rate.Limiter, error) {
+	limiter, err := endpoint.limiterCache.Get(ctx, apiKeyInfo.ProjectID.String(), func() (*rate.Limiter, error) {
 		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
 		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
-		limits, err := endpoint.projectLimits.GetLimits(ctx, projectID)
-		if err != nil {
-			return nil, err
-		}
-		if limits.RateLimit != nil {
-			rateLimit = rate.Limit(*limits.RateLimit)
-			burstLimit = *limits.RateLimit
+		if apiKeyInfo.ProjectRateLimit != nil {
+			rateLimit = rate.Limit(*apiKeyInfo.ProjectRateLimit)
+			burstLimit = *apiKeyInfo.ProjectRateLimit
 		}
 		// use the explicitly set burst value if it's defined
-		if limits.BurstLimit != nil {
-			burstLimit = *limits.BurstLimit
+		if apiKeyInfo.ProjectBurstLimit != nil {
+			burstLimit = *apiKeyInfo.ProjectBurstLimit
 		}
 
 		return rate.NewLimiter(rateLimit, burstLimit), nil
@@ -235,7 +231,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 
 	if !limiter.Allow() {
 		endpoint.log.Warn("too many requests for project",
-			zap.Stringer("projectID", projectID),
+			zap.Stringer("Project ID", apiKeyInfo.ProjectID),
 			zap.Float64("rate limit", float64(limiter.Limit())),
 			zap.Float64("burst limit", float64(limiter.Burst())))
 
@@ -391,28 +387,49 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 	return nil
 }
 
-func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.UUID) error {
-	return endpoint.checkUploadLimitsForNewObject(ctx, projectID, 1, 1)
+func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *console.APIKeyInfo) error {
+	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, keyInfoToLimits(keyInfo)); err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		endpoint.log.Error(
+			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
+	} else if exceeded {
+		endpoint.log.Warn("Monthly bandwidth limit exceeded",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+		)
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	}
+	return nil
+}
+
+func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo) error {
+	return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo, 1, 1)
 }
 
 func (endpoint *Endpoint) checkUploadLimitsForNewObject(
-	ctx context.Context, projectID uuid.UUID, newObjectSize int64, newObjectSegmentCount int64,
+	ctx context.Context, keyInfo *console.APIKeyInfo, newObjectSize int64, newObjectSegmentCount int64,
 ) error {
-	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, newObjectSize, newObjectSegmentCount); err != nil {
+	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, keyInfo.ProjectID, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo)); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 
 		endpoint.log.Error(
 			"Retrieving project upload limit failed; limit won't be enforced",
-			zap.Stringer("Project ID", projectID),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
 	} else {
 		if limit.ExceedsSegments {
 			endpoint.log.Warn("Segment limit exceeded",
 				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
-				zap.Stringer("Project ID", projectID),
+				zap.Stringer("Project ID", keyInfo.ProjectID),
 			)
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
 		}
@@ -420,7 +437,7 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 		if limit.ExceedsStorage {
 			endpoint.log.Warn("Storage limit exceeded",
 				zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
-				zap.Stringer("Project ID", projectID),
+				zap.Stringer("Project ID", keyInfo.ProjectID),
 			)
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
 		}
@@ -467,13 +484,13 @@ func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.
 	return nil
 }
 
-func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, storage int64, segments int64) (err error) {
-	err = endpoint.projectUsage.AddProjectUsageUpToLimit(ctx, projectID, storage, segments)
+func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo *console.APIKeyInfo, storage int64, segments int64) (err error) {
+	err = endpoint.projectUsage.AddProjectUsageUpToLimit(ctx, keyInfo.ProjectID, storage, segments, keyInfoToLimits(keyInfo))
 
 	if err != nil {
 		if accounting.ErrProjectLimitExceeded.Has(err) {
 			endpoint.log.Warn("Upload limit exceeded",
-				zap.Stringer("Project ID", projectID),
+				zap.Stringer("Project ID", keyInfo.ProjectID),
 				zap.Error(err),
 			)
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, err.Error())
@@ -485,7 +502,7 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, projectI
 
 		endpoint.log.Error(
 			"Updating project upload limits failed; limits won't be enforced",
-			zap.Stringer("Project ID", projectID),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
 	}
@@ -526,4 +543,19 @@ func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID u
 	}
 
 	return nil
+}
+
+func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
+	if keyInfo == nil {
+		return accounting.ProjectLimits{}
+	}
+
+	return accounting.ProjectLimits{
+		Bandwidth: keyInfo.ProjectBandwidthLimit,
+		Usage:     keyInfo.ProjectStorageLimit,
+		Segments:  keyInfo.ProjectSegmentsLimit,
+
+		RateLimit:  keyInfo.ProjectRateLimit,
+		BurstLimit: keyInfo.ProjectBurstLimit,
+	}
 }

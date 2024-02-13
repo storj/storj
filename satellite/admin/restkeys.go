@@ -60,9 +60,22 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 	if input.Expiration != "" {
 		expiration, err = time.ParseDuration(input.Expiration)
 		if err != nil {
-			sendJSONError(w, "failed to parse expiration. Use format: 00h00m00s",
-				err.Error(), http.StatusBadRequest)
+			sendJSONError(
+				w,
+				"failed to parse expiration. It accepts any non-negative value according the format rules of https://pkg.go.dev/time#ParseDuration",
+				err.Error(),
+				http.StatusBadRequest,
+			)
 			return
+		}
+
+		if expiration < 0 {
+			sendJSONError(
+				w,
+				"invalid expiration value",
+				"value must result in a greater or equal than 0 duration",
+				http.StatusBadRequest,
+			)
 		}
 	}
 

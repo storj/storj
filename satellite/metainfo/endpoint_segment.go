@@ -61,7 +61,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
-	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
+	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
 		return nil, err
 	}
 
@@ -204,7 +204,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		pieceNumberSet[pieceNumber] = struct{}{}
 	}
 
-	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
+	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
 		return nil, err
 	}
 
@@ -390,7 +390,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
+	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
 		return nil, err
 	}
 
@@ -468,7 +468,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
 	}
 
-	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
+	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
 		return nil, err
 	}
 
@@ -635,22 +635,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 
-	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		if errs2.IsCanceled(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
-
-		endpoint.log.Error(
-			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
-	} else if exceeded {
-		endpoint.log.Warn("Monthly bandwidth limit exceeded",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
+		return nil, err
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)

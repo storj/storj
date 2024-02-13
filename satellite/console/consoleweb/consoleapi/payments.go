@@ -214,16 +214,16 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	_, err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, errs.Unwrap(err).Error())
 			return
 		}
 
 		if stripe.ErrDuplicateCard.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, errs.Unwrap(err).Error())
 			return
 		}
 
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
 		return
 	}
 
@@ -252,16 +252,16 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, errs.Unwrap(err).Error())
 			return
 		}
 
 		if stripe.ErrDuplicateCard.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, errs.Unwrap(err).Error())
 			return
 		}
 
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
 		return
 	}
 
@@ -428,7 +428,7 @@ func (p *Payments) InvoiceHistory(w http.ResponseWriter, r *http.Request) {
 	startParam := query.Get("starting_after")
 	endParam := query.Get("ending_before")
 
-	history, err := p.service.Payments().InvoiceHistory(ctx, console.BillingHistoryCursor{
+	history, err := p.service.Payments().InvoiceHistory(ctx, payments.InvoiceCursor{
 		Limit:         int(limit),
 		StartingAfter: startParam,
 		EndingBefore:  endParam,

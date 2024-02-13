@@ -19,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 // Projects is an api controller that exposes projects related functionality.
@@ -43,8 +44,11 @@ type ProjectMembersPage struct {
 
 // Member is a project member in a ProjectMembersPage.
 type Member struct {
-	User     *console.User `json:"user"`
-	JoinedAt time.Time     `json:"joinedAt"`
+	ID        uuid.UUID `json:"id"`
+	FullName  string    `json:"fullName"`
+	ShortName string    `json:"shortName"`
+	Email     string    `json:"email"`
+	JoinedAt  time.Time `json:"joinedAt"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
@@ -197,6 +201,11 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrInvalidProjectLimit.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -394,25 +403,18 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 	memberPage.Members = []Member{}
 	memberPage.Invitations = []Invitation{}
 
-	// getMemberInfo returns only member information that is necessary in the UI
-	getMemberInfo := func(u *console.User) *console.User {
-		return &console.User{
-			ID:        u.ID,
-			FullName:  u.FullName,
-			ShortName: u.ShortName,
-			Email:     u.Email,
-		}
-	}
 	for _, m := range membersAndInvitations.ProjectMembers {
 		user, err := p.service.GetUser(ctx, m.MemberID)
 		if err != nil {
 			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
-		u := getMemberInfo(user)
 		member := Member{
-			User:     u,
-			JoinedAt: m.CreatedAt,
+			ID:        user.ID,
+			FullName:  user.FullName,
+			ShortName: user.ShortName,
+			Email:     user.Email,
+			JoinedAt:  m.CreatedAt,
 		}
 		memberPage.Members = append(memberPage.Members, member)
 	}
@@ -463,6 +465,49 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetEmissionImpact returns CO2 emission impact.
+func (p *Projects) GetEmissionImpact(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	impact, err := p.service.GetEmissionImpact(ctx, id)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var response struct {
+		StorjImpact       float64 `json:"storjImpact"`
+		HyperscalerImpact float64 `json:"hyperscalerImpact"`
+	}
+
+	response.StorjImpact = impact.EstimatedKgCO2eStorj
+	response.HyperscalerImpact = impact.EstimatedKgCO2eHyperscaler
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // InviteUser sends a project invitation to a user.
 func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -485,6 +530,12 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email = strings.TrimSpace(email)
+
+	isValidEmail := utils.ValidateEmail(email)
+	if !isValidEmail {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
 
 	_, err = p.service.InviteNewProjectMember(ctx, id, email)
 	if err != nil {

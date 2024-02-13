@@ -5,7 +5,7 @@ import { Plugin } from 'vite';
 import { build } from 'esbuild';
 import { createVuetify } from 'vuetify';
 
-import { THEME_OPTIONS } from '../../vuetify-poc/src/plugins/theme';
+import { THEME_OPTIONS } from '../../src/plugins/theme';
 
 export default function vuetifyThemeCSS(): Plugin {
     const name = 'vuetify-theme-css';

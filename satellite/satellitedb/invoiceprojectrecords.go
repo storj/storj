@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
-	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -59,7 +59,7 @@ func (db *invoiceProjectRecords) CreateToBeAggregated(ctx context.Context, recor
 }
 
 func (db *invoiceProjectRecords) createWithState(ctx context.Context, records []stripe.CreateProjectRecord, state invoiceProjectRecordState, start, end time.Time) error {
-	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+	return Error.Wrap(db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, record := range records {
 			id, err := uuid.New()
 			if err != nil {
@@ -79,12 +79,12 @@ func (db *invoiceProjectRecords) createWithState(ctx context.Context, records []
 				},
 			)
 			if err != nil {
-				return err
+				return Error.Wrap(err)
 			}
 		}
 
 		return nil
-	})
+	}))
 }
 
 // Check checks if invoice project record for specified project and billing period exists.
@@ -160,11 +160,11 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, cursor uuid.
 
 func (db *invoiceProjectRecords) list(ctx context.Context, cursor uuid.UUID, limit, state int, start, end time.Time) (page stripe.ProjectRecordsPage, err error) {
 	err = withRows(db.db.QueryContext(ctx, db.db.Rebind(`
-		SELECT 
+		SELECT
 			id, project_id, storage, egress, segments, period_start, period_end, state
-		FROM 
-			stripecoinpayments_invoice_project_records 
-		WHERE 
+		FROM
+			stripecoinpayments_invoice_project_records
+		WHERE
 			id > ? AND period_start = ? AND period_end = ? AND state = ?
 		ORDER BY id
 		LIMIT ?

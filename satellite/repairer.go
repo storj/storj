@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/audit"
@@ -140,12 +140,12 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup overlay
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
 
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -178,7 +178,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup orders
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +211,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup repairer
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +235,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
-			placement.CreateFilters,
+			placement,
 			config.Checker.RepairOverrides,
 			config.Repairer,
 		)

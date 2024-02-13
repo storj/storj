@@ -45,7 +45,6 @@ export class FrontendConfig {
     galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
     objectBrowserPaginationEnabled: boolean;
-    objectBrowserCardViewEnabled: boolean;
     billingFeaturesEnabled: boolean;
     stripePaymentElementEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
@@ -53,7 +52,10 @@ export class FrontendConfig {
     userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
-    newSignupFlowEnabled: boolean;
+    allowedUsageReportDateRange: number;
+    onboardingStepperEnabled: boolean;
+    enableRegionTag: boolean;
+    emissionImpactViewEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

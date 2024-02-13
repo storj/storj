@@ -17,10 +17,13 @@ import {
     ProjectUsageDateRange,
     ProjectInvitation,
     ProjectInvitationResponse,
+    Emission,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { hexToBase64 } from '@/utils/strings';
+import { Duration, Time } from '@/utils/time';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const DEFAULT_PROJECT = new Project('', '', '', '', '', true, 0);
 const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
@@ -42,6 +45,7 @@ export class ProjectsState {
     public chartDataBefore: Date = new Date();
     public invitations: ProjectInvitation[] = [];
     public selectedInvitation: ProjectInvitation = DEFAULT_INVITATION;
+    public emission: Emission = new Emission();
 }
 
 export const useProjectsStore = defineStore('projects', () => {
@@ -49,12 +53,17 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const api: ProjectsApi = new ProjectsHttpApi();
 
-    function getUsageReportLink(projectID = ''): string {
-        const now = new Date();
-        const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
-        const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
+    function getUsageReportLink(startUTC: Date, endUTC: Date, projectID = ''): string {
+        const since = Time.toUnixTimestamp(startUTC);
+        const before = Time.toUnixTimestamp(endUTC);
 
-        return api.getTotalUsageReportLink(startUTC, endUTC, projectID);
+        const allowedDuration = new Duration(useConfigStore().state.config.allowedUsageReportDateRange);
+        const duration = before - since; // seconds
+        if (duration > allowedDuration.fullSeconds) {
+            throw new Error(`Date range must be less than ${allowedDuration.shortString}`);
+        }
+
+        return api.getTotalUsageReportLink(since, before, projectID);
     }
 
     async function getProjects(): Promise<Project[]> {
@@ -154,7 +163,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function createDefaultProject(userID: string): Promise<void> {
-        const UNTITLED_PROJECT_NAME = 'My First Project';
+        const UNTITLED_PROJECT_NAME = 'My Storj Project';
         const UNTITLED_PROJECT_DESCRIPTION = '___';
 
         const project = new ProjectFields(
@@ -277,6 +286,10 @@ export const useProjectsStore = defineStore('projects', () => {
         return await api.getSalt(projectID);
     }
 
+    async function getEmissionImpact(projectID: string): Promise<void> {
+        state.emission = await api.getEmissionImpact(projectID);
+    }
+
     async function getUserInvitations(): Promise<ProjectInvitation[]> {
         const invites = await api.getUserInvitations();
 
@@ -351,6 +364,7 @@ export const useProjectsStore = defineStore('projects', () => {
         getTotalLimits,
         getUsageReportLink,
         getProjectSalt,
+        getEmissionImpact,
         getUserInvitations,
         respondToInvitation,
         selectInvitation,

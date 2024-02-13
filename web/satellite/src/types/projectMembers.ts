@@ -8,8 +8,6 @@ import { SortDirection } from '@/types/common';
 import { User } from '@/types/users';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
-export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<void>;
-
 export enum ProjectMemberOrderBy {
     NAME = 1,
     EMAIL,

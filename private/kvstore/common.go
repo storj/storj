@@ -16,11 +16,16 @@ var mon = monkit.Package()
 // Delimiter separates nested paths in storage.
 const Delimiter = '/'
 
-// ErrKeyNotFound used when something doesn't exist.
-var ErrKeyNotFound = errs.Class("key not found")
+var (
+	// ErrKeyNotFound used when something doesn't exist.
+	ErrKeyNotFound = errs.Class("key not found")
 
-// ErrEmptyKey is returned when an empty key is used in Put or in CompareAndSwap.
-var ErrEmptyKey = errs.Class("empty key")
+	// ErrEmptyKey is returned when an empty key is used in Put or in CompareAndSwap.
+	ErrEmptyKey = errs.Class("empty key")
+
+	// ErrValueChanged is returned when the current value of the key does not match the old value in CompareAndSwap.
+	ErrValueChanged = errs.Class("value changed")
+)
 
 // Key is the type for the keys in a `Store`.
 type Key []byte
@@ -55,6 +60,8 @@ type Store interface {
 	// Range iterates over all items in unspecified order.
 	// The Key and Value are valid only for the duration of callback.
 	Range(ctx context.Context, fn func(context.Context, Key, Value) error) error
+	// CompareAndSwap atomically compares and swaps oldValue with newValue.
+	CompareAndSwap(ctx context.Context, key Key, oldValue, newValue Value) error
 	// Close closes the store.
 	Close() error
 }

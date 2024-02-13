@@ -9,6 +9,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,6 +19,7 @@ import (
 
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
+	"storj.io/storj/private/apigen/example"
 	"storj.io/storj/private/apigen/example/myapi"
 )
 
@@ -134,24 +137,57 @@ func main() {
 		TypeScriptName: "get",
 		Response:       []myapi.User{},
 		ResponseMock: []myapi.User{
-			{Name: "Storj", Surname: "Labs", Email: "storj@storj.test"},
-			{Name: "Test1", Surname: "Testing", Email: "test1@example.test"},
-			{Name: "Test2", Surname: "Testing", Email: "test2@example.test"},
+			{
+				Name:         "Storj",
+				Surname:      "Labs",
+				Email:        "storj@storj.test",
+				Professional: myapi.Professional{Company: "Test 1", Position: "Tester"},
+			},
+			{
+				Name: "Test1", Surname: "Testing", Email: "test1@example.test",
+				Professional: myapi.Professional{Company: "Test 2", Position: "Accountant"},
+			},
+			{
+				Name: "Test2", Surname: "Testing", Email: "test2@example.test",
+				Professional: myapi.Professional{Company: "Test 3", Position: "Slacker"},
+			},
 		},
 	})
 
 	g.Post("/", &apigen.Endpoint{
-		Name:           "Create User",
-		Description:    "Create a user",
+		Name:           "Create Users",
+		Description:    "Create users",
 		GoName:         "Create",
 		TypeScriptName: "create",
 		Request:        []myapi.User{},
 	})
 
-	a.MustWriteGo("api.gen.go")
-	a.MustWriteTS("client-api.gen.ts")
-	a.MustWriteTSMock("client-api-mock.gen.ts")
-	a.MustWriteDocs("apidocs.gen.md")
+	g.Get("/age", &apigen.Endpoint{
+		Name:           "Get User's age",
+		Description:    "Get the user's age",
+		GoName:         "GetAge",
+		TypeScriptName: "getAge",
+		Response:       myapi.UserAge[int16]{},
+		ResponseMock:   myapi.UserAge[int16]{Day: 1, Month: 1, Year: 2000},
+	})
+
+	g = a.Group("Projects", "projects")
+
+	g.Post("/", &apigen.Endpoint{
+		Name:           "Create Projects",
+		Description:    "Create projects",
+		GoName:         "CreateProject",
+		TypeScriptName: "createProject",
+		Request:        example.Project{},
+		Response:       example.Project{},
+		ResponseMock:   example.Project{ID: uuid.UUID([16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}), OwnerName: "Foo Bar"},
+	})
+
+	a.OutputRootDir = findModuleRootDir()
+	a.MustWriteGo(filepath.Join("private", "apigen", "example", "api.gen.go"))
+	a.MustWriteTS(filepath.Join("private", "apigen", "example", "client-api.gen.ts"))
+	a.MustWriteTSMock(filepath.Join("private", "apigen", "example", "client-api-mock.gen.ts"))
+	a.MustWriteDocs(filepath.Join("private", "apigen", "example", "apidocs.gen.md"))
 }
 
 // authMiddleware customize endpoints to authenticate requests by API Key or Cookie.
@@ -193,3 +229,29 @@ var (
 	// mechanism.
 	NoCookie tagNoCookie
 )
+
+func findModuleRootDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic("unable to find current working directory")
+	}
+	start := dir
+
+	for i := 0; i < 100; i++ {
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+
+	panic("unable to find go.mod starting from " + start)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}

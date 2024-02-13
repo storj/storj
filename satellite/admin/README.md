@@ -56,9 +56,12 @@ Requires setting `Authorization` header for requests.
             * [Geofencing](#geofencing)
                 * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
                 * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
-        * [APIKey Management](#apikey-management)
-            * [GET /api/apikeys/{apikey}](#get-apiapikeysapikey)
-            * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
+        * [Project API Keys Management](#project-api-keys-management)
+            * [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
+            * [DELETE /api/apikeys/{api-key}](#delete-apiapikeysapi-key)
+        * [REST API Keys Management](#rest-api-keys-management)
+            * [POST /api/restkeys/{user-email}](#post-apirestkeysuser-email)
+            * [PUT /api/restkeys/{api-key}/revoke](#put-apirestkeysapi-keyrevoke)
 
 <!-- tocstop -->
 
@@ -156,6 +159,7 @@ A successful response body:
     "projects":[
         {
             "id": "abcabcab-1234-abcd-abcd-abecdefedcab",
+            "publicId": "9551ffef-935c-4d62-9a3b-00d36c411182",
             "name": "Project",
             "description": "Project to store data.",
             "ownerId": "12345678-1234-1234-1234-123456789abc"
@@ -238,7 +242,7 @@ Removes the account level geofence for the user.
 
 #### PATCH /api/users/{user-email}/activate-account/disable-bot-restriction
 
-Disables account bot restriction by activating it. Used only for accounts with PendingBotVerification status.
+Disables account bot restrictions by activating the account and restoring its limit values. This is used only for accounts with the PendingBotVerification status.
 
 ### OAuth Client Management
 
@@ -406,29 +410,43 @@ A successful response body:
 #### Update limits
 
 You can update the different limits with one single request just adding the
-various query parameters (e.g. `usage=5000000&bandwidth=9000000`)
+various query parameters (e.g. `usage=5000000&bandwidth=9000000`).
 
-##### POST /api/projects/{project-id}/limit?usage={value}
+This endpoint also accepts to receive the information as a form in the request body, that is content
+type `application/x-www-form-urlencoded` and the header must be specified, otherwise the server
+doesn't read the request body.
+
+Using the 0 number means to set them exactly to 0, which is not the same than using the default
+value. Default values are applied when they are `nil`. Only the indicated fields support to set the
+default value to `nil` using the -1 number.
+
+##### PUT /api/projects/{project-id}/limit?usage={value}
 
 Updates usage limit for a project. The value must be in bytes.
 
-##### POST /api/projects/{project-id}/limit?bandwidth={value}
+##### PUT /api/projects/{project-id}/limit?bandwidth={value}
 
 Updates bandwidth limit for a project. The value must be in bytes.
 
-##### POST /api/projects/{project-id}/limit?rate={value}
+##### PUT /api/projects/{project-id}/limit?rate={value}
 
 Updates rate limit for a project.
 
-##### POST /api/projects/{project-id}/limit?buckets={value}
+Accepts -1 to set to `nil`.
+
+##### PUT /api/projects/{project-id}/limit?buckets={value}
 
 Updates number of buckets limit for a project.
 
-##### POST /api/projects/{project-id}/limit?burst={value}
+Accepts -1 to set to `nil`.
+
+##### PUT /api/projects/{project-id}/limit?burst={value}
 
 Updates burst limit for a project.
 
-##### POST /api/projects/{project-id}/limit?segments={value}
+Accepts -1 to set to `nil`.
+
+##### PUT /api/projects/{project-id}/limit?segments={value}
 
 Updates number of segments limit for a project.
 
@@ -462,11 +480,11 @@ values for the `region` parameter are:
 
 Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
 
-### APIKey Management
+### Project API Keys Management
 
-#### GET /api/apikeys/{apikey}
+#### GET /api/apikeys/{api-key}
 
-Gets information on the given apikey.
+Gets information on the given API key.
 
 A successful response body:
 
@@ -490,6 +508,27 @@ A successful response body:
 }
 ```
 
-#### DELETE /api/apikeys/{apikey}
+#### DELETE /api/apikeys/{api-key}
 
-Deletes the given apikey.
+Deletes the given API key.
+
+### REST API Keys Management
+
+#### POST /api/restkeys/{user-email}
+
+Create a REST API key for the user's account associated to the indicated e-mail.
+
+An example of a required request body:
+
+```json
+{
+    "expiration": "30d20h"
+}
+```
+
+If `expiration` is empty, the default expiration is applied. Otherwise, the expiration parameter
+must have some non-negative value according to https://pkg.go.dev/time#ParseDuration.
+
+#### PUT /api/restkeys/{api-key}/revoke
+
+Revoke the indicated REST API key.

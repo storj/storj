@@ -155,13 +155,10 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         const result = await response.json();
-        const errorMsg = result.error.includes('duplicate card') ?
-            'This card is already on file for your account' :
-            'Can not add credit card';
 
         throw new APIError({
             status: response.status,
-            message: errorMsg,
+            message: result.error || 'Can not add credit card',
             requestID: response.headers.get('x-request-id'),
         });
     }
@@ -303,7 +300,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         const json = await response.json();
-        if (!json) return  [];
+        if (!json) return [];
         if (json.payments) {
             return json.payments.map(item =>
                 new NativePaymentHistoryItem(

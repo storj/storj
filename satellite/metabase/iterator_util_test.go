@@ -37,11 +37,11 @@ func TestFirstIterateCursor(t *testing.T) {
 		firstIterateCursor(false, IterateCursor{Key: "a"}, ""))
 
 	assert.Equal(t,
-		iterateCursor{Key: "a" + afterDelimiter, Version: -1, Inclusive: true},
+		iterateCursor{Key: "a" + afterDelimiter, Version: MaxVersion, Inclusive: true},
 		firstIterateCursor(false, IterateCursor{Key: "a/"}, ""))
 
 	assert.Equal(t,
-		iterateCursor{Key: "a" + afterDelimiter, Version: -1, Inclusive: true},
+		iterateCursor{Key: "a" + afterDelimiter, Version: MaxVersion, Inclusive: true},
 		firstIterateCursor(false, IterateCursor{Key: "a/x/y"}, ""))
 
 	assert.Equal(t,
@@ -49,10 +49,10 @@ func TestFirstIterateCursor(t *testing.T) {
 		firstIterateCursor(false, IterateCursor{Key: "a/x/y"}, "a/x/"))
 
 	assert.Equal(t,
-		iterateCursor{Key: "2017/05/08" + afterDelimiter, Version: -1, Inclusive: true},
+		iterateCursor{Key: "2017/05/08" + afterDelimiter, Version: MaxVersion, Inclusive: true},
 		firstIterateCursor(false, IterateCursor{Key: "2017/05/08/"}, "2017/05/"))
 
 	assert.Equal(t,
-		iterateCursor{Key: "2017/05/08" + afterDelimiter, Version: -1, Inclusive: true},
+		iterateCursor{Key: "2017/05/08" + afterDelimiter, Version: MaxVersion, Inclusive: true},
 		firstIterateCursor(false, IterateCursor{Key: "2017/05/08/x/y"}, "2017/05/"))
 }

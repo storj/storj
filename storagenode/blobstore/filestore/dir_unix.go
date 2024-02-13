@@ -12,6 +12,8 @@ import (
 	"os"
 
 	"golang.org/x/sys/unix"
+
+	"storj.io/storj/storagenode/blobstore"
 )
 
 func isBusy(err error) bool {
@@ -19,18 +21,24 @@ func isBusy(err error) bool {
 	return errors.Is(err, unix.EBUSY)
 }
 
-func diskInfoFromPath(path string) (info DiskInfo, err error) {
+func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	var stat unix.Statfs_t
 	err = unix.Statfs(path, &stat)
 	if err != nil {
-		return DiskInfo{"", -1}, err
+		return blobstore.DiskInfo{TotalSpace: -1, AvailableSpace: -1}, err
 	}
 
 	// the Bsize size depends on the OS and unconvert gives a false-positive
-	availableSpace := int64(stat.Bavail) * int64(stat.Bsize) //nolint: unconvert
+	reservedBlocks := int64(stat.Bfree) - int64(stat.Bavail)
+	totalSpace := (int64(stat.Blocks) - reservedBlocks) * int64(stat.Bsize) //nolint: unconvert
+	availableSpace := int64(stat.Bavail) * int64(stat.Bsize)                //nolint: unconvert
 	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
-	return DiskInfo{filesystemID, availableSpace}, nil
+	return blobstore.DiskInfo{
+		ID:             filesystemID,
+		TotalSpace:     totalSpace,
+		AvailableSpace: availableSpace,
+	}, nil
 }
 
 // rename renames oldpath to newpath.

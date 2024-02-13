@@ -228,6 +228,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		HaveSalesContact bool   `json:"haveSalesContact"`
 		CaptchaResponse  string `json:"captchaResponse"`
 		SignupPromoCode  string `json:"signupPromoCode"`
+		IsMinimal        bool   `json:"isMinimal"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -331,8 +332,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				SignupPromoCode:  registerData.SignupPromoCode,
 				ActivationCode:   code,
 				SignupId:         requestID,
-				// signup from the v2 app doesn't require name.
-				AllowNoName: strings.Contains(r.Referer(), "v2"),
+				// the minimal signup from the v2 app doesn't require name.
+				AllowNoName: registerData.IsMinimal,
 			},
 			secret,
 		)
@@ -398,6 +399,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if a.ActivationCodeEnabled {
+		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
@@ -494,7 +501,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -673,29 +680,6 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	a.serveJSONError(ctx, w, errNotImplemented)
 }
 
-// ChangeEmail auth user, changes users email for a new one.
-func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var emailChange struct {
-		NewEmail string `json:"newEmail"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&emailChange)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	err = a.service.ChangeEmail(ctx, emailChange.NewEmail)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-}
-
 // ChangePassword auth user, changes users password for a new one.
 func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -801,7 +785,6 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&console.ForgotPasswordEmail{
 			Origin:                     a.ExternalAddress,
-			UserName:                   userName,
 			ResetLink:                  passwordRecoveryLink,
 			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 			LetUsKnowURL:               letUsKnowURL,
@@ -846,7 +829,6 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			[]post.Address{{Address: verified.Email, Name: userName}},
 			&console.ForgotPasswordEmail{
 				Origin:                     a.ExternalAddress,
-				UserName:                   userName,
 				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
 				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
 				LetUsKnowURL:               a.LetUsKnowURL,
@@ -1197,11 +1179,12 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateInfo struct {
-		OnboardingStart  *bool   `json:"onboardingStart"`
-		OnboardingEnd    *bool   `json:"onboardingEnd"`
-		PassphrasePrompt *bool   `json:"passphrasePrompt"`
-		OnboardingStep   *string `json:"onboardingStep"`
-		SessionDuration  *int64  `json:"sessionDuration"`
+		OnboardingStart  *bool                    `json:"onboardingStart"`
+		OnboardingEnd    *bool                    `json:"onboardingEnd"`
+		PassphrasePrompt *bool                    `json:"passphrasePrompt"`
+		OnboardingStep   *string                  `json:"onboardingStep"`
+		SessionDuration  *int64                   `json:"sessionDuration"`
+		NoticeDismissal  *console.NoticeDismissal `json:"noticeDismissal"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateInfo)
@@ -1225,6 +1208,7 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 		OnboardingStep:   updateInfo.OnboardingStep,
 		PassphrasePrompt: updateInfo.PassphrasePrompt,
 		SessionDuration:  newDuration,
+		NoticeDismissal:  updateInfo.NoticeDismissal,
 	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -1272,6 +1256,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
+	case console.ErrLoginRestricted.Has(err):
+		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
 	case console.ErrNotPaidTier.Has(err):
@@ -1309,6 +1295,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "The MFA recovery code is not valid or has been previously used"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
+	case console.ErrLoginRestricted.Has(err):
+		return "You can't be authenticated. Please contact support"
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):

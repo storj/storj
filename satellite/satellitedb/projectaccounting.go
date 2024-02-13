@@ -14,16 +14,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil"
+	"storj.io/common/dbutil/pgutil"
+	"storj.io/common/dbutil/pgutil/pgerrcode"
+	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/tagsql"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
-	"storj.io/private/dbutil/pgxutil"
-	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/accounting"
+	satbuckets "storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -147,13 +149,14 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 
 // GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 // whose most recent tally does not represent empty usage.
-func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation) (result []metabase.BucketLocation, err error) {
+func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result []metabase.BucketLocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(db.db.QueryContext(ctx, `
 		SELECT project_id, name
-		FROM bucket_metainfos bm
-		WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
+		FROM bucket_metainfos bm`+
+		db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
+		` WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
 		AND NOT 0 IN (
 			SELECT object_count FROM bucket_storage_tallies
 			WHERE (project_id, bucket_name) = (bm.project_id, bm.name)
@@ -893,7 +896,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	bucketsQuery := db.db.Rebind(`SELECT name, created_at FROM bucket_metainfos
+	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, created_at FROM bucket_metainfos
 	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
@@ -912,22 +915,30 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 
 	type bucketWithCreationDate struct {
-		name      string
-		createdAt time.Time
+		name       string
+		versioning satbuckets.Versioning
+		placement  storj.PlacementConstraint
+		createdAt  time.Time
 	}
 
 	var buckets []bucketWithCreationDate
 	for bucketRows.Next() {
-		var bucket string
-		var createdAt time.Time
-		err = bucketRows.Scan(&bucket, &createdAt)
+		var (
+			bucket     string
+			versioning satbuckets.Versioning
+			placement  storj.PlacementConstraint
+			createdAt  time.Time
+		)
+		err = bucketRows.Scan(&bucket, &versioning, &placement, &createdAt)
 		if err != nil {
 			return nil, err
 		}
 
 		buckets = append(buckets, bucketWithCreationDate{
-			name:      bucket,
-			createdAt: createdAt,
+			name:       bucket,
+			versioning: versioning,
+			placement:  placement,
+			createdAt:  createdAt,
 		})
 	}
 	if err := bucketRows.Err(); err != nil {
@@ -947,10 +958,12 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	var bucketUsages []accounting.BucketUsage
 	for _, bucket := range buckets {
 		bucketUsage := accounting.BucketUsage{
-			ProjectID:  projectID,
-			BucketName: bucket.name,
-			Since:      bucket.createdAt,
-			Before:     before,
+			ProjectID:        projectID,
+			BucketName:       bucket.name,
+			Versioning:       bucket.versioning,
+			DefaultPlacement: bucket.placement,
+			Since:            bucket.createdAt,
+			Before:           before,
 		}
 
 		// get bucket_bandwidth_rollups

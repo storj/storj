@@ -1,0 +1,28 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+import test from '@lib/BaseTest';
+import { v4 as uuidv4 } from 'uuid';
+
+test.describe('Check for branded signup page, and sign up personal/business accounts', () => {
+    test('Verify IX Branding and Signup Personal/Business', async ({ signupPage }) => {
+        const name = 'John Doe';
+        const email = `${uuidv4()}@test.test`;
+        const password = 'qazwsx';
+        const company = 'Storjing';
+        const position = 'CEO';
+
+        await signupPage.navigateToPartnerSignup();
+        await signupPage.verifyIXBrandedHeader();
+        await signupPage.verifyIXBrandedSubHeader();
+
+        await signupPage.signupApplicationPersonal(name, email, password, true);
+        await signupPage.verifySuccessMessage();
+
+        await signupPage.navigateToPartnerSignup();
+        await signupPage.verifyIXBrandedHeader();
+
+        await signupPage.signupApplicationBusiness(name, email, password, company, position, true);
+        await signupPage.verifySuccessMessage();
+    });
+});

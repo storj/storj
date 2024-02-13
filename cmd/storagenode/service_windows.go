@@ -20,7 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
 
-	"storj.io/private/process"
+	"storj.io/common/process"
 )
 
 func startAsService(cmd *cobra.Command) bool {

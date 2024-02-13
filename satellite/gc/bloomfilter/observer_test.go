@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"

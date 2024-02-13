@@ -201,13 +201,6 @@ export class CreditCard {
     ) { }
 }
 
-export class PaymentAmountOption {
-    public constructor(
-        public value: number,
-        public label: string = '',
-    ) { }
-}
-
 /**
  * PaymentHistoryPage holds a paged list of PaymentsHistoryItem.
  */
@@ -216,8 +209,7 @@ export class PaymentHistoryPage {
         public readonly items: PaymentsHistoryItem[],
         public readonly hasNext = false,
         public readonly hasPrevious = false,
-    ) {
-    }
+    ) { }
 }
 
 /**

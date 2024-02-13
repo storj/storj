@@ -167,9 +167,11 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		Email        string                    `json:"email"`
 		ProjectLimit int                       `json:"projectLimit"`
 		Placement    storj.PlacementConstraint `json:"placement"`
+		PaidTier     bool                      `json:"paidTier"`
 	}
 	type Project struct {
 		ID          uuid.UUID `json:"id"`
+		PublicID    uuid.UUID `json:"publicId"`
 		Name        string    `json:"name"`
 		Description string    `json:"description"`
 		OwnerID     uuid.UUID `json:"ownerId"`
@@ -186,10 +188,12 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		ProjectLimit: user.ProjectLimit,
 		Placement:    user.DefaultPlacement,
+		PaidTier:     user.PaidTier,
 	}
 	for _, p := range projects {
 		output.Projects = append(output.Projects, Project{
 			ID:          p.ID,
+			PublicID:    p.PublicID,
 			Name:        p.Name,
 			Description: p.Description,
 			OwnerID:     p.OwnerID,
@@ -625,7 +629,6 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 				err.Error(), http.StatusInternalServerError)
 		}
 	}
-
 }
 
 func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
@@ -938,7 +941,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure user has no own projects any longer
-	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
+	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "unable to list projects",
 			err.Error(), http.StatusInternalServerError)
@@ -1083,11 +1086,13 @@ func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	activeStatus := console.Active
-	if err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &activeStatus}); err != nil {
-		sendJSONError(w, "unable to set user status to active",
-			err.Error(), http.StatusInternalServerError)
-		return
+	err = server.freezeAccounts.BotUnfreezeUser(ctx, user.ID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusConflict
+		}
+		sendJSONError(w, "failed to unfreeze bot user", err.Error(), status)
 	}
 }
 

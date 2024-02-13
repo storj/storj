@@ -25,13 +25,12 @@ import (
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/metrics"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/checker"
 )
 
@@ -412,12 +411,6 @@ func TestAllInOne(t *testing.T) {
 				satellite.DB.VerifyQueue(),
 				satellite.Config.Audit,
 			),
-			gracefulexit.NewObserver(log.Named("gracefulexit:observer"),
-				satellite.DB.GracefulExit(),
-				satellite.DB.OverlayCache(),
-				satellite.Metabase.DB,
-				satellite.Config.GracefulExit,
-			),
 			bloomfilter.NewObserver(log.Named("gc-bf"),
 				bfConfig,
 				satellite.DB.OverlayCache(),
@@ -426,7 +419,7 @@ func TestAllInOne(t *testing.T) {
 				log.Named("repair:checker"),
 				satellite.DB.RepairQueue(),
 				satellite.Overlay.Service,
-				overlay.NewPlacementDefinitions().CreateFilters,
+				nodeselection.TestPlacementDefinitions(),
 				satellite.Config.Checker,
 			),
 		})

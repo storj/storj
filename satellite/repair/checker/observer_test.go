@@ -557,7 +557,7 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		}
 
 		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].DB.RepairQueue(),
-			planet.Satellites[0].Auditor.Overlay, overlay.NewPlacementDefinitions().CreateFilters, planet.Satellites[0].Config.Checker)
+			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
@@ -658,7 +658,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				}
 
 				// confirm that some pieces are out of placement
-				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, overlay.NewPlacementDefinitions().CreateFilters(segments[0].Placement))
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement))
 				require.NoError(t, err)
 				require.False(t, ok)
 

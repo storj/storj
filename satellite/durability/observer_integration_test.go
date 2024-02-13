@@ -15,6 +15,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/durability"
+	"storj.io/storj/storagenode"
 )
 
 func TestDurabilityIntegration(t *testing.T) {
@@ -24,6 +25,11 @@ func TestDurabilityIntegration(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 5, 6, 6),
+			StorageNode: func(index int, config *storagenode.Config) {
+				if index > 2 {
+					config.Operator.Email = "test@storj.io"
+				}
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
@@ -67,9 +73,11 @@ func TestDurabilityIntegration(t *testing.T) {
 		_, err := rangedLoopService.RunOnce(ctx)
 		require.NoError(t, err)
 
-		require.Len(t, result, 19)
-		// one or two pieces are controlled out of the 5-6 --> 3 or 4 pieces are available without HU nodes
-		require.Equal(t, result["HU"].Min(), 4)
+		require.Len(t, result, 14)
+
+		// we used all 3 test@storj.io, and 6 pieces. Without test@storj.io, only 3 remained.
+		require.NotNil(t, result["test@storj.io"])
+		require.Equal(t, result["test@storj.io"].Min(), 3)
 
 	})
 }

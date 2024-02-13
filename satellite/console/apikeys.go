@@ -61,6 +61,14 @@ type APIKeyInfo struct {
 	Head            []byte    `json:"-"`
 	Secret          []byte    `json:"-"`
 	CreatedAt       time.Time `json:"createdAt"`
+
+	// TODO move this closer to metainfo
+	ProjectRateLimit  *int `json:"-"`
+	ProjectBurstLimit *int `json:"-"`
+
+	ProjectStorageLimit   *int64 `json:"-"`
+	ProjectSegmentsLimit  *int64 `json:"-"`
+	ProjectBandwidthLimit *int64 `json:"-"`
 }
 
 // APIKeyCursor holds info for api keys cursor pagination.

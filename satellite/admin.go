@@ -14,10 +14,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/private/debug"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -85,10 +85,6 @@ type Admin struct {
 
 	LiveAccounting struct {
 		Cache accounting.Cache
-	}
-
-	ProjectLimits struct {
-		Cache *accounting.ProjectLimitCache
 	}
 
 	Accounting struct {
@@ -227,22 +223,15 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
-	{ // setup project limits
-		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
-			config.Console.Config.UsageLimits.Storage.Free,
-			config.Console.Config.UsageLimits.Bandwidth.Free,
-			config.Console.Config.UsageLimits.Segment.Free,
-			config.ProjectLimit,
-		)
-	}
-
 	{ // setup accounting project usage
 		peer.Accounting.Service = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			peer.ProjectLimits.Cache,
 			*metabaseDB,
 			config.LiveAccounting.BandwidthCacheTTL,
+			config.Console.Config.UsageLimits.Storage.Free,
+			config.Console.Config.UsageLimits.Bandwidth.Free,
+			config.Console.Config.UsageLimits.Segment.Free,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
 	}
@@ -254,7 +243,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		placement, err := config.Placement.Parse()
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
 		if err != nil {
 			return nil, err
 		}
@@ -265,6 +254,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.Service,
 			placement,
+			config.Metainfo.ProjectLimits.MaxBuckets,
+			config.Metainfo.RateLimiter.Rate,
 		)
 
 		adminConfig := config.Admin

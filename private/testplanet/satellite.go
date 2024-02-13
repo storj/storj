@@ -16,13 +16,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/cfgstruct"
-	"storj.io/private/version"
+	"storj.io/common/version"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/testredis"
@@ -163,10 +163,6 @@ type Satellite struct {
 
 	LiveAccounting struct {
 		Cache accounting.Cache
-	}
-
-	ProjectLimits struct {
-		Cache *accounting.ProjectLimitCache
 	}
 
 	Mail struct {
@@ -444,8 +440,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Compensation.Rates.GetAuditTB = compensation.Rate{}
 	config.Compensation.WithheldPercents = nil
 	config.Compensation.DisposePercent = 0
-	config.ProjectLimit.CacheCapacity = 0
-	config.ProjectLimit.CacheExpiration = 0
 
 	// Actual testplanet-specific configuration
 	config.Server.Address = planet.NewListenAddress()
@@ -649,8 +643,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Accounting.RollupArchive = peer.Accounting.RollupArchiveChore
 
 	system.LiveAccounting = peer.LiveAccounting
-
-	system.ProjectLimits.Cache = api.ProjectLimits.Cache
 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 

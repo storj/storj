@@ -53,9 +53,11 @@ model project (
     field default_placement int (nullable, updatable)
 
     // versioning state to be used for every new bucket.
-    //0 - unversioned (versioning for new buckets is supported but not enabled)
-    //1 - VersioningEnabled (versioning for new buckets is supported and enabled)
-    field default_versioning int (updatable, default 0)
+    //0 - unsupported (versioning for new buckets is not supported)
+    //1 - unversioned (versioning for new buckets is supported but not enabled)
+    //2 - VersioningEnabled (versioning for new buckets is supported and enabled)
+    // note: suspended is not a valid state for new buckets
+    field default_versioning int (updatable, default 1)
 )
 
 create project ( )
@@ -241,7 +243,7 @@ read one (
     where api_key.id = ?
 )
 read one (
-    select api_key project.public_id
+    select api_key project.public_id project.rate_limit project.burst_limit project.segment_limit project.usage_limit project.bandwidth_limit
     join project.id = api_key.project_id
     where api_key.head = ?
 )

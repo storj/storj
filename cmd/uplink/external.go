@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spacemonkeygo/monkit/v3/collect"
 	"github.com/spacemonkeygo/monkit/v3/present"
@@ -32,8 +31,9 @@ import (
 	"storj.io/common/rpc/rpctracing"
 	"storj.io/common/sync2/mpscqueue"
 	"storj.io/common/tracing"
+	"storj.io/common/version"
+	"storj.io/eventkit"
 	jaeger "storj.io/monkit-jaeger"
-	"storj.io/private/version"
 )
 
 type external struct {

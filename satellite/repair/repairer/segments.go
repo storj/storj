@@ -22,6 +22,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
@@ -104,7 +105,7 @@ type SegmentRepairer struct {
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
-	placementRules                   overlay.PlacementRules
+	placements                       nodeselection.PlacementDefinitions
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -119,7 +120,7 @@ func NewSegmentRepairer(
 	overlay *overlay.Service,
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
-	placementRules overlay.PlacementRules,
+	placements nodeselection.PlacementDefinitions,
 	repairOverrides checker.RepairOverrides,
 	config Config,
 ) *SegmentRepairer {
@@ -151,7 +152,7 @@ func NewSegmentRepairer(
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
 		doDeclumping:               config.DoDeclumping,
 		doPlacementCheck:           config.DoPlacementCheck,
-		placementRules:             placementRules,
+		placements:                 placements,
 
 		nowFn: time.Now,
 	}
@@ -223,17 +224,17 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, overlayQueryError.New("GetNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
-	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placementRules(segment.Placement), allNodeIDs)
+	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placements[segment.Placement], allNodeIDs)
 
 	// irreparable segment
-	if piecesCheck.Retrievable.Size() < int(segment.Redundancy.RequiredShares) {
+	if piecesCheck.Retrievable.Count() < int(segment.Redundancy.RequiredShares) {
 		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
 		stats.repairerSegmentsBelowMinReq.Inc(1)
 		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 		stats.repairerNodesUnavailable.Mark(1)
 
 		log.Warn("irreparable segment",
-			zap.Int("piecesAvailable", piecesCheck.Retrievable.Size()),
+			zap.Int("piecesAvailable", piecesCheck.Retrievable.Count()),
 			zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
 		)
 		return false, nil
@@ -256,11 +257,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		repairThreshold = overrideValue
 	}
 
-	if piecesCheck.Healthy.Size() > int(repairThreshold) {
+	if piecesCheck.Healthy.Count() > int(repairThreshold) {
 		// No repair is needed (note Healthy does not include pieces in ForcingRepair).
 
 		var dropPieces metabase.Pieces
-		if piecesCheck.ForcingRepair.Size() > 0 {
+		if piecesCheck.ForcingRepair.Count() > 0 {
 			// No repair is needed, but remove forcing-repair pieces without a repair operation,
 			// as we will still be above the repair threshold.
 			for _, piece := range pieces {
@@ -294,21 +295,21 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
-		log.Info("segment above repair threshold", zap.Int("numHealthy", piecesCheck.Healthy.Size()), zap.Int32("repairThreshold", repairThreshold),
-			zap.Int("numClumped", piecesCheck.Clumped.Size()), zap.Int("numExiting", piecesCheck.Exiting.Size()), zap.Int("numOffPieces", piecesCheck.OutOfPlacement.Size()),
-			zap.Int("numExcluded", piecesCheck.InExcludedCountry.Size()), zap.Int("droppedPieces", len(dropPieces)))
+		log.Info("segment above repair threshold", zap.Int("numHealthy", piecesCheck.Healthy.Count()), zap.Int32("repairThreshold", repairThreshold),
+			zap.Int("numClumped", piecesCheck.Clumped.Count()), zap.Int("numExiting", piecesCheck.Exiting.Count()), zap.Int("numOffPieces", piecesCheck.OutOfPlacement.Count()),
+			zap.Int("numExcluded", piecesCheck.InExcludedCountry.Count()), zap.Int("droppedPieces", len(dropPieces)))
 		return true, nil
 	}
 
 	healthyRatioBeforeRepair := 0.0
 	if segment.Redundancy.TotalShares != 0 {
-		healthyRatioBeforeRepair = float64(piecesCheck.Healthy.Size()) / float64(segment.Redundancy.TotalShares)
+		healthyRatioBeforeRepair = float64(piecesCheck.Healthy.Count()) / float64(segment.Redundancy.TotalShares)
 	}
 	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair) //mon:locked
 	stats.healthyRatioBeforeRepair.Observe(healthyRatioBeforeRepair)
 
 	// Create the order limits for the GET_REPAIR action
-	retrievablePieces := make(metabase.Pieces, 0, piecesCheck.Retrievable.Size())
+	retrievablePieces := make(metabase.Pieces, 0, piecesCheck.Retrievable.Count())
 	for _, piece := range pieces {
 		if piecesCheck.Retrievable.Contains(int(piece.Number)) {
 			retrievablePieces = append(retrievablePieces, piece)
@@ -338,9 +339,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 			piecesCheck.Missing.Include(int(piece.Number))
 			piecesCheck.Unhealthy.Include(int(piece.Number))
 
-			piecesCheck.Healthy.Remove(int(piece.Number))
-			piecesCheck.Retrievable.Remove(int(piece.Number))
-			piecesCheck.UnhealthyRetrievable.Remove(int(piece.Number))
+			piecesCheck.Healthy.Exclude(int(piece.Number))
+			piecesCheck.Retrievable.Exclude(int(piece.Number))
+			piecesCheck.UnhealthyRetrievable.Exclude(int(piece.Number))
 		}
 	}
 
@@ -350,9 +351,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		if totalNeeded > redundancy.TotalCount() {
 			totalNeeded = redundancy.TotalCount()
 		}
-		requestCount = totalNeeded - piecesCheck.Healthy.Size()
+		requestCount = totalNeeded - piecesCheck.Healthy.Count()
 	}
-	minSuccessfulNeeded := redundancy.OptimalThreshold() - piecesCheck.Healthy.Size()
+	minSuccessfulNeeded := redundancy.OptimalThreshold() - piecesCheck.Healthy.Count()
 
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
@@ -556,7 +557,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 
 	mon.Meter("repair_bytes_uploaded").Mark64(bytesRepaired) //mon:locked
 
-	healthyAfterRepair := piecesCheck.Healthy.Size() + len(repairedPieces)
+	healthyAfterRepair := piecesCheck.Healthy.Count() + len(repairedPieces)
 	switch {
 	case healthyAfterRepair >= int(segment.Redundancy.OptimalShares):
 		mon.Meter("repair_success").Mark(1) //mon:locked
@@ -582,7 +583,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //mon:locked
 	stats.healthyRatioAfterRepair.Observe(healthyRatioAfterRepair)
 
-	toRemove := make(map[uint16]metabase.Piece, piecesCheck.Unhealthy.Size())
+	toRemove := make(map[uint16]metabase.Piece, piecesCheck.Unhealthy.Count())
 	switch {
 	case healthyAfterRepair >= int(segment.Redundancy.OptimalShares):
 		// Repair was fully successful; remove all unhealthy pieces except those in
@@ -660,15 +661,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	stats.segmentTimeUntilRepair.Observe(int64(segmentAge.Seconds()))
 
 	log.Info("repaired segment",
-		zap.Int("clumped pieces", piecesCheck.Clumped.Size()),
-		zap.Int("exiting-node pieces", piecesCheck.Exiting.Size()),
-		zap.Int("out of placement pieces", piecesCheck.OutOfPlacement.Size()),
-		zap.Int("in excluded countries", piecesCheck.InExcludedCountry.Size()),
-		zap.Int("missing pieces", piecesCheck.Missing.Size()),
+		zap.Int("clumped pieces", piecesCheck.Clumped.Count()),
+		zap.Int("exiting-node pieces", piecesCheck.Exiting.Count()),
+		zap.Int("out of placement pieces", piecesCheck.OutOfPlacement.Count()),
+		zap.Int("in excluded countries", piecesCheck.InExcludedCountry.Count()),
+		zap.Int("missing pieces", piecesCheck.Missing.Count()),
 		zap.Int("removed pieces", len(toRemove)),
 		zap.Int("repaired pieces", len(repairedPieces)),
-		zap.Int("retrievable pieces", piecesCheck.Retrievable.Size()),
-		zap.Int("healthy before repair", piecesCheck.Healthy.Size()),
+		zap.Int("retrievable pieces", piecesCheck.Retrievable.Count()),
+		zap.Int("healthy before repair", piecesCheck.Healthy.Count()),
 		zap.Int("healthy after repair", healthyAfterRepair),
 		zap.Int("total before repair", len(piecesCheck.ExcludeNodeIDs)),
 		zap.Int("total after repair", len(newPieces)))

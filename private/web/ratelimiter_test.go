@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/testcontext"
-	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/web"
 )
 

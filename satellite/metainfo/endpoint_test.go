@@ -589,7 +589,7 @@ func TestRateLimit_ExceededBurstLimit(t *testing.T) {
 		require.Len(t, projects, 1)
 
 		zeroRateLimit := 0
-		err = satellite.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, zeroRateLimit)
+		err = satellite.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, &zeroRateLimit)
 		require.NoError(t, err)
 
 		time.Sleep(1 * time.Second)

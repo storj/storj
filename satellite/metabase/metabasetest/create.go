@@ -4,6 +4,8 @@
 package metabasetest
 
 import (
+	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -197,11 +199,42 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 	return objects
 }
 
+// CreatePendingObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
+// and returns a mapping of keys to all versions.
+func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
+	for key, versions := range keys {
+		for _, version := range versions {
+			obj := RandObjectStream()
+			obj.ProjectID = projectID
+			obj.BucketName = bucketName
+			obj.ObjectKey = key
+			obj.Version = version
+			now := time.Now()
+
+			CreatePendingObject(ctx, t, db, obj, 0)
+
+			k := key + ":" + metabase.ObjectKey(strconv.Itoa(int(version)))
+			objects[k] = metabase.ObjectEntry{
+				ObjectKey:  obj.ObjectKey,
+				Version:    obj.Version,
+				StreamID:   obj.StreamID,
+				CreatedAt:  now,
+				Status:     metabase.Pending,
+				Encryption: DefaultEncryption,
+			}
+		}
+	}
+
+	return objects
+}
+
 // CreateVersionedObjectsWithKeysAll creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to a slice of all versions.
-func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey][]metabase.ObjectEntry {
+func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version, sortDesc bool) map[metabase.ObjectKey][]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey][]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
+		items := []metabase.ObjectEntry{}
 		for _, version := range versions {
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
@@ -212,7 +245,7 @@ func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, d
 
 			CreateObjectVersioned(ctx, t, db, obj, 0)
 
-			objects[key] = append(objects[key], metabase.ObjectEntry{
+			items = append(items, metabase.ObjectEntry{
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
@@ -221,6 +254,14 @@ func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, d
 				Encryption: DefaultEncryption,
 			})
 		}
+
+		if sortDesc {
+			// sort by version descending
+			sort.Slice(items, func(i, k int) bool {
+				return items[i].Less(items[k])
+			})
+		}
+		objects[key] = items
 	}
 
 	return objects

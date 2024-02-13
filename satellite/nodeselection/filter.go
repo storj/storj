@@ -4,7 +4,9 @@
 package nodeselection
 
 import (
+	"encoding/hex"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -375,3 +377,55 @@ func (a AnyFilter) Match(node *SelectedNode) bool {
 }
 
 var _ NodeFilter = AnyFilter{}
+
+// AllowedNodesFilter is a special filter which enables only the selected nodes.
+type AllowedNodesFilter []storj.NodeID
+
+// AllowedNodesFromFile loads a list of allowed NodeIDs from a text file. One ID per line.
+func AllowedNodesFromFile(file string) (AllowedNodesFilter, error) {
+	l := AllowedNodesFilter{}
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return l, errs.Wrap(err)
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		id, err := parseHexOrBase58ID(line)
+		if err != nil {
+			return l, errs.Wrap(err)
+		}
+		l = append(l, id)
+	}
+	return l, nil
+}
+
+func parseHexOrBase58ID(line string) (storj.NodeID, error) {
+	id, err := storj.NodeIDFromString(line)
+	if err == nil {
+		return id, nil
+	}
+	raw, err := hex.DecodeString(line)
+	if err != nil {
+		return storj.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
+	}
+	id, err = storj.NodeIDFromBytes(raw)
+	if err != nil {
+		return storj.NodeID{}, errs.New("Line is neither hex nor base58 nodeID: %s", line)
+	}
+	return id, nil
+}
+
+// Match implements NodeFilter.
+func (n AllowedNodesFilter) Match(node *SelectedNode) bool {
+	for _, white := range n {
+		if node.ID == white {
+			return true
+		}
+	}
+	return false
+}
+
+var _ NodeFilter = AllowedNodesFilter{}

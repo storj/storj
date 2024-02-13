@@ -11,6 +11,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -114,6 +115,11 @@ type ProjectUsageByDay struct {
 type BucketUsage struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
+
+	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	Location         string                    `json:"location"`
+
+	Versioning buckets.Versioning `json:"versioning"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`
@@ -245,7 +251,7 @@ type ProjectAccounting interface {
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 	// whose most recent tally does not represent empty usage.
-	GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation) ([]metabase.BucketLocation, error)
+	GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)
 	// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
 	GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error)
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.

@@ -16,10 +16,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/dbutil/pgtest"
+	"storj.io/common/dbutil/tempdb"
+	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
-	"storj.io/private/dbutil/pgtest"
-	"storj.io/private/dbutil/tempdb"
-	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
 )
 
