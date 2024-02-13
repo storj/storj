@@ -36,10 +36,39 @@
             </div>
         </v-card-text>
     </v-card>
+    <v-dialog
+        v-model="isUpgradeSuccessShown"
+        width="460px"
+        transition="fade-transition"
+    >
+        <v-card rounded="xlg">
+            <v-card-item class="pa-5 pl-7">
+                <template #prepend>
+                    <img class="d-block" src="@/assets/icon-success.svg" alt="success">
+                </template>
+
+                <v-card-title class="font-weight-bold">Success</v-card-title>
+
+                <template #append>
+                    <v-btn
+                        icon="$close"
+                        variant="text"
+                        size="small"
+                        color="default"
+                        @click="isUpgradeSuccessShown = false"
+                    />
+                </template>
+            </v-card-item>
+
+            <v-card-item class="py-4">
+                <SuccessStep @continue="isUpgradeSuccessShown = false" />
+            </v-card-item>
+        </v-card>
+    </v-dialog>
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardText } from 'vuetify/components';
+import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
 import { computed, ref } from 'vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -52,6 +81,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeCardInput from '@/components/StripeCardInput.vue';
+import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
@@ -67,6 +97,7 @@ const { withLoading, isLoading } = useLoading();
 const stripeCardInput = ref<StripeForm | null>(null);
 
 const isCardInputShown = ref(false);
+const isUpgradeSuccessShown = ref(false);
 
 /**
  * Indicates whether stripe payment element is enabled.
@@ -105,12 +136,20 @@ async function addCardToDB(res: string) {
 
         analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
 
-        // We fetch User one more time to update their Paid Tier status.
-        usersStore.getUser().catch((_) => {});
-
         billingStore.getCreditCards().catch((_) => {});
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        return;
     }
+
+    try {
+        const oldPaidTier = usersStore.state.user.paidTier;
+        // We fetch User one more time to update their Paid Tier status.
+        await usersStore.getUser();
+        const newPaidTier = usersStore.state.user.paidTier;
+        if (!oldPaidTier && newPaidTier) {
+            isUpgradeSuccessShown.value = true;
+        }
+    } catch { /* empty */ }
 }
 </script>
