@@ -1145,12 +1145,25 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 		}
 
 		whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
-		footer = stripe.String(fmt.Sprintf(
+		footerMsg := fmt.Sprintf(
 			"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
 			impact.EstimatedKgCO2eStorj,
 			impact.EstimatedKgCO2eHyperscaler,
 			whitePaperLink,
-		))
+		)
+
+		savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
+		if savedValue < 0 {
+			savedValue = 0
+		}
+
+		savedTrees := service.emission.CalculateSavedTrees(savedValue)
+		if savedTrees > 0 {
+			treesCalcLink := "https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
+			footerMsg += fmt.Sprintf("\nEstimated Trees Saved: %d\nMore information on trees saved: %s", savedTrees, treesCalcLink)
+		}
+
+		footer = stripe.String(footerMsg)
 	} else {
 		itemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
 			Customer: &cusID,
