@@ -607,6 +607,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 
 			endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
 			mon.Meter("req_get_inline").Mark(1)
+			mon.Counter("req_get_inline_bytes").Inc(int64(len(segment.InlineData)))
 
 			return []*pb.SegmentDownloadResponse{{
 				PlainOffset:         segment.PlainOffset,
