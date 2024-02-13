@@ -179,9 +179,9 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     }
 
     function toggleSortingDirection(): void {
-        let direction = SortDirection.DESCENDING;
-        if (state.cursor.orderDirection === SortDirection.DESCENDING) {
-            direction = SortDirection.ASCENDING;
+        let direction = SortDirection.desc;
+        if (state.cursor.orderDirection === SortDirection.desc) {
+            direction = SortDirection.asc;
         }
         state.cursor.orderDirection = direction;
     }

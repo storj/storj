@@ -61,8 +61,6 @@ export interface AccessGrantsApi {
  * Holds access grants sorting parameters.
  */
 export enum AccessGrantsOrderBy {
-    NAME = 1,
-    CREATED_AT,
     name = 1,
     createdAt = 2,
 }
@@ -75,8 +73,8 @@ export class AccessGrantCursor {
         public search: string = '',
         public limit: number = DEFAULT_PAGE_LIMIT,
         public page: number = 1,
-        public order: AccessGrantsOrderBy = AccessGrantsOrderBy.NAME,
-        public orderDirection: SortDirection = SortDirection.ASCENDING,
+        public order: AccessGrantsOrderBy = AccessGrantsOrderBy.name,
+        public orderDirection: SortDirection = SortDirection.asc,
     ) {}
 }
 
@@ -87,8 +85,8 @@ export class AccessGrantsPage {
     public constructor(
         public accessGrants: AccessGrant[] = [],
         public search: string = '',
-        public order: AccessGrantsOrderBy = AccessGrantsOrderBy.NAME,
-        public orderDirection: SortDirection = SortDirection.ASCENDING,
+        public order: AccessGrantsOrderBy = AccessGrantsOrderBy.name,
+        public orderDirection: SortDirection = SortDirection.asc,
         public limit: number = 6,
         public pageCount: number = 0,
         public currentPage: number = 1,

@@ -4,8 +4,6 @@
 import { Validator } from '@/utils/validation';
 
 export enum SortDirection {
-    ASCENDING = 1,
-    DESCENDING,
     asc = 1,
     desc = 2,
 }
