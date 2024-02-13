@@ -494,15 +494,7 @@ func (p *Projects) GetEmissionImpact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response struct {
-		StorjImpact       float64 `json:"storjImpact"`
-		HyperscalerImpact float64 `json:"hyperscalerImpact"`
-	}
-
-	response.StorjImpact = impact.EstimatedKgCO2eStorj
-	response.HyperscalerImpact = impact.EstimatedKgCO2eHyperscaler
-
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(impact)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}

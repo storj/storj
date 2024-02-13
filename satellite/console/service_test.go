@@ -37,7 +37,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -863,7 +862,7 @@ func TestService(t *testing.T) {
 				impact, err := service.GetEmissionImpact(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, impact)
-				require.EqualValues(t, emission.Impact{}, *impact)
+				require.EqualValues(t, console.EmissionImpactResponse{}, *impact)
 
 				// Getting project salt as a non-member should not work
 				impact, err = service.GetEmissionImpact(userCtx2, pr.ID)
@@ -875,7 +874,7 @@ func TestService(t *testing.T) {
 
 				now := time.Now().UTC()
 				service.TestSetNow(func() time.Time {
-					return now.Add(24 * time.Hour)
+					return now.Add(365.25 * 24 * time.Hour)
 				})
 
 				zeroValue := float64(0)
@@ -883,11 +882,9 @@ func TestService(t *testing.T) {
 				impact, err = service.GetEmissionImpact(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, impact)
-				require.Greater(t, impact.EstimatedKgCO2eStorj, zeroValue)
-				require.Greater(t, impact.EstimatedKgCO2eHyperscaler, zeroValue)
-				require.Greater(t, impact.EstimatedKgCO2eCorporateDC, zeroValue)
-				require.Greater(t, impact.EstimatedFractionSavingsAgainstCorporateDC, zeroValue)
-				require.Greater(t, impact.EstimatedFractionSavingsAgainstHyperscaler, zeroValue)
+				require.Greater(t, impact.StorjImpact, zeroValue)
+				require.Greater(t, impact.HyperscalerImpact, zeroValue)
+				require.Greater(t, impact.SavedTrees, int64(0))
 			})
 		})
 }

@@ -50,17 +50,47 @@
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
             </v-col>
-            <v-col v-if="emissionImpactViewEnabled" cols="12" sm="6" md="4" lg="2">
-                <v-tooltip
-                    activator="parent"
-                    location="bottom"
-                    offset="-20"
-                >
-                    Estimated if using traditional cloud storage = {{ emission.hyperscalerImpact.toLocaleString(undefined, { maximumFractionDigits: 3 }) }} kg CO2e
-                </v-tooltip>
-                <CardStatsComponent icon="globe" title="CO2 Saved" subtitle="By using Storj" :data="`${emission.storjImpact.toLocaleString(undefined, { maximumFractionDigits: 3 })} kg CO2e`" />
-            </v-col>
-            <v-col v-if="billingEnabled" cols="6" md="4" lg="2">
+            <template v-if="emissionImpactViewEnabled">
+                <v-col cols="12" sm="6" md="4" lg="2">
+                    <v-tooltip
+                        activator="parent"
+                        location="bottom"
+                        offset="-20"
+                    >
+                        {{ emission.storjImpact.toLocaleString(undefined, { maximumFractionDigits: 3 }) }} kg CO2e estimated if using Storj
+                        <br>
+                        {{ emission.hyperscalerImpact.toLocaleString(undefined, { maximumFractionDigits: 3 }) }} kg CO2e estimated if using traditional cloud storage
+                        <br>
+                        <a
+                            href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            More info about our methodology
+                        </a>
+                    </v-tooltip>
+                    <CardStatsComponent icon="globe" title="CO2 Saved" subtitle="By using Storj" :data="co2Savings" />
+                </v-col>
+                <v-col cols="12" sm="6" md="4" lg="2">
+                    <v-tooltip
+                        activator="parent"
+                        location="bottom"
+                        offset="-20"
+                    >
+                        Number of urban tree seedlings grown for 10 years.
+                        <br>
+                        <a
+                            href="https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Learn more about Greenhouse Gases Equivalencies
+                        </a>
+                    </v-tooltip>
+                    <CardStatsComponent icon="globe" title="Savings" subtitle="Equivalent" :data="`${emission.savedTrees.toLocaleString()} trees`" />
+                </v-col>
+            </template>
+            <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="4" lg="2">
                 <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
             </v-col>
         </v-row>
@@ -320,6 +350,16 @@ const isCreateBucketDialogShown = ref<boolean>(false);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
+
+/**
+ * Returns calculated and formatted CO2 savings info.
+ */
+const co2Savings = computed<string>(() => {
+    let saved = emission.value.hyperscalerImpact - emission.value.storjImpact;
+    if (saved < 0) saved = 0;
+
+    return `${saved.toLocaleString(undefined, { maximumFractionDigits: 3 })} kg CO2e`;
+});
 
 /**
  * Returns formatted date range string.

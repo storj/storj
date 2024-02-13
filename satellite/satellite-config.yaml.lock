@@ -553,6 +553,9 @@ contact.external-address: ""
 # amount of time before sending second reminder to users who need to verify their email
 # email-reminders.second-verification-reminder: 120h0m0s
 
+# weighted average CO2 sequestered by a medium growth coniferous or deciduous tree, in kgCO2e/tree
+# emission.average-co2sequestered-by-tree: 60
+
 # carbon from power per year of operations, in kg/TB-year
 # emission.carbon-from-drive-powering: 15.9
 

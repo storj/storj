@@ -268,6 +268,7 @@ export class Emission {
     public constructor(
         public storjImpact: number = 0,
         public hyperscalerImpact: number = 0,
+        public savedTrees: number = 0,
     ) {}
 }
 

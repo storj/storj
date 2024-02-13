@@ -4,6 +4,7 @@
 package emission
 
 import (
+	"math"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -162,6 +163,11 @@ func (sv *Service) CalculateImpact(input *CalculationInput) (*Impact, error) {
 	}
 
 	return rv, nil
+}
+
+// CalculateSavedTrees calculates saved trees count based on emission impact.
+func (sv *Service) CalculateSavedTrees(impact float64) int64 {
+	return int64(math.Round(impact / sv.config.AverageCO2SequesteredByTree))
 }
 
 func (sv *Service) prepareExpansionFactorRow() *Row {

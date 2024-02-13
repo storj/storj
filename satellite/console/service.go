@@ -1728,8 +1728,16 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
 }
 
+// EmissionImpactResponse represents emission impact response to be returned to client.
+type EmissionImpactResponse struct {
+	StorjImpact       float64 `json:"storjImpact"`
+	HyperscalerImpact float64 `json:"hyperscalerImpact"`
+	SavedTrees        int64   `json:"savedTrees"`
+}
+
 // GetEmissionImpact is a method for querying project emission impact by id.
-func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (impact *emission.Impact, err error) {
+func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*EmissionImpactResponse, error) {
+	var err error
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "get project emission impact", zap.String("projectID", projectID.String()))
 	if err != nil {
@@ -1750,7 +1758,7 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (i
 	period := now.Sub(isMember.project.CreatedAt)
 	dataInTB := memory.Size(storageUsed).TB()
 
-	impact, err = s.emission.CalculateImpact(&emission.CalculationInput{
+	impact, err := s.emission.CalculateImpact(&emission.CalculationInput{
 		AmountOfDataInTB: dataInTB,
 		Duration:         period,
 		IsTBDuration:     false,
@@ -1759,7 +1767,18 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (i
 		return nil, Error.Wrap(err)
 	}
 
-	return impact, nil
+	savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
+	if savedValue < 0 {
+		savedValue = 0
+	}
+
+	savedTrees := s.emission.CalculateSavedTrees(savedValue)
+
+	return &EmissionImpactResponse{
+		StorjImpact:       impact.EstimatedKgCO2eStorj,
+		HyperscalerImpact: impact.EstimatedKgCO2eHyperscaler,
+		SavedTrees:        savedTrees,
+	}, nil
 }
 
 // GetUsersProjects is a method for querying all projects.

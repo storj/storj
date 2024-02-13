@@ -277,7 +277,7 @@ export class ProjectsHttpApi implements ProjectsApi {
         }
 
         const json = await response.json();
-        return json ? new Emission(json.storjImpact, json.hyperscalerImpact) : new Emission();
+        return json ? new Emission(json.storjImpact, json.hyperscalerImpact, json.savedTrees) : new Emission();
     }
 
     /**
