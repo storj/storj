@@ -34,6 +34,9 @@ import (
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.
 var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
 
+// maxLimit specifies the limit for all paged queries.
+const maxLimit = 300
+
 var allocatedExpirationInDays = 2
 
 // ProjectAccounting implements the accounting/db ProjectAccounting interface.
@@ -854,8 +857,8 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	defer mon.Task()(&ctx)(&err)
 	bucketPrefix := []byte(cursor.Search)
 
-	if cursor.Limit > 50 {
-		cursor.Limit = 50
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
 	}
 	if cursor.Page == 0 {
 		return nil, errs.New("page can not be 0")

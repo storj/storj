@@ -51,7 +51,7 @@ var mon = monkit.Package()
 
 const (
 	// maxLimit specifies the limit for all paged queries.
-	maxLimit = 50
+	maxLimit = 300
 
 	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
