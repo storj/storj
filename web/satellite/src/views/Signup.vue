@@ -346,7 +346,7 @@ const satellitesHints = [
     { satellite: 'QA-Satellite', hint: 'This is the Storj beta satellite.' },
     { satellite: 'US1', hint: 'Recommended for North and South America' },
     { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
-    { satellite: 'AP1', hint: 'Recommended for Asia and Australia' },
+    { satellite: 'AP1', hint: 'Recommended for Asia and Oceania' },
 ];
 
 const passwordRules: ValidationRule<string>[] = [
