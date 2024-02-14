@@ -60,6 +60,7 @@ type FrontendConfig struct {
 	OnboardingStepperEnabled        bool                  `json:"onboardingStepperEnabled"`
 	EnableRegionTag                 bool                  `json:"enableRegionTag"`
 	EmissionImpactViewEnabled       bool                  `json:"emissionImpactViewEnabled"`
+	ApplicationsPageEnabled         bool                  `json:"applicationsPageEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
