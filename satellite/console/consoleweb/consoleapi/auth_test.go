@@ -154,6 +154,45 @@ func TestAuth_Register(t *testing.T) {
 	})
 }
 
+func TestAuth_UpdateUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		newName := "new name"
+		shortName := "NN"
+		err = service.UpdateAccount(userCtx, newName, shortName)
+		require.NoError(t, err)
+
+		user, _, err = service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Equal(t, newName, user.FullName)
+		require.Equal(t, shortName, user.ShortName)
+
+		err = service.UpdateAccount(userCtx, newName, "")
+		require.NoError(t, err)
+
+		user, _, err = service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Equal(t, newName, user.FullName)
+		require.Equal(t, "", user.ShortName)
+
+		// empty full name not allowed
+		err = service.UpdateAccount(userCtx, "", shortName)
+		require.Error(t, err)
+		require.True(t, console.ErrValidation.Has(err))
+	})
+}
+
 func TestAuth_RegisterWithInvitation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
