@@ -21,9 +21,8 @@
             </v-card-item>
 
             <v-card-item class="bottom">
-                <v-btn color="primary">
+                <v-btn color="primary" @click="onSetup">
                     Setup
-                    <!-- TODO: add create access grant flow -->
                     <template #append>
                         <v-icon :icon="mdiArrowRight" />
                     </template>
@@ -37,15 +36,32 @@
             </v-card-item>
         </v-card>
     </v-col>
+    <CreateAccessDialog ref="accessDialog" v-model="dialog" :default-name="app.title" />
 </template>
 
 <script setup lang="ts">
-import { VCol, VCard, VCardItem, VChip, VIcon, VBtn } from 'vuetify/components';
+import { ref } from 'vue';
+import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
 import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 
 import { Application } from '@/types/applications';
+import { AccessType, Exposed } from '@/types/createAccessGrant';
+
+import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 
 const props = defineProps<{
     app: Application
 }>();
+
+const accessDialog = ref<Exposed>();
+const dialog = ref<boolean>(false);
+
+/**
+ * Holds on setup button click logic.
+ * Starts create S3 credentials flow.
+ */
+function onSetup(): void {
+    accessDialog.value?.setTypes([AccessType.S3]);
+    dialog.value = true;
+}
 </script>

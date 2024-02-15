@@ -202,6 +202,7 @@ import {
     AccessGrantEndDate,
     STEP_ICON_AND_TITLE,
     ACCESS_TYPE_LINKS,
+    Exposed,
 } from '@/types/createAccessGrant';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -252,6 +253,10 @@ const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
     'accessCreated': [];
+}>();
+
+const props = defineProps<{
+    defaultName?: string
 }>();
 
 const bucketsStore = useBucketsStore();
@@ -555,20 +560,43 @@ async function createEdgeCredentials(): Promise<void> {
 }
 
 /**
- * Set the types of access to be created
+ * Set the types of access to be created.
  */
 function setTypes(newTypes: AccessType[]) {
-    const createStepRef = stepInfos[CreateAccessStep.CreateNewAccess].ref;
+    const createStepRef = stepInfos[CreateAccessStep.CreateNewAccess].ref as Ref<DialogStepComponent & Exposed>;
     const unwatch = watch(createStepRef, value => {
         if (!value) {
             return;
         }
         unwatch();
-        if (value && typeof value['setTypes'] === 'function') {
-            const setType = value['setTypes'] as (newTypes: AccessType[]) => void;
-            setType(newTypes);
-        }
+
+        value.setTypes(newTypes);
     });
+}
+
+/**
+ * Set unique name of access to be created.
+ */
+function setDefaultName(): void {
+    const createStepRef = stepInfos[CreateAccessStep.CreateNewAccess].ref as Ref<DialogStepComponent & Exposed>;
+
+    if (!(props.defaultName && createStepRef.value)) return;
+
+    // Regular expression to match a name with an optional numeric suffix.
+    const namePattern = /^(.*?)(?: \((\d+)\))?$/;
+
+    let currName = props.defaultName;
+    let count = 0;
+    while (agStore.state.allAGNames.includes(currName)) {
+        count++;
+        currName = currName.replace(namePattern, (_, baseName, index) => {
+            // Increment the suffix if it exists, or add a new one starting with 1.
+            const newIndex = index ? parseInt(index) + 1 : count;
+            return `${baseName} (${newIndex})`;
+        });
+    }
+
+    createStepRef.value.setName(currName);
 }
 
 /**
@@ -601,6 +629,10 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     await bucketsStore.getAllBucketsNames(projectID).catch(err => {
         notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     });
+
+    if (props.defaultName) {
+        setDefaultName();
+    }
 
     isFetching.value = false;
 

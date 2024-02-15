@@ -142,7 +142,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
-import { AccessType } from '@/types/createAccessGrant';
+import { AccessType, Exposed } from '@/types/createAccessGrant';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import NewAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
@@ -167,7 +167,7 @@ const isAccessDialogOpen = ref(false);
 const isBucketPassphraseDialogOpen = ref(false);
 const isManagePassphraseDialogOpen = ref(false);
 
-const accessDialog = ref<{ setTypes: (newTypes: AccessType[]) => void }>();
+const accessDialog = ref<Exposed>();
 
 /**
  * contains custom texts to be shown on the steps
