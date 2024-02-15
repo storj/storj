@@ -222,7 +222,9 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 			config.Repairer.DialTimeout,
 			config.Repairer.DownloadTimeout,
-			config.Repairer.InMemoryRepair)
+			config.Repairer.InMemoryRepair,
+			config.Repairer.InMemoryUpload,
+		)
 
 		if len(config.Repairer.RepairExcludedCountryCodes) == 0 {
 			config.Repairer.RepairExcludedCountryCodes = config.Overlay.RepairExcludedCountryCodes
