@@ -20,6 +20,7 @@ enum RouteName {
     Bucket = 'Bucket',
     Access = 'Access',
     Team = 'Team',
+    Applications = 'Applications',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
     Signup = 'Signup',
@@ -42,6 +43,7 @@ export abstract class ROUTES {
     public static Bucket = new NavigationLink(':browserPath+', RouteName.Bucket);
     public static Access = new NavigationLink('access', RouteName.Access);
     public static Team = new NavigationLink('team', RouteName.Team);
+    public static Applications = new NavigationLink('applications', RouteName.Applications);
     public static ProjectSettings = new NavigationLink('settings', RouteName.ProjectSettings);
 
     public static Login = new NavigationLink('/login', RouteName.Login);
@@ -55,6 +57,7 @@ export abstract class ROUTES {
     public static DashboardAnalyticsLink = `${this.Projects.path}/${this.Dashboard.path}`;
     public static ProjectSettingsAnalyticsLink = `${this.Projects.path}/${this.ProjectSettings.path}`;
     public static AccessAnalyticsLink = `${this.Projects.path}/${this.Access.path}`;
+    public static ApplicationsAnalyticsLink = `${this.Projects.path}/${this.Applications.path}`;
     public static TeamAnalyticsLink = `${this.Projects.path}/${this.Team.path}`;
     public static BucketsAnalyticsLink = `${this.Projects.path}/${this.Buckets.path}`;
 }
@@ -173,6 +176,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.Team.path,
                 name: ROUTES.Team.name,
                 component: () => import(/* webpackChunkName: "Team" */ '@/views/Team.vue'),
+            },
+            {
+                path: ROUTES.Applications.path,
+                name: ROUTES.Applications.name,
+                component: () => import(/* webpackChunkName: "Applications" */ '@/views/Applications.vue'),
             },
             {
                 path: ROUTES.ProjectSettings.path,
