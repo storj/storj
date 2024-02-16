@@ -11,9 +11,8 @@
         @mouseout="model = false"
         @mouseleave="model = false"
     >
-        <v-container
-            fluid
-            class="fill-height border-white border-sm border-dashed justify-center align-center"
+        <div
+            class="h-100 w-100 border-white border-sm border-dashed d-flex justify-center align-center"
             @dragenter.prevent
             @dragover.prevent
             @drop.stop.prevent="(e) => emit('fileDrop', e)"
@@ -27,19 +26,22 @@
             </v-alert>
 
             <p class="info font-weight-bold text-h3 text-center">Drag and drop files here to upload</p>
-        </v-container>
+        </div>
     </v-dialog>
 </template>
 
 <script setup lang="ts">
-import { VAlert, VContainer, VDialog } from 'vuetify/components';
-import { computed } from 'vue';
+import { VAlert, VDialog } from 'vuetify/components';
 
 const props = defineProps<{
     bucket: string,
 }>();
 
 const model = defineModel<boolean>({ required: true });
+
+const emit = defineEmits<{
+    (event: 'fileDrop', value: Event): void,
+}>();
 </script>
 
 <style scoped lang="scss">
