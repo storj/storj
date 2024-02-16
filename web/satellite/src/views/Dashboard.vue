@@ -36,62 +36,48 @@
 
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="file" title="Files" subtitle="Total files stored" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
-                <CardStatsComponent icon="globe" title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="bucket" title="Buckets" subtitle="Storage buckets" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="access" title="Access" subtitle="Project keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
+                <CardStatsComponent title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
+                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
             </v-col>
             <template v-if="emissionImpactViewEnabled">
                 <v-col cols="12" sm="6" md="4" lg="2">
+                    <emissions-dialog />
                     <v-tooltip
                         activator="parent"
-                        location="bottom"
+                        location="top"
                         offset="-20"
+                        opacity="80"
                     >
-                        {{ emission.storjImpact.toLocaleString(undefined, { maximumFractionDigits: 3 }) }} kg CO2e estimated if using Storj
-                        <br>
-                        {{ emission.hyperscalerImpact.toLocaleString(undefined, { maximumFractionDigits: 3 }) }} kg CO2e estimated if using traditional cloud storage
-                        <br>
-                        <a
-                            href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            More info about our methodology
-                        </a>
+                        Click to learn more
                     </v-tooltip>
-                    <CardStatsComponent icon="globe" title="CO2 Saved" subtitle="By using Storj" :data="co2Savings" />
+                    <CardStatsComponent title="CO₂ Estimated" subtitle="For this project" :data="co2Estimated" link />
                 </v-col>
                 <v-col cols="12" sm="6" md="4" lg="2">
+                    <emissions-dialog />
                     <v-tooltip
                         activator="parent"
-                        location="bottom"
+                        location="top"
                         offset="-20"
+                        opacity="80"
                     >
-                        Number of urban tree seedlings grown for 10 years.
-                        <br>
-                        <a
-                            href="https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Learn more about Greenhouse Gases Equivalencies
-                        </a>
+                        Click to learn more
                     </v-tooltip>
-                    <CardStatsComponent icon="globe" title="Savings" subtitle="Equivalent" :data="`${emission.savedTrees.toLocaleString()} trees`" />
+                    <CardStatsComponent title="CO₂ Avoided" subtitle="By using Storj" :data="co2Saved" color="green" link />
                 </v-col>
             </template>
             <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="4" lg="2">
-                <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
+                <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
             </v-col>
         </v-row>
 
@@ -286,7 +272,7 @@ import {
 } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
-import { mdiChevronRight, mdiInformationOutline } from '@mdi/js';
+import { mdiInformationOutline } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -300,7 +286,6 @@ import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
-import { LocalData } from '@/utils/localData';
 import { ProjectMembersPage } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -318,7 +303,6 @@ import StorageChart from '@/components/StorageChart.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
-import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 import IconCloud from '@/components/icons/IconCloud.vue';
 import IconArrowDown from '@/components/icons/IconArrowDown.vue';
 import LimitWarningBanners from '@/components/LimitWarningBanners.vue';
@@ -327,6 +311,12 @@ import IconUpgrade from '@/components/icons/IconUpgrade.vue';
 import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
+import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
+
+type ValueUnit = {
+    value: number
+    unit: string
+}
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -352,13 +342,24 @@ const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
 
 /**
- * Returns calculated and formatted CO2 savings info.
+ * Returns formatted CO2 estimated info.
  */
-const co2Savings = computed<string>(() => {
-    let saved = emission.value.hyperscalerImpact - emission.value.storjImpact;
-    if (saved < 0) saved = 0;
+const co2Estimated = computed<string>(() => {
+    const formatted = getValueAndUnit(emission.value.storjImpact);
 
-    return `${saved.toLocaleString(undefined, { maximumFractionDigits: 3 })} kg CO2e`;
+    return `${formatted.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${formatted.unit} CO₂e`;
+});
+
+/**
+ * Returns formatted CO2 save info.
+ */
+const co2Saved = computed<string>(() => {
+    let value = emission.value.hyperscalerImpact - emission.value.storjImpact;
+    if (value < 0) value = 0;
+
+    const formatted = getValueAndUnit(value);
+
+    return `${formatted.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${formatted.unit} CO₂e`;
 });
 
 /**
@@ -588,6 +589,16 @@ const emissionImpactViewEnabled = computed<boolean>(() => {
 const emission = computed<Emission>(()  => {
     return projectsStore.state.emission;
 });
+
+/**
+ * Returns adjusted value and unit.
+ */
+function getValueAndUnit(value: number): ValueUnit {
+    const unitUpgradeThreshold = 999999;
+    const [newValue, unit] = value > unitUpgradeThreshold ? [value / 1000, 't'] : [value, 'kg'];
+
+    return { value: newValue, unit };
+}
 
 /**
  * Returns formatted amount.
