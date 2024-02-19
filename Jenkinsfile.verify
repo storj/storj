@@ -166,7 +166,7 @@ pipeline {
             post {
                 always {
                     archiveArtifacts artifacts: '.build/tests.json'
-                    sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                    sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
                     junit '.build/tests.xml'
 
                     script {
