@@ -137,11 +137,11 @@ func (bad *BadBlobs) OpenWithStorageFormat(ctx context.Context, ref blobstore.Bl
 }
 
 // Trash deletes the blob with the namespace and key.
-func (bad *BadBlobs) Trash(ctx context.Context, ref blobstore.BlobRef) error {
+func (bad *BadBlobs) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
-	return bad.blobs.Trash(ctx, ref)
+	return bad.blobs.Trash(ctx, ref, timestamp)
 }
 
 // RestoreTrash restores all files in the trash.

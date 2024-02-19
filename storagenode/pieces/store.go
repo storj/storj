@@ -376,7 +376,7 @@ func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storj.No
 // Trash moves the specified piece to the blob trash. If necessary, it converts
 // the v0 piece to a v1 piece. It also marks the item as "trashed" in the
 // pieceExpirationDB.
-func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
@@ -404,7 +404,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 	err = errs.Combine(err, store.blobs.Trash(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}))
+	}, timestamp))
 
 	return Error.Wrap(err)
 }

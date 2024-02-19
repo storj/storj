@@ -384,12 +384,8 @@ func TestTrashAndRestore(t *testing.T) {
 
 				}
 
-				trashDurToUse := piece.trashDur
-				dir.ReplaceTrashnow(func() time.Time {
-					return time.Now().Add(-trashDurToUse)
-				})
 				// Trash the piece
-				require.NoError(t, store.Trash(ctx, satellite.satelliteID, piece.pieceID))
+				require.NoError(t, store.Trash(ctx, satellite.satelliteID, piece.pieceID, time.Now().Add(-piece.trashDur)))
 
 				// Confirm is missing
 				r, err := store.Reader(ctx, satellite.satelliteID, piece.pieceID)
@@ -446,7 +442,7 @@ func TestTrashAndRestore(t *testing.T) {
 				verifyPieceData(ctx, t, tStore, satellites[0].satelliteID, piece.pieceID, filestore.MaxFormatVersionSupported, lastFile.data, piece.expiration, publicKey)
 			} else {
 				// Expect the piece to be missing, it should be removed from the trash on EmptyTrash
-				r, err := store.Reader(ctx, satellites[1].satelliteID, piece.pieceID)
+				r, err := store.Reader(ctx, satellites[0].satelliteID, piece.pieceID)
 				require.Error(t, err)
 				require.Nil(t, r)
 			}

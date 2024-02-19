@@ -86,7 +86,7 @@ type Blobs interface {
 	// DeleteTrashNamespace deletes the trash folder for a given namespace.
 	DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error)
 	// Trash marks a file for pending deletion.
-	Trash(ctx context.Context, ref BlobRef) error
+	Trash(ctx context.Context, ref BlobRef, timestamp time.Time) error
 	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.
 	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
 	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted.

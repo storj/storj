@@ -634,7 +634,7 @@ func TestEmptyTrash(t *testing.T) {
 			}
 
 			// Trash the ref
-			require.NoError(t, store.Trash(ctx, blobref))
+			require.NoError(t, store.Trash(ctx, blobref, time.Now()))
 		}
 	}
 
@@ -759,7 +759,7 @@ func TestTrashAndRestore(t *testing.T) {
 			}
 
 			// Trash the ref
-			require.NoError(t, store.Trash(ctx, blobref))
+			require.NoError(t, store.Trash(ctx, blobref, time.Now()))
 
 			// Verify files are gone
 			for _, file := range ref.files {

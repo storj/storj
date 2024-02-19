@@ -152,9 +152,9 @@ func (store *blobStore) DeleteTrashNamespace(ctx context.Context, namespace []by
 }
 
 // Trash moves the ref to a trash directory.
-func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
+func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.dir.Trash(ctx, ref))
+	return Error.Wrap(store.dir.Trash(ctx, ref, timestamp))
 }
 
 // RestoreTrash moves every blob in the trash back into the regular location.

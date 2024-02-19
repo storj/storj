@@ -224,7 +224,7 @@ func TestCacheServiceRun(t *testing.T) {
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
 		require.NoError(t, w.Commit(ctx))
-		require.NoError(t, store.Trash(ctx, trashRef)) // trash it
+		require.NoError(t, store.Trash(ctx, trashRef, time.Now())) // trash it
 
 		// Now instantiate the cache
 		cache := pieces.NewBlobsUsageCache(log, store)
@@ -305,7 +305,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
 		require.NoError(t, w.Commit(ctx))
-		require.NoError(t, store.Trash(ctx, trashRef)) // trash it
+		require.NoError(t, store.Trash(ctx, trashRef, time.Now())) // trash it
 
 		// Set up the lazy filewalker
 		cfg := pieces.DefaultConfig
@@ -732,7 +732,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		fileInfo, err := blobInfo.Stat(ctx)
 		require.NoError(t, err)
 		ref0Size := fileInfo.Size()
-		err = cache.Trash(ctx, refs[0])
+		err = cache.Trash(ctx, refs[0], time.Now())
 		require.NoError(t, err)
 		assertValues("trashed refs[0]", satelliteID, expPieceSize, len(pieceContent), int(ref0Size))
 
@@ -742,7 +742,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		assertValues("restore trash for satellite", satelliteID, expPieceSize*len(refs), len(pieceContent)*len(refs), 0)
 
 		// Trash piece again
-		err = cache.Trash(ctx, refs[0])
+		err = cache.Trash(ctx, refs[0], time.Now())
 		require.NoError(t, err)
 		assertValues("trashed again", satelliteID, expPieceSize, len(pieceContent), int(ref0Size))
 

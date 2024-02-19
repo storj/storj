@@ -338,7 +338,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 
 		// if retain status is enabled, delete pieceid
 		if s.config.Status == Enabled {
-			if err = s.trash(ctx, satelliteID, pieceID); err != nil {
+			if err = s.trash(ctx, satelliteID, pieceID, started); err != nil {
 				s.log.Warn("failed to delete piece",
 					zap.Stringer("Satellite ID", satelliteID),
 					zap.Stringer("Piece ID", pieceID),
@@ -368,9 +368,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 }
 
 // trash wraps retains piece deletion to monitor moving retained piece to trash error during garbage collection.
-func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx, satelliteID)(&err)
-	return s.store.Trash(ctx, satelliteID, pieceID)
+	return s.store.Trash(ctx, satelliteID, pieceID, timestamp)
 }
 
 // HowManyQueued peeks at the number of bloom filters queued.
