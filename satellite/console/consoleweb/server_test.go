@@ -36,7 +36,7 @@ func TestActivationRouting(t *testing.T) {
 		user, err := service.CreateUser(ctx, console.CreateUser{
 			FullName: "User",
 			Email:    "u@mail.test",
-			Password: "123a123",
+			Password: "password",
 		}, regToken.Secret)
 		require.NoError(t, err)
 

@@ -25,7 +25,7 @@ import (
 const (
 	lastName        = "lastName"
 	email           = "email@mail.test"
-	passValid       = "123456"
+	passValid       = "password"
 	name            = "name"
 	newName         = "newName"
 	newLastName     = "newLastName"
@@ -302,7 +302,7 @@ func TestGetUserByEmail(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "Inactive User",
 			Email:        email,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
@@ -321,7 +321,7 @@ func TestGetUserByEmail(t *testing.T) {
 			FullName:     "Active User",
 			Email:        email,
 			Status:       console.Active,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &activeUser)
@@ -347,7 +347,7 @@ func TestGetUsersByStatus(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "Inactive User",
 			Email:        email,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
@@ -358,7 +358,7 @@ func TestGetUsersByStatus(t *testing.T) {
 			FullName:     "Active User",
 			Email:        email,
 			Status:       console.Active,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &activeUser)
@@ -407,7 +407,7 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 			ID:           id,
 			FullName:     "unverified user one",
 			Email:        "userone@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 

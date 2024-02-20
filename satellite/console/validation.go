@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	// PasswordMinimumLength is the minimum allowed length for user account passwords.
-	PasswordMinimumLength = 6
-	// PasswordMaximumLength is the maximum allowed length for user account passwords.
-	PasswordMaximumLength = 72
+	// PasswordMinimumLength is the minimum allowed length for user account passwords, based on NIST guidelines for user-generated passwords.
+	PasswordMinimumLength = 8
+	// PasswordMaximumLength is the maximum allowed length for user account passwords, based on NIST guidelines for user-generated passwords.
+	PasswordMaximumLength = 64
 )
 
 // ErrValidation validation related error class.
@@ -20,8 +20,8 @@ var ErrValidation = errs.Class("validation")
 // ValidateNewPassword validates password for creation.
 // It returns an plain error (not wrapped in a errs.Class) if pass is invalid.
 //
-// Previously the limit was 128, however, bcrypt ignores any characters beyond 72,
-// hence this checks new passwords -- old passwords might be longer.
+// Password minimum length has previously been as short as 6, and maximum as long as 128.
+// Therefore, this validation should only be applied to new passwords - old passwords may have previously been created outside of the 8-64 length range.
 func ValidateNewPassword(pass string) error {
 	if len(pass) < PasswordMinimumLength {
 		return errs.New(passwordTooShortErrMsg, PasswordMinimumLength)

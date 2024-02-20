@@ -372,7 +372,7 @@ func TestUpdateUserProjectLimits(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "User",
 			Email:        "test@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 
@@ -395,7 +395,7 @@ func TestUpdateDefaultPlacement(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "User",
 			Email:        "test@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 

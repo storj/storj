@@ -96,7 +96,7 @@ func TestUserAdd(t *testing.T) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		email := "alice+2@mail.test"
 
-		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
+		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"password"}`, email))
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/users", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
@@ -135,7 +135,7 @@ func TestUserAdd_sameEmail(t *testing.T) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		email := "alice+2@mail.test"
 
-		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
+		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"password"}`, email))
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/users", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
@@ -159,7 +159,7 @@ func TestUserAdd_sameEmail(t *testing.T) {
 		require.Equal(t, email, user.Email)
 
 		// Add same user again, this should fail
-		body = strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
+		body = strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"password"}`, email))
 		req, err = http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/users", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
