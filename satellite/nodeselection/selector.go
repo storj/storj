@@ -24,16 +24,16 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 
 		newSelector := init(newNodes, filter)
 		oldSelector := init(oldNodes, filter)
-		return func(n int, alreadySelected []storj.NodeID) ([]*SelectedNode, error) {
+		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
 			newNodeCount := int(float64(n) * newNodeFraction)
 
-			selectedNewNodes, err := newSelector(newNodeCount, alreadySelected)
+			selectedNewNodes, err := newSelector(newNodeCount, excluded, alreadySelected)
 			if err != nil {
 				return selectedNewNodes, err
 			}
 
 			remaining := n - len(selectedNewNodes)
-			selectedOldNodes, err := oldSelector(remaining, alreadySelected)
+			selectedOldNodes, err := oldSelector(remaining, excluded, alreadySelected)
 			if err != nil {
 				return selectedNewNodes, err
 			}
@@ -75,7 +75,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			attributes = append(attributes, k)
 		}
 
-		return func(n int, alreadySelected []storj.NodeID) (selected []*SelectedNode, err error) {
+		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -83,13 +83,16 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			for r.Next() {
 				nodes := nodeByAttribute[attributes[r.At()]]
 
-				if included(alreadySelected, nodes...) {
+				if includedInNodes(alreadySelected, nodes...) {
 					continue
 				}
 
 				rs := NewRandomOrder(len(nodes))
 				for rs.Next() {
-					selected = append(selected, nodes[rs.At()].Clone())
+					candidate := nodes[rs.At()].Clone()
+					if !included(excluded, candidate) && !includedInNodes(selected, candidate) {
+						selected = append(selected, nodes[rs.At()].Clone())
+					}
 					break
 
 				}
@@ -136,7 +139,7 @@ func RandomSelector() NodeSelectorInit {
 			filteredNodes = append(filteredNodes, node)
 		}
 
-		return func(n int, alreadySelected []storj.NodeID) (selected []*SelectedNode, err error) {
+		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -144,7 +147,7 @@ func RandomSelector() NodeSelectorInit {
 			for r.Next() {
 				candidate := filteredNodes[r.At()]
 
-				if included(alreadySelected, candidate) {
+				if includedInNodes(alreadySelected, candidate) || included(excluded, candidate) || includedInNodes(selected, candidate) {
 					continue
 				}
 
@@ -195,9 +198,18 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 			groupedNodes = append(groupedNodes, nodeList)
 		}
 
-		return func(n int, alreadySelected []storj.NodeID) (selected []*SelectedNode, err error) {
+		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
+			}
+
+			// for each node attribute --> how many nodes are selected already
+			var alreadySelectedGroup map[string]int
+			if len(alreadySelected) > 0 {
+				alreadySelectedGroup = make(map[string]int)
+				for _, node := range alreadySelected {
+					alreadySelectedGroup[attribute(*node)]++
+				}
 			}
 
 			// upper limit: we should find at least one node in each full group loop.
@@ -212,7 +224,7 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 					// this group has one chance to give a candidate
 					randomOne := nodes[rng.Intn(len(nodes))].Clone()
 
-					if !included(alreadySelected, randomOne) && !includedInNodes(selected, randomOne) {
+					if !includedInNodes(alreadySelected, randomOne) && !included(excluded, randomOne) && !includedInNodes(selected, randomOne) {
 						selected = append(selected, randomOne)
 					}
 
