@@ -305,7 +305,7 @@ type Service struct {
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
-	placementRules         nodeselection.PlacementRules
+	placementDefinitions   nodeselection.PlacementDefinitions
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
@@ -373,7 +373,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		DownloadSelectionCache: downloadSelectionCache,
 		LastNetFunc:            MaskOffLastNet,
 
-		placementRules: placements.CreateFilters,
+		placementDefinitions: placements,
 	}, nil
 }
 
@@ -734,10 +734,10 @@ func (service *Service) GetNodeTags(ctx context.Context, id storj.NodeID) (nodes
 	return service.db.GetNodeTags(ctx, id)
 }
 
-// GetLocationFromPlacement returns the value for `nodeselection.Location` that
-// placement is currently annotated with.
+// GetLocationFromPlacement returns the location identifier of the bucket.
+// It comes from the name of the placement (or `nodeselection.Location` in case of legacy config).
 func (service *Service) GetLocationFromPlacement(placement storj.PlacementConstraint) string {
-	return nodeselection.GetAnnotation(service.placementRules(placement), nodeselection.Location)
+	return service.placementDefinitions[placement].Name
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and appropriate last_net, as indicated.

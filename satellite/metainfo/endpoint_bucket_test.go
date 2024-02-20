@@ -308,8 +308,7 @@ func TestGetBucketLocation(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
-						nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF),
+					PlacementRules: "endpoint_bucket_test_placement.yaml",
 				}
 			},
 		},
@@ -355,7 +354,7 @@ func TestGetBucketLocation(t *testing.T) {
 			Name: []byte("test-bucket"),
 		})
 		require.NoError(t, err)
-		require.Equal(t, []byte("Poland"), response.Location)
+		require.Equal(t, "Poland", string(response.Location))
 	})
 }
 
