@@ -9,16 +9,16 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/certificate/certificatepb"
 	"storj.io/storj/certificate/rpcerrs"
 )
 
 // Endpoint implements pb.CertificatesServer.
 type Endpoint struct {
-	certificatepb.DRPCCertificatesUnimplementedServer
+	pb.DRPCCertificatesUnimplementedServer
 
 	rpclog          *rpcerrs.Log
 	log             *zap.Logger
@@ -47,7 +47,7 @@ func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authori
 
 // Sign signs the CA certificate of the remote peer's identity with the `certs.ca` certificate.
 // Returns a certificate chain consisting of the remote peer's CA followed by the CA chain.
-func (endpoint Endpoint) Sign(ctx context.Context, req *certificatepb.SigningRequest) (_ *certificatepb.SigningResponse, err error) {
+func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *pb.SigningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	peer, err := rpcpeer.FromContext(ctx)
 	if err != nil {
@@ -99,7 +99,7 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *certificatepb.SigningReq
 		zap.Stringer("truncated token", tokenFormatter),
 	)
 
-	return &certificatepb.SigningResponse{
+	return &pb.SigningResponse{
 		Chain: signedChainBytes,
 	}, nil
 }

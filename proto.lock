@@ -5,32 +5,6 @@
       "def": {
         "messages": [
           {
-            "name": "SigningRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "auth_token",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "timestamp",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "SigningResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "chain",
-                "type": "bytes",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
             "name": "AuthorizationGroup",
             "fields": [
               {
@@ -94,18 +68,6 @@
                 "name": "signed_chain_bytes",
                 "type": "bytes",
                 "is_repeated": true
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "Certificates",
-            "rpcs": [
-              {
-                "name": "Sign",
-                "in_type": "SigningRequest",
-                "out_type": "SigningResponse"
               }
             ]
           }

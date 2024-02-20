@@ -61,7 +61,7 @@ type Token struct {
 
 // ClaimOpts hold parameters for claiming an authorization.
 type ClaimOpts struct {
-	Req           *certificatepb.SigningRequest
+	Req           *pb.SigningRequest
 	Peer          *rpcpeer.Peer
 	ChainBytes    [][]byte
 	MinDifficulty uint16
