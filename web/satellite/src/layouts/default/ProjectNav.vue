@@ -239,6 +239,7 @@
 
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <manage-passphrase-dialog v-model="isManagePassphraseDialogShown" />
+    <enter-project-passphrase-dialog />
 </template>
 
 <script setup lang="ts">
@@ -284,6 +285,8 @@ import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
 import IconFolder from '@/components/icons/IconFolder.vue';
 import IconApplications from '@/components/icons/IconApplications.vue';
+import EnterProjectPassphraseDialog
+    from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
 
 const configStore = useConfigStore();
 const analyticsStore = useAnalyticsStore();

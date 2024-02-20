@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import { useTheme } from 'vuetify';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -84,12 +84,17 @@ async function setup() {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
             }
             projectsStore.selectProject(projects[0].id);
+            const project = projectsStore.state.selectedProject;
             await router.push({
                 name: ROUTES.Dashboard.name,
-                params: { id: projectsStore.state.selectedProject.urlId },
+                params: { id: project.urlId },
             });
             analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+
+            if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+                appStore.toggleProjectPassphraseDialog(true);
+            }
         }
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -130,6 +135,18 @@ onBeforeMount(async (): Promise<void> => {
 usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
         after((_) => setup());
+    }
+});
+
+/**
+ * conditionally prompt for project passphrase if project changes
+ */
+watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
+    if (project.id === oldProject.id) {
+        return;
+    }
+    if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+        appStore.toggleProjectPassphraseDialog(true);
     }
 });
 </script>
