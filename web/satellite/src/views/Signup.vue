@@ -4,7 +4,7 @@
 <template>
     <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
-        <v-row align="top" justify="center">
+        <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                 <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible">
                     <v-card-item v-if="isInvited">
@@ -22,7 +22,7 @@
                     </v-card-item>
 
                     <v-card-text>
-                        <v-form ref="form" v-model="formValid" class="pt-3">
+                        <v-form ref="form" v-model="formValid" class="pt-3" @submit.prevent="onSignupClick">
                             <v-select
                                 v-model="satellite"
                                 label="Satellite"
@@ -168,11 +168,11 @@
                             </v-checkbox>
 
                             <v-btn
+                                type="submit"
                                 :loading="isLoading"
                                 color="primary"
                                 size="large"
                                 block
-                                @click="onSignupClick"
                             >
                                 Create your account
                             </v-btn>

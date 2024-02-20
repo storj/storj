@@ -5,40 +5,42 @@
     <v-card :title="model ? 'Enter your 2FA code' : 'Enter your recovery code'" class="pa-2 pa-sm-6">
         <v-card-text v-if="model">
             <p>Enter the 6 digit code from your two factor authenticator application to continue.</p>
-            <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
-                <v-otp-input
-                    :model-value="otp"
-                    :error="error"
-                    :disabled="loading"
-                    autofocus
-                    class="my-2"
-                    maxlength="6"
-                    @update:modelValue="value => onValueChange(value)"
-                />
-            </v-card>
+            <v-form v-model="formValid" @submit.prevent="verifyCode">
+                <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
+                    <v-otp-input
+                        :model-value="otp"
+                        :error="error"
+                        :disabled="loading"
+                        autofocus
+                        class="my-2"
+                        maxlength="6"
+                        @update:modelValue="value => onValueChange(value)"
+                    />
+                </v-card>
 
-            <v-btn
-                :disabled="otp.length < 6"
-                :loading="loading"
-                color="primary"
-                block
-                @click="verifyCode()"
-            >
-                <span v-if="otp.length === 0">6 digits left</span>
+                <v-btn
+                    type="submit"
+                    :disabled="otp.length < 6"
+                    :loading="loading"
+                    color="primary"
+                    block
+                >
+                    <span v-if="otp.length === 0">6 digits left</span>
 
-                <span v-else-if="otp.length < 6">
-                    {{ 6 - otp.length }}
-                    digits left
-                </span>
+                    <span v-else-if="otp.length < 6">
+                        {{ 6 - otp.length }}
+                        digits left
+                    </span>
 
-                <span v-else>
-                    Verify
-                </span>
-            </v-btn>
+                    <span v-else>
+                        Verify
+                    </span>
+                </v-btn>
+            </v-form>
         </v-card-text>
         <v-card-text v-else>
             <p>Enter one of your recovery codes to continue.</p>
-            <v-form v-model="formValid" @submit.prevent>
+            <v-form v-model="formValid" @submit.prevent="verifyCode">
                 <v-text-field
                     :model-value="recovery"
                     :error="error"
@@ -51,12 +53,12 @@
                     @update:modelValue="value => onValueChange(value)"
                 />
                 <v-btn
+                    type="submit"
                     :disabled="!formValid"
                     :loading="loading"
                     color="primary"
                     size="large"
                     block
-                    @click="verifyCode()"
                 >
                     Continue
                 </v-btn>
