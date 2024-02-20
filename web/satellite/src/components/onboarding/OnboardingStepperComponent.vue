@@ -106,7 +106,6 @@
     <CreateBucketDialog
         v-if="currentStep === OnboardingStep.CreateBucket"
         v-model="isBucketDialogOpen"
-        :open-created="false"
         @created="onBucketCreated"
     />
     <enter-bucket-passphrase-dialog
