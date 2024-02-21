@@ -44,6 +44,7 @@ export enum AnalyticsEvent {
     BUSINESS_INFO_SUBMITTED = 'Business Info Submitted',
     USE_CASE_SELECTED = 'Use Case Selected',
     ONBOARDING_COMPLETED = 'Onboarding Completed',
+    ONBOARDING_ABANDONED = 'Onboarding Abandoned',
     PERSONAL_SELECTED = 'Personal Selected',
     BUSINESS_SELECTED = 'Business Selected',
 }
