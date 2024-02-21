@@ -926,7 +926,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.minimum-new-node-id-difficulty: 36
 
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
-# overlay.node-check-in-wait-period: 2h0m0s
+# overlay.node-check-in-wait-period: 1h10m0s
 
 # disable node cache
 # overlay.node-selection-cache.disabled: false
