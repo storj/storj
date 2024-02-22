@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -323,14 +324,19 @@ func TestAccountLegalFreeze(t *testing.T) {
 		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
 
 		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
-		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		frozen, err = service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
-		require.False(t, frozen)
+		require.True(t, frozen)
 		// legal freezing a billing frozen user should be possible.
 		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
 		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
 		require.NoError(t, err)
 		require.True(t, frozen)
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
+
+		require.NoError(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+		// legal freezing a trial-expiration frozen user should be possible.
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
 
 		freezes, err := service.GetAll(ctx, user.ID)
 		require.NoError(t, err)
@@ -720,5 +726,112 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errs.Is(err, sql.ErrNoRows))
 		require.Nil(t, event)
+
+		require.NoError(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+		// bot freezing a trial-expiration frozen user should be possible.
+		require.NoError(t, service.BotFreezeUser(ctx, user.ID))
+	})
+}
+
+func TestTrailExpirationFreeze(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+		projectsDB := sat.DB.Console().Projects()
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		userLimits := randUsageLimits()
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "user@mail.test",
+		}, 2)
+		require.NoError(t, err)
+		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
+
+		projLimits := randUsageLimits()
+		proj, err := sat.AddProject(ctx, user.ID, "")
+		require.NoError(t, err)
+		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+
+		frozen, err := service.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
+		require.NoError(t, err)
+		require.False(t, frozen)
+
+		require.NoError(t, service.ViolationFreezeUser(ctx, user.ID))
+		// cannot trial-expiration freeze a violation frozen user.
+		require.Error(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+		require.NoError(t, service.ViolationUnfreezeUser(ctx, user.ID))
+
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
+		// cannot trial-expiration freeze a legal-frozen user.
+		require.Error(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
+
+		require.NoError(t, service.BotFreezeUser(ctx, user.ID))
+		// cannot trial-expiration freeze a bot-frozen user.
+		require.Error(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+		require.NoError(t, service.BotUnfreezeUser(ctx, user.ID))
+
+		require.NoError(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Zero(t, getUserLimits(user))
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		usageLimits := getProjectLimits(proj)
+		require.Zero(t, usageLimits.Segment)
+		require.Zero(t, usageLimits.Storage)
+		require.Zero(t, usageLimits.Bandwidth)
+		zeroLimit := 0
+		require.Equal(t, &zeroLimit, usageLimits.RateLimit)
+		require.Equal(t, &zeroLimit, usageLimits.BurstLimit)
+
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
+		require.NoError(t, err)
+		require.True(t, frozen)
+
+		freezes, err := service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.TrialExpirationFreeze)
+
+		require.NoError(t, service.TrialExpirationUnfreezeUser(ctx, user.ID, nil, nil))
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, userLimits, getUserLimits(user))
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, projLimits, getProjectLimits(proj))
+
+		require.NoError(t, service.TrialExpirationFreezeUser(ctx, user.ID))
+		randLimits := randUsageLimits()
+		now := time.Now().Truncate(time.Second)
+		nowPtr := &now
+		require.NoError(t, service.TrialExpirationUnfreezeUser(ctx, user.ID, nowPtr, &console.UnfreezeLimitsOverride{
+			Storage:   randLimits.Storage,
+			Bandwidth: randLimits.Bandwidth,
+			Segment:   randLimits.Segment,
+			Project:   10,
+		}))
+
+		limits := userLimits
+		limits.Segment = randLimits.Segment
+		limits.Storage = randLimits.Storage
+		limits.Bandwidth = randLimits.Bandwidth
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, limits, getUserLimits(user))
+		require.True(t, user.PaidTier)
+		require.Equal(t, nowPtr, user.UpgradeTime)
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, limits, getProjectLimits(proj))
 	})
 }

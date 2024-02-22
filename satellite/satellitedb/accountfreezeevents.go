@@ -193,6 +193,12 @@ func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID)
 				return nil, err
 			}
 		}
+		if eventType == console.TrialExpirationFreeze {
+			freezes.TrialExpirationFreeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return freezes, nil
