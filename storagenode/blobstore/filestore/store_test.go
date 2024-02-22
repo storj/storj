@@ -219,12 +219,6 @@ func TestDeleteWhileReading(t *testing.T) {
 	// should be able to read the full content
 	require.Equal(t, data, result)
 
-	// collect trash
-	gStore := store.(interface {
-		GarbageCollect(ctx context.Context) error
-	})
-	_ = gStore.GarbageCollect(ctx)
-
 	// flaky test, for checking whether files have been actually deleted from disk
 	err = filepath.Walk(ctx.Dir("store"), func(path string, info os.FileInfo, _ error) error {
 		if info.IsDir() {
@@ -640,7 +634,7 @@ func TestEmptyTrash(t *testing.T) {
 			}
 
 			// Trash the ref
-			require.NoError(t, store.Trash(ctx, blobref))
+			require.NoError(t, store.Trash(ctx, blobref, time.Now()))
 		}
 	}
 
@@ -765,7 +759,7 @@ func TestTrashAndRestore(t *testing.T) {
 			}
 
 			// Trash the ref
-			require.NoError(t, store.Trash(ctx, blobref))
+			require.NoError(t, store.Trash(ctx, blobref, time.Now()))
 
 			// Verify files are gone
 			for _, file := range ref.files {

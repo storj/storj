@@ -473,6 +473,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	emissionService := emission.NewService(config.Emission)
+
 	{ // setup payments
 		pc := config.Payments
 
@@ -516,6 +518,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			peer.Analytics.Service,
+			emissionService,
 		)
 
 		if err != nil {
@@ -569,8 +572,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			consoleConfig.AccountFreeze,
 		)
-
-		emissionService := emission.NewService(config.Emission)
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),

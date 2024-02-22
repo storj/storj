@@ -43,7 +43,7 @@ describe('actions', () => {
         expect(store.state.page.projectMembers.length).toBe(1);
         expect(store.state.page.search).toBe('');
         expect(store.state.page.order).toBe(ProjectMemberOrderBy.NAME);
-        expect(store.state.page.orderDirection).toBe(SortDirection.ASCENDING);
+        expect(store.state.page.orderDirection).toBe(SortDirection.asc);
         expect(store.state.page.limit).toBe(6);
         expect(store.state.page.pageCount).toBe(1);
         expect(store.state.page.currentPage).toBe(1);
@@ -77,9 +77,9 @@ describe('actions', () => {
     it('set sort direction', function () {
         const store = useProjectMembersStore();
 
-        store.setSortingDirection(SortDirection.DESCENDING);
+        store.setSortingDirection(SortDirection.desc);
 
-        expect(store.state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
+        expect(store.state.cursor.orderDirection).toBe(SortDirection.desc);
     });
 
     it('toggle selection', async function () {
@@ -171,7 +171,7 @@ describe('actions', () => {
                 [],
                 '',
                 ProjectMemberOrderBy.NAME,
-                SortDirection.ASCENDING,
+                SortDirection.asc,
                 6,
                 1,
                 1,

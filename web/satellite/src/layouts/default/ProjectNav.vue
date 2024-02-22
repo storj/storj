@@ -149,6 +149,12 @@
                 </template>
             </navigation-item>
 
+            <navigation-item v-if="isAppsPage" :title="ROUTES.Applications.name" :to="appsURL" @click="() => registerLinkClick(ROUTES.ApplicationsAnalyticsLink)">
+                <template #prepend>
+                    <IconApplications />
+                </template>
+            </navigation-item>
+
             <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="() => registerLinkClick(ROUTES.TeamAnalyticsLink)">
                 <template #prepend>
                     <IconTeam size="18" />
@@ -259,6 +265,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconProject from '@/components/icons/IconProject.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -276,7 +283,9 @@ import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
 import IconFolder from '@/components/icons/IconFolder.vue';
+import IconApplications from '@/components/icons/IconApplications.vue';
 
+const configStore = useConfigStore();
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
@@ -314,6 +323,10 @@ const bucketsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Buck
 const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Dashboard.path}`);
 
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
+
+const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applications.path}`);
+
+const isAppsPage = computed<boolean>(() => configStore.state.config.applicationsPageEnabled);
 
 /**
  * Returns user's own projects.

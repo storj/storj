@@ -56,22 +56,19 @@
                 <p class="text-overline">Step 3</p>
                 <h4>Upload Files</h4>
                 <p class="mt-1 mb-2">
-                    You are ready to upload files
-                    in your bucket, and share with the world.
+                    Click 'Upload Files' to go to
+                    your storage bucket and start uploading files.
                 </p>
                 <v-btn
                     :color="uploadStepInfo.color"
                     :variant="uploadStepInfo.variant"
                     :disabled="uploadStepInfo.disabled"
+                    :append-icon="uploadStepInfo.appendIcon"
                     router-link
                     block
                     @click="uploadFilesClicked"
                 >
-                    <template #prepend>
-                        <IconUpload />
-                    </template>
-
-                    Upload Files
+                    Go to Upload
                 </v-btn>
             </v-card>
         </v-col>
@@ -106,7 +103,6 @@
     <CreateBucketDialog
         v-if="currentStep === OnboardingStep.CreateBucket"
         v-model="isBucketDialogOpen"
-        :open-created="false"
         @created="onBucketCreated"
     />
     <enter-bucket-passphrase-dialog
@@ -142,13 +138,12 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
-import { AccessType } from '@/types/createAccessGrant';
+import { AccessType, Exposed } from '@/types/createAccessGrant';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import NewAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 import EnterBucketPassphraseDialog
     from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
-import IconUpload from '@/components/icons/IconUpload.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
@@ -167,7 +162,7 @@ const isAccessDialogOpen = ref(false);
 const isBucketPassphraseDialogOpen = ref(false);
 const isManagePassphraseDialogOpen = ref(false);
 
-const accessDialog = ref<{ setTypes: (newTypes: AccessType[]) => void }>();
+const accessDialog = ref<Exposed>();
 
 /**
  * contains custom texts to be shown on the steps
@@ -228,6 +223,7 @@ const uploadStepInfo = computed(() => {
         color,
         variant,
         disabled,
+        appendIcon: mdiArrowRight,
     };
 });
 
@@ -358,6 +354,18 @@ async function progressStep(onboardingEnd = false) {
     }
 }
 
+/**
+ * Dismisses the onboarding stepper and abandons the onboarding process.
+ */
+async function endOnboarding() {
+    try {
+        await userStore.updateSettings({ onboardingEnd: true });
+        analyticsStore.eventTriggered(AnalyticsEvent.ONBOARDING_ABANDONED);
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_STEPPER);
+    }
+}
+
 onMounted(async () => {
     const user: User = userStore.state.user;
     if (!user.partner) {
@@ -369,4 +377,6 @@ onMounted(async () => {
         onboardingInfo.value = config[user.partner] as OnboardingInfo;
     } catch { /* empty */ }
 });
+
+defineExpose({ endOnboarding });
 </script>

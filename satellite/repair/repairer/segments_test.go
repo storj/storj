@@ -157,6 +157,49 @@ func TestSegmentRepairPlacement(t *testing.T) {
 	})
 }
 
+func TestSegmentRepairInMemoryUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(1, 1, 2, 2),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.InMemoryUpload = true
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+
+		expectedData := testrand.Bytes(5 * memory.KiB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", expectedData)
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.Len(t, segments[0].Pieces, 2)
+
+		require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(segments[0].Pieces[0].StorageNode)))
+
+		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+			StreamID: segments[0].StreamID,
+			Position: segments[0].Position,
+		})
+		require.NoError(t, err)
+
+		segmentsAfter, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.NotNil(t, segmentsAfter[0].RepairedAt)
+		require.NotEqual(t, segments[0].Pieces, segmentsAfter[0].Pieces)
+
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "object")
+		require.NoError(t, err)
+		require.Equal(t, expectedData, data)
+	})
+}
+
 func TestSegmentRepairWithNodeTags(t *testing.T) {
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 	ctx := testcontext.New(t)

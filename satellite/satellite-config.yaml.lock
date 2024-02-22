@@ -196,6 +196,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allowed usage report request date range
 # console.allowed-usage-report-date-range: 9360h0m0s
 
+# whether applications page should be shown
+# console.applications-page-enabled: false
+
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
 
@@ -549,6 +552,9 @@ contact.external-address: ""
 
 # amount of time before sending second reminder to users who need to verify their email
 # email-reminders.second-verification-reminder: 120h0m0s
+
+# weighted average CO2 sequestered by a medium growth coniferous or deciduous tree, in kgCO2e/tree
+# emission.average-co2sequestered-by-tree: 60
 
 # carbon from power per year of operations, in kg/TB-year
 # emission.carbon-from-drive-powering: 15.9
@@ -1095,6 +1101,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # whether to download pieces for repair in memory (true) or download to disk (false)
 # repairer.in-memory-repair: false
+
+# whether to upload pieces for repair using memory (true) or disk (false)
+# repairer.in-memory-upload: false
 
 # comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)
 # repairer.included-placements: ""

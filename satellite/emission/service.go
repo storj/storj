@@ -4,6 +4,7 @@
 package emission
 
 import (
+	"math"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -13,13 +14,12 @@ import (
 var Error = errs.Class("emission service")
 
 const (
-	decimalMultiplier = 1000
-	dayHours          = 24
-	yearDays          = 365.25
-	byteLabel         = "B"
-	wattLabel         = "W"
-	hourLabel         = "H"
-	kilogramLabel     = "kg"
+	decimalMultiplier   = 1000
+	tbToBytesMultiplier = 1e-12
+	gbToBytesMultiplier = 1e-9
+	dayHours            = 24
+	yearDays            = 365.25
+	twelveMonths        = 12
 )
 
 const (
@@ -32,29 +32,15 @@ const (
 )
 
 var (
-	// B is a Val constructor function with byte (B) dimension.
-	B = ValMaker(byteLabel)
-	// KB is a Val constructor function with kilobyte (KB) dimension.
-	KB = B(decimalMultiplier).Maker()
-	// MB is a Val constructor function with megabyte (MB) dimension.
-	MB = KB(decimalMultiplier).Maker()
-	// GB is a Val constructor function with gigabyte (GB) dimension.
-	GB = MB(decimalMultiplier).Maker()
-	// TB is a Val constructor function with terabyte (TB) dimension.
-	TB = GB(decimalMultiplier).Maker()
+	unitless = Unit{}
+	byteUnit = Unit{byte: 1}
+	hour     = Unit{hour: 1}
+	kilogram = Unit{kilogram: 1}
 
-	// W is a Val constructor function with watt (W) dimension.
-	W = ValMaker(wattLabel)
-	// kW is a Val constructor function with kilowatt (kW) dimension.
-	kW = W(decimalMultiplier).Maker()
-
-	// H is a Val constructor function with hour (H) dimension.
-	H = ValMaker(hourLabel)
-	// Y is a Val constructor function with year (Y) dimension.
-	Y = H(dayHours * yearDays).Maker()
-
-	// kg is a Val constructor function with kilogram (kg) dimension.
-	kg = ValMaker(kilogramLabel)
+	wattHourPerByte     = Unit{watt: 1, hour: 1, byte: -1}
+	kilogramPerWattHour = Unit{kilogram: 1, watt: -1, hour: -1}
+	kilogramPerByte     = Unit{kilogram: 1, byte: -1}
+	kilogramPerByteHour = Unit{kilogram: 1, byte: -1, hour: -1}
 )
 
 // Service is an emission service.
@@ -80,10 +66,17 @@ type Impact struct {
 }
 
 // Row holds data row of predefined number of values.
-type Row [modalityCount]*Val
+type Row [modalityCount]Val
+
+// CalculationInput holds input data needed to perform emission impact calculations.
+type CalculationInput struct {
+	AmountOfDataInTB float64       // The amount of data in terabytes or terabyte-duration.
+	Duration         time.Duration // The Duration over which the data is measured.
+	IsTBDuration     bool          // true if AmountOfDataInTB is in terabytes-duration, false if in terabytes.
+}
 
 // CalculateImpact calculates emission impact coming from different sources e.g. Storj, hyperscaler or corporateDC.
-func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Duration) (*Impact, error) {
+func (sv *Service) CalculateImpact(input *CalculationInput) (*Impact, error) {
 	// Define a data row of services expansion factors.
 	expansionFactor := sv.prepareExpansionFactorRow()
 
@@ -111,7 +104,7 @@ func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Durat
 	// Define a data row of services carbon emission from powering hard drives.
 	carbonFromPower := sv.prepareCarbonFromDrivePoweringRow()
 
-	timeStored := H(duration.Seconds() / (60 * 60))
+	timeStored := hour.Value(input.Duration.Seconds() / 3600)
 
 	// Define a data row of services carbon emission from write and repair actions.
 	carbonFromWritesAndRepairs, err := sv.prepareCarbonFromWritesAndRepairsRow(timeStored)
@@ -135,7 +128,7 @@ func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Durat
 	effectiveCarbonPerByte := prepareEffectiveCarbonPerByteRow(carbonTotalPerByte, modalityUtilization)
 
 	// Define a data row of services total carbon emission.
-	totalCarbon := prepareTotalCarbonRow(amountOfDataInTB, effectiveCarbonPerByte, expansionFactor, regionCount, timeStored)
+	totalCarbon := prepareTotalCarbonRow(input, effectiveCarbonPerByte, expansionFactor, regionCount, timeStored)
 
 	// Calculate Storj blended value.
 	storjBlended, err := calculateStorjBlended(networkWeighting, totalCarbon)
@@ -144,44 +137,45 @@ func (sv *Service) CalculateImpact(amountOfDataInTB float64, duration time.Durat
 	}
 
 	// Calculate emission impact per service.
-	estimatedKgCO2eStorj, err := storjBlended.InUnits(kg(1))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	estimatedKgCO2eHyperscaler, err := totalCarbon[hyperscaler].InUnits(kg(1))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	estimatedKgCO2eCorporateDC, err := totalCarbon[corporateDC].InUnits(kg(1))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
+	oneKilogram := kilogram.Value(1)
 	rv := &Impact{
-		EstimatedKgCO2eStorj:       estimatedKgCO2eStorj,
-		EstimatedKgCO2eHyperscaler: estimatedKgCO2eHyperscaler,
-		EstimatedKgCO2eCorporateDC: estimatedKgCO2eCorporateDC,
+		EstimatedKgCO2eStorj:       storjBlended.Div(oneKilogram).Value,
+		EstimatedKgCO2eHyperscaler: totalCarbon[hyperscaler].Div(oneKilogram).Value,
+		EstimatedKgCO2eCorporateDC: totalCarbon[corporateDC].Div(oneKilogram).Value,
 	}
 
 	if rv.EstimatedKgCO2eHyperscaler != 0 {
-		rv.EstimatedFractionSavingsAgainstHyperscaler = 1 - (rv.EstimatedKgCO2eStorj / rv.EstimatedKgCO2eHyperscaler)
+		estimatedFractionSavingsAgainstHyperscaler, err := unitless.Value(1).Sub(unitless.Value(rv.EstimatedKgCO2eStorj / rv.EstimatedKgCO2eHyperscaler))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		rv.EstimatedFractionSavingsAgainstHyperscaler = estimatedFractionSavingsAgainstHyperscaler.Value
 	}
 
 	if rv.EstimatedKgCO2eCorporateDC != 0 {
-		rv.EstimatedFractionSavingsAgainstCorporateDC = 1 - (rv.EstimatedKgCO2eStorj / rv.EstimatedKgCO2eCorporateDC)
+		estimatedFractionSavingsAgainstCorporateDC, err := unitless.Value(1).Sub(unitless.Value(rv.EstimatedKgCO2eStorj / rv.EstimatedKgCO2eCorporateDC))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		rv.EstimatedFractionSavingsAgainstCorporateDC = estimatedFractionSavingsAgainstCorporateDC.Value
 	}
 
 	return rv, nil
 }
 
+// CalculateSavedTrees calculates saved trees count based on emission impact.
+func (sv *Service) CalculateSavedTrees(impact float64) int64 {
+	return int64(math.Round(impact / sv.config.AverageCO2SequesteredByTree))
+}
+
 func (sv *Service) prepareExpansionFactorRow() *Row {
-	storjExpansionFactor := Q(sv.config.StorjExpansionFactor)
+	storjExpansionFactor := unitless.Value(sv.config.StorjExpansionFactor)
 
 	row := new(Row)
-	row[hyperscaler] = Q(sv.config.HyperscalerExpansionFactor)
-	row[corporateDC] = Q(sv.config.CorporateDCExpansionFactor)
+	row[hyperscaler] = unitless.Value(sv.config.HyperscalerExpansionFactor)
+	row[corporateDC] = unitless.Value(sv.config.CorporateDCExpansionFactor)
 	row[storjStandard] = storjExpansionFactor
 	row[storjReused] = storjExpansionFactor
 	row[storjNew] = storjExpansionFactor
@@ -190,11 +184,11 @@ func (sv *Service) prepareExpansionFactorRow() *Row {
 }
 
 func (sv *Service) prepareRegionCountRow() *Row {
-	storjRegionCount := Q(sv.config.StorjRegionCount)
+	storjRegionCount := unitless.Value(sv.config.StorjRegionCount)
 
 	row := new(Row)
-	row[hyperscaler] = Q(sv.config.HyperscalerRegionCount)
-	row[corporateDC] = Q(sv.config.CorporateDCRegionCount)
+	row[hyperscaler] = unitless.Value(sv.config.HyperscalerRegionCount)
+	row[corporateDC] = unitless.Value(sv.config.CorporateDCRegionCount)
 	row[storjStandard] = storjRegionCount
 	row[storjReused] = storjRegionCount
 	row[storjNew] = storjRegionCount
@@ -204,10 +198,9 @@ func (sv *Service) prepareRegionCountRow() *Row {
 
 func (sv *Service) prepareNetworkWeightingRow() (*Row, error) {
 	row := new(Row)
-	row[storjStandard] = Q(sv.config.StorjStandardNetworkWeighting)
-	row[storjNew] = Q(sv.config.StorjNewNetworkWeighting)
-
-	storjNotNewNodesFraction, err := Q(1).Sub(row[storjNew])
+	row[storjStandard] = unitless.Value(sv.config.StorjStandardNetworkWeighting)
+	row[storjNew] = unitless.Value(sv.config.StorjNewNetworkWeighting)
+	storjNotNewNodesFraction, err := unitless.Value(1).Sub(row[storjNew])
 	if err != nil {
 		return nil, err
 	}
@@ -223,11 +216,11 @@ func (sv *Service) prepareNetworkWeightingRow() (*Row, error) {
 }
 
 func (sv *Service) prepareUtilizationRow() *Row {
-	storjUtilizationFraction := Q(sv.config.StorjUtilizationFraction)
+	storjUtilizationFraction := unitless.Value(sv.config.StorjUtilizationFraction)
 
 	row := new(Row)
-	row[hyperscaler] = Q(sv.config.HyperscalerUtilizationFraction)
-	row[corporateDC] = Q(sv.config.CorporateDCUtilizationFraction)
+	row[hyperscaler] = unitless.Value(sv.config.HyperscalerUtilizationFraction)
+	row[corporateDC] = unitless.Value(sv.config.CorporateDCUtilizationFraction)
 	row[storjStandard] = storjUtilizationFraction
 	row[storjReused] = storjUtilizationFraction
 	row[storjNew] = storjUtilizationFraction
@@ -236,9 +229,9 @@ func (sv *Service) prepareUtilizationRow() *Row {
 }
 
 func (sv *Service) prepareDriveLifetimeRow() *Row {
-	standardDriveLife := Y(sv.config.StandardDriveLife)
-	shortenedDriveLife := Y(sv.config.ShortenedDriveLife)
-	extendedDriveLife := Y(sv.config.ExtendedDriveLife)
+	standardDriveLife := yearsToHours(sv.config.StandardDriveLife)
+	shortenedDriveLife := yearsToHours(sv.config.ShortenedDriveLife)
+	extendedDriveLife := yearsToHours(sv.config.ExtendedDriveLife)
 
 	row := new(Row)
 	row[hyperscaler] = standardDriveLife
@@ -251,8 +244,8 @@ func (sv *Service) prepareDriveLifetimeRow() *Row {
 }
 
 func (sv *Service) prepareDriveEmbodiedCarbonEmissionRow() *Row {
-	newDriveEmbodiedCarbon := kg(sv.config.NewDriveEmbodiedCarbon).Div(TB(1))
-	noEmbodiedCarbon := kg(0).Div(TB(1))
+	newDriveEmbodiedCarbon := kilogramPerByte.Value(sv.config.NewDriveEmbodiedCarbon * tbToBytesMultiplier)
+	noEmbodiedCarbon := kilogramPerByte.Value(0)
 
 	row := new(Row)
 	row[hyperscaler] = newDriveEmbodiedCarbon
@@ -274,8 +267,8 @@ func prepareDriveAmortizedEmbodiedCarbonEmissionRow(driveCarbonRow, driveLifetim
 }
 
 func (sv *Service) prepareCarbonFromDrivePoweringRow() *Row {
-	carbonFromDrivePowering := kg(sv.config.CarbonFromDrivePowering).Div(TB(1).Mul(Y(1)))
-	noCarbonFromDrivePowering := kg(0).Div(B(1).Mul(H(1)))
+	carbonFromDrivePowering := kilogramPerByteHour.Value(sv.config.CarbonFromDrivePowering * tbToBytesMultiplier / dayHours / yearDays)
+	noCarbonFromDrivePowering := kilogramPerByteHour.Value(0)
 
 	row := new(Row)
 	row[hyperscaler] = carbonFromDrivePowering
@@ -287,19 +280,19 @@ func (sv *Service) prepareCarbonFromDrivePoweringRow() *Row {
 	return row
 }
 
-func (sv *Service) prepareCarbonFromWritesAndRepairsRow(timeStored *Val) (*Row, error) {
-	writeEnergy := Q(sv.config.WriteEnergy).Mul(W(1)).Mul(H(1)).Div(GB(1))
-	CO2PerEnergy := kg(sv.config.CO2PerEnergy).Div(kW(1).Mul(H(1)))
-	noCarbonFromWritesAndRepairs := kg(0).Div(B(1).Mul(H(1)))
+func (sv *Service) prepareCarbonFromWritesAndRepairsRow(timeStored Val) (*Row, error) {
+	writeEnergy := wattHourPerByte.Value(sv.config.WriteEnergy * gbToBytesMultiplier)
+	CO2PerEnergy := kilogramPerWattHour.Value(sv.config.CO2PerEnergy / decimalMultiplier)
+	noCarbonFromWritesAndRepairs := kilogramPerByteHour.Value(0)
 
 	// this raises 1+monthlyFractionOfDataRepaired to power of 12
 	// TODO(jt): should we be doing this?
-	dataRepaired := TB(sv.config.RepairedData)
-	expandedData := TB(sv.config.ExpandedData)
+	dataRepaired := byteUnit.Value(sv.config.RepairedData / tbToBytesMultiplier)
+	expandedData := byteUnit.Value(sv.config.ExpandedData / tbToBytesMultiplier)
 	monthlyFractionOfDataRepaired := dataRepaired.Div(expandedData)
-	repairFactor := Q(1)
-	for i := 0; i < 12; i++ {
-		monthlyFraction, err := Q(1).Add(monthlyFractionOfDataRepaired)
+	repairFactor := unitless.Value(1)
+	for i := 0; i < twelveMonths; i++ {
+		monthlyFraction, err := unitless.Value(1).Add(monthlyFractionOfDataRepaired)
 		if err != nil {
 			return nil, err
 		}
@@ -318,30 +311,30 @@ func (sv *Service) prepareCarbonFromWritesAndRepairsRow(timeStored *Val) (*Row, 
 }
 
 func (sv *Service) prepareCarbonPerByteMetadataOverheadRow() (*Row, error) {
-	noCarbonPerByteMetadataOverhead := kg(0).Div(B(1).Mul(H(1)))
+	noCarbonPerByteMetadataOverhead := kilogramPerByteHour.Value(0)
 
 	row := new(Row)
 	row[hyperscaler] = noCarbonPerByteMetadataOverhead
 	row[corporateDC] = noCarbonPerByteMetadataOverhead
 
-	storjGCPCarbon := kg(sv.config.StorjGCPCarbon)
-	storjCRDBCarbon := kg(sv.config.StorjCRDBCarbon)
+	storjGCPCarbon := kilogram.Value(sv.config.StorjGCPCarbon)
+	storjCRDBCarbon := kilogram.Value(sv.config.StorjCRDBCarbon)
 
 	monthlyStorjGCPAndCRDBCarbon, err := storjGCPCarbon.Add(storjCRDBCarbon)
 	if err != nil {
 		return nil, err
 	}
 
-	storjEdgeCarbon := kg(sv.config.StorjEdgeCarbon)
+	storjEdgeCarbon := kilogram.Value(sv.config.StorjEdgeCarbon)
 
 	monthlyStorjGCPAndCRDBAndEdgeCarbon, err := monthlyStorjGCPAndCRDBCarbon.Add(storjEdgeCarbon)
 	if err != nil {
 		return nil, err
 	}
 
-	storjAnnualCarbon := monthlyStorjGCPAndCRDBAndEdgeCarbon.Mul(Q(12))
-	storjExpandedNetworkStorage := TB(sv.config.StorjExpandedNetworkStorage)
-	carbonOverheadPerByte := storjAnnualCarbon.Div(storjExpandedNetworkStorage.Mul(Y(1)))
+	storjAnnualCarbon := monthlyStorjGCPAndCRDBAndEdgeCarbon.Mul(unitless.Value(twelveMonths))
+	storjExpandedNetworkStorage := byteUnit.Value(sv.config.StorjExpandedNetworkStorage / tbToBytesMultiplier)
+	carbonOverheadPerByte := storjAnnualCarbon.Div(storjExpandedNetworkStorage.Mul(yearsToHours(1)))
 
 	for modality := storjStandard; modality < modalityCount; modality++ {
 		row[modality] = carbonOverheadPerByte
@@ -350,17 +343,26 @@ func (sv *Service) prepareCarbonPerByteMetadataOverheadRow() (*Row, error) {
 	return row, nil
 }
 
-func prepareEffectiveCarbonPerByteRow(carbonTotalOerByteRow, utilizationRow *Row) *Row {
+func yearsToHours(v float64) Val {
+	return hour.Value(v * yearDays * dayHours)
+}
+
+func prepareEffectiveCarbonPerByteRow(carbonTotalPerByteRow, utilizationRow *Row) *Row {
 	row := new(Row)
 	for modality := 0; modality < modalityCount; modality++ {
-		row[modality] = carbonTotalOerByteRow[modality].Div(utilizationRow[modality])
+		row[modality] = carbonTotalPerByteRow[modality].Div(utilizationRow[modality])
 	}
 
 	return row
 }
 
-func prepareTotalCarbonRow(amountOfDataInTB float64, effectiveCarbonPerByteRow, expansionFactorRow, regionCountRow *Row, timeStored *Val) *Row {
-	amountOfData := TB(amountOfDataInTB)
+func prepareTotalCarbonRow(input *CalculationInput, effectiveCarbonPerByteRow, expansionFactorRow, regionCountRow *Row, timeStored Val) *Row {
+	amountOfData := byteUnit.Value(input.AmountOfDataInTB / tbToBytesMultiplier)
+
+	// We don't include timeStored amount value if data type is already TB-duration.
+	if input.IsTBDuration {
+		timeStored = hour.Value(1)
+	}
 
 	row := new(Row)
 	for modality := 0; modality < modalityCount; modality++ {
@@ -370,16 +372,16 @@ func prepareTotalCarbonRow(amountOfDataInTB float64, effectiveCarbonPerByteRow, 
 	return row
 }
 
-func calculateStorjBlended(networkWeightingRow, totalCarbonRow *Row) (*Val, error) {
+func calculateStorjBlended(networkWeightingRow, totalCarbonRow *Row) (Val, error) {
 	storjReusedTotalCarbon := networkWeightingRow[storjReused].Mul(totalCarbonRow[storjReused])
 	storjNewAndReusedTotalCarbon, err := networkWeightingRow[storjNew].Mul(totalCarbonRow[storjNew]).Add(storjReusedTotalCarbon)
 	if err != nil {
-		return nil, err
+		return Val{}, err
 	}
 
 	storjBlended, err := networkWeightingRow[storjStandard].Mul(totalCarbonRow[storjStandard]).Add(storjNewAndReusedTotalCarbon)
 	if err != nil {
-		return nil, err
+		return Val{}, err
 	}
 
 	return storjBlended, nil

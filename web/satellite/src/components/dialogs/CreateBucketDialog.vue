@@ -126,12 +126,6 @@ const configStore = useConfigStore();
 // Copied from here https://github.com/storj/storj/blob/f6646b0e88700b5e7113a76a8d07bf346b59185a/satellite/metainfo/validation.go#L38
 const ipRegexp = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
 
-const props = withDefaults(defineProps<{
-    openCreated?: boolean,
-}>(), {
-    openCreated: true,
-});
-
 const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
@@ -237,7 +231,6 @@ function onCreate(): void {
 
         try {
             const projectID = projectsStore.state.selectedProject.id;
-            const bucketURL = `${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}`;
 
             if (!promptForPassphrase.value) {
                 if (!edgeCredentials.value.accessKeyId) {
@@ -246,11 +239,6 @@ function onCreate(): void {
                 await bucketsStore.createBucket(bucketName.value);
                 await bucketsStore.getBuckets(1, projectID);
                 analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-
-                if (props.openCreated) {
-                    bucketsStore.setFileComponentBucketName(bucketName.value);
-                    await router.push(bucketURL);
-                }
 
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
@@ -265,10 +253,6 @@ function onCreate(): void {
                 await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
                 await bucketsStore.getBuckets(1, projectID);
                 analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-                if (props.openCreated) {
-                    bucketsStore.setFileComponentBucketName(bucketName.value);
-                    await router.push(bucketURL);
-                }
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
                 }
@@ -337,10 +321,6 @@ function onCreate(): void {
             await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
             await bucketsStore.getBuckets(1, projectID);
             analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-            if (props.openCreated) {
-                bucketsStore.setFileComponentBucketName(bucketName.value);
-                await router.push(bucketURL);
-            }
 
             if (!bucketWasCreated.value) {
                 LocalData.setBucketWasCreatedStatus();

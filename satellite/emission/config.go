@@ -29,4 +29,5 @@ type Config struct {
 	HyperscalerUtilizationFraction float64 `help:"utilization fraction of hyperscaler networks, in fraction" default:"0.75"`
 	CorporateDCUtilizationFraction float64 `help:"utilization fraction of corporate data center networks, in fraction" default:"0.40"`
 	StorjUtilizationFraction       float64 `help:"utilization fraction of storj network, in fraction" default:"0.85"`
+	AverageCO2SequesteredByTree    float64 `help:"weighted average CO2 sequestered by a medium growth coniferous or deciduous tree, in kgCO2e/tree" default:"60"`
 }

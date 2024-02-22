@@ -17,6 +17,7 @@ import (
 	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/process"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
@@ -244,7 +245,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
+	writer, err := NewWriter(process.NamedLog(store.log, "blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
 	return writer, Error.Wrap(err)
 }
 
@@ -278,7 +279,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
+	writer, err := NewWriter(process.NamedLog(store.log, "blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
 	return writer, Error.Wrap(err)
 }
 
@@ -323,7 +324,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 // It returns nil if the piece was restored, or an error if the piece was not in the trash.
 func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.blobs.TryRestoreTrashPiece(ctx, blobstore.BlobRef{
+	return Error.Wrap(store.blobs.TryRestoreTrashBlob(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}))
@@ -376,7 +377,7 @@ func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storj.No
 // Trash moves the specified piece to the blob trash. If necessary, it converts
 // the v0 piece to a v1 piece. It also marks the item as "trashed" in the
 // pieceExpirationDB.
-func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
@@ -404,7 +405,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 	err = errs.Combine(err, store.blobs.Trash(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}))
+	}, timestamp))
 
 	return Error.Wrap(err)
 }

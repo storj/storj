@@ -104,6 +104,7 @@ const (
 	eventBusinessInfoSubmitted        = "Business Info Submitted"
 	eventUseCaseSelected              = "Use Case Selected"
 	eventOnboardingCompleted          = "Onboarding Completed"
+	eventOnboardingAbandoned          = "Onboarding Abandoned"
 	eventPersonalSelected             = "Personal Selected"
 	eventBusinessSelected             = "Business Selected"
 )
@@ -191,7 +192,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventStorjTokenAddedFromBilling, eventAddFundsClicked, eventProjectMembersInviteSent, eventError, eventProjectNameUpdated, eventProjectDescriptionUpdated,
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
-		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventPersonalSelected, eventBusinessSelected} {
+		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
+		eventPersonalSelected, eventBusinessSelected} {
 		service.clientEvents[name] = true
 	}
 

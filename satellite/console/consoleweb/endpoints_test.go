@@ -91,6 +91,28 @@ func TestAuth(t *testing.T) {
 			require.NotEmpty(test.t, userIdentifier.ID)
 		}
 
+		{ // Update_AccountInfo
+			newName := "new name"
+			shortName := "NN"
+			resp, _ := test.request(http.MethodPatch, "/auth/account", test.toJSON(map[string]string{
+				"fullName":  newName,
+				"shortName": shortName,
+			}))
+			require.Equal(test.t, http.StatusOK, resp.StatusCode)
+
+			resp, body := test.request(http.MethodGet, "/auth/account", nil)
+			require.Equal(test.t, http.StatusOK, resp.StatusCode)
+			require.Contains(test.t, body, newName)
+			require.Contains(test.t, body, shortName)
+
+			// empty full name not allowed
+			resp, _ = test.request(http.MethodPatch, "/auth/account", test.toJSON(map[string]string{
+				"fullName":  "",
+				"shortName": shortName,
+			}))
+			require.Equal(test.t, http.StatusBadRequest, resp.StatusCode)
+		}
+
 		{ // Get_FreezeStatus
 			resp, body := test.request(http.MethodGet, "/auth/account/freezestatus", nil)
 			require.Equal(test.t, http.StatusOK, resp.StatusCode)

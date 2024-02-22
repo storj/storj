@@ -37,7 +37,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -863,7 +862,7 @@ func TestService(t *testing.T) {
 				impact, err := service.GetEmissionImpact(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, impact)
-				require.EqualValues(t, emission.Impact{}, *impact)
+				require.EqualValues(t, console.EmissionImpactResponse{}, *impact)
 
 				// Getting project salt as a non-member should not work
 				impact, err = service.GetEmissionImpact(userCtx2, pr.ID)
@@ -875,7 +874,7 @@ func TestService(t *testing.T) {
 
 				now := time.Now().UTC()
 				service.TestSetNow(func() time.Time {
-					return now.Add(24 * time.Hour)
+					return now.Add(365.25 * 24 * time.Hour)
 				})
 
 				zeroValue := float64(0)
@@ -883,11 +882,74 @@ func TestService(t *testing.T) {
 				impact, err = service.GetEmissionImpact(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, impact)
-				require.Greater(t, impact.EstimatedKgCO2eStorj, zeroValue)
-				require.Greater(t, impact.EstimatedKgCO2eHyperscaler, zeroValue)
-				require.Greater(t, impact.EstimatedKgCO2eCorporateDC, zeroValue)
-				require.Greater(t, impact.EstimatedFractionSavingsAgainstCorporateDC, zeroValue)
-				require.Greater(t, impact.EstimatedFractionSavingsAgainstHyperscaler, zeroValue)
+				require.Greater(t, impact.StorjImpact, zeroValue)
+				require.Greater(t, impact.HyperscalerImpact, zeroValue)
+				require.Greater(t, impact.SavedTrees, int64(0))
+			})
+			t.Run("GetUsageReport", func(t *testing.T) {
+				usr, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Test Usage Report",
+					Email:    "test.report@mail.test",
+				}, 2)
+				require.NoError(t, err)
+
+				usrCtx, err := sat.UserContext(ctx, usr.ID)
+				require.NoError(t, err)
+
+				pr1, err := sat.AddProject(ctx, usr.ID, "report test 1")
+				require.NoError(t, err)
+				require.NotNil(t, pr1)
+				pr2, err := sat.AddProject(ctx, usr.ID, "report test 2")
+				require.NoError(t, err)
+				require.NotNil(t, pr2)
+
+				bucket1 := buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      "testBucket1",
+					ProjectID: pr1.ID,
+				}
+				bucket2 := buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      "testBucket2",
+					ProjectID: pr2.ID,
+				}
+
+				_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+				require.NoError(t, err)
+				_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+				require.NoError(t, err)
+
+				now := time.Now()
+				inHalfAnHour := now.Add(30 * time.Minute)
+				inAnHour := now.Add(time.Hour)
+
+				items, err := service.GetUsageReport(userCtx2, now, inAnHour, pr1.PublicID)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				require.Nil(t, items)
+
+				amount := memory.Size(1000)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr1.ID, []byte(bucket1.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
+				require.NoError(t, err)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr2.ID, []byte(bucket2.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
+				require.NoError(t, err)
+
+				items, err = service.GetUsageReport(usrCtx, now, inAnHour, pr1.PublicID)
+				require.NoError(t, err)
+				require.Len(t, items, 1)
+				require.Equal(t, pr1.PublicID, items[0].ProjectID)
+				require.Equal(t, bucket1.Name, items[0].BucketName)
+				require.Equal(t, amount.GB(), items[0].Egress)
+
+				items, err = service.GetUsageReport(usrCtx, now, inAnHour, pr2.PublicID)
+				require.NoError(t, err)
+				require.Len(t, items, 1)
+				require.Equal(t, pr2.PublicID, items[0].ProjectID)
+				require.Equal(t, bucket2.Name, items[0].BucketName)
+				require.Equal(t, amount.GB(), items[0].Egress)
+
+				items, err = service.GetUsageReport(usrCtx, now, inAnHour, uuid.UUID{})
+				require.NoError(t, err)
+				require.Len(t, items, 2)
 			})
 		})
 }

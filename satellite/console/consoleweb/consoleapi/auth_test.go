@@ -7,19 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
-	"testing/quick"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -154,6 +148,45 @@ func TestAuth_Register(t *testing.T) {
 	})
 }
 
+func TestAuth_UpdateUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		newName := "new name"
+		shortName := "NN"
+		err = service.UpdateAccount(userCtx, newName, shortName)
+		require.NoError(t, err)
+
+		user, _, err = service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Equal(t, newName, user.FullName)
+		require.Equal(t, shortName, user.ShortName)
+
+		err = service.UpdateAccount(userCtx, newName, "")
+		require.NoError(t, err)
+
+		user, _, err = service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Equal(t, newName, user.FullName)
+		require.Equal(t, "", user.ShortName)
+
+		// empty full name not allowed
+		err = service.UpdateAccount(userCtx, "", shortName)
+		require.Error(t, err)
+		require.True(t, console.ErrValidation.Has(err))
+	})
+}
+
 func TestAuth_RegisterWithInvitation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -225,129 +258,6 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 			require.Len(t, users, 1)
 		}
 	})
-}
-
-func TestDeleteAccount(t *testing.T) {
-	ctx := testcontext.New(t)
-	log := testplanet.NewLogger(t)
-
-	// We do a black box testing because currently we don't allow to delete
-	// accounts through the API hence we must always return an error response.
-
-	config := &quick.Config{
-		Values: func(values []reflect.Value, rnd *rand.Rand) {
-			// TODO: use or implement a better and thorough HTTP Request random generator
-
-			var method string
-			switch rnd.Intn(9) {
-			case 0:
-				method = http.MethodGet
-			case 1:
-				method = http.MethodHead
-			case 2:
-				method = http.MethodPost
-			case 3:
-				method = http.MethodPut
-			case 4:
-				method = http.MethodPatch
-			case 5:
-				method = http.MethodDelete
-			case 6:
-				method = http.MethodConnect
-			case 7:
-				method = http.MethodOptions
-			case 8:
-				method = http.MethodTrace
-			default:
-				t.Fatal("unexpected random value for HTTP method selection")
-			}
-
-			var path string
-			{
-
-				val, ok := quick.Value(reflect.TypeOf(""), rnd)
-				require.True(t, ok, "quick.Values generator function couldn't generate a string")
-				path = url.PathEscape(val.String())
-			}
-
-			var query string
-			{
-				nparams := rnd.Intn(27)
-				params := make([]string, nparams)
-
-				for i := 0; i < nparams; i++ {
-					val, ok := quick.Value(reflect.TypeOf(""), rnd)
-					require.True(t, ok, "quick.Values generator function couldn't generate a string")
-					param := val.String()
-
-					val, ok = quick.Value(reflect.TypeOf(""), rnd)
-					require.True(t, ok, "quick.Values generator function couldn't generate a string")
-					param += "=" + val.String()
-
-					params[i] = param
-				}
-
-				query = url.QueryEscape(strings.Join(params, "&"))
-			}
-
-			var body io.Reader
-			{
-				val, ok := quick.Value(reflect.TypeOf([]byte(nil)), rnd)
-				require.True(t, ok, "quick.Values generator function couldn't generate a byte slice")
-				body = bytes.NewReader(val.Bytes())
-			}
-
-			withQuery := ""
-			if len(query) > 0 {
-				withQuery = "?"
-			}
-
-			reqURL, err := url.Parse("//storj.io/" + path + withQuery + query)
-			require.NoError(t, err, "error when generating a random URL")
-			req, err := http.NewRequestWithContext(ctx, method, reqURL.String(), body)
-			require.NoError(t, err, "error when geneating a random request")
-			values[0] = reflect.ValueOf(req)
-		},
-	}
-
-	expectedHandler := func(_ *http.Request) (status int, body []byte) {
-		return http.StatusNotImplemented, []byte("{\"error\":\"The server is incapable of fulfilling the request\"}\n")
-	}
-
-	actualHandler := func(r *http.Request) (status int, body []byte) {
-		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "", false)
-		authController.DeleteAccount(rr, r)
-
-		result := rr.Result()
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
-
-		err = result.Body.Close()
-		require.NoError(t, err)
-
-		return result.StatusCode, body
-
-	}
-
-	err := quick.CheckEqual(expectedHandler, actualHandler, config)
-	if err != nil {
-		t.Logf("%+v\n", err)
-		var cerr *quick.CheckEqualError
-		require.True(t, errors.As(err, &cerr))
-
-		t.Fatalf(`DeleteAccount handler has returned a different response:
-round: %d
-input args: %+v
-expected response:
-	status code: %d
-	response body: %s
-returned response:
-	status code: %d
-	response body: %s
-`, cerr.Count, cerr.In, cerr.Out1[0], cerr.Out1[1], cerr.Out2[0], cerr.Out2[1])
-	}
 }
 
 func TestTokenByAPIKeyEndpoint(t *testing.T) {

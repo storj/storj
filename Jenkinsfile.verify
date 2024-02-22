@@ -153,6 +153,7 @@ pipeline {
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                GOEXPERIMENT = 'nocoverageredesign'
             }
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -166,7 +167,7 @@ pipeline {
             post {
                 always {
                     archiveArtifacts artifacts: '.build/tests.json'
-                    sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                    sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
                     junit '.build/tests.xml'
 
                     script {

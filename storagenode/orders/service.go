@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/pb"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -207,7 +208,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 			attemptedSatellites++
 
 			group.Go(func() error {
-				log := service.log.Named(satelliteID.String())
+				log := process.NamedLog(service.log, satelliteID.String())
 
 				skipSettlement := false
 				nodeURL, err := service.trust.GetNodeURL(ctx, satelliteID)

@@ -3,7 +3,7 @@
 
 <template>
     <v-container class="fill-height">
-        <v-row align="top" justify="center">
+        <v-row justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
                 <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" rounded="xlg" class="pa-2 pa-sm-6">
                     <v-card-text>
@@ -52,7 +52,7 @@
                             class="mt-1 mb-3"
                             border
                         />
-                        <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
+                        <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent="onLoginClick">
                             <v-select
                                 v-model="satellite"
                                 label="Satellite"
@@ -115,11 +115,11 @@
                             </v-checkbox>
 
                             <v-btn
+                                type="submit"
                                 color="primary"
                                 size="large"
                                 block
                                 :loading="isLoading"
-                                @click="onLoginClick"
                             >
                                 Continue
                             </v-btn>
@@ -218,7 +218,7 @@ const satellitesHints = [
     { satellite: 'QA-Satellite', hint: 'This is the Storj beta satellite.' },
     { satellite: 'US1', hint: 'Recommended for North and South America' },
     { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
-    { satellite: 'AP1', hint: 'Recommended for Asia and Australia' },
+    { satellite: 'AP1', hint: 'Recommended for Asia and Oceania' },
 ];
 
 const passwordRules: ValidationRule<string>[] = [
@@ -321,8 +321,8 @@ async function login(): Promise<void> {
         }
 
         if (error instanceof ErrorMFARequired) {
-            isMFARequired.value = true;
             isLoading.value = false;
+            isMFARequired.value = true;
             return;
         }
 

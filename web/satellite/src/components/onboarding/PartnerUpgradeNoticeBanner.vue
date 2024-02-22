@@ -3,7 +3,7 @@
 
 <template>
     <v-alert
-        v-if="!isLoading && planInfo"
+        v-if="planInfo"
         :model-value="model"
         :title="planInfo.bannerTitle"
         closable
@@ -36,7 +36,7 @@
 
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 
 import { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -44,7 +44,6 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 import { PaymentsHttpApi } from '@/api/payments';
-import { useLoading } from '@/composables/useLoading';
 
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
@@ -53,7 +52,6 @@ const payments: PaymentsHttpApi = new PaymentsHttpApi();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 
-const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
 const isUpgradeDialogShown = ref<boolean>(false);

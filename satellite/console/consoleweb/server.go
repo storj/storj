@@ -105,6 +105,7 @@ type Config struct {
 	OnboardingStepperEnabled        bool          `help:"whether the onboarding stepper should be enabled" default:"false"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
+	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -306,7 +307,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost, http.MethodOptions)
@@ -738,6 +738,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
 		EnableRegionTag:                 server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
+		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

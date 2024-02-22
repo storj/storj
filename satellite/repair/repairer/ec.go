@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/fpath"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcpool"
@@ -42,26 +43,29 @@ var (
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
-	log             *zap.Logger
-	dialer          rpc.Dialer
-	satelliteSignee signing.Signee
-	dialTimeout     time.Duration
-	downloadTimeout time.Duration
-	inmemory        bool
+	log              *zap.Logger
+	dialer           rpc.Dialer
+	satelliteSignee  signing.Signee
+	dialTimeout      time.Duration
+	downloadTimeout  time.Duration
+	inmemoryDownload bool
+	inmemoryUpload   bool
 
 	// used only in tests, where we expect failures and want to wait for them
 	minFailures int
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeout time.Duration, downloadTimeout time.Duration, inmemory bool) *ECRepairer {
+func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeout time.Duration, downloadTimeout time.Duration,
+	inmemoryDownload, inmemoryUpload bool) *ECRepairer {
 	return &ECRepairer{
-		log:             log,
-		dialer:          dialer,
-		satelliteSignee: satelliteSignee,
-		dialTimeout:     dialTimeout,
-		downloadTimeout: downloadTimeout,
-		inmemory:        inmemory,
+		log:              log,
+		dialer:           dialer,
+		satelliteSignee:  satelliteSignee,
+		dialTimeout:      dialTimeout,
+		downloadTimeout:  downloadTimeout,
+		inmemoryDownload: inmemoryDownload,
+		inmemoryUpload:   inmemoryUpload,
 	}
 }
 
@@ -321,7 +325,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	downloadReader := io.TeeReader(downloader, hashWriter)
 	var downloadedPieceSize int64
 
-	if ec.inmemory {
+	if ec.inmemoryDownload {
 		pieceBytes, err := io.ReadAll(downloadReader)
 		if err != nil {
 			return nil, nil, nil, err
@@ -420,6 +424,10 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 
 	if !unique(limits) {
 		return nil, nil, Error.New("duplicated nodes are not allowed")
+	}
+
+	if ec.inmemoryUpload {
+		ctx = fpath.WithTempData(ctx, "", true)
 	}
 
 	readers, err := eestream.EncodeReader2(ctx, io.NopCloser(data), rs)

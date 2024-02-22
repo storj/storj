@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -492,6 +493,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			peer.Analytics.Service,
+			emission.NewService(config.Emission),
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

@@ -4,8 +4,6 @@
 import { Validator } from '@/utils/validation';
 
 export enum SortDirection {
-    ASCENDING = 1,
-    DESCENDING,
     asc = 1,
     desc = 2,
 }
@@ -54,7 +52,7 @@ export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {t
         { title: '50', value: 50 },
         { title: '100', value: 100 },
     ];
-    if (itemCount < 1000 && !isObjectBrowser) {
+    if (itemCount <= 300 && !isObjectBrowser) {
         return [{ title: 'All', value: itemCount }, ...opts];
     }
     return opts;

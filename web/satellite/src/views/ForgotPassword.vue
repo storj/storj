@@ -110,7 +110,7 @@ const auth: AuthHttpApi = new AuthHttpApi();
 const satellitesHints = [
     { satellite: 'US1', hint: 'Recommended for North and South America' },
     { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
-    { satellite: 'AP1', hint: 'Recommended for Asia and Australia' },
+    { satellite: 'AP1', hint: 'Recommended for Asia and Oceania' },
 ];
 const emailRules: ValidationRule<string>[] = [
     RequiredRule,

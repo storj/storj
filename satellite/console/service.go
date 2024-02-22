@@ -21,7 +21,6 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
-	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -51,7 +50,7 @@ var mon = monkit.Package()
 
 const (
 	// maxLimit specifies the limit for all paged queries.
-	maxLimit = 50
+	maxLimit = 300
 
 	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
@@ -630,37 +629,6 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 		Next:     page.Next,
 		Previous: page.Previous,
 	}, nil
-}
-
-// checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
-func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := payment.service.getUserAndAuditLog(ctx, "get outstanding invoices")
-	if err != nil {
-		return err
-	}
-
-	invoices, err := payment.service.accounts.Invoices().List(ctx, user.ID)
-	if err != nil {
-		return err
-	}
-	if len(invoices) > 0 {
-		for _, invoice := range invoices {
-			if invoice.Status != string(stripe.InvoiceStatusPaid) {
-				return ErrUsage.New("user has unpaid/pending invoices")
-			}
-		}
-	}
-
-	hasItems, err := payment.service.accounts.Invoices().CheckPendingItems(ctx, user.ID)
-	if err != nil {
-		return err
-	}
-	if hasItems {
-		return ErrUsage.New("user has pending invoice items")
-	}
-	return nil
 }
 
 // checkProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
@@ -1646,32 +1614,6 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	return nil
 }
 
-// DeleteAccount deletes User.
-func (s *Service) DeleteAccount(ctx context.Context, password string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "delete account")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
-	if err != nil {
-		return ErrUnauthorized.New(credentialsErrMsg)
-	}
-
-	err = s.Payments().checkOutstandingInvoice(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = s.store.Users().Delete(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
 // GetProject is a method for querying project by internal or public ID.
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1728,8 +1670,16 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
 }
 
+// EmissionImpactResponse represents emission impact response to be returned to client.
+type EmissionImpactResponse struct {
+	StorjImpact       float64 `json:"storjImpact"`
+	HyperscalerImpact float64 `json:"hyperscalerImpact"`
+	SavedTrees        int64   `json:"savedTrees"`
+}
+
 // GetEmissionImpact is a method for querying project emission impact by id.
-func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (impact *emission.Impact, err error) {
+func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*EmissionImpactResponse, error) {
+	var err error
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "get project emission impact", zap.String("projectID", projectID.String()))
 	if err != nil {
@@ -1750,12 +1700,27 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (i
 	period := now.Sub(isMember.project.CreatedAt)
 	dataInTB := memory.Size(storageUsed).TB()
 
-	impact, err = s.emission.CalculateImpact(dataInTB, period)
+	impact, err := s.emission.CalculateImpact(&emission.CalculationInput{
+		AmountOfDataInTB: dataInTB,
+		Duration:         period,
+		IsTBDuration:     false,
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return impact, nil
+	savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
+	if savedValue < 0 {
+		savedValue = 0
+	}
+
+	savedTrees := s.emission.CalculateSavedTrees(savedValue)
+
+	return &EmissionImpactResponse{
+		StorjImpact:       impact.EstimatedKgCO2eStorj,
+		HyperscalerImpact: impact.EstimatedKgCO2eHyperscaler,
+		SavedTrees:        savedTrees,
+	}, nil
 }
 
 // GetUsersProjects is a method for querying all projects.

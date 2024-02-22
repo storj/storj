@@ -36,7 +36,11 @@ var (
 	_ blobstore.Blobs = (*blobStore)(nil)
 )
 
-func monFileInTrash(namespace []byte) *monkit.Meter {
+// MonFileInTrash returns a monkit meter which counts the times a requested blob is
+// found in the trash. It is exported so that it can be activated from outside this
+// package for backwards compatibility. (It is no longer activated from inside this
+// package.)
+func MonFileInTrash(namespace []byte) *monkit.Meter {
 	return monStorage.Meter("open_file_in_trash", monkit.NewSeriesTag("namespace", hex.EncodeToString(namespace))) //mon:locked
 }
 
@@ -119,8 +123,7 @@ func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref blobstore
 
 // Delete deletes blobs with the specified ref.
 //
-// It doesn't return an error if the blob isn't found for any reason or it cannot
-// be deleted at this moment and it's delayed.
+// It doesn't return an error if the blob isn't found for any reason.
 func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = store.dir.Delete(ctx, ref)
@@ -149,24 +152,24 @@ func (store *blobStore) DeleteTrashNamespace(ctx context.Context, namespace []by
 }
 
 // Trash moves the ref to a trash directory.
-func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
+func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.dir.Trash(ctx, ref))
+	return Error.Wrap(store.dir.Trash(ctx, ref, timestamp))
 }
 
-// RestoreTrash moves every piece in the trash back into the regular location.
+// RestoreTrash moves every blob in the trash back into the regular location.
 func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	keysRestored, err = store.dir.RestoreTrash(ctx, namespace)
 	return keysRestored, Error.Wrap(err)
 }
 
-// TryRestoreTrashPiece attempts to restore a piece from the trash if it exists.
-// It returns nil if the piece was restored, or an error if the piece was not
+// TryRestoreTrashBlob attempts to restore a blob from the trash if it exists.
+// It returns nil if the blob was restored, or an error if the blob was not
 // in the trash or could not be restored.
-func (store *blobStore) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) (err error) {
+func (store *blobStore) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.dir.TryRestoreTrashPiece(ctx, ref))
+	return Error.Wrap(store.dir.TryRestoreTrashBlob(ctx, ref))
 }
 
 // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
@@ -174,13 +177,6 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 	defer mon.Task()(&ctx)(&err)
 	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
 	return bytesEmptied, keys, Error.Wrap(err)
-}
-
-// GarbageCollect tries to delete any files that haven't yet been deleted.
-func (store *blobStore) GarbageCollect(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	err = store.dir.GarbageCollect(ctx)
-	return Error.Wrap(err)
 }
 
 // Create creates a new blob that can be written.

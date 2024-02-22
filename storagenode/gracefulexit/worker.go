@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
+	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
@@ -31,7 +32,7 @@ type Worker struct {
 // NewWorker instantiates Worker.
 func NewWorker(log *zap.Logger, service *Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
 	return &Worker{
-		log:                 log.Named(satelliteURL.String()),
+		log:                 process.NamedLog(log, satelliteURL.String()),
 		service:             service,
 		dialer:              dialer,
 		satelliteURL:        satelliteURL,

@@ -7,7 +7,6 @@
 package filestore
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -15,11 +14,6 @@ import (
 
 	"storj.io/storj/storagenode/blobstore"
 )
-
-func isBusy(err error) bool {
-	err = underlyingError(err)
-	return errors.Is(err, unix.EBUSY)
-}
 
 func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	var stat unix.Statfs_t

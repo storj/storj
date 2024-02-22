@@ -16,6 +16,11 @@ export interface IconAndTitle {
     title: string;
 }
 
+export interface Exposed {
+    setName: (newName: string) => void,
+    setTypes: (newTypes: AccessType[]) => void,
+}
+
 export enum AccessType {
     APIKey = 'API Key',
     S3 = 'S3 Credentials',

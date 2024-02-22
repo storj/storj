@@ -118,7 +118,7 @@ async function onMakeDefault(): Promise<void> {
     });
 }
 
-watch(() => props.modelValue, () => {
+watch(model, () => {
     selectedCard.value = defaultCard.value?.id ?? '';
 });
 </script>

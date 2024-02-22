@@ -49,7 +49,7 @@
 import { computed, ref, watch, WritableComputedRef } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCheckbox, VInput } from 'vuetify/components';
 
-import { AccessType, ACCESS_TYPE_LINKS } from '@/types/createAccessGrant';
+import { AccessType, Exposed, ACCESS_TYPE_LINKS } from '@/types/createAccessGrant';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { RequiredRule, ValidationRule, DialogStepComponent } from '@/types/common';
 
@@ -125,14 +125,13 @@ const nameRules: ValidationRule<string>[] = [
     v => !agStore.state.allAGNames.includes(v) || 'This name is already in use',
 ];
 
-defineExpose<DialogStepComponent | { setTypes: (newTypes: AccessType[]) => void }>({
+defineExpose<DialogStepComponent | Exposed>({
     title: 'New Access Key',
     validate: () => {
         form.value?.validate();
         return !!form.value?.isValid;
     },
-    setTypes: (newTypes: AccessType[]) => {
-        types.value = newTypes;
-    },
+    setName: (newName: string) => name.value = newName,
+    setTypes: (newTypes: AccessType[]) => types.value = newTypes,
 });
 </script>

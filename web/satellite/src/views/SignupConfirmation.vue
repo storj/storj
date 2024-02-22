@@ -46,18 +46,34 @@
         </v-row>
     </v-container>
     <v-container v-else class="fill-height">
-        <v-row align="top" justify="center">
-            <v-col cols="12" sm="10" md="7" lg="5">
+        <v-row justify="center">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
                 <v-card title="Check your inbox" class="pa-2 pa-sm-7">
                     <v-card-text>
                         <p>Enter the 6 digit confirmation code you received in your email to verify your account:</p>
-                        <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
-                            <v-otp-input v-model="code" :loading="isLoading" :error="isError" autofocus class="my-2" />
-                        </v-card>
+                        <v-form @submit.prevent="verifyCode">
+                            <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
+                                <v-otp-input
+                                    :model-value="code"
+                                    :error="isError"
+                                    :disabled="isLoading"
+                                    autofocus
+                                    class="my-2"
+                                    @update:model-value="onValueChange"
+                                />
+                            </v-card>
 
-                        <v-btn :disabled="code.length < 6 || isLoading" color="primary" size="large" block @click="verifyCode">
-                            Verify Account
-                        </v-btn>
+                            <v-btn
+                                type="submit"
+                                :disabled="code.length < 6 || isLoading"
+                                :loading="isLoading"
+                                color="primary"
+                                size="large"
+                                block
+                            >
+                                Verify Account
+                            </v-btn>
+                        </v-form>
                     </v-card-text>
                 </v-card>
                 <p class="pt-9 text-center text-body-2">
@@ -85,6 +101,7 @@ import {
     VCardText,
     VCol,
     VContainer,
+    VForm,
     VRow,
     VOtpInput,
 } from 'vuetify/components';
@@ -181,6 +198,14 @@ function resendMail(): void {
 
         startResendEmailCountdown();
     });
+}
+
+function onValueChange(value: string) {
+    const val = value.slice(0, 6);
+    if (isNaN(+val)) {
+        return;
+    }
+    code.value = val;
 }
 
 /**

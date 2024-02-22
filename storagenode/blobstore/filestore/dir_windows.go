@@ -18,13 +18,6 @@ import (
 	"storj.io/storj/storagenode/blobstore"
 )
 
-var errSharingViolation = windows.Errno(32)
-
-func isBusy(err error) bool {
-	err = underlyingError(err)
-	return errors.Is(err, errSharingViolation)
-}
-
 func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {

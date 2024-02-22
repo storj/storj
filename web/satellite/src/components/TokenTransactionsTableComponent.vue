@@ -130,7 +130,7 @@ const nativePaymentHistoryItems = computed((): DisplayedItem[] => {
  * @param status
  */
 function getColor(status: string): string {
-    if (status === 'Confirmed' || status === 'Completed') return 'success';
+    if (status === 'Confirmed' || status === 'Completed' || status === 'Complete') return 'success';
     if (status === 'Pending') return 'warning';
     return 'error';
 }

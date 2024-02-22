@@ -56,6 +56,7 @@ export class FrontendConfig {
     onboardingStepperEnabled: boolean;
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
+    applicationsPageEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
