@@ -99,7 +99,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 
 	log.Info("gc-filewalker started", zap.Time("createdBefore", req.CreatedBefore), zap.Int("bloomFilterSize", len(req.BloomFilter)))
 
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo())
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress())
 	numTrashed := 0
 	pieceIDs, piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
 		log.Debug("found a trash piece", zap.Stringer("pieceID", pieceID))
