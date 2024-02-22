@@ -2140,7 +2140,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 			require.NoError(t, err)
 
 			expected = append(expected, console.PaymentInfo{
-				ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+				ID:        fmt.Sprint(txn.ID),
 				Type:      txn.Source,
 				Wallet:    meta.Wallet,
 				Amount:    txn.Amount,

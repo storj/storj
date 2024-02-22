@@ -3598,7 +3598,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			return WalletPayments{}, Error.Wrap(err)
 		}
 		paymentInfos = append(paymentInfos, PaymentInfo{
-			ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+			ID:        fmt.Sprint(txn.ID),
 			Type:      txn.Source,
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,
