@@ -31,7 +31,7 @@ export function decimalShift(decimal: string, places: number): string {
     const dotIdx = (decimal.includes('.') ? decimal.indexOf('.') : decimal.length) - places;
 
     if (dotIdx < 0) {
-        const frac = whole.padStart(whole.length-dotIdx, '0').replace(/0+$/, '');
+        const frac = whole.padStart(whole.length - dotIdx, '0').replace(/0+$/, '');
         if (!frac) {
             return '0';
         }
@@ -115,7 +115,7 @@ export function humanizeArray(arr: string[]): string {
     case 0: return '';
     case 1: return arr[0];
     case 2: return arr.join(' and ');
-    default: return `${arr.slice(0, len-1).join(', ')}, and ${arr[len-1]}`;
+    default: return `${arr.slice(0, len - 1).join(', ')}, and ${arr[len - 1]}`;
     }
 }
 
@@ -131,14 +131,14 @@ export function hexToBase64(str: string): string {
         throw new Error(`Invalid length ${str.length} for hex string`);
     }
 
-    const bytes = new Uint8Array(str.length/2);
+    const bytes = new Uint8Array(str.length / 2);
     for (let i = 0; i < str.length; i += 2) {
-        const byteStr = str.substring(i, i+2);
+        const byteStr = str.substring(i, i + 2);
         const n = parseInt(byteStr, 16);
         if (isNaN(n)) {
             throw new Error(`Invalid hex byte '${byteStr}' at position ${i}`);
         }
-        bytes[i/2] = parseInt(str.substring(i, i+2), 16);
+        bytes[i / 2] = parseInt(str.substring(i, i + 2), 16);
     }
 
     let out = '';
@@ -150,18 +150,18 @@ export function hexToBase64(str: string): string {
             out += b64Chars[nextSextet];
             break;
         }
-        nextSextet |= (bytes[i+1] & 0b11110000) >> 4;
+        nextSextet |= (bytes[i + 1] & 0b11110000) >> 4;
         out += b64Chars[nextSextet];
 
-        nextSextet = (bytes[i+1] & 0b00001111) << 2;
+        nextSextet = (bytes[i + 1] & 0b00001111) << 2;
         if (i + 2 >= bytes.length) {
             out += b64Chars[nextSextet];
             break;
         }
-        nextSextet |= (bytes[i+2] & 0b11000000) >> 6;
+        nextSextet |= (bytes[i + 2] & 0b11000000) >> 6;
         out += b64Chars[nextSextet];
 
-        out += b64Chars[bytes[i+2] & 0b00111111];
+        out += b64Chars[bytes[i + 2] & 0b00111111];
     }
 
     if (out.length % 4) {
