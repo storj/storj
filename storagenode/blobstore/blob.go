@@ -119,7 +119,7 @@ type Blobs interface {
 	// storage format V1 or greater, in the given namespace. If walkFunc returns a non-nil
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
-	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(BlobInfo) error) error
 
 	// CheckWritability tests writability of the storage directory by creating and deleting a file.
 	CheckWritability(ctx context.Context) error

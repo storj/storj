@@ -21,9 +21,9 @@ func TestGCFilewalkerDB_GetInsert(t *testing.T) {
 		gcFilewalkerDB := db.GCFilewalkerProgress()
 
 		progress := pieces.GCFilewalkerProgress{
-			SatelliteID:     testrand.NodeID(),
-			BFCreatedBefore: time.Now().UTC(),
-			Prefix:          "yf",
+			SatelliteID:              testrand.NodeID(),
+			BloomfilterCreatedBefore: time.Now().UTC(),
+			Prefix:                   "yf",
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestGCFilewalkerDB_GetInsert(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t, result.SatelliteID, progress.SatelliteID)
-			require.Equal(t, result.BFCreatedBefore, progress.BFCreatedBefore)
+			require.Equal(t, result.BloomfilterCreatedBefore, progress.BloomfilterCreatedBefore)
 			require.Equal(t, result.Prefix, progress.Prefix)
 		})
 
