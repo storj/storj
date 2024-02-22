@@ -31,9 +31,9 @@ type UsedSpacePerPrefixDB interface {
 
 // GCFilewalkerProgress keeps track of the GC filewalker progress.
 type GCFilewalkerProgress struct {
-	Prefix          string
-	SatelliteID     storj.NodeID
-	BFCreatedBefore time.Time
+	Prefix                   string
+	SatelliteID              storj.NodeID
+	BloomfilterCreatedBefore time.Time
 }
 
 // PrefixUsedSpace contains the used space information of a prefix.

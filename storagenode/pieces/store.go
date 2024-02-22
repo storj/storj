@@ -555,7 +555,14 @@ func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID,
 func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return store.Filewalker.WalkSatellitePieces(ctx, satellite, walkFunc)
+	return store.WalkSatellitePiecesFromPrefix(ctx, satellite, "", walkFunc)
+}
+
+// WalkSatellitePiecesFromPrefix is like WalkSatellitePieces, but starts at a specific prefix.
+func (store *Store) WalkSatellitePiecesFromPrefix(ctx context.Context, satellite storj.NodeID, startPrefix string, walkFunc func(StoredPieceAccess) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return store.Filewalker.WalkSatellitePieces(ctx, satellite, startPrefix, walkFunc)
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the

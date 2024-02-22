@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"runtime"
 	"time"
@@ -24,16 +25,18 @@ var errFileWalker = errs.Class("filewalker")
 type FileWalker struct {
 	log *zap.Logger
 
-	blobs       blobstore.Blobs
-	v0PieceInfo V0PieceInfoDB
+	blobs        blobstore.Blobs
+	v0PieceInfo  V0PieceInfoDB
+	gcProgressDB GCFilewalkerProgressDB
 }
 
 // NewFileWalker creates a new FileWalker.
-func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, db V0PieceInfoDB) *FileWalker {
+func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, v0PieceInfoDB V0PieceInfoDB, gcProgressDB GCFilewalkerProgressDB) *FileWalker {
 	return &FileWalker{
-		log:         log,
-		blobs:       blobs,
-		v0PieceInfo: db,
+		log:          log,
+		blobs:        blobs,
+		v0PieceInfo:  v0PieceInfoDB,
+		gcProgressDB: gcProgressDB,
 	}
 }
 
@@ -43,10 +46,12 @@ func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, db V0PieceInfoDB) *Fi
 // iteration early.
 //
 // Note that this method includes all locally stored pieces, both V0 and higher.
-func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, fn func(StoredPieceAccess) error) (err error) {
+// The startPrefix parameter can be used to start the iteration at a specific prefix. If startPrefix
+// is empty, the iteration starts at the beginning of the namespace.
+func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, startPrefix string, fn func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// iterate over all in V1 storage, skipping v0 pieces
-	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo blobstore.BlobInfo) error {
+	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), startPrefix, func(blobInfo blobstore.BlobInfo) error {
 		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
 			// skip v0 pieces, which are handled separately
 			return nil
@@ -71,7 +76,7 @@ func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.N
 
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
 func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, err error) {
-	err = fw.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+	err = fw.WalkSatellitePieces(ctx, satelliteID, "", func(access StoredPieceAccess) error {
 		pieceTotal, pieceContentSize, err := access.Size(ctx)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -144,12 +149,53 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		return nil, 0, 0, Error.New("filter not specified")
 	}
 
-	err = fw.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+	var curPrefix string
+	if fw.gcProgressDB != nil {
+		progress, err := fw.gcProgressDB.Get(ctx, satelliteID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			fw.log.Error("failed to get progress from database", zap.Error(err))
+		}
+		curPrefix = progress.Prefix
+
+		if curPrefix != "" && !progress.BloomfilterCreatedBefore.Equal(createdBefore) {
+			fw.log.Debug("bloomfilter createdBefore time does not match the one used in the last scan",
+				zap.Time("lastBloomfilterCreatedBefore", progress.BloomfilterCreatedBefore),
+				zap.Time("currentBloomfilterCreatedBefore", createdBefore))
+
+			// The bloomfilter createdBefore time has changed since the last scan which indicates that this is
+			// a new bloomfilter. We need to start over.
+			curPrefix = ""
+		}
+
+		defer func() {
+			err = fw.gcProgressDB.Reset(ctx, satelliteID)
+			if err != nil {
+				fw.log.Error("failed to reset progress in database", zap.Error(err))
+			}
+		}()
+	}
+
+	err = fw.WalkSatellitePieces(ctx, satelliteID, curPrefix, func(access StoredPieceAccess) error {
 		piecesCount++
 
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		defer runtime.Gosched()
+
+		if fw.gcProgressDB != nil {
+			keyPrefix := filestore.PathEncoding.EncodeToString(access.BlobRef().Key)[:2]
+			if keyPrefix != "" && keyPrefix != curPrefix {
+				err := fw.gcProgressDB.Store(ctx, GCFilewalkerProgress{
+					Prefix:                   keyPrefix,
+					SatelliteID:              satelliteID,
+					BloomfilterCreatedBefore: createdBefore,
+				})
+				if err != nil {
+					fw.log.Error("failed to save progress in the database", zap.Error(err))
+				}
+				curPrefix = keyPrefix
+			}
+		}
 
 		pieceID := access.PieceID()
 		if filter.Contains(pieceID) {

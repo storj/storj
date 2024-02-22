@@ -28,7 +28,7 @@ func (db *gcFilewalkerProgressDB) Store(ctx context.Context, progress pieces.GCF
 	_, err = db.ExecContext(ctx, `
 		INSERT OR REPLACE INTO progress(satellite_id, bloomfilter_created_before, last_checked_prefix)
 		VALUES(?,?,?)
-	`, progress.SatelliteID, progress.BFCreatedBefore.UTC(), progress.Prefix)
+	`, progress.SatelliteID, progress.BloomfilterCreatedBefore.UTC(), progress.Prefix)
 
 	return ErrGCProgress.Wrap(err)
 }
@@ -40,7 +40,7 @@ func (db *gcFilewalkerProgressDB) Get(ctx context.Context, satelliteID storj.Nod
 		SELECT last_checked_prefix, bloomfilter_created_before
 		FROM progress
 		WHERE satellite_id = ?
-	`, satelliteID).Scan(&progress.Prefix, &progress.BFCreatedBefore)
+	`, satelliteID).Scan(&progress.Prefix, &progress.BloomfilterCreatedBefore)
 
 	progress.SatelliteID = satelliteID
 

@@ -176,11 +176,11 @@ func (slow *SlowBlobs) TryRestoreTrashBlob(ctx context.Context, ref blobstore.Bl
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
 // If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
 // error immediately.
-func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(blobstore.BlobInfo) error) error {
+func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
-	return slow.blobs.WalkNamespace(ctx, namespace, walkFunc)
+	return slow.blobs.WalkNamespace(ctx, namespace, startFromPrefix, walkFunc)
 }
 
 // ListNamespaces returns all namespaces that might be storing data.

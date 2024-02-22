@@ -18,6 +18,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/experiment"
 	"storj.io/common/storj"
@@ -584,7 +585,7 @@ func (dir *Dir) forEachTrashDayDir(ctx context.Context, namespace []byte, f func
 
 func (dir *Dir) walkTrashDayDir(ctx context.Context, namespace []byte, dirTime time.Time, f func(info blobstore.BlobInfo) error) (err error) {
 	trashPath := dir.trashPath(namespace, dirTime)
-	return dir.walkNamespaceUnderPath(ctx, namespace, trashPath, f)
+	return dir.walkNamespaceUnderPath(ctx, namespace, trashPath, "", f)
 }
 
 func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTimes []time.Time, err error) {
@@ -810,19 +811,19 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 // greater, in the given namespace. If walkFunc returns a non-nil error, WalkNamespace will stop
 // iterating and return the error immediately. The ctx parameter is intended specifically to allow
 // canceling iteration early.
-func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.walkNamespaceInPath(ctx, namespace, dir.blobsdir(), walkFunc)
+	return dir.walkNamespaceInPath(ctx, namespace, dir.blobsdir(), startFromPrefix, walkFunc)
 }
 
-func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path string, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path, startPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	namespaceDir := PathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(path, namespaceDir)
-	return dir.walkNamespaceUnderPath(ctx, namespace, nsDir, walkFunc)
+	return dir.walkNamespaceUnderPath(ctx, namespace, nsDir, startPrefix, walkFunc)
 }
 
-func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, nsDir string, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, nsDir, startPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	openDir, err := os.Open(nsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -833,36 +834,54 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 		return err
 	}
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
+
+	var subdirNames []string
 	for {
-		// check for context done both before and after our readdir() call
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		subdirNames, err := openDir.Readdirnames(nameBatchSize)
+		names, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil {
 			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
-				return nil
+				break
 			}
 			return err
 		}
-		if len(subdirNames) == 0 {
+		if len(names) == 0 {
 			return nil
 		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		for _, keyPrefix := range subdirNames {
-			if len(keyPrefix) != 2 {
-				// just an invalid subdir; could be garbage of many kinds. probably
-				// don't need to pass on this error
-				continue
-			}
-			err := walkNamespaceWithPrefix(ctx, dir.log, namespace, nsDir, keyPrefix, walkFunc)
-			if err != nil {
-				return err
-			}
+
+		subdirNames = append(subdirNames, names...)
+	}
+
+	dir.log.Debug("number of subdirs", zap.Int("count", len(subdirNames)))
+
+	// sort the dir names, so we can start from the startPrefix
+	sortPrefixes(subdirNames)
+
+	// just a little optimization: if we were somehow given a startPrefix that
+	// is the last subdir, we can skip the rest and just start from there.
+	if startPrefix != "" && subdirNames[len(subdirNames)-1] == startPrefix {
+		subdirNames = subdirNames[:len(subdirNames)-1]
+	}
+
+	for _, keyPrefix := range subdirNames {
+		if len(keyPrefix) != 2 {
+			// just an invalid subdir; could be garbage of many kinds. probably
+			// don't need to pass on this error
+			continue
+		}
+
+		if startPrefix != "" && startPrefix > keyPrefix {
+			continue
+		}
+		err := walkNamespaceWithPrefix(ctx, dir.log, namespace, nsDir, keyPrefix, walkFunc)
+		if err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
 // migrateTrashToPerDayDirs migrates a trash directory that is _not_ using per-day directories
@@ -1049,4 +1068,34 @@ func (cde CorruptDataError) Path() string {
 // Error returns an error string describing the condition.
 func (cde CorruptDataError) Error() string {
 	return fmt.Sprintf("unrecoverable error accessing data on the storage file system (path=%v; error=%v). This is most likely due to disk bad sectors or a corrupted file system. Check your disk for bad sectors and integrity", cde.path, cde.error)
+}
+
+// sortPrefixes sorts the given prefixes in a way that it puts a-z before 0-9.
+func sortPrefixes(prefixes []string) {
+	slices.SortStableFunc(prefixes, func(a, b string) int {
+		if a[0] == b[0] {
+			if isDigit(a[1]) && isLetter(b[1]) {
+				return 1 // a (numeric) comes after b (alphabet)
+			}
+			if isLetter(a[1]) && isDigit(b[1]) {
+				return -1 // a (alphabet) comes before b (numeric)
+			}
+		}
+		if isDigit(a[0]) && isLetter(b[0]) {
+			return 1 // a (numeric) comes after b (alphabet)
+		}
+		if isLetter(a[0]) && isDigit(b[0]) {
+			return -1 // a (alphabet) comes before b (numeric)
+		}
+		// Default behavior: compare strings lexicographically
+		return strings.Compare(a, b)
+	})
+}
+
+func isDigit(r byte) bool {
+	return '0' <= r && r <= '9'
+}
+
+func isLetter(r byte) bool {
+	return ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z')
 }

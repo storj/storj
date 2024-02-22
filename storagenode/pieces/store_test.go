@@ -49,7 +49,7 @@ func TestPieces(t *testing.T) {
 	blobs := filestore.New(log, dir, filestore.DefaultConfig)
 	defer ctx.Check(blobs.Close)
 
-	fw := pieces.NewFileWalker(log, blobs, nil)
+	fw := pieces.NewFileWalker(log, blobs, nil, nil)
 	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, nil, pieces.DefaultConfig)
 
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -328,7 +328,7 @@ func TestTrashAndRestore(t *testing.T) {
 		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), nil, pieces.DefaultConfig)
 		tStore := &pieces.StoreForTest{store}
 
@@ -564,7 +564,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(blobs.Close)
 
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, nil, nil, pieces.DefaultConfig)
 
 		// write as a v0 piece
@@ -651,7 +651,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(blobs.Close)
 
-	fw := pieces.NewFileWalker(log, blobs, nil)
+	fw := pieces.NewFileWalker(log, blobs, nil, nil)
 	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, nil, pieces.DefaultConfig)
 	tStore := &pieces.StoreForTest{store}
 
@@ -708,7 +708,7 @@ func TestGetExpired(t *testing.T) {
 		log := zaptest.NewLogger(t)
 
 		blobs := db.Pieces()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		now := time.Now()
@@ -779,7 +779,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		log := zaptest.NewLogger(t)
 
 		blobs := db.Pieces()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		satelliteID := testrand.NodeID()
@@ -904,7 +904,7 @@ func TestEmptyTrash_lazyFilewalker(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		log := zaptest.NewLogger(t)
 		blobs := db.Pieces()
-		fw := pieces.NewFileWalker(log, blobs, nil)
+		fw := pieces.NewFileWalker(log, blobs, nil, nil)
 		cfg := pieces.DefaultConfig
 		cfg.EnableLazyFilewalker = true
 

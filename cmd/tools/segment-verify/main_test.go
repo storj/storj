@@ -238,7 +238,7 @@ func TestCommandLineTool(t *testing.T) {
 
 func deletePiecesRandomly(ctx context.Context, satelliteID storj.NodeID, node *testplanet.StorageNode, rate float64) (deletedPieces map[storj.PieceID]struct{}, err error) {
 	deletedPieces = make(map[storj.PieceID]struct{})
-	err = node.Storage2.FileWalker.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+	err = node.Storage2.FileWalker.WalkSatellitePieces(ctx, satelliteID, "", func(access pieces.StoredPieceAccess) error {
 		if rand.Float64() < rate {
 			path, err := access.FullPath(ctx)
 			if err != nil {

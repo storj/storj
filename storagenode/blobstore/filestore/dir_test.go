@@ -6,6 +6,7 @@ package filestore
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/exp/slices"
 
@@ -354,4 +356,99 @@ func writeTestBlob(ctx context.Context, t *testing.T, dir *Dir, ref blobstore.Bl
 	require.NoError(t, err)
 	err = dir.Commit(ctx, f, ref, FormatV1)
 	require.NoError(t, err)
+}
+
+func BenchmarkDir_WalkNamespace(b *testing.B) {
+	dir, err := NewDir(zap.NewNop(), b.TempDir())
+	require.NoError(b, err)
+
+	ctx := testcontext.New(b)
+
+	satelliteID := testrand.NodeID()
+	for i := uint16(0); i < 32*32; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		namespace := PathEncoding.EncodeToString(satelliteID.Bytes())
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir(), namespace, keyPrefix), 0700))
+	}
+	b.Run("1024-prefixes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := dir.WalkNamespace(ctx, satelliteID.Bytes(), "", func(ref blobstore.BlobInfo) error {
+				return nil
+			})
+			require.NoError(b, err)
+		}
+	})
+
+	satelliteID2 := testrand.NodeID()
+	for i := uint16(0); i < 32*2; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		namespace := PathEncoding.EncodeToString(satelliteID2.Bytes())
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir(), namespace, keyPrefix), 0700))
+	}
+	b.Run("64-prefixes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := dir.WalkNamespace(ctx, satelliteID2.Bytes(), "", func(ref blobstore.BlobInfo) error {
+				return nil
+			})
+			require.NoError(b, err)
+		}
+	})
+
+	satelliteID3 := testrand.NodeID()
+	for i := uint16(0); i < 32*16; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		namespace := PathEncoding.EncodeToString(satelliteID3.Bytes())
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir(), namespace, keyPrefix), 0700))
+	}
+	b.Run("512-prefixes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := dir.WalkNamespace(ctx, satelliteID3.Bytes(), "", func(ref blobstore.BlobInfo) error {
+				return nil
+			})
+			require.NoError(b, err)
+		}
+	})
+}
+
+func Test_sortPrefixes(t *testing.T) {
+	var str []string
+
+	for i := uint16(0); i < 32*32; i++ {
+		keyPrefix := numToBase32Prefix(i)
+		str = append(str, keyPrefix)
+	}
+
+	type test struct {
+		name     string
+		prefixes []string
+		expected []string
+	}
+
+	tests := []test{
+		{
+			name:     "1024 prefixes sorted",
+			prefixes: str,
+			expected: str,
+		},
+		{
+			name:     "unordered prefixes",
+			prefixes: []string{"77", "a2", "3z", "an", "b2", "a6", "b7", "aa", "7a", "23"},
+			expected: []string{"aa", "an", "a2", "a6", "b2", "b7", "23", "3z", "7a", "77"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sortPrefixes(tt.prefixes)
+			assert.Equal(t, tt.expected, tt.prefixes)
+		})
+	}
+}
+
+// numToBase32Prefix gives the two character base32 prefix corresponding to the given
+// 10-bit number.
+func numToBase32Prefix(n uint16) string {
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], n<<6)
+	return PathEncoding.EncodeToString(b[:])[:2]
 }
