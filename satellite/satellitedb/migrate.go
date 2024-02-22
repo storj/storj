@@ -2622,6 +2622,40 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN upgrade_time timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add chain_id to storjscan payments table",
+				Version:     258,
+				Action: migrate.SQL{
+					`ALTER TABLE storjscan_payments ADD COLUMN chain_id bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "backfill storjscan chain_id column",
+				Version:     259,
+				Action: migrate.SQL{
+					`UPDATE storjscan_payments SET chain_id = 1 WHERE chain_id = 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update storjscan payments table index to include chain_id",
+				Version:     260,
+				Action: migrate.SQL{
+					`DROP INDEX storjscan_payments_block_number_log_index_index;`,
+					`CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update storjscan payments table to use chain_id in primary key",
+				Version:     261,
+				Action: migrate.SQL{
+					`ALTER TABLE storjscan_payments DROP CONSTRAINT storjscan_payments_pkey;`,
+					`ALTER TABLE storjscan_payments ADD CONSTRAINT storjscan_payments_pkey PRIMARY KEY ( chain_id, block_hash, log_index );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -706,6 +706,7 @@ CREATE TABLE storagenode_storage_tallies (
 	PRIMARY KEY ( interval_end_time, node_id )
 );
 CREATE TABLE storjscan_payments (
+	chain_id bigint NOT NULL DEFAULT 0,
 	block_hash bytea NOT NULL,
 	block_number bigint NOT NULL,
 	transaction bytea NOT NULL,
@@ -717,7 +718,7 @@ CREATE TABLE storjscan_payments (
 	status text NOT NULL,
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( block_hash, log_index )
+	PRIMARY KEY ( chain_id, block_hash, log_index )
 );
 CREATE TABLE storjscan_wallets (
 	user_id bytea NOT NULL,
@@ -908,7 +909,7 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
-CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
+CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
@@ -1407,6 +1408,7 @@ CREATE TABLE storagenode_storage_tallies (
 	PRIMARY KEY ( interval_end_time, node_id )
 );
 CREATE TABLE storjscan_payments (
+	chain_id bigint NOT NULL DEFAULT 0,
 	block_hash bytea NOT NULL,
 	block_number bigint NOT NULL,
 	transaction bytea NOT NULL,
@@ -1418,7 +1420,7 @@ CREATE TABLE storjscan_payments (
 	status text NOT NULL,
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( block_hash, log_index )
+	PRIMARY KEY ( chain_id, block_hash, log_index )
 );
 CREATE TABLE storjscan_wallets (
 	user_id bytea NOT NULL,
@@ -1609,7 +1611,7 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
-CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
+CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
@@ -8757,6 +8759,7 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type StorjscanPayment struct {
+	ChainId     int64
 	BlockHash   []byte
 	BlockNumber int64
 	Transaction []byte
@@ -8772,8 +8775,31 @@ type StorjscanPayment struct {
 
 func (StorjscanPayment) _Table() string { return "storjscan_payments" }
 
+type StorjscanPayment_Create_Fields struct {
+	ChainId StorjscanPayment_ChainId_Field
+}
+
 type StorjscanPayment_Update_Fields struct {
 }
+
+type StorjscanPayment_ChainId_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StorjscanPayment_ChainId(v int64) StorjscanPayment_ChainId_Field {
+	return StorjscanPayment_ChainId_Field{_set: true, _value: v}
+}
+
+func (f StorjscanPayment_ChainId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanPayment_ChainId_Field) _Column() string { return "chain_id" }
 
 type StorjscanPayment_BlockHash_Field struct {
 	_set   bool
@@ -12778,7 +12804,8 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 	storjscan_payment_token_value StorjscanPayment_TokenValue_Field,
 	storjscan_payment_usd_value StorjscanPayment_UsdValue_Field,
 	storjscan_payment_status StorjscanPayment_Status_Field,
-	storjscan_payment_timestamp StorjscanPayment_Timestamp_Field) (
+	storjscan_payment_timestamp StorjscanPayment_Timestamp_Field,
+	optional StorjscanPayment_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -12795,11 +12822,32 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 	__timestamp_val := storjscan_payment_timestamp.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_payments ( block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storjscan_payments "), __clause}}
 
 	var __values []interface{}
 	__values = append(__values, __block_hash_val, __block_number_val, __transaction_val, __log_index_val, __from_address_val, __to_address_val, __token_value_val, __usd_value_val, __status_val, __timestamp_val, __created_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.ChainId._set {
+		__values = append(__values, optional.ChainId.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("chain_id"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -15050,11 +15098,11 @@ func (obj *pgxImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.C
 
 }
 
-func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
+func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
 	rows []*StorjscanPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.block_number, storjscan_payments.log_index")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.chain_id, storjscan_payments.block_number, storjscan_payments.log_index")
 
 	var __values []interface{}
 
@@ -15071,7 +15119,7 @@ func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ct
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
-				err = __rows.Scan(&storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
+				err = __rows.Scan(&storjscan_payment.ChainId, &storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -15093,13 +15141,13 @@ func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ct
 
 }
 
-func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 	limit int, offset int64) (
 	rows []*StorjscanPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.chain_id DESC, storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, storjscan_payment_to_address.value())
@@ -15119,7 +15167,7 @@ func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumb
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
-				err = __rows.Scan(&storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
+				err = __rows.Scan(&storjscan_payment.ChainId, &storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -21333,7 +21381,8 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 	storjscan_payment_token_value StorjscanPayment_TokenValue_Field,
 	storjscan_payment_usd_value StorjscanPayment_UsdValue_Field,
 	storjscan_payment_status StorjscanPayment_Status_Field,
-	storjscan_payment_timestamp StorjscanPayment_Timestamp_Field) (
+	storjscan_payment_timestamp StorjscanPayment_Timestamp_Field,
+	optional StorjscanPayment_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -21350,11 +21399,32 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 	__timestamp_val := storjscan_payment_timestamp.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_payments ( block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storjscan_payments "), __clause}}
 
 	var __values []interface{}
 	__values = append(__values, __block_hash_val, __block_number_val, __transaction_val, __log_index_val, __from_address_val, __to_address_val, __token_value_val, __usd_value_val, __status_val, __timestamp_val, __created_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.ChainId._set {
+		__values = append(__values, optional.ChainId.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("chain_id"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -23605,11 +23675,11 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx 
 
 }
 
-func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
+func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
 	rows []*StorjscanPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.block_number, storjscan_payments.log_index")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.chain_id, storjscan_payments.block_number, storjscan_payments.log_index")
 
 	var __values []interface{}
 
@@ -23626,7 +23696,7 @@ func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_Lo
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
-				err = __rows.Scan(&storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
+				err = __rows.Scan(&storjscan_payment.ChainId, &storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -23648,13 +23718,13 @@ func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_Lo
 
 }
 
-func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 	limit int, offset int64) (
 	rows []*StorjscanPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.chain_id DESC, storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, storjscan_payment_to_address.value())
@@ -23674,7 +23744,7 @@ func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
-				err = __rows.Scan(&storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
+				err = __rows.Scan(&storjscan_payment.ChainId, &storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.Timestamp, &storjscan_payment.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -29600,7 +29670,7 @@ type Methods interface {
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
 
-	All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
+	All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
 		rows []*StorjscanPayment, err error)
 
 	All_StorjscanWallet(ctx context.Context) (
@@ -29691,7 +29761,8 @@ type Methods interface {
 		storjscan_payment_token_value StorjscanPayment_TokenValue_Field,
 		storjscan_payment_usd_value StorjscanPayment_UsdValue_Field,
 		storjscan_payment_status StorjscanPayment_Status_Field,
-		storjscan_payment_timestamp StorjscanPayment_Timestamp_Field) (
+		storjscan_payment_timestamp StorjscanPayment_Timestamp_Field,
+		optional StorjscanPayment_Create_Fields) (
 		err error)
 
 	CreateNoReturn_StorjscanWallet(ctx context.Context,
@@ -30229,7 +30300,7 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*StoragenodePayment, err error)
 
-	Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+	Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 		storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 		limit int, offset int64) (
 		rows []*StorjscanPayment, err error)

@@ -393,6 +393,7 @@ CREATE TABLE storagenode_storage_tallies (
 	PRIMARY KEY ( interval_end_time, node_id )
 );
 CREATE TABLE storjscan_payments (
+	chain_id bigint NOT NULL DEFAULT 0,
 	block_hash bytea NOT NULL,
 	block_number bigint NOT NULL,
 	transaction bytea NOT NULL,
@@ -404,7 +405,7 @@ CREATE TABLE storjscan_payments (
 	status text NOT NULL,
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( block_hash, log_index )
+	PRIMARY KEY ( chain_id, block_hash, log_index )
 );
 CREATE TABLE storjscan_wallets (
 	user_id bytea NOT NULL,
@@ -595,7 +596,7 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
-CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
+CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;

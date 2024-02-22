@@ -37,6 +37,7 @@ type PaymentsDB interface {
 
 // CachedPayment holds cached data of storjscan payment.
 type CachedPayment struct {
+	ChainID     int64                  `json:"chainID"`
 	From        blockchain.Address     `json:"from"`
 	To          blockchain.Address     `json:"to"`
 	TokenValue  currency.Amount        `json:"tokenValue"`

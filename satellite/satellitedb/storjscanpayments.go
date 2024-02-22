@@ -30,6 +30,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 	defer mon.Task()(&ctx)(&err)
 
 	cmnd := `INSERT INTO storjscan_payments(
+				chain_id,
 				block_hash,
 				block_number,
 				transaction,
@@ -42,19 +43,21 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 				timestamp,
 				created_at
 			) SELECT
-				UNNEST($1::BYTEA[]),
-				UNNEST($2::INT8[]),
-				UNNEST($3::BYTEA[]),
-				UNNEST($4::INT4[]),
-				UNNEST($5::BYTEA[]),
+				UNNEST($1::INT8[]),
+				UNNEST($2::BYTEA[]),
+				UNNEST($3::INT8[]),
+				UNNEST($4::BYTEA[]),
+				UNNEST($5::INT4[]),
 				UNNEST($6::BYTEA[]),
-				UNNEST($7::INT8[]),
+				UNNEST($7::BYTEA[]),
 				UNNEST($8::INT8[]),
-				UNNEST($9::TEXT[]),
-				UNNEST($10::TIMESTAMPTZ[]),
-				$11
+				UNNEST($9::INT8[]),
+				UNNEST($10::TEXT[]),
+				UNNEST($11::TIMESTAMPTZ[]),
+				$12
 			`
 	var (
+		chainIDs      = make([]int64, 0, len(payments))
 		blockHashes   = make([][]byte, 0, len(payments))
 		blockNumbers  = make([]int64, 0, len(payments))
 		transactions  = make([][]byte, 0, len(payments))
@@ -70,6 +73,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 	)
 	for i := range payments {
 		payment := payments[i]
+		chainIDs = append(chainIDs, payment.ChainID)
 		blockHashes = append(blockHashes, payment.BlockHash[:])
 		blockNumbers = append(blockNumbers, payment.BlockNumber)
 		transactions = append(transactions, payment.Transaction[:])
@@ -83,6 +87,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 	}
 
 	_, err = storjscanPayments.db.ExecContext(ctx, cmnd,
+		pgutil.Int8Array(chainIDs),
 		pgutil.ByteaArray(blockHashes),
 		pgutil.Int8Array(blockNumbers),
 		pgutil.ByteaArray(transactions),
@@ -101,7 +106,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 func (storjscanPayments *storjscanPayments) List(ctx context.Context) (_ []storjscan.CachedPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxPmnts, err := storjscanPayments.db.All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx)
+	dbxPmnts, err := storjscanPayments.db.All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc_LogIndex(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -116,7 +121,7 @@ func (storjscanPayments *storjscanPayments) List(ctx context.Context) (_ []storj
 
 // ListWallet returns list of storjscan payments order by block number and log index desc.
 func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]storjscan.CachedPayment, error) {
-	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx,
+	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_Desc_BlockNumber_Desc_LogIndex(ctx,
 		dbx.StorjscanPayment_ToAddress(wallet[:]),
 		limit, offset)
 	if err != nil {
