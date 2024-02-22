@@ -48,6 +48,8 @@ export default defineConfig(({ mode }) => {
             ext: '.br',
             filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
         }));
+    } else {
+        process.env['NODE_ENV'] = 'development';
     }
 
     return {
