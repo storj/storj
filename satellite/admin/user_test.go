@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -394,6 +395,53 @@ func TestDisableMFA(t *testing.T) {
 		updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, false, updatedUser.MFAEnabled)
+	})
+}
+
+func TestUpdateTrialExpiration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].DB
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
+
+		newExpirationDate := time.Now().UTC().Add(5 * 24 * time.Hour)
+
+		body := strings.NewReader(fmt.Sprintf(`{"trialExpiration":"%s"}`, newExpirationDate.Format(time.RFC3339Nano)))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration", project.Owner.Email), body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.NoError(t, response.Body.Close())
+
+		updatedUser, err := db.Console().Users().Get(ctx, project.Owner.ID)
+		require.NoError(t, err)
+		require.WithinDuration(t, newExpirationDate, *updatedUser.TrialExpiration, time.Minute)
+
+		body = strings.NewReader(`{"trialExpiration":null}`)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration", project.Owner.Email), body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.NoError(t, response.Body.Close())
+
+		updatedUser, err = db.Console().Users().Get(ctx, project.Owner.ID)
+		require.NoError(t, err)
+		require.Nil(t, updatedUser.TrialExpiration)
 	})
 }
 
