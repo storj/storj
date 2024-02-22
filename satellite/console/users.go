@@ -240,6 +240,7 @@ type User struct {
 	SignupPromoCode string `json:"signupPromoCode"`
 
 	VerificationReminders int `json:"verificationReminders"`
+	TrialNotifications    int `json:"trialNotifications"`
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
@@ -249,6 +250,9 @@ type User struct {
 
 	ActivationCode string `json:"-"`
 	SignupId       string `json:"-"`
+
+	TrialExpiration *time.Time `json:"trialExpiration"`
+	UpgradeTime     *time.Time `json:"upgradeTime"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -326,6 +330,9 @@ type UpdateUserRequest struct {
 
 	ActivationCode *string
 	SignupId       *string
+
+	TrialExpiration **time.Time
+	UpgradeTime     *time.Time
 }
 
 // UserSettings contains configurations for a user.

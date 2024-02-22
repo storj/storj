@@ -468,12 +468,15 @@ CREATE TABLE users (
 	mfa_recovery_codes text,
 	signup_promo_code text,
 	verification_reminders integer NOT NULL DEFAULT 0,
+	trial_notifications integer NOT NULL DEFAULT 0,
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,
 	signup_captcha double precision,
 	default_placement integer,
 	activation_code text,
 	signup_id text,
+	trial_expiration timestamp with time zone,
+	upgrade_time timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (

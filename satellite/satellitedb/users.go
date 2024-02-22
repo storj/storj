@@ -257,6 +257,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.SignupId = dbx.User_SignupId(user.SignupId)
 	}
 
+	if user.TrialExpiration != nil {
+		optional.TrialExpiration = dbx.User_TrialExpiration(*user.TrialExpiration)
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
@@ -660,6 +664,13 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.EmployeeCount = dbx.User_EmployeeCount(*request.EmployeeCount)
 	}
 
+	if request.TrialExpiration != nil {
+		update.TrialExpiration = dbx.User_TrialExpiration_Raw(*request.TrialExpiration)
+	}
+	if request.UpgradeTime != nil {
+		update.UpgradeTime = dbx.User_UpgradeTime(*request.UpgradeTime)
+	}
+
 	return &update, nil
 }
 
@@ -700,6 +711,8 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
 		SignupCaptcha:         user.SignupCaptcha,
+		TrialExpiration:       user.TrialExpiration,
+		UpgradeTime:           user.UpgradeTime,
 	}
 
 	if user.DefaultPlacement != nil {

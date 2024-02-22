@@ -68,6 +68,8 @@ model user (
 
     // verification_reminders counts how many times a verification reminder email has been sent.
     field verification_reminders int ( updatable, default 0 )
+    // trial_notifications counts how many times a trial notification email has been sent.
+    field trial_notifications int ( updatable, default 0 )
 
     // failed_login_count keeps track on how many times login has failed.
     field failed_login_count int ( updatable, nullable )
@@ -84,6 +86,11 @@ model user (
     field activation_code     text      ( updatable, nullable )
     // signup_id is a the request ID associated to a sign up session, used to also verify activation_code.
     field signup_id     text      ( updatable, nullable )
+
+    // trial_expiration is used to indicate when free trial user should expire.
+    field trial_expiration timestamp ( updatable, nullable )
+    // upgrade_time is used to track when user upgraded to paid tier.
+    field upgrade_time timestamp ( updatable, nullable )
 )
 
 create user ( )
