@@ -86,7 +86,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const billingStore = useBillingStore();
 
-const sortBy = ref([{ key: 'date', order: 'asc' }]);
+const sortBy = ref([{ key: 'timestamp', order: 'asc' }]);
 const search = ref<string>('');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
