@@ -836,6 +836,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
 		}
 
+		if s.config.FreeTrialDuration != 0 {
+			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
+			newUser.TrialExpiration = &expiration
+		}
+
 		// TODO: move the project limits into the registration token.
 		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
 		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
