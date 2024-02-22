@@ -113,20 +113,22 @@ type DB struct {
 
 	dbDirectory string
 
-	deprecatedInfoDB  *deprecatedInfoDB
-	v0PieceInfoDB     *v0PieceInfoDB
-	bandwidthDB       *bandwidthDB
-	ordersDB          *ordersDB
-	pieceExpirationDB *pieceExpirationDB
-	pieceSpaceUsedDB  *pieceSpaceUsedDB
-	reputationDB      *reputationDB
-	storageUsageDB    *storageUsageDB
-	usedSerialsDB     *usedSerialsDB
-	satellitesDB      *satellitesDB
-	notificationsDB   *notificationDB
-	payoutDB          *payoutDB
-	pricingDB         *pricingDB
-	apiKeysDB         *apiKeysDB
+	deprecatedInfoDB       *deprecatedInfoDB
+	v0PieceInfoDB          *v0PieceInfoDB
+	bandwidthDB            *bandwidthDB
+	ordersDB               *ordersDB
+	pieceExpirationDB      *pieceExpirationDB
+	pieceSpaceUsedDB       *pieceSpaceUsedDB
+	reputationDB           *reputationDB
+	storageUsageDB         *storageUsageDB
+	usedSerialsDB          *usedSerialsDB
+	satellitesDB           *satellitesDB
+	notificationsDB        *notificationDB
+	payoutDB               *payoutDB
+	pricingDB              *pricingDB
+	apiKeysDB              *apiKeysDB
+	gcFilewalkerProgressDB *gcFilewalkerProgressDB
+	usedSpacePerPrefixDB   *usedSpacePerPrefixDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -154,6 +156,8 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 	apiKeysDB := &apiKeysDB{}
+	gcFilewalkerProgressDB := &gcFilewalkerProgressDB{}
+	usedSpacePerPrefixDB := &usedSpacePerPrefixDB{}
 
 	db := &DB{
 		log:    log,
@@ -163,36 +167,40 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 
 		dbDirectory: filepath.Dir(config.Info2),
 
-		deprecatedInfoDB:  deprecatedInfoDB,
-		v0PieceInfoDB:     v0PieceInfoDB,
-		bandwidthDB:       bandwidthDB,
-		ordersDB:          ordersDB,
-		pieceExpirationDB: pieceExpirationDB,
-		pieceSpaceUsedDB:  pieceSpaceUsedDB,
-		reputationDB:      reputationDB,
-		storageUsageDB:    storageUsageDB,
-		usedSerialsDB:     usedSerialsDB,
-		satellitesDB:      satellitesDB,
-		notificationsDB:   notificationsDB,
-		payoutDB:          payoutDB,
-		pricingDB:         pricingDB,
-		apiKeysDB:         apiKeysDB,
+		deprecatedInfoDB:       deprecatedInfoDB,
+		v0PieceInfoDB:          v0PieceInfoDB,
+		bandwidthDB:            bandwidthDB,
+		ordersDB:               ordersDB,
+		pieceExpirationDB:      pieceExpirationDB,
+		pieceSpaceUsedDB:       pieceSpaceUsedDB,
+		reputationDB:           reputationDB,
+		storageUsageDB:         storageUsageDB,
+		usedSerialsDB:          usedSerialsDB,
+		satellitesDB:           satellitesDB,
+		notificationsDB:        notificationsDB,
+		payoutDB:               payoutDB,
+		pricingDB:              pricingDB,
+		apiKeysDB:              apiKeysDB,
+		gcFilewalkerProgressDB: gcFilewalkerProgressDB,
+		usedSpacePerPrefixDB:   usedSpacePerPrefixDB,
 
 		SQLDBs: map[string]DBContainer{
-			DeprecatedInfoDBName:  deprecatedInfoDB,
-			PieceInfoDBName:       v0PieceInfoDB,
-			BandwidthDBName:       bandwidthDB,
-			OrdersDBName:          ordersDB,
-			PieceExpirationDBName: pieceExpirationDB,
-			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
-			ReputationDBName:      reputationDB,
-			StorageUsageDBName:    storageUsageDB,
-			UsedSerialsDBName:     usedSerialsDB,
-			SatellitesDBName:      satellitesDB,
-			NotificationsDBName:   notificationsDB,
-			HeldAmountDBName:      payoutDB,
-			PricingDBName:         pricingDB,
-			APIKeysDBName:         apiKeysDB,
+			DeprecatedInfoDBName:       deprecatedInfoDB,
+			PieceInfoDBName:            v0PieceInfoDB,
+			BandwidthDBName:            bandwidthDB,
+			OrdersDBName:               ordersDB,
+			PieceExpirationDBName:      pieceExpirationDB,
+			PieceSpaceUsedDBName:       pieceSpaceUsedDB,
+			ReputationDBName:           reputationDB,
+			StorageUsageDBName:         storageUsageDB,
+			UsedSerialsDBName:          usedSerialsDB,
+			SatellitesDBName:           satellitesDB,
+			NotificationsDBName:        notificationsDB,
+			HeldAmountDBName:           payoutDB,
+			PricingDBName:              pricingDB,
+			APIKeysDBName:              apiKeysDB,
+			GCFilewalkerProgressDBName: gcFilewalkerProgressDB,
+			UsedSpacePerPrefixDBName:   usedSpacePerPrefixDB,
 		},
 	}
 
@@ -222,6 +230,8 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 	apiKeysDB := &apiKeysDB{}
+	gcFilewalkerProgressDB := &gcFilewalkerProgressDB{}
+	usedSpacePerPrefixDB := &usedSpacePerPrefixDB{}
 
 	db := &DB{
 		log:    log,
@@ -231,36 +241,40 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 
 		dbDirectory: filepath.Dir(config.Info2),
 
-		deprecatedInfoDB:  deprecatedInfoDB,
-		v0PieceInfoDB:     v0PieceInfoDB,
-		bandwidthDB:       bandwidthDB,
-		ordersDB:          ordersDB,
-		pieceExpirationDB: pieceExpirationDB,
-		pieceSpaceUsedDB:  pieceSpaceUsedDB,
-		reputationDB:      reputationDB,
-		storageUsageDB:    storageUsageDB,
-		usedSerialsDB:     usedSerialsDB,
-		satellitesDB:      satellitesDB,
-		notificationsDB:   notificationsDB,
-		payoutDB:          payoutDB,
-		pricingDB:         pricingDB,
-		apiKeysDB:         apiKeysDB,
+		deprecatedInfoDB:       deprecatedInfoDB,
+		v0PieceInfoDB:          v0PieceInfoDB,
+		bandwidthDB:            bandwidthDB,
+		ordersDB:               ordersDB,
+		pieceExpirationDB:      pieceExpirationDB,
+		pieceSpaceUsedDB:       pieceSpaceUsedDB,
+		reputationDB:           reputationDB,
+		storageUsageDB:         storageUsageDB,
+		usedSerialsDB:          usedSerialsDB,
+		satellitesDB:           satellitesDB,
+		notificationsDB:        notificationsDB,
+		payoutDB:               payoutDB,
+		pricingDB:              pricingDB,
+		apiKeysDB:              apiKeysDB,
+		gcFilewalkerProgressDB: gcFilewalkerProgressDB,
+		usedSpacePerPrefixDB:   usedSpacePerPrefixDB,
 
 		SQLDBs: map[string]DBContainer{
-			DeprecatedInfoDBName:  deprecatedInfoDB,
-			PieceInfoDBName:       v0PieceInfoDB,
-			BandwidthDBName:       bandwidthDB,
-			OrdersDBName:          ordersDB,
-			PieceExpirationDBName: pieceExpirationDB,
-			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
-			ReputationDBName:      reputationDB,
-			StorageUsageDBName:    storageUsageDB,
-			UsedSerialsDBName:     usedSerialsDB,
-			SatellitesDBName:      satellitesDB,
-			NotificationsDBName:   notificationsDB,
-			HeldAmountDBName:      payoutDB,
-			PricingDBName:         pricingDB,
-			APIKeysDBName:         apiKeysDB,
+			DeprecatedInfoDBName:       deprecatedInfoDB,
+			PieceInfoDBName:            v0PieceInfoDB,
+			BandwidthDBName:            bandwidthDB,
+			OrdersDBName:               ordersDB,
+			PieceExpirationDBName:      pieceExpirationDB,
+			PieceSpaceUsedDBName:       pieceSpaceUsedDB,
+			ReputationDBName:           reputationDB,
+			StorageUsageDBName:         storageUsageDB,
+			UsedSerialsDBName:          usedSerialsDB,
+			SatellitesDBName:           satellitesDB,
+			NotificationsDBName:        notificationsDB,
+			HeldAmountDBName:           payoutDB,
+			PricingDBName:              pricingDB,
+			APIKeysDBName:              apiKeysDB,
+			GCFilewalkerProgressDBName: gcFilewalkerProgressDB,
+			UsedSpacePerPrefixDBName:   usedSpacePerPrefixDB,
 		},
 	}
 
@@ -294,6 +308,8 @@ func (db *DB) openDatabases(ctx context.Context) error {
 		HeldAmountDBName,
 		PricingDBName,
 		APIKeysDBName,
+		GCFilewalkerProgressDBName,
+		UsedSpacePerPrefixDBName,
 	}
 
 	for _, dbName := range dbs {
@@ -576,6 +592,16 @@ func (db *DB) Pricing() pricing.DB {
 // APIKeys returns instance of the APIKeys database.
 func (db *DB) APIKeys() apikeys.DB {
 	return db.apiKeysDB
+}
+
+// GCFilewalkerProgress returns the instance of the GCFilewalkerProgress database.
+func (db *DB) GCFilewalkerProgress() pieces.GCFilewalkerProgressDB {
+	return db.gcFilewalkerProgressDB
+}
+
+// UsedSpacePerPrefix returns the instance of the UsedSpacePerPrefix database.
+func (db *DB) UsedSpacePerPrefix() pieces.UsedSpacePerPrefixDB {
+	return db.usedSpacePerPrefixDB
 }
 
 // RawDatabases are required for testing purposes.
@@ -2061,6 +2087,47 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 
 					return errs.Wrap(err)
 				}),
+			},
+			{
+				DB:          &db.gcFilewalkerProgressDB.DB,
+				Description: "Create gc_filewalker_progress db",
+				Version:     55,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, GCFilewalkerProgressDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE progress (
+						satellite_id BLOB NOT NULL,
+    					bloomfilter_created_before TIMESTAMP NOT NULL,
+    					last_checked_prefix TEXT NOT NULL,
+    					PRIMARY KEY (satellite_id)
+    				);`,
+				},
+			},
+			{
+				DB:          &db.usedSpacePerPrefixDB.DB,
+				Description: "Create used_space_per_prefix db",
+				Version:     56,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, UsedSpacePerPrefixDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE used_space_per_prefix (
+					    satellite_id BLOB NOT NULL,
+					    piece_prefix TEXT NOT NULL,
+					    total_bytes INTEGER NOT NULL,
+					    last_updated TIMESTAMP NOT NULL,
+					    PRIMARY KEY (satellite_id, piece_prefix)
+					);`,
+				},
 			},
 		},
 	}

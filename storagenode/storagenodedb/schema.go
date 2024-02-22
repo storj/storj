@@ -67,6 +67,31 @@ func Schema() map[string]*dbschema.Schema {
 				{Name: "idx_bandwidth_usage_satellite", Table: "bandwidth_usage", Columns: []string{"satellite_id"}, Unique: false, Partial: ""},
 			},
 		},
+		"garbage_collection_filewalker_progress": {
+			Tables: []*dbschema.Table{
+				{
+					Name:       "progress",
+					PrimaryKey: []string{"satellite_id"},
+					Columns: []*dbschema.Column{
+						{
+							Name:       "bloomfilter_created_before",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						{
+							Name:       "last_checked_prefix",
+							Type:       "TEXT",
+							IsNullable: false,
+						},
+						{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 		"heldamount": {
 			Tables: []*dbschema.Table{
 				{
@@ -737,5 +762,35 @@ func Schema() map[string]*dbschema.Schema {
 			},
 		},
 		"used_serial": {},
+		"used_space_per_prefix": {
+			Tables: []*dbschema.Table{
+				{
+					Name:       "used_space_per_prefix",
+					PrimaryKey: []string{"piece_prefix", "satellite_id"},
+					Columns: []*dbschema.Column{
+						{
+							Name:       "last_updated",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						{
+							Name:       "piece_prefix",
+							Type:       "TEXT",
+							IsNullable: false,
+						},
+						{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+						{
+							Name:       "total_bytes",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 	}
 }
