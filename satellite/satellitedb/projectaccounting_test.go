@@ -443,6 +443,8 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 func Test_GetProjectObjectsSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
 			projectID := planet.Uplinks[0].Projects[0].ID
 
 			projectStats, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
