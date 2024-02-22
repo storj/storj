@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-func Test_TotalUsageLimits(t *testing.T) {
+func TestTotalUsageLimits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -89,7 +89,7 @@ func Test_TotalUsageLimits(t *testing.T) {
 	})
 }
 
-func Test_DailyUsage(t *testing.T) {
+func TestDailyUsage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -171,7 +171,7 @@ func Test_DailyUsage(t *testing.T) {
 	})
 }
 
-func Test_TotalUsageReport(t *testing.T) {
+func TestTotalUsageReport(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{

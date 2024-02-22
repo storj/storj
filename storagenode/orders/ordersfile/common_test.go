@@ -176,7 +176,7 @@ func TestMoveUnsent(t *testing.T) {
 	}
 }
 
-func Test_getUnsentFileInfo(t *testing.T) {
+func TestGetUnsentFileInfo(t *testing.T) {
 	type args struct {
 		filename string
 	}
@@ -213,7 +213,7 @@ func Test_getUnsentFileInfo(t *testing.T) {
 	}
 }
 
-func Test_getArchivedFileInfo(t *testing.T) {
+func TestGetArchivedFileInfo(t *testing.T) {
 	type args struct {
 		name string
 	}
@@ -306,7 +306,7 @@ func TestArchiveFileName(t *testing.T) {
 	}
 }
 
-func Test_getCreationHourString(t *testing.T) {
+func TestGetCreationHourString(t *testing.T) {
 	type args struct {
 		t time.Time
 	}
@@ -328,7 +328,7 @@ func Test_getCreationHourString(t *testing.T) {
 	}
 }
 
-func Test_getVersion(t *testing.T) {
+func TestGetVersion(t *testing.T) {
 	type args struct {
 		filename string
 	}

@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func Test_DailyUsage(t *testing.T) {
+func TestDailyUsage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
@@ -120,7 +120,7 @@ func Test_DailyUsage(t *testing.T) {
 	)
 }
 
-func Test_GetSingleBucketRollup(t *testing.T) {
+func TestGetSingleBucketRollup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
@@ -203,7 +203,7 @@ func Test_GetSingleBucketRollup(t *testing.T) {
 	)
 }
 
-func Test_GetProjectTotal(t *testing.T) {
+func TestGetProjectTotal(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			bucketName := testrand.BucketName()
@@ -261,7 +261,7 @@ func Test_GetProjectTotal(t *testing.T) {
 	)
 }
 
-func Test_GetProjectTotalByPartner(t *testing.T) {
+func TestGetProjectTotalByPartner(t *testing.T) {
 	const (
 		epsilon          = 1e-8
 		usagePeriod      = time.Hour
@@ -440,7 +440,7 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 	}
 }
 
-func Test_GetProjectObjectsSegments(t *testing.T) {
+func TestGetProjectObjectsSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			planet.Satellites[0].Accounting.Tally.Loop.Pause()
@@ -482,7 +482,7 @@ func Test_GetProjectObjectsSegments(t *testing.T) {
 		})
 }
 
-func Test_GetProjectSettledBandwidth(t *testing.T) {
+func TestGetProjectSettledBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			projectID := planet.Uplinks[0].Projects[0].ID

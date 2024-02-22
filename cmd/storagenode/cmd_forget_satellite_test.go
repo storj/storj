@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/storagenode/satellites"
 )
 
-func Test_newForgetSatelliteCmd_Error(t *testing.T) {
+func TestNewForgetSatelliteCmd_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    string
@@ -60,7 +60,7 @@ func Test_newForgetSatelliteCmd_Error(t *testing.T) {
 	}
 }
 
-func Test_cmdForgetSatellite(t *testing.T) {
+func TestCmdForgetSatellite(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

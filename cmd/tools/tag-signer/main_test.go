@@ -11,7 +11,7 @@ import (
 	"storj.io/common/pb"
 )
 
-func Test_parseTagPairs(t *testing.T) {
+func TestParseTagPairs(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          []string
