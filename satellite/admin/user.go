@@ -435,6 +435,11 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updateRequest.PaidTier = &status
+
+		if status {
+			now := server.nowFn()
+			updateRequest.UpgradeTime = &now
+		}
 	}
 
 	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)

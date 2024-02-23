@@ -43,7 +43,7 @@ type Users interface {
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
-	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int, upgradeTime *time.Time) error
 	// UpdateUserAgent is a method to update the user's user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 	// UpdateUserProjectLimits is a method to update the user's usage limits for new projects.

@@ -406,11 +406,13 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 
 func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err error) {
 	// put this user into the paid tier and convert projects to upgraded limits.
+	now := payment.service.nowFn()
 	err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
 		payment.service.config.UsageLimits.Bandwidth.Paid,
 		payment.service.config.UsageLimits.Storage.Paid,
 		payment.service.config.UsageLimits.Segment.Paid,
 		payment.service.config.UsageLimits.Project.Paid,
+		&now,
 	)
 	if err != nil {
 		return Error.Wrap(err)

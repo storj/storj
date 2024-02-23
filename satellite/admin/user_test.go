@@ -218,6 +218,11 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, updatedUser.Status, updatedUserProjectLimit.Status)
 			require.Equal(t, newLimit, updatedUserProjectLimit.ProjectLimit)
 
+			now := time.Now()
+			planet.Satellites[0].Admin.Admin.Server.SetNow(func() time.Time {
+				return now
+			})
+
 			// Update paid tier status and usage.
 			link = "http://" + address.String() + "/api/users/alice+2@mail.test"
 			newUsageLimit := int64(1000)
@@ -234,6 +239,7 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectStorageLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectBandwidthLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectSegmentLimit)
+			require.WithinDuration(t, now, *updatedUserStatusAndUsageLimits.UpgradeTime, time.Minute)
 
 			var updateLimitsTests = []struct {
 				newStorageLimit   memory.Size
