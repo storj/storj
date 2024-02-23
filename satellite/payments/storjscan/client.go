@@ -25,6 +25,7 @@ var (
 
 // Header holds ethereum blockchain block header data.
 type Header struct {
+	ChainID   int64
 	Hash      blockchain.Hash
 	Number    int64
 	Timestamp time.Time
@@ -32,6 +33,7 @@ type Header struct {
 
 // Payment holds storjscan payment data.
 type Payment struct {
+	ChainID     int64
 	From        blockchain.Address
 	To          blockchain.Address
 	TokenValue  currency.Amount
@@ -45,8 +47,8 @@ type Payment struct {
 
 // LatestPayments contains latest payments and latest chain block header.
 type LatestPayments struct {
-	LatestBlock Header
-	Payments    []Payment
+	LatestBlocks []Header
+	Payments     []Payment
 }
 
 // Client is storjscan HTTP API client.
@@ -68,7 +70,7 @@ func NewClient(endpoint, identifier, secret string) *Client {
 }
 
 // AllPayments retrieves all payments after specified block for wallets associated with particular API key.
-func (client *Client) AllPayments(ctx context.Context, from int64) (payments LatestPayments, err error) {
+func (client *Client) AllPayments(ctx context.Context, from map[int64]int64) (payments LatestPayments, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	p := client.endpoint + "/api/v0/tokens/payments"
@@ -79,7 +81,7 @@ func (client *Client) AllPayments(ctx context.Context, from int64) (payments Lat
 }
 
 // Payments retrieves payments after specified block for given address associated with particular API key.
-func (client *Client) Payments(ctx context.Context, from int64, address string) (payments LatestPayments, err error) {
+func (client *Client) Payments(ctx context.Context, from map[int64]int64, address string) (payments LatestPayments, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	p := client.endpoint + "/api/v0/tokens/payments/" + address
@@ -89,7 +91,7 @@ func (client *Client) Payments(ctx context.Context, from int64, address string) 
 	return
 }
 
-func (client *Client) getPayments(ctx context.Context, path string, from int64) (_ LatestPayments, err error) {
+func (client *Client) getPayments(ctx context.Context, path string, from map[int64]int64) (_ LatestPayments, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return LatestPayments{}, ClientErr.Wrap(err)
@@ -98,7 +100,9 @@ func (client *Client) getPayments(ctx context.Context, path string, from int64) 
 	req.SetBasicAuth(client.identifier, client.secret)
 
 	query := req.URL.Query()
-	query.Set("from", strconv.FormatInt(from, 10))
+	for k, v := range from {
+		query.Set(strconv.FormatInt(k, 10), strconv.FormatInt(v, 10))
+	}
 	req.URL.RawQuery = query.Encode()
 
 	resp, err := client.http.Do(req)

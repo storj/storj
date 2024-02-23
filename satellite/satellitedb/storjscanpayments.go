@@ -134,20 +134,39 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 	return convertSliceNoError(dbxPmnts, fromDBXPayment), nil
 }
 
-// LastBlock returns the highest block known to DB.
-func (storjscanPayments *storjscanPayments) LastBlock(ctx context.Context, status payments.PaymentStatus) (_ int64, err error) {
+// LastBlocks returns the highest blocks known to DB.
+func (storjscanPayments *storjscanPayments) LastBlocks(ctx context.Context, status payments.PaymentStatus) (_ map[int64]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	blockNumber, err := storjscanPayments.db.First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(
-		ctx, dbx.StorjscanPayment_Status(string(status)))
+	rows, err := storjscanPayments.db.QueryContext(ctx, `SELECT DISTINCT chain_id FROM storjscan_payments where status = $1`, string(status))
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-	if blockNumber == nil {
-		return 0, Error.Wrap(storjscan.ErrNoPayments)
-	}
+	defer func() {
+		err = errs.Combine(err, Error.Wrap(rows.Close()))
+	}()
 
-	return blockNumber.BlockNumber, nil
+	var latestBlocks = make(map[int64]int64)
+	for rows.Next() {
+		var chainID int64
+		err = rows.Scan(&chainID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		latestBlock, err := storjscanPayments.db.First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(
+			ctx, dbx.StorjscanPayment_Status(string(status)))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		latestBlocks[chainID] = latestBlock.BlockNumber
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, Error.Wrap(rows.Err())
+	}
+	if len(latestBlocks) == 0 {
+		return nil, Error.Wrap(storjscan.ErrNoPayments)
+	}
+	return latestBlocks, nil
 }
 
 // DeletePending removes all pending transactions from the DB.
@@ -186,6 +205,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, bl
 // fromDBXPayment converts dbx storjscan payment type to storjscan.CachedPayment.
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{
+		ChainID:     dbxPmnt.ChainId,
 		TokenValue:  currency.AmountFromBaseUnits(dbxPmnt.TokenValue, currency.StorjToken),
 		USDValue:    currency.AmountFromBaseUnits(dbxPmnt.UsdValue, currency.USDollarsMicro),
 		Status:      payments.PaymentStatus(dbxPmnt.Status),

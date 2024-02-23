@@ -104,6 +104,7 @@ func (service *Service) Payments(ctx context.Context, wallet blockchain.Address,
 	var walletPayments []payments.WalletPayment
 	for _, pmnt := range cachedPayments {
 		walletPayments = append(walletPayments, payments.WalletPayment{
+			ChainID:     pmnt.ChainID,
 			From:        pmnt.From,
 			To:          pmnt.To,
 			TokenValue:  pmnt.TokenValue,
@@ -124,36 +125,42 @@ func (service *Service) Payments(ctx context.Context, wallet blockchain.Address,
 func (service *Service) PaymentsWithConfirmations(ctx context.Context, wallet blockchain.Address) (_ []payments.WalletPaymentWithConfirmations, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	latestPayments, err := service.client.Payments(ctx, 0, wallet.Hex())
+	// TODO: optimize this query by adding a reasonable from value
+	latestPayments, err := service.client.Payments(ctx, nil, wallet.Hex())
 	if err != nil {
 		return nil, ErrService.Wrap(err)
 	}
 
 	var walletPayments []payments.WalletPaymentWithConfirmations
-	for _, pmnt := range latestPayments.Payments {
-		confirmations := latestPayments.LatestBlock.Number - pmnt.BlockNumber
+	for _, header := range latestPayments.LatestBlocks {
+		for _, pmnt := range latestPayments.Payments {
+			if pmnt.ChainID == header.ChainID {
+				confirmations := header.Number - pmnt.BlockNumber
 
-		var status payments.PaymentStatus
-		if confirmations >= int64(service.neededConfirmations) {
-			status = payments.PaymentStatusConfirmed
-		} else {
-			status = payments.PaymentStatusPending
+				var status payments.PaymentStatus
+				if confirmations >= int64(service.neededConfirmations) {
+					status = payments.PaymentStatusConfirmed
+				} else {
+					status = payments.PaymentStatusPending
+				}
+
+				walletPayments = append(walletPayments, payments.WalletPaymentWithConfirmations{
+					ChainID:       pmnt.ChainID,
+					From:          pmnt.From.Hex(),
+					To:            pmnt.To.Hex(),
+					TokenValue:    pmnt.TokenValue.AsDecimal(),
+					USDValue:      pmnt.USDValue.AsDecimal(),
+					Status:        status,
+					BlockHash:     pmnt.BlockHash.Hex(),
+					BlockNumber:   pmnt.BlockNumber,
+					Transaction:   pmnt.Transaction.Hex(),
+					LogIndex:      pmnt.LogIndex,
+					Timestamp:     pmnt.Timestamp,
+					Confirmations: confirmations,
+					BonusTokens:   billing.CalculateBonusAmount(pmnt.TokenValue, service.bonusRate).AsDecimal(),
+				})
+			}
 		}
-
-		walletPayments = append(walletPayments, payments.WalletPaymentWithConfirmations{
-			From:          pmnt.From.Hex(),
-			To:            pmnt.To.Hex(),
-			TokenValue:    pmnt.TokenValue.AsDecimal(),
-			USDValue:      pmnt.USDValue.AsDecimal(),
-			Status:        status,
-			BlockHash:     pmnt.BlockHash.Hex(),
-			BlockNumber:   pmnt.BlockNumber,
-			Transaction:   pmnt.Transaction.Hex(),
-			LogIndex:      pmnt.LogIndex,
-			Timestamp:     pmnt.Timestamp,
-			Confirmations: confirmations,
-			BonusTokens:   billing.CalculateBonusAmount(pmnt.TokenValue, service.bonusRate).AsDecimal(),
-		})
 	}
 
 	return walletPayments, nil

@@ -29,18 +29,19 @@ func CheckAuth(r *http.Request, identifier, secret string) error {
 }
 
 // ServePayments serves payments to response writer.
-func ServePayments(t *testing.T, w http.ResponseWriter, from int64, block storjscan.Header, payments []storjscan.Payment) {
+func ServePayments(t *testing.T, w http.ResponseWriter, from map[int64]int64, blocks []storjscan.Header, payments []storjscan.Payment) {
 	var response struct {
-		LatestBlock storjscan.Header
-		Payments    []storjscan.Payment
+		LatestBlocks []storjscan.Header
+		Payments     []storjscan.Payment
 	}
-	response.LatestBlock = block
+	response.LatestBlocks = blocks
 
-	for _, payment := range payments {
-		if payment.BlockNumber < from {
-			continue
+	for chainID, lastSeenBlock := range from {
+		for _, payment := range payments {
+			if payment.ChainID == chainID && payment.BlockNumber >= lastSeenBlock {
+				response.Payments = append(response.Payments, payment)
+			}
 		}
-		response.Payments = append(response.Payments, payment)
 	}
 
 	err := json.NewEncoder(w).Encode(response)
