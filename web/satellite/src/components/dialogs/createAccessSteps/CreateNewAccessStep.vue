@@ -15,6 +15,7 @@
                     :rules="nameRules"
                     maxlength="100"
                     class="mb-n2"
+                    required
                 />
             </v-col>
             <v-col cols="12">
@@ -26,7 +27,7 @@
                             :key="accessType"
                             v-model="typeInfos[accessType].model.value"
                             density="compact"
-                            :hide-details="true"
+                            hide-details
                         >
                             <template #label>
                                 <span>{{ typeInfos[accessType].name }}</span>

@@ -80,6 +80,7 @@
                                     hide-details="auto"
                                     :type="showPassword ? 'text' : 'password'"
                                     :rules="passwordRules"
+                                    required
                                     @update:focused="showPasswordStrength = !showPasswordStrength"
                                 >
                                     <template #append-inner>
@@ -106,6 +107,7 @@
                                 hide-details="auto"
                                 :type="showPassword ? 'text' : 'password'"
                                 :rules="repeatPasswordRules"
+                                required
                             >
                                 <template #append-inner>
                                     <password-input-eye-icons

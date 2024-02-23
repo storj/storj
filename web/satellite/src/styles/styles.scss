@@ -493,6 +493,11 @@ table {
   background: rgb(var(--v-theme-background));
 }
 
+.v-field .v-field-label:has(~ .v-field__input:required)::after,
+.v-field .v-field-label:has(~ .v-field__input > input:required)::after {
+  content: "*";
+}
+
 // fix for the table footer info width being too big for its small content
 // a huge min-width was added in Vuetify 3.4.11
 // https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2

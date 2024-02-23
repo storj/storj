@@ -17,7 +17,7 @@ import HammerspaceIcon from '@/assets/apps/hammerspace.png';
 import ElementsIcon from '@/assets/apps/elements.png';
 import DockerIcon from '@/assets/apps/docker.png';
 import PixelfedIcon from '@/assets/apps/pixelfed.png';
-import MastodonIcon from '@/assets/apps/mastadon.png';
+import MastodonIcon from '@/assets/apps/mastodon.png';
 import DataverseIcon from '@/assets/apps/dataverse.png';
 import CyberDuckIcon from '@/assets/apps/cyberduck.png';
 import AtempoIcon from '@/assets/apps/atempo.png';

@@ -28,7 +28,7 @@
                         id="First Name"
                         v-model="firstName"
                         :rules="[RequiredRule]"
-                        label="First Name*"
+                        label="First Name"
                         hide-details="auto"
                         required
                     />
@@ -48,7 +48,7 @@
                         id="Company Name"
                         v-model="companyName"
                         :rules="[RequiredRule]"
-                        label="Company Name*"
+                        label="Company Name"
                         hide-details="auto"
                         required
                     />
@@ -59,7 +59,7 @@
                         v-model="position"
                         :rules="[RequiredRule]"
                         :items="['Executive/C-Level', 'Director', 'Manager', 'Software Developer', 'Partner', 'Student/Professor', 'Other']"
-                        label="Job Role*"
+                        label="Job Role"
                         variant="outlined"
                         hide-details="auto"
                         required

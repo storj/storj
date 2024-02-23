@@ -52,6 +52,7 @@
                                 :hide-details="false"
                                 :rules="[ RequiredRule ]"
                                 autofocus
+                                required
                             >
                                 <template #append-inner>
                                     <password-input-eye-icons
