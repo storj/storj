@@ -185,6 +185,7 @@ pipeline {
                                     sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                    archiveArtifacts artifacts: '.build/clean.coverprofile'
                                     cobertura coberturaReportFile: '.build/cobertura.xml',
                                         lineCoverageTargets: '70, 60, 50',
                                         autoUpdateHealth: false,
