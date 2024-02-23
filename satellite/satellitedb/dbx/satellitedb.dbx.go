@@ -12244,6 +12244,11 @@ type Id_Email_FullName_Row struct {
 	FullName string
 }
 
+type Id_Email_Row struct {
+	Id    []byte
+	Email string
+}
+
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
@@ -17258,6 +17263,77 @@ func (obj *pgxImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx conte
 			for __rows.Next() {
 				row := &Id_Email_FullName_Row{}
 				err = __rows.Scan(&row.Id, &row.Email, &row.FullName)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Count_User_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
+	user_trial_expiration_less User_TrialExpiration_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM users WHERE users.paid_tier = false AND users.trial_expiration < ?")
+
+	var __values []interface{}
+	__values = append(__values, user_trial_expiration_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Limited_User_Id_User_Email_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
+	user_trial_expiration_less User_TrialExpiration_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email FROM users WHERE users.paid_tier = false AND users.trial_expiration < ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, user_trial_expiration_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_Email_Row{}
+				err = __rows.Scan(&row.Id, &row.Email)
 				if err != nil {
 					return nil, err
 				}
@@ -25764,6 +25840,77 @@ func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_User_FullName_By_Status(
 
 }
 
+func (obj *pgxcockroachImpl) Count_User_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
+	user_trial_expiration_less User_TrialExpiration_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM users WHERE users.paid_tier = false AND users.trial_expiration < ?")
+
+	var __values []interface{}
+	__values = append(__values, user_trial_expiration_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
+	user_trial_expiration_less User_TrialExpiration_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email FROM users WHERE users.paid_tier = false AND users.trial_expiration < ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, user_trial_expiration_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_Email_Row{}
+				err = __rows.Scan(&row.Id, &row.Email)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 	webapp_session_user_id WebappSession_UserId_Field) (
 	rows []*WebappSession, err error) {
@@ -29471,6 +29618,10 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 		count int64, err error)
 
+	Count_User_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
+		user_trial_expiration_less User_TrialExpiration_Field) (
+		count int64, err error)
+
 	Count_User_By_Status(ctx context.Context,
 		user_status User_Status_Field) (
 		count int64, err error)
@@ -30082,6 +30233,11 @@ type Methods interface {
 		storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 		limit int, offset int64) (
 		rows []*StorjscanPayment, err error)
+
+	Limited_User_Id_User_Email_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx context.Context,
+		user_trial_expiration_less User_TrialExpiration_Field,
+		limit int, offset int64) (
+		rows []*Id_Email_Row, err error)
 
 	Limited_User_Id_User_Email_User_FullName_By_Status(ctx context.Context,
 		user_status User_Status_Field,

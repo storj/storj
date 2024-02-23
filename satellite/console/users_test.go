@@ -6,6 +6,7 @@ package console_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -383,6 +384,61 @@ func TestGetUsersByStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Lenf(t, usersPage.Users, 1, "expected 1 active user")
 		require.Equal(t, activeUser.ID, usersPage.Users[0].ID)
+	})
+}
+
+func TestGetExpiredFreeTrialsAfter(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		now := time.Now()
+		expired := now.Add(-time.Hour)
+		notExpired := now.Add(time.Hour)
+		expiries := []*time.Time{nil, &expired, &notExpired}
+		for i, expiry := range expiries {
+			user := console.User{
+				ID:              testrand.UUID(),
+				FullName:        fmt.Sprintf("User %d", i),
+				Email:           email,
+				PasswordHash:    []byte("123a123"),
+				Status:          console.Active,
+				TrialExpiration: expiry,
+			}
+
+			_, err := usersRepo.Insert(ctx, &user)
+			require.NoError(t, err)
+		}
+
+		// expect paid tier user with expired trial to not be returned.
+		user := console.User{
+			ID:              testrand.UUID(),
+			FullName:        "Active User",
+			Email:           email,
+			Status:          console.Active,
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &expired,
+		}
+		_, err := usersRepo.Insert(ctx, &user)
+		require.NoError(t, err)
+
+		paidTier := true
+		err = usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			PaidTier: &paidTier,
+		})
+		require.NoError(t, err)
+
+		cursor := console.UserCursor{
+			Limit: 50,
+			Page:  1,
+		}
+		usersPage, err := usersRepo.GetExpiredFreeTrialsAfter(ctx, now, cursor)
+		require.NoError(t, err)
+		require.Len(t, usersPage.Users, 1, "expected 1 expired user")
+
+		cursor.Page = 2
+		usersPage, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, cursor)
+		require.NoError(t, err)
+		require.Empty(t, usersPage.Users, "expected no users")
 	})
 }
 

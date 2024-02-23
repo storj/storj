@@ -603,6 +603,71 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Error(t, err)
 			require.Nil(t, event)
 		})
+
+		t.Run("Free trial expiration freeze", func(t *testing.T) {
+			freeUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Free User",
+				Email:    "free@mail.test",
+			}, 1)
+			require.NoError(t, err)
+			require.Nil(t, freeUser.TrialExpiration)
+
+			chore.Loop.TriggerWait()
+
+			// user with nil trial expiration should not be frozen.
+			frozen, err := service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.False(t, frozen)
+
+			now := time.Now()
+			newTime := now.Add(120 * time.Hour)
+			newTimePtr := &newTime
+			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
+				TrialExpiration: &newTimePtr,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			// user with future trial expiration should not be frozen.
+			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.False(t, frozen)
+
+			// forward date to after newTime
+			chore.TestSetNow(func() time.Time {
+				return newTime.Add(200 * time.Hour)
+			})
+			chore.Loop.TriggerWait()
+
+			// user with past trial expiration should be frozen.
+			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.True(t, frozen)
+
+			// reset chore time
+			chore.TestSetNow(time.Now)
+
+			err = service.TrialExpirationUnfreezeUser(ctx, freeUser.ID)
+			require.NoError(t, err)
+
+			// set past expiry and paid tier
+			newTime = now.Add(-120 * time.Hour)
+			newTimePtr = &newTime
+			paidTier := true
+			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
+				TrialExpiration: &newTimePtr,
+				PaidTier:        &paidTier,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			// user with past trial expiration but in paid tier should not be frozen.
+			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.False(t, frozen)
+		})
 	})
 }
 

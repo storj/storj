@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -407,6 +408,20 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err error) {
 	// put this user into the paid tier and convert projects to upgraded limits.
 	now := payment.service.nowFn()
+
+	freeze, err := payment.service.accountFreezeService.Get(ctx, user.ID, TrialExpirationFreeze)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+	}
+	if freeze != nil {
+		err = payment.service.accountFreezeService.TrialExpirationUnfreezeUser(ctx, user.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
 	err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
 		payment.service.config.UsageLimits.Bandwidth.Paid,
 		payment.service.config.UsageLimits.Storage.Paid,

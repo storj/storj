@@ -52,7 +52,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -75,6 +75,9 @@ func TestService(t *testing.T) {
 
 			uplink3 := planet.Uplinks[2]
 			up3Proj, err := sat.API.DB.Console().Projects().Get(ctx, uplink3.Projects[0].ID)
+			require.NoError(t, err)
+
+			up4Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[3].Projects[0].ID)
 			require.NoError(t, err)
 
 			require.NotEqual(t, up1Proj.ID, up2Proj.ID)
@@ -203,6 +206,45 @@ func TestService(t *testing.T) {
 				cards, err := service.Payments().ListCreditCards(userCtx1)
 				require.NoError(t, err)
 				require.Len(t, cards, 1)
+			})
+
+			t.Run("Exit trial expiration freeze", func(t *testing.T) {
+				freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+				user4, userCtx4 := getOwnerAndCtx(ctx, up4Proj)
+				require.False(t, user4.PaidTier)
+
+				// trial expiration freeze user
+				err = freezeService.TrialExpirationFreezeUser(ctx, user4.ID)
+				require.NoError(t, err)
+				frozen, err := freezeService.IsUserFrozen(ctx, user4.ID, console.TrialExpirationFreeze)
+				require.NoError(t, err)
+				require.True(t, frozen)
+
+				// add a credit card to put the user in the paid tier
+				// and remove the trial expiration freeze event
+				_, err = service.Payments().AddCreditCard(userCtx4, "test-cc-token")
+				require.NoError(t, err)
+				// user should be in paid tier
+				user4, err = service.GetUser(ctx, up1Proj.OwnerID)
+				require.NoError(t, err)
+				require.True(t, user4.PaidTier)
+				limits := sat.Config.Console.UsageLimits
+				require.Equal(t, limits.Storage.Paid.Int64(), user4.ProjectStorageLimit)
+				require.Equal(t, limits.Bandwidth.Paid.Int64(), user4.ProjectBandwidthLimit)
+				require.Equal(t, limits.Segment.Paid, user4.ProjectSegmentLimit)
+				require.Equal(t, limits.Project.Paid, user4.ProjectLimit)
+
+				proj, err := sat.API.Console.Service.GetProject(userCtx4, up4Proj.ID)
+				require.NoError(t, err)
+				require.Equal(t, limits.Storage.Paid, *proj.StorageLimit)
+				require.Equal(t, limits.Bandwidth.Paid, *proj.BandwidthLimit)
+				require.Equal(t, limits.Segment.Paid, *proj.SegmentLimit)
+
+				// freeze event should be removed
+				frozen, err = freezeService.IsUserFrozen(ctx, user4.ID, console.TrialExpirationFreeze)
+				require.NoError(t, err)
+				require.False(t, frozen)
 			})
 
 			t.Run("CreateProject", func(t *testing.T) {

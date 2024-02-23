@@ -975,7 +975,7 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 		return
 	}
 
-	err = server.freezeAccounts.TrialExpirationUnfreezeUser(ctx, u.ID, nil, nil)
+	err = server.freezeAccounts.TrialExpirationUnfreezeUser(ctx, u.ID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errs.Is(err, console.ErrNoFreezeStatus) {

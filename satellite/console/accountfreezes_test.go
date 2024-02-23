@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -798,7 +797,7 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, freezes.TrialExpirationFreeze)
 
-		require.NoError(t, service.TrialExpirationUnfreezeUser(ctx, user.ID, nil, nil))
+		require.NoError(t, service.TrialExpirationUnfreezeUser(ctx, user.ID))
 
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)
@@ -807,31 +806,5 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
 		require.Equal(t, projLimits, getProjectLimits(proj))
-
-		require.NoError(t, service.TrialExpirationFreezeUser(ctx, user.ID))
-		randLimits := randUsageLimits()
-		now := time.Now().Truncate(time.Second)
-		nowPtr := &now
-		require.NoError(t, service.TrialExpirationUnfreezeUser(ctx, user.ID, nowPtr, &console.UnfreezeLimitsOverride{
-			Storage:   randLimits.Storage,
-			Bandwidth: randLimits.Bandwidth,
-			Segment:   randLimits.Segment,
-			Project:   10,
-		}))
-
-		limits := userLimits
-		limits.Segment = randLimits.Segment
-		limits.Storage = randLimits.Storage
-		limits.Bandwidth = randLimits.Bandwidth
-
-		user, err = usersDB.Get(ctx, user.ID)
-		require.NoError(t, err)
-		require.Equal(t, limits, getUserLimits(user))
-		require.True(t, user.PaidTier)
-		require.Equal(t, nowPtr, user.UpgradeTime)
-
-		proj, err = projectsDB.Get(ctx, proj.ID)
-		require.NoError(t, err)
-		require.Equal(t, limits, getProjectLimits(proj))
 	})
 }

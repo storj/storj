@@ -11,7 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/analytics"
 )
@@ -53,14 +52,6 @@ type AccountFreezeEvent struct {
 type AccountFreezeEventLimits struct {
 	User     UsageLimits               `json:"user"`
 	Projects map[uuid.UUID]UsageLimits `json:"projects"`
-}
-
-// UnfreezeLimitsOverride are limits to be set to a user and their projects on unfreeze.
-type UnfreezeLimitsOverride struct {
-	Storage   int64
-	Bandwidth int64
-	Segment   int64
-	Project   int
 }
 
 // FreezeEventsCursor holds info for freeze events
@@ -781,7 +772,7 @@ func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, us
 
 // TrialExpirationUnfreezeUser reverses the trial expiration freeze placed on the user specified by the given ID.
 // It potentially upgrades a user, setting new limits.
-func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID, upgradeTime *time.Time, newLimits *UnfreezeLimitsOverride) (err error) {
+func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -800,11 +791,6 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 		}
 
 		for id, limits := range event.Limits.Projects {
-			if newLimits != nil {
-				limits.Storage = newLimits.Storage
-				limits.Bandwidth = newLimits.Bandwidth
-				limits.Segment = newLimits.Segment
-			}
 			err := tx.Projects().UpdateUsageLimits(ctx, id, limits)
 			if err != nil {
 				return err
@@ -822,22 +808,9 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 			}
 		}
 
-		if newLimits != nil {
-			err = tx.Users().UpdatePaidTier(ctx, userID, true,
-				memory.Size(newLimits.Bandwidth),
-				memory.Size(newLimits.Storage),
-				newLimits.Segment,
-				newLimits.Project,
-				upgradeTime,
-			)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
-			if err != nil {
-				return err
-			}
+		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
+		if err != nil {
+			return err
 		}
 
 		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, TrialExpirationFreeze)
@@ -849,6 +822,18 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 	})
 
 	return ErrAccountFreeze.Wrap(err)
+}
+
+// Get returns an event of a specific type for a user.
+func (s *AccountFreezeService) Get(ctx context.Context, userID uuid.UUID, freezeType AccountFreezeEventType) (event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	event, err = s.freezeEventsDB.Get(ctx, userID, freezeType)
+	if err != nil {
+		return nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return event, nil
 }
 
 // GetAll returns all events for a user.
