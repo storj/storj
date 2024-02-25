@@ -96,7 +96,7 @@ func (chore *TrashChore) Run(ctx context.Context) (err error) {
 				if err != nil {
 					chore.log.Error("emptying trash failed", zap.Error(err))
 				} else {
-					chore.log.Info("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Time("Next viable run", minPieceTimestamp))
+					chore.log.Info("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Time("Next viable run", minPieceTimestamp.Add(chore.trashExpiryInterval)))
 					chore.mu.Lock()
 					chore.minTimeStamp[satellite] = minPieceTimestamp
 					chore.mu.Unlock()
