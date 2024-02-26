@@ -714,6 +714,80 @@ func TestLegalFreezeUnfreezeUser(t *testing.T) {
 	})
 }
 
+func TestTrialExpirationFreezeUnfreezeUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		userPreFreeze, err := planet.Satellites[0].DB.Console().Users().Get(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, userPreFreeze.Status)
+		require.NotZero(t, userPreFreeze.ProjectStorageLimit)
+		require.NotZero(t, userPreFreeze.ProjectBandwidthLimit)
+
+		burstRateLimit := 1000
+		err = planet.Satellites[0].DB.Console().Projects().UpdateBurstLimit(ctx, planet.Uplinks[0].Projects[0].ID, &burstRateLimit)
+		require.NoError(t, err)
+		err = planet.Satellites[0].DB.Console().Projects().UpdateRateLimit(ctx, planet.Uplinks[0].Projects[0].ID, &burstRateLimit)
+		require.NoError(t, err)
+
+		projectPreFreeze, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+		require.NotZero(t, projectPreFreeze.BandwidthLimit)
+		require.NotZero(t, projectPreFreeze.StorageLimit)
+		require.NotZero(t, projectPreFreeze.BurstLimit)
+		require.NotZero(t, projectPreFreeze.RateLimit)
+
+		// freeze can be run multiple times. Test that doing so does not affect Unfreeze result.
+		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", userPreFreeze.Email)
+		body := assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
+
+		body = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
+
+		userPostFreeze, err := planet.Satellites[0].DB.Console().Users().Get(ctx, userPreFreeze.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, userPostFreeze.Status)
+		require.Zero(t, userPostFreeze.ProjectStorageLimit)
+		require.Zero(t, userPostFreeze.ProjectBandwidthLimit)
+
+		projectPostFreeze, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+		require.Zero(t, projectPostFreeze.BandwidthLimit.Int64())
+		require.Zero(t, projectPostFreeze.StorageLimit.Int64())
+		require.Zero(t, *projectPostFreeze.RateLimit)
+		require.Zero(t, *projectPostFreeze.BurstLimit)
+
+		link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", userPreFreeze.Email)
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
+
+		unfrozenUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, userPreFreeze.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, unfrozenUser.Status)
+		require.Equal(t, userPreFreeze.ProjectStorageLimit, unfrozenUser.ProjectStorageLimit)
+		require.Equal(t, userPreFreeze.ProjectBandwidthLimit, unfrozenUser.ProjectBandwidthLimit)
+
+		unfrozenProject, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectPreFreeze.ID)
+		require.NoError(t, err)
+		require.Equal(t, projectPreFreeze.StorageLimit, unfrozenProject.StorageLimit)
+		require.Equal(t, projectPreFreeze.BandwidthLimit, unfrozenProject.BandwidthLimit)
+		require.Equal(t, projectPreFreeze.RateLimit, unfrozenProject.RateLimit)
+		require.Equal(t, projectPreFreeze.BurstLimit, unfrozenProject.BurstLimit)
+
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Contains(t, string(body), console.ErrNoFreezeStatus.Error())
+	})
+}
+
 func TestBillingWarnUnwarnUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

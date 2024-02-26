@@ -923,6 +923,70 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.TrialExpirationFreezeUser(ctx, u.ID)
+	if err != nil {
+		sendJSONError(w, "failed to trial expiration freeze user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.TrialExpirationUnfreezeUser(ctx, u.ID, nil, nil)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusNotFound
+		}
+		sendJSONError(w, "failed to legal unfreeze user",
+			err.Error(), status)
+		return
+	}
+}
+
 func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

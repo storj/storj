@@ -527,6 +527,22 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
+				name: 'trial expiration freeze user',
+				desc: 'freeze a user for trial expiration, setting limits to zero',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/trial-expiration-freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'trial expiration unfreeze user',
+				desc: "remove a user's trial expiration freeze, reinstating their limits",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/trial-expiration-freeze`) as Promise<null>;
+				}
+			},
+			{
 				name: 'remove billing warning',
 				desc: "Remove the billing warning status from a user's account",
 				params: [['email', new InputText('email', true)]],
