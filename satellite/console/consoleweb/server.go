@@ -262,6 +262,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Use(newTraceRequestMiddleware(logger, router))
 
 	router.Use(requestid.AddToContext)
+	// by default, set Cache-Control=no-store for all requests
+	// if requests should be cached (e.g. static assets), the cache control header can be overridden
+	router.Use(cacheNoStoreMiddleware)
 
 	// limit body size
 	router.Use(newBodyLimiterMiddleware(logger.Named("body-limiter-middleware"), config.BodySizeLimit))
@@ -501,6 +504,9 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
+	// by default, set Cache-Control=no-store for all requests
+	// if requests should be cached (e.g. static assets), the cache control header can be overridden
+	router.Use(cacheNoStoreMiddleware)
 
 	// in local development, proxy certain requests to the console back-end server
 	if config.BackendReverseProxy != "" {
@@ -575,6 +581,13 @@ func (server *Server) RunFrontend(ctx context.Context) (err error) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
+}
+
+func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // setAppHeaders sets the necessary headers for requests to the app.
