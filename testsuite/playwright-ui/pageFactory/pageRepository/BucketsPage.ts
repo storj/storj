@@ -16,6 +16,10 @@ export class BucketsPage {
         await this.page.locator(BucketsPageObjects.CONFIRM_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
     }
 
+    async openBucket(name: string): Promise<void> {
+        await this.page.locator(`//td[button[span[div[p[text()='${name}']]]]]`).click();
+    }
+
     async openBucketSettings(): Promise<void> {
         await this.page.locator(BucketsPageObjects.BUCKET_ROW_MORE_BUTTON_XPATH).click();
     }

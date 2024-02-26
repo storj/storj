@@ -3,7 +3,6 @@
 
 import { LoginPageObjects } from '@objects/LoginPageObjects';
 import type { Page } from '@playwright/test';
-import { testConfig } from '../../testConfig';
 import { expect } from '@playwright/test';
 
 export class LoginPage {
@@ -33,11 +32,12 @@ export class LoginPage {
         await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).click();
     }
 
-    async fillBusinessSetupForm(firstName: string, lastName: string, companyName: string, jobRole: string): Promise<void> {
+    async fillBusinessSetupForm(firstName: string, lastName: string, companyName: string): Promise<void> {
         await this.page.locator(LoginPageObjects.FIRST_NAME_EDITBOX_ID).fill(firstName);
         await this.page.locator(LoginPageObjects.LAST_NAME_EDITBOX_ID).fill(lastName);
         await this.page.locator(LoginPageObjects.COMPANY_NAME_EDITBOX_ID).fill(companyName);
-        await this.page.locator(LoginPageObjects.JOB_ROLE_EDITBOX_ID).fill(jobRole);
+        await this.page.locator(LoginPageObjects.JOB_ROLE_EDITBOX_ID).click({ force: true }); // force is necessary to open v-select menu
+        await this.page.locator(LoginPageObjects.JOB_ROLE_SELECTION_XPATH).click();
         await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).click();
     }
 

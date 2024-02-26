@@ -28,7 +28,7 @@ test.describe('object browser + edge services', () => {
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 
-        await allProjectsPage.createProject(name);
+        //await allProjectsPage.createProject(name);
         await navigationMenu.switchPassphrase(passphrase);
     });
 
@@ -42,6 +42,7 @@ test.describe('object browser + edge services', () => {
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
+        await bucketsPage.openBucket(bucketName);
         await objectBrowserPage.waitLoading();
         await objectBrowserPage.uploadFile(fileName, 'text/plain');
         await objectBrowserPage.openObjectPreview(fileName, 'Text');
@@ -73,6 +74,7 @@ test.describe('object browser + edge services', () => {
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
+        await bucketsPage.openBucket(bucketName);
 
         // Create empty folder using New Folder Button
         await objectBrowserPage.createFolder(folderName);
@@ -95,6 +97,7 @@ test.describe('object browser + edge services', () => {
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
+        await bucketsPage.openBucket(bucketName);
         await objectBrowserPage.waitLoading();
         await objectBrowserPage.uploadFile(fileName, 'image/jpeg');
         await objectBrowserPage.openObjectPreview(fileName, 'Image');
@@ -104,7 +107,7 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.closePreview(fileName);
 
         // Checks for Bucket Detail Header and correct bucket name
-        await page.goBack();
+        await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyBucketDetails(bucketName);
         await common.closeModal();
@@ -122,7 +125,6 @@ test.describe('object browser + edge services', () => {
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
-        await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyDeleteBucket(bucketName);
     });

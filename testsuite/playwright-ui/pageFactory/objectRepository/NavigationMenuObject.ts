@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 export class NavigationMenuObject {
-    static BUCKETS_XPATH = `//a/div/div[contains(text(),'Buckets')]`;
+    static BUCKETS_XPATH = `//a/div/div[contains(text(),'Browse')]`;
     static PROJECT_SELECT_XPATH = `//div[div[div[text()='Project']]]`;
     static MANAGE_PASSPHRASE_ACTION_XPATH = `//div/div/div[contains(text(),' Manage Passphrase ')]`;
     static SWITCH_PASSPHRASE_ACTION_XPATH = `//div/div/div/p[contains(text(),'Switch active passphrase')]`;

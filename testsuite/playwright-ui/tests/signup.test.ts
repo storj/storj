@@ -10,7 +10,7 @@ test.describe('Sign up personal/business accounts', () => {
         signupPage,
     }) => {
         const email = `${uuidv4()}@test.test`;
-        const password = 'qazwsx';
+        const password = 'password';
 
         await signupPage.navigateToSignup();
         await signupPage.verifyHeader();
@@ -39,9 +39,9 @@ test.describe('Sign up personal/business accounts', () => {
         const firstName = 'John';
         const lastName = 'Doe';
         const companyName = 'Storj Labs';
-        const jobRole = 'Awesome Developer';
+        const jobRole = 'Software Developer';
         await loginPage.chooseBusinessAccSetup();
-        await loginPage.fillBusinessSetupForm(firstName, lastName, companyName, jobRole);
+        await loginPage.fillBusinessSetupForm(firstName, lastName, companyName);
         await loginPage.ensureSetupSuccess();
     });
 });

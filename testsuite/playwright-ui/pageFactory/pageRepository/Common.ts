@@ -1,9 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { expect, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { CommonObjects } from '@objects/CommonObjects';
-import { testConfig } from '../../testConfig';
 
 export class Common {
     constructor(readonly page: Page) {}
