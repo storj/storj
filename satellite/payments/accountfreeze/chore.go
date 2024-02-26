@@ -328,7 +328,8 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 	unfrozenCount := 0
 
 	getEvents := func(c console.FreezeEventsCursor) (events *console.FreezeEventsPage, err error) {
-		events, err = chore.freezeService.GetAllEvents(ctx, c)
+		eventTypes := []console.AccountFreezeEventType{console.BillingFreeze, console.BillingWarning}
+		events, err = chore.freezeService.GetAllEventsByType(ctx, c, eventTypes)
 		if err != nil {
 			return nil, err
 		}
@@ -357,26 +358,6 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 					zap.String("eventType", event.Type.String()),
 					zap.Error(Error.Wrap(err)),
 				)
-			}
-
-			if event.Type == console.DelayedBotFreeze || event.Type == console.BotFreeze {
-				infoLog("Skipping bot freeze events")
-				continue
-			}
-
-			if event.Type == console.ViolationFreeze {
-				infoLog("Skipping violation freeze event")
-				continue
-			}
-
-			if event.Type == console.LegalFreeze {
-				infoLog("Skipping legal freeze event")
-				continue
-			}
-
-			if event.Type == console.TrialExpirationFreeze {
-				infoLog("Skipping trial expiration freeze event")
-				continue
 			}
 
 			user, err := chore.usersDB.Get(ctx, event.UserID)
@@ -440,7 +421,7 @@ func (chore *Chore) attemptBotFreeze(ctx context.Context) {
 	frozenCount := 0
 
 	getEvents := func(c console.FreezeEventsCursor) (events *console.FreezeEventsPage, err error) {
-		events, err = chore.freezeService.GetAllEventsByType(ctx, c, console.DelayedBotFreeze)
+		events, err = chore.freezeService.GetAllEventsByType(ctx, c, []console.AccountFreezeEventType{console.DelayedBotFreeze})
 		if err != nil {
 			return nil, err
 		}
