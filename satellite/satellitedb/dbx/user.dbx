@@ -118,6 +118,10 @@ read one (
     select user.paid_tier
     where user.id = ?
 )
+read one (
+    select user.upgrade_time
+    where user.id = ?
+)
 
 read one (
     select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit

@@ -58,6 +58,8 @@ type Users interface {
 	GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error)
 	// GetSettings is a method for returning a user's set of configurations.
 	GetSettings(ctx context.Context, userID uuid.UUID) (*UserSettings, error)
+	// GetUpgradeTime is a method for returning a user's upgrade time.
+	GetUpgradeTime(ctx context.Context, userID uuid.UUID) (*time.Time, error)
 	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 }

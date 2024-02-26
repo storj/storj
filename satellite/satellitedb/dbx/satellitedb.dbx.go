@@ -12356,6 +12356,10 @@ type SegmentLimit_Row struct {
 	SegmentLimit *int64
 }
 
+type UpgradeTime_Row struct {
+	UpgradeTime *time.Time
+}
+
 type UsageLimit_Row struct {
 	UsageLimit *int64
 }
@@ -17156,6 +17160,28 @@ func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
 	if err != nil {
 		return (*PaidTier_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *UpgradeTime_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.upgrade_time FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UpgradeTime_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UpgradeTime)
+	if err != nil {
+		return (*UpgradeTime_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -25623,6 +25649,28 @@ func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *UpgradeTime_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.upgrade_time FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UpgradeTime_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UpgradeTime)
+	if err != nil {
+		return (*UpgradeTime_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User_ProjectSegmentLimit_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	row *ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row, err error) {
@@ -29983,6 +30031,10 @@ type Methods interface {
 	Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User_ProjectSegmentLimit_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		row *ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row, err error)
+
+	Get_User_UpgradeTime_By_Id(ctx context.Context,
+		user_id User_Id_Field) (
+		row *UpgradeTime_Row, err error)
 
 	Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,

@@ -415,6 +415,34 @@ func TestUpdateDefaultPlacement(t *testing.T) {
 	})
 }
 
+func TestGetUpgradeTime(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		user, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "User",
+			Email:        "test@mail.test",
+			PasswordHash: []byte("123a123"),
+		})
+		require.NoError(t, err)
+
+		upgradeTime, err := usersRepo.GetUpgradeTime(ctx, user.ID)
+		require.NoError(t, err)
+		require.Nil(t, upgradeTime)
+
+		now := time.Now()
+
+		err = usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{UpgradeTime: &now})
+		require.NoError(t, err)
+
+		upgradeTime, err = usersRepo.GetUpgradeTime(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, upgradeTime)
+		require.WithinDuration(t, now, *upgradeTime, time.Minute)
+	})
+}
+
 func TestUserSettings(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		users := db.Console().Users()

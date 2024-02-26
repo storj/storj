@@ -473,6 +473,18 @@ func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid b
 	return row.PaidTier, nil
 }
 
+// GetUpgradeTime is a method for returning a user's upgrade time.
+func (users *users) GetUpgradeTime(ctx context.Context, id uuid.UUID) (*time.Time, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_UpgradeTime_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+	return row.UpgradeTime, nil
+}
+
 // GetSettings is a method for returning a user's set of configurations.
 func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings *console.UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
