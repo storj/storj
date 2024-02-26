@@ -2,10 +2,6 @@
 // See LICENSE for copying information.
 
 export class NavigationMenuObject {
-    static BUCKETS_XPATH = `//a/div/p[contains(text(),'Buckets')]`;
-}
-
-export class NavigationMenuObjectV2 {
     static BUCKETS_XPATH = `//a/div/div[contains(text(),'Buckets')]`;
     static PROJECT_SELECT_XPATH = `//div[div[div[text()='Project']]]`;
     static MANAGE_PASSPHRASE_ACTION_XPATH = `//div/div/div[contains(text(),' Manage Passphrase ')]`;

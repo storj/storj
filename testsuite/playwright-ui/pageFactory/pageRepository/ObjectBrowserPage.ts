@@ -4,7 +4,7 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { ObjectBrowserPageObjects } from '@objects/ObjectBrowserPageObjects';
-import { CommonObjectsV2 } from '@objects/CommonObjects';
+import { CommonObjects } from '@objects/CommonObjects';
 
 export class ObjectBrowserPage {
     constructor(readonly page: Page) {}
@@ -52,7 +52,7 @@ export class ObjectBrowserPage {
     async verifyObjectMapIsVisible(): Promise<void> {
         await this.page.locator(ObjectBrowserPageObjects.DISTRIBUTION_BUTTON_XPATH).click();
         await this.page.locator(ObjectBrowserPageObjects.OBJECT_MAP_IMAGE_XPATH).isVisible();
-        await this.page.locator(CommonObjectsV2.CLOSE_MODAL_BUTTON_XPATH).nth(1).click();
+        await this.page.locator(CommonObjects.CLOSE_MODAL_BUTTON_XPATH).nth(1).click();
     }
 
     async verifyShareLink(): Promise<void> {
@@ -61,7 +61,7 @@ export class ObjectBrowserPage {
         await expect(loader).toBeHidden();
         await this.page.locator(ObjectBrowserPageObjects.COPY_LINK_BUTTON_XPATH).click();
         await this.page.locator('span').filter({ hasText: ObjectBrowserPageObjects.COPIED_TEXT }).isVisible();
-        await this.page.locator(CommonObjectsV2.CLOSE_MODAL_BUTTON_XPATH).nth(1).click();
+        await this.page.locator(CommonObjects.CLOSE_MODAL_BUTTON_XPATH).nth(1).click();
     }
 
     async deleteSingleObject(): Promise<void> {

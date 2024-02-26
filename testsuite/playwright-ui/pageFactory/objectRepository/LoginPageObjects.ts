@@ -4,11 +4,6 @@
 export class LoginPageObjects {
     static EMAIL_EDITBOX_ID = `//input[@id='Email Address']`;
     static PASSWORD_EDITBOX_ID = `//input[@id='Password']`;
-}
-
-export class LoginPageObjectsV2 {
-    static EMAIL_EDITBOX_ID = `//input[@id='Email Address']`;
-    static PASSWORD_EDITBOX_ID = `//input[@id='Password']`;
     static CONTINUE_BUTTON_XPATH = `//button[span[text()=' Continue ']]`;
 
     // SETUP ACCOUNT (FIRST LOGIN)
