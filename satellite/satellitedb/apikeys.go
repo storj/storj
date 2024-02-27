@@ -179,7 +179,7 @@ func (keys *apikeys) GetAllNamesByProjectID(ctx context.Context, projectID uuid.
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	names := make([]string, 0)
+	var names []string
 	for rows.Next() {
 		var name string
 

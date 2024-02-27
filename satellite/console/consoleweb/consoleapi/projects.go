@@ -637,7 +637,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 		CreatedAt          time.Time `json:"createdAt"`
 	}
 
-	response := make([]jsonInvite, 0)
+	var response []jsonInvite
 
 	for _, invite := range invites {
 		proj, err := p.service.GetProjectNoAuth(ctx, invite.ProjectID)
