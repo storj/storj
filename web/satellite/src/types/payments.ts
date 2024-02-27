@@ -183,6 +183,9 @@ export class AccountBalance {
         return this.credits + (this.coins * 100);
     }
 
+    public get formattedSum(): string {
+        return formatPrice((this.sum / 100).toString());
+    }
     public hasCredits(): boolean {
         return parseFloat(this._credits) !== 0;
     }

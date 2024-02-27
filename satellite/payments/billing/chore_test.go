@@ -241,6 +241,11 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 				require.Equal(t, usageLimitsConfig.Segment.Free, *p.SegmentLimit)
 			}
 
+			now := time.Now()
+			choreObservers.UpgradeUser.TestSetNow(func() time.Time {
+				return now
+			})
+
 			chore.TransactionCycle.TriggerWait()
 			chore.TransactionCycle.Pause()
 
@@ -252,6 +257,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			user, err = db.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.True(t, user.PaidTier)
+			require.WithinDuration(t, now, *user.UpgradeTime, time.Minute)
 			require.Equal(t, usageLimitsConfig.Storage.Paid.Int64(), user.ProjectStorageLimit)
 			require.Equal(t, usageLimitsConfig.Bandwidth.Paid.Int64(), user.ProjectBandwidthLimit)
 			require.Equal(t, usageLimitsConfig.Segment.Paid, user.ProjectSegmentLimit)

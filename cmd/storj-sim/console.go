@@ -158,7 +158,7 @@ func (ce *consoleEndpoints) tryLogin(ctx context.Context) (string, error) {
 	}
 
 	authToken.Email = "alice@mail.test"
-	authToken.Password = "123a123"
+	authToken.Password = "password"
 
 	res, err := json.Marshal(authToken)
 	if err != nil {
@@ -256,7 +256,7 @@ func (ce *consoleEndpoints) createUser(ctx context.Context, regToken string) (st
 
 	registerData.FullName = "Alice"
 	registerData.Email = "alice@mail.test"
-	registerData.Password = "123a123"
+	registerData.Password = "password"
 	registerData.ShortName = "al"
 	registerData.Secret = regToken
 

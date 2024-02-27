@@ -45,7 +45,7 @@ var (
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 	}
-	password = "123a123"
+	password = "password"
 )
 
 // createTestData creates predefined test account to make the integration tests easier.

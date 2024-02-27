@@ -17,6 +17,7 @@ import (
 	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/process"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
@@ -244,7 +245,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
+	writer, err := NewWriter(process.NamedLog(store.log, "blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
 	return writer, Error.Wrap(err)
 }
 
@@ -278,7 +279,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
+	writer, err := NewWriter(process.NamedLog(store.log, "blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
 	return writer, Error.Wrap(err)
 }
 

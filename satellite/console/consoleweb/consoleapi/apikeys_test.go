@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-func Test_DeleteAPIKeyByNameAndProjectID(t *testing.T) {
+func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -75,7 +75,7 @@ func Test_DeleteAPIKeyByNameAndProjectID(t *testing.T) {
 	})
 }
 
-func Test_GetAllAPIKeyNamesByProjectID(t *testing.T) {
+func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{

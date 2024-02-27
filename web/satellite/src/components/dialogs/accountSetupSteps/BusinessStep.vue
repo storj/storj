@@ -16,6 +16,13 @@
 
         <v-form v-model="formValid">
             <v-row justify="center">
+                <v-col cols="12" sm="6" md="5" lg="4" class="py-0">
+                    <p>Fields marked with an * are required</p>
+                </v-col>
+                <v-col cols="12" sm="4" md="3" lg="2" />
+            </v-row>
+
+            <v-row justify="center">
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
                         id="First Name"

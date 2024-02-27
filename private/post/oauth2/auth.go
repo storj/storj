@@ -49,9 +49,8 @@ func (auth *Auth) Start(server *smtp.ServerInfo) (proto string, toServer []byte,
 // Next sends empty response to solve SASL challenge if response code is 334.
 func (auth *Auth) Next(fromServer []byte, more bool) (toServer []byte, err error) {
 	if more {
-		return make([]byte, 0), nil
+		return []byte{}, nil
 	}
-
 	return nil, nil
 }
 

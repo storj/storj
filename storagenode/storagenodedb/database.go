@@ -21,6 +21,7 @@ import (
 	"storj.io/common/dbutil"
 	"storj.io/common/dbutil/dbschema"
 	"storj.io/common/dbutil/sqliteutil"
+	"storj.io/common/process"
 	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/storagenode/apikeys"
@@ -367,7 +368,7 @@ func (db *DB) filepathFromDBName(dbName string) string {
 // MigrateToLatest creates any necessary tables.
 func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.Migration(ctx)
-	return migration.Run(ctx, db.log.Named("migration"))
+	return migration.Run(ctx, process.NamedLog(db.log, "migration"))
 }
 
 // Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.

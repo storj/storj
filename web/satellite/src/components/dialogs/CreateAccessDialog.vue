@@ -341,6 +341,10 @@ const stepInfos: Record<CreateAccessStep, StepInfo> = {
 
     [CreateAccessStep.ConfirmDetails]: new StepInfo(
         () => {
+            if (accessTypes.value.includes(AccessType.APIKey)) {
+                return CreateAccessStep.ChoosePermission;
+            }
+
             switch (passphraseOption.value) {
             case PassphraseOption.EnterNewPassphrase: return CreateAccessStep.EnterNewPassphrase;
             case PassphraseOption.GenerateNewPassphrase: return CreateAccessStep.PassphraseGenerated;

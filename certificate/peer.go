@@ -14,9 +14,9 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/certificate/certificatepb"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 )
@@ -85,7 +85,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	peer.AuthorizationDB = authorizationDB
 
 	peer.Certificate.Endpoint = NewEndpoint(log.Named("certificate"), ca, authorizationDB, uint16(config.MinDifficulty))
-	if err := certificatepb.DRPCRegisterCertificates(peer.Server.DRPC(), peer.Certificate.Endpoint); err != nil {
+	if err := pb.DRPCRegisterCertificates(peer.Server.DRPC(), peer.Certificate.Endpoint); err != nil {
 		return nil, Error.Wrap(errs.Combine(err, peer.Close()))
 	}
 

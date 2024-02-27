@@ -7,19 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
-	"testing/quick"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -121,7 +115,7 @@ func TestAuth_Register(t *testing.T) {
 					ShortName:       "test",
 					Email:           "user@test" + strconv.Itoa(i) + ".test",
 					Partner:         test.Partner,
-					Password:        "abc123",
+					Password:        "password",
 					IsProfessional:  true,
 					Position:        "testposition",
 					CompanyName:     "companytestname",
@@ -238,7 +232,7 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 				FullName:        "testuser",
 				ShortName:       "test",
 				Email:           email,
-				Password:        "abc123",
+				Password:        "password",
 				IsProfessional:  true,
 				Position:        "testposition",
 				CompanyName:     "companytestname",
@@ -264,129 +258,6 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 			require.Len(t, users, 1)
 		}
 	})
-}
-
-func TestDeleteAccount(t *testing.T) {
-	ctx := testcontext.New(t)
-	log := testplanet.NewLogger(t)
-
-	// We do a black box testing because currently we don't allow to delete
-	// accounts through the API hence we must always return an error response.
-
-	config := &quick.Config{
-		Values: func(values []reflect.Value, rnd *rand.Rand) {
-			// TODO: use or implement a better and thorough HTTP Request random generator
-
-			var method string
-			switch rnd.Intn(9) {
-			case 0:
-				method = http.MethodGet
-			case 1:
-				method = http.MethodHead
-			case 2:
-				method = http.MethodPost
-			case 3:
-				method = http.MethodPut
-			case 4:
-				method = http.MethodPatch
-			case 5:
-				method = http.MethodDelete
-			case 6:
-				method = http.MethodConnect
-			case 7:
-				method = http.MethodOptions
-			case 8:
-				method = http.MethodTrace
-			default:
-				t.Fatal("unexpected random value for HTTP method selection")
-			}
-
-			var path string
-			{
-
-				val, ok := quick.Value(reflect.TypeOf(""), rnd)
-				require.True(t, ok, "quick.Values generator function couldn't generate a string")
-				path = url.PathEscape(val.String())
-			}
-
-			var query string
-			{
-				nparams := rnd.Intn(27)
-				params := make([]string, nparams)
-
-				for i := 0; i < nparams; i++ {
-					val, ok := quick.Value(reflect.TypeOf(""), rnd)
-					require.True(t, ok, "quick.Values generator function couldn't generate a string")
-					param := val.String()
-
-					val, ok = quick.Value(reflect.TypeOf(""), rnd)
-					require.True(t, ok, "quick.Values generator function couldn't generate a string")
-					param += "=" + val.String()
-
-					params[i] = param
-				}
-
-				query = url.QueryEscape(strings.Join(params, "&"))
-			}
-
-			var body io.Reader
-			{
-				val, ok := quick.Value(reflect.TypeOf([]byte(nil)), rnd)
-				require.True(t, ok, "quick.Values generator function couldn't generate a byte slice")
-				body = bytes.NewReader(val.Bytes())
-			}
-
-			withQuery := ""
-			if len(query) > 0 {
-				withQuery = "?"
-			}
-
-			reqURL, err := url.Parse("//storj.io/" + path + withQuery + query)
-			require.NoError(t, err, "error when generating a random URL")
-			req, err := http.NewRequestWithContext(ctx, method, reqURL.String(), body)
-			require.NoError(t, err, "error when geneating a random request")
-			values[0] = reflect.ValueOf(req)
-		},
-	}
-
-	expectedHandler := func(_ *http.Request) (status int, body []byte) {
-		return http.StatusNotImplemented, []byte("{\"error\":\"The server is incapable of fulfilling the request\"}\n")
-	}
-
-	actualHandler := func(r *http.Request) (status int, body []byte) {
-		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "", false)
-		authController.DeleteAccount(rr, r)
-
-		result := rr.Result()
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
-
-		err = result.Body.Close()
-		require.NoError(t, err)
-
-		return result.StatusCode, body
-
-	}
-
-	err := quick.CheckEqual(expectedHandler, actualHandler, config)
-	if err != nil {
-		t.Logf("%+v\n", err)
-		var cerr *quick.CheckEqualError
-		require.True(t, errors.As(err, &cerr))
-
-		t.Fatalf(`DeleteAccount handler has returned a different response:
-round: %d
-input args: %+v
-expected response:
-	status code: %d
-	response body: %s
-returned response:
-	status code: %d
-	response body: %s
-`, cerr.Count, cerr.In, cerr.Out1[0], cerr.Out1[1], cerr.Out2[0], cerr.Out2[1])
-	}
 }
 
 func TestTokenByAPIKeyEndpoint(t *testing.T) {
@@ -722,7 +593,7 @@ func TestRegistrationEmail(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -790,7 +661,7 @@ func TestRegistrationEmail_CodeEnabled(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -996,7 +867,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyCorrect, err := json.Marshal(&registerData{
 			FullName:        "test",
 			Email:           "user@mail.test",
-			Password:        "abc123",
+			Password:        "password",
 			Partner:         string(testrand.RandAlphaNumeric(100)),
 			SignupPromoCode: string(testrand.RandAlphaNumeric(100)),
 		})
@@ -1017,7 +888,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyPartnerInvalid, err := json.Marshal(&registerData{
 			FullName: "test",
 			Email:    "user1@mail.test",
-			Password: "abc123",
+			Password: "password",
 			Partner:  string(testrand.RandAlphaNumeric(101)),
 		})
 		require.NoError(t, err)
@@ -1035,7 +906,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyPromoInvalid, err := json.Marshal(&registerData{
 			FullName:        "test",
 			Email:           "user1@mail.test",
-			Password:        "abc123",
+			Password:        "password",
 			SignupPromoCode: string(testrand.RandAlphaNumeric(101)),
 		})
 		require.NoError(t, err)
@@ -1068,10 +939,10 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 			Length int
 			Ok     bool
 		}{
-			{"Length below minimum must be rejected", 5, false},
-			{"Length as minimum must be accepted", 6, true},
-			{"Length as maximum must be accepted", 72, true},
-			{"Length above maximum must be rejected", 73, false},
+			{"Length below minimum must be rejected", 6, false},
+			{"Length as minimum must be accepted", 8, true},
+			{"Length as maximum must be accepted", 64, true},
+			{"Length above maximum must be rejected", 65, false},
 		} {
 			tt := tt
 			t.Run(tt.Name, func(t *testing.T) {
@@ -1122,7 +993,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -1202,5 +1073,72 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
 		require.Contains(t, body, "/signup")
+	})
+}
+
+func TestAuth_SetupAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		ptr := func(s string) *string {
+			return &s
+		}
+		tests := []console.SetUpAccountRequest{
+			{
+				FullName:       "Frodo Baggins",
+				IsProfessional: true,
+				Position:       ptr("Ringbearer"),
+				CompanyName:    ptr("The Fellowship"),
+				EmployeeCount:  ptr("9"), // subject to change
+			},
+			{
+				FullName:       "Bilbo Baggins",
+				IsProfessional: false,
+			},
+		}
+
+		for i, tt := range tests {
+			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
+				FullName: "should be overwritten by setup",
+				Email:    fmt.Sprintf("test%d@test.com", i),
+				Password: "password",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
+			require.NoError(t, err)
+			_, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
+			require.NoError(t, err)
+
+			payload, err := json.Marshal(tt)
+			require.NoError(t, err)
+			_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
+
+			userAfterSetup, err := sat.DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+
+			require.Equal(t, tt.FullName, userAfterSetup.FullName)
+			require.Equal(t, tt.IsProfessional, userAfterSetup.IsProfessional)
+			if tt.Position != nil {
+				require.Equal(t, *tt.Position, userAfterSetup.Position)
+			} else {
+				require.Equal(t, "", userAfterSetup.Position)
+			}
+			if tt.CompanyName != nil {
+				require.Equal(t, *tt.CompanyName, userAfterSetup.CompanyName)
+			} else {
+				require.Equal(t, "", userAfterSetup.CompanyName)
+			}
+			if tt.EmployeeCount != nil {
+				require.Equal(t, *tt.EmployeeCount, userAfterSetup.EmployeeCount)
+			} else {
+				require.Equal(t, "", userAfterSetup.EmployeeCount)
+			}
+		}
 	})
 }

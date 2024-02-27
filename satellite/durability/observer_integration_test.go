@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/storagenode"
@@ -34,26 +35,10 @@ func TestDurabilityIntegration(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		{
-			// upload object
-			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
-			require.NoError(t, err)
-
-			_, err = project.CreateBucket(ctx, "bucket1")
-			assert.NoError(t, err)
-
 			for i := 0; i < 10; i++ {
-
-				object, err := project.UploadObject(ctx, "bucket1", fmt.Sprintf("key%d", i), nil)
-				assert.NoError(t, err)
-
-				_, err = object.Write(make([]byte, 10240))
-				assert.NoError(t, err)
-
-				err = object.Commit()
-				assert.NoError(t, err)
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket1", fmt.Sprintf("key%d", i), testrand.Bytes(10*memory.KiB))
+				require.NoError(t, err)
 			}
-
-			require.NoError(t, project.Close())
 		}
 
 		{
@@ -69,9 +54,13 @@ func TestDurabilityIntegration(t *testing.T) {
 			})
 		}
 
-		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
-		_, err := rangedLoopService.RunOnce(ctx)
-		require.NoError(t, err)
+		// durability reports are executed sequentially one by one with each loop iteration
+		// we need as many loop iterations as much observers we have to collect all results
+		for range planet.Satellites[0].RangedLoop.DurabilityReport.Observer {
+			rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
+			_, err := rangedLoopService.RunOnce(ctx)
+			require.NoError(t, err)
+		}
 
 		require.Len(t, result, 14)
 

@@ -26,6 +26,7 @@
                             :rules="passphraseRules"
                             :hide-details="false"
                             autofocus
+                            required
                         >
                             <template #append-inner>
                                 <password-input-eye-icons

@@ -25,7 +25,7 @@ import (
 const (
 	lastName        = "lastName"
 	email           = "email@mail.test"
-	passValid       = "123456"
+	passValid       = "password"
 	name            = "name"
 	newName         = "newName"
 	newLastName     = "newLastName"
@@ -139,7 +139,8 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, createdUser.ShortName)
 		require.False(t, createdUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit)
+		now := time.Now()
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, &now)
 		require.NoError(t, err)
 
 		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
@@ -148,13 +149,15 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, fullName, retrievedUser.FullName)
 		require.Equal(t, shortName, retrievedUser.ShortName)
 		require.True(t, retrievedUser.PaidTier)
+		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, nil)
 		require.NoError(t, err)
 
 		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
 		require.NoError(t, err)
 		require.False(t, retrievedUser.PaidTier)
+		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
 	})
 }
 
@@ -299,7 +302,7 @@ func TestGetUserByEmail(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "Inactive User",
 			Email:        email,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
@@ -318,7 +321,7 @@ func TestGetUserByEmail(t *testing.T) {
 			FullName:     "Active User",
 			Email:        email,
 			Status:       console.Active,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &activeUser)
@@ -344,7 +347,7 @@ func TestGetUsersByStatus(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "Inactive User",
 			Email:        email,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
@@ -355,7 +358,7 @@ func TestGetUsersByStatus(t *testing.T) {
 			FullName:     "Active User",
 			Email:        email,
 			Status:       console.Active,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &activeUser)
@@ -404,7 +407,7 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 			ID:           id,
 			FullName:     "unverified user one",
 			Email:        "userone@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 

@@ -30,6 +30,7 @@ Requires setting `Authorization` header for requests.
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
             * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
+            * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
             * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
@@ -243,6 +244,26 @@ Removes the account level geofence for the user.
 #### PATCH /api/users/{user-email}/activate-account/disable-bot-restriction
 
 Disables account bot restrictions by activating the account and restoring its limit values. This is used only for accounts with the PendingBotVerification status.
+
+#### PATCH /api/users/{user-email}/trial-expiration
+
+Updates account free trial expiration date.
+
+Example request:
+
+```json
+{
+  "trialExpiration": "2024-06-01T00:00:00.000Z"
+}
+```
+
+or
+
+```json
+{
+  "trialExpiration": null
+}
+```
 
 ### OAuth Client Management
 

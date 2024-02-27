@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func Test_OrphanedSegment(t *testing.T) {
+func TestOrphanedSegment(t *testing.T) {
 	os := metabasetest.RandObjectStream()
 	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		metabasetest.CreateObject(ctx, t, metabaseDB, os, 1)
@@ -48,7 +48,7 @@ func Test_OrphanedSegment(t *testing.T) {
 	test(t, prepare, check)
 }
 
-func Test_NoOrphanedSegment(t *testing.T) {
+func TestNoOrphanedSegment(t *testing.T) {
 	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		for i := 0; i < 14; i++ {
 			metabasetest.CreateObject(ctx, t, metabaseDB, metabasetest.RandObjectStream(), 1)
@@ -71,7 +71,7 @@ func Test_NoOrphanedSegment(t *testing.T) {
 	test(t, prepare, check)
 }
 
-func Test_ManyOrphanedSegment(t *testing.T) {
+func TestManyOrphanedSegment(t *testing.T) {
 	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		metabasetest.CreateObject(ctx, t, metabaseDB, metabasetest.RandObjectStream(), 1)
 

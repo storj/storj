@@ -158,6 +158,7 @@ pipeline {
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         STORJ_TEST_LOG_LEVEL = 'info'
                         COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                        GOEXPERIMENT = 'nocoverageredesign'
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -184,6 +185,8 @@ pipeline {
                                     sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                    sh script: 'gzip .build/clean.coverprofile -c > .build/clean.coverprofile.gz'
+                                    archiveArtifacts artifacts: '.build/clean.coverprofile.gz'
                                     cobertura coberturaReportFile: '.build/cobertura.xml',
                                         lineCoverageTargets: '70, 60, 50',
                                         autoUpdateHealth: false,

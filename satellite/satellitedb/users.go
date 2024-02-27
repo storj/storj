@@ -257,6 +257,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.SignupId = dbx.User_SignupId(user.SignupId)
 	}
 
+	if user.TrialExpiration != nil {
+		optional.TrialExpiration = dbx.User_TrialExpiration(*user.TrialExpiration)
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
@@ -366,19 +370,24 @@ func (users *users) Update(ctx context.Context, userID uuid.UUID, updateRequest 
 }
 
 // UpdatePaidTier sets whether the user is in the paid tier.
-func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) (err error) {
+func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int, upgradeTime *time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	updateFields := dbx.User_Update_Fields{
+		PaidTier:              dbx.User_PaidTier(paidTier),
+		ProjectLimit:          dbx.User_ProjectLimit(projectLimit),
+		ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(projectBandwidthLimit.Int64()),
+		ProjectStorageLimit:   dbx.User_ProjectStorageLimit(projectStorageLimit.Int64()),
+		ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(projectSegmentLimit),
+	}
+	if paidTier && upgradeTime != nil {
+		updateFields.UpgradeTime = dbx.User_UpgradeTime(*upgradeTime)
+	}
 
 	_, err = users.db.Update_User_By_Id(
 		ctx,
 		dbx.User_Id(id[:]),
-		dbx.User_Update_Fields{
-			PaidTier:              dbx.User_PaidTier(paidTier),
-			ProjectLimit:          dbx.User_ProjectLimit(projectLimit),
-			ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(projectBandwidthLimit.Int64()),
-			ProjectStorageLimit:   dbx.User_ProjectStorageLimit(projectStorageLimit.Int64()),
-			ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(projectSegmentLimit),
-		},
+		updateFields,
 	)
 
 	return err
@@ -462,6 +471,18 @@ func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid b
 		return false, err
 	}
 	return row.PaidTier, nil
+}
+
+// GetUpgradeTime is a method for returning a user's upgrade time.
+func (users *users) GetUpgradeTime(ctx context.Context, id uuid.UUID) (*time.Time, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_UpgradeTime_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+	return row.UpgradeTime, nil
 }
 
 // GetSettings is a method for returning a user's set of configurations.
@@ -660,6 +681,13 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.EmployeeCount = dbx.User_EmployeeCount(*request.EmployeeCount)
 	}
 
+	if request.TrialExpiration != nil {
+		update.TrialExpiration = dbx.User_TrialExpiration_Raw(*request.TrialExpiration)
+	}
+	if request.UpgradeTime != nil {
+		update.UpgradeTime = dbx.User_UpgradeTime(*request.UpgradeTime)
+	}
+
 	return &update, nil
 }
 
@@ -700,6 +728,8 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
 		SignupCaptcha:         user.SignupCaptcha,
+		TrialExpiration:       user.TrialExpiration,
+		UpgradeTime:           user.UpgradeTime,
 	}
 
 	if user.DefaultPlacement != nil {

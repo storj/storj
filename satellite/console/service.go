@@ -21,7 +21,6 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
-	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -407,11 +406,13 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 
 func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err error) {
 	// put this user into the paid tier and convert projects to upgraded limits.
+	now := payment.service.nowFn()
 	err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
 		payment.service.config.UsageLimits.Bandwidth.Paid,
 		payment.service.config.UsageLimits.Storage.Paid,
 		payment.service.config.UsageLimits.Segment.Paid,
 		payment.service.config.UsageLimits.Project.Paid,
+		&now,
 	)
 	if err != nil {
 		return Error.Wrap(err)
@@ -632,37 +633,6 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 	}, nil
 }
 
-// checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
-func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := payment.service.getUserAndAuditLog(ctx, "get outstanding invoices")
-	if err != nil {
-		return err
-	}
-
-	invoices, err := payment.service.accounts.Invoices().List(ctx, user.ID)
-	if err != nil {
-		return err
-	}
-	if len(invoices) > 0 {
-		for _, invoice := range invoices {
-			if invoice.Status != string(stripe.InvoiceStatusPaid) {
-				return ErrUsage.New("user has unpaid/pending invoices")
-			}
-		}
-	}
-
-	hasItems, err := payment.service.accounts.Invoices().CheckPendingItems(ctx, user.ID)
-	if err != nil {
-		return err
-	}
-	if hasItems {
-		return ErrUsage.New("user has pending invoice items")
-	}
-	return nil
-}
-
 // checkProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 // which have not been applied/invoiced yet (meaning sent over to stripe).
 func (payment Payments) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (err error) {
@@ -866,6 +836,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+		}
+
+		if s.config.FreeTrialDuration != 0 {
+			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
+			newUser.TrialExpiration = &expiration
 		}
 
 		// TODO: move the project limits into the registration token.
@@ -1639,32 +1614,6 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	}
 
 	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-// DeleteAccount deletes User.
-func (s *Service) DeleteAccount(ctx context.Context, password string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "delete account")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
-	if err != nil {
-		return ErrUnauthorized.New(credentialsErrMsg)
-	}
-
-	err = s.Payments().checkOutstandingInvoice(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = s.store.Users().Delete(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -3651,7 +3600,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			return WalletPayments{}, Error.Wrap(err)
 		}
 		paymentInfos = append(paymentInfos, PaymentInfo{
-			ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+			ID:        fmt.Sprint(txn.ID),
 			Type:      txn.Source,
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,

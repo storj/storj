@@ -123,7 +123,7 @@ func TestSignupCouponCodes(t *testing.T) {
 					FullName:        "Fullname",
 					ShortName:       "Shortname",
 					Email:           tt.email,
-					Password:        "123a123",
+					Password:        "password",
 					SignupPromoCode: tt.signupPromoCode,
 				}
 

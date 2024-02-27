@@ -9,10 +9,10 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.5.0
-	storj.io/common v0.0.0-20240213162259-8eec320f6530
+	storj.io/common v0.0.0-20240222104457-4fa82fc15e88
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
-	storj.io/uplink v1.12.3-0.20240207220713-2b8836cb2e03
+	storj.io/uplink v1.12.3-0.20240222105320-8a3f59d2c770
 )
 
 require (
@@ -20,7 +20,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/alicebob/miniredis/v2 v2.13.3 // indirect
-	github.com/apache/thrift v0.12.0 // indirect
+	github.com/apache/thrift v0.16.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
@@ -161,9 +161,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/drpc v0.0.33 // indirect
-	storj.io/eventkit v0.0.0-20240124163201-beae173bc798 // indirect
+	storj.io/eventkit v0.0.0-20240222101345-204fc04c7675 // indirect
 	storj.io/infectious v0.0.2 // indirect
-	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
+	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
 	storj.io/private v0.0.0-20240112163619-cfc17a2921bf // indirect
 )

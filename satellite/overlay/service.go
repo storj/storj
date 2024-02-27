@@ -438,14 +438,8 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 		return selectedNodes, err
 	}
 	if len(selectedNodes) < req.RequestedCount {
-
-		excludedIDs := make([]string, 0)
-		for _, e := range req.ExcludedIDs {
-			excludedIDs = append(excludedIDs, e.String())
-		}
-
 		service.log.Warn("Not enough nodes are available from Node Cache",
-			zap.Strings("excludedIDs", excludedIDs),
+			zap.Stringers("excludedIDs", req.ExcludedIDs),
 			zap.Int("requested", req.RequestedCount),
 			zap.Int("available", len(selectedNodes)),
 			zap.Uint16("placement", uint16(req.Placement)))

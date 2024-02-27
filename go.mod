@@ -58,11 +58,11 @@ require (
 	golang.org/x/time v0.5.0
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20240213162259-8eec320f6530
+	storj.io/common v0.0.0-20240222104457-4fa82fc15e88
 	storj.io/drpc v0.0.33
-	storj.io/eventkit v0.0.0-20240124163201-beae173bc798
-	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c
-	storj.io/uplink v1.12.3-0.20240207220713-2b8836cb2e03
+	storj.io/eventkit v0.0.0-20240222101345-204fc04c7675
+	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
+	storj.io/uplink v1.12.3-0.20240222105320-8a3f59d2c770
 )
 
 require (
@@ -73,7 +73,7 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
-	github.com/apache/thrift v0.12.0 // indirect
+	github.com/apache/thrift v0.16.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect

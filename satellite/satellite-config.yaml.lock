@@ -319,6 +319,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates whether free tier users can send project invitations
 # console.free-tier-invites-enabled: false
 
+# duration for which users can access the system free of charge, 0 = unlimited time trial
+# console.free-trial-duration: 0s
+
 # server address of the front-end app
 # console.frontend-address: :10200
 
@@ -1008,6 +1011,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
+
+# whether to use users upgrade time and skip free tier status in billing process
+# payments.stripe-coin-payments.enable-free-trial-logic: false
 
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10

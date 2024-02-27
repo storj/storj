@@ -2612,6 +2612,16 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE user_settings ADD COLUMN notice_dismissal jsonb NOT NULL DEFAULT '{}';`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to handle user free trial",
+				Version:     257,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN trial_notifications INTEGER NOT NULL DEFAULT 0;`,
+					`ALTER TABLE users ADD COLUMN trial_expiration timestamp with time zone;`,
+					`ALTER TABLE users ADD COLUMN upgrade_time timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

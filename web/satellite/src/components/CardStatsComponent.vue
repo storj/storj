@@ -2,47 +2,24 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :subtitle="subtitle" variant="outlined" border rounded="xlg" :to="to">
-        <template #title>
-            <v-card-title class="d-flex align-center">
-                <component :is="iconComponent" v-if="icon" v-bind="iconProps" class="mr-2" width="16" height="16" />
-                {{ title }}
-            </v-card-title>
-        </template>
+    <v-card :title="title" :subtitle="subtitle" variant="outlined" border rounded="xlg" :to="to">
         <v-card-text>
-            <v-chip rounded color="default" variant="tonal" class="font-weight-bold" :to="to">{{ data }}</v-chip>
+            <v-chip :color="color" variant="tonal" class="font-weight-bold mt-n1" :to="to">{{ data }}</v-chip>
         </v-card-text>
     </v-card>
 </template>
 
 <script setup lang="ts">
-import { computed, Component } from 'vue';
-import { VCard, VCardText, VChip, VCardTitle } from 'vuetify/components';
+import { VCard, VCardText, VChip } from 'vuetify/components';
 
-import IconFile from '@/components/icons/IconFile.vue';
-import IconGlobe from '@/components/icons/IconGlobe.vue';
-import IconBucket from '@/components/icons/IconBucket.vue';
-import IconAccess from '@/components/icons/IconAccess.vue';
-import IconTeam from '@/components/icons/IconTeam.vue';
-import IconCard from '@/components/icons/IconCard.vue';
-
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     title: string;
     subtitle: string;
     data: string;
+    color?: string;
     to?: string;
-    icon?: keyof typeof iconComponents;
-}>();
-
-const iconComponents = {
-    file: IconFile,
-    globe: IconGlobe,
-    bucket: IconBucket,
-    access: IconAccess,
-    team: IconTeam,
-    card: IconCard,
-};
-
-const iconComponent = computed<Component | null>(() => props.icon ? iconComponents[props.icon] : null);
-const iconProps = computed<object | null>(() => iconComponent.value?.['props']?.['bold'] ? { bold: true } : null);
+}>(), {
+    color: 'info',
+    to: undefined,
+});
 </script>

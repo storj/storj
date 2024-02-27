@@ -163,6 +163,7 @@ const decliningIds = ref(new Set<string>());
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
+
 const router = useRouter();
 const notify = useNotify();
 

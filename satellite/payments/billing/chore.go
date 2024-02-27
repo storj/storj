@@ -17,6 +17,8 @@ import (
 type Observer interface {
 	// Process is called repeatedly for each transaction.
 	Process(context.Context, Transaction) error
+	// TestSetNow allows tests to have the observer act as if the current time is whatever they want.
+	TestSetNow(nowFn func() time.Time)
 }
 
 // ChoreObservers holds functionality to process confirmed transactions using different types of observers.

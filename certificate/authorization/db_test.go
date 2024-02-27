@@ -17,9 +17,9 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
-	"storj.io/storj/certificate/certificatepb"
 	"storj.io/storj/private/kvstore"
 )
 
@@ -223,7 +223,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	}
 
 	now := time.Now()
-	req := &certificatepb.SigningRequest{
+	req := &pb.SigningRequest{
 		AuthToken: auths[0].Token.String(),
 		Timestamp: now.Unix(),
 	}
@@ -311,7 +311,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 
 	t.Run("double claim", func(t *testing.T) {
 		err = authDB.Claim(ctx, &ClaimOpts{
-			Req: &certificatepb.SigningRequest{
+			Req: &pb.SigningRequest{
 				AuthToken: auths[claimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
 			},
@@ -339,7 +339,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 
 	t.Run("invalid timestamp", func(t *testing.T) {
 		err = authDB.Claim(ctx, &ClaimOpts{
-			Req: &certificatepb.SigningRequest{
+			Req: &pb.SigningRequest{
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				// NB: 1 day ago
 				Timestamp: time.Now().Unix() - 86400,
@@ -364,7 +364,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 
 	t.Run("invalid difficulty", func(t *testing.T) {
 		err = authDB.Claim(ctx, &ClaimOpts{
-			Req: &certificatepb.SigningRequest{
+			Req: &pb.SigningRequest{
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
 			},

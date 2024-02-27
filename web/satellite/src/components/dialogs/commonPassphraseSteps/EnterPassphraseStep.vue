@@ -18,6 +18,7 @@
                     :hide-details="false"
                     :rules="[ RequiredRule ]"
                     autofocus
+                    required
                     class="mt-2 mb-n4"
                 >
                     <template #append-inner>

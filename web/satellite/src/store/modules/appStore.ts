@@ -15,6 +15,7 @@ class AppState {
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
     public isAccountSetupDialogShown = false;
+    public isProjectPassphraseDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
     public isNavigating = false;
 }
@@ -76,6 +77,10 @@ export const useAppStore = defineStore('app', () => {
         state.isAccountSetupDialogShown = isShown ?? !state.isAccountSetupDialogShown;
     }
 
+    function toggleProjectPassphraseDialog(isShown?: boolean): void {
+        state.isProjectPassphraseDialogShown = isShown ?? !state.isProjectPassphraseDialogShown;
+    }
+
     function setPathBeforeAccountPage(path: string) {
         state.pathBeforeAccountPage = path;
     }
@@ -110,6 +115,7 @@ export const useAppStore = defineStore('app', () => {
         toggleBrowserCardViewEnabled: toggleBrowserTableViewEnabled,
         hasProjectTableViewConfigured,
         toggleHasJustLoggedIn,
+        toggleProjectPassphraseDialog,
         setUploadingModal,
         setErrorPage,
         removeErrorPage,

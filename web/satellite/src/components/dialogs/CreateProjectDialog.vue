@@ -55,6 +55,7 @@
                                 persistent-counter
                                 :hide-details="false"
                                 autofocus
+                                required
                             />
                             <v-btn
                                 v-if="!isDescriptionShown"

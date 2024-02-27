@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
-func Test_AllBucketNames(t *testing.T) {
+func TestAllBucketNames(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -85,7 +85,7 @@ func Test_AllBucketNames(t *testing.T) {
 	})
 }
 
-func Test_BucketPlacements(t *testing.T) {
+func TestBucketPlacements(t *testing.T) {
 	placements := make(map[int]string)
 	for i := 0; i < 2; i++ {
 		placements[i] = fmt.Sprintf("loc-%d", i)

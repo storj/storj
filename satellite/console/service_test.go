@@ -886,6 +886,71 @@ func TestService(t *testing.T) {
 				require.Greater(t, impact.HyperscalerImpact, zeroValue)
 				require.Greater(t, impact.SavedTrees, int64(0))
 			})
+			t.Run("GetUsageReport", func(t *testing.T) {
+				usr, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Test Usage Report",
+					Email:    "test.report@mail.test",
+				}, 2)
+				require.NoError(t, err)
+
+				usrCtx, err := sat.UserContext(ctx, usr.ID)
+				require.NoError(t, err)
+
+				pr1, err := sat.AddProject(ctx, usr.ID, "report test 1")
+				require.NoError(t, err)
+				require.NotNil(t, pr1)
+				pr2, err := sat.AddProject(ctx, usr.ID, "report test 2")
+				require.NoError(t, err)
+				require.NotNil(t, pr2)
+
+				bucket1 := buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      "testBucket1",
+					ProjectID: pr1.ID,
+				}
+				bucket2 := buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      "testBucket2",
+					ProjectID: pr2.ID,
+				}
+
+				_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+				require.NoError(t, err)
+				_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+				require.NoError(t, err)
+
+				now := time.Now()
+				inHalfAnHour := now.Add(30 * time.Minute)
+				inAnHour := now.Add(time.Hour)
+
+				items, err := service.GetUsageReport(userCtx2, now, inAnHour, pr1.PublicID)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				require.Nil(t, items)
+
+				amount := memory.Size(1000)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr1.ID, []byte(bucket1.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
+				require.NoError(t, err)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr2.ID, []byte(bucket2.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
+				require.NoError(t, err)
+
+				items, err = service.GetUsageReport(usrCtx, now, inAnHour, pr1.PublicID)
+				require.NoError(t, err)
+				require.Len(t, items, 1)
+				require.Equal(t, pr1.PublicID, items[0].ProjectID)
+				require.Equal(t, bucket1.Name, items[0].BucketName)
+				require.Equal(t, amount.GB(), items[0].Egress)
+
+				items, err = service.GetUsageReport(usrCtx, now, inAnHour, pr2.PublicID)
+				require.NoError(t, err)
+				require.Len(t, items, 1)
+				require.Equal(t, pr2.PublicID, items[0].ProjectID)
+				require.Equal(t, bucket2.Name, items[0].BucketName)
+				require.Equal(t, amount.GB(), items[0].Egress)
+
+				items, err = service.GetUsageReport(usrCtx, now, inAnHour, uuid.UUID{})
+				require.NoError(t, err)
+				require.Len(t, items, 2)
+			})
 		})
 }
 
@@ -1864,6 +1929,51 @@ func TestSessionExpiration(t *testing.T) {
 	})
 }
 
+func TestTrialExpiration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+		require.Nil(t, user.TrialExpiration)
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 48 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		now := time.Now()
+		service.TestSetNow(func() time.Time {
+			return now
+		})
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+		require.NotNil(t, user.TrialExpiration)
+		require.WithinDuration(t, now.Add(sat.Config.Console.FreeTrialDuration), *user.TrialExpiration, time.Minute)
+	})
+}
+
 func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -2030,7 +2140,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 			require.NoError(t, err)
 
 			expected = append(expected, console.PaymentInfo{
-				ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+				ID:        fmt.Sprint(txn.ID),
 				Type:      txn.Source,
 				Wallet:    meta.Wallet,
 				Amount:    txn.Amount,
