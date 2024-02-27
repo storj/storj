@@ -759,6 +759,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EnableRegionTag:                 server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
+		VarPartners:                     server.config.VarPartners,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
