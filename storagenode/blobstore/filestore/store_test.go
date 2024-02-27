@@ -645,7 +645,7 @@ func TestEmptyTrash(t *testing.T) {
 			expectedFilesEmptied++
 		}
 	}
-	emptiedBytes, keys, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(time.Hour))
+	emptiedBytes, keys, _, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, expectedFilesEmptied*int64(size), emptiedBytes)
 	assert.Equal(t, int(expectedFilesEmptied), len(keys))

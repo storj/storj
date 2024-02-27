@@ -173,10 +173,10 @@ func (store *blobStore) TryRestoreTrashBlob(ctx context.Context, ref blobstore.B
 }
 
 // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
-func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, err error) {
+func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, minPieceTimestamp time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
-	return bytesEmptied, keys, Error.Wrap(err)
+	bytesEmptied, keys, minPieceTimestamp, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
+	return bytesEmptied, keys, minPieceTimestamp, Error.Wrap(err)
 }
 
 // Create creates a new blob that can be written.
