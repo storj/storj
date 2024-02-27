@@ -600,7 +600,7 @@ func TestWrongUser(t *testing.T) {
 				},
 			},
 			{
-				endpoint: getProjectResourceUrl("members") + "?emails=" + "some@email.com",
+				endpoint: getProjectResourceUrl("members") + "?emails=" + "some@email.test",
 				method:   http.MethodDelete,
 			},
 			{
@@ -621,7 +621,7 @@ func TestWrongUser(t *testing.T) {
 				},
 			},
 			{
-				endpoint: getProjectResourceUrl("invite") + "/" + "some@email.com",
+				endpoint: getProjectResourceUrl("invite") + "/" + "some@email.test",
 				method:   http.MethodPost,
 			},
 			{

@@ -1104,7 +1104,7 @@ func TestAuth_SetupAccount(t *testing.T) {
 			require.NoError(t, err)
 			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
 				FullName: "should be overwritten by setup",
-				Email:    fmt.Sprintf("test%d@test.com", i),
+				Email:    fmt.Sprintf("test%d@storj.test", i),
 				Password: "password",
 			}, regToken.Secret)
 			require.NoError(t, err)

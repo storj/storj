@@ -191,7 +191,7 @@ func TestProjectsList(t *testing.T) {
 			&console.User{
 				ID:           testrand.UUID(),
 				FullName:     "Billy H",
-				Email:        "billyh@example.com",
+				Email:        "billyh@example.test",
 				PasswordHash: []byte("example_password"),
 				Status:       1,
 			},
@@ -258,7 +258,7 @@ func TestProjectsListByOwner(t *testing.T) {
 			&console.User{
 				ID:           testrand.UUID(),
 				FullName:     "Billy H",
-				Email:        "billyh@example.com",
+				Email:        "billyh@example.test",
 				PasswordHash: []byte("example_password"),
 				Status:       1,
 			},
@@ -269,7 +269,7 @@ func TestProjectsListByOwner(t *testing.T) {
 			&console.User{
 				ID:           testrand.UUID(),
 				FullName:     "James H",
-				Email:        "james@example.com",
+				Email:        "james@example.test",
 				PasswordHash: []byte("example_password_2"),
 				Status:       1,
 			},

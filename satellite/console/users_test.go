@@ -78,13 +78,13 @@ func TestUserEmailCase(t *testing.T) {
 		for _, testCase := range []struct {
 			email string
 		}{
-			{email: "prettyandsimple@example.com"},
-			{email: "firstname.lastname@domain.com	"},
-			{email: "email@subdomain.domain.com	"},
-			{email: "firstname+lastname@domain.com	"},
+			{email: "prettyandsimple@example.test"},
+			{email: "firstname.lastname@domain.test	"},
+			{email: "email@subdomain.domain.test	"},
+			{email: "firstname+lastname@domain.test	"},
 			{email: "email@[123.123.123.123]	"},
-			{email: "\"email\"@domain.com"},
-			{email: "_______@domain.com	"},
+			{email: "\"email\"@domain.test"},
+			{email: "_______@domain.test	"},
 		} {
 			newUser := &console.User{
 				ID:           testrand.UUID(),

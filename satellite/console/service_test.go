@@ -1615,7 +1615,7 @@ func TestUserSettings(t *testing.T) {
 
 		newUser, err := userDB.Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
-			Email:        "newuser@example.com",
+			Email:        "newuser@example.test",
 			PasswordHash: []byte("i am a hash of a password, hello"),
 		})
 		require.NoError(t, err)
@@ -2627,11 +2627,11 @@ func TestProjectInvitations(t *testing.T) {
 			require.Len(t, invites, 1)
 
 			// adding in a non-existent user should work.
-			_, err = service.InviteNewProjectMember(ctx, project.ID, "notauser@mail.com")
+			_, err = service.InviteNewProjectMember(ctx, project.ID, "notauser@mail.test")
 			require.NoError(t, err)
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
-			const testEmail = "other@mail.com"
+			const testEmail = "other@mail.test"
 			ctx2 = upgradeToPaidTier(t, ctx2, user2)
 			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
 			require.Error(t, err)
@@ -2782,7 +2782,7 @@ func TestProjectInvitations(t *testing.T) {
 
 			invite := addInvite(t, ctx, project, user.Email)
 
-			someToken, err := service.CreateInviteToken(ctx, project.PublicID, "some@email.com", invite.CreatedAt)
+			someToken, err := service.CreateInviteToken(ctx, project.PublicID, "some@email.test", invite.CreatedAt)
 			require.NoError(t, err)
 
 			inviteFromToken, err := service.GetInviteByToken(ctx, someToken)
