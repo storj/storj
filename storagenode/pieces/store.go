@@ -558,25 +558,24 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 	return store.Filewalker.WalkSatellitePieces(ctx, satellite, walkFunc)
 }
 
-// SatellitePiecesToTrash returns a list of piece IDs that are trash for the given satellite.
+// WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the
+// trash using the trashFunc provided.
 //
 // If the lazy filewalker is enabled, it will be used to find the pieces to trash, otherwise
 // the regular filewalker will be used. If the lazy filewalker fails, the regular filewalker
 // will be used as a fallback.
-func (store *Store) SatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+	defer mon.Task()(&ctx, satelliteID, createdBefore)(&err)
 
 	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
-		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, trashFunc)
 		if err == nil {
 			return pieceIDs, piecesCount, piecesSkipped, nil
 		}
 		store.log.Error("lazyfilewalker failed", zap.Error(err))
 	}
 	// fallback to the regular filewalker
-	pieceIDs, piecesCount, piecesSkipped, err = store.Filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
-
-	return pieceIDs, piecesCount, piecesSkipped, err
+	return store.Filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, trashFunc)
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.

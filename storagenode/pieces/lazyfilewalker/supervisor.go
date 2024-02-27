@@ -4,7 +4,9 @@
 package lazyfilewalker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -100,6 +102,7 @@ type GCFilewalkerResponse struct {
 	PieceIDs           []storj.PieceID `json:"pieceIDs"`
 	PiecesSkippedCount int64           `json:"piecesSkippedCount"`
 	PiecesCount        int64           `json:"piecesCount"`
+	Completed          bool            `json:"completed"`
 }
 
 // TrashCleanupRequest is the request struct for the trash-cleanup-filewalker process.
@@ -133,8 +136,8 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	return resp.PiecesTotal, resp.PiecesContentSize, nil
 }
 
-// WalkSatellitePiecesToTrash returns a list of pieceIDs that need to be trashed for the given satellite.
-func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+// WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the trash using the trashFunc provided.
+func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
@@ -150,7 +153,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, req, &resp)
+	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).setStdout(newTrashHandler(trashFunc)).run(ctx, req, &resp)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -176,4 +179,62 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 	}
 
 	return resp.BytesDeleted, resp.KeysDeleted, nil
+}
+
+type trashHandler struct {
+	bytes.Buffer
+
+	lineBuffer []byte
+
+	trashFunc func(pieceID storj.PieceID) error
+}
+
+func newTrashHandler(trashFunc func(pieceID storj.PieceID) error) *trashHandler {
+	return &trashHandler{
+		trashFunc: trashFunc,
+	}
+}
+
+func (t *trashHandler) Write(b []byte) (n int, err error) {
+	n = len(b)
+	t.lineBuffer = append(t.lineBuffer, b...)
+	for {
+		if b, err = t.writeLine(t.lineBuffer); err != nil {
+			return n, err
+		}
+		if len(b) == len(t.lineBuffer) {
+			break
+		}
+
+		t.lineBuffer = b
+	}
+
+	return n, nil
+}
+
+func (t *trashHandler) writeLine(b []byte) (remaining []byte, err error) {
+	idx := bytes.IndexByte(b, '\n')
+	if idx < 0 {
+		return b, nil
+	}
+
+	b, remaining = b[:idx], b[idx+1:]
+
+	return remaining, t.processTrashPiece(b)
+}
+
+func (t *trashHandler) processTrashPiece(b []byte) error {
+	var resp GCFilewalkerResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return err
+	}
+
+	if !resp.Completed {
+		for _, pieceID := range resp.PieceIDs {
+			return t.trashFunc(pieceID)
+		}
+	}
+
+	_, err := t.Buffer.Write(b)
+	return err
 }

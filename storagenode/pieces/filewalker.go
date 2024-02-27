@@ -87,7 +87,8 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	return satPiecesTotal, satPiecesContentSize, errFileWalker.Wrap(err)
 }
 
-// WalkSatellitePiecesToTrash returns a list of piece IDs that need to be trashed for the given satellite.
+// WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the
+// trash using the trashFunc provided
 //
 // ------------------------------------------------------------------------------------------------
 //
@@ -136,7 +137,7 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 // nontrivial amount, mtimes on existing blobs should also be adjusted (by the same interval,
 // ideally, but just running "touch" on all blobs is sufficient to avoid incorrect deletion of
 // data).
-func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
@@ -175,6 +176,12 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		}
 		if !mTime.Before(createdBefore) {
 			return nil
+		}
+
+		if trashFunc != nil {
+			if err := trashFunc(pieceID); err != nil {
+				return err
+			}
 		}
 
 		pieceIDs = append(pieceIDs, pieceID)
