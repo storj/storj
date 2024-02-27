@@ -68,42 +68,44 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		for _, paymentType := range chore.paymentTypes {
-			lastTransactionTime, lastTransactionMetadata, err := chore.transactionsDB.LastTransaction(ctx, paymentType.Source(), paymentType.Type())
-			if err != nil && !errs.Is(err, ErrNoTransactions) {
-				chore.log.Error("unable to determine timestamp of last transaction", zap.Error(ChoreErr.Wrap(err)))
-				continue
-			}
-			transactions, err := paymentType.GetNewTransactions(ctx, lastTransactionTime, lastTransactionMetadata)
-			if err != nil {
-				chore.log.Error("unable to get new billing transactions", zap.Error(ChoreErr.Wrap(err)))
-				continue
-			}
-			for _, transaction := range transactions {
-				if bonus, ok := prepareBonusTransaction(chore.bonusRate, paymentType.Source(), transaction); ok {
-					_, err = chore.transactionsDB.Insert(ctx, transaction, bonus)
-				} else {
-					_, err = chore.transactionsDB.Insert(ctx, transaction)
+			for _, source := range paymentType.Sources() {
+				lastTransactionTime, lastTransactionMetadata, err := chore.transactionsDB.LastTransaction(ctx, source, paymentType.Type())
+				if err != nil && !errs.Is(err, ErrNoTransactions) {
+					chore.log.Error("unable to determine timestamp of last transaction", zap.Error(ChoreErr.Wrap(err)))
+					continue
 				}
+				transactions, err := paymentType.GetNewTransactions(ctx, source, lastTransactionTime, lastTransactionMetadata)
 				if err != nil {
-					chore.log.Error("error storing transaction to db", zap.Error(ChoreErr.Wrap(err)))
-					// we need to halt storing transactions if one fails, so that it can be tried again on the next loop.
-					break
+					chore.log.Error("unable to get new billing transactions", zap.Error(ChoreErr.Wrap(err)))
+					continue
 				}
-
-				if chore.observers.UpgradeUser != nil {
-					err = chore.observers.UpgradeUser.Process(ctx, transaction)
-					if err != nil {
-						// we don't want to halt storing transactions if upgrade user observer fails
-						// because this chore is designed to store new transactions.
-						// So auto upgrading user is a side effect which shouldn't interrupt the main process.
-						chore.log.Error("error upgrading user", zap.Error(ChoreErr.Wrap(err)))
+				for _, transaction := range transactions {
+					if bonus, ok := prepareBonusTransaction(chore.bonusRate, source, transaction); ok {
+						_, err = chore.transactionsDB.Insert(ctx, transaction, bonus)
+					} else {
+						_, err = chore.transactionsDB.Insert(ctx, transaction)
 					}
-				}
-
-				if chore.observers.PayInvoices != nil {
-					err = chore.observers.PayInvoices.Process(ctx, transaction)
 					if err != nil {
-						chore.log.Error("error paying invoices", zap.Error(ChoreErr.Wrap(err)))
+						chore.log.Error("error storing transaction to db", zap.Error(ChoreErr.Wrap(err)))
+						// we need to halt storing transactions if one fails, so that it can be tried again on the next loop.
+						break
+					}
+
+					if chore.observers.UpgradeUser != nil {
+						err = chore.observers.UpgradeUser.Process(ctx, transaction)
+						if err != nil {
+							// we don't want to halt storing transactions if upgrade user observer fails
+							// because this chore is designed to store new transactions.
+							// So auto upgrading user is a side effect which shouldn't interrupt the main process.
+							chore.log.Error("error upgrading user", zap.Error(ChoreErr.Wrap(err)))
+						}
+					}
+
+					if chore.observers.PayInvoices != nil {
+						err = chore.observers.PayInvoices.Process(ctx, transaction)
+						if err != nil {
+							chore.log.Error("error paying invoices", zap.Error(ChoreErr.Wrap(err)))
+						}
 					}
 				}
 			}

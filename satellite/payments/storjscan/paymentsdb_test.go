@@ -30,6 +30,7 @@ func TestPaymentsDBInsertBatch(t *testing.T) {
 		var cachedPayments []storjscan.CachedPayment
 		for i := 0; i < 100; i++ {
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
+				ChainID:     1337,
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
@@ -302,6 +303,7 @@ type blockHeader struct {
 
 func (block blockHeader) NewPayment(log paymentLog, usdValue currency.Amount, status payments.PaymentStatus) storjscan.CachedPayment {
 	return storjscan.CachedPayment{
+		ChainID:     1337,
 		From:        log.From,
 		To:          log.To,
 		TokenValue:  currency.AmountFromBaseUnits(log.TokenValue.Int64(), currency.StorjToken),

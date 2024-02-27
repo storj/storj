@@ -2145,6 +2145,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		var cachedPayments []storjscan.CachedPayment
 		for i := 0; i < 10; i++ {
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
+				ChainID:     1337,
 				From:        blockchaintest.NewAddress(),
 				To:          wallet,
 				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),

@@ -23,6 +23,7 @@ var ErrService = errs.Class("storjscan service")
 type storjscanMetadata struct {
 	ReferenceID string
 	Wallet      string
+	ChainID     int64
 	BlockNumber int64
 	LogIndex    int
 }
@@ -166,9 +167,9 @@ func (service *Service) PaymentsWithConfirmations(ctx context.Context, wallet bl
 	return walletPayments, nil
 }
 
-// Source defines the billing transaction source for storjscan payments.
-func (service *Service) Source() string {
-	return billing.StorjScanSource
+// Sources defines the billing transaction sources for storjscan payments.
+func (service *Service) Sources() []string {
+	return []string{billing.StorjScanEthereumSource, billing.StorjScanZkSyncSource}
 }
 
 // Type defines the billing transaction type for storjscan payments.
@@ -176,8 +177,8 @@ func (service *Service) Type() billing.TransactionType {
 	return billing.TransactionTypeCredit
 }
 
-// GetNewTransactions returns the storjscan payments since the given block number and index as billing transactions type.
-func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, lastPaymentMetadata []byte) ([]billing.Transaction, error) {
+// GetNewTransactions returns the storjscan payments for a provided source since the given block number and index as a billing transactions type.
+func (service *Service) GetNewTransactions(ctx context.Context, source string, _ time.Time, lastPaymentMetadata []byte) ([]billing.Transaction, error) {
 
 	var latestMetadata storjscanMetadata
 	if lastPaymentMetadata == nil {
@@ -187,7 +188,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, las
 		return nil, err
 	}
 
-	newCachedPayments, err := service.paymentsDB.ListConfirmed(ctx, latestMetadata.BlockNumber, latestMetadata.LogIndex)
+	newCachedPayments, err := service.paymentsDB.ListConfirmed(ctx, source, latestMetadata.ChainID, latestMetadata.BlockNumber, latestMetadata.LogIndex)
 	if err != nil {
 		return []billing.Transaction{}, ErrService.Wrap(err)
 	}
@@ -203,6 +204,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, las
 		metadata, err := json.Marshal(storjscanMetadata{
 			ReferenceID: payment.Transaction.Hex(),
 			Wallet:      payment.To.Hex(),
+			ChainID:     payment.ChainID,
 			BlockNumber: payment.BlockNumber,
 			LogIndex:    payment.LogIndex,
 		})
@@ -215,7 +217,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, las
 			UserID:      userID,
 			Amount:      payment.USDValue,
 			Description: "Storj token deposit",
-			Source:      service.Source(),
+			Source:      source,
 			Status:      payments.PaymentStatusConfirmed,
 			Type:        service.Type(),
 			Metadata:    metadata,

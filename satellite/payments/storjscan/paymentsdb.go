@@ -31,8 +31,8 @@ type PaymentsDB interface {
 	LastBlocks(ctx context.Context, status payments.PaymentStatus) (map[int64]int64, error)
 	// DeletePending removes all pending transactions from the DB.
 	DeletePending(ctx context.Context) error
-	// ListConfirmed returns list of confirmed storjscan payments greater than the given timestamp.
-	ListConfirmed(ctx context.Context, blockNumber int64, logIndex int) ([]CachedPayment, error)
+	// ListConfirmed returns list of confirmed storjscan payments greater than the given timestamp from the specified source and chain.
+	ListConfirmed(ctx context.Context, source string, chainID, blockNumber int64, logIndex int) ([]CachedPayment, error)
 }
 
 // CachedPayment holds cached data of storjscan payment.

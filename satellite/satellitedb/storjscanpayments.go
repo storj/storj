@@ -14,6 +14,7 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -176,14 +177,22 @@ func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) er
 	return err
 }
 
-func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, blockNumber int64, logIndex int) (_ []storjscan.CachedPayment, err error) {
+func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, source string, chainID, blockNumber int64, logIndex int) (_ []storjscan.CachedPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: use DBX here
-	query := `SELECT block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
-              FROM storjscan_payments WHERE (storjscan_payments.block_number, storjscan_payments.log_index) > (?, ?) AND storjscan_payments.status = ?
-              ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
-	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	var chainIDs []int64
+	if chainID == 0 {
+		// new source, search across all associated chainIDs
+		chainIDs = billing.SourceChainIDs[source]
+	} else {
+		chainIDs = []int64{chainID}
+	}
+
+	// TODO: use DBX here and optimize this query
+	query := `SELECT chain_id, block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
+              FROM storjscan_payments WHERE chain_id = any($1::INT8[]) AND (storjscan_payments.block_number, storjscan_payments.log_index) > ($2, $3)
+              AND storjscan_payments.status = $4 ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
+	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +201,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, bl
 	var payments []storjscan.CachedPayment
 	for rows.Next() {
 		var payment dbx.StorjscanPayment
-		err = rows.Scan(&payment.BlockHash, &payment.BlockNumber, &payment.Transaction, &payment.LogIndex,
+		err = rows.Scan(&payment.ChainId, &payment.BlockHash, &payment.BlockNumber, &payment.Transaction, &payment.LogIndex,
 			&payment.FromAddress, &payment.ToAddress, &payment.TokenValue, &payment.UsdValue, &payment.Status, &payment.Timestamp)
 		if err != nil {
 			return nil, err
