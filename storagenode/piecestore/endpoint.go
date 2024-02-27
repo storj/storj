@@ -979,7 +979,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if queued {
 		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peer.ID))
 	} else {
-		endpoint.log.Info("Retain job not queued (job already exists)", zap.Stringer("Satellite ID", peer.ID))
+		endpoint.log.Info("Retain job not queued (queue is closed)", zap.Stringer("Satellite ID", peer.ID))
 	}
 
 	return &pb.RetainResponse{}, nil
