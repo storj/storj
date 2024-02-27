@@ -30,6 +30,7 @@ type Config struct {
 	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`
 	FreeTrialDuration               time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
+	VarPartners                     []string                  `help:"list of partners whose users will not see billing UI." default:""`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig
