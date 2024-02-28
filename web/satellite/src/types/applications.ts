@@ -24,7 +24,6 @@ import AtempoIcon from '@/assets/apps/atempo.png';
 import AcronisIcon from '@/assets/apps/acronis.png';
 import MountainDuckIcon from '@/assets/apps/mountainduck.png';
 import FileZillaIcon from '@/assets/apps/filezilla.svg';
-import GBLabsIcon from '@/assets/apps/gblabs.png';
 import AdSignalIcon from '@/assets/apps/adsignal.png';
 import OwnCloudIcon from '@/assets/apps/owncloud.png';
 import LivepeerIcon from '@/assets/apps/livepeer.png';
@@ -39,11 +38,9 @@ export enum AppCategory {
     All = 'All',
     FileManagement = 'File Management',
     BackupRecovery = 'Backup & Recovery',
-    ContentDistribution = 'Content Distribution',
-    CDN = 'CDN',
+    ContentDelivery = 'Content Delivery',
+    Scientific = 'Scientific',
     AI = 'AI',
-    Logs = 'Logs',
-    SocialMedia = 'Social Media',
 }
 
 export type Application = {
@@ -61,13 +58,6 @@ export const applications: Application[] = [
         category: AppCategory.BackupRecovery,
         src: TrueNASIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/ix-systems-truenas',
-    },
-    {
-        title: 'Nebula by GB Labs',
-        description: 'Cloud-based media storage solution powered by Storj. Work directly from the GB Labs Cloud with project files that are always in sync.',
-        category: AppCategory.FileManagement,
-        src: GBLabsIcon,
-        docs: 'https://www.storj.io/partner-solutions/gb-labs',
     },
     {
         title: 'Hammerspace',
@@ -93,7 +83,7 @@ export const applications: Application[] = [
     {
         title: 'Livepeer',
         description: 'Add live and on-demand video experiences by transcoding videos with Livepeer and storing your media with Storj.',
-        category: AppCategory.BackupRecovery,
+        category: AppCategory.ContentDelivery,
         src: LivepeerIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/livepeer',
     },
@@ -128,13 +118,13 @@ export const applications: Application[] = [
     {
         title: 'Splunk',
         description: 'Splunk is a data analytics platform that provides data-driven insights across all aspects of a company.',
-        category: AppCategory.Logs,
+        category: AppCategory.BackupRecovery,
         src: SplunkIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/splunk',
     },
     {
         title: 'Arq Backup',
-        description: 'Arq backs up your filesystem with perfect, point-in-time backups of your files.',
+        description: 'Arq backs up your filesystem with perfect, point-in-time back ups of your files.',
         category: AppCategory.BackupRecovery,
         src: ArqIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/arq',
@@ -163,7 +153,7 @@ export const applications: Application[] = [
     {
         title: 'Rucio',
         description: 'Organize, manage, and access your data at scale with Rucio, an open-source framework for scientific collaboration.',
-        category: AppCategory.FileManagement,
+        category: AppCategory.Scientific,
         src: RucioIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/rucio',
     },
@@ -191,28 +181,28 @@ export const applications: Application[] = [
     {
         title: 'Docker',
         description: 'Storj supports custom Content-Type for any key, so it can be used as a container registry to distribute container images.',
-        category: AppCategory.ContentDistribution,
+        category: AppCategory.ContentDelivery,
         src: DockerIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/docker',
     },
     {
         title: 'Pixelfed',
         description: 'Learn how to set up Pixelfed decentralized social media platform to Storj.',
-        category: AppCategory.SocialMedia,
+        category: AppCategory.ContentDelivery,
         src: PixelfedIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/pixelfed',
     },
     {
         title: 'Mastodon',
         description: 'Here is how you can set up Mastodon decentralized social media platform to Storj.',
-        category: AppCategory.SocialMedia,
+        category: AppCategory.ContentDelivery,
         src: MastodonIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/mastodon',
     },
     {
         title: 'Dataverse',
         description: 'S3 credentials allow Dataverse to upload and download files from Storj as if it was using the S3 API.',
-        category: AppCategory.FileManagement,
+        category: AppCategory.Scientific,
         src: DataverseIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/dataverse',
     },
@@ -224,7 +214,7 @@ export const applications: Application[] = [
         docs: 'https://docs.storj.io/dcs/third-party-tools/cyberduck',
     },
     {
-        title: 'Atempo',
+        title: 'Atempo (Miria)',
         description: 'Integrate with Storj to reduce storage costs without sacrificing security or performance for media archival with global access.',
         category: AppCategory.BackupRecovery,
         src: AtempoIcon,
@@ -240,14 +230,14 @@ export const applications: Application[] = [
     {
         title: 'Bunny CDN',
         description: 'Set up a static website hosting with Storj using Bunny CDN as a content delivery network providing a caching layer.',
-        category: AppCategory.CDN,
+        category: AppCategory.ContentDelivery,
         src: BunnyCDNIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/bunny',
     },
     {
         title: 'Fastly',
         description: 'Distribute your content among the Fastly edge cloud service using your Storj buckets as a source of content.',
-        category: AppCategory.CDN,
+        category: AppCategory.ContentDelivery,
         src: FastlyIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/fastly',
     },
@@ -261,7 +251,7 @@ export const applications: Application[] = [
     {
         title: 'Globus',
         description: 'Seamless collaboration and management for data transfer, sharing, and discovery, all into one unified open-source platform.',
-        category: AppCategory.FileManagement,
+        category: AppCategory.Scientific,
         src: GlobusIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/globus',
     },
