@@ -8,6 +8,7 @@ import { FrontendConfig, FrontendConfigApi } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { NavigationLink } from '@/types/navigation';
 import { RouteConfig } from '@/types/router';
+import { User } from '@/types/users';
 
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();
@@ -30,9 +31,14 @@ export const useConfigStore = defineStore('config', () => {
         return result;
     }
 
+    function getBillingEnabled(hasVarPartner: boolean): boolean {
+        return state.config.billingFeaturesEnabled && !hasVarPartner;
+    }
+
     return {
         state,
         firstOnboardingStep,
         getConfig,
+        getBillingEnabled,
     };
 });

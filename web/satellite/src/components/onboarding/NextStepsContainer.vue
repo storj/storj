@@ -87,7 +87,7 @@ function dismissOnboarding() {
 
 function getShouldShowPartnerBanner() {
     withLoading(async () => {
-        if (!configStore.state.config.billingFeaturesEnabled
+        if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)
         || !configStore.state.config.pricingPackagesEnabled
         || usersStore.noticeDismissal.partnerUpgradeBanner) {
             return;

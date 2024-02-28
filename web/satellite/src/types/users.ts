@@ -110,6 +110,7 @@ export class User {
         public _createdAt: string | null = null,
         public pendingVerification: boolean = false,
         public trialExpiration: Date | null = null,
+        public hasVarPartner: boolean = false,
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) { }

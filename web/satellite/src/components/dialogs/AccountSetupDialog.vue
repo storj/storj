@@ -185,7 +185,7 @@ onBeforeMount(() => {
             return;
         }
 
-        if (configStore.state.config.billingFeaturesEnabled) {
+        if (configStore.getBillingEnabled(userStore.state.user.hasVarPartner)) {
             const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
             if (pricingPkgsEnabled && userStore.state.user.partner) {
                 try {

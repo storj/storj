@@ -266,6 +266,7 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.createdAt,
                 userResponse.pendingVerification,
                 userResponse.trialExpiration ? new Date(userResponse.trialExpiration) : null,
+                userResponse.hasVarPartner,
             );
         }
 
