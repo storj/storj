@@ -24,7 +24,6 @@ import AtempoIcon from '@/assets/apps/atempo.png';
 import AcronisIcon from '@/assets/apps/acronis.png';
 import MountainDuckIcon from '@/assets/apps/mountainduck.png';
 import FileZillaIcon from '@/assets/apps/filezilla.svg';
-import AdSignalIcon from '@/assets/apps/adsignal.png';
 import OwnCloudIcon from '@/assets/apps/owncloud.png';
 import LivepeerIcon from '@/assets/apps/livepeer.png';
 import BunnyCDNIcon from '@/assets/apps/bunnycdn.png';
@@ -65,13 +64,6 @@ export const applications: Application[] = [
         category: AppCategory.FileManagement,
         src: HammerspaceIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/hammerspace',
-    },
-    {
-        title: 'Ad Signal Match',
-        description: 'Deduplicate assets and save on AI costs with Ad Signal Match. Transfer only your unique content to Storj.',
-        category: AppCategory.FileManagement,
-        src: AdSignalIcon,
-        docs: 'https://www.storj.io/partner-solutions/ad-signal',
     },
     {
         title: 'OwnCloud',
