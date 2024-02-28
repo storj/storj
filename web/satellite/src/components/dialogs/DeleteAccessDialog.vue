@@ -37,12 +37,17 @@
 
             <v-divider />
 
-            <div class="pa-7">
-                The following access key{{ accessNames.length > 1 ? 's' : '' }}
-                will be deleted. Any publicly shared links using
-                {{ accessNames.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
-                <br><br>
-                <p v-for="accessName of accessNames" :key="accessName" class="font-weight-bold">{{ accessName }}</p>
+            <div class="px-7 py-6">
+                <p class="mb-3">
+                    The following access key{{ accessNames.length > 1 ? 's' : '' }}
+                    will be deleted. Any publicly shared links using
+                    {{ accessNames.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
+                </p>
+                <p v-for="accessName of accessNames" :key="accessName" class="mt-2">
+                    <v-chip :title="accessName" class="font-weight-bold text-wrap h-100 py-2">
+                        {{ accessName }}
+                    </v-chip>
+                </p>
             </div>
 
             <v-divider />

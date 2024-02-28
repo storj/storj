@@ -109,7 +109,7 @@
                                 <icon-upgrade size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-3">
-                                Upgrade to Pro
+                                Upgrade
                             </v-list-item-title>
                         </v-list-item>
 

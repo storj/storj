@@ -155,7 +155,7 @@ async function onDownloadClick(): Promise<void> {
         await obStore.download(props.file);
         notify.success(
             () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
-            'Download Started',
+            'Download started',
         );
     } catch (error) {
         error.message = `Error downloading file. ${error.message}`;

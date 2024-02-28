@@ -46,8 +46,8 @@
                         </v-alert>
                     </v-col>
                     <v-col cols="12">
-                        <p class="text-subtitle-2 font-weight-bold mb-3">Share via</p>
-                        <v-chip-group class="ma-n2" column>
+                        <p class="text-subtitle-2 font-weight-bold mb-1">Share via</p>
+                        <v-chip-group class="mx-n1" column>
                             <v-chip
                                 v-for="opt in ShareOptions"
                                 :key="opt"
@@ -56,7 +56,7 @@
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 link
-                                class="ma-2 font-weight-medium"
+                                class="ma-1 font-weight-medium"
                             >
                                 <component
                                     :is="SHARE_BUTTON_CONFIGS[opt].icon"

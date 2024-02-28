@@ -40,12 +40,11 @@
             <div class="pa-7">
                 <img id="Map" class="w-100" :src="mapURL" alt="map">
                 <p class="font-weight-bold my-4">
-                    You're getting this file from all over the world on the Storj network.
+                    This map shows the real-time locations of this file’s pieces.
                 </p>
                 <p>
-                    Storj Decentralized Cloud Storage splits files into smaller pieces, then distributes those pieces
-                    over a global network of Nodes and recompiles them securely on download. This map shows the
-                    real-time locations of this file’s pieces.
+                    Storj splits files into smaller pieces, then distributes those pieces
+                    over a global network of nodes and recompiles them securely on download. 
                 </p>
             </div>
 

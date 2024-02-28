@@ -35,10 +35,13 @@
 
             <v-divider />
 
-            <div class="pa-7">
-                The following {{ fileTypes }}<template v-if="isFolder">, and all contained data</template> will be deleted. This action cannot be undone.
-                <br><br>
-                <p v-for="file of files" :key="file.path + file.Key" class="font-weight-bold">{{ file.path + file.Key }}</p>
+            <div class="px-7 py-6">
+                <p class="mb-3">The following {{ fileTypes }}<template v-if="isFolder">, and all contained data</template> will be deleted. This action cannot be undone.</p>
+                <p v-for="file of files" :key="file.path + file.Key" class="mt-2">
+                    <v-chip :title="file.path + file.Key" class="font-weight-bold text-wrap h-100 py-2">
+                        {{ file.path + file.Key }}
+                    </v-chip>
+                </p>
             </div>
 
             <v-divider />

@@ -4,7 +4,7 @@
 <template>
     <p class="mb-4">
         By saving your card information, you allow Storj to charge your card for future payments in accordance with
-        the terms.
+        the <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>.
     </p>
 
     <StripeCardElement

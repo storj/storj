@@ -39,7 +39,7 @@
                 </span>
             </template>
             <template #item.createdAt="{ item }">
-                <span>
+                <span class="text-no-wrap">
                     {{ item.createdAt.toLocaleString() }}
                 </span>
             </template>

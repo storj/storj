@@ -35,7 +35,7 @@
                     <template #prepend>
                         <icon-upgrade size="20" />
                     </template>
-                    <v-list-item-title class="ml-3">Upgrade to Pro</v-list-item-title>
+                    <v-list-item-title class="ml-3">Upgrade</v-list-item-title>
                 </v-list-item>
 
                 <!-- Account Billing -->
