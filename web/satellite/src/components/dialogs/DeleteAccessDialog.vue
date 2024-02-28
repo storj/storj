@@ -83,6 +83,7 @@ import {
     VRow,
     VCol,
     VBtn,
+    VChip,
 } from 'vuetify/components';
 
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';

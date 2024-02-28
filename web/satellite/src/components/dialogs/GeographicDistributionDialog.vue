@@ -44,7 +44,7 @@
                 </p>
                 <p>
                     Storj splits files into smaller pieces, then distributes those pieces
-                    over a global network of nodes and recompiles them securely on download. 
+                    over a global network of nodes and recompiles them securely on download.
                 </p>
             </div>
 

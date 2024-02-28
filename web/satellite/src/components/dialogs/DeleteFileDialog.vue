@@ -77,6 +77,7 @@ import {
     VRow,
     VCol,
     VBtn,
+    VChip,
 } from 'vuetify/components';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
