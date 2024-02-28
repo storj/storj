@@ -32,6 +32,11 @@ import FastlyIcon from '@/assets/apps/fastly.jpg';
 import GlobusIcon from '@/assets/apps/globus.png';
 import HuggingFaceIcon from '@/assets/apps/huggingface.svg';
 import KerberosIcon from '@/assets/apps/kerberos.png';
+import RcloneIcon from '@/assets/apps/rclone.png';
+import UpdraftPlusIcon from '@/assets/apps/updraftplus.png';
+import DuplicatiIcon from '@/assets/apps/duplicati.png';
+import ResticIcon from '@/assets/apps/restic.png';
+import StarfishIcon from '@/assets/apps/starfish.png';
 
 export enum AppCategory {
     All = 'All',
@@ -120,6 +125,13 @@ export const applications: Application[] = [
         category: AppCategory.BackupRecovery,
         src: ArqIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/arq',
+    },
+    {
+        title: 'Rclone',
+        description: 'Open source command-line program designed to sync, backup, restore, mirror, migrate, mount, and analyze your cloud storage.',
+        category: AppCategory.BackupRecovery,
+        src: RcloneIcon,
+        docs: 'https://docs.storj.io/dcs/third-party-tools/rclone',
     },
     {
         title: 'Zerto',
@@ -267,5 +279,33 @@ export const applications: Application[] = [
         category: AppCategory.FileManagement,
         src: KerberosIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/kerberos-vault',
+    },
+    {
+        title: 'UpdraftPlus',
+        description: 'Automatically backup your Wordpress site and use Storj as a remote storage destination.',
+        category: AppCategory.BackupRecovery,
+        src: UpdraftPlusIcon,
+        docs: 'https://docs.storj.io/dcs/third-party-tools/wordpress-site-with-updraftplus',
+    },
+    {
+        title: 'Duplicati',
+        description: 'Free and open source backup client to store encrypted, incremental, compressed backups to Storj.',
+        category: AppCategory.BackupRecovery,
+        src: DuplicatiIcon,
+        docs: 'https://docs.storj.io/dcs/third-party-tools/duplicati',
+    },
+    {
+        title: 'Restic',
+        description: 'Highly secure and efficient command-line backup tool that is free to use and completely open source.',
+        category: AppCategory.BackupRecovery,
+        src: ResticIcon,
+        docs: 'https://docs.storj.io/dcs/third-party-tools/restic',
+    },
+    {
+        title: 'Starfish',
+        description: 'Unstructured data management and metadata for files and objects. Integrate with Storj for large-scale file management.',
+        category: AppCategory.FileManagement,
+        src: StarfishIcon,
+        docs: 'https://docs.storj.io/dcs/third-party-tools/starfish',
     },
 ];
