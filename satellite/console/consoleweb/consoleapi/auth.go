@@ -533,9 +533,10 @@ func loadSession(req *http.Request) string {
 // GetFreezeStatus checks to see if an account is frozen or warned.
 func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
-		Frozen          bool `json:"frozen"`
-		Warned          bool `json:"warned"`
-		ViolationFrozen bool `json:"violationFrozen"`
+		Frozen             bool `json:"frozen"`
+		Warned             bool `json:"warned"`
+		ViolationFrozen    bool `json:"violationFrozen"`
+		TrialExpiredFrozen bool `json:"trialExpiredFrozen"`
 	}
 
 	ctx := r.Context()
@@ -556,9 +557,10 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(FrozenResult{
-		Frozen:          freezes.BillingFreeze != nil,
-		Warned:          freezes.BillingWarning != nil,
-		ViolationFrozen: freezes.ViolationFreeze != nil,
+		Frozen:             freezes.BillingFreeze != nil,
+		Warned:             freezes.BillingWarning != nil,
+		ViolationFrozen:    freezes.ViolationFreeze != nil,
+		TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
 	})
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
@@ -614,25 +616,26 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID                    uuid.UUID `json:"id"`
-		FullName              string    `json:"fullName"`
-		ShortName             string    `json:"shortName"`
-		Email                 string    `json:"email"`
-		Partner               string    `json:"partner"`
-		ProjectLimit          int       `json:"projectLimit"`
-		ProjectStorageLimit   int64     `json:"projectStorageLimit"`
-		ProjectBandwidthLimit int64     `json:"projectBandwidthLimit"`
-		ProjectSegmentLimit   int64     `json:"projectSegmentLimit"`
-		IsProfessional        bool      `json:"isProfessional"`
-		Position              string    `json:"position"`
-		CompanyName           string    `json:"companyName"`
-		EmployeeCount         string    `json:"employeeCount"`
-		HaveSalesContact      bool      `json:"haveSalesContact"`
-		PaidTier              bool      `json:"paidTier"`
-		MFAEnabled            bool      `json:"isMFAEnabled"`
-		MFARecoveryCodeCount  int       `json:"mfaRecoveryCodeCount"`
-		CreatedAt             time.Time `json:"createdAt"`
-		PendingVerification   bool      `json:"pendingVerification"`
+		ID                    uuid.UUID  `json:"id"`
+		FullName              string     `json:"fullName"`
+		ShortName             string     `json:"shortName"`
+		Email                 string     `json:"email"`
+		Partner               string     `json:"partner"`
+		ProjectLimit          int        `json:"projectLimit"`
+		ProjectStorageLimit   int64      `json:"projectStorageLimit"`
+		ProjectBandwidthLimit int64      `json:"projectBandwidthLimit"`
+		ProjectSegmentLimit   int64      `json:"projectSegmentLimit"`
+		IsProfessional        bool       `json:"isProfessional"`
+		Position              string     `json:"position"`
+		CompanyName           string     `json:"companyName"`
+		EmployeeCount         string     `json:"employeeCount"`
+		HaveSalesContact      bool       `json:"haveSalesContact"`
+		PaidTier              bool       `json:"paidTier"`
+		MFAEnabled            bool       `json:"isMFAEnabled"`
+		MFARecoveryCodeCount  int        `json:"mfaRecoveryCodeCount"`
+		CreatedAt             time.Time  `json:"createdAt"`
+		PendingVerification   bool       `json:"pendingVerification"`
+		TrialExpiration       *time.Time `json:"trialExpiration"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -662,6 +665,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt
 	user.PendingVerification = consoleUser.Status == console.PendingBotVerification
+	user.TrialExpiration = consoleUser.TrialExpiration
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
