@@ -62,6 +62,7 @@ type FrontendConfig struct {
 	EmissionImpactViewEnabled       bool                  `json:"emissionImpactViewEnabled"`
 	ApplicationsPageEnabled         bool                  `json:"applicationsPageEnabled"`
 	VarPartners                     []string              `json:"varPartners"`
+	DaysBeforeTrialEndNotification  int                   `json:"daysBeforeTrialEndNotification"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

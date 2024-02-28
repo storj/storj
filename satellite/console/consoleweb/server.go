@@ -106,6 +106,7 @@ type Config struct {
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
 	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
+	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -760,6 +761,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
 		VarPartners:                     server.config.VarPartners,
+		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
