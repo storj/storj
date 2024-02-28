@@ -109,6 +109,7 @@ export class User {
         public mfaRecoveryCodeCount: number = 0,
         public _createdAt: string | null = null,
         public pendingVerification: boolean = false,
+        public trialExpiration: Date | null = null,
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) { }
@@ -127,6 +128,25 @@ export class User {
     public getFullName(): string {
         return !this.shortName ? this.fullName : this.shortName;
     }
+
+    public getExpirationInfo(daysBeforeNotify: number): ExpirationInfo {
+        if (!this.trialExpiration) return { isCloseToExpiredTrial: false, days: 0 };
+
+        const now = new Date();
+        const diff = this.trialExpiration.getTime() - now.getTime();
+        const millisecondsInDay = 24 * 60 * 60 * 1000;
+        const daysBeforeNotifyInMilliseconds = daysBeforeNotify * millisecondsInDay;
+
+        return {
+            isCloseToExpiredTrial: diff > 0 && diff < daysBeforeNotifyInMilliseconds,
+            days: Math.round(Math.abs(diff) / millisecondsInDay),
+        };
+    }
+}
+
+export type ExpirationInfo = {
+    isCloseToExpiredTrial: boolean;
+    days: number;
 }
 
 /**
@@ -230,6 +250,7 @@ export class FreezeStatus {
     public constructor(
         public frozen = false,
         public warned = false,
+        public trialExpiredFrozen = false,
     ) { }
 }
 

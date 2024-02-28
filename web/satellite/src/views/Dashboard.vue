@@ -3,6 +3,8 @@
 
 <template>
     <v-container class="pb-15">
+        <trial-expiration-banner v-if="trialExpirationBanner" :expired="user.freezeStatus.trialExpiredFrozen" />
+
         <next-steps-container />
 
         <low-token-balance-banner
@@ -293,6 +295,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
+import { User } from '@/types/users';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -312,6 +315,7 @@ import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 type ValueUnit = {
     value: number
@@ -340,6 +344,22 @@ const isCreateBucketDialogShown = ref<boolean>(false);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed<User>(() => usersStore.state.user);
+
+/**
+ * Indicates if trial expiration banner is shown.
+ */
+const trialExpirationBanner = computed<boolean>(() => {
+    if (user.value.paidTier) return false;
+
+    const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
+
+    return user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial;
+});
 
 /**
  * Returns formatted CO2 estimated info.

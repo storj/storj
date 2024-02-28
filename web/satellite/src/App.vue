@@ -4,7 +4,14 @@
 <template>
     <branded-loader v-if="isLoading" />
     <ErrorPage v-else-if="isErrorPageShown" />
-    <router-view v-else />
+    <template v-else>
+        <router-view />
+        <trial-expiration-dialog
+            v-if="!user.paidTier"
+            v-model="isTrialExpirationDialogShown"
+            :expired="user.freezeStatus.trialExpiredFrozen"
+        />
+    </template>
     <Notifications />
 </template>
 
@@ -26,10 +33,12 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
 import { ROUTES } from '@/router';
+import { User } from '@/types/users';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
 import BrandedLoader from '@/components/utils/BrandedLoader.vue';
+import TrialExpirationDialog from '@/components/dialogs/TrialExpirationDialog.vue';
 
 const appStore = useAppStore();
 const abTestingStore = useABTestingStore();
@@ -45,6 +54,7 @@ const theme = useTheme();
 const route = useRoute();
 
 const isLoading = ref<boolean>(true);
+const isTrialExpirationDialogShown = ref<boolean>(false);
 
 /**
  * Indicates whether an error page should be shown in place of the router view.
@@ -57,6 +67,11 @@ const isErrorPageShown = computed<boolean>((): boolean => {
  * Indicates if billing features are enabled.
  */
 const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed<User>(() => usersStore.state.user);
 
 /**
  * Sets up the app by fetching all necessary data.
@@ -134,7 +149,16 @@ onBeforeMount(async (): Promise<void> => {
 
 usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
-        after((_) => setup());
+        after((_) => {
+            setup().then(() => {
+                if (user.value.paidTier) return;
+
+                const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
+                if (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial) {
+                    isTrialExpirationDialogShown.value = true;
+                }
+            });
+        });
     }
 });
 
