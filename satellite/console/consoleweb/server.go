@@ -338,6 +338,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
+		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners)
+		paymentsRouter.Use(varBlocker.withVarBlocker)
 		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
@@ -645,6 +647,42 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, path, info.ModTime(), file)
 }
 
+// varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
+type varBlockerMiddleWare struct {
+	partners map[string]struct{}
+	server   *Server
+}
+
+// newVarBlockerMiddleWare creates a new instance of varBlocker.
+func newVarBlockerMiddleWare(server *Server, varPartners []string) *varBlockerMiddleWare {
+	partners := make(map[string]struct{}, len(varPartners))
+	for _, partner := range varPartners {
+		partners[partner] = struct{}{}
+	}
+	return &varBlockerMiddleWare{
+		partners: partners,
+		server:   server,
+	}
+}
+
+// withVarBlocker blocks requests from VAR partners.
+func (v *varBlockerMiddleWare) withVarBlocker(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		user, err := console.GetUser(ctx)
+		if _, ok := v.partners[string(user.UserAgent)]; ok {
+			web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, errs.New("VAR Partner not supported"))
+			return
+		}
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
+}
+
 // withCORS handles setting CORS-related headers on an http request.
 func (server *Server) withCORS(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -760,7 +798,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EnableRegionTag:                 server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
-		VarPartners:                     server.config.VarPartners,
 		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
 	}
 

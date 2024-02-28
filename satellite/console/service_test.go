@@ -61,6 +61,7 @@ func TestService(t *testing.T) {
 					plcStr += fmt.Sprintf(`%d:annotation("location", "%s"); `, k, v)
 				}
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
+				config.Console.VarPartners = []string{"partner1"}
 			},
 		},
 	},
@@ -99,6 +100,37 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				return
 			}
+
+			t.Run("GetUserHasVarPartner", func(t *testing.T) {
+				varUser, err := sat.AddUser(ctx, console.CreateUser{
+					FullName:  "Var User",
+					Email:     "var@storj.test",
+					Password:  "password",
+					UserAgent: []byte("partner1"),
+				}, 1)
+				require.NoError(t, err)
+
+				varUserCtx, err := sat.UserContext(ctx, varUser.ID)
+				require.NoError(t, err)
+
+				has, err := service.GetUserHasVarPartner(varUserCtx)
+				require.NoError(t, err)
+				require.True(t, has)
+
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Regular User",
+					Email:    "reg@storj.test",
+					Password: "password",
+				}, 1)
+				require.NoError(t, err)
+
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				has, err = service.GetUserHasVarPartner(userCtx)
+				require.NoError(t, err)
+				require.False(t, has)
+			})
 
 			t.Run("GetProject", func(t *testing.T) {
 				// Getting own project details should work
@@ -2575,6 +2607,11 @@ func (v *EmailVerifier) FromAddress() post.Address {
 func TestProjectInvitations(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.VarPartners = []string{"partner1"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -2733,6 +2770,23 @@ func TestProjectInvitations(t *testing.T) {
 			body, err := sender.Data.Get(ctx)
 			require.NoError(t, err)
 			require.Contains(t, body, "/activation")
+
+			varUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName:  "Test User",
+				Email:     fmt.Sprintf("%s@mail.test", testrand.RandAlphaNumeric(16)),
+				UserAgent: []byte("partner1"),
+			}, 1)
+			require.NoError(t, err)
+			varCtx, err := sat.UserContext(ctx, varUser.ID)
+			require.NoError(t, err)
+
+			varProj, err := sat.AddProject(varCtx, varUser.ID, "Test Project")
+			require.NoError(t, err)
+
+			// inviting as a var-partner user should fail when config.FreeTierInvitesEnabled is false.
+			invite, err = service.InviteNewProjectMember(varCtx, varProj.ID, user2.Email)
+			require.True(t, console.ErrHasVarPartner.Has(err))
+			require.Nil(t, invite)
 		})
 
 		t.Run("get invitation", func(t *testing.T) {

@@ -61,7 +61,6 @@ type FrontendConfig struct {
 	EnableRegionTag                 bool                  `json:"enableRegionTag"`
 	EmissionImpactViewEnabled       bool                  `json:"emissionImpactViewEnabled"`
 	ApplicationsPageEnabled         bool                  `json:"applicationsPageEnabled"`
-	VarPartners                     []string              `json:"varPartners"`
 	DaysBeforeTrialEndNotification  int                   `json:"daysBeforeTrialEndNotification"`
 }
 

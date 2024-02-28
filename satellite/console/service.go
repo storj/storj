@@ -84,7 +84,7 @@ const (
 	activeProjInviteExistsErrMsg         = "An active invitation for '%s' already exists"
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
-	newInviteLimitErrMsg                 = "Only one new invitation can be sent at a time"
+	varPartnerInviteErr                  = "Your partner does not support inviting users"
 	paidTierInviteErrMsg                 = "Only paid tier users can invite project members"
 	contactSupportErrMsg                 = "Please contact support"
 )
@@ -166,6 +166,9 @@ var (
 	// ErrNotPaidTier occurs when a user must be paid tier in order to complete an operation.
 	ErrNotPaidTier = errs.Class("user is not paid tier")
 
+	// ErrHasVarPartner occurs when a user's user agent is a var partner for which an operation is not allowed.
+	ErrHasVarPartner = errs.Class("VAR Partner")
+
 	// ErrBotUser occurs when a user must be verified by admin first in order to complete operation.
 	ErrBotUser = errs.Class("user has to be verified by admin first")
 
@@ -200,6 +203,8 @@ type Service struct {
 
 	config            Config
 	maxProjectBuckets int
+
+	varPartners map[string]struct{}
 
 	nowFn func() time.Time
 }
@@ -250,6 +255,11 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		loginCaptchaHandler = NewDefaultCaptcha(Hcaptcha, config.Captcha.Login.Hcaptcha.SecretKey)
 	}
 
+	partners := make(map[string]struct{}, len(config.VarPartners))
+	for _, partner := range config.VarPartners {
+		partners[partner] = struct{}{}
+	}
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -273,6 +283,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		satelliteName:              satelliteName,
 		maxProjectBuckets:          maxProjectBuckets,
 		config:                     config,
+		varPartners:                partners,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -1498,6 +1509,20 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 	}
 
 	return verified, unverified, err
+}
+
+// GetUserHasVarPartner returns whether the user in context is associated with a VAR partner.
+func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get user has VAR partner")
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	if _, has = s.varPartners[string(user.UserAgent)]; has {
+		return has, nil
+	}
+	return false, nil
 }
 
 // UpdateAccount updates User.
@@ -4080,6 +4105,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	projectID = isMember.project.ID
 
 	if s.config.BillingFeaturesEnabled && !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
+		if _, ok := s.varPartners[string(sender.UserAgent)]; ok {
+			return nil, ErrHasVarPartner.New(varPartnerInviteErr)
+		}
 		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
 	}
 
