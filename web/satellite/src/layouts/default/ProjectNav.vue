@@ -149,7 +149,7 @@
                 </template>
             </navigation-item>
 
-            <navigation-item v-if="isAppsPage" :title="ROUTES.Applications.name" :to="appsURL" @click="() => registerLinkClick(ROUTES.ApplicationsAnalyticsLink)">
+            <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="() => registerLinkClick(ROUTES.ApplicationsAnalyticsLink)">
                 <template #prepend>
                     <IconApplications />
                 </template>
