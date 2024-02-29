@@ -48,6 +48,21 @@ func TestPeriodToTime(t *testing.T) {
 	}
 }
 
+func TestPeriodToTime_Invalid(t *testing.T) {
+	testCases := [...]struct {
+		period string
+		error  string
+	}{
+		{"", "invalid period \"\""},
+		{"2020", "invalid period \"2020\""},
+	}
+
+	for _, tc := range testCases {
+		_, err := date.PeriodToTime(tc.period)
+		require.ErrorContains(t, err, tc.error)
+	}
+}
+
 func TestMonthsBetweenDates(t *testing.T) {
 	testCases := [...]struct {
 		from         time.Time
