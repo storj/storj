@@ -51,6 +51,7 @@ type Auth struct {
 	ActivateAccountURL        string
 	ActivationCodeEnabled     bool
 	SatelliteName             string
+	badPasswords              map[string]struct{}
 	service                   *console.Service
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
@@ -59,7 +60,7 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -77,6 +78,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		mailService:               mailService,
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
+		badPasswords:              badPasswords,
 	}
 }
 
@@ -244,6 +246,14 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if !isValidEmail {
 		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
 		return
+	}
+
+	if a.badPasswords != nil {
+		_, exists := a.badPasswords[registerData.Password]
+		if exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
 	}
 
 	if len([]rune(registerData.Partner)) > 100 {
@@ -698,6 +708,14 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if a.badPasswords != nil {
+		_, exists := a.badPasswords[passwordChange.NewPassword]
+		if exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
+	}
+
 	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -1049,6 +1067,14 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&resetPassword)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
+	}
+
+	if a.badPasswords != nil {
+		_, exists := a.badPasswords[resetPassword.NewPassword]
+		if exists {
+			a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("The password you chose is on a list of insecure or breached passwords. Please choose a different one.")))
+			return
+		}
 	}
 
 	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
