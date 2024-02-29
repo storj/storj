@@ -3,19 +3,19 @@
 
 <template>
     <v-col cols="12" md="6" lg="6" xl="3">
-        <v-card class="px-2 py-4">
+        <v-card class="px-2 py-4 h-100 align-content-space-between">
             <v-card-item class="pb-0">
                 <img :src="app.src" :alt="app.title" width="42" class="rounded">
             </v-card-item>
 
             <v-card-item>
-                <v-chip size="small" variant="tonal" color="default" class="mb-3 font-weight-medium" rounded>
+                <v-chip size="small" variant="tonal" color="default" class="mb-2" rounded>
                     {{ app.category }}
                 </v-chip>
                 <h3 class="mb-1">
                     {{ app.title }}
                 </h3>
-                <p class="mt-1 text-medium-emphasis">
+                <p class="mt-1 text-high-emphasis">
                     {{ app.description }}
                 </p>
             </v-card-item>

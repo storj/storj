@@ -18,7 +18,7 @@ enum RouteName {
     Dashboard = 'Dashboard',
     Buckets = 'Buckets',
     Bucket = 'Bucket',
-    Access = 'Access',
+    Access = 'Access Keys',
     Team = 'Team',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',

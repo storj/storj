@@ -16,8 +16,8 @@
             <v-col cols="12" md="auto">
                 <PageTitleComponent title="Project Dashboard" />
                 <PageSubtitleComponent
-                    :subtitle="`${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
-                    link="https://docs.storj.io/dcs/pricing#per-segment-fee"
+                    subtitle="View your project statistics, check daily usage, and set project limits."
+                    link="https://docs.storj.io/support/projects"
                 />
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">

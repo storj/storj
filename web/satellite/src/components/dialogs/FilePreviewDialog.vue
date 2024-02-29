@@ -24,6 +24,7 @@
                         <v-tooltip
                             activator="parent"
                             location="bottom"
+                            theme="light"
                         >
                             Download
                         </v-tooltip>
@@ -33,6 +34,7 @@
                         <v-tooltip
                             activator="parent"
                             location="bottom"
+                            theme="light"
                         >
                             Share
                         </v-tooltip>
@@ -42,6 +44,7 @@
                         <v-tooltip
                             activator="parent"
                             location="bottom"
+                            theme="light"
                         >
                             Geographic Distribution
                         </v-tooltip>
@@ -51,11 +54,12 @@
                         <v-tooltip
                             activator="parent"
                             location="bottom"
+                            theme="light"
                         >
                             More
                         </v-tooltip>
                         <v-menu activator="parent">
-                            <v-list class="pa-1">
+                            <v-list class="pa-1" theme="light">
                                 <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="onDeleteFileClick">
                                     <template #prepend>
                                         <icon-trash bold />
@@ -72,6 +76,7 @@
                         <v-tooltip
                             activator="parent"
                             location="bottom"
+                            theme="light"
                         >
                             Close
                         </v-tooltip>
@@ -240,7 +245,7 @@ async function download(): Promise<void> {
         await obStore.download(currentFile.value);
         notify.success(
             () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
-            'Download Started',
+            'Download started',
         );
     } catch (error) {
         error.message = `Error downloading file. ${error.message}`;

@@ -53,7 +53,9 @@
             </template>
 
             <template #item.createdAt="{ item }">
-                {{ getFormattedDate(item.createdAt) }}
+                <span class="text-no-wrap">
+                    {{ getFormattedDate(item.createdAt) }}
+                </span>
             </template>
 
             <template #item.actions="{ item }">
