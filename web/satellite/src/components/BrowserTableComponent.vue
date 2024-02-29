@@ -78,7 +78,7 @@
                     </template>
 
                     <template #item.date="{ item }: ItemSlotProps">
-                        {{ getFormattedDate(item.browserObject) }}
+                        <span class="text-no-wrap">{{ getFormattedDate(item.browserObject) }}</span>
                     </template>
 
                     <template #item.actions="{ item }: ItemSlotProps">
