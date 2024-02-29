@@ -314,6 +314,7 @@ read limitoffset (
 read first (
 	select storjscan_payment.block_number
 	where storjscan_payment.status = ?
+	where storjscan_payment.chain_id = ?
 	orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
 )
 

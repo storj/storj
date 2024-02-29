@@ -15190,15 +15190,16 @@ func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_D
 
 }
 
-func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
-	storjscan_payment_status StorjscanPayment_Status_Field) (
+func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+	storjscan_payment_status StorjscanPayment_Status_Field,
+	storjscan_payment_chain_id StorjscanPayment_ChainId_Field) (
 	row *BlockNumber_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? AND storjscan_payments.chain_id = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
-	__values = append(__values, storjscan_payment_status.value())
+	__values = append(__values, storjscan_payment_status.value(), storjscan_payment_chain_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -23767,15 +23768,16 @@ func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_
 
 }
 
-func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
-	storjscan_payment_status StorjscanPayment_Status_Field) (
+func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+	storjscan_payment_status StorjscanPayment_Status_Field,
+	storjscan_payment_chain_id StorjscanPayment_ChainId_Field) (
 	row *BlockNumber_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? AND storjscan_payments.chain_id = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
-	__values = append(__values, storjscan_payment_status.value())
+	__values = append(__values, storjscan_payment_status.value(), storjscan_payment_chain_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -30027,8 +30029,9 @@ type Methods interface {
 		reverification_audits_node_id ReverificationAudits_NodeId_Field) (
 		reverification_audits *ReverificationAudits, err error)
 
-	First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
-		storjscan_payment_status StorjscanPayment_Status_Field) (
+	First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+		storjscan_payment_status StorjscanPayment_Status_Field,
+		storjscan_payment_chain_id StorjscanPayment_ChainId_Field) (
 		row *BlockNumber_Row, err error)
 
 	Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,

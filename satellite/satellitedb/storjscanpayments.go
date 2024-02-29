@@ -103,7 +103,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 	return err
 }
 
-// List returns list of storjscan payments order by block number and log index desc.
+// List returns list of storjscan payments order by chain ID block number and log index desc.
 func (storjscanPayments *storjscanPayments) List(ctx context.Context) (_ []storjscan.CachedPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -120,7 +120,7 @@ func (storjscanPayments *storjscanPayments) List(ctx context.Context) (_ []storj
 	return payments, nil
 }
 
-// ListWallet returns list of storjscan payments order by block number and log index desc.
+// ListWallet returns list of storjscan payments order by Chain ID block number and log index desc.
 func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]storjscan.CachedPayment, error) {
 	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_Desc_BlockNumber_Desc_LogIndex(ctx,
 		dbx.StorjscanPayment_ToAddress(wallet[:]),
@@ -135,7 +135,7 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 	return convertSliceNoError(dbxPmnts, fromDBXPayment), nil
 }
 
-// LastBlocks returns the highest blocks known to DB.
+// LastBlocks returns the highest blocks known to DB per chain.
 func (storjscanPayments *storjscanPayments) LastBlocks(ctx context.Context, status payments.PaymentStatus) (_ map[int64]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rows, err := storjscanPayments.db.QueryContext(ctx, `SELECT DISTINCT chain_id FROM storjscan_payments where status = $1`, string(status))
@@ -153,8 +153,9 @@ func (storjscanPayments *storjscanPayments) LastBlocks(ctx context.Context, stat
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		latestBlock, err := storjscanPayments.db.First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(
-			ctx, dbx.StorjscanPayment_Status(string(status)))
+		latestBlock, err := storjscanPayments.db.First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_OrderBy_Desc_BlockNumber_Desc_LogIndex(
+			ctx, dbx.StorjscanPayment_Status(string(status)),
+			dbx.StorjscanPayment_ChainId(chainID))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
