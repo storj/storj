@@ -17,7 +17,8 @@ import (
 
 func TestRun(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet) {
-		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
+		sat := planet.Satellites[0]
+		apiAddr := sat.API.Console.Listener.Addr().String()
 		addrParts := strings.Split(apiAddr, ":")
 		require.Len(t, addrParts, 2)
 

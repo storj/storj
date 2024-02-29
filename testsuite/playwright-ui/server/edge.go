@@ -75,6 +75,7 @@ func Edge(t *testing.T, test EdgeTest) {
 	certFile, keyFile, _, _ := createSelfSignedCertificateFile(t, edgehost)
 
 	testplanet.Run(t, testplanet.Config{
+		Timeout:        10 * time.Minute,
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
