@@ -4,7 +4,10 @@
 // Package date contains various date-related utilities
 package date
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // MonthBoundary extract month from the provided date and returns its edges.
 func MonthBoundary(t time.Time) (time.Time, time.Time) {
@@ -21,8 +24,11 @@ func DayBoundary(t time.Time) (time.Time, time.Time) {
 
 // PeriodToTime returns time.Time period in format YYYY-MM from string.
 func PeriodToTime(period string) (_ time.Time, err error) {
+	if len(period) < 7 {
+		return time.Time{}, fmt.Errorf("invalid period %q", period)
+	}
+	shortPeriod := period[:7]
 	layout := "2006-01"
-	shortPeriod := period[0:7]
 	result, err := time.Parse(layout, shortPeriod)
 	if err != nil {
 		return time.Time{}, err
