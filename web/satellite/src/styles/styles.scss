@@ -158,12 +158,20 @@ body {
 .v-card-item {
   padding: 1rem;
 }
+.v-card-item__prepend {
+  padding-inline-end: 0.8rem !important;
+}
 
 // Cards Title
 .v-card-item .v-card-title {
   font-weight: 700;
   font-size: 1.1rem;
   letter-spacing: 0;
+}
+
+// Cards Hover
+.v-card--hover:hover {
+  box-shadow: 0 5px 5px -3px var(--v-shadow-key-umbra-opacity, rgba(0, 0, 0, .1)), 0 8px 10px 1px var(--v-shadow-key-penumbra-opacity, rgba(0, 0, 0, .07)), 0 3px 14px 2px var(--v-shadow-key-ambient-opacity, rgba(0, 0, 0, .05));
 }
 
 
@@ -349,15 +357,14 @@ table {
   margin-top: 4px;
   margin-inline-end: 12px;
 }
-.v-alert__append, .v-alert__close {
-  margin-top: 4px;
-}
-.v-alert__close .v-btn {
-  color: rgb(var(--v-theme-on-surface)) !important;
-}
 .v-alert__content {
   font-size: 14px;
 }
+// Make Alert Close icon same color as alert
+.v-alert__close .v-btn {
+  color: currentColor !important;
+}
+
 
 .bg-on-surface-variant {
   background-color: rgb(var(--v-theme-on-surface-variant)) !important;
