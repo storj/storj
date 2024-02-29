@@ -29,6 +29,7 @@
                             :append-icon="mdiChevronDown"
                             v-bind="sortProps"
                             class="mr-2 ml-n2"
+                            title="Sort by"
                         >
                             <span class="text-body-2 hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
                         </v-btn>

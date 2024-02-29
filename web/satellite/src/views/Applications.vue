@@ -9,9 +9,9 @@
                 <PageSubtitleComponent subtitle="Connect Storj with third-party applications." link="https://www.storj.io/integrations" />
                 <v-chip-group
                     v-model="selectedChips"
-                    class="mt-3"
-                    selected-class="font-weight-bold"
-                    color="primary"
+                    class="border rounded-xl px-2 mt-4"
+                    selected-class="font-weight-bold v-chip--variant-tonal"
+                    color="info"
                     mandatory
                     column
                 >
@@ -19,8 +19,9 @@
                         v-for="category in categories"
                         :key="category"
                         :value="category"
-                        color="primary"
-                        variant="outlined"
+                        color="info"
+                        variant="text"
+                        class="font-weight-medium"
                         rounded
                         filter
                     >

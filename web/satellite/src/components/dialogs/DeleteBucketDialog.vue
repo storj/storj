@@ -35,10 +35,15 @@
 
             <v-divider />
 
-            <div class="pa-7">
-                The following bucket and all of its data will be deleted. This action cannot be undone.
-                <br><br>
-                <span class="font-weight-bold">{{ bucketName }}</span>
+            <div class="px-7 py-6">
+                <p class="mb-3">
+                    The following bucket and all of its data will be deleted. This action cannot be undone.
+                </p>
+                <p class="mt-2">
+                    <v-chip :title="bucketName" class="font-weight-bold text-wrap h-100 py-2">
+                        {{ bucketName }}
+                    </v-chip>
+                </p>
             </div>
 
             <v-divider />
@@ -74,6 +79,7 @@ import {
     VRow,
     VCol,
     VBtn,
+    VChip,
 } from 'vuetify/components';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
