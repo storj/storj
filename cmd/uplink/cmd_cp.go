@@ -398,6 +398,9 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 		parallelism = 1
 	}
 	singlePart = singlePart || parallelism == 1
+	if singlePart {
+		partSize = length
+	}
 
 	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
 		Expires:    c.expires,
