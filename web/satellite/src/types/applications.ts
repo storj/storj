@@ -229,7 +229,7 @@ export const applications: Application[] = [
         description: 'Add Storj as a disk on your computer. Open your Storj files with any application and work like on a local disk.',
         category: AppCategory.FileManagement,
         src: MountainDuckIcon,
-        docs: 'https://docs.storj.io/dcs/third-party-tools/cyberduck',
+        docs: 'https://docs.storj.io/dcs/third-party-tools/mountainduck',
     },
     {
         title: 'Bunny CDN',
@@ -250,7 +250,7 @@ export const applications: Application[] = [
         description: 'Flexible backup platform integrates with Storj as a backup and storage destination to protect and restore data.',
         category: AppCategory.BackupRecovery,
         src: CometIcon,
-        docs: 'https://docs.storj.io/dcs/third-party-tools/comet',
+        docs: 'https://docs.storj.io/dcs/third-party-tools/comet-backup',
     },
     {
         title: 'Globus',
