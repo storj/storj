@@ -6,7 +6,7 @@
 [white paper]: https://storj.io/whitepaper
 [code of conduct]: https://github.com/storj/storj/tree/main/CODE_OF_CONDUCT.md
 [writing tests]: https://github.com/storj/storj/wiki/Testing
-[storj-sim]: https://github.com/storj/storj/wiki/Test-network
+[storj-up]: https://github.com/storj/up
 
 Hi! Thanks for your interest in contributing to the Storj Network!
 
@@ -19,7 +19,6 @@ under a less restrictive license, like Apache v2, if that would help the adoptio
 * [Reporting Security Issues](#reporting-security-issues)
 * [Issue tracking and roadmap](#issue-tracking-and-roadmap)
 * [Quick Contribution Tips and Guidelines](#quick-contribution-tips-and-guidelines)
-* [Testing](#testing)
 * [Resources](#resources)
 
 ## Reporting security issues
@@ -59,37 +58,9 @@ Please avoid:
 
 Please note that this project adheres to a [Contributor Code of Conduct][code of conduct]. By participating in this project you agree to abide by its terms.
 
-### Install required packages
+### Starting development
 
-To get started running Storj locally, download and install the latest release of Go (at least Go 1.16) at [golang.org](https://golang.org).
-
-You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
-If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
-
-We support Linux, Mac, and Windows operating systems. Other operating systems supported by Go should also be able to run Storj.
-
-### Download and compile Storj
-
-> **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
-> and Storj has adopted Go module support. If you've used previous Go versions,
-> Go modules no longer require a GOPATH environment variable. Go by default
-> falls back to the old behavior if you check out code inside of the directory
-> referenced by your GOPATH variable, so make sure to use another directory,
-> `unset GOPATH` entirely, or set `GO111MODULE=on` before continuing with these
-> instructions.
-
-First, fork our repo and clone your copy of our repository.
-
-```bash
-git clone git@github.com:<your-username>/storj storj
-cd storj
-```
-
-Then, let's install Storj.
-
-```bash
-go install -v ./cmd/...
-```
+See the [Developing Guide](DEVELOPING.md) on how to start a local development, run tests or a local Storj network.
 
 ### Make changes and test
 
@@ -103,7 +74,7 @@ You can also execute only a single test package if you like. For example:
 `go test ./pkg/identity`. Add `-v` for more information about the executed unit
 tests.
 
-See our guide for [writing tests][] and setting a local instance of the V3 components using the [storj-sim][].
+See our guide for [writing tests][writing tests].
 
 ### Commit Messages
 
@@ -119,12 +90,6 @@ git push origin main
 ```
 
 Use GitHub to open a pull request!
-
-## Testing
-- See our guide for writing tests here:
-  - [Testing][writing tests]
-- You can spin up a local instance of the V3 Network components (Uplink, Satellite, Storage Nodes), see:
-  - [Learn how to run the storj-sim test network][storj-sim]
 
 ## Resources
 
