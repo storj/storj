@@ -3,7 +3,7 @@
 
 <template>
     <v-container class="pb-15">
-        <trial-expiration-banner v-if="trialExpirationBanner" :expired="user.freezeStatus.trialExpiredFrozen" />
+        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
         <next-steps-container />
 
@@ -226,7 +226,7 @@
                 <v-btn
                     variant="outlined"
                     color="default"
-                    @click="isCreateBucketDialogOpen = true"
+                    @click="onCreateBucket"
                 >
                     <IconCirclePlus class="mr-2" />
                     New Bucket
@@ -295,7 +295,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { User } from '@/types/users';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -335,6 +335,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
+const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -344,22 +345,6 @@ const isCreateBucketDialogShown = ref<boolean>(false);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
-
-/**
- * Returns user entity from store.
- */
-const user = computed<User>(() => usersStore.state.user);
-
-/**
- * Indicates if trial expiration banner is shown.
- */
-const trialExpirationBanner = computed<boolean>(() => {
-    if (user.value.paidTier) return false;
-
-    const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
-
-    return user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial;
-});
 
 /**
  * Returns formatted CO2 estimated info.
@@ -618,6 +603,15 @@ function getValueAndUnit(value: number): ValueUnit {
     const [newValue, unit] = value > unitUpgradeThreshold ? [value / 1000, 't'] : [value, 'kg'];
 
     return { value: newValue, unit };
+}
+
+/**
+ * Starts create bucket flow if user's free trial is not expired.
+ */
+function onCreateBucket(): void {
+    withTrialCheck(() => {
+        isCreateBucketDialogOpen.value = true;
+    });
 }
 
 /**

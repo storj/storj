@@ -106,7 +106,7 @@
                     <v-divider class="my-2" />
 
                     <!-- Create New Project -->
-                    <v-list-item link @click="isCreateProjectDialogShown = true">
+                    <v-list-item link @click="onCreateProject">
                         <template #prepend>
                             <IconNew size="18" />
                         </template>
@@ -267,6 +267,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import IconProject from '@/components/icons/IconProject.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -298,6 +299,7 @@ const bucketsStore = useBucketsStore();
 const route = useRoute();
 const router = useRouter();
 
+const { withTrialCheck } = useTrialCheck();
 const { mdAndDown } = useDisplay();
 
 const model = computed<boolean>({
@@ -328,8 +330,6 @@ const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Da
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
 
 const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applications.path}`);
-
-const isAppsPage = computed<boolean>(() => configStore.state.config.applicationsPageEnabled);
 
 /**
  * Returns user's own projects.
@@ -394,6 +394,15 @@ function trackViewSupportEvent(link: string): void {
     registerLinkClick(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
     window.open(link);
+}
+
+/**
+ * Starts create project flow if user's free trial is not expired.
+ */
+function onCreateProject() {
+    withTrialCheck(() => {
+        isCreateProjectDialogShown.value = true;
+    });
 }
 
 /**

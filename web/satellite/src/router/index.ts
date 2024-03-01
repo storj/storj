@@ -147,6 +147,7 @@ const routes: RouteRecordRaw[] = [
         children: [
             {
                 path: '',
+                name: RouteName.Project,
                 redirect: (to: RouteLocation) => {
                     const projRoute = new NavigationLink(to.params.id as string, RouteName.Project);
                     return { path: ROUTES.Projects.with(projRoute).with(ROUTES.Dashboard).path };

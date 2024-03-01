@@ -5,6 +5,8 @@
     <v-container>
         <v-row>
             <v-col>
+                <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+
                 <PageTitleComponent title="Project Settings" />
                 <PageSubtitleComponent subtitle="Edit project information and set custom project limits." link="https://docs.storj.io/learn/concepts/limits" />
             </v-col>
@@ -161,11 +163,13 @@ import { decimalShift } from '@/utils/strings';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
@@ -178,6 +182,7 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
+const { isTrialExpirationBanner, isExpired } = useTrialCheck();
 
 /**
  * Indicates if billing features are enabled.

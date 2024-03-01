@@ -172,6 +172,7 @@ import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconShare from '@/components/icons/IconShare.vue';
@@ -187,8 +188,10 @@ const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
+
 const notify = useNotify();
 const router = useRouter();
+const { withTrialCheck } = useTrialCheck();
 
 const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);
@@ -412,33 +415,35 @@ function onUpdateSort(value: SortItem[]): void {
 /**
  * Navigates to bucket page.
  */
-async function openBucket(bucketName: string): Promise<void> {
-    if (!bucketName) {
-        return;
-    }
-    bucketsStore.setFileComponentBucketName(bucketName);
-    if (!promptForPassphrase.value) {
-        if (!edgeCredentials.value.accessKeyId) {
-            try {
-                await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
-            } catch (error) {
-                notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
-                return;
-            }
+function openBucket(bucketName: string): void {
+    withTrialCheck(async () => {
+        if (!bucketName) {
+            return;
         }
+        bucketsStore.setFileComponentBucketName(bucketName);
+        if (!promptForPassphrase.value) {
+            if (!edgeCredentials.value.accessKeyId) {
+                try {
+                    await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+                } catch (error) {
+                    notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
+                    return;
+                }
+            }
 
-        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        await router.push({
-            name: ROUTES.Bucket.name,
-            params: {
-                browserPath: bucketsStore.state.fileComponentBucketName,
-                id: projectsStore.state.selectedProject.urlId,
-            },
-        });
-        return;
-    }
-    passphraseDialogCallback = () => openBucket(selectedBucketName.value);
-    isBucketPassphraseDialogOpen.value = true;
+            analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            await router.push({
+                name: ROUTES.Bucket.name,
+                params: {
+                    browserPath: bucketsStore.state.fileComponentBucketName,
+                    id: projectsStore.state.selectedProject.urlId,
+                },
+            });
+            return;
+        }
+        passphraseDialogCallback = () => openBucket(selectedBucketName.value);
+        isBucketPassphraseDialogOpen.value = true;
+    });
 }
 
 /**
@@ -461,14 +466,16 @@ function showDeleteBucketDialog(bucketName: string): void {
  * Displays the Share Bucket dialog.
  */
 function showShareBucketDialog(bucketName: string): void {
-    shareBucketName.value = bucketName;
-    if (promptForPassphrase.value) {
-        bucketsStore.setFileComponentBucketName(bucketName);
-        isBucketPassphraseDialogOpen.value = true;
-        passphraseDialogCallback = () => isShareBucketDialogShown.value = true;
-        return;
-    }
-    isShareBucketDialogShown.value = true;
+    withTrialCheck(() => {
+        shareBucketName.value = bucketName;
+        if (promptForPassphrase.value) {
+            bucketsStore.setFileComponentBucketName(bucketName);
+            isBucketPassphraseDialogOpen.value = true;
+            passphraseDialogCallback = () => isShareBucketDialogShown.value = true;
+            return;
+        }
+        isShareBucketDialogShown.value = true;
+    });
 }
 
 /**

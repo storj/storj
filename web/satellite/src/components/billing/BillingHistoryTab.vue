@@ -7,6 +7,7 @@
             :loading="isLoading"
             :headers="headers"
             :items="historyItems"
+            :items-length="historyItems.length"
             :must-sort="false"
             no-data-text="No results found"
             hover

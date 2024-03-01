@@ -101,7 +101,7 @@ const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const props = withDefaults(defineProps<{
-    projectID: string
+    projectID?: string
 }>(), {
     projectID: '',
 });
