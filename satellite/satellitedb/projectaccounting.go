@@ -593,27 +593,18 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 	usages = make(map[string]accounting.ProjectUsage)
 
 	for _, bucket := range bucketNames {
-		userAgentRow, err := db.db.Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name([]byte(bucket)))
+		valueAttr, err := db.db.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+			dbx.ValueAttribution_ProjectId(projectID[:]),
+			dbx.ValueAttribution_BucketName([]byte(bucket)))
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
 
 		var partner string
-		if userAgentRow != nil && userAgentRow.UserAgent != nil {
-			entries, err := useragent.ParseEntries(userAgentRow.UserAgent)
+		if valueAttr != nil && valueAttr.UserAgent != nil {
+			partner, err = tryFindPartnerByUserAgent(valueAttr.UserAgent, partnerNames)
 			if err != nil {
 				return nil, err
-			}
-
-			if len(entries) != 0 {
-				for _, iterPartner := range partnerNames {
-					if entries[0].Product == iterPartner {
-						partner = iterPartner
-						break
-					}
-				}
 			}
 		}
 		if _, ok := usages[partner]; !ok {
@@ -671,7 +662,41 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		usages[partner] = usage
 	}
 
+	// We search for project user_agent for cases when buckets haven't been created yet.
+	if len(usages) == 0 {
+		userAgentRow, err := db.db.Get_Project_UserAgent_By_Id(ctx, dbx.Project_Id(projectID[:]))
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		if userAgentRow != nil && userAgentRow.UserAgent != nil {
+			partner, err := tryFindPartnerByUserAgent(userAgentRow.UserAgent, partnerNames)
+			if err != nil {
+				return nil, err
+			}
+			usages[partner] = accounting.ProjectUsage{}
+		}
+	}
+
 	return usages, nil
+}
+
+func tryFindPartnerByUserAgent(userAgent []byte, partnerNames []string) (string, error) {
+	entries, err := useragent.ParseEntries(userAgent)
+	if err != nil {
+		return "", err
+	}
+
+	var partner string
+	if len(entries) != 0 {
+		for _, iterPartner := range partnerNames {
+			if entries[0].Product == iterPartner {
+				partner = iterPartner
+				break
+			}
+		}
+	}
+
+	return partner, nil
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.

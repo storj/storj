@@ -108,6 +108,10 @@ read one (
     select project.default_versioning
     where project.id = ?
 )
+read one (
+    select project.user_agent
+    where project.id = ?
+)
 
 read all (
     select project

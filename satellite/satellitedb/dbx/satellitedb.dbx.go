@@ -16257,6 +16257,28 @@ func (obj *pgxImpl) Get_Project_DefaultVersioning_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_Project_UserAgent_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UserAgent_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_agent FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserAgent_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserAgent)
+	if err != nil {
+		return (*UserAgent_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -24835,6 +24857,28 @@ func (obj *pgxcockroachImpl) Get_Project_DefaultVersioning_By_Id(ctx context.Con
 
 }
 
+func (obj *pgxcockroachImpl) Get_Project_UserAgent_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UserAgent_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_agent FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserAgent_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserAgent)
+	if err != nil {
+		return (*UserAgent_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -30169,6 +30213,10 @@ type Methods interface {
 	Get_Project_UsageLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		row *UsageLimit_Row, err error)
+
+	Get_Project_UserAgent_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *UserAgent_Row, err error)
 
 	Get_Project_UserSpecifiedBandwidthLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
