@@ -5,6 +5,7 @@ package console_test
 
 import (
 	"database/sql"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -806,5 +807,54 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
 		require.Equal(t, projLimits, getProjectLimits(proj))
+	})
+}
+
+func TestGetAllEvents(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		freezeDB := sat.DB.Console().AccountFreezeEvents()
+
+		freezeTypes := []console.AccountFreezeEventType{
+			console.BillingFreeze,
+			console.BillingWarning,
+			console.ViolationFreeze,
+			console.LegalFreeze,
+			console.TrialExpirationFreeze,
+			console.BotFreeze,
+			console.DelayedBotFreeze,
+		}
+		for _, freezeType := range freezeTypes {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    fmt.Sprintf("%duser@mail.test", freezeType),
+			}, 2)
+			require.NoError(t, err)
+			_, err = freezeDB.Upsert(ctx, &console.AccountFreezeEvent{
+				UserID: user.ID,
+				Type:   freezeType,
+			})
+			require.NoError(t, err)
+		}
+
+		cursor := console.FreezeEventsCursor{Limit: 10}
+		eventPage, err := freezeDB.GetAllEvents(ctx, cursor, nil)
+		require.NoError(t, err)
+		require.Len(t, eventPage.Events, len(freezeTypes))
+
+		eventPage, err = freezeDB.GetAllEvents(ctx, cursor, freezeTypes)
+		require.NoError(t, err)
+		require.Len(t, eventPage.Events, len(freezeTypes))
+
+		eventPage, err = freezeDB.GetAllEvents(ctx, cursor, []console.AccountFreezeEventType{console.BillingFreeze})
+		require.NoError(t, err)
+		require.Len(t, eventPage.Events, 1)
+		require.Equal(t, console.BillingFreeze, eventPage.Events[0].Type)
+
+		eventPage, err = freezeDB.GetAllEvents(ctx, cursor, []console.AccountFreezeEventType{console.BillingFreeze, console.LegalFreeze})
+		require.NoError(t, err)
+		require.Len(t, eventPage.Events, 2)
 	})
 }

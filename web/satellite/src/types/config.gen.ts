@@ -58,6 +58,7 @@ export class FrontendConfig {
     emissionImpactViewEnabled: boolean;
     applicationsPageEnabled: boolean;
     varPartners: string[] | null;
+    daysBeforeTrialEndNotification: number;
 }
 
 export class MultiCaptchaConfig {

@@ -30,7 +30,7 @@ type AccountFreezeEvents interface {
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
 	// GetAllEvents is a method for querying all account freeze events from the database.
-	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, eventType *AccountFreezeEventType) (events *FreezeEventsPage, err error)
+	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, optionalEventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
 	GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
@@ -861,10 +861,10 @@ func (s *AccountFreezeService) GetAllEvents(ctx context.Context, cursor FreezeEv
 }
 
 // GetAllEventsByType returns all events by event type.
-func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor FreezeEventsCursor, eventType AccountFreezeEventType) (events *FreezeEventsPage, err error) {
+func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor FreezeEventsCursor, eventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor, &eventType)
+	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor, eventTypes)
 	if err != nil {
 		return nil, ErrAccountFreeze.Wrap(err)
 	}
