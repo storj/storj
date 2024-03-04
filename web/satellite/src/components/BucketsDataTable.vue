@@ -160,7 +160,7 @@ import {
 } from 'vuetify/components';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
-import { Bucket, BucketCursor, BucketPage, Versioning } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
@@ -173,6 +173,7 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { Versioning } from '@/types/versioning';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconShare from '@/components/icons/IconShare.vue';

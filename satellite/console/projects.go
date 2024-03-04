@@ -147,6 +147,7 @@ type ProjectInfo struct {
 	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
 	StorageUsed      int64             `json:"storageUsed"`
 	BandwidthUsed    int64             `json:"bandwidthUsed"`
+	Versioning       DefaultVersioning `json:"versioning"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.
