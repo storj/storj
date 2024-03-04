@@ -100,59 +100,116 @@ func TestCpPartSize(t *testing.T) {
 	c := newCmdCp(nil)
 
 	// 10 GiB file, should return 1 GiB
-	partSize, singlePart, err := c.calculatePartSize(10*memory.GiB.Int64(), c.parallelismChunkSize.Int64())
+	cfg, err := c.calculatePartSize(10*memory.GiB.Int64(), c.parallelismChunkSize.Int64(), 8)
 	require.NoError(t, err)
-	require.True(t, singlePart)
-	require.EqualValues(t, 1*memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    1 * memory.GiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
 	// 10000 GB file, should return 1 GiB.
-	partSize, singlePart, err = c.calculatePartSize(10000*memory.GB.Int64(), c.parallelismChunkSize.Int64())
+	cfg, err = c.calculatePartSize(10000*memory.GB.Int64(), c.parallelismChunkSize.Int64(), 8)
 	require.NoError(t, err)
-	require.True(t, singlePart)
-	require.EqualValues(t, 1*memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    1 * memory.GiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
-	// 10000 GiB file, should return 2 GiB.
-	partSize, singlePart, err = c.calculatePartSize(10000*memory.GiB.Int64(), c.parallelismChunkSize.Int64())
+	// 20000 GiB file, should return 2 GiB.
+	cfg, err = c.calculatePartSize(20000*memory.GiB.Int64(), c.parallelismChunkSize.Int64(), 8)
 	require.NoError(t, err)
-	require.True(t, singlePart)
-	require.EqualValues(t, 2*memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    2 * memory.GiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
-	// 10 TiB file, should return 2 GiB.
-	partSize, singlePart, err = c.calculatePartSize(10*memory.TiB.Int64(), c.parallelismChunkSize.Int64())
+	// 10 TiB file, should return 1GiB + 64MiB.
+	cfg, err = c.calculatePartSize(10*memory.TiB.Int64(), c.parallelismChunkSize.Int64(), 8)
 	require.NoError(t, err)
-	require.True(t, singlePart)
-	require.EqualValues(t, 2*memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    (1*memory.GiB + 64*memory.MiB).Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
-	// 20001 GiB file, should return 3 GiB.
-	partSize, singlePart, err = c.calculatePartSize(20001*memory.GiB.Int64(), c.parallelismChunkSize.Int64())
+	// 256 MiB file, should return single part and 1GiB.
+	cfg, err = c.calculatePartSize(256*memory.MiB.Int64(), c.parallelismChunkSize.Int64(), 8)
 	require.NoError(t, err)
-	require.True(t, singlePart)
-	require.EqualValues(t, 3*memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    1 * memory.GiB.Int64(),
+		singlePart:  true,
+		parallelism: 1,
+	}, cfg)
+
+	// 256 MiB file, should return single part and 64MiB chunk.
+	cfg, err = c.calculatePartSize(256*memory.MiB.Int64(), 64*memory.MiB.Int64(), 8)
+	require.Error(t, err)
+	require.Equal(t, "the specified chunk size 64.0 MiB is too small, requires 1.0 GiB or larger", err.Error())
+	require.Equal(t, partSizeConfig{}, cfg)
+
+	// 20001 GiB file, should return 2GiB + 64MiB.
+	cfg, err = c.calculatePartSize(20001*memory.GiB.Int64(), c.parallelismChunkSize.Int64(), 8)
+	require.NoError(t, err)
+	require.Equal(t, partSizeConfig{
+		partSize:    (2*memory.GiB + 64*memory.MiB).Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
 	// should return 1GiB as requested.
-	partSize, singlePart, err = c.calculatePartSize(memory.GiB.Int64()*1300, memory.GiB.Int64())
+	cfg, err = c.calculatePartSize(memory.GiB.Int64()*1300, memory.GiB.Int64(), 8)
 	require.NoError(t, err)
-	require.True(t, singlePart)
-	require.EqualValues(t, memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    memory.GiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
 	// should return 1 GiB and error, since preferred is too low.
-	partSize, singlePart, err = c.calculatePartSize(1300*memory.GiB.Int64(), memory.MiB.Int64())
+	cfg, err = c.calculatePartSize(1300*memory.GiB.Int64(), memory.MiB.Int64(), 8)
 	require.Error(t, err)
-	require.False(t, singlePart)
 	require.Equal(t, "the specified chunk size 1.0 MiB is too small, requires 1.0 GiB or larger", err.Error())
-	require.Zero(t, partSize)
+	require.Equal(t, partSizeConfig{}, cfg)
 
 	// negative length should return asked for amount
-	partSize, singlePart, err = c.calculatePartSize(-1, 1*memory.GiB.Int64())
+	cfg, err = c.calculatePartSize(-1, 1*memory.GiB.Int64(), 8)
 	require.NoError(t, err)
-	require.False(t, singlePart)
-	require.EqualValues(t, 1*memory.GiB, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    1 * memory.GiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
 
-	// negative length should return specified amount
-	partSize, singlePart, err = c.calculatePartSize(-1, 100)
+	// negative length with no preferred size should return 1GiB
+	cfg, err = c.calculatePartSize(-1, 0, 8)
 	require.NoError(t, err)
-	require.False(t, singlePart)
-	require.EqualValues(t, 100, partSize)
+	require.Equal(t, partSizeConfig{
+		partSize:    1 * memory.GiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
+
+	// Small requested size should be rounded to 64MiB.
+	cfg, err = c.calculatePartSize(-1, 100, 8)
+	require.NoError(t, err)
+	require.Equal(t, partSizeConfig{
+		partSize:    64 * memory.MiB.Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
+
+	// negative length should return asked for amount, but rounded to 64MiB
+	cfg, err = c.calculatePartSize(-1, 1*memory.GiB.Int64()+1, 8)
+	require.NoError(t, err)
+	require.Equal(t, partSizeConfig{
+		partSize:    (1*memory.GiB + 64*memory.MiB).Int64(),
+		singlePart:  false,
+		parallelism: 8,
+	}, cfg)
+
 }
 
 func TestCpUpload(t *testing.T) {
