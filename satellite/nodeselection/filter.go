@@ -429,3 +429,36 @@ func (n AllowedNodesFilter) Match(node *SelectedNode) bool {
 }
 
 var _ NodeFilter = AllowedNodesFilter{}
+
+// AttributeFilter selects nodes based on dynamic node attributes (eg. vetted=true or tag:owner=...).
+type AttributeFilter struct {
+	attribute NodeAttribute
+	value     interface{}
+}
+
+// NewAttributeFilter creates new attribute filter. Value should be string or stringNotMatch.
+func NewAttributeFilter(attr string, value interface{}) (*AttributeFilter, error) {
+	attribute, err := CreateNodeAttribute(attr)
+	if err != nil {
+		return nil, err
+	}
+	return &AttributeFilter{
+		value:     value,
+		attribute: attribute,
+	}, nil
+}
+
+// Match implements NodeFilter.
+func (a *AttributeFilter) Match(node *SelectedNode) bool {
+	attribute := a.attribute(*node)
+	switch v := a.value.(type) {
+	case stringNotMatch:
+		return attribute != string(v)
+	case string:
+		return attribute == a.value
+	default:
+		return false
+	}
+}
+
+var _ NodeFilter = &AttributeFilter{}

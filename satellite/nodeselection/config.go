@@ -157,6 +157,7 @@ var supportedFilters = map[any]any{
 		return stringNotMatch("")
 	},
 	"nodelist": AllowedNodesFromFile,
+	"select":   NewAttributeFilter,
 }
 
 func filterFromString(expr string) (NodeFilter, error) {
