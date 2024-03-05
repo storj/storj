@@ -81,6 +81,9 @@ func init() {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("identity")
+	zap.ReplaceGlobals(logger)
+
 	process.Exec(rootCmd)
 }
 
