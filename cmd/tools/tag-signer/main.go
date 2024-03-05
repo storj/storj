@@ -201,6 +201,9 @@ func parseTagPairs(tagPairs []string, allowCommaValues bool) ([]*pb.Tag, error) 
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("tag-signer")
+	zap.ReplaceGlobals(logger)
+
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
 		LoadConfig: func(cmd *cobra.Command, vip *viper.Viper) error {
 			return nil

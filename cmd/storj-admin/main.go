@@ -75,5 +75,8 @@ func init() {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("storj-admin")
+	zap.ReplaceGlobals(logger)
+
 	process.Exec(rootCmd)
 }
