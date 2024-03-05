@@ -130,6 +130,9 @@ func init() {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("placement-test")
+	zap.ReplaceGlobals(logger)
+
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
 		LoadConfig: func(cmd *cobra.Command, vip *viper.Viper) error {
 			return nil

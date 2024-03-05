@@ -24,6 +24,9 @@ type Config struct {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("crashcollect")
+	zap.ReplaceGlobals(logger)
+
 	rootCmd := &cobra.Command{
 		Use:   "crashcollect",
 		Short: "Crash collect service",

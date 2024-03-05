@@ -88,6 +88,9 @@ $ cat nodes.json | multinode add -
 )
 
 func main() {
+	logger, _, _ := process.NewLogger("multinode")
+	zap.ReplaceGlobals(logger)
+
 	process.ExecCustomDebug(rootCmd)
 }
 
