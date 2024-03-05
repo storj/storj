@@ -124,7 +124,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: ROUTES.AccountSettings.path,
-                name: ROUTES.AccountSettings.path,
+                name: ROUTES.AccountSettings.name,
                 component: () => import(/* webpackChunkName: "MyAccount" */ '@/views/AccountSettings.vue'),
             },
         ],

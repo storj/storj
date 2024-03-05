@@ -242,7 +242,7 @@ const props = withDefaults(defineProps<{
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns the name of the current satellite.

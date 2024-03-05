@@ -147,7 +147,7 @@ const isAddMemberDialogShown = ref<boolean>(false);
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns whether to use the table view.
@@ -235,7 +235,7 @@ function formattedValue(value: Size): string {
 }
 
 onMounted(() => {
-    if (configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled) {
+    if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
         Promise.all([
             billingStore.getBalance(),
             billingStore.getCreditCards(),

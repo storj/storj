@@ -236,6 +236,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import CreditCardComponent from '@/components/CreditCardComponent.vue';
@@ -262,6 +263,7 @@ interface IStorjTokenCardComponent {
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -367,7 +369,7 @@ function onAddTokensClicked(): void {
 }
 
 onBeforeMount(() => {
-    if (!configStore.state.config.billingFeaturesEnabled) {
+    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)) {
         router.replace({ name: ROUTES.AccountSettings.name });
     }
 });

@@ -228,6 +228,56 @@ func TestUserIDRateLimiter(t *testing.T) {
 	})
 }
 
+func TestVarPartnerBlocker(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.VarPartners = []string{"partner1"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		makeRequest := func(token string, shouldForbid bool) {
+			urlLink := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/payments/wallet/payments"
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlLink, http.NoBody)
+			require.NoError(t, err)
+
+			req.AddCookie(&http.Cookie{
+				Name:    "_tokenKey",
+				Path:    "/",
+				Value:   token,
+				Expires: time.Now().AddDate(0, 0, 1),
+			})
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, result.Body.Close())
+			if shouldForbid {
+				require.Equal(t, http.StatusForbidden, result.StatusCode)
+			}
+		}
+
+		for _, i := range []int{1, 2} {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName:  fmt.Sprintf("var user%d", i),
+				Email:     fmt.Sprintf("var%d@mail.test", i),
+				UserAgent: []byte(fmt.Sprintf("partner%d", i)),
+			}, 1)
+			require.NoError(t, err)
+
+			tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+			require.NoError(t, err)
+
+			tokenStr := tokenInfo.Token.String()
+
+			makeRequest(tokenStr, string(user.UserAgent) == "partner1")
+		}
+	})
+}
+
 func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

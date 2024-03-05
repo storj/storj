@@ -636,6 +636,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		CreatedAt             time.Time  `json:"createdAt"`
 		PendingVerification   bool       `json:"pendingVerification"`
 		TrialExpiration       *time.Time `json:"trialExpiration"`
+		HasVarPartner         bool       `json:"hasVarPartner"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -666,6 +667,11 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.CreatedAt = consoleUser.CreatedAt
 	user.PendingVerification = consoleUser.Status == console.PendingBotVerification
 	user.TrialExpiration = consoleUser.TrialExpiration
+	user.HasVarPartner, err = a.service.GetUserHasVarPartner(ctx)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

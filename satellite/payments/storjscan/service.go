@@ -23,6 +23,7 @@ var ErrService = errs.Class("storjscan service")
 type storjscanMetadata struct {
 	ReferenceID string
 	Wallet      string
+	ChainID     int64
 	BlockNumber int64
 	LogIndex    int
 }
@@ -104,6 +105,7 @@ func (service *Service) Payments(ctx context.Context, wallet blockchain.Address,
 	var walletPayments []payments.WalletPayment
 	for _, pmnt := range cachedPayments {
 		walletPayments = append(walletPayments, payments.WalletPayment{
+			ChainID:     pmnt.ChainID,
 			From:        pmnt.From,
 			To:          pmnt.To,
 			TokenValue:  pmnt.TokenValue,
@@ -124,44 +126,50 @@ func (service *Service) Payments(ctx context.Context, wallet blockchain.Address,
 func (service *Service) PaymentsWithConfirmations(ctx context.Context, wallet blockchain.Address) (_ []payments.WalletPaymentWithConfirmations, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	latestPayments, err := service.client.Payments(ctx, 0, wallet.Hex())
+	// TODO: optimize this query by adding a reasonable from value
+	latestPayments, err := service.client.Payments(ctx, nil, wallet.Hex())
 	if err != nil {
 		return nil, ErrService.Wrap(err)
 	}
 
 	var walletPayments []payments.WalletPaymentWithConfirmations
-	for _, pmnt := range latestPayments.Payments {
-		confirmations := latestPayments.LatestBlock.Number - pmnt.BlockNumber
+	for _, header := range latestPayments.LatestBlocks {
+		for _, pmnt := range latestPayments.Payments {
+			if pmnt.ChainID == header.ChainID {
+				confirmations := header.Number - pmnt.BlockNumber
 
-		var status payments.PaymentStatus
-		if confirmations >= int64(service.neededConfirmations) {
-			status = payments.PaymentStatusConfirmed
-		} else {
-			status = payments.PaymentStatusPending
+				var status payments.PaymentStatus
+				if confirmations >= int64(service.neededConfirmations) {
+					status = payments.PaymentStatusConfirmed
+				} else {
+					status = payments.PaymentStatusPending
+				}
+
+				walletPayments = append(walletPayments, payments.WalletPaymentWithConfirmations{
+					ChainID:       pmnt.ChainID,
+					From:          pmnt.From.Hex(),
+					To:            pmnt.To.Hex(),
+					TokenValue:    pmnt.TokenValue.AsDecimal(),
+					USDValue:      pmnt.USDValue.AsDecimal(),
+					Status:        status,
+					BlockHash:     pmnt.BlockHash.Hex(),
+					BlockNumber:   pmnt.BlockNumber,
+					Transaction:   pmnt.Transaction.Hex(),
+					LogIndex:      pmnt.LogIndex,
+					Timestamp:     pmnt.Timestamp,
+					Confirmations: confirmations,
+					BonusTokens:   billing.CalculateBonusAmount(pmnt.TokenValue, service.bonusRate).AsDecimal(),
+				})
+			}
 		}
-
-		walletPayments = append(walletPayments, payments.WalletPaymentWithConfirmations{
-			From:          pmnt.From.Hex(),
-			To:            pmnt.To.Hex(),
-			TokenValue:    pmnt.TokenValue.AsDecimal(),
-			USDValue:      pmnt.USDValue.AsDecimal(),
-			Status:        status,
-			BlockHash:     pmnt.BlockHash.Hex(),
-			BlockNumber:   pmnt.BlockNumber,
-			Transaction:   pmnt.Transaction.Hex(),
-			LogIndex:      pmnt.LogIndex,
-			Timestamp:     pmnt.Timestamp,
-			Confirmations: confirmations,
-			BonusTokens:   billing.CalculateBonusAmount(pmnt.TokenValue, service.bonusRate).AsDecimal(),
-		})
 	}
 
 	return walletPayments, nil
 }
 
-// Source defines the billing transaction source for storjscan payments.
-func (service *Service) Source() string {
-	return billing.StorjScanSource
+// Sources defines the billing transaction sources for storjscan payments.
+func (service *Service) Sources() []string {
+	return []string{billing.StorjScanEthereumSource, billing.StorjScanZkSyncSource}
 }
 
 // Type defines the billing transaction type for storjscan payments.
@@ -169,8 +177,8 @@ func (service *Service) Type() billing.TransactionType {
 	return billing.TransactionTypeCredit
 }
 
-// GetNewTransactions returns the storjscan payments since the given block number and index as billing transactions type.
-func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, lastPaymentMetadata []byte) ([]billing.Transaction, error) {
+// GetNewTransactions returns the storjscan payments for a provided source since the given block number and index as a billing transactions type.
+func (service *Service) GetNewTransactions(ctx context.Context, source string, _ time.Time, lastPaymentMetadata []byte) ([]billing.Transaction, error) {
 
 	var latestMetadata storjscanMetadata
 	if lastPaymentMetadata == nil {
@@ -180,7 +188,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, las
 		return nil, err
 	}
 
-	newCachedPayments, err := service.paymentsDB.ListConfirmed(ctx, latestMetadata.BlockNumber, latestMetadata.LogIndex)
+	newCachedPayments, err := service.paymentsDB.ListConfirmed(ctx, source, latestMetadata.ChainID, latestMetadata.BlockNumber, latestMetadata.LogIndex)
 	if err != nil {
 		return []billing.Transaction{}, ErrService.Wrap(err)
 	}
@@ -196,6 +204,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, las
 		metadata, err := json.Marshal(storjscanMetadata{
 			ReferenceID: payment.Transaction.Hex(),
 			Wallet:      payment.To.Hex(),
+			ChainID:     payment.ChainID,
 			BlockNumber: payment.BlockNumber,
 			LogIndex:    payment.LogIndex,
 		})
@@ -208,7 +217,7 @@ func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, las
 			UserID:      userID,
 			Amount:      payment.USDValue,
 			Description: "Storj token deposit",
-			Source:      service.Source(),
+			Source:      source,
 			Status:      payments.PaymentStatusConfirmed,
 			Type:        service.Type(),
 			Metadata:    metadata,

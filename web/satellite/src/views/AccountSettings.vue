@@ -44,7 +44,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" lg="4">
+            <v-col v-if="billingEnabled" cols="12" lg="4">
                 <v-card title="Account Type" variant="outlined" :border="true" rounded="xlg">
                     <v-card-text>
                         <v-chip
@@ -168,6 +168,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import ChangePasswordDialog from '@/components/dialogs/ChangePasswordDialog.vue';
@@ -178,6 +179,7 @@ import MFACodesDialog from '@/components/dialogs/MFACodesDialog.vue';
 import SetSessionTimeoutDialog from '@/components/dialogs/SetSessionTimeoutDialog.vue';
 
 const appStore = useAppStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 
@@ -194,6 +196,11 @@ const isSetSessionTimeoutDialogShown = ref<boolean>(false);
 const user = computed((): User => {
     return usersStore.state.user;
 });
+
+/**
+ * Whether billing features should be enabled
+ */
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(user.value.hasVarPartner));
 
 /**
  * Returns user settings from store.

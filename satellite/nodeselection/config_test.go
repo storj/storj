@@ -88,7 +88,7 @@ func TestParsedConfig(t *testing.T) {
 }
 
 func TestFilterFromString(t *testing.T) {
-	filter, err := filterFromString(`exclude(nodelist("filter_testdata.txt"))`)
+	filter, err := FilterFromString(`exclude(nodelist("filter_testdata.txt"))`)
 	require.NoError(t, err)
 
 	require.False(t, filter.Match(&SelectedNode{
@@ -101,7 +101,7 @@ func TestFilterFromString(t *testing.T) {
 }
 
 func TestSelectorFromString(t *testing.T) {
-	selector, err := selectorFromString(`filter(exclude(nodelist("filter_testdata.txt")),random())`)
+	selector, err := SelectorFromString(`filter(exclude(nodelist("filter_testdata.txt")),random())`)
 	require.NoError(t, err)
 
 	// initialize the node space

@@ -71,19 +71,19 @@ func LoadConfig(configFile string) (PlacementDefinitions, error) {
 		}
 
 		filter := resolveTemplates(def.Filter)
-		p.NodeFilter, err = filterFromString(filter)
+		p.NodeFilter, err = FilterFromString(filter)
 		if err != nil {
 			return placements, errs.New("Filter definition '%s' of placement %d is invalid: %v", filter, def.ID, err)
 		}
 
 		invariant := resolveTemplates(def.Invariant)
-		p.Invariant, err = invariantFromString(invariant)
+		p.Invariant, err = InvariantFromString(invariant)
 		if err != nil {
 			return placements, errs.New("Invariant definition '%s' of placement %d is invalid: %v", invariant, def.ID, err)
 		}
 
 		selector := resolveTemplates(def.Selector)
-		p.Selector, err = selectorFromString(selector)
+		p.Selector, err = SelectorFromString(selector)
 		if err != nil {
 			return placements, errs.New("Selector definition '%s' of placement %d is invalid: %v", selector, def.ID, err)
 		}
@@ -157,9 +157,11 @@ var supportedFilters = map[any]any{
 		return stringNotMatch("")
 	},
 	"nodelist": AllowedNodesFromFile,
+	"select":   NewAttributeFilter,
 }
 
-func filterFromString(expr string) (NodeFilter, error) {
+// FilterFromString parses complex node filter expressions from config lines.
+func FilterFromString(expr string) (NodeFilter, error) {
 	if expr == "" {
 		expr = "all()"
 	}
@@ -170,7 +172,8 @@ func filterFromString(expr string) (NodeFilter, error) {
 	return filter.(NodeFilter), nil
 }
 
-func selectorFromString(expr string) (NodeSelectorInit, error) {
+// SelectorFromString parses complex node selection rules from config lines.
+func SelectorFromString(expr string) (NodeSelectorInit, error) {
 	if expr == "" {
 		expr = "random()"
 	}
@@ -208,7 +211,8 @@ func selectorFromString(expr string) (NodeSelectorInit, error) {
 	return selector.(NodeSelectorInit), nil
 }
 
-func invariantFromString(expr string) (Invariant, error) {
+// InvariantFromString parses complex invariants (~declumping rules) from config lines.
+func InvariantFromString(expr string) (Invariant, error) {
 	if expr == "" {
 		return AllGood(), nil
 	}

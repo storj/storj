@@ -408,7 +408,7 @@ const isCouponCard = computed<boolean>(() => {
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns percent of coupon used.
@@ -752,7 +752,7 @@ onMounted(async (): Promise<void> => {
         );
     }
 
-    if (configStore.state.config.nativeTokenPaymentsEnabled) {
+    if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
         promises.push(billingStore.getNativePaymentsHistory());
     }
 

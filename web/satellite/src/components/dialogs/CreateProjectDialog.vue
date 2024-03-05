@@ -220,7 +220,7 @@ const descriptionRules: ValidationRule<string>[] = [
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Indicates if limit increase requests can be sent directly from the UI.

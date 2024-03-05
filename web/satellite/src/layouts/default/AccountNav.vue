@@ -180,7 +180,7 @@ const isPaidTier = computed<boolean>(() => usersStore.state.user.paidTier ?? fal
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns the path to the most recent non-account-related page.

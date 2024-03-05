@@ -57,7 +57,6 @@ export class FrontendConfig {
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
     applicationsPageEnabled: boolean;
-    varPartners: string[] | null;
     daysBeforeTrialEndNotification: number;
 }
 

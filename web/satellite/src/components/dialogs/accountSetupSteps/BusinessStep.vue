@@ -99,7 +99,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-select
                         v-model="useCase"
-                        :items="['Backup/Archive', 'Media Sharing & Collaboration', 'Large File Distribution', 'Video Streaming', 'Web3 Storage', 'Other']"
+                        :items="[ 'Active Archive', 'Backup & Recovery', 'CDN Origin', 'Generative AI', 'Media Workflows', 'Other']"
                         label="Use Case"
                         variant="outlined"
                         hide-details="auto"
