@@ -13,14 +13,24 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/eventlog"
 
 	"storj.io/common/process"
+)
+
+// ideally these would use a custom error map, but it seems annoying to integrate with Go.
+const (
+	eventSuccess              = 0
+	errorBadArguments         = 0x000000A1
+	errorServiceNotActive     = 0x00000426
+	errorServiceSpecificError = 0x0000042A
 )
 
 func startAsService(cmd *cobra.Command) bool {
@@ -32,20 +42,29 @@ func startAsService(cmd *cobra.Command) bool {
 		return false
 	}
 
-	// Check if the 'run' command is invoked
-	if len(os.Args) < 2 {
-		return false
+	var log EventLog
+
+	if elog, err := eventlog.Open("Storj V3 Storage Node"); err == nil {
+		log = elog
+	} else {
+		log = &ZapEventLog{log: zap.L()}
 	}
 
-	if os.Args[1] != "run" {
+	defer func() { _ = log.Close() }()
+
+	// Check if the 'run' command is invoked
+	if len(os.Args) < 2 || os.Args[1] != "run" {
+		log.Error(errorBadArguments, "run argument not specified for service")
 		return false
 	}
 
 	// Initialize the Windows Service handler
 	err = svc.Run("storagenode", &service{
+		log:     log,
 		rootCmd: cmd,
 	})
 	if err != nil {
+		log.Error(errorServiceNotActive, fmt.Sprintf("Service failed: %+v", err))
 		zap.L().Fatal("Service failed.", zap.Error(err))
 	}
 
@@ -53,6 +72,7 @@ func startAsService(cmd *cobra.Command) bool {
 }
 
 type service struct {
+	log     EventLog
 	rootCmd *cobra.Command
 }
 
@@ -67,13 +87,23 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 	}
 
 	if runCmd == nil {
+		m.log.Error(errorBadArguments, "runCmd not found on root")
 		panic("Assertion is failed: 'run' sub-command is not found.")
 	}
 
+	m.log.Info(eventSuccess, "starting service")
 	changes <- svc.Status{State: svc.StartPending}
 
 	var group errgroup.Group
 	group.Go(func() error {
+		defer func() {
+			if err := recover(); err != nil {
+				m.log.Error(errorServiceSpecificError, fmt.Sprintf("Panic: %+v", err))
+				zap.L().Error("PANIC", zap.Any("error", err))
+				panic(err) // re-panic
+			}
+		}()
+
 		process.Exec(m.rootCmd)
 		return nil
 	})
@@ -85,9 +115,15 @@ cmdloop:
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
+			m.log.Info(eventSuccess, "Interrogate request received")
 			zap.L().Info("Interrogate request received.")
 			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
+			if c.Cmd == svc.Stop {
+				m.log.Info(eventSuccess, "Stop request received.")
+			} else {
+				m.log.Info(eventSuccess, "Shutdown request received.")
+			}
 			zap.L().Info("Stop/Shutdown request received.")
 
 			// Cancel the command's root context to cleanup resources
@@ -98,9 +134,45 @@ cmdloop:
 
 			break cmdloop
 		default:
+			m.log.Info(eventSuccess, fmt.Sprintf("Unexpected control request: %v", c.EventType))
 			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
 		}
 	}
 
 	return false, 0
+}
+
+// EventLog implements interface for eventlog.Log.
+type EventLog interface {
+	Close() error
+	Info(eid uint32, msg string) error
+	Warning(eid uint32, msg string) error
+	Error(eid uint32, msg string) error
+}
+
+// ZapEventLog implements EventLog interface, so we can use some sort of destination
+// when we fail to open eventlog.
+type ZapEventLog struct {
+	log *zap.Logger
+}
+
+// Close closes event log.
+func (log *ZapEventLog) Close() error { return nil }
+
+// Info writes an information event msg with event id eid to the end of event log l.
+func (log *ZapEventLog) Info(eid uint32, msg string) error {
+	log.log.Info(msg, zap.Uint32("eid", eid))
+	return nil
+}
+
+// Warning writes an warning event msg with event id eid to the end of event log l.
+func (log *ZapEventLog) Warning(eid uint32, msg string) error {
+	log.log.Warn(msg, zap.Uint32("eid", eid))
+	return nil
+}
+
+// Error writes an error event msg with event id eid to the end of event log l.
+func (log *ZapEventLog) Error(eid uint32, msg string) error {
+	log.log.Error(msg, zap.Uint32("eid", eid))
+	return nil
 }
