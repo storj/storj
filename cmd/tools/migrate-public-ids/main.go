@@ -74,6 +74,9 @@ func run(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("migrate-public-ids")
+	zap.ReplaceGlobals(logger)
+
 	process.Exec(rootCmd)
 }
 

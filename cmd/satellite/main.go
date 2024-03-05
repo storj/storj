@@ -1133,5 +1133,8 @@ func cmdFixLastNets(cmd *cobra.Command, _ []string) (err error) {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("satellite")
+	zap.ReplaceGlobals(logger)
+
 	process.ExecCustomDebug(rootCmd)
 }
