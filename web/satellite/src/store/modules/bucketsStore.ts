@@ -33,6 +33,7 @@ export class BucketsState {
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForDelete: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForCreate: EdgeCredentials = new EdgeCredentials();
+    public edgeCredentialsForVersioning: EdgeCredentials = new EdgeCredentials();
     public s3Client: S3Client = new S3Client({
         forcePathStyle: true,
         signerConstructor: SignatureV4,
@@ -42,6 +43,10 @@ export class BucketsState {
         signerConstructor: SignatureV4,
     });
     public s3ClientForCreate: S3Client = new S3Client({
+        forcePathStyle: true,
+        signerConstructor: SignatureV4,
+    });
+    public s3ClientForVersioning: S3Client = new S3Client({
         forcePathStyle: true,
         signerConstructor: SignatureV4,
     });
@@ -132,6 +137,23 @@ export const useBucketsStore = defineStore('buckets', () => {
         };
 
         state.s3ClientForCreate = new S3Client(s3Config);
+    }
+
+    function setEdgeCredentialsForVersioning(credentials: EdgeCredentials): void {
+        state.edgeCredentialsForVersioning = credentials;
+
+        const s3Config: S3ClientConfig = {
+            credentials: {
+                accessKeyId: state.edgeCredentialsForVersioning.accessKeyId || '',
+                secretAccessKey: state.edgeCredentialsForVersioning.secretKey || '',
+            },
+            endpoint: state.edgeCredentialsForVersioning.endpoint,
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+            region: 'us-east-1',
+        };
+
+        state.s3ClientForVersioning = new S3Client(s3Config);
     }
 
     async function setS3Client(projectID: string): Promise<void> {
@@ -255,6 +277,15 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
     }
 
+    async function setVersioning(bucket: string, enable: boolean): Promise<void> {
+        await state.s3ClientForVersioning.send(new PutBucketVersioningCommand({
+            Bucket: bucket,
+            VersioningConfiguration: {
+                Status: enable ? BucketVersioningStatus.Enabled : BucketVersioningStatus.Suspended,
+            },
+        }));
+    }
+
     async function deleteBucket(name: string): Promise<void> {
         await state.s3ClientForDelete.send(new DeleteBucketCommand({
             Bucket: name,
@@ -281,6 +312,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.edgeCredentials = new EdgeCredentials();
         state.edgeCredentialsForDelete = new EdgeCredentials();
         state.edgeCredentialsForCreate = new EdgeCredentials();
+        state.edgeCredentialsForVersioning = new EdgeCredentials();
         state.s3Client = new S3Client({
             forcePathStyle: true,
             signerConstructor: SignatureV4,
@@ -290,6 +322,10 @@ export const useBucketsStore = defineStore('buckets', () => {
             signerConstructor: SignatureV4,
         });
         state.s3ClientForCreate = new S3Client({
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+        });
+        state.s3ClientForVersioning = new S3Client({
             forcePathStyle: true,
             signerConstructor: SignatureV4,
         });
@@ -316,6 +352,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setEdgeCredentials,
         setEdgeCredentialsForDelete,
         setEdgeCredentialsForCreate,
+        setEdgeCredentialsForVersioning,
         setS3Client,
         setPassphrase,
         setApiKey,
@@ -324,6 +361,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setEnterPassphraseCallback,
         createBucket,
         createBucketWithNoPassphrase,
+        setVersioning,
         deleteBucket,
         getObjectsCount,
         setBucketToDelete,

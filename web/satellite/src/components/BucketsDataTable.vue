@@ -105,12 +105,36 @@
                         />
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.name)">
+                        <v-list-item
+                            density="comfortable"
+                            rounded="lg"
+                            link
+                            @click="openBucket(item.name)"
+                        >
                             <template #prepend>
-                                <icon-bucket size="18" />
+                                <IconForward />
                             </template>
-                            <v-list-item-title class="ml-3">
-                                Bucket Details
+                            <v-list-item-title
+                                class="pl-2 text-body-2 font-weight-medium"
+                            >
+                                Open Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
+                            v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
+                            density="comfortable"
+                            link
+                            rounded="lg"
+                            @click="() => onToggleVersioning(item)"
+                        >
+                            <template #prepend>
+                                <IconVersioning v-if="item.versioning !== Versioning.Enabled" />
+                                <IconPause v-else />
+                            </template>
+                            <v-list-item-title
+                                class="pl-2 text-body-2 font-weight-medium"
+                            >
+                                {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
                             </v-list-item-title>
                         </v-list-item>
                         <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.name)">
@@ -119,6 +143,14 @@
                             </template>
                             <v-list-item-title class="ml-3">
                                 Share Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.name)">
+                            <template #prepend>
+                                <icon-bucket size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Bucket Details
                             </v-list-item-title>
                         </v-list-item>
                         <v-divider class="my-1" />
@@ -174,6 +206,8 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { Versioning } from '@/types/versioning';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useVersioning } from '@/composables/useVersioning.js';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconShare from '@/components/icons/IconShare.vue';
@@ -184,7 +218,10 @@ import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import IconVersioning from '@/components/icons/IconVersioning.vue';
 import IconLocation from '@/components/icons/IconLocation.vue';
+import IconPause from '@/components/icons/IconPause.vue';
+import IconForward from '@/components/icons/IconForward.vue';
 
+const agStore = useAccessGrantsStore();
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
@@ -193,6 +230,7 @@ const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = useTrialCheck();
+const { toggleVersioning } = useVersioning();
 
 const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);
@@ -234,6 +272,11 @@ const displayedItems = computed<Bucket[]>(() => {
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
 });
+
+/**
+ * Whether versioning has been enabled for current project.
+ */
+const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
 const shouldShowVersioning = computed<boolean>(() => {
     return displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
@@ -378,6 +421,20 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
         break;
     default:
         items.sort((a, b) => option.order === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+    }
+}
+
+/**
+ * Toggles versioning for the bucket between Suspended and Enabled.
+ */
+async function onToggleVersioning(bucket: Bucket) {
+    try {
+        await toggleVersioning(bucket.name, bucket.versioning);
+        notify.success(`Versioning ${bucket.versioning !== Versioning.Enabled ? 'enabled' : 'suspended'} for bucket ${bucket.name}.`);
+        await fetchBuckets();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
+        return;
     }
 }
 
