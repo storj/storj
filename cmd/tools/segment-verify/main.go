@@ -310,6 +310,9 @@ func verifySegmentsCSV(ctx context.Context, service *Service, readCSVCfg ReadCSV
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("segment-verify")
+	zap.ReplaceGlobals(logger)
+
 	process.Exec(rootCmd)
 }
 
