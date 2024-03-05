@@ -87,6 +87,11 @@ async function selectProject(urlId: string): Promise<void> {
         return;
     }
     projectsStore.selectProject(project.id);
+    try {
+        await projectsStore.getProjectConfig();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
 }
 
 watch(() => route.params.id, async newId => {
