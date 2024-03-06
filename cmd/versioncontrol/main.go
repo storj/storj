@@ -94,5 +94,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("versioncontrol")
+	zap.ReplaceGlobals(logger)
+
 	process.Exec(rootCmd)
 }

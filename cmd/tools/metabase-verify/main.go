@@ -17,6 +17,9 @@ import (
 var Error = errs.Class("metabase-verify")
 
 func main() {
+	logger, _, _ := process.NewLogger("metabase-verify")
+	zap.ReplaceGlobals(logger)
+
 	log := zap.L()
 
 	root := &cobra.Command{
