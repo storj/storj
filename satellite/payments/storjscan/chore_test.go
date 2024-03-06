@@ -6,6 +6,7 @@ package storjscan_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func TestChore(t *testing.T) {
 		now := time.Now().Round(time.Second).UTC()
 
 		const confirmations = 12
-		chainIds := []int64{1337}
+		chainIds := []int64{1337, 5}
 
 		var pmnts []storjscan.Payment
 		var cachedPayments []storjscan.CachedPayment
@@ -44,8 +45,9 @@ func TestChore(t *testing.T) {
 		addPayments := func(count int) {
 			l := len(pmnts)
 			for i := l; i < l+count; i++ {
+				chainId := chainIds[i%len(chainIds)]
 				payment := storjscan.Payment{
-					ChainID:     chainIds[0],
+					ChainID:     chainId,
 					From:        blockchaintest.NewAddress(),
 					To:          blockchaintest.NewAddress(),
 					TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
@@ -73,14 +75,25 @@ func TestChore(t *testing.T) {
 				})
 			}
 
-			latestBlocks = []storjscan.Header{{
-				ChainID:   pmnts[len(pmnts)-1].ChainID,
-				Hash:      pmnts[len(pmnts)-1].BlockHash,
-				Number:    pmnts[len(pmnts)-1].BlockNumber,
-				Timestamp: pmnts[len(pmnts)-1].Timestamp,
-			}}
+			latestBlocks = []storjscan.Header{
+				{
+					ChainID:   pmnts[len(pmnts)-1].ChainID,
+					Hash:      pmnts[len(pmnts)-1].BlockHash,
+					Number:    pmnts[len(pmnts)-1].BlockNumber,
+					Timestamp: pmnts[len(pmnts)-1].Timestamp,
+				},
+				{
+					ChainID:   pmnts[len(pmnts)-2].ChainID,
+					Hash:      pmnts[len(pmnts)-2].BlockHash,
+					Number:    pmnts[len(pmnts)-2].BlockNumber,
+					Timestamp: pmnts[len(pmnts)-2].Timestamp,
+				},
+			}
 			for _, header := range latestBlocks {
 				for i := 0; i < len(cachedPayments); i++ {
+					if cachedPayments[i].ChainID != header.ChainID {
+						continue
+					}
 					if header.Number-cachedPayments[i].BlockNumber >= confirmations {
 						cachedPayments[i].Status = payments.PaymentStatusConfirmed
 					} else {
@@ -142,9 +155,11 @@ func TestChore(t *testing.T) {
 
 		last, err := paymentsDB.LastBlocks(ctx, payments.PaymentStatusPending)
 		require.NoError(t, err)
-		require.EqualValues(t, 99, last[chainIds[0]])
+		require.EqualValues(t, 98, last[chainIds[0]])
+		require.EqualValues(t, 99, last[chainIds[1]])
 		actual, err := paymentsDB.List(ctx)
 		require.NoError(t, err)
+		sort.Slice(actual, func(i, j int) bool { return actual[i].BlockNumber < actual[j].BlockNumber })
 		require.Equal(t, cachedPayments, actual)
 
 		addPayments(100)
@@ -152,9 +167,11 @@ func TestChore(t *testing.T) {
 
 		last, err = paymentsDB.LastBlocks(ctx, payments.PaymentStatusPending)
 		require.NoError(t, err)
-		require.EqualValues(t, 199, last[chainIds[0]])
+		require.EqualValues(t, 198, last[chainIds[0]])
+		require.EqualValues(t, 199, last[chainIds[1]])
 		actual, err = paymentsDB.List(ctx)
 		require.NoError(t, err)
+		sort.Slice(actual, func(i, j int) bool { return actual[i].BlockNumber < actual[j].BlockNumber })
 		require.Equal(t, cachedPayments, actual)
 
 		require.Equal(t, reqCounter, cachedReqCounter+2)

@@ -304,59 +304,55 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 
 	defer mon.Task()(&ctx, req.SatelliteID, req.CreatedBefore)(&err)
 
-	numDeleted := 0
 	satelliteID := req.SatelliteID
 	filter := req.Filter
 
 	// subtract some time to leave room for clock difference between the satellite and storage node
 	createdBefore := req.CreatedBefore.Add(-s.config.MaxTimeSkew)
-	started := time.Now().UTC()
+	startedAt := time.Now().UTC()
+	numTrashed := 0
 	filterHashCount, _ := req.Filter.Parameters()
 	mon.IntVal("garbage_collection_created_before").Observe(createdBefore.Unix())
 	mon.IntVal("garbage_collection_filter_hash_count").Observe(int64(filterHashCount))
 	mon.IntVal("garbage_collection_filter_size").Observe(filter.Size())
-	mon.IntVal("garbage_collection_started").Observe(started.Unix())
+	mon.IntVal("garbage_collection_started").Observe(startedAt.Unix())
 
 	s.log.Info("Prepared to run a Retain request.",
 		zap.Time("Created Before", createdBefore),
 		zap.Int64("Filter Size", filter.Size()),
 		zap.Stringer("Satellite ID", satelliteID))
 
-	pieceIDs, piecesCount, piecesSkipped, err := s.store.SatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+	pieceIDs, piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+		// if retain status is enabled, trash the piece
+		if s.config.Status == Enabled {
+			if err := s.trash(ctx, satelliteID, pieceID, startedAt); err != nil {
+				s.log.Warn("failed to trash piece",
+					zap.Stringer("Satellite ID", satelliteID),
+					zap.Stringer("Piece ID", pieceID),
+					zap.Error(err))
+				return nil
+			}
+		}
+
+		numTrashed++
+
+		return nil
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	piecesToDeleteCount := len(pieceIDs)
 
-	for i := range pieceIDs {
-		pieceID := pieceIDs[i]
-		s.log.Debug("About to move piece to trash",
-			zap.Stringer("Satellite ID", satelliteID),
-			zap.Stringer("Piece ID", pieceID),
-			zap.String("Status", s.config.Status.String()))
-
-		// if retain status is enabled, delete pieceid
-		if s.config.Status == Enabled {
-			if err = s.trash(ctx, satelliteID, pieceID, started); err != nil {
-				s.log.Warn("failed to delete piece",
-					zap.Stringer("Satellite ID", satelliteID),
-					zap.Stringer("Piece ID", pieceID),
-					zap.Error(err))
-				continue
-			}
-		}
-		numDeleted++
-	}
 	mon.IntVal("garbage_collection_pieces_count").Observe(piecesCount)
 	mon.IntVal("garbage_collection_pieces_skipped").Observe(piecesSkipped)
 	mon.IntVal("garbage_collection_pieces_to_delete_count").Observe(int64(piecesToDeleteCount))
-	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	duration := time.Now().UTC().Sub(started)
+	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numTrashed))
+	duration := time.Now().UTC().Sub(startedAt)
 	mon.DurationVal("garbage_collection_loop_duration").Observe(duration)
 	s.log.Info("Moved pieces to trash during retain",
-		zap.Int("Deleted pieces", numDeleted),
-		zap.Int("Failed to delete", piecesToDeleteCount-numDeleted),
+		zap.Int("Deleted pieces", numTrashed),
+		zap.Int("Failed to delete", piecesToDeleteCount-numTrashed),
 		zap.Int64("Pieces failed to read", piecesSkipped),
 		zap.Int64("Pieces count", piecesCount),
 		zap.Stringer("Satellite ID", satelliteID),

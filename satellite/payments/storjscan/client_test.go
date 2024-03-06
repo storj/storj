@@ -6,6 +6,7 @@ package storjscan_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -23,12 +24,13 @@ import (
 func TestClientMocked(t *testing.T) {
 	ctx := testcontext.New(t)
 	now := time.Now().Round(time.Second).UTC()
-	chainIds := []int64{1337}
+	chainIds := []int64{1337, 5}
 
 	var payments []storjscan.Payment
 	for i := 0; i < 100; i++ {
+		chainId := chainIds[i%len(chainIds)]
 		payments = append(payments, storjscan.Payment{
-			ChainID:     chainIds[0],
+			ChainID:     chainId,
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
 			TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
@@ -40,12 +42,20 @@ func TestClientMocked(t *testing.T) {
 			Timestamp:   now.Add(time.Duration(i) * time.Second),
 		})
 	}
-	latestBlocks := []storjscan.Header{{
-		ChainID:   payments[len(payments)-1].ChainID,
-		Hash:      payments[len(payments)-1].BlockHash,
-		Number:    payments[len(payments)-1].BlockNumber,
-		Timestamp: payments[len(payments)-1].Timestamp,
-	}}
+	latestBlocks := []storjscan.Header{
+		{
+			ChainID:   payments[len(payments)-1].ChainID,
+			Hash:      payments[len(payments)-1].BlockHash,
+			Number:    payments[len(payments)-1].BlockNumber,
+			Timestamp: payments[len(payments)-1].Timestamp,
+		},
+		{
+			ChainID:   payments[len(payments)-2].ChainID,
+			Hash:      payments[len(payments)-2].BlockHash,
+			Number:    payments[len(payments)-2].BlockNumber,
+			Timestamp: payments[len(payments)-2].Timestamp,
+		},
+	}
 
 	const (
 		identifier = "eu"
@@ -84,14 +94,29 @@ func TestClientMocked(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, latestBlocks, actual.LatestBlocks)
 		require.Equal(t, len(payments), len(actual.Payments))
+		sort.Slice(actual.Payments, func(i, j int) bool { return actual.Payments[i].BlockNumber < actual.Payments[j].BlockNumber })
 		require.Equal(t, payments, actual.Payments)
 	})
 	t.Run("all payments from 50", func(t *testing.T) {
-		actual, err := client.AllPayments(ctx, map[int64]int64{chainIds[0]: 50})
+		actual, err := client.AllPayments(ctx, map[int64]int64{chainIds[0]: 50, chainIds[1]: 50})
 		require.NoError(t, err)
 		require.Equal(t, latestBlocks, actual.LatestBlocks)
 		require.Equal(t, 50, len(actual.Payments))
+		sort.Slice(actual.Payments, func(i, j int) bool { return actual.Payments[i].BlockNumber < actual.Payments[j].BlockNumber })
 		require.Equal(t, payments[50:], actual.Payments)
+	})
+	t.Run("all payments different start per chain ID", func(t *testing.T) {
+		actual, err := client.AllPayments(ctx, map[int64]int64{chainIds[0]: 50, chainIds[1]: 0})
+		require.NoError(t, err)
+		require.Equal(t, latestBlocks, actual.LatestBlocks)
+		require.Equal(t, 75, len(actual.Payments))
+		sort.Slice(payments, func(i, j int) bool {
+			if payments[i].ChainID == payments[j].ChainID {
+				return payments[i].BlockNumber < payments[j].BlockNumber
+			}
+			return payments[i].ChainID > payments[j].ChainID
+		})
+		require.Equal(t, payments[25:], actual.Payments)
 	})
 }
 

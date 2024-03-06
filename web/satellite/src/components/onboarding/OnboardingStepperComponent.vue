@@ -21,7 +21,7 @@
                     :disabled="currentStep !== OnboardingStep.EncryptionPassphrase"
                     :prepend-icon="isPassphraseDone ? mdiCheck : ''"
                     block
-                    @click="isManagePassphraseDialogOpen = true"
+                    @click="onManagePassphrase"
                 >
                     Set a Passphrase
                 </v-btn>
@@ -45,7 +45,7 @@
                     :disabled="currentStep !== OnboardingStep.CreateBucket"
                     :prepend-icon="isBucketDone ? mdiCheck : ''"
                     block
-                    @click="isBucketDialogOpen = true"
+                    @click="onCreateBucket"
                 >
                     Create a Bucket
                 </v-btn>
@@ -139,6 +139,7 @@ import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
 import { AccessType, Exposed } from '@/types/createAccessGrant';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import NewAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
@@ -153,6 +154,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
+const { withTrialCheck } = useTrialCheck();
 
 let passphraseDialogCallback: () => void = () => {};
 
@@ -244,27 +246,47 @@ const edgeCredentials = computed((): EdgeCredentials => {
 });
 
 /**
+ * Starts set passphrase flow if user's free trial is not expired.
+ */
+function onManagePassphrase(): void {
+    withTrialCheck(() => {
+        isManagePassphraseDialogOpen.value = true;
+    });
+}
+
+/**
+ * Starts create bucket flow if user's free trial is not expired.
+ */
+function onCreateBucket(): void {
+    withTrialCheck(() => {
+        isBucketDialogOpen.value = true;
+    });
+}
+
+/**
  * Opens the file browser for the bucket being tracked in onboarding if any
  * or select the only bucket the user has created
  * or redirect to the buckets list.
  */
-async function uploadFilesClicked() {
-    if (trackedBucketName.value) {
-        await openTrackedBucket();
-    } else {
-        await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
-        const buckets = bucketsStore.state.page.buckets;
-        if (buckets.length === 1) {
-            trackedBucketName.value = buckets[0].name;
+function uploadFilesClicked(): void {
+    withTrialCheck(async () => {
+        if (trackedBucketName.value) {
             await openTrackedBucket();
         } else {
-            await progressStep();
-            await router.push({
-                name: ROUTES.Buckets.name,
-                params: { id: selectedProject.value.urlId },
-            });
+            await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
+            const buckets = bucketsStore.state.page.buckets;
+            if (buckets.length === 1) {
+                trackedBucketName.value = buckets[0].name;
+                await openTrackedBucket();
+            } else {
+                await progressStep();
+                await router.push({
+                    name: ROUTES.Buckets.name,
+                    params: { id: selectedProject.value.urlId },
+                });
+            }
         }
-    }
+    });
 }
 
 /**
@@ -299,22 +321,24 @@ async function openTrackedBucket(): Promise<void> {
     isBucketPassphraseDialogOpen.value = true;
 }
 
-function onBucketCreated(bucketName: string) {
+function onBucketCreated(bucketName: string): void {
     trackedBucketName.value = bucketName;
     progressStep();
 }
 
-async function openAccessDialog() {
-    if (currentStep.value === OnboardingStep.UploadFiles) {
-        // progress to access step so the onboarding will
-        // end correctly after the access is created.
-        await progressStep();
-    }
-    accessDialog.value?.setTypes([AccessType.S3]);
-    isAccessDialogOpen.value = true;
+function openAccessDialog(): void {
+    withTrialCheck(async () => {
+        if (currentStep.value === OnboardingStep.UploadFiles) {
+            // progress to access step so the onboarding will
+            // end correctly after the access is created.
+            await progressStep();
+        }
+        accessDialog.value?.setTypes([AccessType.S3]);
+        isAccessDialogOpen.value = true;
+    });
 }
 
-function onAccessCreated() {
+function onAccessCreated(): void {
     // arbitrary delay so the disappear animation
     // of the access dialog is visible
     setTimeout(() => progressStep(true), 500);
@@ -325,7 +349,7 @@ function onAccessCreated() {
  * and saves the progress in the user settings, conditionally
  * ending the onboarding.
  */
-async function progressStep(onboardingEnd = false) {
+async function progressStep(onboardingEnd = false): Promise<void> {
     let onboardingStep = currentStep.value;
     switch (userSettings.value.onboardingStep) {
     case OnboardingStep.EncryptionPassphrase:
@@ -357,7 +381,7 @@ async function progressStep(onboardingEnd = false) {
 /**
  * Dismisses the onboarding stepper and abandons the onboarding process.
  */
-async function endOnboarding() {
+async function endOnboarding(): Promise<void> {
     try {
         await userStore.updateSettings({ onboardingEnd: true });
         analyticsStore.eventTriggered(AnalyticsEvent.ONBOARDING_ABANDONED);

@@ -310,20 +310,20 @@ func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobR
 }
 
 // EmptyTrash empties the trash and updates the cache.
-func (blobs *BlobsUsageCache) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, time.Time, error) {
+func (blobs *BlobsUsageCache) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	satelliteID, err := storj.NodeIDFromBytes(namespace)
 	if err != nil {
-		return 0, nil, time.Time{}, err
+		return 0, nil, err
 	}
 
-	bytesEmptied, keys, minPieceTimestamp, err := blobs.Blobs.EmptyTrash(ctx, namespace, trashedBefore)
+	bytesEmptied, keys, err := blobs.Blobs.EmptyTrash(ctx, namespace, trashedBefore)
 	if err != nil {
-		return 0, nil, time.Time{}, err
+		return 0, nil, err
 	}
 
 	blobs.Update(ctx, satelliteID, 0, 0, -bytesEmptied)
 
-	return bytesEmptied, keys, minPieceTimestamp, nil
+	return bytesEmptied, keys, nil
 }
 
 // RestoreTrash restores the trash for the namespace and updates the cache.

@@ -14,6 +14,7 @@ class AppState {
     public isBrowserCardViewEnabled = LocalData.getBrowserCardViewEnabled();
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
+    public isExpirationDialogShown = false;
     public isAccountSetupDialogShown = false;
     public isProjectPassphraseDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
@@ -73,6 +74,10 @@ export const useAppStore = defineStore('app', () => {
         state.isUpgradeFlowDialogShown = isShown ?? !state.isUpgradeFlowDialogShown;
     }
 
+    function toggleExpirationDialog(isShown?: boolean): void {
+        state.isExpirationDialogShown = isShown ?? !state.isExpirationDialogShown;
+    }
+
     function toggleAccountSetup(isShown?: boolean): void {
         state.isAccountSetupDialogShown = isShown ?? !state.isAccountSetupDialogShown;
     }
@@ -116,6 +121,7 @@ export const useAppStore = defineStore('app', () => {
         hasProjectTableViewConfigured,
         toggleHasJustLoggedIn,
         toggleProjectPassphraseDialog,
+        toggleExpirationDialog,
         setUploadingModal,
         setErrorPage,
         removeErrorPage,

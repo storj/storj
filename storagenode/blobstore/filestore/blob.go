@@ -38,6 +38,10 @@ const (
 	// stored blobs claim a lower storage format version than this, this software will not know how
 	// to perform the read and an error will be returned.
 	MinFormatVersionSupported = FormatV0
+
+	// MinFormatVersionSupportedInTrash is the lowest supported storage format that can be used
+	// for storage in the trash.
+	MinFormatVersionSupportedInTrash = FormatV1
 )
 
 // blobReader implements reading blobs.

@@ -197,7 +197,7 @@ func TestCacheServiceRun(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
 
-		store, err := filestore.NewAt(log, db.Config().Pieces, filestore.DefaultConfig)
+		store, err := filestore.OpenAt(log, db.Config().Pieces, filestore.DefaultConfig)
 		require.NoError(t, err)
 		defer ctx.Check(store.Close)
 
@@ -278,7 +278,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 
 		dbConfig := db.Config()
 
-		store, err := filestore.NewAt(log, dbConfig.Pieces, dbConfig.Filestore)
+		store, err := filestore.OpenAt(log, dbConfig.Pieces, dbConfig.Filestore)
 		require.NoError(t, err)
 		defer ctx.Check(store.Close)
 
@@ -747,7 +747,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		assertValues("trashed again", satelliteID, expPieceSize, len(pieceContent), int(ref0Size))
 
 		// Empty trash
-		_, _, _, err = cache.EmptyTrash(ctx, satelliteID.Bytes(), time.Now().Add(24*time.Hour))
+		_, _, err = cache.EmptyTrash(ctx, satelliteID.Bytes(), time.Now().Add(24*time.Hour))
 		require.NoError(t, err)
 		assertValues("emptied trash", satelliteID, expPieceSize, len(pieceContent), 0)
 

@@ -153,9 +153,9 @@ func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]by
 }
 
 // EmptyTrash empties the trash.
-func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, time.Time, error) {
+func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	if err := bad.err.Err(); err != nil {
-		return 0, nil, time.Time{}, err
+		return 0, nil, err
 	}
 	return bad.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }

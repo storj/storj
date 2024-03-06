@@ -224,6 +224,9 @@ func TestDeleteWhileReading(t *testing.T) {
 		if info.IsDir() {
 			return nil
 		}
+		if info.Name() == filestore.TrashUsesDayDirsIndicator {
+			return nil
+		}
 		return errs.New("found file %q", path)
 	})
 	if err != nil {
@@ -645,7 +648,7 @@ func TestEmptyTrash(t *testing.T) {
 			expectedFilesEmptied++
 		}
 	}
-	emptiedBytes, keys, _, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(time.Hour))
+	emptiedBytes, keys, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(24*time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, expectedFilesEmptied*int64(size), emptiedBytes)
 	assert.Equal(t, int(expectedFilesEmptied), len(keys))
@@ -762,10 +765,11 @@ func TestTrashAndRestore(t *testing.T) {
 			require.NoError(t, store.Trash(ctx, blobref, time.Now()))
 
 			// Verify files are gone
-			for _, file := range ref.files {
+			for n, file := range ref.files {
 				_, err = store.OpenWithStorageFormat(ctx, blobref, file.formatVer)
 				require.Error(t, err)
-				require.True(t, os.IsNotExist(err))
+				require.True(t, os.IsNotExist(err),
+					"on file %d: expected IsNotExist error but got %v", n, err)
 			}
 		}
 	}

@@ -46,12 +46,15 @@ import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 
 import { Application } from '@/types/applications';
 import { AccessType, Exposed } from '@/types/createAccessGrant';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 
 const props = defineProps<{
     app: Application
 }>();
+
+const { withTrialCheck } = useTrialCheck();
 
 const accessDialog = ref<Exposed>();
 const dialog = ref<boolean>(false);
@@ -61,7 +64,9 @@ const dialog = ref<boolean>(false);
  * Starts create S3 credentials flow.
  */
 function onSetup(): void {
-    accessDialog.value?.setTypes([AccessType.S3]);
-    dialog.value = true;
+    withTrialCheck(() => {
+        accessDialog.value?.setTypes([AccessType.S3]);
+        dialog.value = true;
+    });
 }
 </script>

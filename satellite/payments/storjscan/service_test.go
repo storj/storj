@@ -355,6 +355,113 @@ func TestListPayments(t *testing.T) {
 	})
 }
 
+func TestListPaymentsMultipleChainIds(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		paymentsDB := db.StorjscanPayments()
+		now := time.Now().Truncate(time.Second).UTC()
+
+		wallet1 := blockchaintest.NewAddress()
+		walletPaymentsBatch1 := []payments.WalletPayment{
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     5,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 0,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    1,
+				Timestamp:   now,
+			},
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 0,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    2,
+				Timestamp:   now,
+			},
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     5,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 0,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    3,
+				Timestamp:   now,
+			},
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 1,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    0,
+				Timestamp:   now.Add(15 * time.Second),
+			},
+		}
+
+		var cachedPayments1 []storjscan.CachedPayment
+		for _, pmnt := range walletPaymentsBatch1 {
+			cachedPayments1 = append(cachedPayments1, storjscan.CachedPayment{
+				From:        pmnt.From,
+				To:          pmnt.To,
+				TokenValue:  pmnt.TokenValue,
+				USDValue:    pmnt.USDValue,
+				Status:      pmnt.Status,
+				ChainID:     pmnt.ChainID,
+				BlockHash:   pmnt.BlockHash,
+				BlockNumber: pmnt.BlockNumber,
+				Transaction: pmnt.Transaction,
+				LogIndex:    pmnt.LogIndex,
+				Timestamp:   pmnt.Timestamp,
+			})
+		}
+
+		err := paymentsDB.InsertBatch(ctx, cachedPayments1)
+		require.NoError(t, err)
+
+		confirmedPayments, err := paymentsDB.ListConfirmed(ctx, billing.StorjScanEthereumSource, 1337, 0, 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(confirmedPayments))
+		for _, act := range confirmedPayments {
+			for _, exp := range cachedPayments1 {
+				if act.BlockHash == exp.BlockHash && act.LogIndex == exp.LogIndex {
+					compareTransactions(t, exp, act)
+					break
+				}
+			}
+		}
+
+		confirmedPayments, err = paymentsDB.ListConfirmed(ctx, billing.StorjScanEthereumSource, 5, 0, 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(confirmedPayments))
+		for _, act := range confirmedPayments {
+			for _, exp := range cachedPayments1 {
+				if act.BlockHash == exp.BlockHash && act.LogIndex == exp.LogIndex {
+					compareTransactions(t, exp, act)
+					break
+				}
+			}
+		}
+	})
+}
+
 // compareTransactions is a helper method to compare tx used to create db entry,
 // with the tx returned from the db.
 func compareTransactions(t *testing.T, exp, act storjscan.CachedPayment) {

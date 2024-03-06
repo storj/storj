@@ -6,10 +6,7 @@ package filestore
 import (
 	"context"
 	"encoding/hex"
-	"errors"
-	"io"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -71,6 +68,15 @@ func New(log *zap.Logger, dir *Dir, config Config) blobstore.Blobs {
 // NewAt creates a new disk blob store in the specified directory.
 func NewAt(log *zap.Logger, path string, config Config) (blobstore.Blobs, error) {
 	dir, err := NewDir(log, path)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &blobStore{dir: dir, log: log, config: config, track: leak.Root(1)}, nil
+}
+
+// OpenAt opens an existing disk blob store in the specified directory.
+func OpenAt(log *zap.Logger, path string, config Config) (blobstore.Blobs, error) {
+	dir, err := OpenDir(log, path, time.Now())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -169,14 +175,18 @@ func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (key
 // in the trash or could not be restored.
 func (store *blobStore) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.dir.TryRestoreTrashBlob(ctx, ref))
+	err = store.dir.TryRestoreTrashBlob(ctx, ref)
+	if os.IsNotExist(err) {
+		return err
+	}
+	return Error.Wrap(err)
 }
 
-// EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
-func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, minPieceTimestamp time.Time, err error) {
+// EmptyTrash removes files in trash that have been there since before trashedBefore.
+func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bytesEmptied, keys, minPieceTimestamp, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
-	return bytesEmptied, keys, minPieceTimestamp, Error.Wrap(err)
+	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
+	return bytesEmptied, keys, Error.Wrap(err)
 }
 
 // Create creates a new blob that can be written.
@@ -228,44 +238,45 @@ func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namesp
 	return totalUsed, nil
 }
 
-// TrashIsEmpty returns boolean value if trash dir is empty.
-func (store *blobStore) TrashIsEmpty() (_ bool, err error) {
-	f, err := os.Open(store.dir.trashdir())
-	if err != nil {
-		return false, err
-	}
-	defer func() {
-		err = errs.Combine(err, f.Close())
-	}()
-
-	_, err = f.Readdirnames(1)
-	if errors.Is(err, io.EOF) {
-		return true, nil
-	}
-	return false, err
-}
-
 // SpaceUsedForTrash returns the total space used by the trash.
 func (store *blobStore) SpaceUsedForTrash(ctx context.Context) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	empty, err := store.TrashIsEmpty()
+	var totalSpaceUsed int64
+	namespaces, err := store.listNamespacesInTrash(ctx)
 	if err != nil {
-		return total, err
+		return 0, Error.New("failed to enumerate namespaces in trash: %w", err)
 	}
-	if empty {
-		return 0, nil
-	}
-	err = filepath.Walk(store.dir.trashdir(), func(_ string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			err = errs.Combine(err, walkErr)
-			return filepath.SkipDir
+	for _, namespace := range namespaces {
+		used, err := store.SpaceUsedForBlobsInNamespaceInTrash(ctx, namespace)
+		if err != nil {
+			return 0, Error.New("failed to walk trash namespace %x: %w", namespace, err)
 		}
+		totalSpaceUsed += used
+	}
+	return totalSpaceUsed, nil
+}
 
-		total += info.Size()
+// SpaceUsedForBlobsInNamespaceInTrash adds up how much is used in the given namespace in the trash.
+func (store *blobStore) SpaceUsedForBlobsInNamespaceInTrash(ctx context.Context, namespace []byte) (int64, error) {
+	var totalUsed int64
+	err := store.walkNamespaceInTrash(ctx, namespace, func(info blobstore.BlobInfo, dirTime time.Time) error {
+		statInfo, statErr := info.Stat(ctx)
+		if statErr != nil {
+			store.log.Error("failed to stat blob in trash",
+				zap.Binary("namespace", namespace),
+				zap.Binary("key", info.BlobRef().Key),
+				zap.Error(statErr))
+			// keep iterating; we want a best effort total here.
+			return nil
+		}
+		totalUsed += statInfo.Size()
 		return nil
 	})
-	return total, err
+	if err != nil {
+		return 0, err
+	}
+	return totalUsed, nil
 }
 
 // FreeSpace returns how much space left in underlying directory.
@@ -307,6 +318,14 @@ func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, wal
 	return store.dir.WalkNamespace(ctx, namespace, walkFunc)
 }
 
+// walkNamespaceInTrash executes walkFunc for each blob stored in the trash under the given
+// namespace. If walkFunc returns a non-nil error, walkNamespaceInTrash will stop iterating and
+// return the error immediately. The ctx parameter is intended specifically to allow canceling
+// iteration early.
+func (store *blobStore) walkNamespaceInTrash(ctx context.Context, namespace []byte, walkFunc func(info blobstore.BlobInfo, dirTime time.Time) error) error {
+	return store.dir.walkNamespaceInTrash(ctx, namespace, walkFunc)
+}
+
 // TestCreateV0 creates a new V0 blob that can be written. This is ONLY appropriate in test situations.
 func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -327,4 +346,10 @@ func (store *blobStore) CreateVerificationFile(ctx context.Context, id storj.Nod
 // of the verification file.
 func (store *blobStore) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
 	return store.dir.Verify(ctx, id)
+}
+
+// listNamespacesInTrash lists all known the namespace IDs in use in the trash. They are
+// not guaranteed to contain any blobs, or to correspond to namespaces in main storage.
+func (store *blobStore) listNamespacesInTrash(ctx context.Context) ([][]byte, error) {
+	return store.dir.listNamespacesInTrash(ctx)
 }

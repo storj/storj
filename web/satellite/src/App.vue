@@ -8,7 +8,7 @@
         <router-view />
         <trial-expiration-dialog
             v-if="!user.paidTier"
-            v-model="isTrialExpirationDialogShown"
+            v-model="appStore.state.isExpirationDialogShown"
             :expired="user.freezeStatus.trialExpiredFrozen"
         />
     </template>
@@ -54,7 +54,6 @@ const theme = useTheme();
 const route = useRoute();
 
 const isLoading = ref<boolean>(true);
-const isTrialExpirationDialogShown = ref<boolean>(false);
 
 /**
  * Indicates whether an error page should be shown in place of the router view.
@@ -155,7 +154,7 @@ usersStore.$onAction(({ name, after }) => {
 
                 const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
                 if (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial) {
-                    isTrialExpirationDialogShown.value = true;
+                    appStore.toggleExpirationDialog(true);
                 }
             });
         });
