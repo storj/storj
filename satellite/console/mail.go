@@ -5,6 +5,36 @@ package console
 
 import "time"
 
+// TrialExpirationReminderEmail is mailservice template with trial expiration reminder data.
+type TrialExpirationReminderEmail struct {
+	Origin              string
+	SignInLink          string
+	ContactInfoURL      string
+	ScheduleMeetingLink string
+}
+
+// Template returns email template name.
+func (*TrialExpirationReminderEmail) Template() string { return "TrialExpirationReminder" }
+
+// Subject gets email subject.
+func (*TrialExpirationReminderEmail) Subject() string { return "Your Storj trial is ending soon" }
+
+// TrialExpiredEmail is mailservice template with trial expiration data.
+type TrialExpiredEmail struct {
+	Origin              string
+	SignInLink          string
+	ContactInfoURL      string
+	ScheduleMeetingLink string
+}
+
+// Template returns email template name.
+func (*TrialExpiredEmail) Template() string { return "TrialExpired" }
+
+// Subject gets email subject.
+func (*TrialExpiredEmail) Subject() string {
+	return "Your Storj trial has ended - Act now to continue!"
+}
+
 // AccountActivationEmail is mailservice template with activation data.
 type AccountActivationEmail struct {
 	Origin                string
