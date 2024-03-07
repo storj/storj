@@ -29,12 +29,12 @@ func NewState(nodes []*SelectedNode, placements PlacementDefinitions) State {
 }
 
 // Select picks the required nodes given a specific placement.
-func (s State) Select(p storj.PlacementConstraint, count int, alreadySelected []storj.NodeID) ([]*SelectedNode, error) {
+func (s State) Select(p storj.PlacementConstraint, count int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
 	selector, found := s[p]
 	if !found {
 		return nil, Error.New("Placement is not defined: %d", p)
 	}
-	nodes, err := selector(count, alreadySelected)
+	nodes, err := selector(count, excluded, alreadySelected)
 	if len(nodes) < count {
 		return nodes, ErrNotEnoughNodes.New("requested from cache %d, found %d", count, len(nodes))
 	}

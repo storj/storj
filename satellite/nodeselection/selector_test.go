@@ -57,7 +57,7 @@ func TestSelectByID(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes, err := selector(reqCount, nil)
+		selectedNodes, err := selector(reqCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
@@ -120,7 +120,7 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes, err := selector(reqCount, nil)
+		selectedNodes, err := selector(reqCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
@@ -195,7 +195,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// perform many node selections that selects 1 node
 	for i := 0; i < executionCount; i++ {
-		selectedNodes, err := selector(reqCount, nil)
+		selectedNodes, err := selector(reqCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
@@ -254,15 +254,15 @@ func TestSelectFiltered(t *testing.T) {
 	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
 
 	selector := nodeselection.RandomSelector()(nodes, nil)
-	selected, err := selector(3, nil)
+	selected, err := selector(3, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, selected, 3)
-	selected, err = selector(3, nil)
+	selected, err = selector(3, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, selected, 3)
 
 	selector = nodeselection.RandomSelector()(nodes, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID}))
-	selected, err = selector(3, nil)
+	selected, err = selector(3, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, selected, 1)
 }
@@ -291,7 +291,7 @@ func TestSelectFilteredMulti(t *testing.T) {
 	require.NoError(t, err)
 	selector := nodeselection.AttributeGroupSelector(attribute)(nodes, filter)
 	for i := 0; i < 100; i++ {
-		selected, err := selector(4, nil)
+		selected, err := selector(4, nil, nil)
 		require.NoError(t, err)
 		assert.Len(t, selected, 4)
 	}
@@ -316,7 +316,7 @@ func TestFilterSelector(t *testing.T) {
 
 	initialized := selector(nodes, nil)
 	for i := 0; i < 100; i++ {
-		selected, err := initialized(3, []storj.NodeID{})
+		selected, err := initialized(3, []storj.NodeID{}, nil)
 		require.NoError(t, err)
 		for _, s := range selected {
 			for _, w := range list {
@@ -354,7 +354,7 @@ func TestBalancedSelector(t *testing.T) {
 
 	badSelection := 0
 	for i := 0; i < 1000; i++ {
-		selectedNodes, err := selector(10, nil)
+		selectedNodes, err := selector(10, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selectedNodes, 10)
@@ -373,4 +373,64 @@ func TestBalancedSelector(t *testing.T) {
 	// there is a very-very low chance to have wrong selection if we select one from A
 	// and all the other random selection will select the same node again
 	require.True(t, badSelection < 5)
+}
+
+func TestBalancedSelectorWithExisting(t *testing.T) {
+	attribute, err := nodeselection.CreateNodeAttribute("tag:owner")
+	require.NoError(t, err)
+
+	ownerCounts := map[string]int{"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}
+	var nodes []*nodeselection.SelectedNode
+
+	var excluded []storj.NodeID
+	var alreadySelected []*nodeselection.SelectedNode
+
+	idIndex := 0
+	for owner, count := range ownerCounts {
+		for i := 0; i < count; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testidentity.MustPregeneratedIdentity(idIndex, storj.LatestIDVersion()).ID,
+				Tags: nodeselection.NodeTags{
+					{
+						Name:  "owner",
+						Value: []byte(owner),
+					},
+				},
+			})
+			idIndex++
+			if owner == "A" {
+				excluded = append(excluded, nodes[len(nodes)-1].ID)
+			}
+			if owner == "B" && len(alreadySelected) < 9 {
+				alreadySelected = append(alreadySelected, nodes[len(nodes)-1])
+			}
+		}
+	}
+
+	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+
+	histogram := map[string]int{}
+	for i := 0; i < 1000; i++ {
+		selectedNodes, err := selector(7, excluded, alreadySelected)
+		require.NoError(t, err)
+
+		require.Len(t, selectedNodes, 7)
+
+		for _, node := range selectedNodes {
+			histogram[attribute(*node)]++
+		}
+	}
+	// from the initial {"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}
+
+	// A is fully excluded
+	require.Equal(t, 0, histogram["A"])
+
+	require.Greater(t, histogram["B"], 100)
+	require.Less(t, histogram["B"], 800)
+
+	require.Greater(t, histogram["C"], 1000)
+	require.Greater(t, histogram["D"], 1000)
+
+	require.Equal(t, 1000, histogram["E"])
+
 }

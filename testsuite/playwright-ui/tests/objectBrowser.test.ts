@@ -47,12 +47,12 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.uploadFile(fileName, 'text/plain');
         await objectBrowserPage.openObjectPreview(fileName, 'Text');
 
-        // Checks for successful download
-        await objectBrowserPage.downloadFromPreview();
-
         // Checks if the link-sharing buttons work
         await objectBrowserPage.verifyObjectMapIsVisible();
         await objectBrowserPage.verifyShareLink();
+
+        // Checks for successful download
+        await objectBrowserPage.downloadFromPreview();
         await objectBrowserPage.closePreview(fileName);
 
         // Delete old file and upload new with the same file name

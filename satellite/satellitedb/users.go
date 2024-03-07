@@ -788,6 +788,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		HaveSalesContact:      user.HaveSalesContact,
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
+		TrialNotifications:    user.TrialNotifications,
 		SignupCaptcha:         user.SignupCaptcha,
 		TrialExpiration:       user.TrialExpiration,
 		UpgradeTime:           user.UpgradeTime,

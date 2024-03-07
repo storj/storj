@@ -14,7 +14,7 @@ export class SignupPage {
     }
 
     async navigateToSignup(): Promise<void> {
-        await this.page.goto(`${testConfig.host}${testConfig.port}//signup`);
+        await this.page.goto(`${testConfig.host}:${testConfig.port}/signup`);
     }
 
     async signupFirstStep(email: string, password: string): Promise<void> {

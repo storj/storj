@@ -28,16 +28,19 @@
             </v-row>
             <v-divider class="my-4" />
             <p>Deposit Address</p>
-            <v-chip rounded color="default" variant="text" class="font-weight-bold mt-2 px-0" @click="copyAddress">
-                {{ shortAddress || '-------' }}
-                <v-tooltip
-                    v-if="wallet.address"
-                    activator="parent"
-                    location="top"
-                >
-                    {{ wallet.address }}
-                </v-tooltip>
-            </v-chip>
+            <v-row class="ma-0 mt-2 align-center">
+                <v-chip rounded color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="copyAddress">
+                    {{ shortAddress || '-------' }}
+                    <v-tooltip
+                        v-if="wallet.address"
+                        activator="parent"
+                        location="top"
+                    >
+                        {{ wallet.address }}
+                    </v-tooltip>
+                </v-chip>
+                <input-copy-button v-if="wallet.address" :value="wallet.address" />
+            </v-row>
             <v-divider class="my-4" />
             <p>Total Balance</p>
             <v-chip rounded color="green" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
@@ -65,6 +68,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AddTokensDialog from '@/components/dialogs/AddTokensDialog.vue';
+import InputCopyButton from '@/components/InputCopyButton.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();

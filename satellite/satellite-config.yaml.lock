@@ -214,6 +214,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the target URL of console back-end reverse proxy for local development when running a UI server
 # console.backend-reverse-proxy: ""
 
+# path to a local file with bad passwords list, empty path == skip check
+# console.bad-passwords-file: ""
+
 # url link for for beta satellite feedback
 # console.beta-satellite-feedback-url: ""
 
@@ -856,7 +859,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
-# address(es) to send telemetry to (comma-separated IP/port or complex BQ definition, like bigquery:app=...,project=...,dataset=...)
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
 # metrics.event-addr: eventkitd.datasci.storj.io:9002
 
 # size of the internal eventkit queue for UDP sending

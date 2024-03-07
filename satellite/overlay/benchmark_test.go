@@ -378,8 +378,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
+					RequestedCount:  SelectCount,
+					AlreadySelected: nil,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -400,8 +400,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("UploadSelectionCacheGetNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
+					RequestedCount:  SelectCount,
+					AlreadySelected: nil,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)

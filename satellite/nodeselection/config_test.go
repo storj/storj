@@ -78,7 +78,7 @@ func TestParsedConfig(t *testing.T) {
 			{
 				Vetted: false,
 			},
-		}, nil)(1, nil)
+		}, nil)(1, nil, nil)
 
 		// having: new, requires: 0% unvetted = 100% vetted
 		require.Len(t, selected, 0)
@@ -115,7 +115,7 @@ func TestSelectorFromString(t *testing.T) {
 	initialized := selector(nodes, nil)
 
 	for i := 0; i < 100; i++ {
-		selected, err := initialized(1, []storj.NodeID{})
+		selected, err := initialized(1, []storj.NodeID{}, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, 1)
 		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)

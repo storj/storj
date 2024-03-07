@@ -224,7 +224,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, overlayQueryError.New("GetNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
-	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placements[segment.Placement], allNodeIDs)
+	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placements[segment.Placement])
 
 	// irreparable segment
 	if piecesCheck.Retrievable.Count() < int(segment.Redundancy.RequiredShares) {
@@ -355,12 +355,18 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 	minSuccessfulNeeded := redundancy.OptimalThreshold() - piecesCheck.Healthy.Count()
 
+	var alreadySelected []*nodeselection.SelectedNode
+	for i := range selectedNodes {
+		alreadySelected = append(alreadySelected, &selectedNodes[i])
+	}
+
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
-		RequestedCount: requestCount,
-		ExcludedIDs:    piecesCheck.ExcludeNodeIDs,
-		Placement:      segment.Placement,
+		RequestedCount:  requestCount,
+		AlreadySelected: alreadySelected,
+		Placement:       segment.Placement,
 	}
+
 	newNodes, err := repairer.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
 		return false, overlayQueryError.Wrap(err)
@@ -671,7 +677,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		zap.Int("retrievable pieces", piecesCheck.Retrievable.Count()),
 		zap.Int("healthy before repair", piecesCheck.Healthy.Count()),
 		zap.Int("healthy after repair", healthyAfterRepair),
-		zap.Int("total before repair", len(piecesCheck.ExcludeNodeIDs)),
+		zap.Int("total before repair", len(selectedNodes)),
 		zap.Int("total after repair", len(newPieces)))
 	return true, nil
 }

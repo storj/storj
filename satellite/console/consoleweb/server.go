@@ -107,6 +107,7 @@ type Config struct {
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
 	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
+	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -297,7 +298,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/daily-usage", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled)
+	badPasswords, err := server.loadBadPasswords()
+	if err != nil {
+		server.log.Error("unable to load bad passwords list", zap.Error(err))
+	}
+
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
@@ -615,6 +621,26 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
+}
+
+// loadBadPasswords loads the bad passwords from a file into a map.
+func (server *Server) loadBadPasswords() (map[string]struct{}, error) {
+	if server.config.BadPasswordsFile == "" {
+		return nil, nil
+	}
+
+	bytes, err := os.ReadFile(server.config.BadPasswordsFile)
+	if err != nil {
+		return nil, err
+	}
+
+	badPasswords := make(map[string]struct{})
+	parsedPasswords := strings.Split(string(bytes), "\n")
+	for _, p := range parsedPasswords {
+		badPasswords[p] = struct{}{}
+	}
+
+	return badPasswords, nil
 }
 
 // appHandler is web app http handler function.

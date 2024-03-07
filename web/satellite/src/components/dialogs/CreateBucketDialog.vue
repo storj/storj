@@ -112,11 +112,10 @@ import { FILE_BROWSER_AG_NAME, useBucketsStore } from '@/store/modules/bucketsSt
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { ROUTES } from '@/router';
+import { ValidationRule } from '@/types/common';
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
-const router = useRouter();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -137,7 +136,7 @@ const formValid = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
 
-const bucketNameRules = computed(() => {
+const bucketNameRules = computed((): ValidationRule<string>[] => {
     return [
         (value: string) => (!!value || 'Bucket name is required.'),
         (value: string) => ((value.length >= 3 && value.length <= 63) || 'Name should be between 3 and 63 characters length.'),
@@ -150,10 +149,9 @@ const bucketNameRules = computed(() => {
                 if (!/^[a-z0-9]$/.test(l[l.length - 1])) return 'Bucket name must end with a lowercase letter or number.';
                 if (!/^[a-z0-9-.]+$/.test(l)) return 'Bucket name can contain only lowercase letters, numbers or hyphens.';
             }
+            return true;
         },
-        (value: string) => {
-            if (ipRegexp.test(value)) return 'Bucket name cannot be formatted as an IP address.';
-        },
+        (value: string) => (!ipRegexp.test(value) || 'Bucket name cannot be formatted as an IP address.'),
         (value: string) => (!allBucketNames.value.includes(value) || 'A bucket exists with this name.'),
     ];
 });

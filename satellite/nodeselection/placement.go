@@ -58,7 +58,9 @@ var _ NodeFilterWithAnnotation = Placement{}
 type NodeSelectorInit func([]*SelectedNode, NodeFilter) NodeSelector
 
 // NodeSelector pick random nodes based on a specific algorithm.
-type NodeSelector func(n int, alreadySelected []storj.NodeID) ([]*SelectedNode, error)
+// Nodes from excluded should never be used. Same is true for alreadySelected, but it may also trigger other restrictions
+// (for example, when a last_net is already selected, all the nodes from the same net should be excluded as well.
+type NodeSelector func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
 
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")

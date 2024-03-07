@@ -217,6 +217,22 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 	@echo "Running ${@}"
 	@./testsuite/backward-compatibility/start-sim.sh
 
+.PHONY: test-satellite-ui
+test-satellite-ui: ## Run playwright ui tests
+	@echo "Running ${@}"
+	cd web/satellite;\
+		npm install;\
+		npm run wasm-dev;\
+		npm run build;
+
+	cd testsuite/playwright-ui;\
+		npm install;\
+		npx playwright install;\
+		npx playwright install-deps;\
+		STORJ_TEST_SATELLITE_WEB='../../web/satellite' \
+		go test ./... -run TestRun
+
+
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
@@ -507,6 +523,9 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/uplink@main
 	go mod tidy
+	cd testsuite/playwright-ui;\
+		go get storj.io/common@main storj.io/uplink@main;\
+		go mod tidy;
 	cd testsuite/storjscan;\
 		go get storj.io/common@main storj.io/uplink@main;\
 		go mod tidy;

@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -132,6 +133,10 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	case "country":
 		return func(node SelectedNode) string {
 			return node.CountryCode.String()
+		}, nil
+	case "vetted":
+		return func(node SelectedNode) string {
+			return fmt.Sprintf("%t", node.Vetted)
 		}, nil
 	default:
 		return nil, errors.New("Unsupported node attribute: " + attr)

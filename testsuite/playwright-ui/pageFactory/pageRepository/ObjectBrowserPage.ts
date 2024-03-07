@@ -38,7 +38,7 @@ export class ObjectBrowserPage {
     }
 
     async closePreview(name: string): Promise<void> {
-        await this.page.locator('header').filter({ hasText: name }).locator('#Close').click();
+        await this.page.locator('header').filter({ hasText: name }).locator('#Close').click({ force: true });
     }
 
     async downloadFromPreview(): Promise<void> {
