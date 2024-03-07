@@ -226,6 +226,34 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 	return userFromDBX(ctx, user)
 }
 
+// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
+func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus console.TrialNotificationStatus, expiresBefore time.Time) (needNotification []*console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := users.db.Query(ctx, `
+		SELECT id, email
+		FROM users
+		WHERE paid_tier = false
+			AND trial_notifications = $1
+			AND trial_expiration < $2
+	`, notificationStatus, expiresBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var user console.User
+		err = rows.Scan(&user.ID, &user.Email)
+		if err != nil {
+			return nil, err
+		}
+		needNotification = append(needNotification, &user)
+	}
+
+	return needNotification, rows.Err()
+}
+
 // GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.
 func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -744,6 +772,9 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 
 	if request.TrialExpiration != nil {
 		update.TrialExpiration = dbx.User_TrialExpiration_Raw(*request.TrialExpiration)
+	}
+	if request.TrialNotifications != nil {
+		update.TrialNotifications = dbx.User_TrialNotifications(int(*request.TrialNotifications))
 	}
 	if request.UpgradeTime != nil {
 		update.UpgradeTime = dbx.User_UpgradeTime(*request.UpgradeTime)

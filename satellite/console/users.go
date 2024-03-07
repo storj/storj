@@ -24,6 +24,8 @@ type Users interface {
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// GetExpiredFreeTrialsAfter is a method for querying users in free trial from the database with trial expiry (after).
 	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, cursor UserCursor) (*UsersPage, error)
+	// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
+	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
 	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
 	// UpdateVerificationReminders increments verification_reminders.
@@ -335,8 +337,9 @@ type UpdateUserRequest struct {
 	ActivationCode *string
 	SignupId       *string
 
-	TrialExpiration **time.Time
-	UpgradeTime     *time.Time
+	TrialExpiration    **time.Time
+	TrialNotifications *TrialNotificationStatus
+	UpgradeTime        *time.Time
 }
 
 // UserSettings contains configurations for a user.
@@ -380,3 +383,15 @@ type SetUpAccountRequest struct {
 	FunctionalArea   *string `json:"functionalArea"`
 	HaveSalesContact bool    `json:"haveSalesContact"`
 }
+
+// TrialNotificationStatus is an enum representing a type of trial notification.
+type TrialNotificationStatus int
+
+const (
+	// NoTrialNotification represents the default state of no email notification sent.
+	NoTrialNotification TrialNotificationStatus = iota
+	// TrialExpirationReminder represents trial expiration reminder has been sent.
+	TrialExpirationReminder
+	// TrialExpired represents trial expired notification has been sent.
+	TrialExpired
+)

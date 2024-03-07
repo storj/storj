@@ -20,6 +20,104 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
+func TestGetExpiresBeforeWithStatus(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		users := db.Console().Users()
+
+		// insert paid_tier user to ensure it is never returned from GetExpiresBeforeWithStatus
+		proUser := testrand.UUID()
+		_, err := users.Insert(ctx, &console.User{
+			ID:           proUser,
+			FullName:     "test",
+			Email:        "userone@mail.test",
+			PasswordHash: []byte("testpassword"),
+		})
+		require.NoError(t, err)
+
+		boolPtr := true
+		require.NoError(t, users.Update(ctx, proUser, console.UpdateUserRequest{
+			PaidTier: &boolPtr,
+		}))
+
+		u, err := users.Get(ctx, proUser)
+		require.NoError(t, err)
+		require.True(t, u.PaidTier)
+		require.Nil(t, u.TrialExpiration)
+		require.Zero(t, u.TrialNotifications)
+
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+		dayAfterTomorrow := tomorrow.Add(24 * time.Hour)
+
+		// insert free trial user with no trial notification and expires tomorrow
+		trialUserNeedsReminder := testrand.UUID()
+		_, err = users.Insert(ctx, &console.User{
+			ID:              trialUserNeedsReminder,
+			FullName:        "test",
+			Email:           "usertwo@mail.test",
+			PasswordHash:    []byte("testpassword"),
+			TrialExpiration: &tomorrow,
+		})
+		require.NoError(t, err)
+
+		u, err = users.Get(ctx, trialUserNeedsReminder)
+		require.NoError(t, err)
+		require.False(t, u.PaidTier)
+		require.Equal(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond))
+		require.Zero(t, u.TrialNotifications)
+
+		// insert free trial user who already got reminder and expires tomorrow
+		trialUserAlreadyReminded := testrand.UUID()
+		_, err = users.Insert(ctx, &console.User{
+			ID:              trialUserAlreadyReminded,
+			FullName:        "test",
+			Email:           "usertwo@mail.test",
+			PasswordHash:    []byte("testpassword"),
+			TrialExpiration: &tomorrow,
+		})
+		require.NoError(t, err)
+
+		notifiedStatus := console.TrialExpirationReminder
+		require.NoError(t, users.Update(ctx, trialUserAlreadyReminded, console.UpdateUserRequest{
+			TrialNotifications: &notifiedStatus,
+		}))
+
+		u, err = users.Get(ctx, trialUserAlreadyReminded)
+		require.NoError(t, err)
+		require.False(t, u.PaidTier)
+		require.Equal(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond))
+		require.Equal(t, int(notifiedStatus), u.TrialNotifications)
+
+		u, err = users.Get(ctx, trialUserAlreadyReminded)
+		require.NoError(t, err)
+		require.Equal(t, int(console.TrialExpirationReminder), u.TrialNotifications)
+
+		// test with var now as expiresBefore arg. Expect trialUserNeedsReminder not returned
+		// since expiration, tomorrow, is after expiresBefore arg.
+		needExpirationReminder, err := users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, now)
+		require.NoError(t, err)
+		require.Len(t, needExpirationReminder, 0)
+
+		// test with var dayAfterTomorrow as expiresBefore arg. Expect trialUserNeedsReminder returned
+		// since expiration, tomorrow, is before expiresBefore arg and trial_notifications matches notificationStatus arg.
+		needExpirationReminder, err = users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, dayAfterTomorrow)
+		require.NoError(t, err)
+		require.Len(t, needExpirationReminder, 1)
+		require.Equal(t, trialUserNeedsReminder, needExpirationReminder[0].ID)
+
+		// test with var now as expiresBefore arg. Expect trialUserAlreadyReminded not returned
+		// since expiration, tomorrow, is after expiresBefore arg.
+		needExpiredNotification, err := users.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, now)
+		require.NoError(t, err)
+		require.Len(t, needExpiredNotification, 0)
+
+		needExpiredNotification, err = users.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, dayAfterTomorrow)
+		require.NoError(t, err)
+		require.Len(t, needExpiredNotification, 1)
+		require.Equal(t, trialUserAlreadyReminded, needExpiredNotification[0].ID)
+	})
+}
+
 func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		users := db.Console().Users()
