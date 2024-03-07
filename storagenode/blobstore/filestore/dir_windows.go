@@ -23,41 +23,36 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	if err != nil {
 		absPath = path
 	}
-	var filesystemID string
-	var availableSpace int64
-	var totalSpace int64
 
-	totalSpace, availableSpace, err = getDiskFreeSpace(absPath)
+	info, err = getDiskFreeSpace(absPath)
 	if err != nil {
 		return blobstore.DiskInfo{ID: "", TotalSpace: -1, AvailableSpace: -1}, err
 	}
 
-	filesystemID, err = getVolumeSerialNumber(absPath)
+	filesystemID, err := getVolumeSerialNumber(absPath)
 	if err != nil {
-		return blobstore.DiskInfo{ID: "", TotalSpace: totalSpace, AvailableSpace: availableSpace}, err
+		return info, err
 	}
 
-	return blobstore.DiskInfo{ID: filesystemID, TotalSpace: totalSpace, AvailableSpace: availableSpace}, nil
+	info.ID = filesystemID
+	return info, nil
 }
 
-var (
-	kernel32             = windows.MustLoadDLL("kernel32.dll")
-	procGetDiskFreeSpace = kernel32.MustFindProc("GetDiskFreeSpaceExW")
-)
-
-func getDiskFreeSpace(path string) (total, free int64, err error) {
+func getDiskFreeSpace(path string) (info blobstore.DiskInfo, err error) {
 	path16, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return -1, -1, err
+		return blobstore.DiskInfo{}, err
 	}
-	// See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw
-	_, _, err = procGetDiskFreeSpace.Call(uintptr(unsafe.Pointer(path16)),
-		uintptr(unsafe.Pointer(&free)),
-		uintptr(unsafe.Pointer(&total)),
-		0)
 
-	err = ignoreSuccess(err)
-	return total, free, err
+	var freeBytesAvailableToCaller, totalNumberOfBytes uint64
+
+	// See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw
+	err = windows.GetDiskFreeSpaceEx(path16, &freeBytesAvailableToCaller, &totalNumberOfBytes, nil)
+
+	info.AvailableSpace = int64(freeBytesAvailableToCaller)
+	info.TotalSpace = int64(totalNumberOfBytes)
+
+	return info, err
 }
 
 func getVolumeSerialNumber(path string) (string, error) {
