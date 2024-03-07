@@ -4,7 +4,6 @@
 package consoleweb
 
 import (
-	"bufio"
 	"context"
 	"crypto/subtle"
 	_ "embed"
@@ -625,36 +624,23 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadBadPasswords loads the bad passwords from a file into a map.
-func (server *Server) loadBadPasswords() (_ map[string]struct{}, err error) {
+func (server *Server) loadBadPasswords() (map[string]struct{}, error) {
 	if server.config.BadPasswordsFile == "" {
 		return nil, nil
 	}
 
-	var file *os.File
-	file, err = os.Open(server.config.BadPasswordsFile)
+	bytes, err := os.ReadFile(server.config.BadPasswordsFile)
 	if err != nil {
 		return nil, err
 	}
 
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil && err == nil {
-			err = closeErr
-		}
-	}()
-
 	badPasswords := make(map[string]struct{})
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		password := scanner.Text()
-		badPasswords[password] = struct{}{}
+	parsedPasswords := strings.Split(string(bytes), "\n")
+	for _, p := range parsedPasswords {
+		badPasswords[p] = struct{}{}
 	}
 
-	if scanner.Err() != nil {
-		err = scanner.Err()
-	}
-
-	return badPasswords, err
+	return badPasswords, nil
 }
 
 // appHandler is web app http handler function.
