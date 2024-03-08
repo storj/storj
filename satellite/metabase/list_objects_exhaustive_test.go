@@ -53,6 +53,12 @@ func TestListObjects_Exhaustive(t *testing.T) {
 							opts.Cursor.Version = metabase.MaxVersion
 							check(opts)
 
+							opts.Cursor.Version = 4
+							check(opts)
+
+							opts.Cursor.Version = 5
+							check(opts)
+
 							for i := range entries {
 								entry := &entries[i]
 								opts.Cursor.Key = entry.ObjectKey
@@ -64,6 +70,12 @@ func TestListObjects_Exhaustive(t *testing.T) {
 								check(opts)
 
 								opts.Cursor.Version = metabase.MaxVersion
+								check(opts)
+
+								opts.Cursor.Version = entry.Version - 1
+								check(opts)
+
+								opts.Cursor.Version = entry.Version + 1
 								check(opts)
 							}
 						}
