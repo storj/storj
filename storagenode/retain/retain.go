@@ -118,8 +118,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 }
 
 // Queue adds a retain request to the queue.
-// It discards a request for a satellite that already has a queued request.
-// true is returned if the request is queued and false is returned if it is discarded.
+// true is returned if the request is added to the queue, false if queue is closed.
 func (s *Service) Queue(req Request) bool {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
