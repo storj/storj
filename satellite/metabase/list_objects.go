@@ -358,3 +358,8 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 // 	return entries, nil
 // }
+
+// VersionAscending returns whether the versions in the result are in ascending order.
+func (opts *ListObjects) VersionAscending() bool {
+	return opts.Pending
+}
