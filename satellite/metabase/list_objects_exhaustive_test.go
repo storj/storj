@@ -42,8 +42,8 @@ func TestListObjects_Exhaustive(t *testing.T) {
 		opts.ProjectID = uuid.UUID{1}
 		opts.BucketName = "b"
 		for _, opts.Prefix = range []metabase.ObjectKey{"", "A/", "B/"} {
-			for _, opts.Pending = range []bool{false} {
-				for _, opts.AllVersions = range []bool{false} {
+			for _, opts.Pending = range []bool{true, false} {
+				for _, opts.AllVersions = range []bool{true, false} {
 					for _, opts.Recursive = range []bool{true, false} {
 						for _, opts.Limit = range []int{1, 3, 7} {
 							opts.Cursor.Key = ""

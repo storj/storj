@@ -5,12 +5,18 @@ package metabase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
 )
+
+// DelimiterNext is the string that comes immediately after Delimiter="/".
+const DelimiterNext = "0"
 
 // ListObjectsCursor is a cursor used during iteration through objects.
 type ListObjectsCursor IterateCursor
@@ -41,15 +47,6 @@ func (opts *ListObjects) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case opts.Limit < 0:
 		return ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
-
-	case opts.Pending || opts.AllVersions:
-		return errs.New("not implemented")
-
-		// TODO old code is disabled for now because of performance problems
-		// case opts.Pending && !opts.AllVersions:
-		// 	return ErrInvalidRequest.New("Not Implemented: Pending && !AllVersions")
-		// case !opts.Pending && opts.AllVersions:
-		// 	return ErrInvalidRequest.New("Not Implemented: !Pending && AllVersions")
 	}
 
 	return nil
@@ -65,301 +62,374 @@ type ListObjectsResult struct {
 func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if db.config.UseListObjectsIterator {
+		return db.ListObjectsWithIterator(ctx, opts)
+	}
+
+	// maxSkipVersionsUntilRequery is the limit on how many versions we query for a single object, until we requery.
+	const maxSkipVersionsUntilRequery = 100
+
+	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
+	const maxSkipPrefixUntilRequery = 10
+
+	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
+	const minQuerySize = 100
+
 	if err := opts.Verify(); err != nil {
 		return ListObjectsResult{}, err
 	}
 
 	ListLimit.Ensure(&opts.Limit)
 
-	// TODO old code is disabled for now because of performance problems
-	// https://github.com/storj/storj/issues/6734
-	// var entries []ObjectEntry
-	// err = withRows(db.db.QueryContext(ctx, opts.getSQLQuery(),
-	// 	opts.ProjectID, []byte(opts.BucketName),
-	// 	opts.startKey(), opts.Cursor.Version, opts.stopKey(),
-	// 	opts.Limit+1, len(opts.Prefix)+1),
-	// )(func(rows tagsql.Rows) error {
-	// 	entries, err = scanListObjectsResult(rows, opts)
-	// 	return err
-	// })
-	// if err != nil {
-	// 	if errors.Is(err, sql.ErrNoRows) {
-	// 		return ListObjectsResult{}, nil
-	// 	}
-	// 	return ListObjectsResult{}, Error.New("unable to list objects: %w", err)
-	// }
+	// requeryLimit is a safety net for invalid implementation.
+	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
 
-	// if len(entries) > opts.Limit {
-	// 	result.More = true
-	// 	result.Objects = entries[:opts.Limit]
-	// 	return result, nil
-	// }
+	// extraSkipEntries to avoid requerying in the common case of !AllVersions.
+	const extraSkipEntries = 10
+	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
+	const extraEntriesForMore = 1
+	batchSize := opts.Limit + extraEntriesForMore + extraSkipEntries
 
-	// result.Objects = entries
-	// result.More = false
-	// return result, nil
-
-	err = db.IterateObjectsAllVersionsWithStatus(ctx,
-		IterateObjectsWithStatus{
-			ProjectID:  opts.ProjectID,
-			BucketName: opts.BucketName,
-			Prefix:     opts.Prefix,
-			Cursor: IterateCursor{
-				Key:     opts.Cursor.Key,
-				Version: MaxVersion,
-			},
-			Recursive: opts.Recursive,
-			// TODO we may need to increase batch size to optimize number
-			// of DB calls for objects with multiple versions
-			BatchSize:             opts.Limit + 1,
-			Pending:               false,
-			IncludeCustomMetadata: opts.IncludeCustomMetadata,
-			IncludeSystemMetadata: opts.IncludeSystemMetadata,
-		}, func(ctx context.Context, it ObjectsIterator) error {
-			var previousLatestSet bool
-			var entry, previousLatest ObjectEntry
-			prefix := opts.Prefix
-			if prefix != "" && !strings.HasSuffix(string(prefix), "/") {
-				prefix += "/"
-			}
-
-			for len(result.Objects) < opts.Limit && it.Next(ctx, &entry) {
-				objectKey := prefix + entry.ObjectKey
-				if opts.Cursor.Key == objectKey && opts.Cursor.Version >= entry.Version {
-					previousLatestSet = true
-					previousLatest = entry
-					continue
-				}
-
-				if entry.Status.IsDeleteMarker() && (!previousLatestSet || prefix+previousLatest.ObjectKey != objectKey) {
-					previousLatestSet = true
-					previousLatest = entry
-					continue
-				}
-
-				if !previousLatestSet || prefix+previousLatest.ObjectKey != objectKey {
-					previousLatestSet = true
-					previousLatest = entry
-
-					result.Objects = append(result.Objects, entry)
-				}
-			}
-
-			result.More = it.Next(ctx, &entry)
-			return nil
-		},
-	)
-	if err != nil {
-		return ListObjectsResult{}, err
+	if batchSize < minQuerySize {
+		batchSize = minQuerySize
 	}
-	return result, nil
+
+	// lastEntry is used to keep track of the last entry put into the result.
+	var lastEntry struct {
+		Set bool
+
+		ObjectKey ObjectKey
+		Version   Version
+		IsPrefix  bool
+	}
+
+	// skipCounter keeps track on how many entries we have skipped either due to
+	// objects of similar version or due to a collapsed non-recursive prefix.
+	type skipCounter struct {
+		Prefix  int
+		Version int
+	}
+	var skipCount skipCounter
+
+	cursor := opts.startCursor()
+
+	for repeat := 0; repeat < requeryLimit; repeat++ {
+		args := []any{
+			opts.ProjectID, []byte(opts.BucketName),
+			cursor.Key, cursor.Version,
+			batchSize, nextBucket([]byte(opts.BucketName)),
+		}
+		if opts.Prefix != "" {
+			args = append(args, len(opts.Prefix)+1, opts.stopKey())
+		}
+
+		var objectKey = `object_key`
+		if opts.Prefix != "" {
+			objectKey = `substring(object_key from $7) AS object_key`
+		}
+
+		var statusCondition = `status != ` + statusPending
+		if opts.Pending {
+			statusCondition = `status = ` + statusPending
+		}
+
+		rows, err := db.db.QueryContext(ctx, `SELECT
+			`+objectKey+`,
+			version
+			`+opts.selectedFields()+`
+			FROM objects
+			WHERE
+				`+opts.boundary()+`
+				AND (project_id, bucket_name) < ($1, $6)
+				AND `+statusCondition+`
+				AND (expires_at IS NULL OR expires_at > now())
+			ORDER BY `+opts.orderBy()+`
+			LIMIT $5
+		`, args...)
+		if errors.Is(err, sql.ErrNoRows) {
+			return result, nil
+		}
+		if err != nil {
+			return result, Error.Wrap(err)
+		}
+
+		scannedCount := 0
+		skipAhead := false
+	read_entries:
+		for rows.Next() {
+			entry, err := scanListObjectsEntry(rows, &opts)
+			if err != nil {
+				return result, Error.Wrap(errs.Combine(err, rows.Err(), rows.Close()))
+			}
+			scannedCount++
+
+			// skip a duplicate prefix entry, which only happens with opts.Recursive
+			// TODO: does this need opts.AllVersions
+			skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			// skip duplicate object key with other versions, when !opts.AllVersions
+			skipVersion := lastEntry.Set && !opts.AllVersions && lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+
+			// we'll need to ensure that when we are iterating only latest objects that we don't
+			// emit an object entry when we start iterating from half-way in versions.
+			var skipCursorAllVersionsDoubleCheck bool
+			if !opts.AllVersions && entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
+				if opts.VersionAscending() {
+					skipCursorAllVersionsDoubleCheck = entry.Version <= opts.Cursor.Version
+				} else {
+					skipCursorAllVersionsDoubleCheck = entry.Version >= opts.Cursor.Version
+				}
+			}
+
+			lastEntry.Set = true
+			lastEntry.ObjectKey = entry.ObjectKey
+			lastEntry.Version = entry.Version
+			lastEntry.IsPrefix = entry.IsPrefix
+
+			if skipPrefix || skipVersion || skipCursorAllVersionsDoubleCheck {
+				if skipPrefix {
+					skipCount.Prefix++
+				}
+				if skipVersion {
+					skipCount.Version++
+				}
+
+				if skipCount.Prefix >= maxSkipPrefixUntilRequery || skipCount.Version >= maxSkipVersionsUntilRequery {
+					skipAhead = true
+					skipCount = skipCounter{}
+					// we landed inside a large number of repeated items,
+					// either prefixes or versions, let's requery and skip
+					break read_entries
+				}
+
+				continue
+			}
+
+			skipCount = skipCounter{}
+
+			// We don't want to include delete markers in the output, when we are listing only the latest version.
+			// We still set "lastEntry" so we skip any objects that are beyond the delete marker.
+			if !opts.AllVersions && entry.Status.IsDeleteMarker() {
+				continue
+			}
+
+			result.Objects = append(result.Objects, entry)
+			if len(result.Objects) >= opts.Limit+1 {
+				result.More = true
+				result.Objects = result.Objects[:opts.Limit]
+				return result, Error.Wrap(errs.Combine(err, rows.Err(), rows.Close()))
+			}
+		}
+
+		if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
+			return result, Error.Wrap(err)
+		}
+
+		if scannedCount == 0 {
+			result.More = false
+			return result, nil
+		}
+		if !skipAhead && scannedCount < batchSize {
+			result.More = false
+			return result, nil
+		}
+
+		switch {
+		case lastEntry.IsPrefix: // can only be true if recursive listing
+			// skip over the prefix
+			cursor.Key = opts.Prefix + lastEntry.ObjectKey[:len(lastEntry.ObjectKey)-1] + DelimiterNext
+			cursor.Version = opts.firstVersion()
+
+		case opts.AllVersions:
+			// continue where-ever we left off
+			cursor.Key = opts.Prefix + lastEntry.ObjectKey
+			cursor.Version = lastEntry.Version
+
+		case !opts.AllVersions:
+			// jump to the next object
+			cursor.Key = opts.Prefix + lastEntry.ObjectKey
+			cursor.Version = opts.lastVersion()
+		}
+	}
+
+	panic("too many requeries")
 }
 
-// TODO old code is disabled for now because of performance problems
-// https://github.com/storj/storj/issues/6734
+func entryKeyMatchesCursor(prefix, entryKey, cursorKey ObjectKey) bool {
+	return len(prefix)+len(entryKey) == len(cursorKey) &&
+		prefix == cursorKey[:len(prefix)] &&
+		entryKey == cursorKey[len(prefix):]
+}
 
-// func (opts *ListObjects) getSQLQuery() string {
-// 	var indexFields string
-// 	if opts.Recursive {
-// 		indexFields = `substring(object_key from $7) AS entry_key, version AS entry_version, FALSE AS is_prefix`
-// 	} else {
-// 		if opts.AllVersions {
-// 			indexFields = `
-// 				DISTINCT ON (project_id, bucket_name, entry_key, entry_version)
-// 				(CASE
-// 					WHEN position('/' IN substring(object_key from $7)) <> 0
-// 					THEN substring(substring(object_key from $7) from 0 for (position('/' IN substring(object_key from $7)) +1))
-// 					ELSE substring(object_key from $7)
-// 				END)
-// 				AS entry_key,
-// 				(CASE
-// 					WHEN position('/' IN substring(object_key from $7)) <> 0
-// 					THEN 0
-// 					ELSE version
-// 				END)
-// 				AS entry_version,
-// 				position('/' IN substring(object_key from $7)) <> 0 AS is_prefix`
-// 		} else {
-// 			indexFields = `
-// 				DISTINCT ON (project_id, bucket_name, entry_key)
-// 				(CASE
-// 					WHEN position('/' IN substring(object_key from $7)) <> 0
-// 					THEN substring(substring(object_key from $7) from 0 for (position('/' IN substring(object_key from $7)) +1))
-// 					ELSE substring(object_key from $7)
-// 				END)
-// 				AS entry_key,
-// 				version AS entry_version,
-// 				position('/' IN substring(object_key from $7)) <> 0 AS is_prefix`
-// 		}
-// 	}
+func (opts *ListObjects) stopKey() []byte {
+	if opts.Prefix != "" {
+		return []byte(prefixLimit(opts.Prefix))
+	}
+	return nil
+}
 
-// 	switch {
-// 	case opts.Pending && opts.AllVersions:
-// 		return `SELECT ` + indexFields + opts.selectedFields() + `
-// 			FROM objects
-// 			WHERE
-// 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-// 				AND ` + opts.stopCondition() + `
-// 				AND status = ` + statusPending + `
-// 				AND (expires_at IS NULL OR expires_at > now())
-// 			ORDER BY ` + opts.orderBy() + `
-// 			LIMIT $6
-// 		`
+func (opts *ListObjects) boundary() string {
+	const prefixBoundaryCondition = `(project_id, bucket_name, object_key) < ($1, $2, $8)`
 
-// 	case !opts.Pending && !opts.AllVersions:
-// 		// query committed objects where the latest is not a delete marker
-// 		return `SELECT ` + indexFields + opts.selectedFields() + `
-// 			FROM objects main
-// 			WHERE
-// 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-// 				AND ` + opts.stopCondition() + `
-// 				AND status IN ` + statusesCommitted + `
-// 				AND (expires_at IS NULL OR expires_at > now())
-// 				AND version = (
-// 					SELECT MAX(sub.version)
-// 					FROM objects sub
-// 					WHERE (sub.project_id, sub.bucket_name, sub.object_key) = (main.project_id, main.bucket_name, main.object_key)
-// 						AND status <> ` + statusPending + `
-// 						AND (expires_at IS NULL OR expires_at > now())
-// 				)
-// 			ORDER BY ` + opts.orderBy() + `
-// 			LIMIT $6
-// 		`
-// 	default:
-// 		panic("Not supported configuration, should not happen. Verify should check this.")
-// 	}
-// }
+	if opts.VersionAscending() {
+		const compare = `(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)`
+		if opts.Prefix != "" {
+			return compare + " AND " + prefixBoundaryCondition
+		}
+		return compare
+	} else {
+		const compare = `((project_id, bucket_name, object_key) > ($1, $2, $3) OR ((project_id, bucket_name, object_key) = ($1, $2, $3) AND version < $4))`
+		if opts.Prefix != "" {
+			return compare + " AND " + prefixBoundaryCondition
+		}
+		return compare
+	}
+}
 
-// func (opts *ListObjects) stopKey() []byte {
-// 	if opts.Prefix != "" {
-// 		return []byte(prefixLimit(opts.Prefix))
-// 	}
-// 	return nextBucket([]byte(opts.BucketName))
-// }
+func (opts *ListObjects) firstVersion() Version {
+	if opts.VersionAscending() {
+		return 0
+	} else {
+		return MaxVersion
+	}
+}
 
-// func (opts *ListObjects) stopCondition() string {
-// 	if opts.Prefix != "" {
-// 		return "(project_id, bucket_name, object_key) < ($1, $2, $5)"
-// 	}
-// 	return "(project_id, bucket_name) < ($1, $5)"
-// }
-
-// func (opts *ListObjects) orderBy() string {
-// 	if opts.Pending {
-// 		return "project_id ASC, bucket_name ASC, entry_key ASC, entry_version ASC"
-// 	} else {
-// 		return "project_id ASC, bucket_name ASC, entry_key ASC, entry_version DESC"
-// 	}
-// }
-
-// func (opts ListObjects) selectedFields() (selectedFields string) {
-// 	selectedFields += `
-// 	,stream_id
-// 	,status
-// 	,encryption`
-
-// 	if opts.IncludeSystemMetadata {
-// 		selectedFields += `
-// 		,created_at
-// 		,expires_at
-// 		,segment_count
-// 		,total_plain_size
-// 		,total_encrypted_size
-// 		,fixed_segment_size`
-// 	}
-
-// 	if opts.IncludeCustomMetadata {
-// 		selectedFields += `
-// 		,encrypted_metadata_nonce
-// 		,encrypted_metadata
-// 		,encrypted_metadata_encrypted_key`
-// 	}
-// 	return selectedFields
-// }
-
-// // startKey determines what should be the starting key for the given options.
-// // in the recursive case, or if the cursor key is not in the specified prefix,
-// // we start at the greatest key between cursor and prefix.
-// // Otherwise (non-recursive), we start at the prefix after the one in the cursor.
-// func (opts *ListObjects) startKey() ObjectKey {
-// 	if opts.Prefix == "" && opts.Cursor.Key == "" {
-// 		return ""
-// 	}
-// 	if opts.Recursive || !strings.HasPrefix(string(opts.Cursor.Key), string(opts.Prefix)) {
-// 		if lessKey(opts.Cursor.Key, opts.Prefix) {
-// 			return opts.Prefix
-// 		}
-// 		return opts.Cursor.Key
-// 	}
-
-// 	// in the recursive case
-// 	// prefix | cursor | startKey
-// 	// a/b/   | a/b/c/d/e | c/d/[0xff] (the first prefix/object key we return )
-// 	key := opts.Cursor.Key
-// 	prefixSize := len(opts.Prefix)
-// 	subPrefix := key[prefixSize:] // c/d/e
-
-// 	firstDelimiter := strings.Index(string(subPrefix), string(Delimiter))
-// 	if firstDelimiter == -1 {
-// 		return key
-// 	}
-// 	newKey := []byte(key[:prefixSize+firstDelimiter+1]) // c/d/
-// 	newKey = append(newKey, 0xff)
-// 	return ObjectKey(newKey)
-// }
-
-// func scanListObjectsResult(rows tagsql.Rows, opts ListObjects) (entries []ObjectEntry, err error) {
-
-// 	for rows.Next() {
-// 		var item ObjectEntry
-
-// 		fields := []interface{}{
-// 			&item.ObjectKey,
-// 			&item.Version,
-// 			&item.IsPrefix,
-// 			&item.StreamID,
-// 			&item.Status,
-// 			encryptionParameters{&item.Encryption},
-// 		}
-
-// 		if opts.IncludeSystemMetadata {
-// 			fields = append(fields,
-// 				&item.CreatedAt,
-// 				&item.ExpiresAt,
-// 				&item.SegmentCount,
-// 				&item.TotalPlainSize,
-// 				&item.TotalEncryptedSize,
-// 				&item.FixedSegmentSize,
-// 			)
-// 		}
-
-// 		if opts.IncludeCustomMetadata {
-// 			fields = append(fields,
-// 				&item.EncryptedMetadataNonce,
-// 				&item.EncryptedMetadata,
-// 				&item.EncryptedMetadataEncryptedKey,
-// 			)
-// 		}
-
-// 		if err := rows.Scan(fields...); err != nil {
-// 			return entries, err
-// 		}
-
-// 		if item.IsPrefix {
-// 			item = ObjectEntry{
-// 				IsPrefix:  true,
-// 				ObjectKey: item.ObjectKey,
-// 				Status:    Prefix,
-// 			}
-// 		}
-
-// 		entries = append(entries, item)
-// 	}
-
-// 	return entries, nil
-// }
+func (opts *ListObjects) lastVersion() Version {
+	if opts.VersionAscending() {
+		return MaxVersion
+	} else {
+		return 0
+	}
+}
 
 // VersionAscending returns whether the versions in the result are in ascending order.
 func (opts *ListObjects) VersionAscending() bool {
 	return opts.Pending
+}
+
+func (opts *ListObjects) orderBy() string {
+	if opts.VersionAscending() {
+		return "project_id ASC, bucket_name ASC, object_key ASC, version ASC"
+	} else {
+		return "project_id ASC, bucket_name ASC, object_key ASC, version DESC"
+	}
+}
+
+func (opts ListObjects) selectedFields() (selectedFields string) {
+	selectedFields += `
+	,stream_id
+	,status
+	,encryption`
+
+	if opts.IncludeSystemMetadata {
+		selectedFields += `
+		,created_at
+		,expires_at
+		,segment_count
+		,total_plain_size
+		,total_encrypted_size
+		,fixed_segment_size`
+	}
+
+	if opts.IncludeCustomMetadata {
+		selectedFields += `
+		,encrypted_metadata_nonce
+		,encrypted_metadata
+		,encrypted_metadata_encrypted_key`
+	}
+
+	return selectedFields
+}
+
+func (opts *ListObjects) startCursor() ListObjectsCursor {
+	if !strings.HasPrefix(string(opts.Cursor.Key), string(opts.Prefix)) {
+		// if the starting position is outside of the prefix
+		if lessKey(opts.Cursor.Key, opts.Prefix) {
+			// If we are before the prefix, then let's start from the prefix.
+			return ListObjectsCursor{Key: opts.Prefix, Version: opts.firstVersion()}
+		}
+
+		// Otherwise, we must be after the prefix, and let's leave the cursor as is.
+		// We could also entirely skip the query to the database.
+
+		if !opts.AllVersions {
+			// We'll do the same behavior of double checking the "versions",
+			// however, since the cursor is past prefix, we can entirely skip
+			// this logic.
+			return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.firstVersion()}
+		}
+
+		return opts.Cursor
+	}
+
+	keyWithoutPrefix := opts.Cursor.Key[len(opts.Prefix):]
+	if !opts.Recursive {
+		// Check whether we need to skip outside of a prefix.
+		firstDelimiter := strings.IndexByte(string(keyWithoutPrefix), '/')
+		if firstDelimiter >= 0 {
+			firstDelimiter += len(opts.Prefix)
+			return ListObjectsCursor{
+				Key:     opts.Cursor.Key[:firstDelimiter] + DelimiterNext,
+				Version: opts.firstVersion(),
+			}
+		}
+	}
+
+	if !opts.AllVersions {
+		// We need to double check whether the latest entry has been already
+		// produced, because we may need to skip it.
+		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.firstVersion()}
+	}
+
+	return opts.Cursor
+}
+
+func scanListObjectsEntry(rows tagsql.Rows, opts *ListObjects) (item ObjectEntry, err error) {
+	fields := []interface{}{
+		&item.ObjectKey,
+		&item.Version,
+		&item.StreamID,
+		&item.Status,
+		encryptionParameters{&item.Encryption},
+	}
+
+	if opts.IncludeSystemMetadata {
+		fields = append(fields,
+			&item.CreatedAt,
+			&item.ExpiresAt,
+			&item.SegmentCount,
+			&item.TotalPlainSize,
+			&item.TotalEncryptedSize,
+			&item.FixedSegmentSize,
+		)
+	}
+
+	if opts.IncludeCustomMetadata {
+		fields = append(fields,
+			&item.EncryptedMetadataNonce,
+			&item.EncryptedMetadata,
+			&item.EncryptedMetadataEncryptedKey,
+		)
+	}
+
+	if err := rows.Scan(fields...); err != nil {
+		return item, err
+	}
+
+	if !opts.Recursive {
+		i := strings.IndexByte(string(item.ObjectKey), Delimiter)
+		if i >= 0 {
+			item.IsPrefix = true
+			item.ObjectKey = item.ObjectKey[:i+1]
+		}
+	}
+
+	if item.IsPrefix {
+		return ObjectEntry{
+			IsPrefix:  true,
+			ObjectKey: item.ObjectKey,
+			Status:    Prefix,
+		}, nil
+	}
+
+	return item, nil
 }
