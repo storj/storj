@@ -144,7 +144,22 @@ onBeforeMount(async (): Promise<void> => {
     await setup();
 
     isLoading.value = false;
+
+    setupPlausible();
 });
+
+/**
+ * conditionally setup plausible analytics.
+ */
+async function setupPlausible() {
+    const plausibleEnabled = !!configStore.state.config.plausibleDomain && !!configStore.state.config.plausibleScriptUrl;
+    if (configStore.state.config.analyticsEnabled && plausibleEnabled) {
+        await analyticsStore.loadPlausible({
+            domain: configStore.state.config.plausibleDomain,
+            scriptURL: configStore.state.config.plausibleScriptUrl,
+        });
+    }
+}
 
 usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
