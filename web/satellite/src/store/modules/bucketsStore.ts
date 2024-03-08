@@ -14,7 +14,13 @@ import {
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
-import { Bucket, BucketCursor, BucketPlacement, BucketPage, BucketsApi } from '@/types/buckets';
+import {
+    Bucket,
+    BucketCursor,
+    BucketPage,
+    BucketsApi,
+    BucketMetadata,
+} from '@/types/buckets';
 import { BucketsHttpApi } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -27,7 +33,7 @@ export const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 export class BucketsState {
     public allBucketNames: string[] = [];
-    public allBucketPlacements: BucketPlacement[] = [];
+    public allBucketMetadata: BucketMetadata[] = [];
     public cursor: BucketCursor = { limit: DEFAULT_PAGE_LIMIT, search: '', page: FIRST_PAGE };
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: DEFAULT_PAGE_LIMIT, search: '', totalCount: 0 };
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
@@ -81,8 +87,8 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.allBucketNames = await api.getAllBucketNames(projectID);
     }
 
-    async function getAllBucketsPlacements(projectID: string): Promise<void> {
-        state.allBucketPlacements = await api.getAllBucketPlacements(projectID);
+    async function getAllBucketsMetadata(projectID: string): Promise<void> {
+        state.allBucketMetadata = await api.getAllBucketMetadata(projectID);
     }
 
     function setPromptForPassphrase(value: boolean): void {
@@ -347,7 +353,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setBucketsSearch,
         getBuckets,
         getAllBucketsNames,
-        getAllBucketsPlacements,
+        getAllBucketsMetadata,
         setPromptForPassphrase,
         setEdgeCredentials,
         setEdgeCredentialsForDelete,

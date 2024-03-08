@@ -27,12 +27,12 @@ export interface BucketsApi {
 
     /**
      *
-     * Fetch all bucket placements
+     * Fetch all bucket metadata
      *
-     * @returns BucketPlacement[]
+     * @returns BucketMetadata[]
      * @throws Error
      */
-    getAllBucketPlacements(projectId: string): Promise<BucketPlacement[]>
+    getAllBucketMetadata(projectId: string): Promise<BucketMetadata[]>
 }
 
 /**
@@ -80,11 +80,12 @@ export class BucketCursor {
 }
 
 /**
- * BucketPlacement class holds bucket name, placement ID, and location.
+ * BucketMeta class holds misc bucket metadata.
  */
-export class BucketPlacement {
+export class BucketMetadata {
     public constructor(
         public name: string = '',
+        public versioning: Versioning = Versioning.NotSupported,
         public placement: Placement = new Placement(),
     ) { }
 }

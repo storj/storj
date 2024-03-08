@@ -70,13 +70,81 @@
                 <v-btn
                     variant="outlined"
                     color="default"
-                    class="mx-2 mx-sm-4"
+                    class="ml-2 ml-sm-4"
                     :disabled="!isInitialized"
                     @click="isNewFolderDialogOpen = true"
                 >
                     <icon-folder class="mr-2" bold />
                     New Folder
                 </v-btn>
+
+                <v-menu v-model="settingsMenu" location="bottom" transition="scale-transition" offset="5">
+                    <template #activator="{ props }">
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            class="ml-2 ml-sm-4"
+                            v-bind="props"
+                        >
+                            <template #append>
+                                <IconDropdown />
+                            </template>
+                            <IconSettings />
+                        </v-btn>
+                    </template>
+                    <v-list class="pa-2">
+                        <v-list-item
+                            v-if="versioningUIEnabled && bucket && bucket.versioning !== Versioning.NotSupported"
+                            density="comfortable"
+                            link
+                            rounded="lg"
+                            @click="onToggleVersioning"
+                        >
+                            <template #prepend>
+                                <IconVersioning v-if="bucket.versioning !== Versioning.Enabled" />
+                                <IconPause v-else />
+                            </template>
+                            <v-list-item-title
+                                class="pl-2 text-body-2 font-weight-medium"
+                            >
+                                {{
+                                    bucket.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                }}
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            rounded="lg"
+                            @click="showShareBucketDialog"
+                        >
+                            <template #prepend>
+                                <icon-share bold />
+                            </template>
+                            <v-list-item-title
+                                class="pl-2 text-body-2 font-weight-medium"
+                            >
+                                Share Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-divider class="my-2" />
+                        <v-list-item
+                            density="comfortable"
+                            link rounded="lg"
+                            base-color="error"
+                            @click="isDeleteBucketDialogShown = true"
+                        >
+                            <template #prepend>
+                                <icon-trash bold />
+                            </template>
+                            <v-list-item-title
+                                class="pl-2 text-body-2 font-weight-medium"
+                            >
+                                Delete Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
 
                 <v-spacer v-if="smAndUp" />
 
@@ -127,6 +195,8 @@
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
+    <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
+    <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
 </template>
 
 <script setup lang="ts">
@@ -158,6 +228,10 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
+import { Versioning } from '@/types/versioning';
+import { BucketMetadata } from '@/types/buckets';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useVersioning } from '@/composables/useVersioning.js';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
@@ -171,6 +245,14 @@ import DropzoneDialog from '@/components/dialogs/DropzoneDialog.vue';
 import BrowserCardViewComponent from '@/components/BrowserCardViewComponent.vue';
 import IconTableView from '@/components/icons/IconTableView.vue';
 import IconCardView from '@/components/icons/IconCardView.vue';
+import IconSettings from '@/components/icons/IconSettings.vue';
+import IconDropdown from '@/components/icons/IconDropdown.vue';
+import ShareDialog from '@/components/dialogs/ShareDialog.vue';
+import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
+import IconPause from '@/components/icons/IconPause.vue';
+import IconVersioning from '@/components/icons/IconVersioning.vue';
+import IconShare from '@/components/icons/IconShare.vue';
+import IconTrash from '@/components/icons/IconTrash.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -183,16 +265,27 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 const { smAndUp } = useDisplay();
+const { toggleVersioning } = useVersioning();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
 const menu = ref<boolean>(false);
+const settingsMenu = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
 const isInitialized = ref<boolean>(false);
 const isDragging = ref<boolean>(false);
 const snackbar = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(false);
 const isNewFolderDialogOpen = ref<boolean>(false);
+const isShareBucketDialogShown = ref<boolean>(false);
+const isDeleteBucketDialogShown = ref<boolean>(false);
+
+let passphraseDialogCallback: () => void = () => {};
+
+/**
+ * Whether versioning has been enabled for current project.
+ */
+const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
 /**
  * Returns the name of the selected bucket.
@@ -200,9 +293,23 @@ const isNewFolderDialogOpen = ref<boolean>(false);
 const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucketName);
 
 /**
+ * Returns metadata of the current bucket.
+ */
+const bucket = computed<BucketMetadata | undefined>(() => {
+    return bucketsStore.state.allBucketMetadata.find(b => b.name === bucketName.value);
+});
+
+/**
  * Returns edge credentials from store.
  */
 const edgeCredentials = computed((): EdgeCredentials => bucketsStore.state.edgeCredentials);
+
+/**
+ * Returns condition if user has to be prompt for passphrase from store.
+ */
+const promptForPassphrase = computed((): boolean => {
+    return bucketsStore.state.promptForPassphrase;
+});
 
 /**
  * Returns ID of selected project from store.
@@ -278,6 +385,44 @@ async function upload(e: Event): Promise<void> {
     target.value = '';
 }
 
+/**
+ * Toggles versioning for the bucket between Suspended and Enabled.
+ */
+async function onToggleVersioning() {
+    if (!bucket.value) {
+        return;
+    }
+
+    try {
+        await toggleVersioning(bucket.value?.name, bucket.value?.versioning);
+        notify.success(`Versioning ${bucket.value.versioning !== Versioning.Enabled ? 'enabled' : 'suspended'} for bucket ${bucket.value.name}.`);
+        await bucketsStore.getAllBucketsMetadata(projectId.value);
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
+        return;
+    }
+}
+
+function onBucketDeleted() {
+    router.push({
+        name: ROUTES.Buckets.name,
+        params: { id: projectUrlId.value },
+    });
+}
+
+/**
+ * Displays the Share Bucket dialog.
+ */
+function showShareBucketDialog(): void {
+    if (promptForPassphrase.value) {
+        bucketsStore.setFileComponentBucketName(bucketName.value);
+        isBucketPassphraseDialogOpen.value = true;
+        passphraseDialogCallback = () => isShareBucketDialogShown.value = true;
+        return;
+    }
+    isShareBucketDialogShown.value = true;
+}
+
 watch(isBucketPassphraseDialogOpen, isOpen => {
     if (isOpen || !isPromptForPassphrase.value) return;
     router.push({
@@ -333,17 +478,14 @@ watch(() => bucketsStore.state.passphrase, async newPass => {
  */
 onMounted(async () => {
     try {
-        await Promise.all([
-            bucketsStore.getAllBucketsNames(projectId.value),
-            bucketsStore.getAllBucketsPlacements(projectId.value),
-        ]);
+        await bucketsStore.getAllBucketsMetadata(projectId.value);
     } catch (error) {
         error.message = `Error fetching bucket names and/or placements. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
 
-    if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
+    if (!bucket.value) {
         router.push({
             name: ROUTES.Buckets.name,
             params: { id: projectUrlId.value },

@@ -100,6 +100,8 @@ const props = defineProps<{
 
 const model = defineModel<boolean>({ required: true });
 
+const emit = defineEmits(['deleted']);
+
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
@@ -197,6 +199,7 @@ async function onDelete(): Promise<void> {
 
         notify.success('Bucket deleted.');
         model.value = false;
+        emit('deleted');
     });
 }
 

@@ -40,7 +40,7 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
  * Returns the location of the selected bucket.
  */
 const bucketLocation = computed((): string => {
-    const bucket = bucketsStore.state.allBucketPlacements.find((el) => el.name === bucketName.value);
+    const bucket = bucketsStore.state.allBucketMetadata.find((el) => el.name === bucketName.value);
     if (!bucket) {
         return '';
     }

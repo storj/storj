@@ -1,10 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Bucket, BucketCursor, BucketPage, BucketPlacement, BucketsApi } from '@/types/buckets';
+import {
+    Bucket,
+    BucketCursor,
+    BucketMetadata,
+    BucketPage,
+    BucketsApi,
+} from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
 import { getVersioning } from '@/types/versioning';
+import { Placement } from '@/types/placements.js';
 
 /**
  * BucketsHttpApi is an HTTP implementation of the Buckets API.
@@ -90,25 +97,32 @@ export class BucketsHttpApi implements BucketsApi {
     }
 
     /**
-     * Fetch all bucket placements.
+     * Fetch all bucket metadata.
      *
-     * @returns BucketPlacement[]
+     * @returns BucketMetadata[]
      * @throws Error
      */
-    public async getAllBucketPlacements(projectId: string): Promise<BucketPlacement[]> {
-        const path = `${this.ROOT_PATH}/bucket-placements?publicID=${projectId}`;
+    public async getAllBucketMetadata(projectId: string): Promise<BucketMetadata[]> {
+        const path = `${this.ROOT_PATH}/bucket-metadata?publicID=${projectId}`;
         const response = await this.client.get(path);
 
         if (!response.ok) {
             throw new APIError({
                 status: response.status,
-                message: 'Can not get bucket placements',
+                message: 'Can not get bucket metadata',
                 requestID: response.headers.get('x-request-id'),
             });
         }
 
         const result = await response.json();
 
-        return result ? result : [];
+        return result?.map(bVersioning => new BucketMetadata(
+            bVersioning.name,
+            getVersioning(bVersioning.versioning),
+            new Placement(
+                bVersioning.placement.defaultPlacement,
+                bVersioning.placement.location,
+            ),
+        )) || [];
     }
 }
