@@ -135,7 +135,6 @@ function openProject(): void {
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
@@ -149,7 +148,6 @@ function onSettingsClick(): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 
 /**

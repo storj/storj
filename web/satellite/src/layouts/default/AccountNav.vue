@@ -19,7 +19,7 @@
                 </template>
 
                 <!-- All Projects -->
-                <navigation-item title="All Projects" subtitle="Dashboard" :to="ROUTES.Projects.path" class="py-4">
+                <navigation-item title="All Projects" subtitle="Dashboard" :to="ROUTES.Projects.path" class="py-4" @click="closeDrawer">
                     <template #prepend>
                         <icon-all-projects />
                     </template>
@@ -148,7 +148,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore.js';
 import { ROUTES } from '@/router';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames.js';
+import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames.js';
 
 import IconCard from '@/components/icons/IconCard.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -195,17 +195,25 @@ const pathBeforeAccountPage = computed((): string | null => {
  * Toggles upgrade account flow visibility.
  */
 function toggleUpgradeFlow(): void {
+    closeDrawer();
+    appStore.toggleUpgradeFlow(true);
+}
+
+/**
+ * Conditionally closes the navigation drawer.
+ */
+function closeDrawer(): void {
     if (mdAndDown.value) {
         model.value = false;
     }
-    appStore.toggleUpgradeFlow(true);
 }
 
 /**
  * Sends "View Docs" event to segment.
  */
 function trackViewDocsEvent(link: string): void {
-    analyticsStore.pageVisit(link);
+    closeDrawer();
+    analyticsStore.pageVisit(link, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 
@@ -213,7 +221,8 @@ function trackViewDocsEvent(link: string): void {
  * Sends "View Forum" event to segment.
  */
 function trackViewForumEvent(link: string): void {
-    analyticsStore.pageVisit(link);
+    closeDrawer();
+    analyticsStore.pageVisit(link, PageVisitSource.FORUM);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
 }
 
@@ -221,13 +230,12 @@ function trackViewForumEvent(link: string): void {
  * Sends "View Support" event to segment.
  */
 function trackViewSupportEvent(link: string): void {
-    analyticsStore.pageVisit(link);
+    closeDrawer();
+    analyticsStore.pageVisit(link, PageVisitSource.SUPPORT);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
 }
 
 onBeforeMount(() => {
-    if (mdAndDown.value) {
-        model.value = false;
-    }
+    closeDrawer();
 });
 </script>

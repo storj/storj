@@ -27,7 +27,6 @@ import DefaultView from './View.vue';
 import { Project } from '@/types/projects';
 import { MINIMUM_URL_ID_LENGTH, useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -42,7 +41,6 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
-const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -57,7 +55,6 @@ async function selectProject(urlId: string): Promise<void> {
     const goToDashboard = () => {
         const path = ROUTES.Projects.path;
         router.push(path);
-        analyticsStore.pageVisit(path);
     };
 
     if (urlId.length < MINIMUM_URL_ID_LENGTH) {

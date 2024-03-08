@@ -103,7 +103,6 @@ async function setup() {
                 name: ROUTES.Dashboard.name,
                 params: { id: project.urlId },
             });
-            analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 
             if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
@@ -149,7 +148,7 @@ onBeforeMount(async (): Promise<void> => {
 });
 
 /**
- * conditionally setup plausible analytics.
+ * conditionally setup plausible analytics and track first page visit.
  */
 async function setupPlausible() {
     const plausibleEnabled = !!configStore.state.config.plausibleDomain && !!configStore.state.config.plausibleScriptUrl;
@@ -158,6 +157,9 @@ async function setupPlausible() {
             domain: configStore.state.config.plausibleDomain,
             scriptURL: configStore.state.config.plausibleScriptUrl,
         });
+
+        // track first page visit
+        analyticsStore.pageVisit(route.matched[route.matched.length - 1].path, configStore.state.config.satelliteName);
     }
 }
 

@@ -128,7 +128,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link :to="billingPath" @click="() => registerLinkClick(billingPath)">
+                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link :to="billingPath" @click="closeSideNav">
                         <template #prepend>
                             <icon-card size="18" />
                         </template>
@@ -137,7 +137,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link :to="settingsPath" @click="() => registerLinkClick(settingsPath)">
+                    <v-list-item link class="my-1 rounded-lg" router-link :to="settingsPath" @click="closeSideNav">
                         <template #prepend>
                             <icon-settings size="18" />
                         </template>
@@ -186,7 +186,6 @@ import {
 
 import { useAppStore } from '@/store/modules/appStore';
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/types/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -272,14 +271,6 @@ watch(() => theme.global.current.value.dark, (newVal: boolean) => {
 
 function closeSideNav(): void {
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
-}
-
-/**
- * Conditionally closes the navigation drawer and tracks page visit.
- */
-function registerLinkClick(page: string): void {
-    closeSideNav();
-    analyticsStore.pageVisit(page);
 }
 
 function toggleUpgradeFlow(): void {

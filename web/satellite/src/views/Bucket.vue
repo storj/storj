@@ -284,7 +284,6 @@ watch(isBucketPassphraseDialogOpen, isOpen => {
         name: ROUTES.Buckets.name,
         params: { id: projectUrlId.value },
     });
-    analyticsStore.pageVisit(ROUTES.BucketsAnalyticsLink);
 });
 
 watch(() => route.params.browserPath, browserPath => {

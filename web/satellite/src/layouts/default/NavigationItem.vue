@@ -47,8 +47,6 @@ function onClick(e: MouseEvent | KeyboardEvent): void {
 
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
 
-    analyticsStore.pageVisit(next);
-
     // Vuetify handles navigation via click or pressing the Enter key.
     // We must handle the space key ourselves.
     if ('key' in e && e.key === ' ') router.push(props.to);

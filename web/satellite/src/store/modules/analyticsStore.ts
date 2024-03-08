@@ -7,7 +7,7 @@ import { ref } from 'vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
-type Plausible = (event: 'pageview', data: { u: string; props?: { satellite: string } }) => void;
+type Plausible = (event: 'pageview', data: { u: string; props: { source: string } }) => void;
 
 export const useAnalyticsStore = defineStore('analytics', () => {
     const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -42,8 +42,34 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         analytics.linkEventTriggered(eventName, link).catch(_ => {});
     }
 
-    function pageVisit(pageName: string): void {
-        analytics.pageVisit(pageName).catch(_ => {});
+    function pageVisit(pagePath: string, source: string): void {
+        analytics.pageVisit(pagePath).catch(_ => {});
+
+        if (!plausible.value) {
+            return;
+        }
+
+        let url: string;
+        if (pagePath.includes('http')) {
+            // external link
+            url = pagePath;
+        } else {
+            url = window.location.protocol + '//' + window.location.host + pagePath;
+            if (window.location.search) {
+                // remove sensitive query params
+                const avoidKeys = ['token', 'email', 'inviter_email', 'projectID'];
+                const filteredParams: string[] = [];
+                const params = window.location.search.replace('?', '').split('&');
+                for (const param of params) {
+                    if (!avoidKeys.find((k) => param.includes(k))) {
+                        filteredParams.push(param);
+                    }
+                }
+                if (filteredParams.length > 0) url = url + '?' + filteredParams.join('&');
+            }
+        }
+
+        plausible.value('pageview', { u: url, props: { source } });
     }
 
     function errorEventTriggered(source: AnalyticsErrorEventSource): void {

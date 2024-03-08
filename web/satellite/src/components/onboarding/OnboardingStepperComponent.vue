@@ -306,7 +306,6 @@ async function openTrackedBucket(): Promise<void> {
             }
         }
 
-        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         await router.push({
             name: ROUTES.Bucket.name,
             params: {

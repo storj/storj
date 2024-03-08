@@ -185,7 +185,6 @@ import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 
 const auth = new AuthHttpApi();
 
-const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -357,7 +356,6 @@ async function login(): Promise<void> {
     usersStore.login();
     isLoading.value = false;
 
-    analyticsStore.pageVisit(returnURL.value);
     await router.push(returnURL.value);
 }
 

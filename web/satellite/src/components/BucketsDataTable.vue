@@ -432,7 +432,6 @@ function openBucket(bucketName: string): void {
                 }
             }
 
-            analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
             await router.push({
                 name: ROUTES.Bucket.name,
                 params: {

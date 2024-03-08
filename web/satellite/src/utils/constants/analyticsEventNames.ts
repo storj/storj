@@ -107,3 +107,9 @@ export enum AnalyticsErrorEventSource {
     ONBOARDING_FORM = 'Onboarding form',
     ONBOARDING_STEPPER = 'Onboarding stepper',
 }
+
+export enum PageVisitSource {
+    DOCS = 'docs',
+    FORUM = 'forum',
+    SUPPORT = 'support'
+}

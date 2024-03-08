@@ -234,7 +234,6 @@ function verifyCode(): void {
         analyticsStore.eventTriggered(AnalyticsEvent.USER_SIGN_UP);
         appStore.toggleHasJustLoggedIn(true);
         usersStore.login();
-        analyticsStore.pageVisit(ROUTES.Projects.path);
         await router.push(ROUTES.Projects.path);
     });
 }

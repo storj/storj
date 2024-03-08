@@ -249,8 +249,6 @@ async function onPrimaryClick(): Promise<void> {
                 params: { id: project.urlId },
             });
             notify.success('Project created.');
-
-            analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
         });
     } else if (usersStore.state.user.paidTier) {
         if (!isLimitIncreaseRequestEnabled.value) {

@@ -21,12 +21,12 @@
                 <v-list class="pa-2">
                     <!-- My Projects -->
                     <template v-if="ownProjects.length">
-                        <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
+                        <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
                                 <IconProject />
                             </template>
                             <v-list-item-title class="ml-3">
-                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick(ROUTES.Projects.path)">
+                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="closeDrawer">
                                     My Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -52,12 +52,12 @@
 
                     <!-- Shared With Me -->
                     <template v-if="sharedProjects.length">
-                        <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
+                        <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
                                 <IconProject />
                             </template>
                             <v-list-item-title class="ml-3">
-                                <v-chip color="success" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick(ROUTES.Projects.path)">
+                                <v-chip color="success" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="closeDrawer">
                                     Shared Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -82,7 +82,7 @@
                     </template>
 
                     <!-- Project Settings -->
-                    <v-list-item router-link :to="settingsURL" @click="() => registerLinkClick(ROUTES.ProjectSettingsAnalyticsLink)">
+                    <v-list-item router-link :to="settingsURL" @click="closeDrawer">
                         <template #prepend>
                             <IconSettings />
                         </template>
@@ -94,7 +94,7 @@
                     <v-divider class="my-2" />
 
                     <!-- View All Projects -->
-                    <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
+                    <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                         <template #prepend>
                             <IconAllProjects />
                         </template>
@@ -131,7 +131,7 @@
 
             <v-divider class="my-2" />
 
-            <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="() => registerDashboardLinkClick(ROUTES.DashboardAnalyticsLink)">
+            <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="closeDrawer">
                 <template #prepend>
                     <IconDashboard />
                 </template>
@@ -143,19 +143,19 @@
                 </template>
             </navigation-item>
 
-            <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="() => registerLinkClick(ROUTES.AccessAnalyticsLink)">
+            <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="closeDrawer">
                 <template #prepend>
                     <IconAccess size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="() => registerLinkClick(ROUTES.ApplicationsAnalyticsLink)">
+            <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
                 <template #prepend>
                     <IconApplications />
                 </template>
             </navigation-item>
 
-            <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="() => registerLinkClick(ROUTES.TeamAnalyticsLink)">
+            <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
                 <template #prepend>
                     <IconTeam size="18" />
                 </template>
@@ -263,7 +263,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -348,32 +348,19 @@ const sharedProjects = computed((): Project[] => {
 });
 
 /**
- * Conditionally closes the navigation drawer and tracks page visit.
+ * Conditionally closes the navigation drawer.
  */
-function registerLinkClick(page: string): void {
+function closeDrawer(): void {
     if (mdAndDown.value) {
         model.value = false;
     }
-    trackPageVisitEvent(page);
-}
-
-/**
- * Sends "Page Visit" event to segment and opens link.
- */
-function trackPageVisitEvent(page: string): void {
-    analyticsStore.pageVisit(page);
-}
-
-function registerDashboardLinkClick(page: string): void {
-    registerLinkClick(page);
-    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
 /**
  * Sends "View Docs" event to segment and opens link.
  */
 function trackViewDocsEvent(link: string): void {
-    registerLinkClick(link);
+    analyticsStore.pageVisit(link, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open(link);
 }
@@ -382,7 +369,7 @@ function trackViewDocsEvent(link: string): void {
  * Sends "View Forum" event to segment and opens link.
  */
 function trackViewForumEvent(link: string): void {
-    registerLinkClick(link);
+    analyticsStore.pageVisit(link, PageVisitSource.FORUM);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
     window.open(link);
 }
@@ -391,7 +378,7 @@ function trackViewForumEvent(link: string): void {
  * Sends "View Support" event to segment and opens link.
  */
 function trackViewSupportEvent(link: string): void {
-    registerLinkClick(link);
+    analyticsStore.pageVisit(link, PageVisitSource.SUPPORT);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
     window.open(link);
 }

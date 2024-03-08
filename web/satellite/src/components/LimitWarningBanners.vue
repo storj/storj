@@ -207,6 +207,5 @@ function goToProjectSettings(): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 </script>
