@@ -232,9 +232,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup email reminders
 		if config.EmailReminders.Enable {
 			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
 
 			peer.Mail.EmailReminders = emailreminders.NewChore(
 				peer.Log.Named("console:chore"),
@@ -243,6 +240,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.Mail.Service,
 				config.EmailReminders,
 				config.Console.ExternalAddress,
+				config.Console.GeneralRequestURL,
+				config.Console.ScheduleMeetingURL,
 			)
 
 			peer.Services.Add(lifecycle.Item{

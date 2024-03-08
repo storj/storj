@@ -442,6 +442,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
 
+# url link to schedule a meeting with a storj representative
+# console.schedule-meeting-url: https://meetings.hubspot.com/tom144/meeting-with-tom-troy
+
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
@@ -565,11 +568,17 @@ contact.external-address: ""
 # enable sending emails reminding users to verify their email
 # email-reminders.enable: true
 
+# enable sending emails about trial expirations
+# email-reminders.enable-trial-expiration-reminders: false
+
 # amount of time before sending first reminder to users who need to verify their email
 # email-reminders.first-verification-reminder: 24h0m0s
 
 # amount of time before sending second reminder to users who need to verify their email
 # email-reminders.second-verification-reminder: 120h0m0s
+
+# amount of time before trial expiration to send trial expiration reminder
+# email-reminders.trial-expiration-reminder: 72h0m0s
 
 # weighted average CO2 sequestered by a medium growth coniferous or deciduous tree, in kgCO2e/tree
 # emission.average-co2sequestered-by-tree: 60

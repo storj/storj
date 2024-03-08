@@ -5,6 +5,7 @@ package emailreminders_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -167,5 +168,112 @@ func TestEmailChoreLinkActivatesAccount(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, console.UserStatus(1), u.Status)
+	})
+}
+
+func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.EmailReminders.EnableTrialExpirationReminders = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		users := planet.Satellites[0].DB.Console().Users()
+		chore := planet.Satellites[0].Core.Mail.EmailReminders
+		chore.Loop.Pause()
+
+		// control group: paid tier user
+		id1 := testrand.UUID()
+		_, err := users.Insert(ctx, &console.User{
+			ID:           id1,
+			FullName:     "test",
+			Email:        "userone@mail.test",
+			PasswordHash: []byte("password"),
+		})
+		require.NoError(t, err)
+		paidTier := true
+		require.NoError(t, users.Update(ctx, id1, console.UpdateUserRequest{PaidTier: &paidTier}))
+
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+		yesterday := now.Add(-24 * time.Hour)
+
+		// one expiring user
+		id2 := testrand.UUID()
+		_, err = users.Insert(ctx, &console.User{
+			ID:              id2,
+			FullName:        "test",
+			Email:           "usertwo@mail.test",
+			PasswordHash:    []byte("password"),
+			TrialExpiration: &tomorrow,
+		})
+		require.NoError(t, err)
+
+		// one expired user who was already reminded
+		id3 := testrand.UUID()
+		_, err = users.Insert(ctx, &console.User{
+			ID:                 id3,
+			FullName:           "test",
+			Email:              "usertwo@mail.test",
+			PasswordHash:       []byte("password"),
+			TrialExpiration:    &yesterday,
+			TrialNotifications: int(console.TrialExpirationReminder),
+		})
+		require.NoError(t, err)
+
+		reminded := console.TrialExpirationReminder
+
+		require.NoError(t, users.Update(ctx, id3, console.UpdateUserRequest{
+			TrialNotifications: &reminded,
+		}))
+
+		user1, err := users.Get(ctx, id1)
+		require.NoError(t, err)
+		require.True(t, user1.PaidTier)
+		require.Nil(t, user1.TrialExpiration)
+		require.Equal(t, int(console.NoTrialNotification), user1.TrialNotifications)
+
+		user2, err := users.Get(ctx, id2)
+		require.NoError(t, err)
+		require.False(t, user2.PaidTier)
+		require.Equal(t, tomorrow.Truncate(time.Millisecond), user2.TrialExpiration.Truncate(time.Millisecond))
+		require.Equal(t, int(console.NoTrialNotification), user2.TrialNotifications)
+
+		user3, err := users.Get(ctx, id3)
+		require.NoError(t, err)
+		require.False(t, user3.PaidTier)
+		require.Equal(t, yesterday.Truncate(time.Millisecond), user3.TrialExpiration.Truncate(time.Millisecond))
+		require.Equal(t, int(console.TrialExpirationReminder), user3.TrialNotifications)
+
+		chore.Loop.TriggerWait()
+
+		user1, err = users.Get(ctx, id1)
+		require.NoError(t, err)
+		require.Equal(t, int(console.NoTrialNotification), user1.TrialNotifications)
+
+		user2, err = users.Get(ctx, id2)
+		require.NoError(t, err)
+		require.Equal(t, int(console.TrialExpirationReminder), user2.TrialNotifications)
+
+		user3, err = users.Get(ctx, id3)
+		require.NoError(t, err)
+		require.Equal(t, int(console.TrialExpired), user3.TrialNotifications)
+
+		// run again to make sure values don't change.
+		chore.Loop.TriggerWait()
+
+		user1, err = users.Get(ctx, id1)
+		require.NoError(t, err)
+		require.Equal(t, int(console.NoTrialNotification), user1.TrialNotifications)
+
+		user2, err = users.Get(ctx, id2)
+		require.NoError(t, err)
+		require.Equal(t, int(console.TrialExpirationReminder), user2.TrialNotifications)
+
+		user3, err = users.Get(ctx, id3)
+		require.NoError(t, err)
+		require.Equal(t, int(console.TrialExpired), user3.TrialNotifications)
 	})
 }
