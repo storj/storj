@@ -66,8 +66,11 @@ install_sim_noquic(){
 # and for the current branch code
 git worktree add -f "$BRANCH_DIR" HEAD
 
-latestReleaseCommit="$(git rev-list --exclude='*rc*' --tags --max-count=1)"
-latestReleaseTag=$(git describe --tags "$latestReleaseCommit")
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+latestReleaseTag=$($SCRIPTDIR/../find-previous-release-tag.sh)
+latestReleaseCommit=$(git rev-list -n1 $latestReleaseTag)
+
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
 
@@ -81,8 +84,6 @@ cat > "$RELEASE_DIR"/private/version/release.go <<EOF
 
 package version
 EOF
-
-SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 pushd $RELEASE_DIR
     install_sim_noquic "$RELEASE_DIR"/bin
