@@ -378,7 +378,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.Use(server.withCORS)
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet, http.MethodOptions)
-	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketPlacements).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)

@@ -89,8 +89,8 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetBucketPlacements returns all bucket names and placements for a specific project.
-func (b *Buckets) GetBucketPlacements(w http.ResponseWriter, r *http.Request) {
+// GetBucketMetadata returns all bucket names and metadata (placement and versioning) for a specific project.
+func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -118,7 +118,7 @@ func (b *Buckets) GetBucketPlacements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bucketNames, err := b.service.GetBucketPlacements(ctx, projectID)
+	bucketMetadata, err := b.service.GetBucketMetadata(ctx, projectID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -129,7 +129,7 @@ func (b *Buckets) GetBucketPlacements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(bucketNames)
+	err = json.NewEncoder(w).Encode(bucketMetadata)
 	if err != nil {
 		b.log.Error("failed to write json all bucket names response", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}

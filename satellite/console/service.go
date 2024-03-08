@@ -2951,12 +2951,12 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	return list, nil
 }
 
-// GetBucketPlacements retrieves all bucket names and placements of a specific project.
+// GetBucketMetadata retrieves all bucket names of a specific project and related metadata, e.g. placement and versioning.
 // projectID here may be Project.ID or Project.PublicID.
-func (s *Service) GetBucketPlacements(ctx context.Context, projectID uuid.UUID) (_ []BucketPlacement, err error) {
+func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (list []BucketMetadata, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and placements", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and metadata", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2979,11 +2979,11 @@ func (s *Service) GetBucketPlacements(ctx context.Context, projectID uuid.UUID) 
 		return nil, Error.Wrap(err)
 	}
 
-	var list []BucketPlacement
 	for _, bucket := range bucketsList.Items {
-		list = append(list, BucketPlacement{
-			bucket.Name,
-			Placement{
+		list = append(list, BucketMetadata{
+			Name:       bucket.Name,
+			Versioning: bucket.Versioning,
+			Placement: Placement{
 				DefaultPlacement: bucket.Placement,
 				Location:         s.placements[bucket.Placement].Name,
 			},

@@ -5,6 +5,7 @@ package console
 
 import (
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/buckets"
 )
 
 // Placement contains placement info.
@@ -13,8 +14,9 @@ type Placement struct {
 	Location         string                    `json:"location"`
 }
 
-// BucketPlacement contains bucket name and placement info.
-type BucketPlacement struct {
-	Name      string    `json:"name"`
-	Placement Placement `json:"placement"`
+// BucketMetadata contains bucket name, versioning and placement info.
+type BucketMetadata struct {
+	Name       string             `json:"name"`
+	Versioning buckets.Versioning `json:"versioning"`
+	Placement  Placement          `json:"placement"`
 }

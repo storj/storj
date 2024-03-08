@@ -757,10 +757,10 @@ func TestService(t *testing.T) {
 				}
 			})
 
-			t.Run("GetBucketPlacements", func(t *testing.T) {
+			t.Run("GetBucketMetadata", func(t *testing.T) {
 				list, err := sat.DB.Buckets().ListBuckets(ctx, up2Proj.ID, buckets.ListOptions{Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
 				require.NoError(t, err)
-				bp, err := service.GetBucketPlacements(userCtx2, up2Proj.ID)
+				bp, err := service.GetBucketMetadata(userCtx2, up2Proj.ID)
 				require.NoError(t, err)
 				for _, b := range bp {
 					var found bool
@@ -769,6 +769,7 @@ func TestService(t *testing.T) {
 							found = true
 							require.Equal(t, item.Placement, b.Placement.DefaultPlacement)
 							require.Equal(t, placements[int(item.Placement)], b.Placement.Location)
+							require.Equal(t, item.Versioning, b.Versioning)
 							break
 						}
 					}
