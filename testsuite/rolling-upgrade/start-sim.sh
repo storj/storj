@@ -54,9 +54,7 @@ git fetch --tags
 current_commit=$(git rev-parse HEAD)
 stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | head -1)
 if [[ $BRANCH_NAME = v* ]]; then
-    current_major_release_version=$(git describe --tags $current_commit | cut -d '.' -f 1-2)
-    previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_major_release_version* --tags --max-count=1`)
-    stage1_release_version=$previous_release_version
+    stage1_release_version=$($SCRIPTDIR/../find-previous-major-release-tag.sh)
 fi
 stage1_sat_version=$stage1_release_version
 stage1_uplink_version=$stage1_release_version
