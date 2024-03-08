@@ -152,6 +152,8 @@ type Server struct {
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
 
+	AnalyticsConfig analytics.Config
+
 	packagePlans paymentsconfig.PackagePlans
 
 	errorTemplate *template.Template
@@ -214,7 +216,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -230,6 +232,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:                         nodeURL,
+		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
 	}
 
@@ -824,7 +827,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EnableRegionTag:                 server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
-		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
+		AnalyticsEnabled:                server.AnalyticsConfig.Enabled,
+		PlausibleDomain:                 server.AnalyticsConfig.Plausible.Domain,
+		PlausibleScriptUrl:              server.AnalyticsConfig.Plausible.ScriptUrl,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

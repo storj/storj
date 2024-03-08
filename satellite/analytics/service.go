@@ -114,11 +114,18 @@ var (
 	Error = errs.Class("analytics service")
 )
 
+// PlausibleConfig is a configuration struct for plausible analytics.
+type PlausibleConfig struct {
+	Domain    string `help:"the domain set up on plausible for the satellite" default:""`
+	ScriptUrl string `help:"the url of the plausible script" releaseDefault:"https://plausible.io/js/script.manual.js" devDefault:"https://plausible.io/js/script.local.manual.js"`
+}
+
 // Config is a configuration struct for analytics Service.
 type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 	HubSpot         HubSpotConfig
+	Plausible       PlausibleConfig
 }
 
 // FreezeTracker is an interface for account freeze event tracking methods.
