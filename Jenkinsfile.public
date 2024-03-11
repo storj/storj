@@ -147,15 +147,6 @@ pipeline {
                     }
                 }
                 stage('Satellite UI Tests') {
-                    when {
-                        anyOf {
-                            branch 'main'
-                            branch pattern: "release-.*", comparator: "REGEXP"
-                            changeset "testsuite/playwright-ui/**"
-                            changeset "web/**"
-                            changeset "satellite/console/**"
-                        }
-                    }
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
                         STORJ_TEST_COCKROACH_NODROP = 'true'
