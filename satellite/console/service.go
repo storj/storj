@@ -206,6 +206,8 @@ type Service struct {
 
 	varPartners map[string]struct{}
 
+	versioningConfig VersioningConfig
+
 	nowFn func() time.Time
 }
 
@@ -227,7 +229,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -260,6 +262,15 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		partners[partner] = struct{}{}
 	}
 
+	versioning.projectMap = make(map[uuid.UUID]struct{}, len(versioning.UseBucketLevelObjectVersioningProjects))
+	for _, id := range versioning.UseBucketLevelObjectVersioningProjects {
+		projectID, err := uuid.FromString(id)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		versioning.projectMap[projectID] = struct{}{}
+	}
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -284,6 +295,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		maxProjectBuckets:          maxProjectBuckets,
 		config:                     config,
 		varPartners:                partners,
+		versioningConfig:           versioning,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -1767,6 +1779,30 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 		StorjImpact:       impact.EstimatedKgCO2eStorj,
 		HyperscalerImpact: impact.EstimatedKgCO2eHyperscaler,
 		SavedTrees:        savedTrees,
+	}, nil
+}
+
+// GetProjectConfig is a method for querying project config.
+func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*ProjectConfig, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	versioningUIEnabled := true
+	if !s.versioningConfig.UseBucketLevelObjectVersioning {
+		_, versioningUIEnabled = s.versioningConfig.projectMap[isMember.project.ID]
+	}
+
+	return &ProjectConfig{
+		VersioningUIEnabled: versioningUIEnabled,
 	}, nil
 }
 
@@ -4370,6 +4406,22 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 	}
 
 	return claims.ID, claims.Email, nil
+}
+
+// TestSetVersioningConfig allows tests to switch the versioning config.
+func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
+	versioning.projectMap = make(map[uuid.UUID]struct{}, len(versioning.UseBucketLevelObjectVersioningProjects))
+	for _, id := range versioning.UseBucketLevelObjectVersioningProjects {
+		projectID, err := uuid.FromString(id)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		versioning.projectMap[projectID] = struct{}{}
+	}
+
+	s.versioningConfig = versioning
+
+	return nil
 }
 
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.

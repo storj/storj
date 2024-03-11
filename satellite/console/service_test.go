@@ -1025,6 +1025,53 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, items, 2)
 			})
+
+			t.Run("GetProjectConfig", func(t *testing.T) {
+				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "config test")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				versioningConfig := console.VersioningConfig{
+					UseBucketLevelObjectVersioning: false,
+				}
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				// Getting project config as a member should work
+				config, err := service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.EqualValues(t, console.ProjectConfig{}, *config)
+
+				// Getting project config as a non-member should not work
+				config, err = service.GetProjectConfig(userCtx2, pr.ID)
+				require.Error(t, err)
+				require.Nil(t, config)
+
+				versioningConfig.UseBucketLevelObjectVersioning = true
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.True(t, config.VersioningUIEnabled)
+
+				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{pr.ID.String()}
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.True(t, config.VersioningUIEnabled)
+
+				versioningConfig.UseBucketLevelObjectVersioning = false
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				// versioning still enabled because project is in config.UseBucketLevelObjectVersioningProjects
+				require.True(t, config.VersioningUIEnabled)
+			})
 		})
 }
 

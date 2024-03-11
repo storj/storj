@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -66,6 +67,13 @@ type SessionConfig struct {
 	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"1800"` // 1800s=30m
 	InactivityTimerViewerEnabled bool          `help:"indicates whether remaining session time is shown for debugging" default:"false"`
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
+}
+
+// VersioningConfig contains configurations for object versioning.
+type VersioningConfig struct {
+	UseBucketLevelObjectVersioning         bool
+	UseBucketLevelObjectVersioningProjects []string
+	projectMap                             map[uuid.UUID]struct{}
 }
 
 // EdgeURLOverrides contains edge service URL overrides.

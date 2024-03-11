@@ -500,6 +500,41 @@ func (p *Projects) GetEmissionImpact(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetConfig returns config specific to a project.
+func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	config, err := p.service.GetProjectConfig(ctx, id)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(config)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // InviteUser sends a project invitation to a user.
 func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
