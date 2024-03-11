@@ -167,6 +167,13 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
                         sh 'make test-satellite-ui'
                     }
+
+                    post {
+                        failure {
+                            sh script: 'tar -zcvf .build/playwright-report.tar.gz ./testsuite/playwright-ui/playwright-report/'
+                            archiveArtifacts artifacts: '.build/playwright-report.tar.gz'
+                        }
+                    }
                 }
                 stage('Tests') {
                     environment {
