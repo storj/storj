@@ -202,6 +202,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			MaxTimeSkew: 10 * time.Second,
 			Status:      retain.Enabled,
 			Concurrency: 5,
+			CachePath:   filepath.Join(planet.directory, "retain"),
 		},
 		Version: version.Config{
 			Config: planet.NewVersionConfig(),

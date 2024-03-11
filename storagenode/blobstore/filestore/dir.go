@@ -40,7 +40,8 @@ const (
 	TrashUsesDayDirsIndicator = ".trash-uses-day-dirs-indicator"
 )
 
-var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+// PathEncoding is the encoding used for the namespace and key in the filestore.
+var PathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
 // Dir represents single folder for storing blobs.
 type Dir struct {
@@ -125,7 +126,7 @@ func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
 // trashPath returns the toplevel trash directory for the given namespace and timestamp.
 func (dir *Dir) trashPath(namespace []byte, forTime time.Time) string {
-	namespaceStr := pathEncoding.EncodeToString(namespace)
+	namespaceStr := PathEncoding.EncodeToString(namespace)
 	dayDirName := forTime.UTC().Format("2006-01-02")
 	return filepath.Join(dir.trashdir(), namespaceStr, dayDirName)
 }
@@ -136,7 +137,7 @@ func (dir *Dir) refToTrashPath(ref blobstore.BlobRef, forTime time.Time) (string
 		return "", blobstore.ErrInvalidBlobRef.New("")
 	}
 
-	key := pathEncoding.EncodeToString(ref.Key)
+	key := PathEncoding.EncodeToString(ref.Key)
 	if len(key) < 3 {
 		// ensure we always have enough characters to split [:2] and [2:]
 		key = "11" + key
@@ -217,8 +218,8 @@ func (dir *Dir) refToDirPath(ref blobstore.BlobRef, subDir string) (string, erro
 		return "", blobstore.ErrInvalidBlobRef.New("")
 	}
 
-	namespace := pathEncoding.EncodeToString(ref.Namespace)
-	key := pathEncoding.EncodeToString(ref.Key)
+	namespace := PathEncoding.EncodeToString(ref.Namespace)
+	key := PathEncoding.EncodeToString(ref.Key)
 	if len(key) < 3 {
 		// ensure we always have enough characters to split [:2] and [2:]
 		key = "11" + key
@@ -545,7 +546,7 @@ func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err
 		return nil
 	})
 	errorsEncountered.Add(err)
-	namespaceEncoded := pathEncoding.EncodeToString(namespace)
+	namespaceEncoded := PathEncoding.EncodeToString(namespace)
 	namespaceTrashDir := filepath.Join(dir.trashdir(), namespaceEncoded)
 	err = removeButIgnoreIfNotExist(namespaceTrashDir)
 	errorsEncountered.Add(err)
@@ -587,7 +588,7 @@ func (dir *Dir) walkTrashDayDir(ctx context.Context, namespace []byte, dirTime t
 }
 
 func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTimes []time.Time, err error) {
-	namespaceEncoded := pathEncoding.EncodeToString(namespace)
+	namespaceEncoded := PathEncoding.EncodeToString(namespace)
 	namespaceTrashDir := filepath.Join(dir.trashdir(), namespaceEncoded)
 	openDir, err := os.Open(namespaceTrashDir)
 	if err != nil {
@@ -752,7 +753,7 @@ func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, 
 func (dir *Dir) deleteNamespace(ctx context.Context, path string, ref []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	namespace := pathEncoding.EncodeToString(ref)
+	namespace := PathEncoding.EncodeToString(ref)
 	folderPath := filepath.Join(path, namespace)
 
 	err = os.RemoveAll(folderPath)
@@ -794,7 +795,7 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 			return ids, nil
 		}
 		for _, name := range dirNames {
-			namespace, err := pathEncoding.DecodeString(name)
+			namespace, err := PathEncoding.DecodeString(name)
 			if err != nil {
 				// just an invalid directory entry, and not a namespace. probably
 				// don't need to pass on this error
@@ -816,7 +817,7 @@ func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, walkFunc fu
 
 func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path string, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	namespaceDir := pathEncoding.EncodeToString(namespace)
+	namespaceDir := PathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(path, namespaceDir)
 	return dir.walkNamespaceUnderPath(ctx, namespace, nsDir, walkFunc)
 }
@@ -887,7 +888,7 @@ func (dir *Dir) migrateTrashToPerDayDirs(now time.Time) (err error) {
 
 	namespaces, err := dir.listNamespacesInTrash(context.Background())
 	for _, ns := range namespaces {
-		nsEncoded := pathEncoding.EncodeToString(ns)
+		nsEncoded := PathEncoding.EncodeToString(ns)
 		todayDirName := now.Format("2006-01-02")
 		nsPath := filepath.Join(dir.trashdir(), nsEncoded)
 		tempTodayDirPath := filepath.Join(dir.trashdir(), nsEncoded+"-"+todayDirName)
@@ -919,7 +920,7 @@ func decodeBlobInfo(namespace []byte, keyPrefix, keyDir, name string) (info blob
 	}
 	// in case we prepended '1' chars because the key was too short (1 is an invalid char in base32)
 	encodedKey = strings.TrimLeft(encodedKey, "1")
-	key, err := pathEncoding.DecodeString(encodedKey)
+	key, err := PathEncoding.DecodeString(encodedKey)
 	if err != nil {
 		return nil, false
 	}

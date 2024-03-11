@@ -5,6 +5,8 @@ package retain
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -30,6 +33,7 @@ type Config struct {
 	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"72h0m0s"`
 	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"enabled"`
 	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
+	CachePath   string        `help:"path to the cache directory for retain requests." default:"$CONFDIR/retain"`
 }
 
 // Request contains all the info necessary to process a retain request.
@@ -37,6 +41,30 @@ type Request struct {
 	SatelliteID   storj.NodeID
 	CreatedBefore time.Time
 	Filter        *bloomfilter.Filter
+}
+
+// Filename returns the filename used to store the request in the cache directory.
+func (req *Request) Filename() string {
+	return fmt.Sprintf("%s-%s",
+		filestore.PathEncoding.EncodeToString(req.SatelliteID.Bytes()),
+		strconv.FormatInt(req.CreatedBefore.UnixNano(), 10),
+	)
+}
+
+// Queue manages the retain requests queue.
+type Queue interface {
+	// Add adds a request to the queue.
+	Add(request Request) (bool, error)
+	// Remove removes a request from the queue.
+	// Returns true if there was a request to remove.
+	Remove(request Request) bool
+	// Next returns the next request from the queue.
+	Next() (Request, bool)
+	// Len returns the number of requests in the queue.
+	Len() int
+	// DeleteCache removes the request from the queue and deletes the cache file.
+	DeleteCache(request Request) error
+	// MarkInProgress marks the request as in progress.
 }
 
 // Status is a type defining the enabled/disabled status of retain requests.
@@ -91,7 +119,7 @@ type Service struct {
 	config Config
 
 	cond    sync.Cond
-	queued  map[storj.NodeID]Request
+	queue   Queue
 	working map[storj.NodeID]struct{}
 	group   errgroup.Group
 
@@ -104,12 +132,18 @@ type Service struct {
 
 // NewService creates a new retain service.
 func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
+	log = log.With(zap.String("cachePath", config.CachePath))
+	cache, err := NewRequestStore(config.CachePath)
+	if err != nil {
+		log.Warn("encountered error(s) while loading cache", zap.Error(err))
+	}
+
 	return &Service{
 		log:    log,
 		config: config,
 
 		cond:    *sync.NewCond(&sync.Mutex{}),
-		queued:  make(map[storj.NodeID]Request),
+		queue:   &cache,
 		working: make(map[storj.NodeID]struct{}),
 		closed:  make(chan struct{}),
 
@@ -129,10 +163,14 @@ func (s *Service) Queue(req Request) bool {
 	default:
 	}
 
-	s.queued[req.SatelliteID] = req
+	ok, err := s.queue.Add(req)
+	if err != nil {
+		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("Queued", ok), zap.Stringer("Satellite ID", req.SatelliteID))
+	}
+
 	s.cond.Broadcast()
 
-	return true
+	return ok
 }
 
 // Run listens for queued retain requests and processes them as they come in.
@@ -239,7 +277,7 @@ func (s *Service) Run(ctx context.Context) (err error) {
 	// Clear the queue after Wait has exited. We're sure no more entries
 	// can be added after we acquire the mutex because wait spawned a
 	// worker that ensures the closed channel is closed before it exits.
-	s.queued = nil
+	s.queue = nil
 	s.cond.Broadcast()
 
 	return err
@@ -247,23 +285,30 @@ func (s *Service) Run(ctx context.Context) (err error) {
 
 // next returns next item from queue, requires mutex to be held.
 func (s *Service) next() (Request, bool) {
-	for id, request := range s.queued {
+	for {
+		request, ok := s.queue.Next()
+		if !ok {
+			return Request{}, false
+		}
 		// Check whether a worker is retaining this satellite,
 		// if, yes, then try to get something else from the queue.
 		if _, ok := s.working[request.SatelliteID]; ok {
 			continue
 		}
-		delete(s.queued, id)
 		// Mark this satellite as being worked on.
 		s.working[request.SatelliteID] = struct{}{}
+		s.queue.Remove(request)
 		return request, true
 	}
-	return Request{}, false
 }
 
-// finish marks the request as finished, requires mutex to be held.
+// finish marks the request as finished and removes the cache, requires mutex to be held.
 func (s *Service) finish(request Request) {
 	delete(s.working, request.SatelliteID)
+	err := s.queue.DeleteCache(request)
+	if err != nil {
+		s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("Satellite ID", request.SatelliteID))
+	}
 }
 
 // Close causes any pending Run to exit and waits for any retain requests to
@@ -285,7 +330,7 @@ func (s *Service) TestWaitUntilEmpty() {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
-	for len(s.queued) > 0 || len(s.working) > 0 {
+	for s.queue.Len() > 0 || len(s.working) > 0 {
 		s.cond.Wait()
 	}
 }
@@ -372,5 +417,5 @@ func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID s
 func (s *Service) TestingHowManyQueued() int {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
-	return len(s.queued)
+	return s.queue.Len()
 }

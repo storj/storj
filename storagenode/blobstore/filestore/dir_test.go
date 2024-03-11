@@ -89,9 +89,9 @@ func TestMigrateTrash(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(storeDir, "temp"), dirPermission))
 
 	for n, namespace := range namespaces {
-		namespaceStr := pathEncoding.EncodeToString(namespace)
+		namespaceStr := PathEncoding.EncodeToString(namespace)
 		for k, key := range keys[n] {
-			keyStr := pathEncoding.EncodeToString(key)
+			keyStr := PathEncoding.EncodeToString(key)
 			storageDir := filepath.Join(trashDir, namespaceStr, keyStr[:2])
 			require.NoError(t, os.MkdirAll(storageDir, 0700))
 			require.NoError(t, os.WriteFile(filepath.Join(storageDir, keyStr[2:]+".sj1"), data[n][k], 0600))
@@ -108,10 +108,10 @@ func TestMigrateTrash(t *testing.T) {
 	// expect that everything has been migrated and all pre-existing trash has been
 	// put into a day dir.
 	for n, namespace := range namespaces {
-		namespaceStr := pathEncoding.EncodeToString(namespace)
+		namespaceStr := PathEncoding.EncodeToString(namespace)
 		expectedDayDir := filepath.Join(trashDir, namespaceStr, trashTime.Format("2006-01-02"))
 		for k, key := range keys[n] {
-			keyStr := pathEncoding.EncodeToString(key)
+			keyStr := PathEncoding.EncodeToString(key)
 			storageDir := filepath.Join(expectedDayDir, keyStr[:2])
 			contents, err := os.ReadFile(filepath.Join(storageDir, keyStr[2:]+".sj1"))
 			require.NoError(t, err)

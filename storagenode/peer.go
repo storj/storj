@@ -561,6 +561,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Store,
 			config.Retain,
 		)
+
 		peer.Services.Add(lifecycle.Item{
 			Name:  "retain",
 			Run:   peer.Storage2.RetainService.Run,
