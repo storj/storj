@@ -20,7 +20,7 @@ export enum AnalyticsEvent {
     BUCKET_CREATED = 'Bucket Created',
     BUCKET_DELETED = 'Bucket Deleted',
     ACCESS_GRANT_CREATED = 'Access Grant Created',
-    API_ACCESS_CREATED  = 'API Access Created',
+    API_ACCESS_CREATED = 'API Access Created',
     UPLOAD_FILE_CLICKED = 'Upload File Clicked',
     UPLOAD_FOLDER_CLICKED = 'Upload Folder Clicked',
     DOWNLOAD_TXT_CLICKED = 'Download txt clicked',
@@ -47,6 +47,7 @@ export enum AnalyticsEvent {
     ONBOARDING_ABANDONED = 'Onboarding Abandoned',
     PERSONAL_SELECTED = 'Personal Selected',
     BUSINESS_SELECTED = 'Business Selected',
+    UPGRADE_CLICKED = 'Upgrade Clicked',
 }
 
 export enum AnalyticsErrorEventSource {

@@ -22,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/billing"
 )
@@ -76,7 +77,7 @@ func TestChore(t *testing.T) {
 		assert.Equal(t, expected, actual, "unexpected balance for user %s (%q)", userID, names[userID])
 	}
 
-	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService) {
+	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService, analyticsService *analytics.Service) {
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{mike1, joe1, joe2},
@@ -88,7 +89,7 @@ func TestChore(t *testing.T) {
 		}
 
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade, freezeService),
+			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade, freezeService, analyticsService),
 		}
 
 		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db, time.Hour, false, bonusRate, choreObservers)
@@ -130,6 +131,7 @@ func TestChore(t *testing.T) {
 				sat.Config.Console.UsageLimits,
 				sat.Config.Console.UserBalanceForUpgrade,
 				freezeService,
+				sat.API.Analytics.Service,
 			)
 		})
 	})
@@ -153,6 +155,7 @@ func TestChore(t *testing.T) {
 				sat.Config.Console.UsageLimits,
 				sat.Config.Console.UserBalanceForUpgrade,
 				freezeService,
+				sat.API.Analytics.Service,
 			)
 		})
 	})
@@ -191,7 +194,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 		require.NoError(t, err)
 
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade, freezeService),
+			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade, freezeService, sat.API.Analytics.Service),
 		}
 
 		amount1 := int64(200) // $2
@@ -339,7 +342,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		freezeService := console.NewAccountFreezeService(consoleDB, sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade, freezeService),
+			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade, freezeService, sat.API.Analytics.Service),
 			PayInvoices: console.NewInvoiceTokenPaymentObserver(consoleDB, sat.Core.Payments.Accounts.Invoices(), freezeService),
 		}
 

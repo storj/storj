@@ -5,7 +5,9 @@ package analytics
 
 import (
 	"context"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -107,6 +109,8 @@ const (
 	eventOnboardingAbandoned          = "Onboarding Abandoned"
 	eventPersonalSelected             = "Personal Selected"
 	eventBusinessSelected             = "Business Selected"
+	eventUserUpgraded                 = "User Upgraded"
+	eventUpgradeClicked               = "Upgrade Clicked"
 )
 
 var (
@@ -200,7 +204,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
-		eventPersonalSelected, eventBusinessSelected} {
+		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked} {
 		service.clientEvents[name] = true
 	}
 
@@ -871,6 +875,39 @@ func (service *Service) TrackInviteLinkClicked(inviter, invitee string) {
 
 	service.enqueueMessage(segment.Track{
 		Event:      service.satelliteName + " " + eventInviteLinkClicked,
+		Properties: props,
+	})
+}
+
+// TrackUserUpgraded sends a "User Upgraded" event to Segment.
+func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expiration *time.Time) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+
+	now := time.Now()
+
+	props.Set("email", email)
+
+	// NOTE: if this runs before legacy free tier migration, old free tier will
+	// be considered unlimited.
+	if expiration == nil {
+		props.Set("trial status", "unlimited")
+	} else {
+		if now.After(*expiration) {
+			props.Set("trial status", "expired")
+			props.Set("days since expiration", math.Floor(now.Sub(*expiration).Hours()/24))
+		} else {
+			props.Set("trial status", "active")
+			props.Set("days until expiration", math.Floor(expiration.Sub(now).Hours()/24))
+		}
+	}
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventUserUpgraded,
 		Properties: props,
 	})
 }

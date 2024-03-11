@@ -455,6 +455,7 @@ func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	payment.service.analytics.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration)
 
 	projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
 	if err != nil {

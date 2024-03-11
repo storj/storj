@@ -5,6 +5,9 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { LocalData } from '@/utils/localData';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 class AppState {
     public hasJustLoggedIn = false;
@@ -31,6 +34,9 @@ class ErrorPageState {
 
 export const useAppStore = defineStore('app', () => {
     const state = reactive<AppState>(new AppState());
+
+    const analyticsStore = useAnalyticsStore();
+    const userStore = useUsersStore();
 
     function toggleHasJustLoggedIn(hasJustLoggedIn: boolean | null = null): void {
         if (hasJustLoggedIn === null) {
@@ -72,6 +78,11 @@ export const useAppStore = defineStore('app', () => {
 
     function toggleUpgradeFlow(isShown?: boolean): void {
         state.isUpgradeFlowDialogShown = isShown ?? !state.isUpgradeFlowDialogShown;
+        if (state.isUpgradeFlowDialogShown) {
+            const props = new Map();
+            props.set('expired', String(userStore.state.user.freezeStatus.trialExpiredFrozen));
+            analyticsStore.eventTriggered(AnalyticsEvent.UPGRADE_CLICKED, props);
+        }
     }
 
     function toggleExpirationDialog(isShown?: boolean): void {
