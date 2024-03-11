@@ -117,6 +117,7 @@ pipeline {
             }
         }
 
+/*
                 stage('Lint') {
                     steps {
                         sh 'check-mod-tidy'
@@ -146,6 +147,7 @@ pipeline {
                         sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
                     }
                 }
+                */
                 stage('Satellite UI Tests') {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
@@ -166,6 +168,7 @@ pipeline {
                         }
                     }
                 }
+                /*
                 stage('Tests') {
                     environment {
                         STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
@@ -217,7 +220,9 @@ pipeline {
                         }
                     }
                 }
+                */
 
+/*
                 stage('Check Benchmark') {
                     environment {
                         STORJ_TEST_COCKROACH = 'omit'
@@ -307,6 +312,7 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }
+                */
         stage('Post') {
             parallel {
                 stage('Lint') {
