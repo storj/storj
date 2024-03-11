@@ -5,7 +5,7 @@ package durability
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -260,7 +260,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 
 		busFactorGroups := c.busFactorCache
 
-		streamLocation := fmt.Sprintf("%s/%d", s.StreamID, s.Position.Encode())
+		streamLocation := s.StreamID.String() + "/" + strconv.FormatUint(s.Position.Encode(), 10)
 		for classID, count := range controlledByClass {
 			if count == 0 {
 				continue
