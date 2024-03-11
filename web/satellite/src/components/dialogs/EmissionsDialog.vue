@@ -35,14 +35,14 @@
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Emissions</p>
                     <v-chip variant="tonal" color="info" class="font-weight-bold">
-                        {{ emission.storjImpact.toLocaleString(undefined, { maximumFractionDigits: 0 }) }} kg CO₂e
+                        {{ storjImpact.toLocaleString() }} kg CO₂e
                     </v-chip>
                     <p class="text-body-2 mt-2">Estimated for this Storj project. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Comparison</p>
                     <v-chip variant="tonal" color="warning" class="font-weight-bold">
-                        {{ emission.hyperscalerImpact.toLocaleString(undefined, { maximumFractionDigits: 0 }) }} kg CO₂e
+                        {{ hyperscalerImpact.toLocaleString() }} kg CO₂e
                     </v-chip>
                     <p class="text-body-2 mt-2">By using traditional cloud storage. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
                 </v-card>
@@ -56,7 +56,7 @@
                 <v-card class="pa-4 mb-2">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Avoided Equals To</p>
                     <v-chip variant="tonal" color="green" class="font-weight-bold">
-                        {{ emission.savedTrees.toLocaleString() }} trees grown for 10 years
+                        {{ emission.savedTrees.toLocaleString() }} tree{{ emission.savedTrees !== 1 ? 's' : '' }} grown for 10 years
                     </v-chip>
                     <p class="text-body-2 mt-2">Estimated equivalencies. <a href="https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
                 </v-card>
@@ -108,12 +108,26 @@ const emission = computed<Emission>(()  => {
 });
 
 /**
+ * Returns project's estimated hyperscaler emission impact.
+ */
+const hyperscalerImpact = computed<number>(() => {
+    return Math.round(emission.value.hyperscalerImpact);
+});
+
+/**
+ * Returns project's estimated storj emission impact.
+ */
+const storjImpact = computed<number>(() => {
+    return Math.round(emission.value.storjImpact);
+});
+
+/**
  * Returns calculated and formatted CO2 savings info.
  */
 const co2Savings = computed<string>(() => {
-    let saved = emission.value.hyperscalerImpact - emission.value.storjImpact;
+    let saved = hyperscalerImpact.value - storjImpact.value;
     if (saved < 0) saved = 0;
 
-    return saved.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    return saved.toLocaleString();
 });
 </script>

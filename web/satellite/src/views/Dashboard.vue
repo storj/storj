@@ -351,21 +351,21 @@ const datePickerModel = ref<Date[]>([]);
  * Returns formatted CO2 estimated info.
  */
 const co2Estimated = computed<string>(() => {
-    const formatted = getValueAndUnit(emission.value.storjImpact);
+    const formatted = getValueAndUnit(Math.round(emission.value.storjImpact));
 
-    return `${formatted.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${formatted.unit} CO₂e`;
+    return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
 });
 
 /**
  * Returns formatted CO2 save info.
  */
 const co2Saved = computed<string>(() => {
-    let value = emission.value.hyperscalerImpact - emission.value.storjImpact;
+    let value = Math.round(emission.value.hyperscalerImpact) - Math.round(emission.value.storjImpact);
     if (value < 0) value = 0;
 
     const formatted = getValueAndUnit(value);
 
-    return `${formatted.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${formatted.unit} CO₂e`;
+    return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
 });
 
 /**
