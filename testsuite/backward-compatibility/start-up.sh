@@ -38,7 +38,7 @@ RELEASE_BIN="$STORJ_NETWORK_DIR/bin/release"
 # https://github.com/golang/go/issues/57485
 git worktree add -f "$STORJ_NETWORK_DIR"/branch HEAD
 
-latestReleaseTag=$($SCRIPTDIR/../find-previous-release-tag.sh)
+latestReleaseTag=$($SCRIPTDIR/../find-previous-release.sh)
 latestReleaseCommit=$(git rev-list -n1 $latestReleaseTag)
 
 echo "Checking out latest release tag: $latestReleaseTag"
