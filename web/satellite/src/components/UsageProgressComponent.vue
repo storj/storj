@@ -7,12 +7,15 @@
             <v-card-title class="d-flex align-center">
                 <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" bold />
                 {{ title }}
-                <v-tooltip v-if="extraInfo" width="250" location="bottom">
+                <v-tooltip v-if="extraInfo || slots.extraInfo" width="250" location="bottom">
                     <template #activator="activator">
                         <v-icon v-bind="activator.props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
                     </template>
                     <template #default>
-                        <p>{{ extraInfo }}</p>
+                        <template v-if="slots.extraInfo">
+                            <slot name="extraInfo" />
+                        </template>
+                        <p v-else>{{ extraInfo }}</p>
                     </template>
                 </v-tooltip>
             </v-card-title>
@@ -37,7 +40,7 @@
 
 <script setup lang="ts">
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
-import { computed } from 'vue';
+import { Component, computed } from 'vue';
 import { mdiInformationOutline } from '@mdi/js';
 
 import IconCloud from '@/components/icons/IconCloud.vue';
@@ -59,6 +62,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     ctaClick: [];
+}>();
+
+const slots = defineSlots<{
+    extraInfo?: Component;
 }>();
 
 const iconComponents = {

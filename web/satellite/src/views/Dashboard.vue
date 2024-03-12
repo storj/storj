@@ -119,7 +119,21 @@
                     :available="`${availableSegment.toLocaleString()} Available`"
                     :cta="getCTALabel(segmentUsedPercent, true)"
                     @cta-click="onSegmentsCTAClicked"
-                />
+                >
+                    <template #extraInfo>
+                        <p>
+                            Segments are the encrypted parts of an uploaded file.
+                            <a
+                                class="link"
+                                href="https://docs.storj.io/dcs/pricing#per-segment-fee"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Learn more
+                            </a>
+                        </p>
+                    </template>
+                </UsageProgressComponent>
             </v-col>
             <v-col cols="12" md="6">
                 <UsageProgressComponent
