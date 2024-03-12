@@ -68,7 +68,7 @@ git worktree add -f "$BRANCH_DIR" HEAD
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-latestReleaseTag=$($SCRIPTDIR/../find-previous-release-tag.sh)
+latestReleaseTag=$($SCRIPTDIR/../find-previous-release.sh)
 latestReleaseCommit=$(git rev-list -n1 $latestReleaseTag)
 
 echo "Checking out latest release tag: $latestReleaseTag"
