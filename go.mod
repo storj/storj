@@ -21,6 +21,7 @@ require (
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
+	github.com/klauspost/compress v1.17.0
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
@@ -58,7 +59,7 @@ require (
 	golang.org/x/time v0.5.0
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20240307142546-4b79a61f8a8e
+	storj.io/common v0.0.0-20240312163747-de28b7045716
 	storj.io/drpc v0.0.33
 	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
@@ -111,7 +112,6 @@ require (
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/jtolio/crawlspace v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
 	github.com/jtolio/crawlspace/tools v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect

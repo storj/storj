@@ -8,10 +8,56 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
+
+// CompressedBatch handles requests sent in batch that are compressed.
+func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.CompressedBatchRequest) (resp *pb.CompressedBatchResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var reqData []byte
+	switch req.Selected {
+	case pb.CompressedBatchRequest_NONE:
+		reqData = req.Data
+	case pb.CompressedBatchRequest_ZSTD:
+		reqData, err = endpoint.zstdDecoder.DecodeAll(req.Data, nil)
+	default:
+		err = errs.New("unsupported compression")
+	}
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	var unReq pb.BatchRequest
+	err = pb.Unmarshal(reqData, &unReq)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	unResp, err := endpoint.Batch(ctx, &unReq)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	unrespData, err := pb.Marshal(unResp)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	resp = new(pb.CompressedBatchResponse)
+	if slices.Contains(req.Supported, pb.CompressedBatchRequest_ZSTD) {
+		resp.Data = endpoint.zstdEncoder.EncodeAll(unrespData, nil)
+		resp.Selected = pb.CompressedBatchRequest_ZSTD
+	} else {
+		resp.Data = unrespData
+		resp.Selected = pb.CompressedBatchRequest_NONE
+	}
+
+	return resp, nil
+}
 
 // Batch handle requests sent in batch.
 func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp *pb.BatchResponse, err error) {
@@ -176,6 +222,20 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
 				Response: &pb.BatchResponseItem_ObjectGet{
 					ObjectGet: response,
+				},
+			})
+			if response != nil && response.Object != nil {
+				lastStreamID = response.Object.StreamId
+			}
+		case *pb.BatchRequestItem_ObjectDownload:
+			singleRequest.ObjectDownload.Header = req.Header
+			response, err := endpoint.DownloadObject(ctx, singleRequest.ObjectDownload)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectDownload{
+					ObjectDownload: response,
 				},
 			})
 			if response != nil && response.Object != nil {

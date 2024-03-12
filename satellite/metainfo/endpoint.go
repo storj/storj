@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -82,6 +83,8 @@ type Endpoint struct {
 	defaultRS              *pb.RedundancyScheme
 	config                 ExtendedConfig
 	versionCollector       *versionCollector
+	zstdDecoder            *zstd.Decoder
+	zstdEncoder            *zstd.Encoder
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -113,6 +116,18 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		ErasureShareSize: config.RS.ErasureShareSize.Int32(),
 	}
 
+	decoder, err := zstd.NewReader(nil,
+		zstd.WithDecoderMaxMemory(64<<20),
+	)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	encoder, err := zstd.NewWriter(nil)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	return &Endpoint{
 		log:                 log,
 		buckets:             buckets,
@@ -139,6 +154,8 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		defaultRS:            defaultRSScheme,
 		config:               extendedConfig,
 		versionCollector:     newVersionCollector(log),
+		zstdDecoder:          decoder,
+		zstdEncoder:          encoder,
 	}, nil
 }
 
