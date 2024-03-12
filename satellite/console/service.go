@@ -1805,6 +1805,7 @@ func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 		CreatedAt:     project.CreatedAt,
 		StorageUsed:   project.StorageUsed,
 		BandwidthUsed: project.BandwidthUsed,
+		Versioning:    project.DefaultVersioning,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {

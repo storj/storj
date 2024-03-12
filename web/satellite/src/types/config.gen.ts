@@ -58,6 +58,9 @@ export class FrontendConfig {
     emissionImpactViewEnabled: boolean;
     applicationsPageEnabled: boolean;
     daysBeforeTrialEndNotification: number;
+    analyticsEnabled: boolean;
+    plausibleScriptUrl: string;
+    plausibleDomain: string;
 }
 
 export class MultiCaptchaConfig {

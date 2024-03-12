@@ -3,6 +3,7 @@
 
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { ProjectRole } from '@/types/projectMembers';
+import { Versioning } from '@/types/versioning';
 
 /**
  * Exposes all project-related functionality.
@@ -135,6 +136,7 @@ export class Project {
         public isSelected: boolean = false,
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
+        public versioning: Versioning = Versioning.NotSupported,
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
     ) {}

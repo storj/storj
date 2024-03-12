@@ -61,6 +61,12 @@
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
 
+# the domain set up on plausible for the satellite
+# analytics.plausible.domain: ""
+
+# the url of the plausible script
+# analytics.plausible.script-url: https://plausible.io/js/script.manual.js
+
 # segment write key
 # analytics.segment-write-key: ""
 

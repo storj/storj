@@ -611,6 +611,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations,
 			peer.URL(),
+			config.Analytics,
 			config.Payments.PackagePlans,
 		)
 

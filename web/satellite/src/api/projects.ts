@@ -18,6 +18,7 @@ import {
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
 import { APIError } from '@/utils/error';
+import { getVersioning } from '@/types/versioning';
 
 export class ProjectsHttpApi implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -47,6 +48,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 false,
                 result.memberCount,
                 result.edgeURLOverrides,
+                getVersioning(result.versioning),
             );
         }
 
@@ -75,7 +77,7 @@ export class ProjectsHttpApi implements ProjectsApi {
         }
 
         const projects = await response.json();
-        return projects.map((p: Project) => new Project(
+        return projects.map(p => new Project(
             p.id,
             p.name,
             p.description,
@@ -84,6 +86,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             false,
             p.memberCount,
             p.edgeURLOverrides,
+            getVersioning(p.versioning),
             p.storageUsed,
             p.bandwidthUsed,
         ));
@@ -299,7 +302,7 @@ export class ProjectsHttpApi implements ProjectsApi {
 
         const page = await response.json();
 
-        const projects: Project[] = page.projects.map((p: Project) =>
+        const projects: Project[] = page.projects.map(p =>
             new Project(
                 p.id,
                 p.name,
@@ -309,6 +312,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 false,
                 p.memberCount,
                 p.edgeURLOverrides,
+                getVersioning(p.versioning),
             ));
 
         return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);

@@ -7,6 +7,14 @@
             <v-card-title class="d-flex align-center">
                 <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" bold />
                 {{ title }}
+                <v-tooltip v-if="extraInfo" width="250" location="bottom">
+                    <template #activator="activator">
+                        <v-icon v-bind="activator.props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
+                    </template>
+                    <template #default>
+                        <p>{{ extraInfo }}</p>
+                    </template>
+                </v-tooltip>
             </v-card-title>
         </template>
         <v-card-item>
@@ -28,8 +36,9 @@
 </template>
 
 <script setup lang="ts">
-import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle } from 'vuetify/components';
+import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
 import { computed } from 'vue';
+import { mdiInformationOutline } from '@mdi/js';
 
 import IconCloud from '@/components/icons/IconCloud.vue';
 import IconArrowDown from '@/components/icons/IconArrowDown.vue';
@@ -45,6 +54,7 @@ const props = defineProps<{
     available: string;
     cta: string;
     icon?: keyof typeof iconComponents;
+    extraInfo?: string;
 }>();
 
 const emit = defineEmits<{
