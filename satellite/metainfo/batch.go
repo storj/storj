@@ -5,7 +5,10 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -63,14 +66,30 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp *pb.BatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	resp = &pb.BatchResponse{}
+	resp = &pb.BatchResponse{
+		Responses: make([]*pb.BatchResponseItem, 0, len(req.Requests)),
+	}
 
-	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
+	defer func() {
+		if resp == nil {
+			return
+		}
+		for _, r := range resp.Responses {
+			mon.IntVal("batch_response_sizes",
+				monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", r)),
+			).Observe(int64(proto.Size(r)))
+		}
+	}()
 
 	var lastStreamID storj.StreamID
 	var lastSegmentID storj.SegmentID
 	var prevSegmentReq *pb.BatchRequestItem
+
 	for i, request := range req.Requests {
+		mon.IntVal("batch_request_sizes",
+			monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", request.Request)),
+		).Observe(int64(proto.Size(request)))
+
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
 		case *pb.BatchRequestItem_BucketCreate:
