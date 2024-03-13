@@ -3,21 +3,37 @@
 
 <template>
     <v-app-bar :elevation="0" border="0">
-        <v-app-bar-title class="mr-1">
-            <v-img
-                v-if="theme.global.current.value.dark"
-                src="@/assets/logo-dark.svg"
-                width="120"
-                alt="Storj Logo"
-            />
-            <v-img
-                v-else
-                src="@/assets/logo.svg"
-                width="120"
-                alt="Storj Logo"
-            />
-        </v-app-bar-title>
-
+        <template #prepend>
+            <div class="d-flex flex-row align-center mr-1">
+                <img
+                    v-if="theme.global.current.value.dark"
+                    src="@/assets/logo-dark.svg"
+                    height="36"
+                    width="auto"
+                    alt="Storj Logo"
+                >
+                <img
+                    v-else
+                    src="@/assets/logo.svg"
+                    height="36"
+                    width="auto"
+                    alt="Storj Logo"
+                >
+                <template v-if="partnerConfig && partnerConfig.partnerLogoTopUrl && route.name === ROUTES.Signup.name">
+                    <p class="mx-1">+</p>
+                    <a :href="partnerConfig.partnerUrl">
+                        <img
+                            :src="partnerConfig.partnerLogoTopUrl"
+                            height="36"
+                            width="auto"
+                            :alt="partnerConfig.name + ' logo'"
+                            class="rounded mt-2"
+                            style="background-color: white;"
+                        >
+                    </a>
+                </template>
+            </div>
+        </template>
         <template #append>
             <!-- Theme Toggle Light/Dark Mode -->
             <v-btn-toggle
@@ -69,12 +85,19 @@
 <script setup lang="ts">
 import { useTheme } from 'vuetify';
 import { onBeforeMount, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { VAppBar, VAppBarTitle, VBtn, VBtnToggle, VIcon, VImg, VMenu, VTooltip } from 'vuetify/components';
 import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js';
+
+import { PartnerConfig } from '@/types/partners';
+import { ROUTES } from '@/router';
+
+const route = useRoute();
 
 const theme = useTheme();
 const activeTheme = ref(0);
 const menu = ref(false);
+const partnerConfig = ref<PartnerConfig | null>(null);
 
 function toggleTheme(newTheme: string): void {
     if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
@@ -87,6 +110,25 @@ function toggleTheme(newTheme: string): void {
 onBeforeMount(() => {
     // Check for stored theme in localStorage. If none, default to 'light'
     toggleTheme(localStorage.getItem('theme') || 'light');
+});
+
+onBeforeMount(async () => {
+    // if on signup page, and has partner in route, see if there is a partner config to display logo
+    if (route.name !== ROUTES.Signup.name) {
+        return;
+    }
+    let partner = '';
+    if (route.query.partner) {
+        partner = route.query.partner.toString();
+    }
+    // If partner.value is true, attempt to load the partner-specific configuration
+    if (partner !== '') {
+        try {
+            const config = (await import('@/configs/registrationViewConfig.json')).default;
+            partnerConfig.value = config[partner];
+            // eslint-disable-next-line no-empty
+        } catch (_) {}
+    }
 });
 
 watch(() => theme.global.current.value.dark, (newVal: boolean) => {

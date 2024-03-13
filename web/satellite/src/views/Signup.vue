@@ -193,25 +193,28 @@
                     @error="onCaptchaError"
                 />
             </v-col>
-            <template v-if="partner">
-                <v-col v-if="viewConfig" cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+            <template v-if="partnerConfig && partnerConfig.title && partnerConfig.description">
+                <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-6 h-100 no-position">
                         <v-card-item>
                             <v-card-title class="text-wrap">
-                                {{ viewConfig.title }}
+                                {{ partnerConfig.title }}
                             </v-card-title>
                             <v-card-subtitle class="text-wrap">
-                                {{ viewConfig.description }}
+                                {{ partnerConfig.description }}
                             </v-card-subtitle>
                         </v-card-item>
                         <v-card-text>
                             <!-- eslint-disable-next-line vue/no-v-html -->
-                            <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
-                            <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
-                                <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
-                            </a>
-                            <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
-                                <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
+                            <div v-if="partnerConfig.customHtmlDescription" v-html="partnerConfig.customHtmlDescription" />
+                            <a v-if="partnerConfig.partnerLogoBottomUrl" :href="partnerConfig.partnerUrl">
+                                <img
+                                    :src="partnerConfig.partnerLogoBottomUrl" :srcset="partnerConfig.partnerLogoBottomUrl"
+                                    :alt="partnerConfig.name + ' logo'"
+                                    height="44"
+                                    class="mt-6 rounded"
+                                    style="background-color: white;"
+                                >
                             </a>
                         </v-card-text>
                     </v-card>
@@ -221,7 +224,10 @@
                 <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                         <v-card-text>
-                            <h1 class="font-weight-black">Start using Storj today.</h1>
+                            <h1 class="font-weight-black" style="line-height: 1.25;">
+                                <template v-if="partnerConfig && partnerConfig.name">Start using Storj on {{ partnerConfig.name }} today.</template>
+                                <template v-else>Start using Storj today.</template>
+                            </h1>
                             <p class="text-subtitle-1 mt-4">
                                 Whether migrating your data or just testing out Storj, your journey starts here.
                             </p>
@@ -239,6 +245,11 @@
                             <p class="mt-4">
                                 <v-icon :icon="mdiCheckBold" color="primary" />
                                 Total set up takes less than 5 min.
+                            </p>
+
+                            <p class="mt-4">
+                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                No credit card required.
                             </p>
 
                             <p class="mt-6">
@@ -285,6 +296,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
+import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -294,17 +306,6 @@ import { ROUTES } from '@/router';
 import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@/components/PasswordStrength.vue';
-
-type ViewConfig = {
-    title: string;
-    partnerUrl: string;
-    partnerLogoTopUrl: string;
-    partnerLogoBottomUrl: string;
-    description: string;
-    customHtmlDescription: string;
-    signupButtonLabel: string;
-    tooltip: string;
-}
 
 const auth = new AuthHttpApi();
 
@@ -341,7 +342,7 @@ const inviterEmail = queryRef('inviter_email');
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
 const repPasswordField = ref<VTextField | null>(null);
-const viewConfig = ref<ViewConfig | null>(null);
+const partnerConfig = ref<PartnerConfig | null>(null);
 
 const satellitesHints = [
     { satellite: 'Storj', hint: 'Recommended satellite.' },
@@ -550,7 +551,7 @@ onBeforeMount(async () => {
     if (partner.value) {
         try {
             const config = (await import('@/configs/registrationViewConfig.json')).default;
-            viewConfig.value = config[partner.value];
+            partnerConfig.value = config[partner.value];
         } catch (e) {
         // Handle errors, such as a missing configuration file
             notify.error('No configuration file for registration page.');
