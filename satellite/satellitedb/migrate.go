@@ -2661,6 +2661,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`UPDATE billing_transactions SET source = 'ethereum' WHERE source = 'storjscan';`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing_customer_id column to stripe_customers",
+				Version:     263,
+				Action: migrate.SQL{
+					`ALTER TABLE stripe_customers ADD COLUMN billing_customer_id TEXT;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

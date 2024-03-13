@@ -30,6 +30,8 @@ type CustomersDB interface {
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (*Customer, error)
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
+	// GetStripeIDs returns stripe customer and billing ids.
+	GetStripeIDs(ctx context.Context, userID uuid.UUID) (billingID *string, customerID string, err error)
 
 	// TODO: get rid of this.
 	Raw() *dbx.DB
@@ -38,6 +40,7 @@ type CustomersDB interface {
 // Customer holds customer id, user id, and package information.
 type Customer struct {
 	ID                 string
+	BillingID          *string
 	UserID             uuid.UUID
 	PackagePlan        *string
 	PackagePurchasedAt *time.Time

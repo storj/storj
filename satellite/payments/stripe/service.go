@@ -540,7 +540,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 			continue
 		}
 
-		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
+		billingID, cusID, err := service.db.Customers().GetStripeIDs(ctx, proj.OwnerID)
 		if err != nil {
 			if errors.Is(err, ErrNoCustomer) {
 				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
@@ -552,7 +552,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 
 		record := record
 		limiter.Go(ctx, func() {
-			skipped, err := service.createInvoiceItems(ctx, cusID, proj.Name, record, proj.OwnerID, period)
+			skipped, err := service.createInvoiceItems(ctx, billingID, cusID, proj.Name, record, proj.OwnerID, period)
 			if err != nil {
 				mu.Lock()
 				errGrp.Add(errs.Wrap(err))
@@ -618,7 +618,7 @@ func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, r
 }
 
 // createInvoiceItems creates invoice line items for stripe customer.
-func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
+func (service *Service) createInvoiceItems(ctx context.Context, billingID *string, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !service.useIdempotency {
@@ -651,10 +651,21 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	}
 
 	items := service.InvoiceItemsFromProjectUsage(projName, usages, false)
+
+	var invoiceID *string
+	if billingID == nil {
+		billingID = &cusID
+	} else {
+		// create parent invoice
+		invoiceID, err = service.createParentInvoice(ctx, *billingID, cusID, projName, period)
+	}
 	for _, item := range items {
 		item.Params = stripe.Params{Context: ctx}
 		item.Currency = stripe.String(string(stripe.CurrencyUSD))
-		item.Customer = stripe.String(cusID)
+		item.Customer = stripe.String(*billingID)
+		if invoiceID != nil {
+			item.Invoice = invoiceID
+		}
 		// TODO: do not expose regular project ID.
 		item.AddMetadata("projectID", record.ProjectID.String())
 
@@ -1282,6 +1293,27 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	limiter.Wait()
 
 	return scheduled, draft, errGrp.Err()
+}
+
+// createParentInvoice creates a parent invoice for the customer.
+func (service *Service) createParentInvoice(ctx context.Context, billingID, cusID, projName string, period time.Time) (invoiceID *string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	description := fmt.Sprintf("Storj Cloud Storage for child project %s and period %s %d", projName, period.UTC().Month(), period.UTC().Year())
+	stripeInvoice, err := service.stripeClient.Invoices().New(
+		&stripe.InvoiceParams{
+			Params:                      stripe.Params{Context: ctx},
+			Customer:                    stripe.String(billingID),
+			AutoAdvance:                 stripe.Bool(false),
+			Description:                 stripe.String(description),
+			PendingInvoiceItemsBehavior: stripe.String("exclude"),
+			Metadata:                    map[string]string{"Child Account": cusID},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &stripeInvoice.ID, nil
 }
 
 // SetInvoiceStatus will set all open invoices within the specified date range to the requested status.

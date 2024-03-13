@@ -416,6 +416,7 @@ CREATE TABLE storjscan_wallets (
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
+	billing_customer_id text,
 	package_plan text,
 	purchased_package_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,

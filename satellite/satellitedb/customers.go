@@ -61,6 +61,22 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 	return idRow.CustomerId, nil
 }
 
+// GetStripeIDs returns stripe customer and billing ids.
+func (customers *customers) GetStripeIDs(ctx context.Context, userID uuid.UUID) (billingID *string, customerID string, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	idRow, err := customers.db.Get_StripeCustomer_CustomerId_StripeCustomer_BillingCustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", stripe.ErrNoCustomer
+		}
+
+		return nil, "", err
+	}
+
+	return idRow.BillingCustomerId, idRow.CustomerId, nil
+}
+
 // GetUserID return userID given stripe customer id.
 func (customers *customers) GetUserID(ctx context.Context, customerID string) (_ uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -83,7 +99,7 @@ func (customers *customers) List(ctx context.Context, userIDCursor uuid.UUID, li
 
 	rows, err := customers.db.QueryContext(ctx, customers.db.Rebind(`
 		SELECT
-			stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at
+			stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at
 		FROM
 			stripe_customers
 		WHERE
@@ -103,7 +119,7 @@ func (customers *customers) List(ctx context.Context, userIDCursor uuid.UUID, li
 	results := []stripe.Customer{}
 	for rows.Next() {
 		var customer stripe.Customer
-		err := rows.Scan(&customer.UserID, &customer.ID, &customer.PackagePlan, &customer.PackagePurchasedAt)
+		err := rows.Scan(&customer.UserID, &customer.ID, &customer.BillingID, &customer.PackagePlan, &customer.PackagePurchasedAt)
 		if err != nil {
 			return stripe.CustomersPage{}, errs.New("unable to get stripe customer: %+v", err)
 		}
@@ -171,6 +187,7 @@ func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripe.Customer, error) 
 	return &stripe.Customer{
 		ID:                 dbxCustomer.CustomerId,
 		UserID:             userID,
+		BillingID:          dbxCustomer.BillingCustomerId,
 		PackagePlan:        dbxCustomer.PackagePlan,
 		PackagePurchasedAt: dbxCustomer.PurchasedPackageAt,
 	}, nil

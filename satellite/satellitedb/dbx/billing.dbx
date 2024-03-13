@@ -7,6 +7,8 @@ model stripe_customer (
 	field user_id     blob
 	// customer_id is the Stripe customer identifier.
 	field customer_id text
+	// billing_customer_id is the Stripe customer identifier of the account to send invoices to.
+	field billing_customer_id text ( nullable, updatable )
 	// package_plan is the package plan currently applicable to the customer.
 	field package_plan text ( nullable, updatable )
 	// purchased_package_at is the time the package plan was purchased.
@@ -29,6 +31,10 @@ read one (
 read one (
 	select stripe_customer.user_id
 	where stripe_customer.customer_id = ?
+)
+read one (
+	select stripe_customer.customer_id stripe_customer.billing_customer_id
+	where stripe_customer.user_id = ?
 )
 
 update stripe_customer (
