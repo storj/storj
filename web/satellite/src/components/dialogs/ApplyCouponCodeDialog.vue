@@ -53,6 +53,7 @@
                 <v-row>
                     <v-col>
                         <v-btn
+                            :disabled="isLoading"
                             variant="outlined"
                             color="default"
                             block

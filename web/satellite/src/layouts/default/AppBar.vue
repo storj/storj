@@ -109,7 +109,7 @@
                                 <icon-upgrade size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-3">
-                                Upgrade to Pro
+                                Upgrade
                             </v-list-item-title>
                         </v-list-item>
 
@@ -242,7 +242,7 @@ const props = withDefaults(defineProps<{
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns the name of the current satellite.

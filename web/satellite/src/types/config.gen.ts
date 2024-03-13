@@ -57,6 +57,10 @@ export class FrontendConfig {
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
     applicationsPageEnabled: boolean;
+    daysBeforeTrialEndNotification: number;
+    analyticsEnabled: boolean;
+    plausibleScriptUrl: string;
+    plausibleDomain: string;
 }
 
 export class MultiCaptchaConfig {

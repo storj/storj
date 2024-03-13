@@ -30,7 +30,7 @@ type AccountFreezeEvents interface {
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
 	// GetAllEvents is a method for querying all account freeze events from the database.
-	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, eventType *AccountFreezeEventType) (events *FreezeEventsPage, err error)
+	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, optionalEventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
 	GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
@@ -73,7 +73,7 @@ type FreezeEventsPage struct {
 
 // UserFreezeEvents holds the freeze events for a user.
 type UserFreezeEvents struct {
-	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze, DelayedBotFreeze, BotFreeze *AccountFreezeEvent
+	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze, DelayedBotFreeze, BotFreeze, TrialExpirationFreeze *AccountFreezeEvent
 }
 
 // AccountFreezeEventType is used to indicate the account freeze event's type.
@@ -93,6 +93,8 @@ const (
 	DelayedBotFreeze AccountFreezeEventType = 4
 	// BotFreeze signifies that the user has been set to be verified by an admin.
 	BotFreeze AccountFreezeEventType = 5
+	// TrialExpirationFreeze signifies that the user has been frozen because their free trial has expired.
+	TrialExpirationFreeze AccountFreezeEventType = 6
 )
 
 // String returns a string representation of this event.
@@ -110,6 +112,8 @@ func (et AccountFreezeEventType) String() string {
 		return "Delayed Bot Freeze"
 	case BotFreeze:
 		return "Bot Freeze"
+	case TrialExpirationFreeze:
+		return "Trial Expiration Freeze"
 	default:
 		return ""
 	}
@@ -362,14 +366,21 @@ func (s *AccountFreezeService) ViolationFreezeUser(ctx context.Context, userID u
 		}
 
 		var limits *AccountFreezeEventLimits
+		var event *AccountFreezeEvent
 		if freezes.BillingFreeze != nil {
+			event = freezes.BillingFreeze
 			limits = freezes.BillingFreeze.Limits
+		} else if freezes.TrialExpirationFreeze != nil {
+			event = freezes.TrialExpirationFreeze
+			limits = freezes.TrialExpirationFreeze.Limits
+		} else if freezes.BillingWarning != nil {
+			event = freezes.BillingWarning
 		}
 
 		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
 			user:                user,
 			newFreezeEvent:      freezes.ViolationFreeze,
-			existingFreezeEvent: freezes.BillingFreeze,
+			existingFreezeEvent: event,
 			limits:              limits,
 			eventType:           ViolationFreeze,
 		})
@@ -385,15 +396,8 @@ func (s *AccountFreezeService) ViolationFreezeUser(ctx context.Context, userID u
 			return err
 		}
 
-		if freezes.BillingWarning != nil {
-			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingWarning)
-			if err != nil {
-				return err
-			}
-		}
-
-		if freezes.BillingFreeze != nil {
-			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingFreeze)
+		if event != nil {
+			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, event.Type)
 			if err != nil {
 				return err
 			}
@@ -472,14 +476,21 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 		}
 
 		var limits *AccountFreezeEventLimits
+		var event *AccountFreezeEvent
 		if freezes.BillingFreeze != nil {
-			limits = freezes.BillingFreeze.Limits
+			event = freezes.BillingFreeze
+			limits = event.Limits
+		} else if freezes.TrialExpirationFreeze != nil {
+			event = freezes.TrialExpirationFreeze
+			limits = event.Limits
+		} else if freezes.BillingWarning != nil {
+			event = freezes.BillingWarning
 		}
 
 		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
 			user:                 user,
 			newFreezeEvent:       freezes.LegalFreeze,
-			existingFreezeEvent:  freezes.BillingFreeze,
+			existingFreezeEvent:  event,
 			limits:               limits,
 			eventType:            LegalFreeze,
 			zeroProjectRateLimit: true,
@@ -488,8 +499,8 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 			return err
 		}
 
-		if freezes.BillingWarning != nil {
-			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingWarning)
+		if event != nil {
+			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, event.Type)
 			if err != nil {
 				return err
 			}
@@ -617,13 +628,18 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 		}
 
 		var limits *AccountFreezeEventLimits
+		var event *AccountFreezeEvent
 		if freezes.BillingFreeze != nil {
-			limits = freezes.BillingFreeze.Limits
+			event = freezes.BillingFreeze
+			limits = event.Limits
+		} else if freezes.TrialExpirationFreeze != nil {
+			event = freezes.TrialExpirationFreeze
+			limits = event.Limits
 		}
 
 		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
 			user:                 user,
-			existingFreezeEvent:  freezes.BillingFreeze,
+			existingFreezeEvent:  event,
 			limits:               limits,
 			eventType:            BotFreeze,
 			zeroProjectRateLimit: true,
@@ -632,9 +648,11 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 			return err
 		}
 
-		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, DelayedBotFreeze)
-		if err != nil {
-			return err
+		for _, freezeType := range []AccountFreezeEventType{DelayedBotFreeze, BillingFreeze, TrialExpirationFreeze} {
+			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, freezeType)
+			if err != nil {
+				return err
+			}
 		}
 
 		botStatus := PendingBotVerification
@@ -683,6 +701,11 @@ func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.
 			if err != nil {
 				return err
 			}
+			// remove burst limit
+			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
+			if err != nil {
+				return err
+			}
 		}
 
 		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
@@ -705,6 +728,112 @@ func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.
 	})
 
 	return ErrAccountFreeze.Wrap(err)
+}
+
+// TrialExpirationFreezeUser freezes the user specified by the given ID due to expired free trial.
+func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if freezes.ViolationFreeze != nil {
+			return errs.New("User is already frozen due to ToS violation")
+		}
+		if freezes.LegalFreeze != nil {
+			return errs.New("User is already frozen for legal review")
+		}
+		if freezes.BotFreeze != nil {
+			return errs.New("User is already frozen for bot review")
+		}
+
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:                 user,
+			newFreezeEvent:       freezes.TrialExpirationFreeze,
+			eventType:            TrialExpirationFreeze,
+			zeroProjectRateLimit: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// TrialExpirationUnfreezeUser reverses the trial expiration freeze placed on the user specified by the given ID.
+// It potentially upgrades a user, setting new limits.
+func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		_, err = tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		event, err := tx.AccountFreezeEvents().Get(ctx, userID, TrialExpirationFreeze)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNoFreezeStatus
+		}
+
+		if event.Limits == nil {
+			return errs.New("freeze event limits are nil")
+		}
+
+		for id, limits := range event.Limits.Projects {
+			err := tx.Projects().UpdateUsageLimits(ctx, id, limits)
+			if err != nil {
+				return err
+			}
+
+			// remove rate limit
+			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
+			if err != nil {
+				return err
+			}
+			// remove burst limit
+			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
+		if err != nil {
+			return err
+		}
+
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, TrialExpirationFreeze)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// Get returns an event of a specific type for a user.
+func (s *AccountFreezeService) Get(ctx context.Context, userID uuid.UUID, freezeType AccountFreezeEventType) (event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	event, err = s.freezeEventsDB.Get(ctx, userID, freezeType)
+	if err != nil {
+		return nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return event, nil
 }
 
 // GetAll returns all events for a user.
@@ -732,10 +861,10 @@ func (s *AccountFreezeService) GetAllEvents(ctx context.Context, cursor FreezeEv
 }
 
 // GetAllEventsByType returns all events by event type.
-func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor FreezeEventsCursor, eventType AccountFreezeEventType) (events *FreezeEventsPage, err error) {
+func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor FreezeEventsCursor, eventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor, &eventType)
+	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor, eventTypes)
 	if err != nil {
 		return nil, ErrAccountFreeze.Wrap(err)
 	}
@@ -829,15 +958,17 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 		}
 		// If project limits have been zeroed already, we should not override what is in the freeze table.
 		if projLimits == (UsageLimits{}) {
-			if data.existingFreezeEvent == nil {
+			if data.existingFreezeEvent == nil || data.existingFreezeEvent.Limits == nil {
 				continue
 			}
 			// if limits were zeroed in a billing freeze, we should use those
 			projLimits = data.existingFreezeEvent.Limits.Projects[p.ID]
 		}
 
-		if data.zeroProjectRateLimit {
+		if p.RateLimit != nil && *p.RateLimit != 0 {
 			projLimits.RateLimit = p.RateLimit
+		}
+		if p.BurstLimit != nil && *p.BurstLimit != 0 {
 			projLimits.BurstLimit = p.BurstLimit
 		}
 

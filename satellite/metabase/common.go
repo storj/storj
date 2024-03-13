@@ -269,6 +269,7 @@ type ObjectStream struct {
 }
 
 // Less implements sorting on object streams.
+// Where ProjectID asc, BucketName asc, ObjectKey asc, Version desc.
 func (obj ObjectStream) Less(b ObjectStream) bool {
 	if obj.ProjectID != b.ProjectID {
 		return obj.ProjectID.Less(b.ProjectID)
@@ -281,6 +282,24 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 	}
 	if obj.Version != b.Version {
 		return obj.Version > b.Version
+	}
+	return obj.StreamID.Less(b.StreamID)
+}
+
+// LessVersionAsc implements sorting on object streams.
+// Where ProjectID asc, BucketName asc, ObjectKey asc, Version asc.
+func (obj ObjectStream) LessVersionAsc(b ObjectStream) bool {
+	if obj.ProjectID != b.ProjectID {
+		return obj.ProjectID.Less(b.ProjectID)
+	}
+	if obj.BucketName != b.BucketName {
+		return obj.BucketName < b.BucketName
+	}
+	if obj.ObjectKey != b.ObjectKey {
+		return obj.ObjectKey < b.ObjectKey
+	}
+	if obj.Version != b.Version {
+		return obj.Version < b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }

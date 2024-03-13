@@ -96,7 +96,7 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	nodes, err := state.Select(req.Placement, req.RequestedCount, req.ExcludedIDs)
+	nodes, err := state.Select(req.Placement, req.RequestedCount, req.ExcludedIDs, req.AlreadySelected)
 	if nodeselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}

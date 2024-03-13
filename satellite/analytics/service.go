@@ -104,6 +104,7 @@ const (
 	eventBusinessInfoSubmitted        = "Business Info Submitted"
 	eventUseCaseSelected              = "Use Case Selected"
 	eventOnboardingCompleted          = "Onboarding Completed"
+	eventOnboardingAbandoned          = "Onboarding Abandoned"
 	eventPersonalSelected             = "Personal Selected"
 	eventBusinessSelected             = "Business Selected"
 )
@@ -113,11 +114,18 @@ var (
 	Error = errs.Class("analytics service")
 )
 
+// PlausibleConfig is a configuration struct for plausible analytics.
+type PlausibleConfig struct {
+	Domain    string `help:"the domain set up on plausible for the satellite" default:""`
+	ScriptUrl string `help:"the url of the plausible script" releaseDefault:"https://plausible.io/js/script.manual.js" devDefault:"https://plausible.io/js/script.local.manual.js"`
+}
+
 // Config is a configuration struct for analytics Service.
 type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 	HubSpot         HubSpotConfig
+	Plausible       PlausibleConfig
 }
 
 // FreezeTracker is an interface for account freeze event tracking methods.
@@ -191,7 +199,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventStorjTokenAddedFromBilling, eventAddFundsClicked, eventProjectMembersInviteSent, eventError, eventProjectNameUpdated, eventProjectDescriptionUpdated,
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
-		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventPersonalSelected, eventBusinessSelected} {
+		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
+		eventPersonalSelected, eventBusinessSelected} {
 		service.clientEvents[name] = true
 	}
 

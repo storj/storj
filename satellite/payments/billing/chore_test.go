@@ -42,10 +42,10 @@ func TestChore(t *testing.T) {
 			robert: "robert",
 		}
 
-		mike1   = makeFakeTransaction(mike, billing.StorjScanSource, billing.TransactionTypeCredit, 1000, ts, `{"fake": "mike1"}`)
-		mike2   = makeFakeTransaction(mike, billing.StorjScanSource, billing.TransactionTypeCredit, 2000, ts.Add(time.Second*2), `{"fake": "mike2"}`)
-		joe1    = makeFakeTransaction(joe, billing.StorjScanSource, billing.TransactionTypeCredit, 500, ts.Add(time.Second), `{"fake": "joe1"}`)
-		joe2    = makeFakeTransaction(joe, billing.StorjScanSource, billing.TransactionTypeDebit, -100, ts.Add(time.Second), `{"fake": "joe1"}`)
+		mike1   = makeFakeTransaction(mike, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, 1000, ts, `{"fake": "mike1"}`)
+		mike2   = makeFakeTransaction(mike, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, 2000, ts.Add(time.Second*2), `{"fake": "mike2"}`)
+		joe1    = makeFakeTransaction(joe, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, 500, ts.Add(time.Second), `{"fake": "joe1"}`)
+		joe2    = makeFakeTransaction(joe, billing.StorjScanEthereumSource, billing.TransactionTypeDebit, -100, ts.Add(time.Second), `{"fake": "joe1"}`)
 		robert1 = makeFakeTransaction(robert, otherSource, billing.TransactionTypeCredit, 3000, ts.Add(time.Second), `{"fake": "robert1"}`)
 
 		mike1Bonus = makeBonusTransaction(mike, 100, mike1.Timestamp, mike1.Metadata)
@@ -78,7 +78,7 @@ func TestChore(t *testing.T) {
 
 	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService) {
 		paymentTypes := []billing.PaymentType{
-			newFakePaymentType(billing.StorjScanSource,
+			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{mike1, joe1, joe2},
 				[]billing.Transaction{mike2},
 			),
@@ -196,12 +196,12 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 
 		amount1 := int64(200) // $2
 		amount2 := int64(800) // $8
-		transaction1 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1, ts, `{"fake": "transaction1"}`)
-		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
-		transaction3 := makeFakeTransaction(user2.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1+amount2, ts, `{"fake": "transaction3"}`)
-		transaction4 := makeFakeTransaction(user3.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1+amount2, ts.Add(time.Second*2), `{"fake": "transaction4"}`)
+		transaction1 := makeFakeTransaction(user.ID, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, amount1, ts, `{"fake": "transaction1"}`)
+		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
+		transaction3 := makeFakeTransaction(user2.ID, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, amount1+amount2, ts, `{"fake": "transaction3"}`)
+		transaction4 := makeFakeTransaction(user3.ID, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, amount1+amount2, ts.Add(time.Second*2), `{"fake": "transaction4"}`)
 		paymentTypes := []billing.PaymentType{
-			newFakePaymentType(billing.StorjScanSource,
+			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{transaction1},
 				[]billing.Transaction{},
 				[]billing.Transaction{transaction2},
@@ -241,6 +241,11 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 				require.Equal(t, usageLimitsConfig.Segment.Free, *p.SegmentLimit)
 			}
 
+			now := time.Now()
+			choreObservers.UpgradeUser.TestSetNow(func() time.Time {
+				return now
+			})
+
 			chore.TransactionCycle.TriggerWait()
 			chore.TransactionCycle.Pause()
 
@@ -252,6 +257,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			user, err = db.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.True(t, user.PaidTier)
+			require.WithinDuration(t, now, *user.UpgradeTime, time.Minute)
 			require.Equal(t, usageLimitsConfig.Storage.Paid.Int64(), user.ProjectStorageLimit)
 			require.Equal(t, usageLimitsConfig.Bandwidth.Paid.Int64(), user.ProjectBandwidthLimit)
 			require.Equal(t, usageLimitsConfig.Segment.Paid, user.ProjectSegmentLimit)
@@ -339,10 +345,10 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 
 		amount := int64(2000)  // $20
 		amount2 := int64(1000) // $10
-		transaction := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount, ts, `{"fake": "transaction"}`)
-		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
+		transaction := makeFakeTransaction(user.ID, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, amount, ts, `{"fake": "transaction"}`)
+		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanEthereumSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
 		paymentTypes := []billing.PaymentType{
-			newFakePaymentType(billing.StorjScanSource,
+			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{transaction},
 				[]billing.Transaction{},
 				[]billing.Transaction{transaction2},
@@ -462,9 +468,9 @@ func newFakePaymentType(source string, txBatches ...[]billing.Transaction) *fake
 	}
 }
 
-func (pt *fakePaymentType) Source() string                { return pt.source }
+func (pt *fakePaymentType) Sources() []string             { return []string{pt.source} }
 func (pt *fakePaymentType) Type() billing.TransactionType { return pt.txType }
-func (pt *fakePaymentType) GetNewTransactions(_ context.Context, lastTransactionTime time.Time, metadata []byte) ([]billing.Transaction, error) {
+func (pt *fakePaymentType) GetNewTransactions(_ context.Context, _ string, lastTransactionTime time.Time, metadata []byte) ([]billing.Transaction, error) {
 	// Ensure that the chore is passing up the expected fields
 	switch {
 	case !pt.lastTransactionTime.Equal(lastTransactionTime):

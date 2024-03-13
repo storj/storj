@@ -2,7 +2,7 @@
 
 **Description:** Interacts with projects
 
-**Version:** `v0`
+**Version:** `v1`
 
 <h2 id='list-of-endpoints'>List of Endpoints</h2>
 
@@ -24,7 +24,7 @@
 
 Creates new Project with given info
 
-`POST /api/v0/projects/create`
+`POST /public/v1/projects/create`
 
 **Request body:**
 
@@ -69,7 +69,7 @@ Creates new Project with given info
 
 Updates project with given info
 
-`PATCH /api/v0/projects/update/{id}`
+`PATCH /public/v1/projects/update/{id}`
 
 **Path Params:**
 
@@ -120,7 +120,7 @@ Updates project with given info
 
 Deletes project by id
 
-`DELETE /api/v0/projects/delete/{id}`
+`DELETE /public/v1/projects/delete/{id}`
 
 **Path Params:**
 
@@ -132,7 +132,7 @@ Deletes project by id
 
 Gets all projects user has
 
-`GET /api/v0/projects/`
+`GET /public/v1/projects/`
 
 **Response body:**
 
@@ -167,7 +167,7 @@ Gets all projects user has
 
 Gets project's single bucket usage by bucket ID
 
-`GET /api/v0/projects/bucket-rollup`
+`GET /public/v1/projects/bucket-rollup`
 
 **Query Params:**
 
@@ -201,7 +201,7 @@ Gets project's single bucket usage by bucket ID
 
 Gets project's all buckets usage
 
-`GET /api/v0/projects/bucket-rollups`
+`GET /public/v1/projects/bucket-rollups`
 
 **Query Params:**
 
@@ -237,7 +237,7 @@ Gets project's all buckets usage
 
 Gets API keys by project ID
 
-`GET /api/v0/projects/apikeys/{projectID}`
+`GET /public/v1/projects/apikeys/{projectID}`
 
 **Query Params:**
 
@@ -287,7 +287,7 @@ Gets API keys by project ID
 
 Creates new macaroon API key with given info
 
-`POST /api/v0/apikeys/create`
+`POST /public/v1/apikeys/create`
 
 **Request body:**
 
@@ -313,7 +313,7 @@ Creates new macaroon API key with given info
 
 Deletes macaroon API key by id
 
-`DELETE /api/v0/apikeys/delete/{id}`
+`DELETE /public/v1/apikeys/delete/{id}`
 
 **Path Params:**
 
@@ -325,7 +325,7 @@ Deletes macaroon API key by id
 
 Gets User by request context
 
-`GET /api/v0/users/`
+`GET /public/v1/users/`
 
 **Response body:**
 

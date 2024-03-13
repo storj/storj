@@ -61,6 +61,10 @@ type FrontendConfig struct {
 	EnableRegionTag                 bool                  `json:"enableRegionTag"`
 	EmissionImpactViewEnabled       bool                  `json:"emissionImpactViewEnabled"`
 	ApplicationsPageEnabled         bool                  `json:"applicationsPageEnabled"`
+	DaysBeforeTrialEndNotification  int                   `json:"daysBeforeTrialEndNotification"`
+	AnalyticsEnabled                bool                  `json:"analyticsEnabled"`
+	PlausibleScriptUrl              string                `json:"plausibleScriptUrl"`
+	PlausibleDomain                 string                `json:"plausibleDomain"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

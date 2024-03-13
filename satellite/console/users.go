@@ -22,6 +22,8 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
+	// GetExpiredFreeTrialsAfter is a method for querying users in free trial from the database with trial expiry (after).
+	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, cursor UserCursor) (*UsersPage, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
 	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
 	// UpdateVerificationReminders increments verification_reminders.
@@ -43,7 +45,7 @@ type Users interface {
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
-	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int, upgradeTime *time.Time) error
 	// UpdateUserAgent is a method to update the user's user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 	// UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
@@ -58,6 +60,8 @@ type Users interface {
 	GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error)
 	// GetSettings is a method for returning a user's set of configurations.
 	GetSettings(ctx context.Context, userID uuid.UUID) (*UserSettings, error)
+	// GetUpgradeTime is a method for returning a user's upgrade time.
+	GetUpgradeTime(ctx context.Context, userID uuid.UUID) (*time.Time, error)
 	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 }
@@ -240,6 +244,7 @@ type User struct {
 	SignupPromoCode string `json:"signupPromoCode"`
 
 	VerificationReminders int `json:"verificationReminders"`
+	TrialNotifications    int `json:"trialNotifications"`
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
@@ -249,6 +254,9 @@ type User struct {
 
 	ActivationCode string `json:"-"`
 	SignupId       string `json:"-"`
+
+	TrialExpiration *time.Time `json:"trialExpiration"`
+	UpgradeTime     *time.Time `json:"upgradeTime"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -326,6 +334,9 @@ type UpdateUserRequest struct {
 
 	ActivationCode *string
 	SignupId       *string
+
+	TrialExpiration **time.Time
+	UpgradeTime     *time.Time
 }
 
 // UserSettings contains configurations for a user.

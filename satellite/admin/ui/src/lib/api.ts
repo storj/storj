@@ -527,6 +527,22 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
+				name: 'trial expiration freeze user',
+				desc: 'freeze a user for trial expiration, setting limits to zero',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/trial-expiration-freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'trial expiration unfreeze user',
+				desc: "remove a user's trial expiration freeze, reinstating their limits",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/trial-expiration-freeze`) as Promise<null>;
+				}
+			},
+			{
 				name: 'remove billing warning',
 				desc: "Remove the billing warning status from a user's account",
 				params: [['email', new InputText('email', true)]],
@@ -562,6 +578,22 @@ Blank fields will not be updated.`,
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/geofence`) as Promise<null>;
+				}
+			},
+			{
+				name: 'update free trial expiration',
+				desc: `Update a date when user's free trial will end.`,
+				params: [
+					["current user's email", new InputText('email', true)],
+					[
+						'trial expiration date (date string i.e. YYYY/MM/DD or null)',
+						new InputText('text', true)
+					]
+				],
+				func: async (currentEmail: string, date: string): Promise<null> => {
+					return this.fetch('PATCH', `users/${currentEmail}/trial-expiration`, null, {
+						trialExpiration: date === 'null' ? null : this.toISOStringWithLocalTimezone(date)
+					}) as Promise<null>;
 				}
 			}
 		],
@@ -630,6 +662,19 @@ Blank fields will not be updated.`,
 		}
 
 		return null;
+	}
+
+	protected toISOStringWithLocalTimezone(dateInput: string): string {
+		const date = new Date(dateInput);
+		// getTimezoneOffset() returns the difference in minutes between local time and UTC,
+		// where local time is ahead of UTC (e.g., UTC+2) it returns a negative value,
+		// and where local time is behind UTC (e.g., UTC-5) it returns a positive value.
+		const timezoneOffset = date.getTimezoneOffset() * 60000; // convert offset to milliseconds
+
+		// Adjusting the date by its own timezone offset ensures the date part remains unchanged
+		// when converting to the ISO string, regardless of the local timezone.
+		const adjustedDate = new Date(date.getTime() - timezoneOffset);
+		return adjustedDate.toISOString();
 	}
 
 	protected apiURL(path: string, query?: string): string {

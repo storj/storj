@@ -4,12 +4,19 @@
 <template>
     <branded-loader v-if="isLoading" />
     <ErrorPage v-else-if="isErrorPageShown" />
-    <router-view v-else />
+    <template v-else>
+        <router-view />
+        <trial-expiration-dialog
+            v-if="!user.paidTier"
+            v-model="appStore.state.isExpirationDialogShown"
+            :expired="user.freezeStatus.trialExpiredFrozen"
+        />
+    </template>
     <Notifications />
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import { useTheme } from 'vuetify';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -26,10 +33,12 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
 import { ROUTES } from '@/router';
+import { User } from '@/types/users';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
 import BrandedLoader from '@/components/utils/BrandedLoader.vue';
+import TrialExpirationDialog from '@/components/dialogs/TrialExpirationDialog.vue';
 
 const appStore = useAppStore();
 const abTestingStore = useABTestingStore();
@@ -56,7 +65,12 @@ const isErrorPageShown = computed<boolean>((): boolean => {
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed<User>(() => usersStore.state.user);
 
 /**
  * Sets up the app by fetching all necessary data.
@@ -84,12 +98,17 @@ async function setup() {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
             }
             projectsStore.selectProject(projects[0].id);
+            const project = projectsStore.state.selectedProject;
             await router.push({
                 name: ROUTES.Dashboard.name,
-                params: { id: projectsStore.state.selectedProject.urlId },
+                params: { id: project.urlId },
             });
             analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+
+            if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+                appStore.toggleProjectPassphraseDialog(true);
+            }
         }
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -129,7 +148,28 @@ onBeforeMount(async (): Promise<void> => {
 
 usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
-        after((_) => setup());
+        after((_) => {
+            setup().then(() => {
+                if (user.value.paidTier) return;
+
+                const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
+                if (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial) {
+                    appStore.toggleExpirationDialog(true);
+                }
+            });
+        });
+    }
+});
+
+/**
+ * conditionally prompt for project passphrase if project changes
+ */
+watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
+    if (project.id === oldProject.id) {
+        return;
+    }
+    if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+        appStore.toggleProjectPassphraseDialog(true);
     }
 });
 </script>

@@ -86,7 +86,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const billingStore = useBillingStore();
 
-const sortBy = ref([{ key: 'date', order: 'asc' }]);
+const sortBy = ref([{ key: 'timestamp', order: 'asc' }]);
 const search = ref<string>('');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,7 +130,7 @@ const nativePaymentHistoryItems = computed((): DisplayedItem[] => {
  * @param status
  */
 function getColor(status: string): string {
-    if (status === 'Confirmed' || status === 'Completed') return 'success';
+    if (status === 'Confirmed' || status === 'Completed' || status === 'Complete') return 'success';
     if (status === 'Pending') return 'warning';
     return 'error';
 }

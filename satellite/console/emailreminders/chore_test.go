@@ -39,7 +39,7 @@ func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 			ID:           id1,
 			FullName:     "test",
 			Email:        "userone@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 
@@ -48,7 +48,7 @@ func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 			ID:           id2,
 			FullName:     "test",
 			Email:        "usertwo@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 
@@ -57,7 +57,7 @@ func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 			ID:           id3,
 			FullName:     "test",
 			Email:        "userthree@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 
@@ -153,7 +153,7 @@ func TestEmailChoreLinkActivatesAccount(t *testing.T) {
 			ID:           id,
 			FullName:     "test",
 			Email:        "userone@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 

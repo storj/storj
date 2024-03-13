@@ -4,7 +4,6 @@
 package nodeselection
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
@@ -199,11 +198,27 @@ func TestNodeListFilter(t *testing.T) {
 			ID: testidentity.MustPregeneratedIdentity(pregeneratedIdentity, storj.LatestIDVersion()).ID,
 		}
 	}
-	fmt.Println(testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID.String())
-	fmt.Println(hex.EncodeToString(testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID.Bytes()))
 	require.True(t, filter.Match(selectedNode(1)))
 	require.True(t, filter.Match(selectedNode(2)))
 	require.False(t, filter.Match(selectedNode(3)))
+}
+
+func TestAttributeFilter(t *testing.T) {
+	filter, err := NewAttributeFilter("email", "email@test")
+	require.NoError(t, err)
+	require.True(t, filter.Match(&SelectedNode{
+		Email: "email@test",
+	}))
+	require.False(t, filter.Match(&SelectedNode{
+		Email: "notemail@test",
+	}))
+
+	filter, err = NewAttributeFilter("email", stringNotMatch(""))
+	require.NoError(t, err)
+	require.False(t, filter.Match(&SelectedNode{
+		Email: "",
+	}))
+
 }
 
 // BenchmarkNodeFilterFullTable checks performances of rule evaluation on ALL storage nodes.

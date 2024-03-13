@@ -147,6 +147,7 @@ type ProjectInfo struct {
 	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
 	StorageUsed      int64             `json:"storageUsed"`
 	BandwidthUsed    int64             `json:"bandwidthUsed"`
+	Versioning       DefaultVersioning `json:"versioning"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.
@@ -203,6 +204,11 @@ type LimitRequestInfo struct {
 	LimitType    string      `json:"limitType"`
 	CurrentLimit memory.Size `json:"currentLimit"`
 	DesiredLimit memory.Size `json:"desiredLimit"`
+}
+
+// ProjectConfig holds config for available "features" for a project.
+type ProjectConfig struct {
+	VersioningUIEnabled bool `json:"versioningUIEnabled"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

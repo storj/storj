@@ -268,10 +268,12 @@ read one (
 
 // storjscan_payment contains information about payments from storjscan.
 model storjscan_payment (
-	key block_hash log_index
+	key chain_id block_hash log_index
 
-	index (fields block_number log_index)
+	index (fields chain_id block_number log_index)
 
+	// chain_id is the id of the chain the transaction was on.
+	field chain_id         int64 ( default 0)
 	// block_hash is the ethereum block hash where this transfer appeared in.
 	field block_hash       blob
 	// block_number is the ethereum block number where this transfer appeared in.
@@ -302,16 +304,17 @@ create storjscan_payment (
 
 read all (
 	select storjscan_payment
-	orderby ( asc storjscan_payment.block_number, asc storjscan_payment.log_index )
+	orderby ( asc storjscan_payment.chain_id, asc storjscan_payment.block_number, asc storjscan_payment.log_index )
 )
 read limitoffset (
 	select storjscan_payment
 	where storjscan_payment.to_address = ?
-	orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
+	orderby ( desc storjscan_payment.chain_id, desc storjscan_payment.block_number, desc storjscan_payment.log_index )
 )
 read first (
 	select storjscan_payment.block_number
 	where storjscan_payment.status = ?
+	where storjscan_payment.chain_id = ?
 	orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
 )
 

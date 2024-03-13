@@ -64,6 +64,7 @@ func newRootCmd(setDefaults bool) (*cobra.Command, *Factory) {
 		// internal hidden commands
 		internalcmd.NewUsedSpaceFilewalkerCmd().Command,
 		internalcmd.NewGCFilewalkerCmd().Command,
+		internalcmd.NewTrashFilewalkerCmd().Command,
 	)
 
 	return cmd, factory

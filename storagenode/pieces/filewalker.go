@@ -87,7 +87,8 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	return satPiecesTotal, satPiecesContentSize, errFileWalker.Wrap(err)
 }
 
-// WalkSatellitePiecesToTrash returns a list of piece IDs that need to be trashed for the given satellite.
+// WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the
+// trash using the trashFunc provided
 //
 // ------------------------------------------------------------------------------------------------
 //
@@ -136,7 +137,7 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 // nontrivial amount, mtimes on existing blobs should also be adjusted (by the same interval,
 // ideally, but just running "touch" on all blobs is sufficient to avoid incorrect deletion of
 // data).
-func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
@@ -177,6 +178,12 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 			return nil
 		}
 
+		if trashFunc != nil {
+			if err := trashFunc(pieceID); err != nil {
+				return err
+			}
+		}
+
 		pieceIDs = append(pieceIDs, pieceID)
 
 		select {
@@ -189,4 +196,26 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	})
 
 	return pieceIDs, piecesCount, piecesSkipped, errFileWalker.Wrap(err)
+}
+
+// WalkCleanupTrash looks at all trash per-day directories owned by the given satellite and
+// recursively deletes any of them that correspond to a time before the given dateBefore.
+//
+// This method returns the number of blobs deleted, the total count of bytes occupied by those
+// deleted blobs, and the number of bytes which were freed by the deletion (including filesystem
+// overhead).
+func (fw *FileWalker) WalkCleanupTrash(ctx context.Context, satelliteID storj.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storj.PieceID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bytesDeleted, deletedKeysList, err := fw.blobs.EmptyTrash(ctx, satelliteID[:], dateBefore)
+	keysDeleted = make([]storj.PieceID, 0, len(deletedKeysList))
+	for _, dk := range deletedKeysList {
+		pieceID, parseErr := storj.PieceIDFromBytes(dk)
+		if parseErr != nil {
+			fw.log.Error("stored blob has invalid pieceID", zap.ByteString("deletedKey", dk), zap.Error(parseErr))
+			continue
+		}
+		keysDeleted = append(keysDeleted, pieceID)
+	}
+	return bytesDeleted, keysDeleted, err
 }

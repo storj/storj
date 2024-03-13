@@ -14,7 +14,11 @@ import (
 func TestWalletFeaturesValidation(t *testing.T) {
 	t.Run("empty list", func(t *testing.T) {
 		var validation nodeoperator.WalletFeaturesValidation
-		err := validation.Validate(make([]string, 0))
+
+		err := validation.Validate([]string{})
+		require.NoError(t, err)
+
+		err = validation.Validate(nil)
 		require.NoError(t, err)
 	})
 

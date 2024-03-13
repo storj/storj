@@ -10,8 +10,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js';
-import { StripeElementsOptionsMode } from '@stripe/stripe-js/types/stripe-js/elements-group';
+import { Stripe, StripeElements, StripePaymentElement, StripeElementsOptionsMode } from '@stripe/stripe-js';
 import { useTheme } from 'vuetify';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

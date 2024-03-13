@@ -188,9 +188,10 @@ type InfoResponse struct {
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
-	RequestedCount int
-	ExcludedIDs    []storj.NodeID
-	Placement      storj.PlacementConstraint
+	RequestedCount  int
+	ExcludedIDs     []storj.NodeID
+	AlreadySelected []*nodeselection.SelectedNode
+	Placement       storj.PlacementConstraint
 }
 
 // NodeCriteria are the requirements for selecting nodes.
@@ -439,13 +440,14 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 	}
 	if len(selectedNodes) < req.RequestedCount {
 
-		excludedIDs := make([]string, 0)
-		for _, e := range req.ExcludedIDs {
-			excludedIDs = append(excludedIDs, e.String())
+		var alreadySelectedIDs []storj.NodeID
+		for _, e := range req.AlreadySelected {
+			alreadySelectedIDs = append(alreadySelectedIDs, e.ID)
 		}
 
 		service.log.Warn("Not enough nodes are available from Node Cache",
-			zap.Strings("excludedIDs", excludedIDs),
+			zap.Stringers("excludedIDs", req.ExcludedIDs),
+			zap.Stringers("alreadySelected", alreadySelectedIDs),
 			zap.Int("requested", req.RequestedCount),
 			zap.Int("available", len(selectedNodes)),
 			zap.Uint16("placement", uint16(req.Placement)))

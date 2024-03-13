@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -29,6 +30,8 @@ type Config struct {
 	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`
+	FreeTrialDuration               time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
+	VarPartners                     []string                  `help:"list of partners whose users will not see billing UI." default:""`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig
@@ -64,6 +67,13 @@ type SessionConfig struct {
 	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"1800"` // 1800s=30m
 	InactivityTimerViewerEnabled bool          `help:"indicates whether remaining session time is shown for debugging" default:"false"`
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
+}
+
+// VersioningConfig contains configurations for object versioning.
+type VersioningConfig struct {
+	UseBucketLevelObjectVersioning         bool
+	UseBucketLevelObjectVersioningProjects []string
+	projectMap                             map[uuid.UUID]struct{}
 }
 
 // EdgeURLOverrides contains edge service URL overrides.

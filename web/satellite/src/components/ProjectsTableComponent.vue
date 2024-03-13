@@ -53,7 +53,9 @@
             </template>
 
             <template #item.createdAt="{ item }">
-                {{ getFormattedDate(item.createdAt) }}
+                <span class="text-no-wrap">
+                    {{ getFormattedDate(item.createdAt) }}
+                </span>
             </template>
 
             <template #item.actions="{ item }">
@@ -163,6 +165,7 @@ const decliningIds = ref(new Set<string>());
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
+
 const router = useRouter();
 const notify = useNotify();
 

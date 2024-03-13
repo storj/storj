@@ -5,6 +5,8 @@
     <v-container>
         <v-row>
             <v-col>
+                <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+
                 <PageTitleComponent title="Account Settings" />
             </v-col>
         </v-row>
@@ -44,7 +46,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" lg="4">
+            <v-col v-if="billingEnabled" cols="12" lg="4">
                 <v-card title="Account Type" variant="outlined" :border="true" rounded="xlg">
                     <v-card-text>
                         <v-chip
@@ -168,6 +170,8 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import ChangePasswordDialog from '@/components/dialogs/ChangePasswordDialog.vue';
@@ -176,10 +180,14 @@ import EnableMFADialog from '@/components/dialogs/EnableMFADialog.vue';
 import DisableMFADialog from '@/components/dialogs/DisableMFADialog.vue';
 import MFACodesDialog from '@/components/dialogs/MFACodesDialog.vue';
 import SetSessionTimeoutDialog from '@/components/dialogs/SetSessionTimeoutDialog.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const appStore = useAppStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
+
 const notify = useNotify();
+const { isTrialExpirationBanner, isExpired } = useTrialCheck();
 
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
@@ -196,6 +204,11 @@ const user = computed((): User => {
 });
 
 /**
+ * Whether billing features should be enabled
+ */
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(user.value.hasVarPartner));
+
+/**
  * Returns user settings from store.
  */
 const userSettings = computed((): UserSettings => {
@@ -206,7 +219,7 @@ const userSettings = computed((): UserSettings => {
  * Returns user's paid tier status from store.
  */
 const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier;
+    return user.value.paidTier;
 });
 
 async function toggleEnableMFADialog() {

@@ -389,7 +389,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return Error.New("error getting node information for pieces: %w", err)
 	}
 	piecesCheck := repair.ClassifySegmentPieces(segment.Pieces, selectedNodes, fork.excludedCountryCodes, fork.doPlacementCheck,
-		fork.doDeclumping, fork.placements[segment.Placement], fork.nodeIDs)
+		fork.doDeclumping, fork.placements[segment.Placement])
 
 	numHealthy := piecesCheck.Healthy.Count()
 	segmentTotalCountIntVal.Observe(int64(len(pieces)))

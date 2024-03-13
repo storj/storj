@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"time"
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/payments/billing"
@@ -19,6 +20,7 @@ type UpgradeUserObserver struct {
 	usageLimitsConfig     UsageLimitsConfig
 	userBalanceForUpgrade int64
 	freezeService         *AccountFreezeService
+	nowFn                 func() time.Time
 }
 
 // NewUpgradeUserObserver creates new observer instance.
@@ -29,6 +31,7 @@ func NewUpgradeUserObserver(consoleDB DB, transactionsDB billing.TransactionsDB,
 		usageLimitsConfig:     usageLimitsConfig,
 		userBalanceForUpgrade: userBalanceForUpgrade,
 		freezeService:         freezeService,
+		nowFn:                 time.Now,
 	}
 }
 
@@ -65,11 +68,13 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return nil
 	}
 
+	now := o.nowFn()
 	err = o.consoleDB.Users().UpdatePaidTier(ctx, user.ID, true,
 		o.usageLimitsConfig.Bandwidth.Paid,
 		o.usageLimitsConfig.Storage.Paid,
 		o.usageLimitsConfig.Segment.Paid,
 		o.usageLimitsConfig.Project.Paid,
+		&now,
 	)
 	if err != nil {
 		return err
@@ -98,4 +103,9 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 	}
 
 	return nil
+}
+
+// TestSetNow allows tests to have the observer act as if the current time is whatever they want.
+func (o *UpgradeUserObserver) TestSetNow(nowFn func() time.Time) {
+	o.nowFn = nowFn
 }

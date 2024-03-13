@@ -3,6 +3,7 @@
 
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Placement } from '@/types/placements';
+import { Versioning } from '@/types/versioning';
 
 /**
  * Exposes all bucket-related functionality.
@@ -32,13 +33,6 @@ export interface BucketsApi {
      * @throws Error
      */
     getAllBucketPlacements(projectId: string): Promise<BucketPlacement[]>
-}
-
-export enum Versioning {
-    NotSupported = 'Not Supported',
-    Unversioned = 'Unversioned',
-    Enabled = 'Enabled',
-    Suspended = 'Suspended',
 }
 
 /**

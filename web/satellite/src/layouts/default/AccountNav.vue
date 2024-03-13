@@ -31,6 +31,13 @@
                     <v-list-item-subtitle>My Account</v-list-item-subtitle>
                 </v-list-item>
 
+                <v-list-item v-if="!isPaidTier && billingEnabled" link lines="one" class="my-1 py-2" tabindex="0" @click="toggleUpgradeFlow" @keydown.space.prevent="toggleUpgradeFlow">
+                    <template #prepend>
+                        <icon-upgrade size="20" />
+                    </template>
+                    <v-list-item-title class="ml-3">Upgrade</v-list-item-title>
+                </v-list-item>
+
                 <!-- Account Billing -->
                 <navigation-item v-if="billingEnabled" title="Billing" :to="ROUTES.Account.with(ROUTES.Billing).path" class="py-2">
                     <template #prepend>
@@ -139,7 +146,9 @@ import { useDisplay } from 'vuetify';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore.js';
 import { ROUTES } from '@/router';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames.js';
 
 import IconCard from '@/components/icons/IconCard.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -149,10 +158,12 @@ import IconDocs from '@/components/icons/IconDocs.vue';
 import IconForum from '@/components/icons/IconForum.vue';
 import IconSupport from '@/components/icons/IconSupport.vue';
 import IconResources from '@/components/icons/IconResources.vue';
+import IconUpgrade from '@/components/icons/IconUpgrade.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const { mdAndDown } = useDisplay();
 
@@ -162,9 +173,14 @@ const model = computed<boolean>({
 });
 
 /**
+ * Returns user's paid tier status from store.
+ */
+const isPaidTier = computed<boolean>(() => usersStore.state.user.paidTier ?? false);
+
+/**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns the path to the most recent non-account-related page.
@@ -174,6 +190,40 @@ const pathBeforeAccountPage = computed((): string | null => {
     if (!path || path === ROUTES.Projects.path) return null;
     return path;
 });
+
+/**
+ * Toggles upgrade account flow visibility.
+ */
+function toggleUpgradeFlow(): void {
+    if (mdAndDown.value) {
+        model.value = false;
+    }
+    appStore.toggleUpgradeFlow(true);
+}
+
+/**
+ * Sends "View Docs" event to segment.
+ */
+function trackViewDocsEvent(link: string): void {
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+}
+
+/**
+ * Sends "View Forum" event to segment.
+ */
+function trackViewForumEvent(link: string): void {
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
+}
+
+/**
+ * Sends "View Support" event to segment.
+ */
+function trackViewSupportEvent(link: string): void {
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
+}
 
 onBeforeMount(() => {
     if (mdAndDown.value) {

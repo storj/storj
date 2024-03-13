@@ -265,6 +265,8 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.mfaRecoveryCodeCount,
                 userResponse.createdAt,
                 userResponse.pendingVerification,
+                userResponse.trialExpiration ? new Date(userResponse.trialExpiration) : null,
+                userResponse.hasVarPartner,
             );
         }
 
@@ -338,6 +340,7 @@ export class AuthHttpApi implements UsersApi {
             return new FreezeStatus(
                 responseData.frozen,
                 responseData.warned,
+                responseData.trialExpiredFrozen,
             );
         }
 

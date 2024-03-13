@@ -120,6 +120,7 @@ import {
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 
+import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
@@ -131,9 +132,10 @@ import { ROUTES } from '@/router';
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
 const oldRules = [
-    (value: string) => (value && value.length >= config.passwordMinimumLength || `Invalid old password. Must be ${config.passwordMinimumLength} or more characters`),
+    RequiredRule,
 ];
 const newRules = [
+    RequiredRule,
     (value: string) => (value && value.length >= config.passwordMinimumLength || `Invalid password. Use ${config.passwordMinimumLength} or more characters`),
     (value: string) => (value && value.length <= config.passwordMaximumLength || `Invalid password. Use ${config.passwordMaximumLength} or fewer characters`),
 ];

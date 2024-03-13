@@ -41,10 +41,7 @@ func NewUsedSpaceFilewalkerCmd() *LazyFilewalkerCmd {
 
 	process.Bind(cmd, &cfg)
 
-	return &LazyFilewalkerCmd{
-		Command:    cmd,
-		RunOptions: &runOpts,
-	}
+	return NewLazyFilewalkerCmd(cmd, &runOpts)
 }
 
 // Run runs the UsedSpaceLazyFileWalker.

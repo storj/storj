@@ -592,6 +592,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			placement,
+			console.VersioningConfig{
+				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
+				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+			},
 			consoleConfig.Config,
 		)
 		if err != nil {
@@ -611,6 +615,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations,
 			peer.URL(),
+			config.Analytics,
 			config.Payments.PackagePlans,
 		)
 

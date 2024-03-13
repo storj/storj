@@ -3,6 +3,8 @@
 
 <template>
     <v-container class="pb-15">
+        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+
         <next-steps-container />
 
         <low-token-balance-banner
@@ -16,8 +18,8 @@
             <v-col cols="12" md="auto">
                 <PageTitleComponent title="Project Dashboard" />
                 <PageSubtitleComponent
-                    :subtitle="`${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
-                    link="https://docs.storj.io/dcs/pricing#per-segment-fee"
+                    subtitle="View your project statistics, check daily usage, and set project limits."
+                    link="https://docs.storj.io/support/projects"
                 />
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
@@ -90,7 +92,7 @@
                     :used="`${usedLimitFormatted(limits.storageUsed)} Used`"
                     :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`"
                     :available="`${usedLimitFormatted(availableStorage)} Available`"
-                    :cta="!isPaidTier && billingEnabled ? 'Need more?' : 'Edit Limit'"
+                    :cta="getCTALabel(storageUsedPercent)"
                     @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
                 />
             </v-col>
@@ -102,7 +104,8 @@
                     :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`"
                     :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)} per month`"
                     :available="`${usedLimitFormatted(availableEgress)} Available`"
-                    :cta="!isPaidTier && billingEnabled ? 'Need more?' : 'Edit Limit'"
+                    :cta="getCTALabel(egressUsedPercent)"
+                    extra-info="Your download usage limit is applied only for the current billing period."
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
@@ -114,7 +117,7 @@
                     :used="`${limits.segmentUsed.toLocaleString()} Used`"
                     :limit="`Limit: ${limits.segmentLimit.toLocaleString()}`"
                     :available="`${availableSegment.toLocaleString()} Available`"
-                    :cta="!isPaidTier && billingEnabled ? 'Need more?' : 'Learn more'"
+                    :cta="getCTALabel(segmentUsedPercent, true)"
                     @cta-click="onSegmentsCTAClicked"
                 />
             </v-col>
@@ -224,7 +227,7 @@
                 <v-btn
                     variant="outlined"
                     color="default"
-                    @click="isCreateBucketDialogOpen = true"
+                    @click="onCreateBucket"
                 >
                     <IconCirclePlus class="mr-2" />
                     New Bucket
@@ -293,6 +296,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -312,6 +316,7 @@ import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 type ValueUnit = {
     value: number
@@ -331,6 +336,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
+const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -345,21 +351,21 @@ const datePickerModel = ref<Date[]>([]);
  * Returns formatted CO2 estimated info.
  */
 const co2Estimated = computed<string>(() => {
-    const formatted = getValueAndUnit(emission.value.storjImpact);
+    const formatted = getValueAndUnit(Math.round(emission.value.storjImpact));
 
-    return `${formatted.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${formatted.unit} CO₂e`;
+    return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
 });
 
 /**
  * Returns formatted CO2 save info.
  */
 const co2Saved = computed<string>(() => {
-    let value = emission.value.hyperscalerImpact - emission.value.storjImpact;
+    let value = Math.round(emission.value.hyperscalerImpact) - Math.round(emission.value.storjImpact);
     if (value < 0) value = 0;
 
     const formatted = getValueAndUnit(value);
 
-    return `${formatted.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${formatted.unit} CO₂e`;
+    return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
 });
 
 /**
@@ -388,7 +394,7 @@ const isCouponCard = computed<boolean>(() => {
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns percent of coupon used.
@@ -464,7 +470,8 @@ const limits = computed((): ProjectLimits => {
  * Returns remaining segments available.
  */
 const availableSegment = computed((): number => {
-    return limits.value.segmentLimit - limits.value.segmentUsed;
+    const diff = limits.value.segmentLimit - limits.value.segmentUsed;
+    return diff < 0 ? 0 : diff;
 });
 
 /**
@@ -478,7 +485,8 @@ const segmentUsedPercent = computed((): number => {
  * Returns remaining egress available.
  */
 const availableEgress = computed((): number => {
-    return limits.value.bandwidthLimit - limits.value.bandwidthUsed;
+    const diff = limits.value.bandwidthLimit - limits.value.bandwidthUsed;
+    return diff < 0 ? 0 : diff;
 });
 
 /**
@@ -492,7 +500,8 @@ const egressUsedPercent = computed((): number => {
  * Returns remaining storage available.
  */
 const availableStorage = computed((): number => {
-    return limits.value.storageLimit - limits.value.storageUsed;
+    const diff = limits.value.storageLimit - limits.value.storageUsed;
+    return diff < 0 ? 0 : diff;
 });
 
 /**
@@ -513,7 +522,8 @@ const bucketsUsedPercent = computed((): number => {
  * Returns remaining buckets available.
  */
 const availableBuckets = computed((): number => {
-    return limits.value.bucketsLimit - limits.value.bucketsUsed;
+    const diff = limits.value.bucketsLimit - limits.value.bucketsUsed;
+    return diff < 0 ? 0 : diff;
 });
 
 /**
@@ -601,6 +611,15 @@ function getValueAndUnit(value: number): ValueUnit {
 }
 
 /**
+ * Starts create bucket flow if user's free trial is not expired.
+ */
+function onCreateBucket(): void {
+    withTrialCheck(() => {
+        isCreateBucketDialogOpen.value = true;
+    });
+}
+
+/**
  * Returns formatted amount.
  */
 function usedLimitFormatted(value: number): string {
@@ -647,6 +666,28 @@ function onNeedMoreClicked(source: LimitToChange): void {
 
     limitToChange.value = source;
     isEditLimitDialogShown.value = true;
+}
+
+/**
+ * Returns CTA label based on paid tier status and current usage.
+ */
+function getCTALabel(usage: number, isSegment = false): string {
+    if (!isPaidTier.value && billingEnabled.value) {
+        if (usage >= 100) {
+            return 'Upgrade now';
+        }
+        if (usage >= 80) {
+            return 'Upgrade';
+        }
+        return 'Need more?';
+    }
+
+    if (isSegment) return 'Learn more';
+
+    if (usage >= 80) {
+        return 'Increase limits';
+    }
+    return 'Edit Limit';
 }
 
 /**
@@ -732,7 +773,7 @@ onMounted(async (): Promise<void> => {
         );
     }
 
-    if (configStore.state.config.nativeTokenPaymentsEnabled) {
+    if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
         promises.push(billingStore.getNativePaymentsHistory());
     }
 

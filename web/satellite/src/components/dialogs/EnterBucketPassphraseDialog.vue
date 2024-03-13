@@ -4,6 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
+        :persistent="isLoading"
         width="400px"
         transition="fade-transition"
     >
@@ -51,6 +52,7 @@
                                 :hide-details="false"
                                 :rules="[ RequiredRule ]"
                                 autofocus
+                                required
                             >
                                 <template #append-inner>
                                     <password-input-eye-icons

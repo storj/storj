@@ -144,6 +144,29 @@ pipeline {
             }
         }
 
+        stage('Satellite UI Tests') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch pattern: "release-.*", comparator: "REGEXP"
+                    changeset "testsuite/playwright-ui/**"
+                    changeset "web/**"
+                    changeset "satellite/console/**"
+                }
+            }
+            environment {
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'debug'
+            }
+
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'make test-satellite-ui'
+            }
+        }
+
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'

@@ -63,13 +63,13 @@
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card title="STORJ Token Balance" subtitle="Your STORJ Token Wallet" variant="flat" :border="true" rounded="xlg">
+                        <v-card title="Account Balance" subtitle="Your STORJ account balance" variant="flat" :border="true" rounded="xlg">
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
                                 <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
-                                    {{ formattedTokenBalance }}
+                                    {{ formattedAccountBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2" :prepend-icon="mdiPlus" @click="onAddTokensClicked">
@@ -236,6 +236,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import CreditCardComponent from '@/components/CreditCardComponent.vue';
@@ -262,6 +263,7 @@ interface IStorjTokenCardComponent {
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -298,10 +300,10 @@ const priceSummary = computed((): number => {
 });
 
 /**
- * Returns STORJ token balance from store.
+ * Returns account balance (sum storjscan and stripe credit) from store.
  */
-const formattedTokenBalance = computed((): string => {
-    return billingStore.state.balance.formattedCoins;
+const formattedAccountBalance = computed((): string => {
+    return billingStore.state.balance.formattedSum;
 });
 
 /**
@@ -367,7 +369,7 @@ function onAddTokensClicked(): void {
 }
 
 onBeforeMount(() => {
-    if (!configStore.state.config.billingFeaturesEnabled) {
+    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)) {
         router.replace({ name: ROUTES.AccountSettings.name });
     }
 });

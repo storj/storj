@@ -18,7 +18,7 @@ enum RouteName {
     Dashboard = 'Dashboard',
     Buckets = 'Buckets',
     Bucket = 'Bucket',
-    Access = 'Access',
+    Access = 'Access Keys',
     Team = 'Team',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',
@@ -124,7 +124,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: ROUTES.AccountSettings.path,
-                name: ROUTES.AccountSettings.path,
+                name: ROUTES.AccountSettings.name,
                 component: () => import(/* webpackChunkName: "MyAccount" */ '@/views/AccountSettings.vue'),
             },
         ],
@@ -147,6 +147,7 @@ const routes: RouteRecordRaw[] = [
         children: [
             {
                 path: '',
+                name: RouteName.Project,
                 redirect: (to: RouteLocation) => {
                     const projRoute = new NavigationLink(to.params.id as string, RouteName.Project);
                     return { path: ROUTES.Projects.with(projRoute).with(ROUTES.Dashboard).path };

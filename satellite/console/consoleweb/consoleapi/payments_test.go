@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 )
 
-func Test_PurchasePackage(t *testing.T) {
+func TestPurchasePackage(t *testing.T) {
 	partner := "partner1"
 
 	testplanet.Run(t, testplanet.Config{
@@ -84,7 +84,7 @@ func Test_PurchasePackage(t *testing.T) {
 	})
 }
 
-func Test_PackageAvailable(t *testing.T) {
+func TestPackageAvailable(t *testing.T) {
 	const pkgPartner = "partner"
 
 	testplanet.Run(t, testplanet.Config{

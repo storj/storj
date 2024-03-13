@@ -4,11 +4,6 @@
 export class LoginPageObjects {
     static EMAIL_EDITBOX_ID = `//input[@id='Email Address']`;
     static PASSWORD_EDITBOX_ID = `//input[@id='Password']`;
-}
-
-export class LoginPageObjectsV2 {
-    static EMAIL_EDITBOX_ID = `//input[@id='Email Address']`;
-    static PASSWORD_EDITBOX_ID = `//input[@id='Password']`;
     static CONTINUE_BUTTON_XPATH = `//button[span[text()=' Continue ']]`;
 
     // SETUP ACCOUNT (FIRST LOGIN)
@@ -21,4 +16,5 @@ export class LoginPageObjectsV2 {
     static LAST_NAME_EDITBOX_ID = `//input[@id='Last Name']`;
     static COMPANY_NAME_EDITBOX_ID = `//input[@id='Company Name']`;
     static JOB_ROLE_EDITBOX_ID = `//input[@id='Job Role']`;
+    static JOB_ROLE_SELECTION_XPATH = `//div[contains(text(), 'Software Developer')]`;
 }

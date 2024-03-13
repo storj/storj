@@ -18,7 +18,7 @@ type ListObjectsCursor IterateCursor
 // ListObjects contains arguments necessary for listing objects.
 //
 // For Pending = false, the versions are in descending order.
-// For pending = true, the versions are in ascending order.
+// For Pending = true, the versions are in ascending order.
 type ListObjects struct {
 	ProjectID             uuid.UUID
 	BucketName            string

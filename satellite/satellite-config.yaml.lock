@@ -61,6 +61,12 @@
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
 
+# the domain set up on plausible for the satellite
+# analytics.plausible.domain: ""
+
+# the url of the plausible script
+# analytics.plausible.script-url: https://plausible.io/js/script.manual.js
+
 # segment write key
 # analytics.segment-write-key: ""
 
@@ -214,6 +220,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the target URL of console back-end reverse proxy for local development when running a UI server
 # console.backend-reverse-proxy: ""
 
+# path to a local file with bad passwords list, empty path == skip check
+# console.bad-passwords-file: ""
+
 # url link for for beta satellite feedback
 # console.beta-satellite-feedback-url: ""
 
@@ -292,6 +301,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
+# days left before trial end notification
+# console.days-before-trial-end-notification: 3
+
 # default project limits for users
 # console.default-project-limit: 1
 
@@ -318,6 +330,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates whether free tier users can send project invitations
 # console.free-tier-invites-enabled: false
+
+# duration for which users can access the system free of charge, 0 = unlimited time trial
+# console.free-trial-duration: 0s
 
 # server address of the front-end app
 # console.frontend-address: :10200
@@ -483,6 +498,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
+
+# list of partners whose users will not see billing UI.
+# console.var-partners: []
 
 # whether to load templates on each request
 # console.watch: false
@@ -847,7 +865,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
-# address(es) to send telemetry to (comma-separated)
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
 # metrics.event-addr: eventkitd.datasci.storj.io:9002
 
 # size of the internal eventkit queue for UDP sending
@@ -1008,6 +1026,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
+
+# whether to use users upgrade time and skip free tier status in billing process
+# payments.stripe-coin-payments.enable-free-trial-logic: false
 
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10

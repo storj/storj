@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/storj"
@@ -177,61 +178,106 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 // TestingBatchInsertObjects batch inserts objects for testing.
 // This implementation does no verification on the correctness of objects.
 func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
-	cols := []string{
+	const maxRowsPerCopy = 250000
+
+	return Error.Wrap(pgxutil.Conn(ctx, db.db,
+		func(conn *pgx.Conn) error {
+			progress, total := 0, len(objects)
+			for len(objects) > 0 {
+				batch := objects
+				if len(batch) > maxRowsPerCopy {
+					batch = batch[:maxRowsPerCopy]
+				}
+				objects = objects[len(batch):]
+
+				source := newCopyFromRawObjects(batch)
+				_, err := conn.CopyFrom(ctx, pgx.Identifier{"objects"}, source.Columns(), source)
+				if err != nil {
+					return err
+				}
+
+				progress += len(batch)
+				db.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+			}
+			return err
+		}))
+}
+
+type copyFromRawObjects struct {
+	idx  int
+	rows []RawObject
+	row  []any
+}
+
+func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
+	return &copyFromRawObjects{
+		rows: rows,
+		idx:  -1,
+	}
+}
+
+func (ctr *copyFromRawObjects) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
+
+func (ctr *copyFromRawObjects) Columns() []string {
+	return []string{
 		"project_id",
 		"bucket_name",
 		"object_key",
 		"version",
 		"stream_id",
+
 		"created_at",
 		"expires_at",
+
 		"status",
 		"segment_count",
+
 		"encrypted_metadata_nonce",
 		"encrypted_metadata",
 		"encrypted_metadata_encrypted_key",
+
 		"total_plain_size",
 		"total_encrypted_size",
 		"fixed_segment_size",
+
 		"encryption",
 		"zombie_deletion_deadline",
 	}
-
-	rows := make([][]any, 0, len(objects))
-	for i := range objects {
-		obj := &objects[i]
-		rows = append(rows, []any{
-			obj.ProjectID.Bytes(),
-			[]byte(obj.BucketName),
-			[]byte(obj.ObjectKey),
-			obj.Version,
-			obj.StreamID.Bytes(),
-
-			obj.CreatedAt,
-			obj.ExpiresAt,
-
-			obj.Status, // TODO: fix encoding
-			obj.SegmentCount,
-
-			obj.EncryptedMetadataNonce,
-			obj.EncryptedMetadata,
-			obj.EncryptedMetadataEncryptedKey,
-
-			obj.TotalPlainSize,
-			obj.TotalEncryptedSize,
-			obj.FixedSegmentSize,
-
-			encryptionParameters{&obj.Encryption},
-			obj.ZombieDeletionDeadline,
-		})
-	}
-
-	return Error.Wrap(pgxutil.Conn(ctx, db.db,
-		func(conn *pgx.Conn) error {
-			_, err := conn.CopyFrom(ctx, pgx.Identifier{"objects"}, cols, pgx.CopyFromRows(rows))
-			return err
-		}))
 }
+
+func (ctr *copyFromRawObjects) Values() ([]any, error) {
+	obj := &ctr.rows[ctr.idx]
+	ctr.row = append(ctr.row[:0],
+		obj.ProjectID.Bytes(),
+		[]byte(obj.BucketName),
+		[]byte(obj.ObjectKey),
+		obj.Version,
+		obj.StreamID.Bytes(),
+
+		obj.CreatedAt,
+		obj.ExpiresAt,
+
+		obj.Status, // TODO: fix encoding
+		obj.SegmentCount,
+
+		obj.EncryptedMetadataNonce,
+		obj.EncryptedMetadata,
+		obj.EncryptedMetadataEncryptedKey,
+
+		obj.TotalPlainSize,
+		obj.TotalEncryptedSize,
+		obj.FixedSegmentSize,
+
+		encryptionParameters{&obj.Encryption},
+		obj.ZombieDeletionDeadline,
+	)
+	return ctr.row, nil
+}
+
+func (ctr *copyFromRawObjects) Err() error { return nil }
 
 // testingGetAllSegments returns the state of the database.
 func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err error) {

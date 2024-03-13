@@ -8,7 +8,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/api"
-	"storj.io/storj/satellite/nodeselection"
 )
 
 // PlacementInfo contains the ID and location of a placement rule.
@@ -22,13 +21,11 @@ func (s *Service) GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPE
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	placements := s.placement.SupportedPlacements()
-	infos := make([]PlacementInfo, 0, len(placements))
-	for _, placement := range placements {
-		filter := s.placement.CreateFilters(placement)
+	infos := make([]PlacementInfo, 0, len(s.placement))
+	for id, placement := range s.placement {
 		infos = append(infos, PlacementInfo{
-			ID:       placement,
-			Location: nodeselection.GetAnnotation(filter, nodeselection.Location),
+			ID:       id,
+			Location: placement.Name,
 		})
 	}
 

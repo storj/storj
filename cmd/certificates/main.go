@@ -91,6 +91,9 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("certificates")
+	zap.ReplaceGlobals(logger)
+
 	defaultConfDir := fpath.ApplicationDir("storj", "cert-signing")
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "certificates")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")

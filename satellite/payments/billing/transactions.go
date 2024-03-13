@@ -78,20 +78,27 @@ type TransactionsDB interface {
 // goats. In each case, a source, type, and method to get new transactions must be defined by the service, though
 // metadata specific to each payment type is also supported (i.e. goat hair type).
 type PaymentType interface {
-	// Source the source of the payment
-	Source() string
+	// Sources the supported sources of the payment type
+	Sources() []string
 	// Type the type of the payment
 	Type() TransactionType
-	// GetNewTransactions returns new transactions that occurred after the provided last transaction received.
-	GetNewTransactions(ctx context.Context, lastTransactionTime time.Time, metadata []byte) ([]Transaction, error)
+	// GetNewTransactions returns new transactions for a given source that occurred after the provided last transaction received.
+	GetNewTransactions(ctx context.Context, source string, lastTransactionTime time.Time, metadata []byte) ([]Transaction, error)
 }
 
 // Well-known PaymentType sources.
 const (
-	StripeSource         = "stripe"
-	StorjScanSource      = "storjscan"
-	StorjScanBonusSource = "storjscanbonus"
+	StripeSource            = "stripe"
+	StorjScanEthereumSource = "ethereum"
+	StorjScanZkSyncSource   = "zkSync"
+	StorjScanBonusSource    = "storjscanbonus"
 )
+
+// SourceChainIDs are some well known chain IDs for the above sources.
+var SourceChainIDs = map[string][]int64{
+	StorjScanEthereumSource: {1, 4, 5, 1337, 11155111},
+	StorjScanZkSyncSource:   {300, 324},
+}
 
 // Transaction defines billing related transaction info that is stored in the DB.
 type Transaction struct {
@@ -119,7 +126,7 @@ func prepareBonusTransaction(bonusRate int64, source string, transaction Transac
 	switch {
 	case bonusRate <= 0:
 		return Transaction{}, false
-	case source != StorjScanSource:
+	case source != StorjScanEthereumSource && source != StorjScanZkSyncSource:
 		return Transaction{}, false
 	case transaction.Type != TransactionTypeCredit:
 		// This is defensive. Storjscan shouldn't provide "debit" transactions.

@@ -6,6 +6,7 @@ package storjscan_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -23,10 +24,13 @@ import (
 func TestClientMocked(t *testing.T) {
 	ctx := testcontext.New(t)
 	now := time.Now().Round(time.Second).UTC()
+	chainIds := []int64{1337, 5}
 
 	var payments []storjscan.Payment
 	for i := 0; i < 100; i++ {
+		chainId := chainIds[i%len(chainIds)]
 		payments = append(payments, storjscan.Payment{
+			ChainID:     chainId,
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
 			TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
@@ -38,10 +42,19 @@ func TestClientMocked(t *testing.T) {
 			Timestamp:   now.Add(time.Duration(i) * time.Second),
 		})
 	}
-	latestBlock := storjscan.Header{
-		Hash:      payments[len(payments)-1].BlockHash,
-		Number:    payments[len(payments)-1].BlockNumber,
-		Timestamp: payments[len(payments)-1].Timestamp,
+	latestBlocks := []storjscan.Header{
+		{
+			ChainID:   payments[len(payments)-1].ChainID,
+			Hash:      payments[len(payments)-1].BlockHash,
+			Number:    payments[len(payments)-1].BlockNumber,
+			Timestamp: payments[len(payments)-1].Timestamp,
+		},
+		{
+			ChainID:   payments[len(payments)-2].ChainID,
+			Hash:      payments[len(payments)-2].BlockHash,
+			Number:    payments[len(payments)-2].BlockNumber,
+			Timestamp: payments[len(payments)-2].Timestamp,
+		},
 	}
 
 	const (
@@ -49,41 +62,61 @@ func TestClientMocked(t *testing.T) {
 		secret     = "secret"
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-
 		if err := storjscantest.CheckAuth(r, identifier, secret); err != nil {
 			storjscantest.ServeJSONError(t, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		var from int64
-		if s := r.URL.Query().Get("from"); s != "" {
-			from, err = strconv.ParseInt(s, 10, 64)
-			if err != nil {
-				storjscantest.ServeJSONError(t, w, http.StatusBadRequest, errs.New("from parameter is missing"))
-				return
+		from := make(map[int64]int64)
+
+		for _, chainID := range chainIds {
+			// By default, from should scan all chains from block 0
+			from[chainID] = 0
+			// If from parameter is set for a chain, use it
+			if s := r.URL.Query().Get(strconv.FormatInt(chainID, 10)); s != "" {
+				block, err := strconv.ParseInt(s, 10, 64)
+				if err != nil {
+					// If from parameter is invalid, continue to the next chain and just scan from block 0
+					continue
+				}
+				from[chainID] = block
 			}
 		}
 
-		storjscantest.ServePayments(t, w, from, latestBlock, payments)
+		storjscantest.ServePayments(t, w, from, latestBlocks, payments)
 	}))
 	defer server.Close()
 
 	client := storjscan.NewClient(server.URL, identifier, secret)
 
 	t.Run("all payments from 0", func(t *testing.T) {
-		actual, err := client.AllPayments(ctx, 0)
+		actual, err := client.AllPayments(ctx, nil)
 		require.NoError(t, err)
-		require.Equal(t, latestBlock, actual.LatestBlock)
+		require.Equal(t, latestBlocks, actual.LatestBlocks)
 		require.Equal(t, len(payments), len(actual.Payments))
+		sort.Slice(actual.Payments, func(i, j int) bool { return actual.Payments[i].BlockNumber < actual.Payments[j].BlockNumber })
 		require.Equal(t, payments, actual.Payments)
 	})
 	t.Run("all payments from 50", func(t *testing.T) {
-		actual, err := client.AllPayments(ctx, 50)
+		actual, err := client.AllPayments(ctx, map[int64]int64{chainIds[0]: 50, chainIds[1]: 50})
 		require.NoError(t, err)
-		require.Equal(t, latestBlock, actual.LatestBlock)
+		require.Equal(t, latestBlocks, actual.LatestBlocks)
 		require.Equal(t, 50, len(actual.Payments))
+		sort.Slice(actual.Payments, func(i, j int) bool { return actual.Payments[i].BlockNumber < actual.Payments[j].BlockNumber })
 		require.Equal(t, payments[50:], actual.Payments)
+	})
+	t.Run("all payments different start per chain ID", func(t *testing.T) {
+		actual, err := client.AllPayments(ctx, map[int64]int64{chainIds[0]: 50, chainIds[1]: 0})
+		require.NoError(t, err)
+		require.Equal(t, latestBlocks, actual.LatestBlocks)
+		require.Equal(t, 75, len(actual.Payments))
+		sort.Slice(payments, func(i, j int) bool {
+			if payments[i].ChainID == payments[j].ChainID {
+				return payments[i].BlockNumber < payments[j].BlockNumber
+			}
+			return payments[i].ChainID > payments[j].ChainID
+		})
+		require.Equal(t, payments[25:], actual.Payments)
 	})
 }
 
@@ -104,7 +137,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 
 	t.Run("empty credentials", func(t *testing.T) {
 		client := storjscan.NewClient(server.URL, "", "")
-		_, err := client.AllPayments(ctx, 0)
+		_, err := client.AllPayments(ctx, nil)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "identifier is invalid", errs.Unwrap(err).Error())
@@ -112,7 +145,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 
 	t.Run("invalid identifier", func(t *testing.T) {
 		client := storjscan.NewClient(server.URL, "invalid", "secret")
-		_, err := client.AllPayments(ctx, 0)
+		_, err := client.AllPayments(ctx, nil)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "identifier is invalid", errs.Unwrap(err).Error())
@@ -120,7 +153,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 
 	t.Run("invalid secret", func(t *testing.T) {
 		client := storjscan.NewClient(server.URL, "eu", "invalid")
-		_, err := client.AllPayments(ctx, 0)
+		_, err := client.AllPayments(ctx, nil)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "secret is invalid", errs.Unwrap(err).Error())

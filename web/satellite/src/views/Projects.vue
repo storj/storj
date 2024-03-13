@@ -3,13 +3,14 @@
 
 <template>
     <v-container>
+        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+
         <low-token-balance-banner
             v-if="isLowBalance && billingEnabled"
             cta-label="Go to billing"
             @click="redirectToBilling"
         />
         <PageTitleComponent title="All Projects" />
-        <!-- <PageSubtitleComponent subtitle="Projects are where you and your team can upload and manage data, view usage statistics and billing."/> -->
 
         <v-row>
             <v-col>
@@ -29,7 +30,6 @@
                 <v-spacer />
 
                 <v-col class="text-right">
-                    <!-- Projects Card/Table View -->
                     <v-btn-toggle
                         mandatory
                         border
@@ -65,16 +65,14 @@
         </v-row>
 
         <v-row v-if="isTableView">
-            <!-- Table view -->
             <v-col>
                 <ProjectsTableComponent :items="items" @join-click="onJoinClicked" @invite-click="(item) => onInviteClicked(item)" />
             </v-col>
         </v-row>
 
         <v-row v-else>
-            <!-- Card view -->
             <v-col v-if="!items.length" cols="12" sm="6" md="4" lg="3">
-                <ProjectCard class="h-100" @create-click="isCreateProjectDialogShown = true" />
+                <ProjectCard class="h-100" @create-click="newProjectClicked" />
             </v-col>
             <v-col v-for="item in items" v-else :key="item.id" cols="12" sm="6" md="4" lg="3">
                 <ProjectCard :item="item" class="h-100" @join-click="onJoinClicked(item)" @invite-click="onInviteClicked(item)" />
@@ -116,6 +114,7 @@ import { ROUTES } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import ProjectCard from '@/components/ProjectCard.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -127,6 +126,7 @@ import IconCardView from '@/components/icons/IconCardView.vue';
 import IconTableView from '@/components/icons/IconTableView.vue';
 import IconNew from '@/components/icons/IconNew.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -137,6 +137,7 @@ const billingStore = useBillingStore();
 
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
+const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
 
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
@@ -147,7 +148,7 @@ const isAddMemberDialogShown = ref<boolean>(false);
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns whether to use the table view.
@@ -195,8 +196,10 @@ const items = computed((): ProjectItemModel[] => {
 });
 
 function newProjectClicked() {
-    analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-    isCreateProjectDialogShown.value = true;
+    withTrialCheck(() => {
+        analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+        isCreateProjectDialogShown.value = true;
+    });
 }
 
 /**
@@ -210,16 +213,20 @@ function redirectToBilling(): void {
  * Displays the Join Project modal.
  */
 function onJoinClicked(item: ProjectItemModel): void {
-    joiningItem.value = item;
-    isJoinProjectDialogShown.value = true;
+    withTrialCheck(() => {
+        joiningItem.value = item;
+        isJoinProjectDialogShown.value = true;
+    });
 }
 
 /**
  * Displays the Add Members dialog.
  */
 function onInviteClicked(item: ProjectItemModel): void {
-    addMemberProjectId.value = item.id;
-    isAddMemberDialogShown.value = true;
+    withTrialCheck(() => {
+        addMemberProjectId.value = item.id;
+        isAddMemberDialogShown.value = true;
+    });
 }
 
 /**
@@ -235,7 +242,7 @@ function formattedValue(value: Size): string {
 }
 
 onMounted(() => {
-    if (configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled) {
+    if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
         Promise.all([
             billingStore.getBalance(),
             billingStore.getCreditCards(),

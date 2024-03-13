@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/private/multinodeauth"
 )
 
-func Test_unmarshalJSONNodes(t *testing.T) {
+func TestUnmarshalJSONNodes(t *testing.T) {
 	nodeID, err := storj.NodeIDFromString("1MJ7R1cqGrFnELPY3YKd62TBJ6vE8x9yPKPwUFHUx6G8oypezR")
 	require.NoError(t, err)
 

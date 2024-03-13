@@ -3,19 +3,19 @@
 
 <template>
     <v-col cols="12" md="6" lg="6" xl="3">
-        <v-card class="px-2 py-4">
+        <v-card class="px-2 py-4 h-100 align-content-space-between">
             <v-card-item class="pb-0">
                 <img :src="app.src" :alt="app.title" width="42" class="rounded">
             </v-card-item>
 
             <v-card-item>
-                <v-chip size="small" variant="tonal" color="default" class="mb-3 font-weight-medium" rounded>
+                <v-chip size="small" variant="tonal" color="default" class="mb-2" rounded>
                     {{ app.category }}
                 </v-chip>
                 <h3 class="mb-1">
                     {{ app.title }}
                 </h3>
-                <p class="mt-1 text-medium-emphasis">
+                <p class="mt-1 text-high-emphasis">
                     {{ app.description }}
                 </p>
             </v-card-item>
@@ -46,12 +46,15 @@ import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 
 import { Application } from '@/types/applications';
 import { AccessType, Exposed } from '@/types/createAccessGrant';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 
 const props = defineProps<{
     app: Application
 }>();
+
+const { withTrialCheck } = useTrialCheck();
 
 const accessDialog = ref<Exposed>();
 const dialog = ref<boolean>(false);
@@ -61,7 +64,9 @@ const dialog = ref<boolean>(false);
  * Starts create S3 credentials flow.
  */
 function onSetup(): void {
-    accessDialog.value?.setTypes([AccessType.S3]);
-    dialog.value = true;
+    withTrialCheck(() => {
+        accessDialog.value?.setTypes([AccessType.S3]);
+        dialog.value = true;
+    });
 }
 </script>

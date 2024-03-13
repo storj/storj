@@ -7,6 +7,10 @@
         and get 10% bonus on your STORJ tokens deposit.
     </p>
 
+    <v-alert v-if="user.trialExpiration" border class="my-2" type="info" variant="tonal" color="info">
+        <p class="text-body-2 my-2">By upgrading, your trial will end immediately.</p>
+    </v-alert>
+
     <v-row justify="center" class="mx-0 pb-5 pt-4">
         <v-col class="pl-0">
             <v-btn
@@ -39,11 +43,13 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCol, VIcon, VRow } from 'vuetify/components';
+import { computed } from 'vue';
+import { VBtn, VCol, VIcon, VRow, VAlert } from 'vuetify/components';
 import { mdiCreditCard, mdiPlusCircle } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
+import { User } from '@/types/users';
 
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -56,4 +62,9 @@ const emit = defineEmits<{
     addCard: [];
     addTokens: [];
 }>();
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed<User>(() => usersStore.state.user);
 </script>

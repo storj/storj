@@ -50,10 +50,11 @@ func getDiskFreeSpace(path string) (total, free int64, err error) {
 	if err != nil {
 		return -1, -1, err
 	}
+	// See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw
 	_, _, err = procGetDiskFreeSpace.Call(uintptr(unsafe.Pointer(path16)),
 		uintptr(unsafe.Pointer(&free)),
-		0,
-		uintptr(unsafe.Pointer(&total)))
+		uintptr(unsafe.Pointer(&total)),
+		0)
 
 	err = ignoreSuccess(err)
 	return total, free, err

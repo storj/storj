@@ -14,11 +14,11 @@ import {
     _Object,
     GetObjectCommand,
     paginateListObjectsV2,
+    ListObjectsV2CommandInput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
 import { SignatureV4 } from '@smithy/signature-v4';
-import { ListObjectsV2CommandInput } from '@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';

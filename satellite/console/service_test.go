@@ -52,7 +52,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -61,6 +61,7 @@ func TestService(t *testing.T) {
 					plcStr += fmt.Sprintf(`%d:annotation("location", "%s"); `, k, v)
 				}
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
+				config.Console.VarPartners = []string{"partner1"}
 			},
 		},
 	},
@@ -75,6 +76,9 @@ func TestService(t *testing.T) {
 
 			uplink3 := planet.Uplinks[2]
 			up3Proj, err := sat.API.DB.Console().Projects().Get(ctx, uplink3.Projects[0].ID)
+			require.NoError(t, err)
+
+			up4Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[3].Projects[0].ID)
 			require.NoError(t, err)
 
 			require.NotEqual(t, up1Proj.ID, up2Proj.ID)
@@ -96,6 +100,37 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				return
 			}
+
+			t.Run("GetUserHasVarPartner", func(t *testing.T) {
+				varUser, err := sat.AddUser(ctx, console.CreateUser{
+					FullName:  "Var User",
+					Email:     "var@storj.test",
+					Password:  "password",
+					UserAgent: []byte("partner1"),
+				}, 1)
+				require.NoError(t, err)
+
+				varUserCtx, err := sat.UserContext(ctx, varUser.ID)
+				require.NoError(t, err)
+
+				has, err := service.GetUserHasVarPartner(varUserCtx)
+				require.NoError(t, err)
+				require.True(t, has)
+
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Regular User",
+					Email:    "reg@storj.test",
+					Password: "password",
+				}, 1)
+				require.NoError(t, err)
+
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				has, err = service.GetUserHasVarPartner(userCtx)
+				require.NoError(t, err)
+				require.False(t, has)
+			})
 
 			t.Run("GetProject", func(t *testing.T) {
 				// Getting own project details should work
@@ -203,6 +238,45 @@ func TestService(t *testing.T) {
 				cards, err := service.Payments().ListCreditCards(userCtx1)
 				require.NoError(t, err)
 				require.Len(t, cards, 1)
+			})
+
+			t.Run("Exit trial expiration freeze", func(t *testing.T) {
+				freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+				user4, userCtx4 := getOwnerAndCtx(ctx, up4Proj)
+				require.False(t, user4.PaidTier)
+
+				// trial expiration freeze user
+				err = freezeService.TrialExpirationFreezeUser(ctx, user4.ID)
+				require.NoError(t, err)
+				frozen, err := freezeService.IsUserFrozen(ctx, user4.ID, console.TrialExpirationFreeze)
+				require.NoError(t, err)
+				require.True(t, frozen)
+
+				// add a credit card to put the user in the paid tier
+				// and remove the trial expiration freeze event
+				_, err = service.Payments().AddCreditCard(userCtx4, "test-cc-token")
+				require.NoError(t, err)
+				// user should be in paid tier
+				user4, err = service.GetUser(ctx, up1Proj.OwnerID)
+				require.NoError(t, err)
+				require.True(t, user4.PaidTier)
+				limits := sat.Config.Console.UsageLimits
+				require.Equal(t, limits.Storage.Paid.Int64(), user4.ProjectStorageLimit)
+				require.Equal(t, limits.Bandwidth.Paid.Int64(), user4.ProjectBandwidthLimit)
+				require.Equal(t, limits.Segment.Paid, user4.ProjectSegmentLimit)
+				require.Equal(t, limits.Project.Paid, user4.ProjectLimit)
+
+				proj, err := sat.API.Console.Service.GetProject(userCtx4, up4Proj.ID)
+				require.NoError(t, err)
+				require.Equal(t, limits.Storage.Paid, *proj.StorageLimit)
+				require.Equal(t, limits.Bandwidth.Paid, *proj.BandwidthLimit)
+				require.Equal(t, limits.Segment.Paid, *proj.SegmentLimit)
+
+				// freeze event should be removed
+				frozen, err = freezeService.IsUserFrozen(ctx, user4.ID, console.TrialExpirationFreeze)
+				require.NoError(t, err)
+				require.False(t, frozen)
 			})
 
 			t.Run("CreateProject", func(t *testing.T) {
@@ -951,6 +1025,53 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, items, 2)
 			})
+
+			t.Run("GetProjectConfig", func(t *testing.T) {
+				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "config test")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				versioningConfig := console.VersioningConfig{
+					UseBucketLevelObjectVersioning: false,
+				}
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				// Getting project config as a member should work
+				config, err := service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.EqualValues(t, console.ProjectConfig{}, *config)
+
+				// Getting project config as a non-member should not work
+				config, err = service.GetProjectConfig(userCtx2, pr.ID)
+				require.Error(t, err)
+				require.Nil(t, config)
+
+				versioningConfig.UseBucketLevelObjectVersioning = true
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.True(t, config.VersioningUIEnabled)
+
+				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{pr.ID.String()}
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.True(t, config.VersioningUIEnabled)
+
+				versioningConfig.UseBucketLevelObjectVersioning = false
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				// versioning still enabled because project is in config.UseBucketLevelObjectVersioningProjects
+				require.True(t, config.VersioningUIEnabled)
+			})
 		})
 }
 
@@ -1615,7 +1736,7 @@ func TestUserSettings(t *testing.T) {
 
 		newUser, err := userDB.Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
-			Email:        "newuser@example.com",
+			Email:        "newuser@example.test",
 			PasswordHash: []byte("i am a hash of a password, hello"),
 		})
 		require.NoError(t, err)
@@ -1929,6 +2050,51 @@ func TestSessionExpiration(t *testing.T) {
 	})
 }
 
+func TestTrialExpiration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+		require.Nil(t, user.TrialExpiration)
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 48 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		now := time.Now()
+		service.TestSetNow(func() time.Time {
+			return now
+		})
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+		require.NotNil(t, user.TrialExpiration)
+		require.WithinDuration(t, now.Add(sat.Config.Console.FreeTrialDuration), *user.TrialExpiration, time.Minute)
+	})
+}
+
 func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -2026,6 +2192,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		var cachedPayments []storjscan.CachedPayment
 		for i := 0; i < 10; i++ {
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
+				ChainID:     1337,
 				From:        blockchaintest.NewAddress(),
 				To:          wallet,
 				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
@@ -2095,7 +2262,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 			require.NoError(t, err)
 
 			expected = append(expected, console.PaymentInfo{
-				ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+				ID:        fmt.Sprint(txn.ID),
 				Type:      txn.Source,
 				Wallet:    meta.Wallet,
 				Amount:    txn.Amount,
@@ -2488,6 +2655,11 @@ func (v *EmailVerifier) FromAddress() post.Address {
 func TestProjectInvitations(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.VarPartners = []string{"partner1"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -2582,11 +2754,11 @@ func TestProjectInvitations(t *testing.T) {
 			require.Len(t, invites, 1)
 
 			// adding in a non-existent user should work.
-			_, err = service.InviteNewProjectMember(ctx, project.ID, "notauser@mail.com")
+			_, err = service.InviteNewProjectMember(ctx, project.ID, "notauser@mail.test")
 			require.NoError(t, err)
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
-			const testEmail = "other@mail.com"
+			const testEmail = "other@mail.test"
 			ctx2 = upgradeToPaidTier(t, ctx2, user2)
 			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
 			require.Error(t, err)
@@ -2646,6 +2818,23 @@ func TestProjectInvitations(t *testing.T) {
 			body, err := sender.Data.Get(ctx)
 			require.NoError(t, err)
 			require.Contains(t, body, "/activation")
+
+			varUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName:  "Test User",
+				Email:     fmt.Sprintf("%s@mail.test", testrand.RandAlphaNumeric(16)),
+				UserAgent: []byte("partner1"),
+			}, 1)
+			require.NoError(t, err)
+			varCtx, err := sat.UserContext(ctx, varUser.ID)
+			require.NoError(t, err)
+
+			varProj, err := sat.AddProject(varCtx, varUser.ID, "Test Project")
+			require.NoError(t, err)
+
+			// inviting as a var-partner user should fail when config.FreeTierInvitesEnabled is false.
+			invite, err = service.InviteNewProjectMember(varCtx, varProj.ID, user2.Email)
+			require.True(t, console.ErrHasVarPartner.Has(err))
+			require.Nil(t, invite)
 		})
 
 		t.Run("get invitation", func(t *testing.T) {
@@ -2737,7 +2926,7 @@ func TestProjectInvitations(t *testing.T) {
 
 			invite := addInvite(t, ctx, project, user.Email)
 
-			someToken, err := service.CreateInviteToken(ctx, project.PublicID, "some@email.com", invite.CreatedAt)
+			someToken, err := service.CreateInviteToken(ctx, project.PublicID, "some@email.test", invite.CreatedAt)
 			require.NoError(t, err)
 
 			inviteFromToken, err := service.GetInviteByToken(ctx, someToken)

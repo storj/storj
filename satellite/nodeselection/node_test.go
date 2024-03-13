@@ -69,6 +69,10 @@ func TestNodeAttribute(t *testing.T) {
 		},
 	}))
 
+	assert.Equal(t, "true", must(CreateNodeAttribute("vetted"))(SelectedNode{
+		Vetted: true,
+	}))
+
 	_, err := CreateNodeAttribute("tag:xxx/foo")
 	require.ErrorContains(t, err, "has invalid NodeID")
 

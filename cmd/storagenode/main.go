@@ -15,6 +15,9 @@ import (
 )
 
 func main() {
+	logger, _, _ := process.NewLogger("storagenode")
+	zap.ReplaceGlobals(logger.With(zap.String("Process", "storagenode")))
+
 	process.SetHardcodedApplicationName("storagenode")
 
 	allowDefaults := !isFilewalkerCommand()
@@ -25,7 +28,7 @@ func main() {
 	}
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
-		return logger.With(zap.String("process", rootCmd.Use))
+		return logger.With(zap.String("Process", rootCmd.Use))
 	}
 
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
@@ -38,5 +41,5 @@ func main() {
 }
 
 func isFilewalkerCommand() bool {
-	return len(os.Args) > 1 && (os.Args[1] == lazyfilewalker.UsedSpaceFilewalkerCmdName || os.Args[1] == lazyfilewalker.GCFilewalkerCmdName)
+	return len(os.Args) > 1 && (os.Args[1] == lazyfilewalker.UsedSpaceFilewalkerCmdName || os.Args[1] == lazyfilewalker.GCFilewalkerCmdName || os.Args[1] == lazyfilewalker.TrashCleanupFilewalkerCmdName)
 }

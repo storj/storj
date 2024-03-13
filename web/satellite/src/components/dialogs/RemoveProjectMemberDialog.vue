@@ -118,6 +118,10 @@ const props = defineProps<{
 
 const model = defineModel<boolean>({ required: true });
 
+const emit = defineEmits<{
+    (event: 'deleted'): void;
+}>();
+
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
@@ -133,6 +137,7 @@ async function onDelete(): Promise<void> {
         try {
             await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id, props.emails);
             notify.success('Members were successfully removed from the project');
+            emit('deleted');
             model.value = false;
         } catch (error) {
             error.message = `Error removing project members. ${error.message}`;

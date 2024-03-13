@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -83,7 +84,7 @@ const (
 	activeProjInviteExistsErrMsg         = "An active invitation for '%s' already exists"
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
-	newInviteLimitErrMsg                 = "Only one new invitation can be sent at a time"
+	varPartnerInviteErr                  = "Your partner does not support inviting users"
 	paidTierInviteErrMsg                 = "Only paid tier users can invite project members"
 	contactSupportErrMsg                 = "Please contact support"
 )
@@ -165,6 +166,9 @@ var (
 	// ErrNotPaidTier occurs when a user must be paid tier in order to complete an operation.
 	ErrNotPaidTier = errs.Class("user is not paid tier")
 
+	// ErrHasVarPartner occurs when a user's user agent is a var partner for which an operation is not allowed.
+	ErrHasVarPartner = errs.Class("VAR Partner")
+
 	// ErrBotUser occurs when a user must be verified by admin first in order to complete operation.
 	ErrBotUser = errs.Class("user has to be verified by admin first")
 
@@ -200,6 +204,10 @@ type Service struct {
 	config            Config
 	maxProjectBuckets int
 
+	varPartners map[string]struct{}
+
+	versioningConfig VersioningConfig
+
 	nowFn func() time.Time
 }
 
@@ -221,7 +229,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -249,6 +257,20 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		loginCaptchaHandler = NewDefaultCaptcha(Hcaptcha, config.Captcha.Login.Hcaptcha.SecretKey)
 	}
 
+	partners := make(map[string]struct{}, len(config.VarPartners))
+	for _, partner := range config.VarPartners {
+		partners[partner] = struct{}{}
+	}
+
+	versioning.projectMap = make(map[uuid.UUID]struct{}, len(versioning.UseBucketLevelObjectVersioningProjects))
+	for _, id := range versioning.UseBucketLevelObjectVersioningProjects {
+		projectID, err := uuid.FromString(id)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		versioning.projectMap[projectID] = struct{}{}
+	}
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -272,6 +294,8 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		satelliteName:              satelliteName,
 		maxProjectBuckets:          maxProjectBuckets,
 		config:                     config,
+		varPartners:                partners,
+		versioningConfig:           versioning,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -406,11 +430,27 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 
 func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err error) {
 	// put this user into the paid tier and convert projects to upgraded limits.
+	now := payment.service.nowFn()
+
+	freeze, err := payment.service.accountFreezeService.Get(ctx, user.ID, TrialExpirationFreeze)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+	}
+	if freeze != nil {
+		err = payment.service.accountFreezeService.TrialExpirationUnfreezeUser(ctx, user.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
 	err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
 		payment.service.config.UsageLimits.Bandwidth.Paid,
 		payment.service.config.UsageLimits.Storage.Paid,
 		payment.service.config.UsageLimits.Segment.Paid,
 		payment.service.config.UsageLimits.Project.Paid,
+		&now,
 	)
 	if err != nil {
 		return Error.Wrap(err)
@@ -834,6 +874,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+		}
+
+		if s.config.FreeTrialDuration != 0 {
+			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
+			newUser.TrialExpiration = &expiration
 		}
 
 		// TODO: move the project limits into the registration token.
@@ -1478,6 +1523,20 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 	return verified, unverified, err
 }
 
+// GetUserHasVarPartner returns whether the user in context is associated with a VAR partner.
+func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get user has VAR partner")
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	if _, has = s.varPartners[string(user.UserAgent)]; has {
+		return has, nil
+	}
+	return false, nil
+}
+
 // UpdateAccount updates User.
 func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1723,6 +1782,30 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 	}, nil
 }
 
+// GetProjectConfig is a method for querying project config.
+func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*ProjectConfig, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	versioningUIEnabled := true
+	if !s.versioningConfig.UseBucketLevelObjectVersioning {
+		_, versioningUIEnabled = s.versioningConfig.projectMap[isMember.project.ID]
+	}
+
+	return &ProjectConfig{
+		VersioningUIEnabled: versioningUIEnabled,
+	}, nil
+}
+
 // GetUsersProjects is a method for querying all projects.
 func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1758,6 +1841,7 @@ func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 		CreatedAt:     project.CreatedAt,
 		StorageUsed:   project.StorageUsed,
 		BandwidthUsed: project.BandwidthUsed,
+		Versioning:    project.DefaultVersioning,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {
@@ -3593,7 +3677,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			return WalletPayments{}, Error.Wrap(err)
 		}
 		paymentInfos = append(paymentInfos, PaymentInfo{
-			ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+			ID:        fmt.Sprint(txn.ID),
 			Type:      txn.Source,
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,
@@ -4058,6 +4142,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	projectID = isMember.project.ID
 
 	if s.config.BillingFeaturesEnabled && !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
+		if _, ok := s.varPartners[string(sender.UserAgent)]; ok {
+			return nil, ErrHasVarPartner.New(varPartnerInviteErr)
+		}
 		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
 	}
 
@@ -4319,6 +4406,22 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 	}
 
 	return claims.ID, claims.Email, nil
+}
+
+// TestSetVersioningConfig allows tests to switch the versioning config.
+func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
+	versioning.projectMap = make(map[uuid.UUID]struct{}, len(versioning.UseBucketLevelObjectVersioningProjects))
+	for _, id := range versioning.UseBucketLevelObjectVersioningProjects {
+		projectID, err := uuid.FromString(id)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		versioning.projectMap[projectID] = struct{}{}
+	}
+
+	s.versioningConfig = versioning
+
+	return nil
 }
 
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.

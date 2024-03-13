@@ -114,7 +114,7 @@ func TestOIDC(t *testing.T) {
 		user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
 			FullName: "User",
 			Email:    "u@mail.test",
-			Password: "123a123",
+			Password: "password",
 		}, regToken.Secret)
 		require.NoError(t, err)
 

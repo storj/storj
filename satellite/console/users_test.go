@@ -6,6 +6,7 @@ package console_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 const (
 	lastName        = "lastName"
 	email           = "email@mail.test"
-	passValid       = "123456"
+	passValid       = "password"
 	name            = "name"
 	newName         = "newName"
 	newLastName     = "newLastName"
@@ -78,13 +79,13 @@ func TestUserEmailCase(t *testing.T) {
 		for _, testCase := range []struct {
 			email string
 		}{
-			{email: "prettyandsimple@example.com"},
-			{email: "firstname.lastname@domain.com	"},
-			{email: "email@subdomain.domain.com	"},
-			{email: "firstname+lastname@domain.com	"},
+			{email: "prettyandsimple@example.test"},
+			{email: "firstname.lastname@domain.test	"},
+			{email: "email@subdomain.domain.test	"},
+			{email: "firstname+lastname@domain.test	"},
 			{email: "email@[123.123.123.123]	"},
-			{email: "\"email\"@domain.com"},
-			{email: "_______@domain.com	"},
+			{email: "\"email\"@domain.test"},
+			{email: "_______@domain.test	"},
 		} {
 			newUser := &console.User{
 				ID:           testrand.UUID(),
@@ -139,7 +140,8 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, createdUser.ShortName)
 		require.False(t, createdUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit)
+		now := time.Now()
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, &now)
 		require.NoError(t, err)
 
 		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
@@ -148,13 +150,15 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, fullName, retrievedUser.FullName)
 		require.Equal(t, shortName, retrievedUser.ShortName)
 		require.True(t, retrievedUser.PaidTier)
+		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, nil)
 		require.NoError(t, err)
 
 		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
 		require.NoError(t, err)
 		require.False(t, retrievedUser.PaidTier)
+		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
 	})
 }
 
@@ -299,7 +303,7 @@ func TestGetUserByEmail(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "Inactive User",
 			Email:        email,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
@@ -318,7 +322,7 @@ func TestGetUserByEmail(t *testing.T) {
 			FullName:     "Active User",
 			Email:        email,
 			Status:       console.Active,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &activeUser)
@@ -344,7 +348,7 @@ func TestGetUsersByStatus(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     "Inactive User",
 			Email:        email,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
@@ -355,7 +359,7 @@ func TestGetUsersByStatus(t *testing.T) {
 			FullName:     "Active User",
 			Email:        email,
 			Status:       console.Active,
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &activeUser)
@@ -383,6 +387,61 @@ func TestGetUsersByStatus(t *testing.T) {
 	})
 }
 
+func TestGetExpiredFreeTrialsAfter(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		now := time.Now()
+		expired := now.Add(-time.Hour)
+		notExpired := now.Add(time.Hour)
+		expiries := []*time.Time{nil, &expired, &notExpired}
+		for i, expiry := range expiries {
+			user := console.User{
+				ID:              testrand.UUID(),
+				FullName:        fmt.Sprintf("User %d", i),
+				Email:           email,
+				PasswordHash:    []byte("123a123"),
+				Status:          console.Active,
+				TrialExpiration: expiry,
+			}
+
+			_, err := usersRepo.Insert(ctx, &user)
+			require.NoError(t, err)
+		}
+
+		// expect paid tier user with expired trial to not be returned.
+		user := console.User{
+			ID:              testrand.UUID(),
+			FullName:        "Active User",
+			Email:           email,
+			Status:          console.Active,
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &expired,
+		}
+		_, err := usersRepo.Insert(ctx, &user)
+		require.NoError(t, err)
+
+		paidTier := true
+		err = usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			PaidTier: &paidTier,
+		})
+		require.NoError(t, err)
+
+		cursor := console.UserCursor{
+			Limit: 50,
+			Page:  1,
+		}
+		usersPage, err := usersRepo.GetExpiredFreeTrialsAfter(ctx, now, cursor)
+		require.NoError(t, err)
+		require.Len(t, usersPage.Users, 1, "expected 1 expired user")
+
+		cursor.Page = 2
+		usersPage, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, cursor)
+		require.NoError(t, err)
+		require.Empty(t, usersPage.Users, "expected no users")
+	})
+}
+
 func TestGetUnverifiedNeedingReminder(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		Reconfigure: testplanet.Reconfigure{
@@ -404,7 +463,7 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 			ID:           id,
 			FullName:     "unverified user one",
 			Email:        "userone@mail.test",
-			PasswordHash: []byte("123a123"),
+			PasswordHash: []byte("password"),
 		})
 		require.NoError(t, err)
 

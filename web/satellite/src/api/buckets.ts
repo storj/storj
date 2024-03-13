@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Bucket, BucketCursor, BucketPage, BucketPlacement, BucketsApi, Versioning } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketPage, BucketPlacement, BucketsApi } from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
+import { getVersioning } from '@/types/versioning';
 
 /**
  * BucketsHttpApi is an HTTP implementation of the Buckets API.
@@ -45,7 +46,7 @@ export class BucketsHttpApi implements BucketsApi {
             result.bucketUsages?.map(usage =>
                 new Bucket(
                     usage.bucketName,
-                    this.getVersioning(usage.versioning),
+                    getVersioning(usage.versioning),
                     usage.defaultPlacement,
                     usage.location,
                     usage.storage,
@@ -109,20 +110,5 @@ export class BucketsHttpApi implements BucketsApi {
         const result = await response.json();
 
         return result ? result : [];
-    }
-
-    private getVersioning(value: number): Versioning {
-        switch (value) {
-        case 0:
-            return Versioning.NotSupported;
-        case 1:
-            return Versioning.Unversioned;
-        case 2:
-            return Versioning.Enabled;
-        case 3:
-            return Versioning.Suspended;
-        default:
-            return Versioning.NotSupported;
-        }
     }
 }

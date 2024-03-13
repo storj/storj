@@ -102,6 +102,8 @@ type DB interface {
 	Payout() payouts.DB
 	Pricing() pricing.DB
 	APIKeys() apikeys.DB
+	GCFilewalkerProgress() pieces.GCFilewalkerProgressDB
+	UsedSpacePerPrefix() pieces.UsedSpacePerPrefixDB
 
 	Preflight(ctx context.Context) error
 }

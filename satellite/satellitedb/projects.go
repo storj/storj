@@ -78,6 +78,7 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 			projects.max_buckets,
 			projects.created_at,
 			COALESCE(projects.default_placement, 0),
+			COALESCE(projects.default_versioning, 0),
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
 		FROM projects
 		JOIN project_members ON projects.id = project_members.project_id
@@ -103,6 +104,7 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 			&maxBuckets,
 			&nextProject.CreatedAt,
 			&nextProject.DefaultPlacement,
+			&nextProject.DefaultVersioning,
 			&nextProject.MemberCount,
 		)
 		if err != nil {
@@ -492,6 +494,7 @@ func (projects *projects) ListByOwnerID(
 			max_buckets,
 			created_at,
 			COALESCE(default_placement, 0),
+			COALESCE(default_versioning, 0),
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
 		FROM projects
 		WHERE owner_id = ?
@@ -526,6 +529,7 @@ func (projects *projects) ListByOwnerID(
 			&maxBuckets,
 			&nextProject.CreatedAt,
 			&nextProject.DefaultPlacement,
+			&nextProject.DefaultVersioning,
 			&nextProject.MemberCount,
 		)
 		if err != nil {

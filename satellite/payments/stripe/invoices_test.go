@@ -149,7 +149,7 @@ func TestPayOverdueInvoices(t *testing.T) {
 			UserID:      userID,
 			Amount:      currency.AmountFromBaseUnits(300, currency.USDollars),
 			Description: "token payment credit",
-			Source:      billing.StorjScanSource,
+			Source:      billing.StorjScanEthereumSource,
 			Status:      billing.TransactionStatusCompleted,
 			Type:        billing.TransactionTypeCredit,
 			Metadata:    nil,

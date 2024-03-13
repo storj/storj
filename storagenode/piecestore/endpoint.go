@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/trust"
+	"storj.io/uplink/private/piecestore"
 )
 
 var (
@@ -960,7 +961,10 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
 	}
+	return endpoint.processRetainReq(peer.ID, retainReq)
+}
 
+func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
@@ -972,22 +976,47 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 	// the queue function will update the created before time based on the configurable retain buffer
 	queued := endpoint.retain.Queue(retain.Request{
-		SatelliteID:   peer.ID,
+		SatelliteID:   peerID,
 		CreatedBefore: retainReq.GetCreationDate(),
 		Filter:        filter,
 	})
 	if queued {
-		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peer.ID))
+		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peerID))
 	} else {
-		endpoint.log.Info("Retain job not queued (job already exists)", zap.Stringer("Satellite ID", peer.ID))
+		endpoint.log.Info("Retain job not queued (queue is closed)", zap.Stringer("Satellite ID", peerID))
 	}
 
 	return &pb.RetainResponse{}, nil
 }
 
 // RetainBig keeps only piece ids specified in the request, supports big bloom filters.
-func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) error {
-	return errs.New("Not yet supported")
+func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+	defer func() {
+		_ = stream.Close()
+	}()
+
+	// if retain status is disabled, quit immediately
+	if endpoint.retain.Status() == retain.Disabled {
+		return nil
+	}
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
+	}
+	retainReq, err := piecestore.RetainRequestFromStream(stream)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+	_, err = endpoint.processRetainReq(peer.ID, &retainReq)
+	return err
 }
 
 // TestLiveRequestCount returns the current number of live requests.

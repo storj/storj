@@ -26,10 +26,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/cmd/storagenode/internalcmd"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
@@ -895,4 +898,110 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
+}
+
+func TestEmptyTrash_lazyFilewalker(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		log := zaptest.NewLogger(t)
+		blobs := db.Pieces()
+		fw := pieces.NewFileWalker(log, blobs, nil)
+		cfg := pieces.DefaultConfig
+		cfg.EnableLazyFilewalker = true
+
+		lazyFwCfg := db.Config().LazyFilewalkerConfig()
+		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
+		cmd := internalcmd.NewTrashFilewalkerCmd()
+		cmd.Logger = log.Named("trash-filewalker")
+		cmd.Ctx = ctx
+		runCount := 0
+		lazyFw.TestingSetTrashCleanupCmd(&execCommandWrapper{Command: cmd, count: &runCount})
+
+		startTime := time.Now()
+		store := pieces.NewStore(log, fw, lazyFw, blobs, nil, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), cfg)
+
+		// build some data belonging to multiple satellites and store it in the piecestore
+		const (
+			numSatellites         = 2
+			numPiecesPerSatellite = 10
+			deleteDays            = 4
+		)
+		satellites := make([]storj.NodeID, numSatellites)
+		pieceIDs := make([][]storj.PieceID, numSatellites)
+		contents := make([][][]byte, numSatellites)
+		for sat := 0; sat < numSatellites; sat++ {
+			satellites[sat] = testrand.NodeID()
+			pieceIDs[sat] = make([]storj.PieceID, numPiecesPerSatellite)
+			contents[sat] = make([][]byte, numPiecesPerSatellite)
+
+			for p := 0; p < numPiecesPerSatellite; p++ {
+				pieceIDs[sat][p] = testrand.PieceID()
+				contents[sat][p] = testrand.Bytes(10 * memory.KiB)
+				storeSinglePiece(ctx, t, store, satellites[sat], pieceIDs[sat][p], contents[sat][p])
+			}
+		}
+
+		// trash the pieces on different "days"
+		for sat, satID := range satellites {
+			for p, pieceID := range pieceIDs[sat] {
+				trashNow := startTime.Add(time.Duration(p-numPiecesPerSatellite) * 24 * time.Hour)
+				err := store.Trash(ctx, satID, pieceID, trashNow)
+				require.NoError(t, err)
+			}
+		}
+
+		// empty the trash
+		deleteBefore := startTime.Add(-deleteDays * 24 * time.Hour)
+		for _, satID := range satellites {
+			err := store.EmptyTrash(ctx, satID, deleteBefore)
+			require.NoError(t, err)
+		}
+		// we should have run the lazy filewalker version of EmptyTrash twice now
+		assert.Equal(t, 2, runCount)
+
+		// and check that everything is the way we expect
+		for sat, satID := range satellites {
+			for p, pieceID := range pieceIDs[sat] {
+				err := store.TryRestoreTrashPiece(ctx, satID, pieceID)
+				if shouldBeDeleted(startTime.Add(time.Duration(p-numPiecesPerSatellite)*24*time.Hour), deleteBefore) {
+					require.Error(t, err)
+					require.True(t, os.IsNotExist(err), "Expected IsNotExist but got %+v", err)
+				} else {
+					require.NoError(t, err)
+				}
+			}
+		}
+	})
+}
+
+func storeSinglePiece(ctx *testcontext.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte) {
+	writer, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
+	require.NoError(t, err)
+
+	_, err = io.Copy(writer, bytes.NewReader(data))
+	require.NoError(t, err)
+
+	// commit
+	require.NoError(t, writer.Commit(ctx, &pb.PieceHeader{
+		Hash:          writer.Hash(),
+		HashAlgorithm: pb.PieceHashAlgorithm_SHA256,
+	}))
+}
+
+func shouldBeDeleted(trashTime, deleteBefore time.Time) bool {
+	return !trashTime.After(deleteBefore.Add(-24 * time.Hour))
+}
+
+type execCommandWrapper struct {
+	execwrapper.Command
+	count *int
+}
+
+func (w *execCommandWrapper) Start() error {
+	*w.count++
+	return w.Command.Start()
+}
+
+func (w *execCommandWrapper) Run() error {
+	*w.count++
+	return w.Command.Run()
 }

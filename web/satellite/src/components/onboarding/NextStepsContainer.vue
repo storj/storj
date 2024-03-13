@@ -3,16 +3,34 @@
 
 <template>
     <template v-if="!hideContainer">
-        <page-title-component :title="'Welcome ' + user.fullName" />
-        <page-subtitle-component class="mb-4" subtitle="Your next steps" />
+        <div class="d-flex align-center justify-space-between mb-4">
+            <div>
+                <page-title-component :title="'Welcome ' + user.fullName" />
+                <page-subtitle-component subtitle="Your next steps" />
+            </div>
+            <v-tooltip v-if="shouldShowOnboardStepper" location="bottom" text="Dismiss Onboarding">
+                <template #activator="{ props }">
+                    <v-btn
+                        v-bind="props"
+                        icon="$close"
+                        variant="text"
+                        size="small"
+                        color="default"
+                        :loading="isLoading"
+                        @click="dismissOnboarding"
+                    />
+                </template>
+            </v-tooltip>
+        </div>
 
-        <onboarding-component v-if="shouldShowOnboardStepper" />
+        <onboarding-component v-if="shouldShowOnboardStepper" ref="onboardingStepper" />
         <partner-upgrade-notice-banner v-if="partnerBannerVisible" v-model="partnerBannerVisible" :plan-info="planInfo" />
     </template>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref, watch } from 'vue';
+import { VBtn, VTooltip } from 'vuetify/components';
 
 import { ONBOARDING_STEPPER_STEPS, User } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -36,11 +54,13 @@ const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
-const { withLoading } = useLoading();
+const { isLoading, withLoading } = useLoading();
 
 const partnerBannerVisible = ref(false);
 const hideContainer = ref(false);
 const planInfo = ref<PricingPlanInfo>();
+
+const onboardingStepper = ref<{ endOnboarding: () => Promise<void> }>();
 
 const user = computed<User>(() => usersStore.state.user);
 
@@ -59,9 +79,15 @@ const shouldShowOnboardStepper = computed<boolean>(() => {
     return !userSettings.value.onboardingEnd && hasOnboardStep;
 });
 
+function dismissOnboarding() {
+    withLoading(async () => {
+        await onboardingStepper.value?.endOnboarding();
+    });
+}
+
 function getShouldShowPartnerBanner() {
     withLoading(async () => {
-        if (!configStore.state.config.billingFeaturesEnabled
+        if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)
         || !configStore.state.config.pricingPackagesEnabled
         || usersStore.noticeDismissal.partnerUpgradeBanner) {
             return;

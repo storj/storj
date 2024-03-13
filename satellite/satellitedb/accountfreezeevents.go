@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -70,8 +72,8 @@ func (events *accountFreezeEvents) Get(ctx context.Context, userID uuid.UUID, ev
 	return fromDBXAccountFreezeEvent(dbxEvent)
 }
 
-// GetAllEvents is a method for querying all account freeze events from the database.
-func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor console.FreezeEventsCursor, optionalEventType *console.AccountFreezeEventType) (freezeEvents *console.FreezeEventsPage, err error) {
+// GetAllEvents is a method for querying all account freeze events or events of particular types from the database.
+func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor console.FreezeEventsCursor, optionalEventTypes []console.AccountFreezeEventType) (freezeEvents *console.FreezeEventsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if cursor.Limit <= 0 {
@@ -87,20 +89,24 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 	}
 
 	var rows tagsql.Rows
-	if optionalEventType == nil {
+	if len(optionalEventTypes) == 0 {
 		rows, err = events.db.Query(ctx, events.db.Rebind(`
-		SELECT user_id, event
+		SELECT user_id, event, days_till_escalation, created_at
 		FROM account_freeze_events
 			WHERE user_id > ? 
 			ORDER BY user_id LIMIT ?
 		`), cursor.StartingAfter, cursor.Limit+1)
 	} else {
+		types := make([]string, 0, len(optionalEventTypes))
+		for _, t := range optionalEventTypes {
+			types = append(types, strconv.Itoa(int(t)))
+		}
 		rows, err = events.db.Query(ctx, events.db.Rebind(`
 		SELECT user_id, event, days_till_escalation, created_at
 		FROM account_freeze_events
-			WHERE user_id > ? AND event = ?
+			WHERE user_id > ? AND event IN (`+strings.Join(types, ",")+`)
 			ORDER BY user_id LIMIT ?
-		`), cursor.StartingAfter, *optionalEventType, cursor.Limit+1)
+		`), cursor.StartingAfter, cursor.Limit+1)
 	}
 
 	if err != nil {
@@ -118,11 +124,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 			break
 		}
 		var event dbx.AccountFreezeEvent
-		if optionalEventType == nil {
-			err = rows.Scan(&event.UserId, &event.Event)
-		} else {
-			err = rows.Scan(&event.UserId, &event.Event, &event.DaysTillEscalation, &event.CreatedAt)
-		}
+		err = rows.Scan(&event.UserId, &event.Event, &event.DaysTillEscalation, &event.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -189,6 +191,12 @@ func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID)
 		}
 		if eventType == console.BotFreeze {
 			freezes.BotFreeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if eventType == console.TrialExpirationFreeze {
+			freezes.TrialExpirationFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, err
 			}

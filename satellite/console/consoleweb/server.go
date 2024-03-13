@@ -106,6 +106,8 @@ type Config struct {
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
 	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
+	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
+	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -149,6 +151,8 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
+
+	AnalyticsConfig analytics.Config
 
 	packagePlans paymentsconfig.PackagePlans
 
@@ -212,7 +216,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -228,6 +232,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:                         nodeURL,
+		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
 	}
 
@@ -287,6 +292,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/config", http.HandlerFunc(projectsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
 
@@ -296,7 +302,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/daily-usage", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled)
+	badPasswords, err := server.loadBadPasswords()
+	if err != nil {
+		server.log.Error("unable to load bad passwords list", zap.Error(err))
+	}
+
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
@@ -337,6 +348,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
+		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners)
+		paymentsRouter.Use(varBlocker.withVarBlocker)
 		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
@@ -396,6 +409,26 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
 	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
 	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+
+	if server.config.GeneratedAPIEnabled {
+		rawUrl := server.config.ExternalAddress + "public/v1"
+		target, err := url.Parse(rawUrl)
+		if err != nil {
+			server.log.Error("unable to parse satellite address", zap.String("url", rawUrl), zap.Error(err))
+		} else {
+			// this proxy is for backward compatibility with old code that uses the old /api/v0
+			// prefix for the generated API. It proxies these requests to the new /public/v1 prefix.
+			proxy := &httputil.ReverseProxy{
+				Rewrite: func(r *httputil.ProxyRequest) {
+					r.Out.URL.Path = strings.TrimPrefix(r.In.URL.Path, "/api/v0")
+					r.SetURL(target)
+				},
+			}
+			router.PathPrefix(`/api/v0/{*}`).Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				proxy.ServeHTTP(w, r)
+			}))
+		}
+	}
 
 	router.HandleFunc("/invited", server.handleInvited)
 	router.HandleFunc("/activation", server.accountActivationHandler)
@@ -594,6 +627,26 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 }
 
+// loadBadPasswords loads the bad passwords from a file into a map.
+func (server *Server) loadBadPasswords() (map[string]struct{}, error) {
+	if server.config.BadPasswordsFile == "" {
+		return nil, nil
+	}
+
+	bytes, err := os.ReadFile(server.config.BadPasswordsFile)
+	if err != nil {
+		return nil, err
+	}
+
+	badPasswords := make(map[string]struct{})
+	parsedPasswords := strings.Split(string(bytes), "\n")
+	for _, p := range parsedPasswords {
+		badPasswords[p] = struct{}{}
+	}
+
+	return badPasswords, nil
+}
+
 // appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	server.setAppHeaders(w, r)
@@ -622,6 +675,42 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, path, info.ModTime(), file)
+}
+
+// varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
+type varBlockerMiddleWare struct {
+	partners map[string]struct{}
+	server   *Server
+}
+
+// newVarBlockerMiddleWare creates a new instance of varBlocker.
+func newVarBlockerMiddleWare(server *Server, varPartners []string) *varBlockerMiddleWare {
+	partners := make(map[string]struct{}, len(varPartners))
+	for _, partner := range varPartners {
+		partners[partner] = struct{}{}
+	}
+	return &varBlockerMiddleWare{
+		partners: partners,
+		server:   server,
+	}
+}
+
+// withVarBlocker blocks requests from VAR partners.
+func (v *varBlockerMiddleWare) withVarBlocker(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		user, err := console.GetUser(ctx)
+		if _, ok := v.partners[string(user.UserAgent)]; ok {
+			web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, errs.New("VAR Partner not supported"))
+			return
+		}
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
 }
 
 // withCORS handles setting CORS-related headers on an http request.
@@ -739,6 +828,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EnableRegionTag:                 server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
+		AnalyticsEnabled:                server.AnalyticsConfig.Enabled,
+		PlausibleDomain:                 server.AnalyticsConfig.Plausible.Domain,
+		PlausibleScriptUrl:              server.AnalyticsConfig.Plausible.ScriptUrl,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

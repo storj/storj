@@ -6,12 +6,14 @@ package main
 import (
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
 	"storj.io/common/process"
+	"storj.io/common/process/eventkitbq"
 	"storj.io/common/version"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
@@ -135,7 +137,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
+	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), eventkitbq.BQDestination); err != nil {
 		log.Warn("Failed to initialize telemetry batcher on satellite api", zap.Error(err))
 	}
 

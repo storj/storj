@@ -104,9 +104,9 @@ class APIError extends Error {
     }
 }
 
-export class ProjectManagementHttpApiV0 {
+export class ProjectManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/api/v0/projects';
+    private readonly ROOT_PATH: string = '/public/v1/projects';
 
     public async createProject(request: UpsertProjectInfo): Promise<Project> {
         const fullPath = `${this.ROOT_PATH}/create`;
@@ -194,9 +194,9 @@ export class ProjectManagementHttpApiV0 {
     }
 }
 
-export class APIKeyManagementHttpApiV0 {
+export class APIKeyManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/api/v0/apikeys';
+    private readonly ROOT_PATH: string = '/public/v1/apikeys';
 
     public async createAPIKey(request: CreateAPIKeyRequest): Promise<CreateAPIKeyResponse> {
         const fullPath = `${this.ROOT_PATH}/create`;
@@ -219,9 +219,9 @@ export class APIKeyManagementHttpApiV0 {
     }
 }
 
-export class UserManagementHttpApiV0 {
+export class UserManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/api/v0/users';
+    private readonly ROOT_PATH: string = '/public/v1/users';
 
     public async getUser(): Promise<ResponseUser> {
         const fullPath = `${this.ROOT_PATH}/`;

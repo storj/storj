@@ -100,6 +100,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			nodeselection.NewPlacementDefinitions(),
+			console.VersioningConfig{},
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 
@@ -123,7 +124,7 @@ func TestSignupCouponCodes(t *testing.T) {
 					FullName:        "Fullname",
 					ShortName:       "Shortname",
 					Email:           tt.email,
-					Password:        "123a123",
+					Password:        "password",
 					SignupPromoCode: tt.signupPromoCode,
 				}
 

@@ -25,11 +25,14 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/users/{user-email}/violation-freeze](#delete-apiusersuser-emailviolation-freeze)
             * [PUT /api/users/{user-email}/legal-freeze](#put-apiusersuser-emaillegal-freeze)
             * [DELETE /api/users/{user-email}/legal-freeze](#delete-apiusersuser-emaillegal-freeze)
+            * [PUT /api/users/{user-email}/trial-expiration-freeze](#put-apiusersuser-emailtrial-expiration-freeze)
+            * [DELETE /api/users/{user-email}/trial-expiration-freeze](#delete-apiusersuser-emailtrial-expiration-freeze)
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
             * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
             * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
+            * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
             * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
@@ -45,12 +48,12 @@ Requires setting `Authorization` header for requests.
             * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
             * [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
             * [Update limits](#update-limits)
-                * [POST /api/projects/{project-id}/limit?usage={value}](#post-apiprojectsproject-idlimitusagevalue)
-                * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
-                * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
-                * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
-                * [POST /api/projects/{project-id}/limit?burst={value}](#post-apiprojectsproject-idlimitburstvalue)
-                * [POST /api/projects/{project-id}/limit?segments={value}](#post-apiprojectsproject-idlimitsegmentsvalue)
+                * [PUT /api/projects/{project-id}/limit?usage={value}](#put-apiprojectsproject-idlimitusagevalue)
+                * [PUT /api/projects/{project-id}/limit?bandwidth={value}](#put-apiprojectsproject-idlimitbandwidthvalue)
+                * [PUT /api/projects/{project-id}/limit?rate={value}](#put-apiprojectsproject-idlimitratevalue)
+                * [PUT /api/projects/{project-id}/limit?buckets={value}](#put-apiprojectsproject-idlimitbucketsvalue)
+                * [PUT /api/projects/{project-id}/limit?burst={value}](#put-apiprojectsproject-idlimitburstvalue)
+                * [PUT /api/projects/{project-id}/limit?segments={value}](#put-apiprojectsproject-idlimitsegmentsvalue)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
             * [Geofencing](#geofencing)
@@ -213,6 +216,15 @@ User status is also set to Legal hold. The user cannot exit this state automatic
 Removes the legal freeze on a user account so uploads and downloads may resume.
 User status is set back to Active. This is the only way to exit the legal frozen state.
 
+#### PUT /api/users/{user-email}/trial-expiration-freeze
+
+Freezes a user account for trial expiration. In this state, the user cannot upload or download data.
+The user can exit this state when they upgrade to a paid tier.
+
+#### DELETE /api/users/{user-email}/trial-expiration-freeze
+
+Removes the trial expiration freeze on a user account, reinstating account limits.
+
 
 #### DELETE /api/users/{user-email}/billing-warning
 
@@ -243,6 +255,26 @@ Removes the account level geofence for the user.
 #### PATCH /api/users/{user-email}/activate-account/disable-bot-restriction
 
 Disables account bot restrictions by activating the account and restoring its limit values. This is used only for accounts with the PendingBotVerification status.
+
+#### PATCH /api/users/{user-email}/trial-expiration
+
+Updates account free trial expiration date.
+
+Example request:
+
+```json
+{
+  "trialExpiration": "2024-06-01T00:00:00.000Z"
+}
+```
+
+or
+
+```json
+{
+  "trialExpiration": null
+}
+```
 
 ### OAuth Client Management
 

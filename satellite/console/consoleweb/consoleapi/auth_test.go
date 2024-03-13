@@ -115,7 +115,7 @@ func TestAuth_Register(t *testing.T) {
 					ShortName:       "test",
 					Email:           "user@test" + strconv.Itoa(i) + ".test",
 					Partner:         test.Partner,
-					Password:        "abc123",
+					Password:        "password",
 					IsProfessional:  true,
 					Position:        "testposition",
 					CompanyName:     "companytestname",
@@ -232,7 +232,7 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 				FullName:        "testuser",
 				ShortName:       "test",
 				Email:           email,
-				Password:        "abc123",
+				Password:        "password",
 				IsProfessional:  true,
 				Position:        "testposition",
 				CompanyName:     "companytestname",
@@ -593,7 +593,7 @@ func TestRegistrationEmail(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -661,7 +661,7 @@ func TestRegistrationEmail_CodeEnabled(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -867,7 +867,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyCorrect, err := json.Marshal(&registerData{
 			FullName:        "test",
 			Email:           "user@mail.test",
-			Password:        "abc123",
+			Password:        "password",
 			Partner:         string(testrand.RandAlphaNumeric(100)),
 			SignupPromoCode: string(testrand.RandAlphaNumeric(100)),
 		})
@@ -888,7 +888,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyPartnerInvalid, err := json.Marshal(&registerData{
 			FullName: "test",
 			Email:    "user1@mail.test",
-			Password: "abc123",
+			Password: "password",
 			Partner:  string(testrand.RandAlphaNumeric(101)),
 		})
 		require.NoError(t, err)
@@ -906,7 +906,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyPromoInvalid, err := json.Marshal(&registerData{
 			FullName:        "test",
 			Email:           "user1@mail.test",
-			Password:        "abc123",
+			Password:        "password",
 			SignupPromoCode: string(testrand.RandAlphaNumeric(101)),
 		})
 		require.NoError(t, err)
@@ -939,10 +939,10 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 			Length int
 			Ok     bool
 		}{
-			{"Length below minimum must be rejected", 5, false},
-			{"Length as minimum must be accepted", 6, true},
-			{"Length as maximum must be accepted", 72, true},
-			{"Length above maximum must be rejected", 73, false},
+			{"Length below minimum must be rejected", 6, false},
+			{"Length as minimum must be accepted", 8, true},
+			{"Length as maximum must be accepted", 64, true},
+			{"Length above maximum must be rejected", 65, false},
 		} {
 			tt := tt
 			t.Run(tt.Name, func(t *testing.T) {
@@ -993,7 +993,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -1073,5 +1073,72 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
 		require.Contains(t, body, "/signup")
+	})
+}
+
+func TestAuth_SetupAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		ptr := func(s string) *string {
+			return &s
+		}
+		tests := []console.SetUpAccountRequest{
+			{
+				FullName:       "Frodo Baggins",
+				IsProfessional: true,
+				Position:       ptr("Ringbearer"),
+				CompanyName:    ptr("The Fellowship"),
+				EmployeeCount:  ptr("9"), // subject to change
+			},
+			{
+				FullName:       "Bilbo Baggins",
+				IsProfessional: false,
+			},
+		}
+
+		for i, tt := range tests {
+			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
+				FullName: "should be overwritten by setup",
+				Email:    fmt.Sprintf("test%d@storj.test", i),
+				Password: "password",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
+			require.NoError(t, err)
+			_, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
+			require.NoError(t, err)
+
+			payload, err := json.Marshal(tt)
+			require.NoError(t, err)
+			_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
+
+			userAfterSetup, err := sat.DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+
+			require.Equal(t, tt.FullName, userAfterSetup.FullName)
+			require.Equal(t, tt.IsProfessional, userAfterSetup.IsProfessional)
+			if tt.Position != nil {
+				require.Equal(t, *tt.Position, userAfterSetup.Position)
+			} else {
+				require.Equal(t, "", userAfterSetup.Position)
+			}
+			if tt.CompanyName != nil {
+				require.Equal(t, *tt.CompanyName, userAfterSetup.CompanyName)
+			} else {
+				require.Equal(t, "", userAfterSetup.CompanyName)
+			}
+			if tt.EmployeeCount != nil {
+				require.Equal(t, *tt.EmployeeCount, userAfterSetup.EmployeeCount)
+			} else {
+				require.Equal(t, "", userAfterSetup.EmployeeCount)
+			}
+		}
 	})
 }
