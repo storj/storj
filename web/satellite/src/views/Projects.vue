@@ -6,7 +6,7 @@
         <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
         <low-token-balance-banner
-            v-if="isLowBalance && billingEnabled"
+            v-if="!isLoading && isLowBalance && billingEnabled"
             cta-label="Go to billing"
             @click="redirectToBilling"
         />
@@ -144,6 +144,7 @@ const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
 const addMemberProjectId = ref<string>('');
 const isAddMemberDialogShown = ref<boolean>(false);
+const isLoading = ref<boolean>(true);
 
 /**
  * Indicates if billing features are enabled.
@@ -241,13 +242,15 @@ function formattedValue(value: Size): string {
     }
 }
 
-onMounted(() => {
+onMounted(async () => {
     if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
-        Promise.all([
+        await Promise.all([
             billingStore.getBalance(),
             billingStore.getCreditCards(),
             billingStore.getNativePaymentsHistory(),
         ]).catch(_ => {});
     }
+
+    isLoading.value = false;
 });
 </script>
