@@ -29,8 +29,8 @@ export const THEME_OPTIONS: ThemeOptions = {
                 yellow2: '#FFB018',
                 orange: '#FFA800',
                 green: '#00E366',
-                paragraph: '#283968'
-                
+                paragraph: '#283968',
+
             },
         },
         dark: {
