@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ueo pipefail
+set -ue
 
 find_major_release=
 if [[ "${1:-}" == "--major" ||  "${1:-}" == "-major" ]]; then
@@ -10,28 +10,36 @@ debug=
 minimum_checked_version="v1.50.0"
 
 trace() {
-    if [ $debug ]; then
+    if [ "$debug" ]; then
         >&2 echo "$1"
     fi
 }
 
 verlte() {
     # sort and check against the first result
-    [  "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+    [  "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
 }
 
 find_release_on_strand() {
-    local query=$2
-    local furthest_ancestor=$3
-    local furthest_ancestor_hash=$(git rev-list -n 1 $furthest_ancestor)
-    local main=${4:-""}
+    local query
+    local main
+    local furthest_ancestor
+    local query_tag
+    local query_parent_tag
+
+    query=$2
+    furthest_ancestor=$3
+    main=${4:-""}
 
     trace "  # find_release_on_strand $query $furthest_ancestor $main"
 
-    local query_tag=$(git describe --tags --exact-match $query 2> /dev/null)
-    local query_parent_tag=$(git describe --tags --exact-match "$query^" 2> /dev/null)
+    query_tag=$(git describe --tags --exact-match "$query" 2> /dev/null || true)
+    query_parent_tag=$(git describe --tags --exact-match "$query^" 2> /dev/null || true)
 
     trace "    # current $query_tag:$query_parent_tag"
+
+    local query_branching_point
+    query_branching_point=$(git merge-base "$main" "$query")
 
     for tag in $(git tag --list --sort -version:refname)
     do
@@ -54,7 +62,7 @@ find_release_on_strand() {
         fi
 
         # We want to exclude tags that are descendants of query.
-        if git merge-base --is-ancestor $query $tag; then
+        if git merge-base --is-ancestor "$query" "$tag"; then
             trace "    # skipping $tag because $query is parent of $tag"
             continue
         fi
@@ -65,22 +73,19 @@ find_release_on_strand() {
 
         if [ "$query_tag" ]; then
             if ! [ "$query_parent_tag" ]; then
-                if git merge-base --is-ancestor "$query^" $tag; then
+                if git merge-base --is-ancestor "$query^" "$tag"; then
                     trace "    # skipping $tag because $query is tag-release special case"
                     continue
                 fi
             fi
         fi
 
-        if [ "$main" ]; then
-            # I we are not yet evaluating the main branch, we want to exclude tags
-            # that branched off the main branch later than we did.
-            tag_branching_point=$(git merge-base $main $tag)
-            if [ $tag_branching_point != $furthest_ancestor_hash ]; then
-                if git merge-base --is-ancestor $furthest_ancestor $tag_branching_point; then
-                    trace "    # skipping $tag because it branched off from main later than $query"
-                    continue
-                fi
+        local tag_branching_point
+        tag_branching_point=$(git merge-base "$main" "$tag")
+        if [ "$tag_branching_point" != "$query_branching_point" ]; then
+            if git merge-base --is-ancestor "$query_branching_point" "$tag_branching_point"; then
+                trace "    # skipping $tag because it branched off from main later than $query"
+                continue
             fi
         fi
 
@@ -90,24 +95,26 @@ find_release_on_strand() {
 }
 
 main="main"
-if ! git rev-parse --verify $main; then
+if ! git rev-parse -q --verify "$main" 1>/dev/null; then
     main=remotes/origin/main
 fi
 
 query="HEAD"
-if [[ $find_major_release ]]; then
-    query=$(git merge-base $main HEAD)
+if [[ "$find_major_release" ]]; then
+    query=$(git merge-base "$main" HEAD)
 fi
 
+branching_point=$(git merge-base "$main" "$query")
+
 release=""
-find_release_on_strand release $query $(git merge-base $main $query) $main
+find_release_on_strand release "$query" "$branching_point" "$main"
 if [ "$release" ]; then
     echo "$release"
     exit 0
 fi
 
 root=$(git rev-list --max-parents=0 $query)
-find_release_on_strand release $(git merge-base $main $query) $root ""
+find_release_on_strand release "$branching_point" "$root" "$main"
 if [ "$release" ]; then
     echo "$release"
     exit 0
