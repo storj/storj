@@ -1704,3 +1704,89 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 		})
 	})
 }
+
+func TestService_PayInvoiceBillingID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		storageHours := 24
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+
+		// create billing customer ID
+		billingUser, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "billinguser",
+			Email:    "billing@test",
+		}, 1)
+		require.NoError(t, err)
+		billingCustomer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, billingUser.ID)
+		require.NoError(t, err)
+
+		// set billing customer ID
+		_, err = satellite.DB.StripeCoinPayments().Customers().UpdateBillingCustomerID(ctx, user.ID, &billingCustomer)
+		require.NoError(t, err)
+
+		project, err := satellite.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		projectsEgress := int64(10) * memory.GiB.Int64()
+		projectsStorage := int64(1) * memory.TiB.Int64()
+		totalSegments := int64(1)
+		generateProjectStorage(ctx, t, satellite.DB,
+			project.ID,
+			period,
+			period.Add(time.Duration(storageHours)*time.Hour),
+			projectsEgress,
+			projectsStorage,
+			totalSegments)
+		// verify that the project doesn't have records yet
+		projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, project.ID, start, end)
+		require.NoError(t, err)
+		require.Nil(t, projectRecord)
+
+		err = payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
+		require.NoError(t, err)
+
+		projectRecord, err = satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, project.ID, start, end)
+		require.NoError(t, err)
+		require.NotNil(t, projectRecord)
+		require.Equal(t, project.ID, projectRecord.ProjectID)
+		require.Equal(t, projectsEgress, projectRecord.Egress)
+
+		expectedStorage := float64(projectsStorage * int64(storageHours))
+		require.Equal(t, expectedStorage, projectRecord.Storage)
+
+		expectedSegmentsCount := float64((1) * storageHours)
+		require.Equal(t, expectedSegmentsCount, projectRecord.Segments)
+
+		// run all parts of invoice generation to see if there are no unexpected errors
+		err = payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		err = payments.StripeService.CreateInvoices(ctx, period, false)
+		require.NoError(t, err)
+
+		itr := payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
+		require.True(t, itr.Next())
+		// invoice should go to the billing customer not the customer with the usage
+		require.Equal(t, billingCustomer, itr.Invoice().Customer.ID)
+		require.NoError(t, itr.Err())
+	})
+}

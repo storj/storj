@@ -192,3 +192,24 @@ func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripe.Customer, error) 
 		PackagePurchasedAt: dbxCustomer.PurchasedPackageAt,
 	}, nil
 }
+
+// UpdateBillingCustomerID updates the customer's billing customer id.
+func (customers *customers) UpdateBillingCustomerID(ctx context.Context, userID uuid.UUID, billingCustomerID *string) (c *stripe.Customer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	updateFields := dbx.StripeCustomer_Update_Fields{
+		BillingCustomerId: dbx.StripeCustomer_BillingCustomerId_Null(),
+	}
+	if billingCustomerID != nil {
+		updateFields.BillingCustomerId = dbx.StripeCustomer_BillingCustomerId(*billingCustomerID)
+	}
+
+	dbxCustomer, err := customers.db.Update_StripeCustomer_By_UserId(ctx,
+		dbx.StripeCustomer_UserId(userID[:]),
+		updateFields,
+	)
+	if err != nil {
+		return c, err
+	}
+	return fromDBXCustomer(dbxCustomer)
+}

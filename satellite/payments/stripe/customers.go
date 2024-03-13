@@ -32,6 +32,8 @@ type CustomersDB interface {
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
 	// GetStripeIDs returns stripe customer and billing ids.
 	GetStripeIDs(ctx context.Context, userID uuid.UUID) (billingID *string, customerID string, err error)
+	// UpdateBillingCustomerID updates the customer's billing id.
+	UpdateBillingCustomerID(ctx context.Context, userID uuid.UUID, billingID *string) (*Customer, error)
 
 	// TODO: get rid of this.
 	Raw() *dbx.DB
