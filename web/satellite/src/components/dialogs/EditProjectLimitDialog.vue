@@ -197,7 +197,9 @@ const input = ref<number>(0);
 
 const dropdownModel = computed<(Dimensions.GB | Dimensions.TB)[]>({
     get: () => [ activeMeasurement.value ],
-    set: value => activeMeasurement.value = value[0],
+    set: value => {
+        if (value[0]) activeMeasurement.value = value[0];
+    },
 });
 
 /**
