@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -314,6 +315,13 @@ func TestGetProjectTotalByPartner(t *testing.T) {
 					bucket.UserAgent = []byte(name)
 				}
 				_, err := sat.DB.Buckets().CreateBucket(ctx, bucket)
+				require.NoError(t, err)
+
+				_, err = sat.DB.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket.Name),
+					UserAgent:  bucket.UserAgent,
+				})
 				require.NoError(t, err)
 
 				// We use multiple tallies and rollups to ensure that
