@@ -99,7 +99,7 @@ export default defineConfig({
     ],
     retries: process.env.CI ? 1 : 0, // Retry on CI only.
     testDir: './tests', // Directory where tests are located.
-    timeout: 20 * 1000, // Maximum time one test can run for.
+    timeout: 30 * 1000, // Maximum time one test can run for.
     use: {
         actionTimeout: 0, // Maximum time each action can take.
         // baseURL: 'http://127.0.0.1:10000',
