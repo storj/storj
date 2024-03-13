@@ -230,7 +230,7 @@ test-satellite-ui: ## Run playwright ui tests
 		npx playwright install;\
 		npx playwright install-deps;\
 		STORJ_TEST_SATELLITE_WEB='../../web/satellite' \
-		go test ./... -run TestRun
+		go test ./... -run TestRun -count 1
 
 
 .PHONY: check-monitoring

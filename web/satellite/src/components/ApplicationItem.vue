@@ -5,7 +5,7 @@
     <v-col cols="12" md="6" lg="6" xl="3">
         <v-card class="px-2 py-4 h-100 align-content-space-between">
             <v-card-item class="pb-0">
-                <img :src="app.src" :alt="app.title" width="42" class="rounded">
+                <img :src="app.src" :alt="app.name" width="42" class="rounded">
             </v-card-item>
 
             <v-card-item>
@@ -13,7 +13,7 @@
                     {{ app.category }}
                 </v-chip>
                 <h3 class="mb-1">
-                    {{ app.title }}
+                    {{ app.name }}
                 </h3>
                 <p class="mt-1 text-high-emphasis">
                     {{ app.description }}
@@ -36,7 +36,7 @@
             </v-card-item>
         </v-card>
     </v-col>
-    <CreateAccessDialog ref="accessDialog" v-model="dialog" :default-name="app.title" />
+    <CreateAccessDialog ref="accessDialog" v-model="dialog" :default-name="app.name" />
 </template>
 
 <script setup lang="ts">
@@ -50,7 +50,7 @@ import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 
-const props = defineProps<{
+defineProps<{
     app: Application
 }>();
 

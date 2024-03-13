@@ -13,7 +13,7 @@
     "test": "npx playwright test ./tests/",
     "test-debug": "DEBUG=pw:browser* npx playwright test ./tests/bucket.test.ts --trace on",
     "test-dev": "npm run prerun-dev && npx playwright test ./tests/ --headed --project=chromium-hd --trace on",
-    "test-ci": "PW_TEST_HTML_REPORT_OPEN=never npx playwright test ./tests/"
+    "test-ci": "PW_TEST_HTML_REPORT_OPEN=never npx playwright test ./tests/ --trace on"
   },
   "license": "ISC",
   "dependencies": {
