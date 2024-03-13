@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="Add Card" variant="flat" :border="true" rounded="xlg">
+    <v-card title="Add Card" variant="flat" border rounded="xlg">
         <v-card-text>
-            <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" class="mr-2" @click="isCardInputShown = true">+ Add New Card</v-btn>
+            <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
 
             <template v-else>
                 <StripeCardElement
@@ -78,6 +78,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeCardInput from '@/components/StripeCardInput.vue';
@@ -90,8 +91,10 @@ interface StripeForm {
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
-const notify = useNotify();
 const billingStore = useBillingStore();
+const appStore = useAppStore();
+
+const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
 
 const stripeCardInput = ref<StripeForm | null>(null);
@@ -105,6 +108,19 @@ const isUpgradeSuccessShown = ref(false);
 const paymentElementEnabled = computed(() => {
     return configStore.state.config.stripePaymentElementEnabled;
 });
+
+/**
+ * Triggers enter card info inputs to be shown.
+ */
+function onShowCardInput(): void {
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
+    isCardInputShown.value = true;
+}
+
 /**
  * Provides card information to Stripe.
  */
