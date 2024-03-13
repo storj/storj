@@ -24,6 +24,14 @@ export interface ProjectsApi {
      */
     get(): Promise<Project[]>;
     /**
+     * Fetch config for project.
+     *
+     * @param projectId - the project's ID
+     * @returns ProjectConfig
+     * @throws Error
+     */
+    getConfig(projectId: string): Promise<ProjectConfig>;
+    /**
      * Update project name and description.
      *
      * @param projectId - project ID
@@ -140,14 +148,15 @@ export class Project {
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
     ) {}
+}
 
-    /**
-     * Returns created date as a local string.
-     */
-    public createdDate(): string {
-        const createdAt = new Date(this.createdAt);
-        return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
-    }
+/**
+ * ProjectConfig is a type, used for project configuration.
+ */
+export class ProjectConfig {
+    public constructor(
+        public versioningUIEnabled: boolean = false,
+    ) {}
 }
 
 /**

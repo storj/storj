@@ -14,6 +14,7 @@ import {
     ProjectsStorageBandwidthDaily,
     ProjectInvitationResponse,
     Emission,
+    ProjectConfig,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -90,6 +91,29 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.storageUsed,
             p.bandwidthUsed,
         ));
+    }
+
+    /**
+     * Fetch config for project.
+     *
+     * @param projectId - the project's ID
+     * @returns ProjectConfig
+     * @throws Error
+     */
+    public async getConfig(projectId: string): Promise<ProjectConfig> {
+        const response = await this.http.get(`${this.ROOT_PATH}/${projectId}/config`);
+        const result = await response.json();
+        if (response.ok) {
+            return new ProjectConfig(
+                result.versioningUIEnabled,
+            );
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Could not get project config',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
