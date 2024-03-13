@@ -141,6 +141,8 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher on satellite api", zap.Error(err))
 	}
 
+	monkit.Package().Chain(peer.Server)
+
 	err = metabaseDB.CheckVersion(ctx)
 	if err != nil {
 		log.Error("Failed metabase database version check.", zap.Error(err))

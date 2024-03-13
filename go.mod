@@ -60,7 +60,7 @@ require (
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
 	storj.io/common v0.0.0-20240312163747-de28b7045716
-	storj.io/drpc v0.0.33
+	storj.io/drpc v0.0.34
 	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
 	storj.io/uplink v1.12.3-0.20240227083244-7974a2e1a6c2
