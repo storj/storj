@@ -143,7 +143,7 @@
                                 </template>
                                 <template #text>
                                     This means any data you upload to this satellite can be
-                                    deleted at any time and your storage/egress limits
+                                    deleted at any time and your storage/download limits
                                     can fluctuate. To use our production service please
                                     create an account on one of our production Satellites.
                                     <a href="https://storj.io/v2/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/v2/signup/</a>

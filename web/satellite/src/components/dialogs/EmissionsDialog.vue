@@ -48,14 +48,14 @@
                 </v-card>
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Total Carbon Avoided</p>
-                    <v-chip variant="tonal" color="green" class="font-weight-bold">
+                    <v-chip variant="tonal" color="success" class="font-weight-bold">
                         {{ co2Savings }} kg CO₂e
                     </v-chip>
                     <p class="text-body-2 mt-2">Estimated by using Storj. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-2">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Avoided Equals To</p>
-                    <v-chip variant="tonal" color="green" class="font-weight-bold">
+                    <v-chip variant="tonal" color="success" class="font-weight-bold">
                         {{ emission.savedTrees.toLocaleString() }} tree{{ emission.savedTrees !== 1 ? 's' : '' }} grown for 10 years
                     </v-chip>
                     <p class="text-body-2 mt-2">Estimated equivalencies. <a href="https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>

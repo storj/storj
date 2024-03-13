@@ -75,15 +75,15 @@
                 </span>
             </template>
             <template #item.location="{ item }">
-                <v-icon size="28" class="mr-1 pa-1 rounded border">
+                <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                     <icon-location />
                 </v-icon>
-                <v-chip variant="tonal" color="default" size="small" rounded>
+                <v-chip variant="tonal" color="default" size="small" class="text-capitalize" rounded>
                     {{ item.location || `unknown(${item.defaultPlacement})` }}
                 </v-chip>
             </template>
             <template #item.versioning="{ item }">
-                <v-icon size="28" class="mr-1 pa-1 rounded border text-cursor-pointer">
+                <v-icon size="28" class="mr-1 pa-1 rounded-lg border text-cursor-pointer">
                     <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
                     <icon-versioning />
                 </v-icon>

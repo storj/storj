@@ -57,7 +57,7 @@
                                 <IconProject />
                             </template>
                             <v-list-item-title class="ml-3">
-                                <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick(ROUTES.Projects.path)">
+                                <v-chip color="success" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick(ROUTES.Projects.path)">
                                     Shared Projects
                                 </v-chip>
                             </v-list-item-title>

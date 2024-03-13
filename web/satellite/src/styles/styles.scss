@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Storj Labs, Inc.
+// Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 @import './variables';
@@ -22,9 +22,9 @@ body {
   --v-border-color: 0, 0, 0;
   --v-theme-overlay-multiplier: 0.75 !important;
   --v-border-opacity: 0.09 !important;
-  // --v-theme-on-background: var(--v-theme-blue6) !important;
-  --v-theme-on-background: var(--v-theme-blue7) !important;
-  --v-theme-on-surface: var(--v-theme-blue7) !important;
+  --v-theme-on-background: var(--v-theme-secondary) !important;
+  --v-theme-on-surface: var(--v-theme-secondary) !important;
+  --v-theme-surface-variant: var(--v-theme-secondary) !important;
 }
 
 // Dark Theme
@@ -32,6 +32,18 @@ body {
   --v-theme-overlay-multiplier: 0.75 !important;
   --v-border-opacity: 0.09 !important;
   --v-theme-on-surface-variant: 70,70,70 !important;
+}
+
+h1,h2,h3,h4,h5,h6 {
+  font-weight: 800 !important;
+}
+
+.v-theme--light p {
+  color: var(--v-theme-paragraph) !important;
+}
+
+.font-weight-bold {
+  font-weight: 800 !important;
 }
 
 // Nav
@@ -119,7 +131,10 @@ body {
 
 // Menu list item
 .v-list-item--active .v-list-item-title {
-  font-weight: 700 !important;
+  font-weight: 800 !important;
+}
+.v-list-item-subtitle {
+  opacity: 1 !important;
 }
 
 // Select Input Menu
@@ -161,9 +176,13 @@ body {
 
 // Cards Title
 .v-card-item .v-card-title {
-  font-weight: 700;
+  font-weight: 800;
   font-size: 1.1rem;
   letter-spacing: 0;
+}
+
+.v-card-subtitle {
+  opacity: 1;
 }
 
 // Cards Hover
@@ -306,7 +325,7 @@ table {
   color: rgb(var(--v-theme-secondary));
 }
 .v-theme--dark .link:hover {
-  color: rgb(var(--v-theme-info));
+  color: rgb(var(--v-theme-on-background));
 }
 
 
@@ -347,7 +366,7 @@ table {
 
 // Alerts
 .v-alert-title {
-  font-weight: bold !important;
+  font-weight: 800 !important;
   letter-spacing: 0 !important;
 }
 .v-alert__prepend {
