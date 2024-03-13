@@ -322,7 +322,8 @@ const cardTitle = computed((): string => {
 
 watch(innerContent, comp => {
     if (comp) {
-        isProjectLimitReached.value = projectsStore.state.projects.length >= usersStore.state.user.projectLimit;
+        const ownedProjects = projectsStore.projects.filter((p) => p.ownerId === usersStore.state.user.id);
+        isProjectLimitReached.value = ownedProjects.length >= usersStore.state.user.projectLimit;
         isDescriptionShown.value = false;
         name.value = '';
         description.value = '';
