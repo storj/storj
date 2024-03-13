@@ -368,7 +368,9 @@ func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID s
 	return s.store.Trash(ctx, satelliteID, pieceID, timestamp)
 }
 
-// HowManyQueued peeks at the number of bloom filters queued.
-func (s *Service) HowManyQueued() int {
+// TestingHowManyQueued peeks at the number of bloom filters queued.
+func (s *Service) TestingHowManyQueued() int {
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
 	return len(s.queued)
 }

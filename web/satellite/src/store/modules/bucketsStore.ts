@@ -9,6 +9,8 @@ import {
     CreateBucketCommand,
     DeleteBucketCommand,
     ListObjectsV2Command,
+    PutBucketVersioningCommand,
+    BucketVersioningStatus,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
@@ -225,16 +227,32 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.enterPassphraseCallback = fn;
     }
 
-    async function createBucket(name: string): Promise<void> {
+    async function createBucket(name: string, enableBucketVersioning: boolean): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
             Bucket: name,
         }));
+        if (enableBucketVersioning) {
+            await state.s3Client.send(new PutBucketVersioningCommand({
+                Bucket: name,
+                VersioningConfiguration: {
+                    Status: BucketVersioningStatus.Enabled,
+                },
+            }));
+        }
     }
 
-    async function createBucketWithNoPassphrase(name: string): Promise<void> {
+    async function createBucketWithNoPassphrase(name: string, enableBucketVersioning: boolean): Promise<void> {
         await state.s3ClientForCreate.send(new CreateBucketCommand({
             Bucket: name,
         }));
+        if (enableBucketVersioning) {
+            await state.s3ClientForCreate.send(new PutBucketVersioningCommand({
+                Bucket: name,
+                VersioningConfiguration: {
+                    Status: BucketVersioningStatus.Enabled,
+                },
+            }));
+        }
     }
 
     async function deleteBucket(name: string): Promise<void> {

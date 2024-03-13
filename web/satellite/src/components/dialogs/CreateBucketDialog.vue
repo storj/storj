@@ -44,39 +44,83 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-7 pb-3" @submit.prevent="onCreate">
-                <v-row>
-                    <v-col>
-                        <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
-                        <v-text-field
-                            id="Bucket Name"
-                            v-model="bucketName"
-                            variant="outlined"
-                            :rules="bucketNameRules"
-                            label="Bucket name"
-                            placeholder="my-bucket"
-                            hint="Allowed characters [a-z] [0-9] [-.]"
-                            :hide-details="false"
-                            required
-                            autofocus
-                            class="mt-7 mb-3"
-                            minlength="3"
-                            maxlength="63"
-                        />
-                    </v-col>
-                </v-row>
-            </v-form>
-
+            <v-window v-model="step">
+                <v-window-item :value="CreateStep.Name">
+                    <v-form v-model="formValid" class="pa-7 pb-3" @submit.prevent="createOrNext">
+                        <v-row>
+                            <v-col>
+                                <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
+                                <v-text-field
+                                    id="Bucket Name"
+                                    v-model="bucketName"
+                                    variant="outlined"
+                                    :rules="bucketNameRules"
+                                    label="Bucket name"
+                                    placeholder="my-bucket"
+                                    hint="Allowed characters [a-z] [0-9] [-.]"
+                                    :hide-details="false"
+                                    required
+                                    autofocus
+                                    class="mt-7 mb-3"
+                                    minlength="3"
+                                    maxlength="63"
+                                />
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+                <v-window-item :value="CreateStep.Versioning">
+                    <v-form v-model="versioningValid" class="pa-7">
+                        <v-row>
+                            <v-col>
+                                <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
+                                <p>Enabling object versioning allows you to preserve, retrieve, and restore previous versions of a file, offering protection against unintentional modifications or deletions.</p>
+                                <v-chip-group
+                                    v-model="enableVersioning"
+                                    filter
+                                    selected-class="font-weight-bold"
+                                    class="mt-2 mb-2"
+                                    mandatory
+                                >
+                                    <v-chip
+                                        variant="outlined"
+                                        filter
+                                        :value="false"
+                                    >
+                                        Disabled
+                                    </v-chip>
+                                    <v-chip
+                                        variant="outlined"
+                                        filter
+                                        :value="true"
+                                        color="primary"
+                                    >
+                                        Enabled
+                                    </v-chip>
+                                </v-chip-group>
+                                <v-alert v-if="enableVersioning" variant="tonal" color="default">
+                                    <p class="text-subtitle-2">Keep multiple versions of each file in the same bucket. Additional storage costs apply for each version.</p>
+                                </v-alert>
+                                <v-alert v-else variant="tonal" color="default">
+                                    <p class="text-subtitle-2">Uploading a file with the same name will overwrite the existing file in this bucket.</p>
+                                </v-alert>
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+            </v-window>
             <v-divider />
 
             <v-card-actions class="pa-7">
                 <v-row>
                     <v-col>
-                        <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="model = false">Cancel</v-btn>
+                        <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="closeOrBack">
+                            {{ step === CreateStep.Name ? 'Cancel' : 'Back' }}
+                        </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn :disabled="!formValid" :loading="isLoading" color="primary" variant="flat" block @click="onCreate">
-                            Create Bucket
+                        <v-btn :disabled="!formValid" :loading="isLoading" color="primary" variant="flat" block @click="createOrNext">
+                            {{ !allowCreateVersionedBucket || step === CreateStep.Versioning ? 'Create Bucket' : 'Next' }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -87,19 +131,24 @@
 
 <script setup lang="ts">
 import { Component, computed, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import {
+    VAlert,
     VBtn,
     VCard,
     VCardActions,
     VCardItem,
     VCardTitle,
+    VChip,
+    VChipGroup,
     VCol,
     VDialog,
     VDivider,
     VForm,
-    VRow, VSheet,
+    VRow,
+    VSheet,
     VTextField,
+    VWindow,
+    VWindowItem,
 } from 'vuetify/components';
 
 import { useLoading } from '@/composables/useLoading';
@@ -113,6 +162,12 @@ import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ValidationRule } from '@/types/common';
+import { Versioning } from '@/types/versioning';
+
+enum CreateStep {
+    Name = 1,
+    Versioning = 2,
+}
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -131,10 +186,22 @@ const emit = defineEmits<{
     (event: 'created', value: string): void,
 }>();
 
+const step = ref(CreateStep.Name);
 const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
+const versioningValid = ref<boolean>(false);
+const enableVersioning = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
+
+const project = computed(() => projectsStore.state.selectedProject);
+
+/**
+ * Whether versioning has been enabled for current project.
+ */
+const allowCreateVersionedBucket = computed<boolean>(() => {
+    return projectsStore.versioningUIEnabled  && project.value.versioning !== Versioning.Enabled;
+});
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {
     return [
@@ -216,6 +283,28 @@ function setWorker(): void {
 }
 
 /**
+ * Conditionally close dialog or go to previous step.
+ */
+function closeOrBack() {
+    if (step.value === CreateStep.Name) {
+        model.value = false;
+        return;
+    }
+    step.value = CreateStep.Name;
+}
+
+/**
+ * Conditionally create bucket or go to next step.
+ */
+function createOrNext() {
+    if (!allowCreateVersionedBucket.value || step.value === CreateStep.Versioning) {
+        onCreate();
+        return;
+    }
+    step.value = CreateStep.Versioning;
+}
+
+/**
  * Validates provided bucket's name and creates a bucket.
  */
 function onCreate(): void {
@@ -228,13 +317,13 @@ function onCreate(): void {
         }
 
         try {
-            const projectID = projectsStore.state.selectedProject.id;
+            const projectID = project.value.id;
 
             if (!promptForPassphrase.value) {
                 if (!edgeCredentials.value.accessKeyId) {
                     await bucketsStore.setS3Client(projectID);
                 }
-                await bucketsStore.createBucket(bucketName.value);
+                await bucketsStore.createBucket(bucketName.value, enableVersioning.value);
                 await bucketsStore.getBuckets(1, projectID);
                 analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -248,7 +337,7 @@ function onCreate(): void {
             }
 
             if (edgeCredentialsForCreate.value.accessKeyId) {
-                await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
+                await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableVersioning.value);
                 await bucketsStore.getBuckets(1, projectID);
                 analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
                 if (!bucketWasCreated.value) {
@@ -258,7 +347,7 @@ function onCreate(): void {
                 model.value = false;
                 emit('created', bucketName.value);
 
-                return ;
+                return;
             }
 
             if (!apiKey.value) {
@@ -316,7 +405,7 @@ function onCreate(): void {
 
             const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
             bucketsStore.setEdgeCredentialsForCreate(creds);
-            await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
+            await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableVersioning.value);
             await bucketsStore.getBuckets(1, projectID);
             analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -338,7 +427,7 @@ watch(innerContent, newContent => {
 
         withLoading(async () => {
             try {
-                await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
+                await bucketsStore.getAllBucketsNames(project.value.id);
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
             }
@@ -347,5 +436,7 @@ watch(innerContent, newContent => {
     }
     // dialog has been closed
     bucketName.value = '';
+    step.value = CreateStep.Name;
+    enableVersioning.value = false;
 });
 </script>

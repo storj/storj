@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive, readonly } from 'vue';
+import { computed, ComputedRef, reactive, readonly } from 'vue';
 
 import {
     DataStamp,
@@ -18,12 +18,14 @@ import {
     ProjectInvitation,
     ProjectInvitationResponse,
     Emission,
+    ProjectConfig,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { hexToBase64 } from '@/utils/strings';
 import { Duration, Time } from '@/utils/time';
 import { useConfigStore } from '@/store/modules/configStore';
+import { Versioning } from '@/types/versioning';
 
 const DEFAULT_PROJECT = new Project('', '', '', '', '', true, 0);
 const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
@@ -35,6 +37,7 @@ export const DEFAULT_PROJECT_LIMITS = readonly(new ProjectLimits());
 export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = DEFAULT_PROJECT;
+    public selectedProjectConfig: ProjectConfig = new ProjectConfig();
     public currentLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
     public totalLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
     public cursor: ProjectsCursor = new ProjectsCursor();
@@ -52,6 +55,8 @@ export const useProjectsStore = defineStore('projects', () => {
     const state = reactive<ProjectsState>(new ProjectsState());
 
     const api: ProjectsApi = new ProjectsHttpApi();
+
+    const versioningUIEnabled: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.versioningUIEnabled);
 
     function getUsageReportLink(startUTC: Date, endUTC: Date, projectID = ''): string {
         const since = Time.toUnixTimestamp(startUTC);
@@ -185,6 +190,10 @@ export const useProjectsStore = defineStore('projects', () => {
         }
 
         state.selectedProject = selected;
+    }
+
+    async function getProjectConfig(): Promise<void> {
+        state.selectedProjectConfig = await api.getConfig(state.selectedProject.id);
     }
 
     async function updateProjectName(fieldsToUpdate: ProjectFields): Promise<void> {
@@ -349,12 +358,14 @@ export const useProjectsStore = defineStore('projects', () => {
 
     return {
         state,
+        versioningUIEnabled,
         getProjects,
         getOwnedProjects,
         getDailyProjectData,
         createProject,
         createDefaultProject,
         selectProject,
+        getProjectConfig,
         updateProjectName,
         updateProjectDescription,
         updateProjectStorageLimit,

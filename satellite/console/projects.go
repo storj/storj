@@ -206,6 +206,11 @@ type LimitRequestInfo struct {
 	DesiredLimit memory.Size `json:"desiredLimit"`
 }
 
+// ProjectConfig holds config for available "features" for a project.
+type ProjectConfig struct {
+	VersioningUIEnabled bool `json:"versioningUIEnabled"`
+}
+
 // ValidateNameAndDescription validates project name and description strings.
 // Project name must have more than 0 and less than 21 symbols.
 // Project description can't have more than hundred symbols.
