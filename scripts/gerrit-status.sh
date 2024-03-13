@@ -3,6 +3,10 @@ set -euxo pipefail
 
 ACTION=$2
 
+if [ "$2" != "pre-merge" ] && [ "$2" != "verify" ]; then
+  exit 0
+fi
+
 SSH_COMMAND="ssh -i $SSH_KEY $SSH_USER@review.dev.storj.io -o StrictHostKeyChecking=no -p 29418"
 
 case $ACTION in

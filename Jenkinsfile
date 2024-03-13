@@ -1,4 +1,7 @@
 pipeline {
+    parameters {
+        string(name: 'BUILD_TYPE', defaultValue: '', description: 'Group of tests which should be executed. Use pre-merge, VALIDATE or empty.')
+    }
     agent {
         docker {
             label 'main'
@@ -12,6 +15,7 @@ pipeline {
         skipDefaultCheckout(true)
     }
     environment {
+        BUILD_TYPE = "${params.BUILD_TYPE}"
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
@@ -36,7 +40,20 @@ pipeline {
                 sh 'check-large-files'
             }
         }
+        stage('Gerrit status') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh $BUILD_TYPE start 0'
+                }
+            }
+        }
         stage('Build Web') {
+            when {
+                anyOf {
+                    equals expected: "pre-merge", actual: params.BUILD_TYPE
+                    equals expected: "", actual: params.BUILD_TYPE
+                }
+            }
             // The build code depends on the following assets being loaded.
             parallel {
                 stage('web/satellite') {
@@ -71,7 +88,13 @@ pipeline {
             }
         }
 
-        stage('Build') {
+       stage('Build') {
+            when {
+                anyOf {
+                    equals expected: "verify", actual: params.BUILD_TYPE
+                    equals expected: "", actual: params.BUILD_TYPE
+                }
+            }
             parallel {
                 stage('go') {
                     steps {
@@ -104,13 +127,9 @@ pipeline {
 
                 stage('db') {
                     steps {
-                        sh 'service postgresql start'
                         dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
                         }
                     }
                 }
@@ -118,6 +137,12 @@ pipeline {
         }
 
                 stage('Lint') {
+                    when {
+                        anyOf {
+                            equals expected: "verify", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     steps {
                         sh 'check-mod-tidy'
                         sh 'check-copyright'
@@ -139,7 +164,43 @@ pipeline {
                         sh 'go-licenses check --ignore "storj.io/storj" ./...'
                     }
                 }
+
+                stage('Satellite UI Tests') {
+                    when {
+                        anyOf {
+                            anyOf {
+                                equals expected: "verify", actual: params.BUILD_TYPE
+                                equals expected: "", actual: params.BUILD_TYPE
+                            }
+                            anyOf {
+                                branch 'main'
+                                branch pattern: "release-.*", comparator: "REGEXP"
+                                changeset "testsuite/playwright-ui/**"
+                                changeset "web/**"
+                                changeset "satellite/console/**"
+                            }
+                        }
+                    }
+                    environment {
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                        STORJ_TEST_COCKROACH_NODROP = 'true'
+                        STORJ_TEST_POSTGRES = 'omit'
+                        STORJ_TEST_LOG_LEVEL = 'debug'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                        sh 'make test-satellite-ui'
+                    }
+                }
+
                 stage('Cross Compile') {
+                    when {
+                        anyOf {
+                            equals expected: "pre-merge", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     steps {
                         // verify most of the commands, we cannot check everything since some of them
                         // have a C dependency and we don't have cross-compilation in storj/ci image
@@ -147,12 +208,16 @@ pipeline {
                     }
                 }
                 stage('Tests') {
+                    when {
+                        anyOf {
+                            equals expected: "verify", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                        STORJ_TEST_COCKROACH = 'cockroach://root@loc0alhost:26256/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;'
                         STORJ_TEST_COCKROACH_NODROP = 'true'
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
@@ -163,9 +228,6 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
 
                         sh 'psql -U postgres -c \'create database teststorj;\''
 
@@ -199,6 +261,12 @@ pipeline {
                 }
 
                 stage('Check Benchmark') {
+                    when {
+                        anyOf {
+                            equals expected: "pre-merge", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         STORJ_TEST_COCKROACH = 'omit'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
@@ -210,6 +278,12 @@ pipeline {
                 }
 
                 stage('Integration') {
+                    when {
+                        anyOf {
+                            equals expected: "pre-merge", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
@@ -227,6 +301,11 @@ pipeline {
                 }
 
                 stage('Cockroach Integration') {
+                    when {
+                        anyOf {
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
                         STORJ_NETWORK_HOST6 = '127.0.0.4'
@@ -242,6 +321,12 @@ pipeline {
                 }
 
                 stage('Integration Redis unavailability') {
+                    when {
+                        anyOf {
+                            equals expected: "pre-merge", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.6'
@@ -258,6 +343,12 @@ pipeline {
                 }
 
                 stage('Backwards Compatibility') {
+                    when {
+                        anyOf {
+                            equals expected: "pre-merge", actual: params.BUILD_TYPE
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
@@ -273,6 +364,11 @@ pipeline {
                 }
 
                 stage('Cockroach Backwards Compatibility') {
+                    when {
+                        anyOf {
+                            equals expected: "", actual: params.BUILD_TYPE
+                        }
+                    }
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
@@ -294,6 +390,23 @@ pipeline {
                         sh 'check-clean-directory'
                     }
                 }
+            }
+        }
+    }
+    post {
+        success {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh $BUILD_TYPE success +2'
+            }
+        }
+        failure {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh $BUILD_TYPE failure -2'
+            }
+        }
+        aborted {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh $BUILD_TYPE failure -2'
             }
         }
     }
