@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<{
     color?: string;
     to?: string;
 }>(), {
-    color: 'info',
+    color: 'default',
     to: undefined,
 });
 </script>
