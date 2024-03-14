@@ -44,7 +44,7 @@
                     <template #default>
                         <img class="mr-3" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
                         <div class="max-width">
-                            <p class="font-weight-bold text-lowercase white-space">{{ item.name }}</p>
+                            <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
                         </div>
                     </template>
                 </v-btn>
@@ -572,33 +572,22 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .max-width {
-    max-width: 500px;
+    max-width: 300px;
 
     @media screen and (width <= 780px) {
-        max-width: 450px;
+        max-width: 400px;
     }
 
     @media screen and (width <= 620px) {
-        max-width: 350px;
+        max-width: 300px;
     }
 
     @media screen and (width <= 490px) {
-        max-width: 250px;
+        max-width: 200px;
     }
 
     @media screen and (width <= 385px) {
-        max-width: 185px;
-    }
-}
-
-.white-space {
-    white-space: break-spaces;
-    text-align: left;
-
-    @media screen and (width <= 780px) {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        max-width: 100px;
     }
 }
 </style>
