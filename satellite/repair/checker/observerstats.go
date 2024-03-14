@@ -150,6 +150,23 @@ func (stats *observerRSStats) collectAggregates() {
 	stats.iterationAggregates = aggregateStats{}
 }
 
+// aggregateStatsPlacements aggregate stats per placement.
+// storj.PlacementConstraint values are the indexes of the slice.
+type aggregateStatsPlacements []aggregateStats
+
+func (ap *aggregateStatsPlacements) combine(stats aggregateStatsPlacements) {
+	lenStats := len(stats)
+	if lenStats > len(*ap) {
+		// We don't append directly the stats which ap doesn't have because aggregateStats.objectsLost
+		// is a slice and ap must not refer to the same slice to avoid unnoticed changes.
+		*ap = append(*ap, make([]aggregateStats, lenStats-len(*ap))...)
+	}
+
+	for i := 0; i < lenStats; i++ {
+		(*ap)[i].combine(stats[i])
+	}
+}
+
 // aggregateStats tallies data over the full checker iteration.
 type aggregateStats struct {
 	objectsChecked                 int64
