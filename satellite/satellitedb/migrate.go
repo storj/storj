@@ -2652,7 +2652,8 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "update storjscan payments table to use chain_id in primary key",
 				Version:     261,
 				Action: migrate.SQL{
-					`ALTER TABLE storjscan_payments DROP CONSTRAINT storjscan_payments_pkey;`,
+					`ALTER TABLE storjscan_payments DROP CONSTRAINT IF EXISTS "primary";`,
+					`ALTER TABLE storjscan_payments DROP CONSTRAINT IF EXISTS storjscan_payments_pkey;`,
 					`ALTER TABLE storjscan_payments ADD CONSTRAINT storjscan_payments_pkey PRIMARY KEY ( chain_id, block_hash, log_index );`,
 				},
 			},
