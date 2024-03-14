@@ -48,6 +48,7 @@ export enum AnalyticsEvent {
     PERSONAL_SELECTED = 'Personal Selected',
     BUSINESS_SELECTED = 'Business Selected',
     UPGRADE_CLICKED = 'Upgrade Clicked',
+    ARRIVED_FROM_SOURCE = 'Arrived From Source',
 }
 
 export enum AnalyticsErrorEventSource {

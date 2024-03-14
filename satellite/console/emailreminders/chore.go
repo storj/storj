@@ -5,6 +5,7 @@ package emailreminders
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/private/post"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -144,7 +146,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	mon.IntVal("expiring_needing_reminder").Observe(int64(len(users)))
 
 	expirationWarning := &console.TrialExpirationReminderEmail{
-		SignInLink:          chore.address + "login?source=trial_expiring_notice",
+		SignInLink:          chore.address + fmt.Sprintf("login?source=%s", analytics.SourceTrialExpiringNotice),
 		Origin:              chore.address,
 		ContactInfoURL:      chore.supportURL,
 		ScheduleMeetingLink: chore.scheduleMeetingURL,
@@ -171,7 +173,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	mon.IntVal("expired_needing_notice").Observe(int64(len(users)))
 
 	expirationNotice := &console.TrialExpiredEmail{
-		SignInLink:          chore.address + "login?source=trial_expired_notice",
+		SignInLink:          chore.address + fmt.Sprintf("login?source=%s", analytics.SourceTrialExpiredNotice),
 		Origin:              chore.address,
 		ContactInfoURL:      chore.supportURL,
 		ScheduleMeetingLink: chore.scheduleMeetingURL,

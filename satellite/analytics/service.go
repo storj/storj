@@ -17,6 +17,11 @@ import (
 )
 
 const (
+	// SourceTrialExpiringNotice is the trial expiring notice source.
+	SourceTrialExpiringNotice = "trial_expiring_notice"
+	// SourceTrialExpiredNotice is the trial expired notice source.
+	SourceTrialExpiredNotice = "trial_expired_notice"
+
 	eventInviteLinkClicked            = "Invite Link Clicked"
 	eventInviteLinkSignup             = "Invite Link Signup"
 	eventAccountCreated               = "Account Created"
@@ -111,6 +116,7 @@ const (
 	eventBusinessSelected             = "Business Selected"
 	eventUserUpgraded                 = "User Upgraded"
 	eventUpgradeClicked               = "Upgrade Clicked"
+	eventArrivedFromSource            = "Arrived From Source"
 )
 
 var (
@@ -173,6 +179,7 @@ type Service struct {
 	config        Config
 	satelliteName string
 	clientEvents  map[string]bool
+	sources       map[string]interface{}
 
 	segment segment.Client
 	hubspot *HubSpotEvents
@@ -185,6 +192,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		config:        config,
 		satelliteName: satelliteName,
 		clientEvents:  make(map[string]bool),
+		sources:       make(map[string]interface{}),
 		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
 	}
 	if config.Enabled {
@@ -204,9 +212,12 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
-		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked} {
+		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource} {
 		service.clientEvents[name] = true
 	}
+
+	service.sources[SourceTrialExpiredNotice] = struct{}{}
+	service.sources[SourceTrialExpiringNotice] = struct{}{}
 
 	return service
 }
@@ -655,6 +666,13 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 	if !service.clientEvents[eventName] {
 		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
 		return
+	}
+
+	if v, ok := customProps["source"]; ok {
+		if _, ok = service.sources[v]; !ok {
+			service.log.Error("Event source is not in allowed list", zap.String("eventName", eventName), zap.String("source", v))
+			return
+		}
 	}
 
 	props := segment.NewProperties()

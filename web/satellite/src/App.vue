@@ -77,6 +77,7 @@ const user = computed<User>(() => usersStore.state.user);
  */
 async function setup() {
     isLoading.value = true;
+    const source = new URLSearchParams(window.location.search).get('source');
     try {
         await usersStore.getUser();
         const promises: Promise<void | object | string>[] = [
@@ -92,6 +93,12 @@ async function setup() {
 
         const invites = projectsStore.state.invitations;
         const projects = projectsStore.state.projects;
+
+        if (source) {
+            const props = new Map();
+            props.set('source', source);
+            analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, props);
+        }
 
         if (appStore.state.hasJustLoggedIn && !invites.length && projects.length <= 1) {
             if (!projects.length) {

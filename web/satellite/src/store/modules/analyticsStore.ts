@@ -34,16 +34,16 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         } catch (_) { /*empty*/ }
     }
 
-    function eventTriggered(eventName: AnalyticsEvent, props?: {[p: string]: string}): void {
-        analytics.eventTriggered(eventName, props).catch(_ => {});
+    function eventTriggered(eventName: AnalyticsEvent, props?: Map<string, string>): void {
+        analytics.eventTriggered(eventName, props).catch(_ => { });
     }
 
     function linkEventTriggered(eventName: AnalyticsEvent, link: string): void {
-        analytics.linkEventTriggered(eventName, link).catch(_ => {});
+        analytics.linkEventTriggered(eventName, link).catch(_ => { });
     }
 
     function pageVisit(pagePath: string, source: string): void {
-        analytics.pageVisit(pagePath).catch(_ => {});
+        analytics.pageVisit(pagePath).catch(_ => { });
 
         if (!plausible.value) {
             return;
@@ -73,7 +73,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
 
     function errorEventTriggered(source: AnalyticsErrorEventSource): void {
-        analytics.errorEventTriggered(source).catch(_ => {});
+        analytics.errorEventTriggered(source).catch(_ => { });
     }
 
     return {
