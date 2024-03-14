@@ -17,7 +17,7 @@
             You can increase your limits
             <a class="text-decoration-underline text-cursor-pointer" @click="openLimitDialog(bannerText[threshold].limitType)">here</a>
             or in the
-            <a class="text-decoration-underline text-cursor-pointer" @click="goToProjectSettings">Project Settings page</a>.
+            <a class="text-decoration-underline text-cursor-pointer" @click="goToProjectSettings">project settings page</a>.
         </template>
         <template v-else-if="!isPaidTier && bannerText[threshold].hundred" #text>
             <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> to avoid any service interruptions.

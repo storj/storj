@@ -53,7 +53,7 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip rounded color="success" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -68,7 +68,7 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip rounded color="success" variant="tonal" class="font-weight-bold mb-2">
                                     {{ formattedAccountBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -101,7 +101,7 @@
                         >
                             <v-card-text>
                                 <v-chip
-                                    :color="isCouponActive ? 'green' : 'error'"
+                                    :color="isCouponActive ? 'success' : 'error'"
                                     variant="tonal"
                                     class="font-weight-bold mb-2"
                                     rounded

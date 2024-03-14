@@ -37,11 +37,10 @@
                     <v-row>
                         <v-col cols="12">
                             <p v-if="isSkipping" class="pb-3">
-                                Do you want to remember this choice and always skip the passphrase when opening a project?
+                                Do you want to remember this choice and skip the passphrase when opening a project?
                             </p>
                             <p v-else>
-                                Enter your encryption passphrase to view and manage your data in the browser.
-                                This passphrase will be used to unlock all buckets in this project.
+                                Enter your encryption passphrase to view and manage the data in this project.
                             </p>
                         </v-col>
 
@@ -81,7 +80,7 @@
                         :disabled="isLoading"
                         @click="() => isSkipping ? model = false : onSkip()"
                     >
-                        {{ isSkipping ? 'No' : 'Skip' }}
+                        {{ isSkipping ? 'No, skip just now' : 'Skip' }}
                     </v-btn>
                 </v-col>
                 <v-col>
@@ -93,7 +92,7 @@
                         :disabled="!formValid"
                         @click="() => isSkipping ? onSkip(true) : onContinue()"
                     >
-                        {{ isSkipping ? 'Yes' : 'Continue ->' }}
+                        {{ isSkipping ? 'Yes, always skip' : 'Continue ->' }}
                     </v-btn>
                 </v-col>
             </v-card-actions>

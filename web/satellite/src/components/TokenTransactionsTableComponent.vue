@@ -41,7 +41,7 @@
                 </p>
             </template>
             <template #item.amount="{ item }">
-                <p class="font-weight-bold text-green">
+                <p class="font-weight-bold text-success">
                     {{ item.amount }}
                 </p>
             </template>
