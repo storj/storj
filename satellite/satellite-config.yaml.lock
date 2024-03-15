@@ -130,6 +130,9 @@
 # Number of damaged segments to buffer in-memory before flushing to the repair queue
 # checker.repair-queue-insert-batch-size: 100
 
+# comma-separated override values for repair success target in the format k-target
+# checker.repair-target-overrides: 29-65
+
 # comma-separated override values for repair threshold in the format k-threshold
 # checker.repair-threshold-overrides: 29-52
 

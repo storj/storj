@@ -238,7 +238,8 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
 			placement,
-			config.Checker.RepairOverrides,
+			config.Checker.RepairTargetOverrides,
+			config.Checker.RepairTargetOverrides,
 			config.Repairer,
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)

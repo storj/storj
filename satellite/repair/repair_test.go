@@ -1822,6 +1822,77 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 	})
 }
 
+func TestRepairTargetOverrides(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 7, 7),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Checker.RepairThresholdOverrides.Values[2] = 4
+					config.Checker.RepairTargetOverrides.Values[2] = 5
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Stop()
+
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testrand.Bytes(8*memory.KiB))
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+
+		toMarkOffline := 3
+		for _, piece := range segment.Pieces[:toMarkOffline] {
+			node := planet.FindNode(piece.StorageNode)
+
+			err := planet.StopNodeAndUpdate(ctx, node)
+			require.NoError(t, err)
+
+			err = updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, false, time.Now().Add(-24*time.Hour))
+			require.NoError(t, err)
+		}
+
+		// trigger checker with ranged loop to add segment to repair queue
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// Verify that the segment is on the repair queue
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
+
+		// Run the repairer
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// Verify that repair queue is empty and segment was repaired
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Zero(t, count)
+
+		segment, _ = getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		require.NotNil(t, segment.RepairedAt)
+
+		// for repair we aren't uploading number of pieces exact to optimal shares but we will
+		// upload between optimal shares and optimal shares * MaxExcessRateOptimalThreshold (e.g. 0.05)
+		// In production target number of pieces will be usually equal to optimal shares but on test env
+		// where things are going fast it may from time to time upload more pieces.
+		require.Contains(t, []int{5, 6}, len(segment.Pieces))
+	})
+}
+
 func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplanet.StorageNode, isUp bool, timestamp time.Time) error {
 	local := node.Contact.Service.Local()
 	checkInInfo := overlay.NodeCheckInInfo{
