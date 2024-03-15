@@ -421,7 +421,7 @@ CREATE TABLE storjscan_payments (
                                     status text NOT NULL,
                                     timestamp timestamp with time zone NOT NULL,
                                     created_at timestamp with time zone NOT NULL,
-                                    PRIMARY KEY ( chain_id, block_hash, log_index )
+                                    PRIMARY KEY ( block_hash, log_index )
 );
 CREATE TABLE storjscan_wallets (
                                    user_id bytea NOT NULL,
