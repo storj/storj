@@ -2653,6 +2653,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     261,
 				Action:      migrate.SQL{},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update transaction source to specify chain type ",
+				Version:     262,
+				Action: migrate.SQL{
+					`UPDATE billing_transactions SET source = 'ethereum' WHERE source = 'storjscan';`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
