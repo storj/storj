@@ -845,6 +845,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AnalyticsEnabled:                server.AnalyticsConfig.Enabled,
 		PlausibleDomain:                 server.AnalyticsConfig.Plausible.Domain,
 		PlausibleScriptUrl:              server.AnalyticsConfig.Plausible.ScriptUrl,
+		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
