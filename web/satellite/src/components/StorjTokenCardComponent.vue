@@ -43,7 +43,7 @@
             </v-row>
             <v-divider class="my-4" />
             <p>Total Balance</p>
-            <v-chip rounded color="green" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
+            <v-chip rounded color="success" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
             <v-divider class="mt-4 mb-2" />
             <v-btn v-if="wallet.address" variant="flat" color="success" size="small" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
             <v-btn v-else variant="flat" color="success" size="small" :loading="isLoading" class="mt-2" @click="claimWalletClick">Create New Wallet</v-btn>
@@ -66,13 +66,16 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import AddTokensDialog from '@/components/dialogs/AddTokensDialog.vue';
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
+const usersStore = useUsersStore();
 const billingStore = useBillingStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -145,6 +148,11 @@ async function claimWallet(): Promise<void> {
  * Called when "Create New Wallet" button is clicked.
  */
 function claimWalletClick(): void {
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
     withLoading(async () => {
         try {
             await claimWallet();
@@ -161,6 +169,11 @@ function claimWalletClick(): void {
  */
 function onAddTokens(): void {
     analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
 
     withLoading(async () => {
         if (!wallet.value.address) {

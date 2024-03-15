@@ -53,7 +53,7 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip rounded color="success" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -68,7 +68,7 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip rounded color="success" variant="tonal" class="font-weight-bold mb-2">
                                     {{ formattedAccountBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -101,7 +101,7 @@
                         >
                             <v-card-text>
                                 <v-chip
-                                    :color="isCouponActive ? 'green' : 'error'"
+                                    :color="isCouponActive ? 'success' : 'error'"
                                     variant="tonal"
                                     class="font-weight-bold mb-2"
                                     rounded
@@ -237,6 +237,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import CreditCardComponent from '@/components/CreditCardComponent.vue';
@@ -264,6 +265,7 @@ const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
+const appStore = useAppStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -364,6 +366,11 @@ const isCouponActive = computed((): boolean => {
 });
 
 function onAddTokensClicked(): void {
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
     tab.value = TABS['payment-methods'];
     tokenCardComponent.value?.onAddTokens();
 }

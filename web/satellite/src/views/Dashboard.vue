@@ -38,16 +38,16 @@
 
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Files" subtitle="Project total" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
                 <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Buckets" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
+                <CardStatsComponent title="Access Keys" subtitle="Total keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
@@ -75,7 +75,7 @@
                     >
                         Click to learn more
                     </v-tooltip>
-                    <CardStatsComponent title="CO₂ Avoided" subtitle="By using Storj" :data="co2Saved" color="green" link />
+                    <CardStatsComponent title="CO₂ Avoided" subtitle="By using Storj" :data="co2Saved" color="success" link />
                 </v-col>
             </template>
             <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="4" lg="2">
@@ -105,7 +105,7 @@
                     :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)} per month`"
                     :available="`${usedLimitFormatted(availableEgress)} Available`"
                     :cta="getCTALabel(egressUsedPercent)"
-                    extra-info="Your download usage limit is applied only for the current billing period."
+                    extra-info="The download usage is only for the current billing period of one month."
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
