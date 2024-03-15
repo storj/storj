@@ -268,7 +268,7 @@ read one (
 
 // storjscan_payment contains information about payments from storjscan.
 model storjscan_payment (
-	key chain_id block_hash log_index
+	key block_hash log_index
 
 	index (fields chain_id block_number log_index)
 
