@@ -48,6 +48,22 @@ export enum CreateAccessStep {
     CredentialsCreated = 'credentialsCreated',
 }
 
+export enum SetupStep {
+    ChooseFlowStep = 'chooseFlowStep',
+    AccessEncryption = 'accessEncryption',
+    PassphraseGenerated = 'passphraseGenerated',
+    EnterMyPassphrase = 'enterMyPassphrase',
+    EnterNewPassphrase = 'enterNewPassphrase',
+    ChoosePermissionsStep = 'choosePermission',
+    SelectBucketsStep = 'selectBuckets',
+    AccessCreatedStep = 'accessCreated',
+}
+
+export enum FlowType {
+    Default = 'default',
+    Advanced = 'advanced',
+}
+
 export enum Permission {
     All = 'all',
     Read = 'Read',

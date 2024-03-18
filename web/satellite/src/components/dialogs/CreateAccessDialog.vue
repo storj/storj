@@ -206,7 +206,7 @@ import {
 } from '@/types/createAccessGrant';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { DialogStepComponent } from '@/types/common';
+import { DialogStepComponent, getUniqueName } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreateNewAccessStep from '@/components/dialogs/createAccessSteps/CreateNewAccessStep.vue';
@@ -586,21 +586,9 @@ function setDefaultName(): void {
 
     if (!(props.defaultName && createStepRef.value)) return;
 
-    // Regular expression to match a name with an optional numeric suffix.
-    const namePattern = /^(.*?)(?: \((\d+)\))?$/;
+    const uniqueName = getUniqueName(props.defaultName, agStore.state.allAGNames);
 
-    let currName = props.defaultName;
-    let count = 0;
-    while (agStore.state.allAGNames.includes(currName)) {
-        count++;
-        currName = currName.replace(namePattern, (_, baseName, index) => {
-            // Increment the suffix if it exists, or add a new one starting with 1.
-            const newIndex = index ? parseInt(index) + 1 : count;
-            return `${baseName} (${newIndex})`;
-        });
-    }
-
-    createStepRef.value.setName(currName);
+    createStepRef.value.setName(uniqueName);
 }
 
 /**

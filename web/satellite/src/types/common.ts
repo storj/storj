@@ -68,12 +68,15 @@ export function EmailRule(value: string, strict = false): string | boolean {
     return Validator.email(value, strict) || 'E-mail must be valid.';
 }
 
-export interface DialogStepComponent {
-    title: string;
-    iconSrc?: string;
+export interface IDialogFlowStep {
     onEnter?: () => void;
     onExit?: (to: 'next' | 'prev') => void;
     validate?: () => boolean;
+}
+
+export interface DialogStepComponent extends IDialogFlowStep {
+    title: string;
+    iconSrc?: string;
 }
 
 export type SaveButtonsItem = string | {
@@ -82,3 +85,21 @@ export type SaveButtonsItem = string | {
 };
 
 export const MAX_SEARCH_VALUE_LENGTH = 200;
+
+export function getUniqueName(name: string, allNames: string[]): string {
+    // Regular expression to match a name with an optional numeric suffix.
+    const namePattern = /^(.*?)(?: \((\d+)\))?$/;
+
+    let currName = name;
+    let count = 0;
+    while (allNames.includes(currName)) {
+        count++;
+        currName = currName.replace(namePattern, (_, baseName, index) => {
+            // Increment the suffix if it exists, or add a new one starting with 1.
+            const newIndex = index ? parseInt(index) + 1 : count;
+            return `${baseName} (${newIndex})`;
+        });
+    }
+
+    return currName;
+}

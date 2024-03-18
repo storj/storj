@@ -36,7 +36,8 @@
             </v-card-item>
         </v-card>
     </v-col>
-    <CreateAccessDialog ref="accessDialog" v-model="dialog" :default-name="app.name" />
+    <AppSetupDialog v-if="newAppSetupFlowEnabled" v-model="dialog" :access-name="app.name" :docs-link="app.docs" />
+    <CreateAccessDialog v-else ref="accessDialog" v-model="dialog" :default-name="app.name" />
 </template>
 
 <script setup lang="ts">
@@ -47,12 +48,16 @@ import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 import { Application } from '@/types/applications';
 import { AccessType, Exposed } from '@/types/createAccessGrant';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
+import AppSetupDialog from '@/components/dialogs/AppSetupDialog.vue';
 
 defineProps<{
     app: Application
 }>();
+
+const { newAppSetupFlowEnabled } = useConfigStore().state.config;
 
 const { withTrialCheck } = useTrialCheck();
 
