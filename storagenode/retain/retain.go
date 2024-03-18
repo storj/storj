@@ -367,6 +367,11 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		zap.Stringer("Satellite ID", satelliteID))
 
 	pieceIDs, piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+		s.log.Debug("About to move piece to trash",
+			zap.Stringer("Satellite ID", satelliteID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.String("Status", s.config.Status.String()))
+
 		// if retain status is enabled, trash the piece
 		if s.config.Status == Enabled {
 			if err := s.trash(ctx, satelliteID, pieceID, startedAt); err != nil {
