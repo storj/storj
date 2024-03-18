@@ -110,13 +110,8 @@ func TestClientMocked(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, latestBlocks, actual.LatestBlocks)
 		require.Equal(t, 75, len(actual.Payments))
-		sort.Slice(payments, func(i, j int) bool {
-			if payments[i].ChainID == payments[j].ChainID {
-				return payments[i].BlockNumber < payments[j].BlockNumber
-			}
-			return payments[i].ChainID > payments[j].ChainID
-		})
-		require.Equal(t, payments[25:], actual.Payments)
+		require.Equal(t, 50, paymentsFromChain(actual.Payments, chainIds[1]))
+		require.Equal(t, 25, paymentsFromChain(actual.Payments, chainIds[0]))
 	})
 }
 
@@ -158,4 +153,14 @@ func TestClientMockedUnauthorized(t *testing.T) {
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "secret is invalid", errs.Unwrap(err).Error())
 	})
+}
+
+func paymentsFromChain(payments []storjscan.Payment, chainID int64) int {
+	var count int
+	for _, payment := range payments {
+		if payment.ChainID == chainID {
+			count++
+		}
+	}
+	return count
 }
