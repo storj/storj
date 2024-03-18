@@ -65,6 +65,7 @@ type FrontendConfig struct {
 	AnalyticsEnabled                bool                  `json:"analyticsEnabled"`
 	PlausibleScriptUrl              string                `json:"plausibleScriptUrl"`
 	PlausibleDomain                 string                `json:"plausibleDomain"`
+	NewAppSetupFlowEnabled          bool                  `json:"newAppSetupFlowEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

@@ -61,6 +61,7 @@ export class FrontendConfig {
     analyticsEnabled: boolean;
     plausibleScriptUrl: string;
     plausibleDomain: string;
+    newAppSetupFlowEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
