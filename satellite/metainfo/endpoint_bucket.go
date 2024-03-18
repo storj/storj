@@ -323,6 +323,13 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	err = endpoint.deleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if !canRead && !canList {
+			if !buckets.ErrBucketNotFound.Has(err) && !ErrBucketNotEmpty.Has(err) {
+				// We don't want to return an internal error if it doesn't have read and list permissions
+				// for not giving any little chance to find out that a bucket with a specific name and with
+				// data exists, but we want to log it about it.
+				endpoint.log.Error("internal", zap.Error(err))
+			}
+
 			// No error info is returned if neither Read, nor List permission is granted.
 			return &pb.BucketDeleteResponse{}, nil
 		}
