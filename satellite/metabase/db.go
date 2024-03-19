@@ -243,7 +243,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &db.db,
 				Description: "Test snapshot",
-				Version:     18,
+				Version:     19,
 				Action: migrate.SQL{
 					`CREATE TABLE objects (
 						project_id   BYTEA NOT NULL,
@@ -269,6 +269,9 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 						encryption INT8 NOT NULL default 0,
 
 						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
+
+						retention_mode INT2 NOT NULL default 0,
+						retain_until   TIMESTAMPTZ,
 
 						PRIMARY KEY (project_id, bucket_name, object_key, version)
 					);
@@ -297,6 +300,9 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
 
 					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
+
+					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: 0=none, and 1=compliance.';
+					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 
 					CREATE TABLE segments (
 						stream_id  BYTEA NOT NULL,
@@ -420,7 +426,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 		migration.Steps = append(migration.Steps, &migrate.Step{
 			DB:          &db.db,
 			Description: "Constraint for ensuring our metabase correctness.",
-			Version:     19,
+			Version:     20,
 			Action: migrate.SQL{
 				`CREATE UNIQUE INDEX objects_one_unversioned_per_location ON objects (project_id, bucket_name, object_key) WHERE status IN ` + statusesUnversioned + `;`,
 			},
@@ -799,6 +805,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					-- change type from INT4 to INT8; this is practically instant on cockroachdb because
 					-- it uses INT8 storage for INT4 values already.
 					ALTER TABLE objects ALTER COLUMN version TYPE INT8;
+				`},
+			},
+			{
+				DB:          &db.db,
+				Description: "add retention_mode and retain_until columns to objects table",
+				Version:     19,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN retention_mode INT2 NOT NULL default 0`,
+					`ALTER TABLE objects ADD COLUMN retain_until TIMESTAMPTZ`,
+					`
+					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: 0=none, and 1=compliance.';
+					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 				`},
 			},
 		},
