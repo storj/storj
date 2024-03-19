@@ -52,7 +52,6 @@ export enum SetupStep {
     ChooseFlowStep = 'chooseFlowStep',
     AccessEncryption = 'accessEncryption',
     PassphraseGenerated = 'passphraseGenerated',
-    EnterMyPassphrase = 'enterMyPassphrase',
     EnterNewPassphrase = 'enterNewPassphrase',
     ChoosePermissionsStep = 'choosePermission',
     SelectBucketsStep = 'selectBuckets',
@@ -70,6 +69,11 @@ export enum Permission {
     Write = 'Write',
     List = 'List',
     Delete = 'Delete',
+}
+
+export enum BucketsOption {
+    All = 'all',
+    Select = 'select',
 }
 
 export interface AccessGrantEndDate {

@@ -63,9 +63,9 @@ const passphrase = ref<string>('');
 const isPassphraseVisible = ref<boolean>(false);
 
 const props = withDefaults(defineProps<{
-    title: string;
-    setOnNext: boolean;
-    ackRequired: boolean;
+    title?: string;
+    setOnNext?: boolean;
+    ackRequired?: boolean;
 }>(), {
     title: 'Enter New Passphrase',
     setOnNext: false,

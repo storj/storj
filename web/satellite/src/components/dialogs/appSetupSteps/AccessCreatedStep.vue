@@ -14,33 +14,42 @@
                     flat
                     density="comfortable"
                     label="Access Key"
-                    model-value="jx5n3ocoloor4ei2qh6jsqstjuqa"
-                    read-only
+                    :model-value="credentials.accessKeyId"
+                    readonly
                     hide-details
-                    append-inner-icon="mdi-content-copy"
-                />
+                >
+                    <template #append-inner>
+                        <input-copy-button :value="credentials.accessKeyId" />
+                    </template>
+                </v-text-field>
             </v-col>
             <v-col cols="12">
                 <v-text-field
                     flat
                     density="comfortable"
                     label="Secret Key"
-                    model-value="j3qlp56mr2oqnu57cx54er7lhfzxkdojmoayoeroqzvb56ihqh246"
-                    read-only
+                    :model-value="credentials.secretKey"
+                    readonly
                     hide-details
-                    append-inner-icon="mdi-content-copy"
-                />
+                >
+                    <template #append-inner>
+                        <input-copy-button :value="credentials.secretKey" />
+                    </template>
+                </v-text-field>
             </v-col>
             <v-col cols="12">
                 <v-text-field
                     flat
                     density="comfortable"
                     label="Endpoint"
-                    model-value="https://apps.storj.io"
-                    read-only
+                    :model-value="credentials.endpoint"
+                    readonly
                     hide-details
-                    append-inner-icon="mdi-content-copy"
-                />
+                >
+                    <template #append-inner>
+                        <input-copy-button :value="credentials.endpoint" />
+                    </template>
+                </v-text-field>
             </v-col>
 
             <v-col>
@@ -55,4 +64,12 @@
 
 <script setup lang="ts">
 import { VForm, VAlert, VCol, VRow, VTextField } from 'vuetify/components';
+
+import { EdgeCredentials } from '@/types/accessGrants';
+
+import InputCopyButton from '@/components/InputCopyButton.vue';
+
+defineProps<{
+    credentials: EdgeCredentials
+}>();
 </script>

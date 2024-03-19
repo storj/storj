@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-7" @submit.prevent>
+    <v-form class="pa-7" @submit.prevent>
         <v-row>
             <v-col>
                 <p>Setup access to third-party applications.</p>
@@ -13,7 +13,7 @@
                     color="primary"
                     mandatory
                     column
-                    @update:model-value="val => emit('setFlowType', val)"
+                    @update:modelValue="val => emit('setFlowType', val)"
                 >
                     <v-chip
                         :key="FlowType.Default"
@@ -62,13 +62,11 @@ const emit = defineEmits<{
     'setFlowType': [flowType: FlowType]
 }>();
 
-const form = ref<VForm>();
 const flowType = ref<FlowType>(FlowType.Default);
 
 defineExpose<IDialogFlowStep>({
-    validate: () => {
-        form.value?.validate();
-        return !!form.value?.isValid;
+    onExit: () => {
+        emit('setFlowType', flowType.value);
     },
 });
 </script>

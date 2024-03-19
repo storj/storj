@@ -21,33 +21,70 @@
                             variant="text"
                             size="small"
                             color="default"
+                            :disabled="isCreating"
                             @click="model = false"
                         />
                     </template>
+                    <v-progress-linear height="2px" indeterminate absolute location="bottom" :active="isFetching || isCreating" />
                 </v-card-item>
             </v-sheet>
 
             <v-divider />
 
-            <v-window v-model="step">
+            <v-window
+                v-model="step"
+                class="setup-app__window"
+                :class="{ 'setup-app__window--loading': isFetching }"
+            >
                 <v-window-item :value="SetupStep.ChooseFlowStep">
-                    <ChooseFlowStep @setFlowType="val => flowType = val" />
+                    <choose-flow-step
+                        :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
+                        @setFlowType="val => flowType = val"
+                    />
                 </v-window-item>
 
                 <v-window-item :value="SetupStep.AccessEncryption">
-                    <AccessEncryptionStep @passphraseChanged="val => passphrase = val" />
+                    <access-encryption-step
+                        :ref="stepInfos[SetupStep.AccessEncryption].ref"
+                        @selectOption="val => passphraseOption = val"
+                        @passphraseChanged="val => passphrase = val"
+                    />
+                </v-window-item>
+
+                <v-window-item :value="SetupStep.EnterNewPassphrase">
+                    <enter-passphrase-step
+                        :ref="stepInfos[SetupStep.EnterNewPassphrase].ref"
+                        @passphraseChanged="val => passphrase = val"
+                    />
+                </v-window-item>
+
+                <v-window-item :value="SetupStep.PassphraseGenerated">
+                    <passphrase-generated-step
+                        :ref="stepInfos[SetupStep.PassphraseGenerated].ref"
+                        :name="name"
+                        @passphraseChanged="val => passphrase = val"
+                    />
                 </v-window-item>
 
                 <v-window-item :value="SetupStep.ChoosePermissionsStep">
-                    <ChoosePermissionsStep />
+                    <choose-permissions-step
+                        :ref="stepInfos[SetupStep.ChoosePermissionsStep].ref"
+                        @permissionsChanged="val => permissions = val"
+                    />
                 </v-window-item>
 
                 <v-window-item :value="SetupStep.SelectBucketsStep">
-                    <SelectBucketsStep />
+                    <select-buckets-step
+                        :ref="stepInfos[SetupStep.SelectBucketsStep].ref"
+                        @bucketsChanged="val => buckets = val"
+                    />
                 </v-window-item>
 
                 <v-window-item :value="SetupStep.AccessCreatedStep">
-                    <AccessCreatedStep />
+                    <access-created-step
+                        :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
+                        :credentials="credentials"
+                    />
                 </v-window-item>
             </v-window>
 
@@ -60,9 +97,10 @@
                             variant="outlined"
                             color="default"
                             block
+                            :disabled="isCreating || isFetching"
                             @click="prevStep"
                         >
-                            Cancel
+                            {{ stepInfos[step].prevText }}
                         </v-btn>
                     </v-col>
                     <v-col>
@@ -71,9 +109,11 @@
                             color="primary"
                             variant="flat"
                             block
+                            :loading="isCreating"
+                            :disabled="isFetching"
                             @click="nextStep"
                         >
-                            Next
+                            {{ stepInfos[step].nextText.value }}
                         </v-btn>
                         <v-btn
                             v-else
@@ -94,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, Ref, ref, watch } from 'vue';
+import { Component, computed, Ref, ref, watch, WatchStopHandle } from 'vue';
 import {
     VBtn,
     VCard,
@@ -104,6 +144,7 @@ import {
     VCol,
     VDialog,
     VDivider,
+    VProgressLinear,
     VRow,
     VSheet,
     VWindow,
@@ -118,26 +159,41 @@ import {
 } from '@/types/createAccessGrant';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { getUniqueName, IDialogFlowStep } from '@/types/common';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ChooseFlowStep from '@/components/dialogs/appSetupSteps/ChooseFlowStep.vue';
 import ChoosePermissionsStep from '@/components/dialogs/appSetupSteps/ChoosePermissionsStep.vue';
 import SelectBucketsStep from '@/components/dialogs/appSetupSteps/SelectBucketsStep.vue';
 import AccessCreatedStep from '@/components/dialogs/appSetupSteps/AccessCreatedStep.vue';
 import AccessEncryptionStep from '@/components/dialogs/createAccessSteps/AccessEncryptionStep.vue';
+import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
+import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/PassphraseGeneratedStep.vue';
+
+type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 
 class StepInfo {
-    public ref: Ref<IDialogFlowStep | undefined> = ref<IDialogFlowStep>();
+    public ref = ref<IDialogFlowStep>();
+    public prev: Ref<SetupStep | undefined>;
+    public next: Ref<SetupStep | undefined>;
+    public nextText: Ref<string>;
 
     constructor(
-        public nextText: string,
-        public prev?: SetupStep,
-        public next?: SetupStep,
+        nextText: string | (() => string),
+        public prevText: string,
+        prev: SetupLocation = undefined,
+        next: SetupLocation = undefined,
         public beforeNext?: () => Promise<void>,
-    ) { }
+    ) {
+        this.prev = (typeof prev === 'function') ? computed<SetupStep | undefined>(prev) : ref<SetupStep | undefined>(prev);
+        this.next = (typeof next === 'function') ? computed<SetupStep | undefined>(next) : ref<SetupStep | undefined>(next);
+        this.nextText = (typeof nextText === 'function') ? computed<string>(nextText) : ref<string>(nextText);
+    }
 }
 
 const props = defineProps<{
@@ -148,24 +204,25 @@ const props = defineProps<{
 const agStore = useAccessGrantsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
+const analyticsStore = useAnalyticsStore();
 
 const notify = useNotify();
-
-const resets: (() => void)[] = [];
 
 const model = defineModel<boolean>({ required: true });
 
 const innerContent = ref<Component>();
 const isCreating = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
+const worker = ref<Worker | null>(null);
 
+const resets: (() => void)[] = [];
 function resettableRef<T>(value: T): Ref<T> {
     const thisRef = ref<T>(value) as Ref<T>;
     resets.push(() => thisRef.value = value);
     return thisRef;
 }
 
-const worker = ref<Worker | null>(null);
 const step = resettableRef<SetupStep>(SetupStep.ChooseFlowStep);
 const flowType = resettableRef<FlowType>(FlowType.Default);
 const name = resettableRef<string>('');
@@ -173,51 +230,163 @@ const permissions = resettableRef<Permission[]>([]);
 const buckets = resettableRef<string[]>([]);
 const passphrase = resettableRef<string>(bucketsStore.state.passphrase);
 const passphraseOption = resettableRef<PassphraseOption>(PassphraseOption.EnterNewPassphrase);
+const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseFlowStep]: new StepInfo(
-        promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next' : 'Create Access',
+        () => promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next' : 'Create Access',
+        'Cancel',
         undefined,
-        bucketsStore.state.promptForPassphrase
-            ? SetupStep.AccessEncryption
-            : flowType.value === FlowType.Default
-                ? SetupStep.AccessCreatedStep
-                : SetupStep.ChoosePermissionsStep,
-        !promptForPassphrase.value && flowType.value === FlowType.Default ? createCredentials : undefined,
+        () => {
+            if (promptForPassphrase.value) return SetupStep.AccessEncryption;
+
+            return flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+        },
+        async () => {
+            if (!promptForPassphrase.value && flowType.value === FlowType.Default) {
+                await createCredentials();
+            }
+        },
     ),
     [SetupStep.AccessEncryption]: new StepInfo(
-        'Next',
+        () => flowType.value === FlowType.Default && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next',
+        'Back',
         SetupStep.ChooseFlowStep,
-        flowType.value === FlowType.Default
-            ? SetupStep.AccessCreatedStep
-            : passphraseOption.value === PassphraseOption.EnterNewPassphrase
-                ? SetupStep.EnterNewPassphrase
-                : SetupStep.PassphraseGenerated,
-        flowType.value === FlowType.Default ? createCredentials : undefined,
+        () => {
+            if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
+            if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
+
+            return flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+        },
+        async () => {
+            if (
+                passphraseOption.value === PassphraseOption.EnterNewPassphrase ||
+                passphraseOption.value === PassphraseOption.GenerateNewPassphrase ||
+                flowType.value === FlowType.Advanced
+            ) return;
+
+            await createCredentials();
+        },
     ),
-    [SetupStep.ChoosePermissionsStep]: new StepInfo(''),
-    [SetupStep.PassphraseGenerated]: new StepInfo(''),
-    [SetupStep.EnterMyPassphrase]: new StepInfo(''),
-    [SetupStep.EnterNewPassphrase]: new StepInfo(''),
-    [SetupStep.SelectBucketsStep]: new StepInfo(''),
-    [SetupStep.AccessCreatedStep]: new StepInfo(''),
+    [SetupStep.PassphraseGenerated]: new StepInfo(
+        () => flowType.value === FlowType.Default ? 'Create Access' : 'Next',
+        'Back',
+        SetupStep.AccessEncryption,
+        () => flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
+        async () => {
+            if (flowType.value === FlowType.Default) await createCredentials();
+        },
+    ),
+    [SetupStep.EnterNewPassphrase]: new StepInfo(
+        () => flowType.value === FlowType.Default ? 'Create Access' : 'Next',
+        'Back',
+        SetupStep.AccessEncryption,
+        () => flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
+        async () => {
+            if (flowType.value === FlowType.Default) await createCredentials();
+        },
+    ),
+    [SetupStep.ChoosePermissionsStep]: new StepInfo(
+        'Next',
+        'Back',
+        () => {
+            if (bucketsStore.state.promptForPassphrase) {
+                if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
+                if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
+
+                return SetupStep.AccessEncryption;
+            }
+
+            return SetupStep.ChooseFlowStep;
+        },
+        SetupStep.SelectBucketsStep,
+    ),
+    [SetupStep.SelectBucketsStep]: new StepInfo(
+        'Create Access',
+        'Back',
+        SetupStep.ChoosePermissionsStep,
+        SetupStep.AccessCreatedStep,
+        createCredentials,
+    ),
+    [SetupStep.AccessCreatedStep]: new StepInfo('', 'Close'),
 };
 
 /**
  * Set unique name of access to be created.
  */
 function setDefaultName(): void {
-    if (props.accessName) {
-        name.value = getUniqueName(props.accessName, agStore.state.allAGNames);
-    }
+    name.value = getUniqueName(props.accessName, agStore.state.allAGNames);
 }
 
 /**
  * Set unique name of access to be created.
  */
-async function createCredentials(): Promise<void> {}
+async function createCredentials(): Promise<void> {
+    if (!worker.value) {
+        throw new Error('Web worker is not initialized.');
+    }
+
+    if (!passphrase.value) throw new Error('Passphrase can\'t be empty');
+
+    const projectID = projectsStore.state.selectedProject.id;
+
+    isCreating.value = true;
+
+    const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name.value, projectID);
+
+    const noCaveats = flowType.value === FlowType.Default;
+
+    const permissionsMsg = {
+        'type': 'SetPermission',
+        'buckets': JSON.stringify(noCaveats ? [] : buckets.value),
+        'apiKey': cleanAPIKey.secret,
+        'isDownload': noCaveats || permissions.value.includes(Permission.Read),
+        'isUpload': noCaveats || permissions.value.includes(Permission.Write),
+        'isList': noCaveats || permissions.value.includes(Permission.List),
+        'isDelete': noCaveats || permissions.value.includes(Permission.Delete),
+        'notBefore': new Date().toISOString(),
+    };
+
+    worker.value.postMessage(permissionsMsg);
+
+    const grantEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) worker.value.onmessage = resolve;
+    });
+    if (grantEvent.data.error) throw new Error(grantEvent.data.error);
+
+    const keyWithCaveats = grantEvent.data.value;
+    const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
+
+    const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
+
+    worker.value.postMessage({
+        'type': 'GenerateAccess',
+        'apiKey': keyWithCaveats,
+        'passphrase': passphrase.value,
+        'salt': salt,
+        'satelliteNodeURL': satelliteNodeURL,
+    });
+
+    const accessEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) worker.value.onmessage = resolve;
+    });
+    if (accessEvent.data.error) throw new Error(accessEvent.data.error);
+
+    const accessGrant = accessEvent.data.value;
+
+    credentials.value = await agStore.getEdgeCredentials(accessGrant);
+    analyticsStore.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
+
+    if (passphraseOption.value === PassphraseOption.SetMyProjectPassphrase) {
+        bucketsStore.setEdgeCredentials(new EdgeCredentials());
+        bucketsStore.setPassphrase(passphrase.value);
+        bucketsStore.setPromptForPassphrase(false);
+    }
+
+    isCreating.value = false;
+}
 
 /**
  * Navigates to the next step.
@@ -227,19 +396,20 @@ async function nextStep(): Promise<void> {
 
     if (isCreating.value || isFetching.value || info.ref.value?.validate?.() === false) return;
 
+    info.ref.value?.onExit?.('next');
+
     if (info.beforeNext) {
         try {
             await info.beforeNext();
         } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+            notify.notifyError(error, AnalyticsErrorEventSource.SETUP_APPLICATION_MODAL);
+            isCreating.value = false;
             return;
         }
     }
 
-    info.ref.value?.onExit?.('next');
-
-    if (info.next) {
-        step.value = info.next;
+    if (info.next.value) {
+        step.value = info.next.value;
     } else {
         model.value = false;
     }
@@ -253,8 +423,8 @@ function prevStep(): void {
 
     info.ref.value?.onExit?.('prev');
 
-    if (info.prev) {
-        step.value = info.prev;
+    if (info.prev.value) {
+        step.value = info.prev.value;
     } else {
         model.value = false;
     }
@@ -267,12 +437,15 @@ watch(step, newStep => {
     if (!innerContent.value) return;
 
     // Window items are lazy loaded, so the component may not exist yet
+    let unwatch: WatchStopHandle | null = null;
     let unwatchImmediately = false;
-    const unwatch = watch(
+    unwatch = watch(
         () => stepInfos[newStep].ref.value,
         stepComp => {
             if (!stepComp) return;
+
             stepComp.onEnter?.();
+
             if (unwatch) {
                 unwatch();
                 return;
@@ -315,12 +488,23 @@ watch(innerContent, async (comp: Component): Promise<void> => {
         notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     });
 
-    if (props.accessName) {
-        setDefaultName();
-    }
+    passphrase.value = bucketsStore.state.passphrase;
+    if (props.accessName) setDefaultName();
 
     isFetching.value = false;
 
     stepInfos[step.value].ref.value?.onEnter?.();
 });
 </script>
+
+<style scoped lang="scss">
+.setup-app__window {
+    transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    &--loading {
+        opacity: 0.3;
+        transition: opacity 0s;
+        pointer-events: none;
+    }
+}
+</style>

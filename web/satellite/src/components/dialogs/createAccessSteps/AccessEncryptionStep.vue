@@ -149,9 +149,11 @@ const passphraseRules = computed<ValidationRule<string>[]>(() => {
 defineExpose<DialogStepComponent>({
     title: 'Access Encryption',
     validate: () => {
-        form.value?.validate();
         const passphraseRequired = passphraseOption.value === PassphraseOption.SetMyProjectPassphrase;
-        return !!form.value?.isValid && (!passphraseRequired || !!passphrase.value);
+        if (!passphraseRequired) return true;
+
+        form.value?.validate();
+        return !!form.value?.isValid && !!passphrase.value;
     },
     onEnter: () => {
         if (passphraseOption.value) return;

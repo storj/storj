@@ -2,64 +2,66 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form class="pa-7">
+    <v-form class="pa-7" @submit.prevent>
         <v-row>
             <v-col cols="12">
                 <p class="font-weight-bold mb-2">
                     Choose Permissions
                 </p>
                 <p>Select which permissions to give this application.</p>
+                <v-btn
+                    :color="permissions.length === 4 ? 'success' : 'default'"
+                    density="comfortable"
+                    variant="outlined"
+                    size="default"
+                    :prepend-icon="permissions.length === 4 ? mdiCheckCircle : undefined"
+                    class="mt-2"
+                    @click="onAllClick"
+                >
+                    All
+                </v-btn>
                 <v-chip-group
+                    v-model="permissions"
                     filter
                     multiple
                     selected-class="text-primary font-weight-bold"
                     class="mt-2 mb-3"
                 >
                     <v-chip
-                        key="all"
+                        :key="Permission.Read"
                         variant="outlined"
                         filter
-                        value="all"
-                        color="default"
-                    >
-                        All
-                    </v-chip>
-
-                    <v-chip
-                        key="read"
-                        variant="outlined"
-                        filter
-                        value="read"
+                        :value="Permission.Read"
                         color="secondary"
                     >
                         Read
                     </v-chip>
 
                     <v-chip
-                        key="write"
+                        :key="Permission.Write"
                         variant="outlined"
                         filter
-                        value="write"
+                        :value="Permission.Write"
                         color="green"
                     >
                         Write
                     </v-chip>
 
                     <v-chip
-                        key="list"
+                        :key="Permission.List"
                         variant="outlined"
                         filter
-                        value="list"
+                        :value="Permission.List"
                         color="help"
                     >
                         List
                     </v-chip>
 
                     <v-chip
-                        key="delete"
+                        :key="Permission.Delete"
                         variant="outlined"
                         filter
-                        value="delete"
+                        :value="Permission.Delete"
                         color="warning"
                     >
                         Delete
@@ -79,5 +81,31 @@
 </template>
 
 <script setup lang="ts">
-import { VForm, VAlert, VChip, VChipGroup, VCol, VRow } from 'vuetify/components';
+import { ref, watch } from 'vue';
+import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VBtn } from 'vuetify/components';
+import { mdiCheckCircle } from '@mdi/js';
+
+import { Permission } from '@/types/createAccessGrant';
+
+const emit = defineEmits<{
+    'permissionsChanged': [perms: Permission[]];
+}>();
+
+const permissions = ref<Permission[]>([]);
+
+/**
+ * Selects or deselects all the permissions.
+ */
+function onAllClick(): void {
+    permissions.value = permissions.value.length === 4 ?
+        [] :
+        [
+            Permission.Read,
+            Permission.Write,
+            Permission.List,
+            Permission.Delete,
+        ];
+}
+
+watch(permissions, value => emit('permissionsChanged', value.slice()), { deep: true });
 </script>

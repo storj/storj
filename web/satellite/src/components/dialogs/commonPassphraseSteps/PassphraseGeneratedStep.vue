@@ -40,7 +40,7 @@ import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.
 
 import Icon from '@/assets/createAccessGrantFlow/passphraseGenerated.svg';
 
-const props = defineProps<{
+defineProps<{
     name: string;
 }>();
 

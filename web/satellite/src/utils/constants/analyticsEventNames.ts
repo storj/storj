@@ -63,6 +63,7 @@ export enum AnalyticsErrorEventSource {
     BILLING_AREA = 'Billing area',
     BILLING_STORJ_TOKEN_CONTAINER = 'Billing STORJ token container',
     CREATE_AG_MODAL = 'Create access grant modal',
+    SETUP_APPLICATION_MODAL = 'Setup application modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
