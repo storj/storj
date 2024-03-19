@@ -1939,7 +1939,7 @@ func TestLockAccount(t *testing.T) {
 		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
 
 		// lock account once again and check if lockout expiration time increased.
-		err = service.UpdateUsersFailedLoginState(userCtx, lockedUser)
+		_, err = service.UpdateUsersFailedLoginState(userCtx, lockedUser)
 		require.NoError(t, err)
 
 		lockedUser, err = service.GetUser(userCtx, user.ID)

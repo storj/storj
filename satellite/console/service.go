@@ -1276,9 +1276,24 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	}
 
 	handleLockAccount := func() error {
-		err = s.UpdateUsersFailedLoginState(ctx, user)
+		lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
 		if err != nil {
 			return err
+		}
+		if lockoutDuration > 0 {
+			address := s.satelliteAddress
+			if !strings.HasSuffix(address, "/") {
+				address += "/"
+			}
+
+			s.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: user.Email, Name: user.FullName}},
+				&LoginLockAccountEmail{
+					LockoutDuration:   lockoutDuration,
+					ResetPasswordLink: address + "forgot-password",
+				},
+			)
 		}
 
 		mon.Counter("login_failed").Inc(1)                                          //mon:locked
@@ -1373,12 +1388,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	}
 
 	if user.FailedLoginCount != 0 {
-		user.FailedLoginCount = 0
-		loginLockoutExpirationPtr := &time.Time{}
-		err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-			FailedLoginCount:       &user.FailedLoginCount,
-			LoginLockoutExpiration: &loginLockoutExpirationPtr,
-		})
+		err = s.ResetAccountLock(ctx, user)
 		if err != nil {
 			return nil, err
 		}
@@ -1426,30 +1436,33 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
-func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (lockoutDuration time.Duration, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var failedLoginPenalty *float64
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
-		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
+		lockoutDuration = time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
 		failedLoginPenalty = &s.config.FailedLoginPenalty
-
-		address := s.satelliteAddress
-		if !strings.HasSuffix(address, "/") {
-			address += "/"
-		}
-
-		s.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email, Name: user.FullName}},
-			&LoginLockAccountEmail{
-				LockoutDuration:   lockoutDuration,
-				ResetPasswordLink: address + "forgot-password",
-			},
-		)
 	}
 
-	return s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
+	return lockoutDuration, s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
+}
+
+// GetLoginAttemptsWithoutPenalty returns LoginAttemptsWithoutPenalty config value.
+func (s *Service) GetLoginAttemptsWithoutPenalty() int {
+	return s.config.LoginAttemptsWithoutPenalty
+}
+
+// ResetAccountLock resets a user's failed login count and lockout duration.
+func (s *Service) ResetAccountLock(ctx context.Context, user *User) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user.FailedLoginCount = 0
+	loginLockoutExpirationPtr := &time.Time{}
+	return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		FailedLoginCount:       &user.FailedLoginCount,
+		LoginLockoutExpiration: &loginLockoutExpirationPtr,
+	})
 }
 
 // GetUser returns User by id.

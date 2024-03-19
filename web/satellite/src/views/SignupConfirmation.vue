@@ -50,6 +50,17 @@
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
                 <v-card title="Check your inbox" class="pa-2 pa-sm-7">
                     <v-card-text>
+                        <v-alert
+                            v-if="isUnauthorizedMessageShown"
+                            variant="tonal"
+                            color="error"
+                            title="Invalid Code"
+                            text="Account activation failed. If you are sure your code is correct, please check your email inbox for a notification with further instructions."
+                            rounded="lg"
+                            density="comfortable"
+                            class="mt-1 mb-3"
+                            border
+                        />
                         <p>Enter the 6 digit confirmation code you received in your email to verify your account:</p>
                         <v-form @submit.prevent="verifyCode">
                             <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
@@ -143,6 +154,7 @@ const { isLoading, withLoading } = useLoading();
 
 const code = ref('');
 const signupId = ref<string>(props.signupReqId || '');
+const isUnauthorizedMessageShown = ref<boolean>(false);
 const isError = ref(false);
 const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
@@ -223,7 +235,7 @@ function verifyCode(): void {
             LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
-                notify.notifyError(new Error('Invalid code'));
+                isUnauthorizedMessageShown.value = true;
                 return;
             }
             notify.notifyError(error);

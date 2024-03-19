@@ -494,9 +494,51 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	user = &unverified[0]
 
-	if user.ActivationCode != activateData.Code || user.SignupId != activateData.SignupId {
-		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code"))
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
 		return
+	}
+
+	if user.ActivationCode != activateData.Code || user.SignupId != activateData.SignupId {
+		lockoutDuration, err := a.service.UpdateUsersFailedLoginState(ctx, user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+		if lockoutDuration > 0 {
+			a.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: user.Email, Name: user.FullName}},
+				&console.ActivationLockAccountEmail{
+					LockoutDuration: lockoutDuration,
+					SupportURL:      a.GeneralRequestURL,
+				},
+			)
+		}
+
+		mon.Counter("account_activation_failed").Inc(1)                                          //mon:locked
+		mon.IntVal("account_activation_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+		penaltyThreshold := a.service.GetLoginAttemptsWithoutPenalty()
+
+		if user.FailedLoginCount == penaltyThreshold {
+			mon.Counter("account_activation_lockout_initiated").Inc(1) //mon:locked
+		}
+
+		if user.FailedLoginCount > penaltyThreshold {
+			mon.Counter("account_activation_lockout_reinitiated").Inc(1) //mon:locked
+		}
+
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
+		return
+	}
+
+	if user.FailedLoginCount != 0 {
+		if err := a.service.ResetAccountLock(ctx, user); err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
 	}
 
 	err = a.service.SetAccountActive(ctx, user)

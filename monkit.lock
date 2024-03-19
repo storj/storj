@@ -63,6 +63,10 @@ storj.io/storj/satellite/console."login_success" Counter
 storj.io/storj/satellite/console."login_user_captcha_error" Counter
 storj.io/storj/satellite/console."login_user_captcha_unsuccessful" Counter
 storj.io/storj/satellite/console."login_user_failed_count" IntVal
+storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_failed" Counter
+storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_lockout_initiated" Counter
+storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_lockout_reinitiated" Counter
+storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_user_failed_count" IntVal
 storj.io/storj/satellite/contact."failed_dial" Event
 storj.io/storj/satellite/contact."failed_ping_node" Event
 storj.io/storj/satellite/gracefulexit."graceful_exit_init_node_age_seconds" FloatVal
