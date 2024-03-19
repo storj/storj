@@ -112,7 +112,10 @@ async function setup() {
             });
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 
-            if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+            if (usersStore.getShouldPromptPassphrase({
+                isProjectOwner: project.ownerId === usersStore.state.user.id,
+                onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
+            })) {
                 appStore.toggleProjectPassphraseDialog(true);
             }
         }
@@ -192,7 +195,10 @@ watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
     if (project.id === oldProject.id) {
         return;
     }
-    if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+    if (usersStore.getShouldPromptPassphrase({
+        isProjectOwner: project.ownerId === usersStore.state.user.id,
+        onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
+    })) {
         appStore.toggleProjectPassphraseDialog(true);
     }
 });

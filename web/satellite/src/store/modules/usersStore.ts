@@ -58,16 +58,19 @@ export const useUsersStore = defineStore('users', () => {
         setUser(user);
     }
 
-    function getShouldPromptPassphrase(isOwner: boolean): boolean {
+    function getShouldPromptPassphrase(data: {isProjectOwner: boolean, onboardingStepperEnabled: boolean}): boolean {
         const settings = state.settings;
         const step = settings.onboardingStep as OnboardingStep || OnboardingStep.AccountTypeSelection;
-        if (settings.onboardingEnd || !settings.passphrasePrompt) {
-            return settings.passphrasePrompt;
+        if (!settings.passphrasePrompt) {
+            return false;
         }
-        if (!isOwner) {
-            return !ACCOUNT_SETUP_STEPS.includes(step);
+        if (!settings.onboardingEnd && ACCOUNT_SETUP_STEPS.includes(step)) {
+            return false;
         }
-        return step !== OnboardingStep.EncryptionPassphrase && !ACCOUNT_SETUP_STEPS.includes(step);
+        if (data.isProjectOwner && data.onboardingStepperEnabled) {
+            return settings.onboardingEnd || step !== OnboardingStep.EncryptionPassphrase;
+        }
+        return true;
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {

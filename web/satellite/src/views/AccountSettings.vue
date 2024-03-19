@@ -121,6 +121,22 @@
                 </v-card>
             </v-col>
         </v-row>
+
+        <v-row>
+            <v-col cols="12" lg="4">
+                <v-card title="Passphrase Preference" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        Ask for passphrase when opening projects.
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" :loading="isTogglingPassphrasePrompt" @click="togglePassphrasePrompt">
+                            {{ userSettings.passphrasePrompt ? 'Disable' : 'Enable' }}
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
     </v-container>
 
     <ChangePasswordDialog
@@ -189,6 +205,7 @@ const usersStore = useUsersStore();
 const notify = useNotify();
 const { isTrialExpirationBanner, isExpired } = useTrialCheck();
 
+const isTogglingPassphrasePrompt = ref<boolean>(false);
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
 const isEnableMFADialogShown = ref<boolean>(false);
@@ -237,6 +254,19 @@ async function toggleRecoveryCodesDialog() {
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
     }
+}
+
+async function togglePassphrasePrompt() {
+    try {
+        isTogglingPassphrasePrompt.value = true;
+        await usersStore.updateSettings({
+            passphrasePrompt: !userSettings.value.passphrasePrompt,
+        });
+        await usersStore.getSettings();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+    }
+    isTogglingPassphrasePrompt.value = false;
 }
 
 onMounted(() => {
