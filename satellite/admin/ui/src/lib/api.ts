@@ -48,7 +48,8 @@ export class Admin {
 				],
 				func: async (projectId: string, bucketName: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `projects/${projectId}/buckets/${bucketName}`);
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'delete geofencing',
@@ -62,7 +63,8 @@ export class Admin {
 						'DELETE',
 						`projects/${projectId}/buckets/${bucketName}/geofence`
 					) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'set geofencing',
@@ -92,7 +94,8 @@ export class Admin {
 						`projects/${projectId}/buckets/${bucketName}/geofence`,
 						query
 					) as Promise<null>;
-				}
+				},
+				deprecated: true
 			}
 		],
 		oauth_clients: [
@@ -183,7 +186,8 @@ export class Admin {
 				params: [['Project ID', new InputText('text', true)]],
 				func: async (projectId: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `projects/${projectId}`);
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'update',
@@ -202,7 +206,8 @@ export class Admin {
 						projectName,
 						description
 					}) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'update user agent',
@@ -215,7 +220,8 @@ export class Admin {
 					return this.fetch('PATCH', `projects/${projectId}/useragent`, null, {
 						userAgent
 					}) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'create API key',
@@ -266,7 +272,8 @@ export class Admin {
 				params: [['Project ID', new InputText('text', true)]],
 				func: async (projectId: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `projects/${projectId}/limit`);
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'update project limits',
@@ -310,7 +317,8 @@ export class Admin {
 					}
 
 					return this.fetch('PUT', `projects/${projectId}/limit`, query) as Promise<null>;
-				}
+				},
+				deprecated: true
 			}
 		],
 		user: [
@@ -348,7 +356,8 @@ export class Admin {
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `users/${email}`);
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'get users pending deletion',
@@ -367,7 +376,8 @@ export class Admin {
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `users/${email}/limits`);
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'update',
@@ -415,7 +425,8 @@ Blank fields will not be updated.`,
 						projectSegmentLimit,
 						paidTierStr
 					}) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: "update user's project limits",
@@ -457,7 +468,8 @@ Blank fields will not be updated.`,
 					return this.fetch('PATCH', `users/${currentEmail}/useragent`, null, {
 						userAgent
 					}) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'activate account/disable bot restriction',
@@ -570,7 +582,8 @@ Blank fields will not be updated.`,
 					return this.fetch('PATCH', `users/${email}/geofence`, null, {
 						region
 					}) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'delete geofencing',
@@ -578,7 +591,8 @@ Blank fields will not be updated.`,
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/geofence`) as Promise<null>;
-				}
+				},
+				deprecated: true
 			},
 			{
 				name: 'update free trial expiration',
