@@ -572,7 +572,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .max-width {
-    max-width: 300px;
+    max-width: 250px;
 
     @media screen and (width <= 780px) {
         max-width: 400px;
