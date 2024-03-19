@@ -174,14 +174,26 @@ func (*AccountAlreadyExistsEmail) Subject() string {
 	return "Are you trying to sign in?"
 }
 
-// LockAccountEmail is mailservice template with lock account data.
-type LockAccountEmail struct {
+// LoginLockAccountEmail is mailservice template with login lock account data.
+type LoginLockAccountEmail struct {
 	LockoutDuration   time.Duration
 	ResetPasswordLink string
 }
 
 // Template returns email template name.
-func (*LockAccountEmail) Template() string { return "LockAccount" }
+func (*LoginLockAccountEmail) Template() string { return "LoginLockAccount" }
 
 // Subject gets email subject.
-func (*LockAccountEmail) Subject() string { return "Account Lock" }
+func (*LoginLockAccountEmail) Subject() string { return "Account Lock" }
+
+// ActivationLockAccountEmail is mailservice template with activation lock account data.
+type ActivationLockAccountEmail struct {
+	LockoutDuration time.Duration
+	SupportURL      string
+}
+
+// Template returns email template name.
+func (*ActivationLockAccountEmail) Template() string { return "ActivationLockAccount" }
+
+// Subject gets email subject.
+func (*ActivationLockAccountEmail) Subject() string { return "Account Lock" }

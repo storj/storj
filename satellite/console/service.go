@@ -1442,7 +1442,7 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email, Name: user.FullName}},
-			&LockAccountEmail{
+			&LoginLockAccountEmail{
 				LockoutDuration:   lockoutDuration,
 				ResetPasswordLink: address + "forgot-password",
 			},
