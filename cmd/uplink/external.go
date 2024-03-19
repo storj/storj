@@ -74,6 +74,7 @@ type external struct {
 		pprofFile       string
 		traceFile       string
 		monkitTraceFile string
+		monkitStatsFile string
 	}
 
 	events struct {
@@ -157,6 +158,11 @@ func (ex *external) Setup(f clingy.Flags) {
 
 	ex.debug.monkitTraceFile = f.Flag(
 		"debug-monkit-trace", "File to collect Monkit trace data. Understands file extensions .json and .svg", "",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.monkitStatsFile = f.Flag(
+		"debug-monkit-stats", "File to collect Monkit stats", "",
 		clingy.Advanced,
 	).(string)
 
@@ -249,6 +255,8 @@ func (ex *external) analyticsEnabled() bool {
 
 // Wrap is called by clingy with the command to be executed.
 func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if err = ex.migrate(); err != nil {
 		return err
 	}
@@ -298,6 +306,17 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 			return errs.Wrap(err)
 		}
 		defer trace.Stop()
+	}
+
+	if ex.debug.monkitStatsFile != "" {
+		fh, err := os.Create(ex.debug.monkitStatsFile)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() { _ = fh.Close() }()
+		defer monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			fmt.Fprintf(fh, "%v\t%v\t%v\n", key, field, val)
+		})
 	}
 
 	// N.B.: Tracing is currently disabled by default (sample == 0, traceID == 0) and is

@@ -66,7 +66,9 @@ func (c *cmdShare) Setup(params clingy.Parameters) {
 	c.ap.Setup(params, false)
 }
 
-func (c *cmdShare) Execute(ctx context.Context) error {
+func (c *cmdShare) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(c.ap.prefixes) == 0 {
 		return errs.New("you must specify at least one prefix to share. Use the access restrict command to restrict with no prefixes")
 	}

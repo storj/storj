@@ -63,7 +63,9 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	).(ulloc.Location)
 }
 
-func (c *cmdRm) Execute(ctx context.Context) error {
+func (c *cmdRm) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.location.Local() {
 		return errs.New("remove %v skipped: local delete", c.location)
 	}

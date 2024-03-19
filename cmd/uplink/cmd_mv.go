@@ -63,7 +63,9 @@ func (c *cmdMv) Setup(params clingy.Parameters) {
 	c.dest = params.Arg("dest", "Destination to move", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
-func (c *cmdMv) Execute(ctx context.Context) error {
+func (c *cmdMv) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access)
 	if err != nil {
 		return err
@@ -114,7 +116,9 @@ func (c *cmdMv) Execute(ctx context.Context) error {
 	return c.moveFile(ctx, fs, c.source, c.dest)
 }
 
-func (c *cmdMv) moveRecursive(ctx context.Context, fs ulfs.Filesystem) error {
+func (c *cmdMv) moveRecursive(ctx context.Context, fs ulfs.Filesystem) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	iter, err := fs.List(ctx, c.source, &ulfs.ListOptions{
 		Recursive: true,
 	})
@@ -188,7 +192,9 @@ func (c *cmdMv) moveRecursive(ctx context.Context, fs ulfs.Filesystem) error {
 	return nil
 }
 
-func (c *cmdMv) moveFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
+func (c *cmdMv) moveFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.dryrun {
 		return nil
 	}

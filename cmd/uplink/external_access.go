@@ -156,7 +156,9 @@ func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]strin
 	return nil
 }
 
-func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, passphrase string, unencryptedObjectKeys bool) (*uplink.Access, error) {
+func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, passphrase string, unencryptedObjectKeys bool) (_ *uplink.Access, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	config := uplink.Config{}
 	if unencryptedObjectKeys {
 		access.DisableObjectKeyEncryption(&config)
@@ -168,7 +170,9 @@ func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, pa
 	return access, nil
 }
 
-func (ex *external) ExportAccess(ctx context.Context, access *uplink.Access, filename string) error {
+func (ex *external) ExportAccess(ctx context.Context, access *uplink.Access, filename string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	serialized, err := access.Serialize()
 	if err != nil {
 		return errs.Wrap(err)

@@ -42,7 +42,9 @@ func (c *cmdMetaGet) Setup(params clingy.Parameters) {
 	c.entry = params.Arg("entry", "Metadata entry to get", clingy.Optional).(*string)
 }
 
-func (c *cmdMetaGet) Execute(ctx context.Context) error {
+func (c *cmdMetaGet) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := c.ex.OpenProject(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err

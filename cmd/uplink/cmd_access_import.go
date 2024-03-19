@@ -32,6 +32,8 @@ func (c *cmdAccessImport) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessImport) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.name == "" {
 		return errs.New("Must specify a name to import the access as.")
 	}

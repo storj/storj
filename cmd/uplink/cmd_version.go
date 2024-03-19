@@ -33,7 +33,9 @@ func (c *cmdVersion) Setup(params clingy.Parameters) {
 	).(bool)
 }
 
-func (c *cmdVersion) Execute(ctx context.Context) error {
+func (c *cmdVersion) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if version.Build.Release {
 		fmt.Fprintln(clingy.Stdout(ctx), "Release build")
 	} else {

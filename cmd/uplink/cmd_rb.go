@@ -39,7 +39,9 @@ func (c *cmdRb) Setup(params clingy.Parameters) {
 	).(ulloc.Location)
 }
 
-func (c *cmdRb) Execute(ctx context.Context) error {
+func (c *cmdRb) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err

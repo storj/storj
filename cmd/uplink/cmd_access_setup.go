@@ -39,6 +39,8 @@ func (c *cmdAccessSetup) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	name, err := c.ex.PromptInput(ctx, "Enter name to import as [default: main]:")
 	if err != nil {
 		return errs.Wrap(err)

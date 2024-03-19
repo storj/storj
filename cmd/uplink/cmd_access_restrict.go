@@ -37,7 +37,9 @@ func (c *cmdAccessRestrict) Setup(params clingy.Parameters) {
 	c.am.perms.Setup(params, true)
 }
 
-func (c *cmdAccessRestrict) Execute(ctx context.Context) error {
+func (c *cmdAccessRestrict) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	access, err := c.ex.OpenAccess(c.access)
 	if err != nil {
 		return err

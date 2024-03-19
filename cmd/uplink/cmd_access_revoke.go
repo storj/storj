@@ -28,7 +28,9 @@ func (c *cmdAccessRevoke) Setup(params clingy.Parameters) {
 	c.revokee = params.Arg("revokee", "Access name or value revoke").(string)
 }
 
-func (c *cmdAccessRevoke) Execute(ctx context.Context) error {
+func (c *cmdAccessRevoke) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err

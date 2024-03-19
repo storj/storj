@@ -150,7 +150,9 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	).([]ulloc.Location)
 }
 
-func (c *cmdCp) Execute(ctx context.Context) error {
+func (c *cmdCp) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(c.locs) < 2 {
 		return errs.New("must have at least one source and destination path")
 	}
@@ -191,7 +193,9 @@ func (c *cmdCp) Execute(ctx context.Context) error {
 	return combineErrs(eg)
 }
 
-func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
+func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if !source.Remote() && !dest.Remote() {
 		return errs.New("at least one location must be a remote sj:// location")
 	}
@@ -247,7 +251,9 @@ func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, de
 	return c.copyFile(ctx, fs, source, dest, bar)
 }
 
-func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
+func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if source.Std() || dest.Std() {
 		return errs.New("cannot recursively copy to stdin/stdout")
 	}
@@ -367,6 +373,8 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 }
 
 func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location, bar *mpb.Bar) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.dryrun {
 		return nil
 	}
@@ -525,7 +533,8 @@ func (c *cmdCp) parallelCopy(
 	dst ulfs.MultiWriteHandle,
 	p int, chunkSize int64,
 	offset, length int64,
-	bar *mpb.Bar) error {
+	bar *mpb.Bar) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	if offset != 0 {
 		if err := src.SetOffset(offset); err != nil {

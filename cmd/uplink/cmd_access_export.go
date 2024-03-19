@@ -28,7 +28,9 @@ func (c *cmdAccessExport) Setup(params clingy.Parameters) {
 	c.filename = params.Arg("filename", "Name of the file to save to").(string)
 }
 
-func (c *cmdAccessExport) Execute(ctx context.Context) error {
+func (c *cmdAccessExport) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.filename == "" {
 		return errs.New("Must specify a filename to write to.")
 	}

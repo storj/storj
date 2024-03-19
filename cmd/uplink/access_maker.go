@@ -38,6 +38,8 @@ func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External) {
 }
 
 func (am *accessMaker) Execute(ctx context.Context, name string, access *uplink.Access) (_ *uplink.Access, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	defaultName, accesses, err := am.ex.GetAccessInfo(false)
 	if err != nil {
 		return nil, err
