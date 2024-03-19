@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 )
 
@@ -53,16 +54,16 @@ type CreateAPIKeyResponse struct {
 
 // APIKeyInfo describing api key model in the database.
 type APIKeyInfo struct {
-	ID              uuid.UUID `json:"id"`
-	ProjectID       uuid.UUID `json:"projectId"`
-	ProjectPublicID uuid.UUID `json:"projectPublicId"`
-	CreatedBy       uuid.UUID `json:"createdBy"`
-	UserAgent       []byte    `json:"userAgent"`
-	Name            string    `json:"name"`
-	Head            []byte    `json:"-"`
-	Secret          []byte    `json:"-"`
-	CreatedAt       time.Time `json:"createdAt"`
-	Version         uint      `json:"version"`
+	ID              uuid.UUID              `json:"id"`
+	ProjectID       uuid.UUID              `json:"projectId"`
+	ProjectPublicID uuid.UUID              `json:"projectPublicId"`
+	CreatedBy       uuid.UUID              `json:"createdBy"`
+	UserAgent       []byte                 `json:"userAgent"`
+	Name            string                 `json:"name"`
+	Head            []byte                 `json:"-"`
+	Secret          []byte                 `json:"-"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	Version         macaroon.APIKeyVersion `json:"version"`
 
 	// TODO move this closer to metainfo
 	ProjectRateLimit  *int `json:"-"`

@@ -63,7 +63,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 		return nil, err
 	}
 
-	err = key.Check(ctx, keyInfo.Secret, action, endpoint.revocations)
+	err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
@@ -105,7 +105,7 @@ func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestH
 	}
 
 	for _, p := range permissions {
-		err = key.Check(ctx, keyInfo.Secret, p.action, endpoint.revocations)
+		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.action, endpoint.revocations)
 		if p.actionPermitted != nil {
 			*p.actionPermitted = err == nil
 		}
@@ -135,7 +135,7 @@ func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.Reques
 
 	var combinedErrs error
 	for _, action := range actions {
-		err = key.Check(ctx, keyInfo.Secret, action, endpoint.revocations)
+		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
 		if err == nil {
 			return keyInfo, nil
 		}

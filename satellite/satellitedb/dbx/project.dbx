@@ -235,6 +235,7 @@ model api_key (
     // created_by is an UUID of the user who created this key.
     field  created_by  user.id restrict (nullable)
     // version specifies the version number of the api key.
+    // It refers to storj.io/common/macaroon.APIKeyVersion.
     field  version     uint       (default 0)
 )
 

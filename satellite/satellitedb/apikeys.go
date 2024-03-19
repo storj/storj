@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/lrucache"
+	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -208,7 +209,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 	}
 
 	optional := dbx.ApiKey_Create_Fields{
-		Version: dbx.ApiKey_Version(info.Version),
+		Version: dbx.ApiKey_Version(uint(info.Version)),
 	}
 	if info.UserAgent != nil {
 		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
@@ -281,7 +282,7 @@ func apiKeyToAPIKeyInfo(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKey
 		CreatedAt: key.CreatedAt,
 		Head:      key.Head,
 		Secret:    key.Secret,
-		Version:   key.Version,
+		Version:   macaroon.APIKeyVersion(key.Version),
 	}
 
 	if key.UserAgent != nil {
