@@ -4139,6 +4139,7 @@ func createObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.
 		metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 		objects[key] = metabase.ObjectEntry{
+			IsLatest:   true,
 			ObjectKey:  obj.ObjectKey,
 			Version:    obj.Version,
 			StreamID:   obj.StreamID,
@@ -4175,6 +4176,7 @@ func prefixEntry(key metabase.ObjectKey) metabase.ObjectEntry {
 
 func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 	return metabase.ObjectEntry{
+		IsLatest:                      false,
 		IsPrefix:                      false,
 		ObjectKey:                     m.ObjectKey,
 		Version:                       m.Version,
@@ -4191,6 +4193,12 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		FixedSegmentSize:              m.FixedSegmentSize,
 		Encryption:                    m.Encryption,
 	}
+}
+
+func objectEntryFromRawLatest(m metabase.RawObject) metabase.ObjectEntry {
+	obj := objectEntryFromRaw(m)
+	obj.IsLatest = true
+	return obj
 }
 
 func BenchmarkNonRecursiveListing(b *testing.B) {
