@@ -2669,6 +2669,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE stripe_customers ADD COLUMN billing_customer_id TEXT;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add created_by column to api_keys and bucket_metainfos to be populated with a user id value",
+				Version:     264,
+				Action: migrate.SQL{
+					`ALTER TABLE api_keys ADD COLUMN created_by bytea REFERENCES users( id ) DEFAULT NULL;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN created_by bytea REFERENCES users( id ) DEFAULT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

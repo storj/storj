@@ -225,13 +225,15 @@ model api_key (
     // head is restrictions for the api key.
     field  head        blob
     // name helps users to identify the purpose of the api key.
-    field  name        text       (updatable)
+    field  name        text             (updatable)
     // secret is the macaroon secret.
     field  secret      blob
     // user_agent is the referred partner who created the project.
-    field  user_agent  blob       (nullable)
+    field  user_agent  blob             (nullable)
     // created_at indicates when the api key was added.
-    field  created_at  timestamp  (autoinsert)
+    field  created_at  timestamp        (autoinsert)
+    // created_by is an UUID of the user who created this key.
+    field  created_by  user.id restrict (nullable)
 )
 
 create api_key ( )

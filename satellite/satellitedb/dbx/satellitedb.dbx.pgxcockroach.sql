@@ -523,6 +523,7 @@ CREATE TABLE api_keys (
 	secret bytea NOT NULL,
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
+	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
@@ -545,6 +546,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
 	placement integer,
+	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
 );
 CREATE TABLE project_invitations (
