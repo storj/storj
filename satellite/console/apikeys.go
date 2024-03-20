@@ -56,6 +56,7 @@ type APIKeyInfo struct {
 	ID              uuid.UUID `json:"id"`
 	ProjectID       uuid.UUID `json:"projectId"`
 	ProjectPublicID uuid.UUID `json:"projectPublicId"`
+	CreatedBy       uuid.UUID `json:"createdBy"`
 	UserAgent       []byte    `json:"userAgent"`
 	Name            string    `json:"name"`
 	Head            []byte    `json:"-"`

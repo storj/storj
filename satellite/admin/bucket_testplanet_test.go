@@ -102,6 +102,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 						Name:      b.Name,
 						ProjectID: testCase.project,
 						Created:   b.Created,
+						CreatedBy: b.CreatedBy,
 						Placement: storj.EU,
 					})
 					require.NoError(t, err, "failed to json encode expected bucket")

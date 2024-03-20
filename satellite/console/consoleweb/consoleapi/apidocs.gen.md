@@ -264,6 +264,7 @@ Gets API keys by project ID
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			projectId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			projectPublicId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			createdBy: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			userAgent: 			string
 			name: string
 			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`

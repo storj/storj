@@ -26,14 +26,13 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 
 	optionalFields := dbx.BucketMetainfo_Create_Fields{}
 	if bucket.UserAgent != nil {
-		optionalFields = dbx.BucketMetainfo_Create_Fields{
-			UserAgent: dbx.BucketMetainfo_UserAgent(bucket.UserAgent),
-		}
+		optionalFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
 	}
 	if bucket.Versioning != buckets.VersioningUnsupported {
-		optionalFields = dbx.BucketMetainfo_Create_Fields{
-			Versioning: dbx.BucketMetainfo_Versioning(int(bucket.Versioning)),
-		}
+		optionalFields.Versioning = dbx.BucketMetainfo_Versioning(int(bucket.Versioning))
+	}
+	if !bucket.CreatedBy.IsZero() {
+		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
 	}
 	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
@@ -342,11 +341,20 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 		return bucket, buckets.ErrBucket.Wrap(err)
 	}
 
+	var createdBy uuid.UUID
+	if dbxBucket.CreatedBy != nil {
+		createdBy, err = uuid.FromBytes(dbxBucket.CreatedBy)
+		if err != nil {
+			return bucket, buckets.ErrBucket.Wrap(err)
+		}
+	}
+
 	bucket = buckets.Bucket{
 		ID:                  id,
 		Name:                string(dbxBucket.Name),
 		ProjectID:           project,
 		Created:             dbxBucket.CreatedAt,
+		CreatedBy:           createdBy,
 		PathCipher:          storj.CipherSuite(dbxBucket.PathCipher),
 		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
 		DefaultRedundancyScheme: storj.RedundancyScheme{

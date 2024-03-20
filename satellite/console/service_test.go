@@ -582,6 +582,13 @@ func TestService(t *testing.T) {
 				require.Equal(t, "console service: project usage: some buckets still exist", err.Error())
 			})
 
+			t.Run("CreateAPIKey", func(t *testing.T) {
+				createdAPIKey, _, err := service.CreateAPIKey(userCtx2, up2Proj.ID, "test key")
+				require.NoError(t, err)
+				require.NotNil(t, createdAPIKey)
+				require.Equal(t, up2Proj.OwnerID, createdAPIKey.CreatedBy)
+			})
+
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
 				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
 				storageLimit := sat.Config.Console.UsageLimits.Storage.Free

@@ -2512,6 +2512,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	apikey := APIKeyInfo{
 		Name:      name,
 		ProjectID: isMember.project.ID,
+		CreatedBy: user.ID,
 		Secret:    secret,
 		UserAgent: user.UserAgent,
 	}

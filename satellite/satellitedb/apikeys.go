@@ -211,6 +211,9 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 	if info.UserAgent != nil {
 		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
 	}
+	if !info.CreatedBy.IsZero() {
+		optional.CreatedBy = dbx.ApiKey_CreatedBy(info.CreatedBy[:])
+	}
 
 	_, err = keys.methods.Create_ApiKey(
 		ctx,
@@ -260,9 +263,18 @@ func apiKeyToAPIKeyInfo(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKey
 		return nil, err
 	}
 
+	var createdBy uuid.UUID
+	if key.CreatedBy != nil {
+		createdBy, err = uuid.FromBytes(key.CreatedBy)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	result := &console.APIKeyInfo{
 		ID:        id,
 		ProjectID: projectID,
+		CreatedBy: createdBy,
 		Name:      key.Name,
 		CreatedAt: key.CreatedAt,
 		Head:      key.Head,

@@ -203,7 +203,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
 	}
 
-	bucketReq, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	bucketReq, err := convertProtoToBucket(req, keyInfo)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -486,7 +486,7 @@ func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action mac
 	return allowedBuckets, err
 }
 
-func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket buckets.Bucket, err error) {
+func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyInfo) (bucket buckets.Bucket, err error) {
 	bucketID, err := uuid.New()
 	if err != nil {
 		return buckets.Bucket{}, err
@@ -495,7 +495,8 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	return buckets.Bucket{
 		ID:        bucketID,
 		Name:      string(req.GetName()),
-		ProjectID: projectID,
+		ProjectID: keyInfo.ProjectID,
+		CreatedBy: keyInfo.CreatedBy,
 	}, nil
 }
 

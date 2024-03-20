@@ -35,6 +35,7 @@ type Bucket struct {
 	ID                          uuid.UUID
 	Name                        string
 	ProjectID                   uuid.UUID
+	CreatedBy                   uuid.UUID
 	UserAgent                   []byte
 	Created                     time.Time
 	PathCipher                  storj.CipherSuite
