@@ -564,7 +564,10 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	err := db.IterateObjectsAllVersionsWithStatus(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff(),
+		// Iterators don't implement IsLatest.
+		cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+	)
 	require.Zero(t, diff)
 }
 
@@ -584,7 +587,10 @@ func (step IterateObjectsWithStatusAscending) Check(ctx *testcontext.Context, t 
 	err := db.IterateObjectsAllVersionsWithStatusAscending(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff(),
+		// Iterators don't implement IsLatest.
+		cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+	)
 	require.Zero(t, diff)
 }
 

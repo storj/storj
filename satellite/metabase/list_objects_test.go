@@ -110,7 +110,7 @@ func TestListObjects(t *testing.T) {
 						Status:    metabase.Prefix,
 					}
 				} else {
-					expected[i] = objectEntryFromRaw(obj)
+					expected[i] = objectEntryFromRawLatest(obj)
 				}
 			}
 
@@ -141,7 +141,7 @@ func TestListObjects(t *testing.T) {
 			expected := make([]metabase.ObjectEntry, limit)
 			objects := createObjects(ctx, t, db, numberOfObjects, uuid.UUID{1}, "mybucket")
 			for i, obj := range objects[:limit] {
-				expected[i] = objectEntryFromRaw(obj)
+				expected[i] = objectEntryFromRawLatest(obj)
 			}
 
 			for _, allVersions := range []bool{false, true} {
@@ -175,7 +175,7 @@ func TestListObjects(t *testing.T) {
 			objectsBucketB := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "bucket-b")
 
 			for i, obj := range objectsBucketA {
-				expected[i] = objectEntryFromRaw(obj)
+				expected[i] = objectEntryFromRawLatest(obj)
 			}
 
 			for _, allVersions := range []bool{false, true} {
@@ -208,7 +208,7 @@ func TestListObjects(t *testing.T) {
 			objectsProject1 := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "mybucket")
 			objectsProject2 := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{2}, "mybucket")
 			for i, obj := range objectsProject1 {
-				expected[i] = objectEntryFromRaw(obj)
+				expected[i] = objectEntryFromRawLatest(obj)
 			}
 
 			for _, allVersions := range []bool{false, true} {
@@ -1151,8 +1151,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1168,8 +1168,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1221,8 +1221,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1238,8 +1238,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1442,8 +1442,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA1)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1459,9 +1459,9 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA1)),
 						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1533,7 +1533,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1549,10 +1549,10 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(deletionResult.Markers[0])),
+						objectEntryFromRawLatest(metabase.RawObject(deletionResult.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objA1)),
 						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1703,11 +1703,11 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(deletionResultA1.Markers[0])),
+						objectEntryFromRawLatest(metabase.RawObject(deletionResultA1.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objA1)),
 						objectEntryFromRaw(metabase.RawObject(deletionResultA0.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(deletionResultB1.Markers[0])),
+						objectEntryFromRawLatest(metabase.RawObject(deletionResultB1.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(deletionResultB0.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
@@ -1796,9 +1796,9 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
-						objectEntryFromRaw(metabase.RawObject(objC1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objC1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1814,10 +1814,10 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
-						objectEntryFromRaw(metabase.RawObject(objC1)),
+						objectEntryFromRawLatest(metabase.RawObject(objC1)),
 						objectEntryFromRaw(metabase.RawObject(deletionResultC0.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objC0)),
 					},
