@@ -31,19 +31,11 @@ func TestListObjects_startCursor(t *testing.T) {
 					Cursor:      ListObjectsCursor{},
 				}
 
-				switch {
-				case !allVersions:
-					// latest version double check, optional
-					assert.Equal(t, ListObjectsCursor{
-						Key:     "",
-						Version: opts.firstVersion(),
-					}, opts.startCursor(), opts)
-				default:
-					assert.Equal(t, ListObjectsCursor{
-						Key:     "",
-						Version: 0,
-					}, opts.startCursor(), opts)
-				}
+				// latest version double check
+				assert.Equal(t, ListObjectsCursor{
+					Key:     "",
+					Version: opts.firstVersion(),
+				}, opts.startCursor(), opts)
 			}
 		}
 	}
@@ -62,23 +54,11 @@ func TestListObjects_startCursor(t *testing.T) {
 					},
 				}
 
-				switch {
-				case !allVersions:
-					// latest version double check
-					assert.Equal(t, ListObjectsCursor{
-						Key:     "a",
-						Version: opts.firstVersion(),
-					}, opts.startCursor(), opts)
-
-				case allVersions:
-					assert.Equal(t, ListObjectsCursor{
-						Key:     "a",
-						Version: 100,
-					}, opts.startCursor(), opts)
-
-				default:
-					panic("unhandled scenario")
-				}
+				// latest version double check
+				assert.Equal(t, ListObjectsCursor{
+					Key:     "a",
+					Version: opts.firstVersion(),
+				}, opts.startCursor(), opts)
 			}
 		}
 	}
@@ -100,13 +80,7 @@ func TestListObjects_startCursor(t *testing.T) {
 					}
 
 					switch {
-					case recursive && allVersions:
-						assert.Equal(t, ListObjectsCursor{
-							Key:     prefix + "a/a",
-							Version: 100,
-						}, opts.startCursor(), opts)
-
-					case recursive && !allVersions:
+					case recursive:
 						// latest version double check
 						assert.Equal(t, ListObjectsCursor{
 							Key:     prefix + "a/a",
@@ -144,23 +118,11 @@ func TestListObjects_startCursor(t *testing.T) {
 						Prefix: prefix,
 					}
 
-					switch {
-					case !allVersions:
-						// latest version double check
-						assert.Equal(t, ListObjectsCursor{
-							Key:     prefix + "a",
-							Version: opts.firstVersion(),
-						}, opts.startCursor(), opts)
-
-					case allVersions:
-						assert.Equal(t, ListObjectsCursor{
-							Key:     prefix + "a",
-							Version: 100,
-						}, opts.startCursor(), opts)
-
-					default:
-						panic("unhandled scenario")
-					}
+					// latest version double check
+					assert.Equal(t, ListObjectsCursor{
+						Key:     prefix + "a",
+						Version: opts.firstVersion(),
+					}, opts.startCursor(), opts)
 				}
 			}
 		}
@@ -182,23 +144,11 @@ func TestListObjects_startCursor(t *testing.T) {
 						Prefix: prefix,
 					}
 
-					switch {
-					case !allVersions:
-						// latest version double check
-						assert.Equal(t, ListObjectsCursor{
-							Key:     prefix,
-							Version: opts.firstVersion(),
-						}, opts.startCursor(), opts)
-
-					case allVersions:
-						assert.Equal(t, ListObjectsCursor{
-							Key:     prefix,
-							Version: 100,
-						}, opts.startCursor(), opts)
-
-					default:
-						panic("unhandled scenario")
-					}
+					// latest version double check
+					assert.Equal(t, ListObjectsCursor{
+						Key:     prefix,
+						Version: opts.firstVersion(),
+					}, opts.startCursor(), opts)
 				}
 			}
 		}
@@ -245,23 +195,11 @@ func TestListObjects_startCursor(t *testing.T) {
 						Prefix: "b/",
 					}
 
-					switch {
-					case !allVersions:
-						// latest version double check, optional
-						assert.Equal(t, ListObjectsCursor{
-							Key:     cursor,
-							Version: opts.firstVersion(),
-						}, opts.startCursor(), opts)
-
-					case allVersions:
-						assert.Equal(t, ListObjectsCursor{
-							Key:     cursor,
-							Version: 100,
-						}, opts.startCursor(), opts)
-
-					default:
-						panic("unhandled scenario")
-					}
+					// latest version double check
+					assert.Equal(t, ListObjectsCursor{
+						Key:     cursor,
+						Version: opts.firstVersion(),
+					}, opts.startCursor(), opts)
 				}
 			}
 		}
