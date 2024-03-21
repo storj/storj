@@ -179,6 +179,7 @@ export interface AccountSetupData {
     fullName: string
     isProfessional: boolean
     haveSalesContact: boolean
+    interestedInPartnering: boolean
     position?: string
     companyName?: string
     employeeCount?: string

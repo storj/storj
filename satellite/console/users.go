@@ -373,15 +373,16 @@ type NoticeDismissal struct {
 
 // SetUpAccountRequest holds data for completing account setup.
 type SetUpAccountRequest struct {
-	FullName         string  `json:"fullName"`
-	IsProfessional   bool    `json:"isProfessional"`
-	Position         *string `json:"position"`
-	CompanyName      *string `json:"companyName"`
-	EmployeeCount    *string `json:"employeeCount"`
-	StorageNeeds     *string `json:"storageNeeds"`
-	StorageUseCase   *string `json:"storageUseCase"`
-	FunctionalArea   *string `json:"functionalArea"`
-	HaveSalesContact bool    `json:"haveSalesContact"`
+	FullName               string  `json:"fullName"`
+	IsProfessional         bool    `json:"isProfessional"`
+	Position               *string `json:"position"`
+	CompanyName            *string `json:"companyName"`
+	EmployeeCount          *string `json:"employeeCount"`
+	StorageNeeds           *string `json:"storageNeeds"`
+	StorageUseCase         *string `json:"storageUseCase"`
+	FunctionalArea         *string `json:"functionalArea"`
+	HaveSalesContact       bool    `json:"haveSalesContact"`
+	InterestedInPartnering bool    `json:"interestedInPartnering"`
 }
 
 // TrialNotificationStatus is an enum representing a type of trial notification.

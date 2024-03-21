@@ -1618,6 +1618,7 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	if requestData.IsProfessional {
 		onboardingFields.Type = analytics.Professional
 		onboardingFields.HaveSalesContact = requestData.HaveSalesContact
+		onboardingFields.InterestedInPartnering = requestData.InterestedInPartnering
 		if requestData.CompanyName != nil {
 			onboardingFields.CompanyName = *requestData.CompanyName
 		}

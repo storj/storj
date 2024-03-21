@@ -269,17 +269,18 @@ type TrackCreateUserFields struct {
 
 // TrackOnboardingInfoFields contains input data entered after first login.
 type TrackOnboardingInfoFields struct {
-	ID               uuid.UUID
-	FullName         string
-	Email            string
-	Type             UserType
-	EmployeeCount    string
-	CompanyName      string
-	StorageNeeds     string
-	JobTitle         string
-	StorageUseCase   string
-	FunctionalArea   string
-	HaveSalesContact bool
+	ID                     uuid.UUID
+	FullName               string
+	Email                  string
+	Type                   UserType
+	EmployeeCount          string
+	CompanyName            string
+	StorageNeeds           string
+	JobTitle               string
+	StorageUseCase         string
+	FunctionalArea         string
+	HaveSalesContact       bool
+	InterestedInPartnering bool
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -387,6 +388,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 	traits.SetEmail(fields.Email)
 	if fields.Type == Professional {
 		traits.Set("have_sales_contact", fields.HaveSalesContact)
+		traits.Set("interested_in_partnering", fields.InterestedInPartnering)
 	}
 
 	service.enqueueMessage(segment.Identify{

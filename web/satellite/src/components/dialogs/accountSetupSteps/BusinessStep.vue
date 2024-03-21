@@ -110,9 +110,14 @@
 
             <v-row justify="center">
                 <v-col cols="12" sm="6" md="5" lg="4">
-                    <v-checkbox id="sales" v-model="haveSalesContact" density="compact">
+                    <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
                         <template #label>
                             <p class="text-body-2">Please have the Sales Team contact me</p>
+                        </template>
+                    </v-checkbox>
+                    <v-checkbox id="partnering" v-model="interestedInPartnering" hide-details density="compact">
+                        <template #label>
+                            <p class="text-body-2">I am interested in partnering with Storj</p>
                         </template>
                     </v-checkbox>
                 </v-col>
@@ -184,6 +189,7 @@ const storageNeeds = ref<string>();
 const useCase = ref<string>();
 const functionalArea = ref<string>();
 const haveSalesContact = ref(false);
+const interestedInPartnering = ref(false);
 
 const emit = defineEmits<{
     (event: 'next', value: OnboardingStep): void,
@@ -206,6 +212,7 @@ function setupAccount() {
                 functionalArea: functionalArea.value,
                 isProfessional: true,
                 haveSalesContact: haveSalesContact.value,
+                interestedInPartnering: interestedInPartnering.value,
             });
 
             analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);

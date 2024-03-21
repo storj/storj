@@ -109,6 +109,7 @@ function setupAccount() {
                 fullName: name.value,
                 storageUseCase: useCase.value,
                 haveSalesContact: false,
+                interestedInPartnering: false,
                 isProfessional: false,
             });
 

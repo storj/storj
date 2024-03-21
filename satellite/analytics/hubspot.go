@@ -292,6 +292,7 @@ func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFiel
 	}
 	if fields.Type == Professional {
 		properties["have_sales_contact"] = fields.HaveSalesContact
+		properties["interested_in_partnering"] = fields.InterestedInPartnering
 		properties["company_size"] = fields.EmployeeCount
 		properties["company"] = fields.CompanyName
 		properties["title"] = fields.JobTitle
