@@ -56,7 +56,7 @@
                             size="small"
                             rounded
                         >
-                            {{ isPaidTier ? 'Pro Account' : 'Free Account' }}
+                            {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" :to="ROUTES.Billing.path">

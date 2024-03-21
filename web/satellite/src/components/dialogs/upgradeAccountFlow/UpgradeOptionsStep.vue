@@ -48,13 +48,11 @@ import { VBtn, VCol, VIcon, VRow, VAlert } from 'vuetify/components';
 import { mdiCreditCard, mdiPlusCircle } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
 import { User } from '@/types/users';
 
 const usersStore = useUsersStore();
-const notify = useNotify();
 
-const props = defineProps<{
+defineProps<{
     loading: boolean;
 }>();
 

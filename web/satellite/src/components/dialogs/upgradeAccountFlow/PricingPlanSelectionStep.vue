@@ -65,7 +65,7 @@ const plans = ref<PricingPlanInfo[]>([
     ),
 ]);
 
-/*
+/**
  * Loads pricing plan config. Assumes that user is already eligible for a plan prior to component being mounted.
  */
 onBeforeMount(async () => {
@@ -74,7 +74,7 @@ onBeforeMount(async () => {
             ...plans.value,
             new PricingPlanInfo(
                 PricingPlanType.FREE,
-                'Free Account',
+                'Free Trial',
                 'Limited',
                 'Free usage up to 25GB storage and 25GB egress bandwidth per month.',
                 null,

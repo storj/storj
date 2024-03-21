@@ -83,20 +83,19 @@
 </template>
 
 <script setup lang="ts">
-import { useTheme } from 'vuetify';
 import { onBeforeMount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { VAppBar, VAppBarTitle, VBtn, VBtnToggle, VIcon, VImg, VMenu, VTooltip } from 'vuetify/components';
+import { useTheme } from 'vuetify';
+import { VAppBar, VBtn, VBtnToggle, VIcon, VTooltip } from 'vuetify/components';
 import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js';
 
 import { PartnerConfig } from '@/types/partners';
 import { ROUTES } from '@/router';
 
 const route = useRoute();
-
 const theme = useTheme();
+
 const activeTheme = ref(0);
-const menu = ref(false);
 const partnerConfig = ref<PartnerConfig | null>(null);
 
 function toggleTheme(newTheme: string): void {
