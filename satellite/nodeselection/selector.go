@@ -181,6 +181,7 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 	rng := mathrand.New(mathrand.NewSource(mathrand.Int63()))
 
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		mon.IntVal("selector_balanced_input_nodes").Observe(int64(len(nodes)))
 		nodeByAttribute := make(map[string][]*SelectedNode)
 		for _, node := range nodes {
 			if filter != nil && !filter.Match(node) {
@@ -194,10 +195,12 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 		}
 
 		var groupedNodes [][]*SelectedNode
+		count := 0
 		for _, nodeList := range nodeByAttribute {
 			groupedNodes = append(groupedNodes, nodeList)
+			count += len(nodeList)
 		}
-
+		mon.IntVal("selector_balanced_filtered_nodes").Observe(int64(count))
 		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
@@ -229,6 +232,8 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 					}
 
 					if len(selected) >= n {
+						mon.IntVal("selector_balanced_requested").Observe(int64(n))
+						mon.IntVal("selector_balanced_found").Observe(int64(len(selected)))
 						return selected, nil
 					}
 				}
