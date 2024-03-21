@@ -176,7 +176,7 @@
                                 size="large"
                                 block
                             >
-                                Create your account
+                                Start your free trial
                             </v-btn>
                         </v-form>
                     </v-card-text>
@@ -281,8 +281,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { mdiCheckBold } from '@mdi/js';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAppStore } from '@/store/modules/appStore';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { AuthHttpApi } from '@/api/auth';
@@ -310,8 +308,7 @@ const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
-const appStore = useAppStore();
-const usersStore = useUsersStore();
+
 const router = useRouter();
 const notify = useNotify();
 const route = useRoute();

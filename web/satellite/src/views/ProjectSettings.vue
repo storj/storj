@@ -63,7 +63,7 @@
 
         <v-row v-if="!isPaidTier && billingEnabled">
             <v-col cols="12">
-                <v-card title="Free Account" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Free Trial" variant="outlined" border rounded="xlg">
                     <v-card-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
                         Need more? Upgrade to Pro Account.

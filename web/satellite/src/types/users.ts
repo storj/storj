@@ -139,7 +139,7 @@ export class User {
         const daysBeforeNotifyInMilliseconds = daysBeforeNotify * millisecondsInDay;
 
         return {
-            isCloseToExpiredTrial: diff > 0 && diff < daysBeforeNotifyInMilliseconds,
+            isCloseToExpiredTrial: diff < daysBeforeNotifyInMilliseconds,
             days: Math.round(Math.abs(diff) / millisecondsInDay),
         };
     }

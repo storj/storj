@@ -98,7 +98,7 @@
                                 size="small"
                                 rounded
                             >
-                                {{ isPaidTier ? 'Pro Account' : 'Free Account' }}
+                                {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                             </v-chip>
                         </v-list-item-title>
                     </v-list-item>

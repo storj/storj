@@ -6,7 +6,7 @@ import { computed } from 'vue';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { User } from '@/types/users';
+import { ExpirationInfo, User } from '@/types/users';
 
 export function useTrialCheck() {
     const userStore = useUsersStore();
@@ -14,20 +14,18 @@ export function useTrialCheck() {
     const configStore = useConfigStore();
 
     const user = computed<User>(() => userStore.state.user);
+    const expirationInfo = computed<ExpirationInfo>(() => user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
 
     const isTrialExpirationBanner = computed<boolean>(() => {
         if (user.value.paidTier) return false;
 
-        const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
-
-        return user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial;
+        return user.value.freezeStatus.trialExpiredFrozen || expirationInfo.value.isCloseToExpiredTrial;
     });
 
     const isExpired = computed<boolean>(() => user.value.freezeStatus.trialExpiredFrozen);
 
     function withTrialCheck(callback: () => void | Promise<void>): void {
-        const user = userStore.state.user;
-        if (!user.paidTier && user.freezeStatus.trialExpiredFrozen) {
+        if (!user.value.paidTier && user.value.freezeStatus.trialExpiredFrozen) {
             appStore.toggleExpirationDialog(true);
             return;
         }
@@ -38,6 +36,7 @@ export function useTrialCheck() {
     return {
         isTrialExpirationBanner,
         isExpired,
+        expirationInfo,
         withTrialCheck,
     };
 }
