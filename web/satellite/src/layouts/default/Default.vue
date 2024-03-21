@@ -31,6 +31,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
@@ -41,6 +42,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
+const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -93,6 +95,7 @@ async function selectProject(urlId: string): Promise<void> {
 
 watch(() => route.params.id, async newId => {
     if (newId === undefined) return;
+    bucketsStore.clearS3Data();
     isLoading.value = true;
     await selectProject(newId as string);
     isLoading.value = false;

@@ -264,9 +264,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { ROUTES } from '@/router';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import IconProject from '@/components/icons/IconProject.vue';
@@ -289,12 +287,10 @@ import IconApplications from '@/components/icons/IconApplications.vue';
 import EnterProjectPassphraseDialog
     from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
 
-const configStore = useConfigStore();
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const bucketsStore = useBucketsStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -420,8 +416,6 @@ async function onProjectSelected(project: Project): Promise<void> {
             },
         });
     }
-
-    bucketsStore.clearS3Data();
 }
 
 onBeforeMount(() => {
