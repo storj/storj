@@ -2678,6 +2678,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN created_by bytea REFERENCES users( id ) DEFAULT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add version column to api_keys table",
+				Version:     265,
+				Action: migrate.SQL{
+					`ALTER TABLE api_keys ADD COLUMN version integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

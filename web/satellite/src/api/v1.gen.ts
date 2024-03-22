@@ -12,6 +12,7 @@ export class APIKeyInfo {
     userAgent: string | null;
     name: string;
     createdAt: Time;
+    version: number;
 }
 
 export class APIKeyPage {

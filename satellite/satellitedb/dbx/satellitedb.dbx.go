@@ -837,6 +837,7 @@ CREATE TABLE api_keys (
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	created_by bytea REFERENCES users( id ),
+	version integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
@@ -1542,6 +1543,7 @@ CREATE TABLE api_keys (
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	created_by bytea REFERENCES users( id ),
+	version integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
@@ -11170,6 +11172,7 @@ type ApiKey struct {
 	UserAgent []byte
 	CreatedAt time.Time
 	CreatedBy []byte
+	Version   uint
 }
 
 func (ApiKey) _Table() string { return "api_keys" }
@@ -11177,6 +11180,7 @@ func (ApiKey) _Table() string { return "api_keys" }
 type ApiKey_Create_Fields struct {
 	UserAgent ApiKey_UserAgent_Field
 	CreatedBy ApiKey_CreatedBy_Field
+	Version   ApiKey_Version_Field
 }
 
 type ApiKey_Update_Fields struct {
@@ -11360,6 +11364,25 @@ func (f ApiKey_CreatedBy_Field) value() interface{} {
 }
 
 func (ApiKey_CreatedBy_Field) _Column() string { return "created_by" }
+
+type ApiKey_Version_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func ApiKey_Version(v uint) ApiKey_Version_Field {
+	return ApiKey_Version_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Version_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Version_Field) _Column() string { return "version" }
 
 type BucketMetainfo struct {
 	Id                              []byte
@@ -13582,16 +13605,37 @@ func (obj *pgxImpl) Create_ApiKey(ctx context.Context,
 	__created_at_val := __now
 	__created_by_val := optional.CreatedBy.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, user_agent, created_at, created_by ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, head, name, secret, user_agent, created_at, created_by")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO api_keys "), __clause, __sqlbundle_Literal(" RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __user_agent_val, __created_at_val, __created_by_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Version._set {
+		__values = append(__values, optional.Version.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("version"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy, &api_key.Version)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16810,7 +16854,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context
 	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -16819,7 +16863,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	row = &ApiKey_Project_PublicId_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.Project_PublicId)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId)
 	if err != nil {
 		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
@@ -16832,7 +16876,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstL
 	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, projects.public_id, projects.rate_limit, projects.burst_limit, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id, projects.rate_limit, projects.burst_limit, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -16841,7 +16885,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstL
 	obj.logStmt(__stmt, __values...)
 
 	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit)
 	if err != nil {
 		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -16855,7 +16899,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_Projec
 	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
@@ -16864,7 +16908,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_Projec
 	obj.logStmt(__stmt, __values...)
 
 	row = &ApiKey_Project_PublicId_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.Project_PublicId)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId)
 	if err != nil {
 		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
@@ -22212,16 +22256,37 @@ func (obj *pgxcockroachImpl) Create_ApiKey(ctx context.Context,
 	__created_at_val := __now
 	__created_by_val := optional.CreatedBy.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, user_agent, created_at, created_by ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, head, name, secret, user_agent, created_at, created_by")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO api_keys "), __clause, __sqlbundle_Literal(" RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __user_agent_val, __created_at_val, __created_by_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Version._set {
+		__values = append(__values, optional.Version.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("version"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy, &api_key.Version)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -25440,7 +25505,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx contex
 	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -25449,7 +25514,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	row = &ApiKey_Project_PublicId_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.Project_PublicId)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId)
 	if err != nil {
 		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
@@ -25462,7 +25527,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Proje
 	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, projects.public_id, projects.rate_limit, projects.burst_limit, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id, projects.rate_limit, projects.burst_limit, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -25471,7 +25536,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Proje
 	obj.logStmt(__stmt, __values...)
 
 	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit)
 	if err != nil {
 		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -25485,7 +25550,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiK
 	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
@@ -25494,7 +25559,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiK
 	obj.logStmt(__stmt, __values...)
 
 	row = &ApiKey_Project_PublicId_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.Project_PublicId)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId)
 	if err != nil {
 		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}

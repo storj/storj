@@ -74,7 +74,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at, p.public_id
+		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at, ak.version, p.public_id
 		FROM api_keys ak, projects p
 		WHERE ak.project_id = ?
 		AND ak.project_id = p.id
@@ -98,7 +98,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	for rows.Next() {
 		ak := console.APIKeyInfo{}
 
-		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt, &ak.ProjectPublicID)
+		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt, &ak.Version, &ak.ProjectPublicID)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +207,9 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		return nil, err
 	}
 
-	optional := dbx.ApiKey_Create_Fields{}
+	optional := dbx.ApiKey_Create_Fields{
+		Version: dbx.ApiKey_Version(info.Version),
+	}
 	if info.UserAgent != nil {
 		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
 	}
@@ -279,6 +281,7 @@ func apiKeyToAPIKeyInfo(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKey
 		CreatedAt: key.CreatedAt,
 		Head:      key.Head,
 		Secret:    key.Secret,
+		Version:   key.Version,
 	}
 
 	if key.UserAgent != nil {

@@ -62,6 +62,7 @@ type APIKeyInfo struct {
 	Head            []byte    `json:"-"`
 	Secret          []byte    `json:"-"`
 	CreatedAt       time.Time `json:"createdAt"`
+	Version         uint      `json:"version"`
 
 	// TODO move this closer to metainfo
 	ProjectRateLimit  *int `json:"-"`

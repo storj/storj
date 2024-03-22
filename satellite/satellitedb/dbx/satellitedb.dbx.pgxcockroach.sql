@@ -524,6 +524,7 @@ CREATE TABLE api_keys (
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	created_by bytea REFERENCES users( id ),
+	version integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )

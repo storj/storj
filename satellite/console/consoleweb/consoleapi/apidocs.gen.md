@@ -268,6 +268,7 @@ Gets API keys by project ID
 			userAgent: 			string
 			name: string
 			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			version: number
 		}
 
 	]

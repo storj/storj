@@ -234,6 +234,8 @@ model api_key (
     field  created_at  timestamp        (autoinsert)
     // created_by is an UUID of the user who created this key.
     field  created_by  user.id restrict (nullable)
+    // version specifies the version number of the api key.
+    field  version     uint       (default 0)
 )
 
 create api_key ( )
