@@ -131,9 +131,7 @@
                                 <IconVersioning v-if="item.versioning !== Versioning.Enabled" />
                                 <IconPause v-else />
                             </template>
-                            <v-list-item-title
-                                class="pl-2 text-body-2 font-weight-medium"
-                            >
+                            <v-list-item-title class="ml-3">
                                 {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
                             </v-list-item-title>
                         </v-list-item>
@@ -171,6 +169,7 @@
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
+    <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="fetchBuckets" />
 </template>
 
 <script setup lang="ts">
@@ -192,7 +191,7 @@ import {
 } from 'vuetify/components';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
-import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketMetadata, BucketPage } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
@@ -200,14 +199,10 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
-import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { Versioning } from '@/types/versioning';
-import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useVersioning } from '@/composables/useVersioning.js';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconShare from '@/components/icons/IconShare.vue';
@@ -220,9 +215,8 @@ import IconVersioning from '@/components/icons/IconVersioning.vue';
 import IconLocation from '@/components/icons/IconLocation.vue';
 import IconPause from '@/components/icons/IconPause.vue';
 import IconForward from '@/components/icons/IconForward.vue';
+import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 
-const agStore = useAccessGrantsStore();
-const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
@@ -230,7 +224,6 @@ const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = useTrialCheck();
-const { toggleVersioning } = useVersioning();
 
 const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);
@@ -245,6 +238,7 @@ const isShareBucketDialogShown = ref<boolean>(false);
 const isBucketDetailsDialogShown = ref<boolean>(false);
 const pageWidth = ref<number>(document.body.clientWidth);
 const sortBy = ref<SortItem[] | undefined>([{ key: 'name', order: 'asc' }]);
+const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
 
 let passphraseDialogCallback: () => void = () => {};
 
@@ -428,14 +422,9 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
  * Toggles versioning for the bucket between Suspended and Enabled.
  */
 async function onToggleVersioning(bucket: Bucket) {
-    try {
-        await toggleVersioning(bucket.name, bucket.versioning);
-        notify.success(`Versioning ${bucket.versioning !== Versioning.Enabled ? 'enabled' : 'suspended'} for bucket ${bucket.name}.`);
-        await fetchBuckets();
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
-        return;
-    }
+    withTrialCheck(() => {
+        bucketToToggleVersioning.value = new BucketMetadata(bucket.name, bucket.versioning);
+    });
 }
 
 /**

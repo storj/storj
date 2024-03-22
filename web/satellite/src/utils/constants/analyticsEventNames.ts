@@ -109,6 +109,7 @@ export enum AnalyticsErrorEventSource {
     EDIT_DEFAULT_CC_MODAL = 'Edit default credit card modal',
     ONBOARDING_FORM = 'Onboarding form',
     ONBOARDING_STEPPER = 'Onboarding stepper',
+    VERSIONING_TOGGLE_DIALOG = 'Versioning toggle dialog',
 }
 
 export enum PageVisitSource {

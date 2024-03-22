@@ -116,7 +116,7 @@
                             density="comfortable"
                             link
                             rounded="lg"
-                            @click="showShareBucketDialog"
+                            @click="isShareBucketDialogShown = true"
                         >
                             <template #prepend>
                                 <icon-share bold />
@@ -197,6 +197,7 @@
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
+    <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="() => bucketsStore.getAllBucketsMetadata(projectId)" />
 </template>
 
 <script setup lang="ts">
@@ -226,12 +227,10 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 import { Versioning } from '@/types/versioning';
 import { BucketMetadata } from '@/types/buckets';
-import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useVersioning } from '@/composables/useVersioning.js';
+import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
@@ -253,19 +252,19 @@ import IconPause from '@/components/icons/IconPause.vue';
 import IconVersioning from '@/components/icons/IconVersioning.vue';
 import IconShare from '@/components/icons/IconShare.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
+import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
-const config = useConfigStore();
 const appStore = useAppStore();
 
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 const { smAndUp } = useDisplay();
-const { toggleVersioning } = useVersioning();
+const { withTrialCheck } = useTrialCheck();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
@@ -274,13 +273,11 @@ const settingsMenu = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
 const isInitialized = ref<boolean>(false);
 const isDragging = ref<boolean>(false);
-const snackbar = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(false);
 const isNewFolderDialogOpen = ref<boolean>(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isDeleteBucketDialogShown = ref<boolean>(false);
-
-let passphraseDialogCallback: () => void = () => {};
+const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
 
 /**
  * Whether versioning has been enabled for current project.
@@ -303,13 +300,6 @@ const bucket = computed<BucketMetadata | undefined>(() => {
  * Returns edge credentials from store.
  */
 const edgeCredentials = computed((): EdgeCredentials => bucketsStore.state.edgeCredentials);
-
-/**
- * Returns condition if user has to be prompt for passphrase from store.
- */
-const promptForPassphrase = computed((): boolean => {
-    return bucketsStore.state.promptForPassphrase;
-});
 
 /**
  * Returns ID of selected project from store.
@@ -389,18 +379,12 @@ async function upload(e: Event): Promise<void> {
  * Toggles versioning for the bucket between Suspended and Enabled.
  */
 async function onToggleVersioning() {
-    if (!bucket.value) {
-        return;
-    }
-
-    try {
-        await toggleVersioning(bucket.value?.name, bucket.value?.versioning);
-        notify.success(`Versioning ${bucket.value.versioning !== Versioning.Enabled ? 'enabled' : 'suspended'} for bucket ${bucket.value.name}.`);
-        await bucketsStore.getAllBucketsMetadata(projectId.value);
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
-        return;
-    }
+    withTrialCheck(() => {
+        if (!bucket.value) {
+            return;
+        }
+        bucketToToggleVersioning.value = bucket.value;
+    });
 }
 
 function onBucketDeleted() {
@@ -408,19 +392,6 @@ function onBucketDeleted() {
         name: ROUTES.Buckets.name,
         params: { id: projectUrlId.value },
     });
-}
-
-/**
- * Displays the Share Bucket dialog.
- */
-function showShareBucketDialog(): void {
-    if (promptForPassphrase.value) {
-        bucketsStore.setFileComponentBucketName(bucketName.value);
-        isBucketPassphraseDialogOpen.value = true;
-        passphraseDialogCallback = () => isShareBucketDialogShown.value = true;
-        return;
-    }
-    isShareBucketDialogShown.value = true;
 }
 
 watch(isBucketPassphraseDialogOpen, isOpen => {
