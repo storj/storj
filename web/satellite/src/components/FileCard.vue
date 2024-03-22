@@ -10,13 +10,31 @@
                         :src="objectPreviewUrl"
                         class="bg-light card-preview-img h-100"
                         alt="preview"
-                        :aspect-ratio="1/1"
+                        :aspect-ratio="1"
                         cover
                     >
                         <template #placeholder>
                             <v-progress-linear indeterminate />
                         </template>
                     </v-img>
+                </template>
+                <template v-else-if="previewType === PreviewType.Video">
+                    <div class="pos-relative">
+                        <video
+                            ref="videoEl"
+                            :src="objectPreviewUrl"
+                            class="bg-light h-100 custom-video"
+                            muted
+                            @loadedmetadata="captureVideoFrame"
+                        />
+                        <img
+                            class="absolute"
+                            :src="item.typeInfo.icon"
+                            :alt="item.typeInfo.title + 'icon'"
+                            :aria-roledescription="item.typeInfo.title + 'icon'"
+                            height="52"
+                        >
+                    </div>
                 </template>
                 <div
                     v-else
@@ -46,9 +64,6 @@
                         {{ item.browserObject.Key }}
                     </small>
                 </v-card-title>
-                <!-- <v-card-subtitle class="text-caption">
-                    {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedSize(item.browserObject) }}
-                </v-card-subtitle> -->
                 <v-card-subtitle class="text-caption">
                     {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedDate(item.browserObject) }}
                 </v-card-subtitle>
@@ -58,13 +73,9 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
+import { computed, ref } from 'vue';
 import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } from 'vuetify/components';
-import { computed } from 'vue';
 
-import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
 import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
@@ -83,13 +94,8 @@ type BrowserObjectWrapper = {
     ext: string;
 };
 
-const analyticsStore = useAnalyticsStore();
-const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
-
-const router = useRouter();
-const notify = useNotify();
 
 const props = defineProps<{
     item: BrowserObjectWrapper,
@@ -100,6 +106,8 @@ const emit = defineEmits<{
     deleteFileClick: [BrowserObject];
     shareClick: [BrowserObject];
 }>();
+
+const videoEl = ref<HTMLVideoElement>();
 
 /**
  * Returns object preview URL from cache.
@@ -148,6 +156,13 @@ const previewType = computed<PreviewType>(() => {
 });
 
 /**
+ * Updates current video time to show video thumbnail.
+ */
+function captureVideoFrame(): void {
+    if (videoEl.value) videoEl.value.currentTime = 0;
+}
+
+/**
  * Returns the string form of the file's last modified date.
  */
 function getFormattedDate(file: BrowserObject): string {
@@ -155,3 +170,20 @@ function getFormattedDate(file: BrowserObject): string {
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 </script>
+
+<style scoped lang="scss">
+.custom-video {
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+}
+
+.absolute {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+}
+</style>

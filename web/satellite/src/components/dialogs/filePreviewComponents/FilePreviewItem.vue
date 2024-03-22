@@ -17,6 +17,8 @@
             :src="objectPreviewUrl"
             style="max-width: 100%; max-height: 90%;"
             aria-roledescription="video-preview"
+            :autoplay="videoAutoplay"
+            :muted="videoAutoplay"
         />
     </v-container>
     <v-container v-else-if="previewType === PreviewType.Audio" class="fill-height flex-column justify-center align-center">
@@ -71,10 +73,13 @@ const { generateObjectPreviewAndMapURL } = useLinksharing();
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     file: BrowserObject,
     active: boolean, // whether this item is visible
-}>();
+    videoAutoplay?: boolean
+}>(), {
+    videoAutoplay: false,
+});
 
 const emit = defineEmits<{
     download: [];

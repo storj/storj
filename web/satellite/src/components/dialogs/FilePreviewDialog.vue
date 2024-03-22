@@ -120,7 +120,7 @@
                     <!-- v-carousel will mount all items at the same time -->
                     <!-- so :active will tell file-preview-item if it is the current. -->
                     <!-- If it is, it'll load the preview. -->
-                    <file-preview-item :active="i === fileIndex" :file="file" @download="download" />
+                    <file-preview-item :active="i === fileIndex" :file="file" :video-autoplay="videoAutoplay" @download="download" />
                 </v-carousel-item>
             </v-carousel>
         </v-card>
@@ -171,6 +171,12 @@ import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
+
+withDefaults(defineProps<{
+    videoAutoplay?: boolean
+}>(), {
+    videoAutoplay: false,
+});
 
 const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);

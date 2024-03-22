@@ -198,7 +198,7 @@ watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
     if (usersStore.getShouldPromptPassphrase({
         isProjectOwner: project.ownerId === usersStore.state.user.id,
         onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
-    }) && !user.value.freezeStatus.trialExpiredFrozen) {
+    }) && !user.value.freezeStatus.trialExpiredFrozen && route.name !== ROUTES.Bucket.name) {
         appStore.toggleProjectPassphraseDialog(true);
     }
 });

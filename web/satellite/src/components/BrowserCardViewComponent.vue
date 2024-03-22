@@ -148,7 +148,7 @@
             </v-card>
         </template>
     </v-data-iterator>
-    <file-preview-dialog v-model="previewDialog" />
+    <file-preview-dialog v-model="previewDialog" video-autoplay />
 
     <delete-file-dialog
         v-model="isDeleteFileDialogShown"
@@ -543,7 +543,7 @@ async function processFilePath(file: BrowserObjectWrapper) {
  * Adds image files to preview queue.
  */
 function addToPreviewQueue(file: BrowserObjectWrapper) {
-    if (file.browserObject.type === 'folder' || file.typeInfo.title !== 'Image') return;
+    if (file.browserObject.type === 'folder' || (file.typeInfo.title !== 'Image' && file.typeInfo.title !== 'Video')) return;
 
     previewQueue.push(file);
     if (!processingPreview) {
