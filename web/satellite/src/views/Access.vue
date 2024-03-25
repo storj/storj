@@ -3,7 +3,7 @@
 
 <template>
     <v-container>
-        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+        <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
         <PageTitleComponent title="Access Keys" />
         <PageSubtitleComponent subtitle="Create Access Grants, S3 Credentials, and API Keys." link="https://docs.storj.io/dcs/access" />
@@ -42,7 +42,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const dialog = ref<boolean>(false);
 
-const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
 
 /**
  * Starts create access grant flow if user's free trial is not expired.

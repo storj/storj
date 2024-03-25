@@ -199,7 +199,7 @@ function newProjectClicked() {
     withTrialCheck(() => {
         analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
         isCreateProjectDialogShown.value = true;
-    });
+    }, true);
 }
 
 /**
@@ -213,10 +213,8 @@ function redirectToBilling(): void {
  * Displays the Join Project modal.
  */
 function onJoinClicked(item: ProjectItemModel): void {
-    withTrialCheck(() => {
-        joiningItem.value = item;
-        isJoinProjectDialogShown.value = true;
-    });
+    joiningItem.value = item;
+    isJoinProjectDialogShown.value = true;
 }
 
 /**
@@ -226,7 +224,7 @@ function onInviteClicked(item: ProjectItemModel): void {
     withTrialCheck(() => {
         addMemberProjectId.value = item.id;
         isAddMemberDialogShown.value = true;
-    });
+    }, true);
 }
 
 /**

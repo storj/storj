@@ -106,7 +106,7 @@ async function setup() {
             analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 
-            if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+            if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) && !user.value.freezeStatus.trialExpiredFrozen) {
                 appStore.toggleProjectPassphraseDialog(true);
             }
         }
@@ -150,7 +150,7 @@ usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
         after((_) => {
             setup().then(() => {
-                if (user.value.paidTier) return;
+                if (user.value.paidTier || route.name !== ROUTES.Dashboard.name || projectsStore.state.selectedProject.ownerId !== user.value.id) return;
 
                 const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
                 if (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial) {
@@ -168,7 +168,7 @@ watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
     if (project.id === oldProject.id) {
         return;
     }
-    if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id)) {
+    if (usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) && !user.value.freezeStatus.trialExpiredFrozen) {
         appStore.toggleProjectPassphraseDialog(true);
     }
 });

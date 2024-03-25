@@ -3,7 +3,7 @@
 
 <template>
     <v-container class="pb-15">
-        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+        <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
         <next-steps-container />
 
@@ -336,7 +336,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
-const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();

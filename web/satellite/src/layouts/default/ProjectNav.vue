@@ -402,7 +402,7 @@ function trackViewSupportEvent(link: string): void {
 function onCreateProject() {
     withTrialCheck(() => {
         isCreateProjectDialogShown.value = true;
-    });
+    }, true);
 }
 
 /**

@@ -5,7 +5,7 @@
     <v-container>
         <v-row>
             <v-col>
-                <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+                <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
                 <PageTitleComponent title="Project Settings" />
                 <PageSubtitleComponent subtitle="Edit project information and set custom project limits." link="https://docs.storj.io/learn/concepts/limits" />
@@ -182,7 +182,7 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
-const { isTrialExpirationBanner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
 
 /**
  * Indicates if billing features are enabled.
