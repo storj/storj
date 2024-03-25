@@ -74,10 +74,10 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		if resp == nil {
 			return
 		}
-		for _, r := range resp.Responses {
+		for _, response := range resp.Responses {
 			mon.IntVal("batch_response_sizes",
-				monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", r)),
-			).Observe(int64(proto.Size(r)))
+				monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", response.Response)),
+			).Observe(int64(proto.Size(response)))
 		}
 	}()
 
