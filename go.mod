@@ -21,7 +21,7 @@ require (
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
-	github.com/klauspost/compress v1.17.0
+	github.com/klauspost/compress v1.17.7
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
@@ -59,11 +59,11 @@ require (
 	golang.org/x/time v0.5.0
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20240318212839-5a486c1a50e5
+	storj.io/common v0.0.0-20240325183111-3a1a80390ccd
 	storj.io/drpc v0.0.34
 	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
-	storj.io/uplink v1.12.3-0.20240227083244-7974a2e1a6c2
+	storj.io/uplink v1.12.3-0.20240325204957-7e1a1e616922
 )
 
 require (
