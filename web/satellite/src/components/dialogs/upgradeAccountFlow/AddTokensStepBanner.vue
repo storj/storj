@@ -16,10 +16,10 @@
 
         <template #text>
             <p v-if="isDefault">
-                <span class="font-weight-bold d-block">Send only STORJ tokens via Layer 1 transaction to this address.</span>
+                <span class="font-weight-bold d-block">Send only STORJ tokens via Layer 1 or zkSync Era transaction to this address.</span>
                 <span>
-                    Sending anything else than STORJ token will result in the loss of your deposit.
-                    Please note that zkSync transactions are not yet supported.
+                    Sending anything else other than STORJ token, or using any Layer 2 other than zkSync,
+                    such as BNB, Polygon, etc... will result in the loss of your deposit.
                 </span>
             </p>
 
