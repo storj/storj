@@ -3,7 +3,10 @@
 
 <template>
     <v-alert border class="my-4 pb-5" variant="outlined" :color="expired ? 'error' : 'warning'" :title="title" closable>
-        <p class="text-body-2 mt-2 mb-4">{{ info }}</p>
+        <p class="text-body-2 mt-2 mb-4">
+            {{ info }} Upgrade to continue using Storj for your own projects.<br>
+            <strong>Note:</strong> You will continue to maintain access to projects that you are a member of.
+        </p>
         <v-btn :color="expired ? 'error' : 'warning'" :prepend-icon="mdiArrowUpCircleOutline" @click="onUpgrade">
             Upgrade
         </v-btn>
@@ -41,7 +44,7 @@ const title = computed<string>(() => {
  * Returns expiration info based on expired status.
  */
 const info = computed<string>(() => {
-    return props.expired ? `Your trial expired ${expirationInfo.value.days} days ago. Upgrade to keep using Storj.` : `Only ${expirationInfo.value.days} days left in your trial. Upgrade to keep using Storj.`;
+    return props.expired ? `Your trial expired ${expirationInfo.value.days} days ago.` : `Only ${expirationInfo.value.days} days left in your trial.`;
 });
 
 /**

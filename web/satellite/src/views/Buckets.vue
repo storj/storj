@@ -3,7 +3,7 @@
 
 <template>
     <v-container>
-        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+        <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
         <PageTitleComponent title="Browse Buckets" />
         <PageSubtitleComponent
@@ -44,7 +44,7 @@ import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import IconNew from '@/components/icons/IconNew.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
-const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
 
 const isCreateBucketDialogOpen = ref<boolean>(false);
 

@@ -115,7 +115,7 @@ async function setup() {
             if (usersStore.getShouldPromptPassphrase({
                 isProjectOwner: project.ownerId === usersStore.state.user.id,
                 onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
-            })) {
+            }) && !user.value.freezeStatus.trialExpiredFrozen) {
                 appStore.toggleProjectPassphraseDialog(true);
             }
         }
@@ -177,7 +177,7 @@ usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
         after((_) => {
             setup().then(() => {
-                if (user.value.paidTier) return;
+                if (user.value.paidTier || route.name !== ROUTES.Dashboard.name || projectsStore.state.selectedProject.ownerId !== user.value.id) return;
 
                 const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
                 if (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial) {
@@ -198,7 +198,7 @@ watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
     if (usersStore.getShouldPromptPassphrase({
         isProjectOwner: project.ownerId === usersStore.state.user.id,
         onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
-    })) {
+    }) && !user.value.freezeStatus.trialExpiredFrozen) {
         appStore.toggleProjectPassphraseDialog(true);
     }
 });

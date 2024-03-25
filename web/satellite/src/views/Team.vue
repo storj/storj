@@ -3,7 +3,7 @@
 
 <template>
     <v-container>
-        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+        <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
         <PageTitleComponent title="Team Members" />
         <PageSubtitleComponent
@@ -42,7 +42,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const projectsStore = useProjectsStore();
 
-const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
 
 const isAddMemberDialogShown = ref<boolean>(false);
 

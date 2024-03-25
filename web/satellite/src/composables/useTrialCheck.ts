@@ -7,13 +7,16 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ExpirationInfo, User } from '@/types/users';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 export function useTrialCheck() {
     const userStore = useUsersStore();
+    const projectsStore = useProjectsStore();
     const appStore = useAppStore();
     const configStore = useConfigStore();
 
     const user = computed<User>(() => userStore.state.user);
+    const isUserProjectOwner = computed<boolean>(() => projectsStore.state.selectedProject.ownerId === user.value.id);
     const expirationInfo = computed<ExpirationInfo>(() => user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
 
     const isTrialExpirationBanner = computed<boolean>(() => {
@@ -24,8 +27,11 @@ export function useTrialCheck() {
 
     const isExpired = computed<boolean>(() => user.value.freezeStatus.trialExpiredFrozen);
 
-    function withTrialCheck(callback: () => void | Promise<void>): void {
-        if (!user.value.paidTier && user.value.freezeStatus.trialExpiredFrozen) {
+    function withTrialCheck(callback: () => void | Promise<void>, skipProjectOwningCheck = false): void {
+        const isTrialExpired = !user.value.paidTier && user.value.freezeStatus.trialExpiredFrozen;
+        const isEligibleForExpirationDialog = isTrialExpired && (skipProjectOwningCheck || isUserProjectOwner.value);
+
+        if (isEligibleForExpirationDialog) {
             appStore.toggleExpirationDialog(true);
             return;
         }
@@ -36,6 +42,7 @@ export function useTrialCheck() {
     return {
         isTrialExpirationBanner,
         isExpired,
+        isUserProjectOwner,
         expirationInfo,
         withTrialCheck,
     };

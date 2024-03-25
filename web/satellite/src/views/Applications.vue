@@ -5,7 +5,7 @@
     <v-container class="pb-12">
         <v-row>
             <v-col>
-                <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+                <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
                 <PageTitleComponent title="Applications" />
                 <PageSubtitleComponent subtitle="Connect Storj with third-party applications." link="https://www.storj.io/integrations" />
@@ -141,7 +141,7 @@ import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ApplicationItem from '@/components/ApplicationItem.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
-const { isTrialExpirationBanner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
 
 const selectedChips = ref<AppCategory[]>([AppCategory.All]);
 const search = ref<string>('');
