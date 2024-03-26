@@ -206,6 +206,8 @@ type Service struct {
 
 	varPartners map[string]struct{}
 
+	paymentSourceChainIDs map[int64]string
+
 	versioningConfig VersioningConfig
 
 	nowFn func() time.Time
@@ -229,7 +231,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -271,6 +273,13 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		versioning.projectMap[projectID] = struct{}{}
 	}
 
+	paymentSourceChainIDs := make(map[int64]string)
+	for source, IDs := range billing.SourceChainIDs {
+		for _, ID := range IDs {
+			paymentSourceChainIDs[ID] = source
+		}
+	}
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -282,7 +291,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		placements:                 placements,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
-		billing:                    billing,
+		billing:                    billingDb,
 		registrationCaptchaHandler: registrationCaptchaHandler,
 		loginCaptchaHandler:        loginCaptchaHandler,
 		analytics:                  analytics,
@@ -296,6 +305,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		config:                     config,
 		varPartners:                partners,
 		versioningConfig:           versioning,
+		paymentSourceChainIDs:      paymentSourceChainIDs,
 		nowFn:                      time.Now,
 	}, nil
 }
@@ -3568,9 +3578,12 @@ type WalletPayments struct {
 	Payments []PaymentInfo `json:"payments"`
 }
 
-// EtherscanURL creates etherscan transaction URI.
-func (payment Payments) EtherscanURL(tx string) string {
+// BlockExplorerURL creates zkSync/etherscan transaction URI based on source.
+func (payment Payments) BlockExplorerURL(tx string, source string) string {
 	url := payment.service.config.BlockExplorerURL
+	if source == billing.StorjScanZkSyncSource {
+		url = payment.service.config.ZkSyncBlockExplorerURL
+	}
 	if !strings.HasSuffix(url, "/") {
 		url += "/"
 	}
@@ -3660,13 +3673,14 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 
 	var paymentInfos []PaymentInfo
 	for _, walletPayment := range walletPayments {
+		source := payment.service.paymentSourceChainIDs[walletPayment.ChainID]
 		paymentInfos = append(paymentInfos, PaymentInfo{
 			ID:        fmt.Sprintf("%s#%d", walletPayment.Transaction.Hex(), walletPayment.LogIndex),
 			Type:      "storjscan",
 			Wallet:    walletPayment.To.Hex(),
 			Amount:    walletPayment.USDValue,
 			Status:    string(walletPayment.Status),
-			Link:      payment.EtherscanURL(walletPayment.Transaction.Hex()),
+			Link:      payment.BlockExplorerURL(walletPayment.Transaction.Hex(), source),
 			Timestamp: walletPayment.Timestamp,
 		})
 	}
@@ -3697,7 +3711,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,
 			Status:    string(txn.Status),
-			Link:      payment.EtherscanURL(meta.ReferenceID),
+			Link:      payment.BlockExplorerURL(meta.ReferenceID, txn.Source),
 			Timestamp: txn.Timestamp,
 		})
 	}
