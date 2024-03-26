@@ -517,6 +517,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to load templates on each request
 # console.watch: false
 
+# url of the zkSync transaction block explorer
+# console.zk-sync-block-explorer-url: https://explorer.zksync.io/
+
 # allow private IPs in CheckIn and PingMe
 # contact.allow-private-ip: false
 
