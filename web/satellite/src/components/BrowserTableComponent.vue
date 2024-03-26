@@ -26,7 +26,6 @@
             :items="tableFiles"
             :search="search"
             :item-value="(item: BrowserObjectWrapper) => item.browserObject.path + item.browserObject.Key"
-            :no-data-text="search ? 'No data found' : 'Drag and drop files to upload'"
             :page="cursor.page"
             hover
             must-sort
@@ -38,6 +37,11 @@
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
         >
+            <template #no-data>
+                <p class="text-body-2 cursor-pointer" @click="emit('uploadClick')">
+                    {{ search ? 'No data found' : 'Drag and drop files or click here to upload' }}
+                </p>
+            </template>
             <template #item="{ props: rowProps }">
                 <v-data-table-row v-bind="rowProps">
                     <template #item.name="{ item }: ItemSlotProps">
@@ -171,7 +175,6 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
-import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -201,12 +204,15 @@ const props = defineProps<{
     loading?: boolean;
 }>();
 
+const emit = defineEmits<{
+    uploadClick: [];
+}>();
+
 const analyticsStore = useAnalyticsStore();
 const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
-const appStore = useAppStore();
 const userStore = useUsersStore();
 
 const notify = useNotify();

@@ -189,8 +189,8 @@
             </v-row>
         </v-col>
 
-        <browser-card-view-component v-if="isCardView" :force-empty="!isInitialized" @new-folder-click="isNewFolderDialogOpen = true" @upload-click="menu = true" />
-        <browser-table-component v-else :loading="isFetching" :force-empty="!isInitialized" />
+        <browser-card-view-component v-if="isCardView" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <browser-table-component v-else :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
     </v-container>
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />

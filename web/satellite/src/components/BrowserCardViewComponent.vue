@@ -73,7 +73,9 @@
     >
         <template #no-data>
             <div class="d-flex justify-center">
-                <p class="text-body-2">{{ search ? 'No data found.' : 'Drag and drop files to upload' }}</p>
+                <p class="text-body-2 cursor-pointer" @click="emit('uploadClick')">
+                    {{ search ? 'No data found' : 'Drag and drop files or click here to upload' }}
+                </p>
             </div>
         </template>
 
@@ -218,7 +220,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     uploadClick: [];
-    newFolderClick: [];
 }>();
 
 const analyticsStore = useAnalyticsStore();
