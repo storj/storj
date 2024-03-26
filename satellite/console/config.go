@@ -27,6 +27,7 @@ type Config struct {
 	UserBalanceForUpgrade           int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides       PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
 	BlockExplorerURL                string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
+	ZkSyncBlockExplorerURL          string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`

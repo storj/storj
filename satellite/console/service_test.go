@@ -2199,8 +2199,12 @@ func TestPaymentsWalletPayments(t *testing.T) {
 
 		var cachedPayments []storjscan.CachedPayment
 		for i := 0; i < 10; i++ {
+			chainID := billing.SourceChainIDs[billing.StorjScanZkSyncSource]
+			if i%2 == 0 {
+				chainID = billing.SourceChainIDs[billing.StorjScanEthereumSource]
+			}
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
-				ChainID:     1337,
+				ChainID:     chainID[0],
 				From:        blockchaintest.NewAddress(),
 				To:          wallet,
 				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
@@ -2219,12 +2223,24 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		reqCtx := console.WithUser(ctx, user)
 
 		sort.Slice(cachedPayments, func(i, j int) bool {
-			return cachedPayments[i].BlockNumber > cachedPayments[j].BlockNumber
+			if cachedPayments[i].ChainID != cachedPayments[j].ChainID {
+				return cachedPayments[i].ChainID > cachedPayments[j].ChainID
+			}
+			if cachedPayments[i].BlockNumber != cachedPayments[j].BlockNumber {
+				return cachedPayments[i].BlockNumber > cachedPayments[j].BlockNumber
+			}
+			return cachedPayments[i].LogIndex > cachedPayments[j].LogIndex
 		})
 		sort.Slice(transactions, func(i, j int) bool {
 			return transactions[i].CreatedAt.After(transactions[j].CreatedAt)
 		})
 
+		paymentSourceChainIDs := make(map[int64]string)
+		for source, IDs := range billing.SourceChainIDs {
+			for _, ID := range IDs {
+				paymentSourceChainIDs[ID] = source
+			}
+		}
 		var expected []console.PaymentInfo
 		for _, pmnt := range cachedPayments {
 			expected = append(expected, console.PaymentInfo{
@@ -2233,7 +2249,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Wallet:    pmnt.To.Hex(),
 				Amount:    pmnt.USDValue,
 				Status:    string(pmnt.Status),
-				Link:      sat.API.Console.Service.Payments().EtherscanURL(pmnt.Transaction.Hex()),
+				Link:      sat.API.Console.Service.Payments().BlockExplorerURL(pmnt.Transaction.Hex(), paymentSourceChainIDs[pmnt.ChainID]),
 				Timestamp: pmnt.Timestamp,
 			})
 		}
@@ -2275,7 +2291,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Wallet:    meta.Wallet,
 				Amount:    txn.Amount,
 				Status:    string(txn.Status),
-				Link:      sat.API.Console.Service.Payments().EtherscanURL(meta.ReferenceID),
+				Link:      sat.API.Console.Service.Payments().BlockExplorerURL(meta.ReferenceID, txn.Source),
 				Timestamp: txn.Timestamp,
 			})
 		}
