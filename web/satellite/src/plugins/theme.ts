@@ -37,11 +37,11 @@ export const THEME_OPTIONS: ThemeOptions = {
             colors: {
                 primary: '#0052FF',
                 secondary: '#537CFF',
-                background: '#090927',
+                background: '#000b21',
+                surface: '#000b21',
                 success: '#00AC26',
                 help: '#FFC600',
                 error: '#FF0149',
-                surface: '#090927',
                 purple: '#A18EFF',
                 purple2: '#A18EFF',
                 blue7: '#090920',

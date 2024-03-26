@@ -11,8 +11,8 @@
         <p class="text-body-2 my-2">By upgrading, your trial will end immediately.</p>
     </v-alert>
 
-    <v-row justify="center" class="mx-0 pb-5 pt-4">
-        <v-col class="pl-0">
+    <v-row justify="center" class="pb-5 pt-3">
+        <v-col>
             <v-btn
                 variant="flat"
                 color="primary"
@@ -26,7 +26,7 @@
                 Add Credit Card
             </v-btn>
         </v-col>
-        <v-col class="px-0">
+        <v-col>
             <v-btn
                 variant="flat"
                 block

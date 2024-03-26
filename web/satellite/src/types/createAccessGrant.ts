@@ -130,6 +130,6 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     },
     [CreateAccessStep.CLIAccessCreated]: {
         icon: CLIAccessCreatedIcon,
-        title: 'CLI access created',
+        title: 'API key created',
     },
 };

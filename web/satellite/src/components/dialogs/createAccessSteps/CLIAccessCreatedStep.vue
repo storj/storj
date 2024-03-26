@@ -57,7 +57,7 @@ const saveItems = computed<SaveButtonsItem[]>(() => [
 ]);
 
 defineExpose<DialogStepComponent>({
-    title: 'CLI Access Created',
+    title: 'API Key Created',
     onEnter: () => isTooltipDisabled.value = false,
     onExit: () => isTooltipDisabled.value = true,
 });

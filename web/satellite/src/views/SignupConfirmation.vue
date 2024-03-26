@@ -115,6 +115,7 @@ import {
     VForm,
     VRow,
     VOtpInput,
+    VAlert,
 } from 'vuetify/components';
 
 import { useNotify } from '@/utils/hooks';

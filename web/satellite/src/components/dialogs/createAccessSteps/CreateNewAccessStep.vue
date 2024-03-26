@@ -94,7 +94,7 @@ const typeInfos: Record<AccessType, AccessTypeInfo> = {
     ),
     [AccessType.APIKey]: new AccessTypeInfo(
         AccessType.APIKey,
-        'CLI Access',
+        'API Key',
         'Create an access grant to run in the command line.',
         true,
     ),
