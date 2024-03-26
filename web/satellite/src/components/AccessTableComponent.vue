@@ -57,7 +57,7 @@
                         <v-list class="pa-1">
                             <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.name)">
                                 <template #prepend>
-                                    <icon-trash bold />
+                                    <icon-trash />
                                 </template>
                                 <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
                                     Delete Access
@@ -97,7 +97,7 @@
                         @click="isDeleteAccessDialogShown = true"
                     >
                         <template #prepend>
-                            <icon-trash bold />
+                            <icon-trash />
                         </template>
                         Delete
                     </v-btn>

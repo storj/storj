@@ -33,7 +33,7 @@
 
                 <v-list-item v-if="!isPaidTier && billingEnabled" link lines="one" class="my-1 py-2" tabindex="0" @click="toggleUpgradeFlow" @keydown.space.prevent="toggleUpgradeFlow">
                     <template #prepend>
-                        <icon-upgrade size="20" />
+                        <icon-upgrade size="18" />
                     </template>
                     <v-list-item-title class="ml-3">Upgrade</v-list-item-title>
                 </v-list-item>

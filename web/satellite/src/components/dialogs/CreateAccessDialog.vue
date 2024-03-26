@@ -295,7 +295,7 @@ const accessGrant = resettableRef<string>('');
 // S3 Credentials Created
 const edgeCredentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
-// CLI Access Created
+// API Key Created
 const cliAccess = resettableRef<string>('');
 
 const worker = ref<Worker | null>(null);
@@ -466,7 +466,7 @@ watch(step, newStep => {
 });
 
 /**
- * Generates CLI access.
+ * Generates API Key.
  */
 async function createCLIAccess(): Promise<void> {
     if (!worker.value) {

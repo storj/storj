@@ -118,7 +118,7 @@
                         @click="isDeleteFileDialogShown = true"
                     >
                         <template #prepend>
-                            <icon-trash bold />
+                            <icon-trash />
                         </template>
                         Delete
                     </v-btn>

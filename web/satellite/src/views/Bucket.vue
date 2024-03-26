@@ -89,7 +89,7 @@
                             <template #append>
                                 <IconDropdown />
                             </template>
-                            <IconSettings />
+                            <IconSettings size="16" />
                         </v-btn>
                     </template>
                     <v-list class="pa-2">

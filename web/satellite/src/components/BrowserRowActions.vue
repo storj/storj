@@ -29,7 +29,7 @@
             icon
             @click="emit('shareClick')"
         >
-            <icon-share bold />
+            <icon-share />
         </v-btn>
 
         <v-btn
@@ -76,7 +76,7 @@
 
                     <v-list-item density="comfortable" link rounded="lg" @click="emit('shareClick')">
                         <template #prepend>
-                            <icon-share bold />
+                            <icon-share />
                         </template>
                         <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                             Share
@@ -87,7 +87,7 @@
 
                     <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="emit('deleteFileClick')">
                         <template #prepend>
-                            <icon-trash bold />
+                            <icon-trash />
                         </template>
                         <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                             Delete
