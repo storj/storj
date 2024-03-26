@@ -326,6 +326,116 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 	return nil
 }
 
+// InvoiceApplyProjectRecordsGrouped iterates the customers and creates invoice items for each project and ensures line items are grouped by project.
+func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, period time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := service.nowFn().UTC()
+	utc := period.UTC()
+
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+	if end.After(now) {
+		return Error.New("allowed for past periods only")
+	}
+
+	var totalRecords int
+	var totalSkipped int
+
+	var errMu sync.Mutex
+	var skipMu sync.Mutex
+	var recordMu sync.Mutex
+	var errGrp errs.Group
+	limiter := sync2.NewLimiter(service.maxParallelCalls)
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		limiter.Wait()
+	}()
+
+	customersPage := CustomersPage{
+		Next: true,
+	}
+
+	for customersPage.Next {
+		customersPage, err = service.db.Customers().List(ctx, customersPage.Cursor, service.listingLimit, end)
+		if err != nil {
+			return err
+		}
+		for _, c := range customersPage.Customers {
+			c := c
+			limiter.Go(ctx, func() {
+				if err := ctx.Err(); err != nil {
+					errMu.Lock()
+					errGrp.Add(errs.Wrap(err))
+					errMu.Unlock()
+					return
+				}
+				if skip, err := service.mustSkipUser(ctx, c.UserID); err != nil {
+					errMu.Lock()
+					errGrp.Add(errs.Wrap(err))
+					errMu.Unlock()
+					return
+				} else if skip {
+					skipMu.Lock()
+					totalSkipped++
+					skipMu.Unlock()
+					return
+				}
+				projects, err := service.projectsDB.GetOwn(ctx, c.UserID)
+				if err != nil {
+					errMu.Lock()
+					errGrp.Add(errs.Wrap(err))
+					errMu.Unlock()
+					return
+				}
+
+				projectIDs := []uuid.UUID{}
+				projectNameMap := make(map[uuid.UUID]string)
+				for _, p := range projects {
+					projectIDs = append(projectIDs, p.ID)
+					projectNameMap[p.ID] = p.Name
+				}
+
+				records, err := service.db.ProjectRecords().GetUnappliedByProjectIDs(ctx, projectIDs, start, end)
+				if err != nil {
+					errMu.Lock()
+					errGrp.Add(errs.Wrap(err))
+					errMu.Unlock()
+					return
+				}
+
+				for _, r := range records {
+					recordMu.Lock()
+					totalRecords++
+					recordMu.Unlock()
+
+					skipped, err := service.createInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period)
+					if err != nil {
+						errMu.Lock()
+						errGrp.Add(errs.Wrap(err))
+						errMu.Unlock()
+						return
+					}
+					if skipped {
+						skipMu.Lock()
+						totalSkipped++
+						skipMu.Unlock()
+					}
+				}
+			})
+		}
+	}
+
+	limiter.Wait()
+
+	service.log.Info("Processed regular project records.",
+		zap.Int("Total", totalRecords),
+		zap.Int("Skipped", totalSkipped))
+	return errGrp.Err()
+}
+
 // InvoiceApplyToBeAggregatedProjectRecords iterates through to be aggregated invoice project records and creates invoice line items
 // for stripe customer.
 func (service *Service) InvoiceApplyToBeAggregatedProjectRecords(ctx context.Context, period time.Time) (err error) {
@@ -1472,7 +1582,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 // GenerateInvoices performs tasks necessary to generate Stripe invoices.
 // This is equivalent to invoking PrepareInvoiceProjectRecords, InvoiceApplyProjectRecords,
 // and CreateInvoices in order.
-func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, shouldAggregate bool, includeEmissionInfo bool) (err error) {
+func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, shouldAggregate, groupInvoiceItems, includeEmissionInfo bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.log.Info("Preparing invoice project records")
@@ -1482,9 +1592,16 @@ func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, 
 	}
 
 	service.log.Info("Applying invoice project records")
-	err = service.InvoiceApplyProjectRecords(ctx, period)
-	if err != nil {
-		return err
+	if groupInvoiceItems {
+		err = service.InvoiceApplyProjectRecordsGrouped(ctx, period)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = service.InvoiceApplyProjectRecords(ctx, period)
+		if err != nil {
+			return err
+		}
 	}
 
 	if shouldAggregate {

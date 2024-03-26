@@ -474,6 +474,91 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		// verify that we applied all unapplied project records
 		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
+
+		// the 1 remaining record is for the now inactive user
+		require.Equal(t, 1, len(recordsPage.Records))
+	})
+}
+
+func TestService_InvoiceElementsProcessingGrouped(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		numberOfProjects := 19
+		numberOfInactiveUsers := 5
+		status := console.PendingDeletion
+		// user to be deactivated later
+		var activeUser console.User
+		// generate test data, each user has one project and some credits
+		for i := 0; i < numberOfProjects; i++ {
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), 0, period)
+			require.NoError(t, err)
+
+			if i < numberOfProjects-numberOfInactiveUsers {
+				activeUser = *user
+				continue
+			}
+			if i%2 == 0 {
+				status = console.Deleted
+			} else if i%3 == 0 {
+				status = console.PendingDeletion
+			} else {
+				status = console.LegalHold
+			}
+			err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			require.NoError(t, err)
+		}
+
+		satellite.API.Payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
+		require.NoError(t, err)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		// check if we have project record for each project, except for inactive users
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
+		require.NoError(t, err)
+		require.Equal(t, numberOfProjects-numberOfInactiveUsers, len(recordsPage.Records))
+
+		// deactivate user
+		err = satellite.DB.Console().Users().Update(ctx, activeUser.ID, console.UpdateUserRequest{
+			Status: &status,
+		})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.InvoiceApplyProjectRecordsGrouped(ctx, period)
+		require.NoError(t, err)
+
+		// verify that we applied all unapplied project records
+		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
+		require.NoError(t, err)
+
 		// the 1 remaining record is for the now inactive user
 		require.Equal(t, 1, len(recordsPage.Records))
 	})
@@ -1319,7 +1404,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 						99)
 				}
 
-				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start, false, false))
+				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start, false, false, false))
 
 				// ensure project record was generated
 				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
