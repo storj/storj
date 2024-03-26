@@ -3,20 +3,20 @@
 
 <template>
     <v-container>
-        <v-row justify="center">
-            <v-col class="text-center pt-10 pb-4">
-                <icon-personal />
-                <p class="text-overline mt-2 mb-1">
-                    Personal Account
-                </p>
-                <h2 class="pb-3">Great, almost there.</h2>
-                <p>Please complete your account information.</p>
-            </v-col>
-        </v-row>
+        <v-form v-model="formValid" @submit.prevent="setupAccount">
+            <v-row justify="center">
+                <v-col class="text-center pt-10 pb-4">
+                    <icon-personal />
+                    <p class="text-overline mt-2 mb-1">
+                        Personal Account
+                    </p>
+                    <h2 class="pb-3">Great, almost there.</h2>
+                    <p>Please complete your account information.</p>
+                </v-col>
+            </v-row>
 
-        <v-row justify="center">
-            <v-col cols="12" sm="8" md="6" lg="4">
-                <v-form v-model="formValid">
+            <v-row justify="center">
+                <v-col cols="12" sm="8" md="6" lg="4">
                     <v-text-field
                         id="Name"
                         v-model="name"
@@ -34,37 +34,37 @@
                         class="mt-2"
                         @update:model-value="(v) => analyticsStore.eventTriggered(AnalyticsEvent.USE_CASE_SELECTED, { useCase: v })"
                     />
-                </v-form>
-            </v-col>
-        </v-row>
+                </v-col>
+            </v-row>
 
-        <v-row justify="center">
-            <v-col cols="6" sm="4" md="3" lg="2">
-                <v-btn
-                    size="large"
-                    variant="tonal"
-                    :prepend-icon="mdiChevronLeft"
-                    color="default"
-                    :disabled="isLoading"
-                    block
-                    @click="emit('next', OnboardingStep.AccountTypeSelection)"
-                >
-                    Back
-                </v-btn>
-            </v-col>
-            <v-col cols="6" sm="4" md="3" lg="2">
-                <v-btn
-                    size="large"
-                    :append-icon="mdiChevronRight"
-                    :loading="isLoading"
-                    :disabled="!formValid"
-                    block
-                    @click="setupAccount()"
-                >
-                    Continue
-                </v-btn>
-            </v-col>
-        </v-row>
+            <v-row justify="center">
+                <v-col cols="6" sm="4" md="3" lg="2">
+                    <v-btn
+                        size="large"
+                        variant="tonal"
+                        :prepend-icon="mdiChevronLeft"
+                        color="default"
+                        :disabled="isLoading"
+                        block
+                        @click="emit('next', OnboardingStep.AccountTypeSelection)"
+                    >
+                        Back
+                    </v-btn>
+                </v-col>
+                <v-col cols="6" sm="4" md="3" lg="2">
+                    <v-btn
+                        size="large"
+                        :append-icon="mdiChevronRight"
+                        :loading="isLoading"
+                        :disabled="!formValid"
+                        block
+                        type="submit"
+                    >
+                        Continue
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </v-form>
     </v-container>
 </template>
 

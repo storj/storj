@@ -14,7 +14,7 @@
             </v-col>
         </v-row>
 
-        <v-form v-model="formValid">
+        <v-form v-model="formValid" @submit.prevent="setupAccount">
             <v-row justify="center">
                 <v-col cols="12" sm="6" md="5" lg="4" class="py-0">
                     <p>Fields marked with an * are required</p>
@@ -123,35 +123,35 @@
                 </v-col>
                 <v-col v-if="smAndUp" cols="12" sm="4" md="3" lg="2" />
             </v-row>
-        </v-form>
 
-        <v-row justify="center" class="mt-4">
-            <v-col cols="12" sm="5" md="4" lg="3">
-                <v-btn
-                    size="large"
-                    variant="tonal"
-                    :prepend-icon="mdiChevronLeft"
-                    color="default"
-                    :disabled="isLoading"
-                    block
-                    @click="emit('next', OnboardingStep.AccountTypeSelection)"
-                >
-                    Back
-                </v-btn>
-            </v-col>
-            <v-col cols="12" sm="5" md="4" lg="3">
-                <v-btn
-                    size="large"
-                    :append-icon="mdiChevronRight"
-                    :loading="isLoading"
-                    :disabled="!formValid"
-                    block
-                    @click="setupAccount()"
-                >
-                    Continue
-                </v-btn>
-            </v-col>
-        </v-row>
+            <v-row justify="center" class="mt-4">
+                <v-col cols="12" sm="5" md="4" lg="3">
+                    <v-btn
+                        size="large"
+                        variant="tonal"
+                        :prepend-icon="mdiChevronLeft"
+                        color="default"
+                        :disabled="isLoading"
+                        block
+                        @click="emit('next', OnboardingStep.AccountTypeSelection)"
+                    >
+                        Back
+                    </v-btn>
+                </v-col>
+                <v-col cols="12" sm="5" md="4" lg="3">
+                    <v-btn
+                        size="large"
+                        :append-icon="mdiChevronRight"
+                        :loading="isLoading"
+                        :disabled="!formValid"
+                        block
+                        type="submit"
+                    >
+                        Continue
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </v-form>
     </v-container>
 </template>
 
