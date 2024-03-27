@@ -125,6 +125,7 @@ type Project struct {
 	SegmentLimit                *int64                    `json:"segmentLimit"`
 	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
 	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
+	PromptedForVersioningBeta   bool                      `json:"-"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.

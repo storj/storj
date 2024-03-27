@@ -2686,6 +2686,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE api_keys ADD COLUMN version integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add prompted_for_versioning_beta column to projects to track if prompted for versioning beta opt-in",
+				Version:     266,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN prompted_for_versioning_beta boolean NOT NULL DEFAULT false;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

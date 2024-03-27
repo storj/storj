@@ -265,6 +265,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	if project.DefaultVersioning > 0 {
 		updateFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(project.DefaultVersioning))
 	}
+
+	updateFields.PromptedForVersioningBeta = dbx.Project_PromptedForVersioningBeta(project.PromptedForVersioningBeta)
+
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
 		updateFields)
@@ -587,21 +590,22 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 	}
 
 	return &console.Project{
-		ID:                id,
-		PublicID:          publicID,
-		Name:              project.Name,
-		Description:       project.Description,
-		UserAgent:         userAgent,
-		OwnerID:           ownerID,
-		RateLimit:         project.RateLimit,
-		BurstLimit:        project.BurstLimit,
-		MaxBuckets:        project.MaxBuckets,
-		CreatedAt:         project.CreatedAt,
-		StorageLimit:      (*memory.Size)(project.UsageLimit),
-		BandwidthLimit:    (*memory.Size)(project.BandwidthLimit),
-		SegmentLimit:      project.SegmentLimit,
-		DefaultPlacement:  placement,
-		DefaultVersioning: console.DefaultVersioning(project.DefaultVersioning),
+		ID:                        id,
+		PublicID:                  publicID,
+		Name:                      project.Name,
+		Description:               project.Description,
+		UserAgent:                 userAgent,
+		OwnerID:                   ownerID,
+		RateLimit:                 project.RateLimit,
+		BurstLimit:                project.BurstLimit,
+		MaxBuckets:                project.MaxBuckets,
+		CreatedAt:                 project.CreatedAt,
+		StorageLimit:              (*memory.Size)(project.UsageLimit),
+		BandwidthLimit:            (*memory.Size)(project.BandwidthLimit),
+		SegmentLimit:              project.SegmentLimit,
+		DefaultPlacement:          placement,
+		DefaultVersioning:         console.DefaultVersioning(project.DefaultVersioning),
+		PromptedForVersioningBeta: project.PromptedForVersioningBeta,
 	}, nil
 }
 

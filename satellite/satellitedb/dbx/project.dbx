@@ -58,6 +58,9 @@ model project (
     //2 - VersioningEnabled (versioning for new buckets is supported and enabled)
     // note: suspended is not a valid state for new buckets
     field default_versioning int (updatable, default 1)
+
+    // whether a user has been prompted to join versioning open beta
+    field prompted_for_versioning_beta bool ( updatable, default false )
 )
 
 create project ( )
