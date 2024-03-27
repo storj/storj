@@ -29,10 +29,10 @@
         >
             <template #item.timestamp="{ item }">
                 <p class="font-weight-bold">
-                    {{ item.timestamp.toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'numeric'}) }}
+                    {{ Time.formattedDate(item.timestamp) }}
                 </p>
                 <p>
-                    {{ item.timestamp.toLocaleTimeString('en-US', {hour:'numeric', minute:'numeric'}) }}
+                    {{ item.timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric' }) }}
                 </p>
             </template>
             <template #item.type="{ item }">
@@ -67,6 +67,7 @@ import {
 } from 'vuetify/components';
 import { mdiMagnify } from '@mdi/js';
 
+import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';

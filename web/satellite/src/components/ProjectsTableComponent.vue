@@ -54,7 +54,7 @@
 
             <template #item.createdAt="{ item }">
                 <span class="text-no-wrap">
-                    {{ getFormattedDate(item.createdAt) }}
+                    {{ Time.formattedDate(item.createdAt) }}
                 </span>
             </template>
 
@@ -138,9 +138,9 @@ import {
 } from 'vuetify/components';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
+import { Time } from '@/utils/time';
 import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
-import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -151,7 +151,7 @@ import IconSettings from '@/components/icons/IconSettings.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconNew from '@/components/icons/IconNew.vue';
 
-const props = defineProps<{
+defineProps<{
     items: ProjectItemModel[],
 }>();
 
@@ -179,13 +179,6 @@ const headers = [
     { title: 'Date Added', key: 'createdAt' },
     { title: 'Actions', key: 'actions', sortable: false, width: '0' },
 ];
-
-/**
- * Formats the given project creation date.
- */
-function getFormattedDate(date: Date): string {
-    return `${date.getDate()} ${SHORT_MONTHS_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-}
 
 /**
  * Selects the project and navigates to the project dashboard.

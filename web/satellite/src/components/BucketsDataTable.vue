@@ -71,7 +71,7 @@
             </template>
             <template #item.since="{ item }">
                 <span>
-                    {{ item.since.toLocaleString() }}
+                    {{ Time.formattedDate(item.since) }}
                 </span>
             </template>
             <template #item.location="{ item }">
@@ -203,6 +203,7 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { Versioning } from '@/types/versioning';
+import { Time } from '@/utils/time';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconShare from '@/components/icons/IconShare.vue';

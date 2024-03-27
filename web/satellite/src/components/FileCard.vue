@@ -79,6 +79,7 @@ import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } fr
 import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
+import { Time } from '@/utils/time';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 
@@ -166,8 +167,7 @@ function captureVideoFrame(): void {
  * Returns the string form of the file's last modified date.
  */
 function getFormattedDate(file: BrowserObject): string {
-    const date = file.LastModified;
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return Time.formattedDate(file.LastModified);
 }
 </script>
 

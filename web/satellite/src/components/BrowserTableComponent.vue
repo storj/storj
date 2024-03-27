@@ -179,6 +179,7 @@ import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
+import { Time } from '@/utils/time';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -415,8 +416,8 @@ function onLimitChange(newLimit: number): void {
  */
 function getFormattedDate(file: BrowserObject): string {
     if (file.type === 'folder') return '';
-    const date = file.LastModified;
-    return `${date.getDate()} ${SHORT_MONTHS_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+
+    return Time.formattedDate(file.LastModified);
 }
 
 /**
