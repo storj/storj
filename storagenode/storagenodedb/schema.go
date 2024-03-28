@@ -752,6 +752,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						{
+							Name:       "piece_counts",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+						{
 							Name:       "piece_prefix",
 							Type:       "TEXT",
 							IsNullable: false,
@@ -763,6 +768,11 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						{
 							Name:       "total_bytes",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+						{
+							Name:       "total_content_size",
 							Type:       "INTEGER",
 							IsNullable: false,
 						},

@@ -2260,6 +2260,15 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`DELETE FROM piece_space_used WHERE satellite_id IS NULL;`,
 				},
 			},
+			{
+				DB:          &db.usedSpacePerPrefixDB.DB,
+				Description: "Add total_content_size, piece_counts, resume_point columns to used_space_per_prefix table",
+				Version:     62,
+				Action: migrate.SQL{
+					`ALTER TABLE used_space_per_prefix ADD COLUMN total_content_size INTEGER NOT NULL DEFAULT 0`,
+					`ALTER TABLE used_space_per_prefix ADD COLUMN piece_counts INTEGER NOT NULL DEFAULT 0`,
+				},
+			},
 		},
 	}
 }

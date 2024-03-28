@@ -124,7 +124,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	blobsCache := pieces.NewBlobsUsageCache(log, snDB.Pieces())
 	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
-		snDB.GCFilewalkerProgress())
+		snDB.GCFilewalkerProgress(), snDB.UsedSpacePerPrefix())
 
 	var expirationStore pieces.PieceExpirationDB
 	if *flatFileTTLStore {

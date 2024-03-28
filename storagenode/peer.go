@@ -511,7 +511,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(process.NamedLog(log, "blobscache"), peer.DB.Pieces())
-		peer.Storage2.FileWalker = pieces.NewFileWalker(process.NamedLog(log, "filewalker"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo(), peer.DB.GCFilewalkerProgress())
+		peer.Storage2.FileWalker = pieces.NewFileWalker(process.NamedLog(log, "filewalker"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo(), peer.DB.GCFilewalkerProgress(), peer.DB.UsedSpacePerPrefix())
 
 		if config.Pieces.EnableLazyFilewalker {
 			executable, err := os.Executable()

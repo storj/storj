@@ -83,7 +83,7 @@ func usedSpaceCmdRun(opts *RunOptions) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress())
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), nil, db.UsedSpacePerPrefix())
 	total, contentSize, pieceCount, err := filewalker.WalkAndComputeSpaceUsedBySatellite(opts.Ctx, req.SatelliteID)
 	if err != nil {
 		return err
