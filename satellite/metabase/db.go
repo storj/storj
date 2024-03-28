@@ -20,6 +20,7 @@ import (
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/tagsql"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"
 )
@@ -54,6 +55,8 @@ type DB struct {
 	testCleanup func() error
 
 	config Config
+
+	adapters []Adapter
 }
 
 // Open opens a connection to metabase.
@@ -92,6 +95,20 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		config:      config,
 	}
 	db.aliasCache = NewNodeAliasCache(db)
+	switch impl {
+	case dbutil.Postgres:
+		db.adapters = append(db.adapters, &PostgresAdapter{
+			db: rawdb,
+		})
+	case dbutil.Cockroach:
+		db.adapters = append(db.adapters, &CockroachAdapter{
+			PostgresAdapter{
+				db: rawdb,
+			},
+		})
+	default:
+		return nil, Error.New("unsupported implementation: %s", connstr)
+	}
 
 	if log.Level() == zap.DebugLevel {
 		log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)))
@@ -102,6 +119,12 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 
 // Implementation rturns the database implementation.
 func (db *DB) Implementation() dbutil.Implementation { return db.impl }
+
+// ChooseAdapter selects the right adapter based on configuration.
+func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
+	// TODO: choose based on configuration.
+	return db.adapters[0]
+}
 
 // UnderlyingTagSQL returns *tagsql.DB.
 // TODO: remove.

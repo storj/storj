@@ -93,30 +93,8 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 	}
 
-	if err := db.db.QueryRowContext(ctx, `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				expires_at, encryption,
-				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
-			) VALUES (
-				$1, $2, $3,
-					coalesce((
-						SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-						ORDER BY version DESC
-						LIMIT 1
-					), 1),
-				$4, $5, $6,
-				$7,
-				$8, $9, $10)
-			RETURNING status, version, created_at
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
-		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
-		opts.ZombieDeletionDeadline,
-		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	).Scan(&object.Status, &object.Version, &object.CreatedAt); err != nil {
+	err = db.ChooseAdapter(opts.ProjectID).BeginObject(ctx, opts, &object)
+	if err != nil {
 		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
@@ -183,26 +161,7 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 	}
 
-	err = db.db.QueryRowContext(ctx, `
-		INSERT INTO objects (
-			project_id, bucket_name, object_key, version, stream_id,
-			expires_at, encryption,
-			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
-		) VALUES (
-			$1, $2, $3, $4, $5,
-			$6, $7,
-			$8,
-			$9, $10, $11
-		)
-		RETURNING status, created_at
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
-		opts.ZombieDeletionDeadline,
-		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	).Scan(
-		&object.Status, &object.CreatedAt,
-	)
+	err = db.ChooseAdapter(opts.ProjectID).TestingBeginObjectExactVersion(ctx, opts, &object)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 			return Object{}, Error.Wrap(ErrObjectAlreadyExists.New(""))

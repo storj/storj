@@ -137,34 +137,9 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
 
-	row := db.db.QueryRowContext(ctx, `
-		SELECT
-			stream_id, version, status,
-			created_at, expires_at,
-			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
-		FROM objects
-		WHERE
-			(project_id, bucket_name, object_key) = ($1, $2, $3) AND
-			status <> `+statusPending+` AND
-			(expires_at IS NULL OR expires_at > now())
-		ORDER BY version DESC
-		LIMIT 1`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey)
-
-	err = row.Scan(
-		&object.StreamID, &object.Version, &object.Status,
-		&object.CreatedAt, &object.ExpiresAt,
-		&object.SegmentCount,
-		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-		encryptionParameters{&object.Encryption},
-	)
-
-	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
-		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+	err = db.ChooseAdapter(opts.ProjectID).GetObjectLastCommitted(ctx, opts, &object)
+	if ErrObjectNotFound.Has(err) {
+		return Object{}, err
 	}
 	if err != nil {
 		return Object{}, Error.New("unable to query object status: %w", err)
