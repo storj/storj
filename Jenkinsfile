@@ -60,7 +60,7 @@ node('node') {
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
           echo "STORJ_MIGRATION_DB: $STORJ_MIGRATION_DB"
-          sh 'docker run --rm -d --name cockroach-$BUILD_NUMBER cockroachdb/cockroach:v23.1.12 start-single-node --insecure'
+          sh 'docker run --rm -d --name cockroach-$BUILD_NUMBER cockroachdb/cockroach:v23.2.2 start-single-node --insecure'
           sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
           sleep 1
           sh '''until $(docker exec cockroach-$BUILD_NUMBER cockroach sql --insecure -e "select * from now();" > /dev/null)
