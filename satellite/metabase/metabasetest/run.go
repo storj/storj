@@ -8,12 +8,16 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/cfgstruct"
+	"storj.io/common/dbutil"
 	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/mud"
+	"storj.io/storj/private/mud/mudtest"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -33,27 +37,42 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
+			mudtest.Run[*metabase.DB](t, func(ball *mud.Ball) {
+				mud.Provide[*metabase.DB](ball, createMetabaseDBOnTopOf)
+				mud.Provide[*dbutil.TempDatabase](ball, satellitedbtest.CreateTempDB)
+				mud.Provide[metabase.Config](ball, func() metabase.Config {
+					cfg := metabase.Config{
+						ApplicationName:  "satellite-metabase-test" + pgutil.CreateRandomTestingSchemaName(6),
+						MinPartSize:      config.MinPartSize,
+						MaxNumberOfParts: config.MaxNumberOfParts,
 
-			// generate unique application name to filter out full table scan queries from other tests executions
-			config := config
-			config.ApplicationName += pgutil.CreateRandomTestingSchemaName(6)
-			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := db.Close(); err != nil {
-					t.Error(err)
+						ServerSideCopy:         config.ServerSideCopy,
+						ServerSideCopyDisabled: config.ServerSideCopyDisabled,
+
+						TestingUniqueUnversioned: true,
+					}
+					return cfg
+				})
+				mud.Supply[satellitedbtest.Database](ball, satellitedbtest.Database{
+					Name:    dbinfo.MetabaseDB.Name,
+					URL:     dbinfo.MetabaseDB.URL,
+					Message: dbinfo.MetabaseDB.Message,
+				})
+				mud.Supply[satellitedbtest.TempDBSchemaConfig](ball, satellitedbtest.TempDBSchemaConfig{
+					Name:     "test",
+					Category: "M",
+					Index:    0,
+				})
+			}, func(ctx context.Context, t *testing.T, db *metabase.DB) {
+				tctx := testcontext.New(t)
+				defer tctx.Cleanup()
+
+				if err := migration(ctx, db); err != nil {
+					t.Fatal(err)
 				}
-			}()
 
-			if err := migration(ctx, db); err != nil {
-				t.Fatal(err)
-			}
-
-			fn(ctx, t, db)
+				fn(tctx, t, db)
+			})
 		})
 	}
 }
@@ -107,4 +126,12 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			fn(ctx, b, db)
 		})
 	}
+}
+
+func createMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }

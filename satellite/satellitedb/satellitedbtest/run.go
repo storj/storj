@@ -156,8 +156,15 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
-// CreateMetabaseDB creates a new satellite metabase for testing.
-func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, config metabase.Config) (db *metabase.DB, err error) {
+// TempDBSchemaConfig defines parameters required for the temp database.
+type TempDBSchemaConfig struct {
+	Name     string
+	Category string
+	Index    int
+}
+
+// CreateTempDB creates a new temporary database (Cockroach or Postgresql).
+func CreateTempDB(ctx context.Context, log *zap.Logger, tcfg TempDBSchemaConfig, dbInfo Database) (db *dbutil.TempDatabase, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -165,7 +172,7 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 	schemaSuffix := SchemaSuffix()
 	log.Debug("creating", zap.String("suffix", schemaSuffix))
 
-	schema := SchemaName(name, category, index, schemaSuffix)
+	schema := SchemaName(tcfg.Name, tcfg.Category, tcfg.Index, schemaSuffix)
 
 	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
@@ -175,6 +182,19 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 		tempDB.Cleanup = func(d tagsql.DB) error { return nil }
 	}
 
+	return tempDB, nil
+}
+
+// CreateMetabaseDB creates a new satellite metabase for testing.
+func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, config metabase.Config) (db *metabase.DB, err error) {
+	tempDB, err := CreateTempDB(ctx, log, TempDBSchemaConfig{
+		Name:     name,
+		Category: category,
+		Index:    index,
+	}, dbInfo)
+	if err != nil {
+		return nil, err
+	}
 	return CreateMetabaseDBOnTopOf(ctx, log, tempDB, config)
 }
 
