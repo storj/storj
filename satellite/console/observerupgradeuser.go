@@ -71,6 +71,13 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return nil
 	}
 
+	if freezes.TrialExpirationFreeze != nil {
+		err = o.freezeService.TrialExpirationUnfreezeUser(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+	}
+
 	now := o.nowFn()
 	err = o.consoleDB.Users().UpdatePaidTier(ctx, user.ID, true,
 		o.usageLimitsConfig.Bandwidth.Paid,
