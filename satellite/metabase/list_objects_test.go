@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
@@ -254,7 +255,7 @@ func TestListObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -350,7 +351,6 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("b/",
-						objects["b/2"],
 						objects["b/3"],
 					),
 				}}.Check(ctx, t, db)
@@ -416,7 +416,7 @@ func TestListObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -500,7 +500,6 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("b/",
-						objects["b/2"],
 						objects["b/3"],
 					)},
 			}.Check(ctx, t, db)
@@ -530,7 +529,26 @@ func TestListObjects(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "c/",
-					Cursor: metabase.ListObjectsCursor{Key: "c/"},
+					Cursor: metabase.ListObjectsCursor{Key: "c/", Version: 0},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("c/",
+						prefixEntry("c//"),
+						objects["c/1"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "c/",
+					Cursor: metabase.ListObjectsCursor{Key: "c/", Version: metabase.MaxVersion},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("c/",
@@ -582,7 +600,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 					Prefix:     "",
 					Cursor: metabase.ListObjectsCursor{
 						Key:     metabase.ObjectKey("08/"),
-						Version: 1,
+						Version: -100,
 					},
 					Pending:               false,
 					AllVersions:           false,
@@ -813,49 +831,117 @@ func TestListObjectsSkipCursor(t *testing.T) {
 	})
 }
 
+const benchmarkBatchSize = 100
+
+func BenchmarkNonRecursiveObjectsListingOld(b *testing.B) {
+	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
+		obj, objects := generateBenchmarkData()
+		require.NoError(b, db.TestingBatchInsertObjects(ctx, objects))
+
+		b.Run("listing no prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				result, err := db.ListObjectsWithIterator(ctx, metabase.ListObjects{
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
+					Pending:     false,
+					AllVersions: false,
+					Limit:       benchmarkBatchSize,
+				})
+				require.NoError(b, err)
+				for result.More {
+					result, err = db.ListObjectsWithIterator(ctx, metabase.ListObjects{
+						ProjectID:   obj.ProjectID,
+						BucketName:  obj.BucketName,
+						Cursor:      metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
+						Pending:     false,
+						AllVersions: false,
+						Limit:       benchmarkBatchSize,
+					})
+					require.NoError(b, err)
+				}
+			}
+		})
+
+		b.Run("listing with prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				result, err := db.ListObjectsWithIterator(ctx, metabase.ListObjects{
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
+					Prefix:      "foo/",
+					Pending:     false,
+					AllVersions: false,
+					Limit:       benchmarkBatchSize,
+				})
+				require.NoError(b, err)
+				for result.More {
+					cursorKey := "foo/" + result.Objects[len(result.Objects)-1].ObjectKey
+					result, err = db.ListObjectsWithIterator(ctx, metabase.ListObjects{
+						ProjectID:   obj.ProjectID,
+						BucketName:  obj.BucketName,
+						Prefix:      "foo/",
+						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
+						Pending:     false,
+						AllVersions: false,
+						Limit:       benchmarkBatchSize,
+					})
+					require.NoError(b, err)
+				}
+			}
+		})
+
+		b.Run("listing only prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				result, err := db.ListObjectsWithIterator(ctx, metabase.ListObjects{
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
+					Prefix:      "boo/",
+					Pending:     false,
+					AllVersions: false,
+					Limit:       benchmarkBatchSize,
+				})
+				require.NoError(b, err)
+				for result.More {
+					cursorKey := "boo/" + result.Objects[len(result.Objects)-1].ObjectKey
+					result, err = db.ListObjectsWithIterator(ctx, metabase.ListObjects{
+						ProjectID:   obj.ProjectID,
+						BucketName:  obj.BucketName,
+						Prefix:      "boo/",
+						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
+						Pending:     false,
+						AllVersions: false,
+						Limit:       benchmarkBatchSize,
+					})
+					require.NoError(b, err)
+
+				}
+			}
+		})
+	})
+}
+
 func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
-		baseObj := metabasetest.RandObjectStream()
-
-		batchsize := 5
-		for i := 0; i < 500; i++ {
-			metabasetest.CreateObject(ctx, b, db, metabasetest.RandObjectStream(), 0)
-		}
-
-		for i := 0; i < 10; i++ {
-			baseObj.ObjectKey = metabase.ObjectKey("foo/" + strconv.Itoa(i))
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-
-			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixA/" + strconv.Itoa(i))
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-
-			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixB/" + strconv.Itoa(i))
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-		}
-
-		for i := 0; i < 50; i++ {
-			baseObj.ObjectKey = metabase.ObjectKey("boo/foo" + strconv.Itoa(i) + "/object")
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-		}
+		obj, objects := generateBenchmarkData()
+		require.NoError(b, db.TestingBatchInsertObjects(ctx, objects))
 
 		b.Run("listing no prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
-					ProjectID:   baseObj.ProjectID,
-					BucketName:  baseObj.BucketName,
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
 					Pending:     false,
 					AllVersions: false,
-					Limit:       batchsize,
+					Limit:       benchmarkBatchSize,
 				})
 				require.NoError(b, err)
 				for result.More {
 					result, err = db.ListObjects(ctx, metabase.ListObjects{
-						ProjectID:   baseObj.ProjectID,
-						BucketName:  baseObj.BucketName,
+						ProjectID:   obj.ProjectID,
+						BucketName:  obj.BucketName,
 						Cursor:      metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
 						Pending:     false,
 						AllVersions: false,
-						Limit:       batchsize,
+						Limit:       benchmarkBatchSize,
 					})
 					require.NoError(b, err)
 				}
@@ -865,24 +951,24 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 		b.Run("listing with prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
-					ProjectID:   baseObj.ProjectID,
-					BucketName:  baseObj.BucketName,
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
 					Prefix:      "foo/",
 					Pending:     false,
 					AllVersions: false,
-					Limit:       batchsize,
+					Limit:       benchmarkBatchSize,
 				})
 				require.NoError(b, err)
 				for result.More {
 					cursorKey := "foo/" + result.Objects[len(result.Objects)-1].ObjectKey
 					result, err = db.ListObjects(ctx, metabase.ListObjects{
-						ProjectID:   baseObj.ProjectID,
-						BucketName:  baseObj.BucketName,
+						ProjectID:   obj.ProjectID,
+						BucketName:  obj.BucketName,
 						Prefix:      "foo/",
 						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
 						Pending:     false,
 						AllVersions: false,
-						Limit:       batchsize,
+						Limit:       benchmarkBatchSize,
 					})
 					require.NoError(b, err)
 				}
@@ -892,24 +978,24 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 		b.Run("listing only prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
-					ProjectID:   baseObj.ProjectID,
-					BucketName:  baseObj.BucketName,
+					ProjectID:   obj.ProjectID,
+					BucketName:  obj.BucketName,
 					Prefix:      "boo/",
 					Pending:     false,
 					AllVersions: false,
-					Limit:       batchsize,
+					Limit:       benchmarkBatchSize,
 				})
 				require.NoError(b, err)
 				for result.More {
 					cursorKey := "boo/" + result.Objects[len(result.Objects)-1].ObjectKey
 					result, err = db.ListObjects(ctx, metabase.ListObjects{
-						ProjectID:   baseObj.ProjectID,
-						BucketName:  baseObj.BucketName,
+						ProjectID:   obj.ProjectID,
+						BucketName:  obj.BucketName,
 						Prefix:      "boo/",
 						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
 						Pending:     false,
 						AllVersions: false,
-						Limit:       batchsize,
+						Limit:       benchmarkBatchSize,
 					})
 					require.NoError(b, err)
 
@@ -917,6 +1003,81 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 			}
 		})
 	})
+}
+
+func generateBenchmarkData() (obj metabase.ObjectStream, objects []metabase.RawObject) {
+	obj = metabase.ObjectStream{
+		ProjectID:  uuid.UUID{1, 1, 1, 1},
+		BucketName: "bucket",
+	}
+
+	for i := 0; i < 500; i++ {
+		objects = append(objects, metabase.RawObject{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  obj.ProjectID,
+				BucketName: obj.BucketName,
+				ObjectKey:  metabase.ObjectKey(strconv.Itoa(i)),
+				Version:    100,
+				StreamID:   uuid.UUID{1},
+			},
+			CreatedAt: time.Now(),
+			Status:    metabase.CommittedVersioned,
+		})
+	}
+
+	for i := 0; i < 10; i++ {
+		objects = append(objects,
+			metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  metabase.ObjectKey("foo/" + strconv.Itoa(i)),
+					Version:    100,
+					StreamID:   uuid.UUID{1},
+				},
+				CreatedAt: time.Now(),
+				Status:    metabase.CommittedVersioned,
+			},
+			metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  metabase.ObjectKey("foo/prefixA/" + strconv.Itoa(i)),
+					Version:    100,
+					StreamID:   uuid.UUID{1},
+				},
+				CreatedAt: time.Now(),
+				Status:    metabase.CommittedVersioned,
+			},
+			metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  metabase.ObjectKey("foo/prefixB/" + strconv.Itoa(i)),
+					Version:    100,
+					StreamID:   uuid.UUID{1},
+				},
+				CreatedAt: time.Now(),
+				Status:    metabase.CommittedVersioned,
+			},
+		)
+	}
+
+	for i := 0; i < 50; i++ {
+		objects = append(objects, metabase.RawObject{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  obj.ProjectID,
+				BucketName: obj.BucketName,
+				ObjectKey:  metabase.ObjectKey("boo/foo" + strconv.Itoa(i) + "/object"),
+				Version:    100,
+				StreamID:   uuid.UUID{1},
+			},
+			CreatedAt: time.Now(),
+			Status:    metabase.CommittedVersioned,
+		})
+	}
+
+	return obj, objects
 }
 
 func TestListObjectsVersioned(t *testing.T) {
@@ -1035,8 +1196,6 @@ func TestListObjectsVersioned(t *testing.T) {
 		})
 
 		t.Run("2 objects one with versions and one pending, list pending", func(t *testing.T) {
-			t.Skip("see https://github.com/storj/storj/issues/6734")
-
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			a0 := metabasetest.RandObjectStream()
@@ -1513,7 +1672,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -1609,6 +1768,25 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("b/",
+						objects["b/3"],
+					),
+				}}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					AllVersions:           false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "b/2", Version: metabase.MaxVersion},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
 						objects["b/2"],
 						objects["b/3"],
 					),
@@ -1675,7 +1853,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -1759,6 +1937,24 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("b/",
+						objects["b/3"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "b/2", Version: metabase.MaxVersion},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
 						objects["b/2"],
 						objects["b/3"],
 					)},
@@ -1789,7 +1985,26 @@ func TestListObjectsVersioned(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "c/",
-					Cursor: metabase.ListObjectsCursor{Key: "c/"},
+					Cursor: metabase.ListObjectsCursor{Key: "c/", Version: 0},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("c/",
+						prefixEntry("c//"),
+						objects["c/1"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "c/",
+					Cursor: metabase.ListObjectsCursor{Key: "c/", Version: metabase.MaxVersion},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("c/",
@@ -1816,5 +2031,249 @@ func TestListObjectsVersioned(t *testing.T) {
 					)},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("ignore non-latest objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
+				"a":   {1000, 1001},
+				"b/1": {1000, 1001},
+				"b/2": {1000, 1001},
+				"b/3": {1000, 1001},
+				"c":   {1000, 1001},
+			})
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             true,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{
+						Key:     "a",
+						Version: 1002,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["a"],
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+						objects["c"],
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             true,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{
+						Key:     "a",
+						Version: 1001,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+						objects["c"],
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{
+						Key:     "a",
+						Version: 1002,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["a"],
+						prefixEntry("b/"),
+						objects["c"],
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{
+						Key:     "a",
+						Version: 1001,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						prefixEntry("b/"),
+						objects["c"],
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{
+						Key:     "b/3",
+						Version: 1002,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						// prefixEntry("b/"), // TODO: not sure whether this is the right behaviour
+						objects["c"],
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{
+						Key:     "b/3",
+						Version: 1001,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["c"],
+					},
+				},
+			}.Check(ctx, t, db)
+
+		})
+	})
+}
+
+func TestListObjects_Stress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("this is slow")
+	}
+
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		prefixes := []string{"a", "b", "c", "d", "e", "f"}
+		const objectsPerPrefix = 10
+		const versionsPerObject = 10
+
+		objects := make([]metabase.RawObject, 0, len(prefixes)*objectsPerPrefix*versionsPerObject)
+
+		for i, prefix := range prefixes {
+			isVersioned := i >= 3
+
+			for k := 0; k < objectsPerPrefix; k++ {
+				objectkey := metabase.ObjectKey(prefix + "/" + strconv.Itoa(k))
+				if isVersioned {
+					for v := 0; v < versionsPerObject; v++ {
+						objects = append(objects, metabase.RawObject{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  obj.ProjectID,
+								BucketName: obj.BucketName,
+								ObjectKey:  objectkey,
+								Version:    100 + metabase.Version(v),
+								StreamID:   testrand.UUID(),
+							},
+							CreatedAt: time.Now(),
+							Status:    metabase.CommittedVersioned,
+						})
+					}
+				} else {
+					objects = append(objects, metabase.RawObject{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  objectkey,
+							Version:    100,
+							StreamID:   testrand.UUID(),
+						},
+						CreatedAt: time.Now(),
+						Status:    metabase.CommittedUnversioned,
+					})
+				}
+			}
+		}
+
+		err := db.TestingBatchInsertObjects(ctx, objects)
+		require.NoError(t, err)
+
+		t.Log("recursive=false all-versions=false")
+		items, err := db.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:   obj.ProjectID,
+			BucketName:  obj.BucketName,
+			Recursive:   false,
+			Pending:     false,
+			AllVersions: false,
+		})
+		require.NoError(t, err)
+		require.Len(t, items.Objects, 6)
+
+		t.Log("recursive=false all-versions=true")
+		_, err = db.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:   obj.ProjectID,
+			BucketName:  obj.BucketName,
+			Recursive:   false,
+			Pending:     true,
+			AllVersions: true,
+			Limit:       4,
+		})
+		require.NoError(t, err)
+
+		t.Log("recursive=true")
+		_, err = db.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:   obj.ProjectID,
+			BucketName:  obj.BucketName,
+			Recursive:   true,
+			Pending:     false,
+			AllVersions: false,
+			Limit:       4,
+		})
+		require.NoError(t, err)
 	})
 }

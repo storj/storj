@@ -877,6 +877,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
 
+# switch to iterator based implementation.
+# metainfo.use-list-objects-iterator: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 

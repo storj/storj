@@ -40,7 +40,7 @@
             </template>
             <template #item.createdAt="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.createdAt.toLocaleString() }}
+                    {{ Time.formattedDate(item.createdAt) }}
                 </span>
             </template>
             <template #item.actions="{ item }">
@@ -125,6 +125,7 @@ import {
 } from 'vuetify/components';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
+import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';

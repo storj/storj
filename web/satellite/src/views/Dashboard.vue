@@ -27,10 +27,6 @@
                     <IconUpgrade size="16" class="mr-2" />
                     Upgrade
                 </v-btn>
-                <!-- <v-btn v-else variant="outlined" color="default" to="buckets" >
-                    <IconUpload class="mr-2"/>
-                    Upload
-                </v-btn> -->
             </v-col>
         </v-row>
 
@@ -311,6 +307,7 @@ import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { Time } from '@/utils/time';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -387,12 +384,10 @@ const co2Saved = computed<string>(() => {
  */
 const dateRangeLabel = computed((): string => {
     if (chartsSinceDate.value.getTime() === chartsBeforeDate.value.getTime()) {
-        return chartsSinceDate.value.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        return Time.formattedDate(chartsSinceDate.value);
     }
 
-    const sinceFormattedString = chartsSinceDate.value.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
-    const beforeFormattedString = chartsBeforeDate.value.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
-    return `${sinceFormattedString} - ${beforeFormattedString}`;
+    return `${Time.formattedDate(chartsSinceDate.value)} - ${Time.formattedDate(chartsBeforeDate.value)}`;
 });
 
 /**

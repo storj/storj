@@ -153,6 +153,7 @@ import {
 import { useRouter } from 'vue-router';
 import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
+import { Time } from '@/utils/time';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import {
@@ -200,7 +201,6 @@ const { isLoading, withLoading } = useLoading();
 const isRemoveMembersDialogShown = ref<boolean>(false);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
-const sortBy = ref([{ key: 'date', order: 'asc' }]);
 const selectedMembers = ref<string[]>([]);
 const memberToDelete = ref<string>();
 
@@ -251,7 +251,7 @@ const projectMembers = computed((): RenderedItem[] => {
             name: member.getName(),
             email: member.getEmail(),
             role,
-            date: member.getJoinDate().toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' }),
+            date: Time.formattedDate(member.getJoinDate()),
             selectable: role !== ProjectRole.Owner,
             expired: member.isPending() && 'expired' in member && Boolean(member.expired),
         };

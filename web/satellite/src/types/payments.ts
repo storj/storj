@@ -3,6 +3,7 @@
 
 import { formatPrice, decimalShift } from '@/utils/strings';
 import { JSONRepresentable } from '@/types/json';
+import { Time } from '@/utils/time';
 
 /**
  * Page parameters for listing payments history.
@@ -245,7 +246,7 @@ export class PaymentsHistoryItem {
     }
 
     public get formattedStart(): string {
-        return this.start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return Time.formattedDate(this.start);
     }
 
     public get hasExpiration(): boolean {
