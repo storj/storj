@@ -145,12 +145,6 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p class="mt-7 text-center text-body-2">
-                    <b>
-                        NOTE: The Storj Free Tier is being deprecated on April 1, 2024.<br>
-                        <a href="https://forum.storj.io/t/discontinuation-of-the-storj-free-tier/25332" target="_blank" rel="noopener noreferrer">View details</a>
-                    </b>
-                </p>
                 <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link font-weight-bold" :to="ROUTES.ForgotPassword.path">Reset Password</router-link></p>
                 <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
             </v-col>
