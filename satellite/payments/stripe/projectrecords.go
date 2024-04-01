@@ -25,6 +25,8 @@ type ProjectRecordsDB interface {
 	Check(ctx context.Context, projectID uuid.UUID, start, end time.Time) error
 	// Get returns record for specified project and billing period.
 	Get(ctx context.Context, projectID uuid.UUID, start, end time.Time) (*ProjectRecord, error)
+	// GetUnappliedByProjectIDs returns unapplied records within the billing period pertaining to a list of project IDs.
+	GetUnappliedByProjectIDs(ctx context.Context, projectIDs []uuid.UUID, start, end time.Time) ([]ProjectRecord, error)
 	// Consume consumes invoice project record.
 	Consume(ctx context.Context, id uuid.UUID) error
 	// ListUnapplied returns project records page with unapplied project records.

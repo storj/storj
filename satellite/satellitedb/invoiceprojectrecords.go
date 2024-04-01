@@ -14,6 +14,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -126,6 +127,33 @@ func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, s
 	}
 
 	return fromDBXInvoiceProjectRecord(dbxRecord)
+}
+
+// GetUnappliedByProjectIDs returns unapplied records within the billing period pertaining to a list of project IDs.
+func (db *invoiceProjectRecords) GetUnappliedByProjectIDs(ctx context.Context, projectIDs []uuid.UUID, start, end time.Time) (records []stripe.ProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = withRows(db.db.QueryContext(ctx, db.db.Rebind(`
+		SELECT
+			id, project_id, storage, egress, segments, period_start, period_end, state
+		FROM
+			stripecoinpayments_invoice_project_records
+		WHERE
+			project_id IN ( SELECT unnest(?::bytea[]))
+			AND period_start = ? AND period_end = ? AND state = ?
+	`), pgutil.UUIDArray(projectIDs), start, end, invoiceProjectRecordStateUnapplied))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var record stripe.ProjectRecord
+			err := rows.Scan(&record.ID, &record.ProjectID, &record.Storage, &record.Egress, &record.Segments, &record.PeriodStart, &record.PeriodEnd, &record.State)
+			if err != nil {
+				return Error.New("failed to scan stripe invoice project records: %w", err)
+			}
+
+			records = append(records, record)
+		}
+		return nil
+	})
+	return records, err
 }
 
 // Consume consumes invoice project record.
