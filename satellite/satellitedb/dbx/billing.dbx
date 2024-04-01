@@ -218,6 +218,12 @@ model stripecoinpayments_invoice_project_record (
 
 	unique project_id period_start period_end
 
+	index (
+		name stripecoinpayments_invoice_project_records_unbilled_project_id_index
+		fields project_id
+		where stripecoinpayments_invoice_project_record.state = 0
+	)
+
 	// id is UUID for this record.
 	field id           blob
 	// project_id refers to projects.id.

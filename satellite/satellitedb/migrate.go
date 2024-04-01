@@ -2719,6 +2719,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE project_members ADD COLUMN role integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "index project_id where state = 0 in stripecoinpayments_invoice_project_records",
+				Version:     270,
+				Action: migrate.SQL{
+					`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE state = 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
