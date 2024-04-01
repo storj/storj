@@ -624,6 +624,11 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 			scriptSrc = appendValues(scriptSrc, recap, gstatic)
 			frameSrc = appendValues(frameSrc, recap, recapSubdomain)
 		}
+		if server.AnalyticsConfig.Enabled && server.AnalyticsConfig.Plausible.Domain != "" {
+			plausible := "https://plausible.io"
+			connectSrc = appendValues(connectSrc, plausible)
+			scriptSrc = appendValues(scriptSrc, plausible)
+		}
 		cspValues := []string{
 			"default-src 'self'",
 			connectSrc,
