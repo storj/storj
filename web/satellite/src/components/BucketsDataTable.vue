@@ -307,26 +307,6 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: '', key: 'actions', width: '0', sortable: false },
     );
 
-    if (pageWidth.value <= 1400) {
-        ['segmentCount', 'objectCount'].forEach((key) => {
-            const index = hdrs.findIndex((el) => el.key === key);
-            if (index !== -1) hdrs.splice(index, 1);
-        });
-    }
-
-    if (pageWidth.value <= 1280) {
-        ['storage', 'egress'].forEach((key) => {
-            const index = hdrs.findIndex((el) => el.key === key);
-            if (index !== -1) hdrs.splice(index, 1);
-        });
-    }
-
-    if (pageWidth.value <= 780) {
-        ['since', 'versioning', 'location'].forEach((key) => {
-            const index = hdrs.findIndex((el) => el.key === key);
-            if (index !== -1) hdrs.splice(index, 1);
-        });
-    }
     return hdrs;
 });
 

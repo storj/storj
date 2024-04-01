@@ -73,8 +73,8 @@
     >
         <template #no-data>
             <div class="d-flex justify-center">
-                <p class="text-body-2 cursor-pointer" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or click here to upload' }}
+                <p class="text-body-2 cursor-pointer py-16 rounded-xlg w-100 text-center bg-light border" @click="emit('uploadClick')">
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </div>
         </template>

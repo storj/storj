@@ -38,8 +38,8 @@
             @update:itemsPerPage="onLimitChange"
         >
             <template #no-data>
-                <p class="text-body-2 cursor-pointer" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or click here to upload' }}
+                <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
             <template #item="{ props: rowProps }">

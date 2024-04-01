@@ -32,6 +32,9 @@
             </v-sheet>
 
             <v-card-text class="mt-n4 px-6">
+                <p class="text-body-2 mb-4">
+                    The carbon emissions displayed are estimated based on the total usage of this project, calculated from the date of project creation up to the present day.
+                </p>
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Emissions</p>
                     <v-chip variant="tonal" color="info" class="font-weight-bold">
