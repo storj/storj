@@ -10,6 +10,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -1254,14 +1256,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.Equal(t, params.ExpiresAt.Truncate(time.Millisecond), params.ExpiresAt.Truncate(time.Millisecond))
 			require.Equal(t, coResponse.Object.ObjectVersion, listResponse.Items[0].ObjectVersion)
 
-			object, err := metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
-				Bucket:             []byte(bucket.Name),
-				EncryptedObjectKey: listResponse.Items[0].EncryptedObjectKey,
-			})
-			require.NoError(t, err)
-
-			project := planet.Uplinks[0].Projects[0]
-			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
+			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, allObjects, 1)
 			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].StreamVersionID().Bytes())
@@ -1432,51 +1427,54 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		})
 
 		t.Run("multipart object download rejection", func(t *testing.T) {
-			defer ctx.Check(deleteBucket("pip-first"))
-			defer ctx.Check(deleteBucket("pip-second"))
-			defer ctx.Check(deleteBucket("pip-third"))
+			defer ctx.Check(deleteBucket("pip-a"))
+			defer ctx.Check(deleteBucket("pip-b"))
+			defer ctx.Check(deleteBucket("pip-c"))
 
 			data := testrand.Bytes(20 * memory.KB)
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-first", "non-multipart-object", data)
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-a", "non-multipart-object", data)
 			require.NoError(t, err)
 
 			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 			require.NoError(t, err)
 			defer ctx.Check(project.Close)
 
-			_, err = project.EnsureBucket(ctx, "pip-second")
+			_, err = project.EnsureBucket(ctx, "pip-b")
 			require.NoError(t, err)
-			info, err := project.BeginUpload(ctx, "pip-second", "multipart-object", nil)
+			info, err := project.BeginUpload(ctx, "pip-b", "multipart-object", nil)
 			require.NoError(t, err)
-			upload, err := project.UploadPart(ctx, "pip-second", "multipart-object", info.UploadID, 1)
+			upload, err := project.UploadPart(ctx, "pip-b", "multipart-object", info.UploadID, 1)
 			require.NoError(t, err)
 			_, err = upload.Write(data)
 			require.NoError(t, err)
 			require.NoError(t, upload.Commit())
-			_, err = project.CommitUpload(ctx, "pip-second", "multipart-object", info.UploadID, nil)
+			_, err = project.CommitUpload(ctx, "pip-b", "multipart-object", info.UploadID, nil)
 			require.NoError(t, err)
 
-			_, err = project.EnsureBucket(ctx, "pip-third")
+			_, err = project.EnsureBucket(ctx, "pip-c")
 			require.NoError(t, err)
-			info, err = project.BeginUpload(ctx, "pip-third", "multipart-object-third", nil)
+			info, err = project.BeginUpload(ctx, "pip-c", "multipart-object-third", nil)
 			require.NoError(t, err)
 			for i := 0; i < 4; i++ {
-				upload, err := project.UploadPart(ctx, "pip-third", "multipart-object-third", info.UploadID, uint32(i+1))
+				upload, err := project.UploadPart(ctx, "pip-c", "multipart-object-third", info.UploadID, uint32(i+1))
 				require.NoError(t, err)
 				_, err = upload.Write(data)
 				require.NoError(t, err)
 				require.NoError(t, upload.Commit())
 			}
-			_, err = project.CommitUpload(ctx, "pip-third", "multipart-object-third", info.UploadID, nil)
+			_, err = project.CommitUpload(ctx, "pip-c", "multipart-object-third", info.UploadID, nil)
 			require.NoError(t, err)
 
-			objects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-first")
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
-			require.Len(t, objects, 1)
+			require.Len(t, objects, 3)
+			slices.SortFunc(objects, func(a, b metabase.Object) int {
+				return strings.Compare(a.BucketName, b.BucketName)
+			})
 
 			// verify that standard objects can be downloaded in an old way (index = -1 as last segment)
 			object, err := metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
-				Bucket:             []byte("pip-first"),
+				Bucket:             []byte(objects[0].BucketName), // pip-a
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 			})
 			require.NoError(t, err)
@@ -1488,14 +1486,10 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			objects, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-second")
-			require.NoError(t, err)
-			require.Len(t, objects, 1)
-
 			// verify that multipart objects (single segment) CANNOT be downloaded in an old way (index = -1 as last segment)
 			object, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
-				Bucket:             []byte("pip-second"),
-				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				Bucket:             []byte(objects[1].BucketName), // pip-b
+				EncryptedObjectKey: []byte(objects[1].ObjectKey),
 			})
 			require.NoError(t, err)
 			_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
@@ -1507,14 +1501,10 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Used uplink version cannot download multipart objects.")
 
-			objects, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
-			require.NoError(t, err)
-			require.Len(t, objects, 1)
-
 			// verify that multipart objects (multiple segments) CANNOT be downloaded in an old way (index = -1 as last segment)
 			object, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
-				Bucket:             []byte("pip-third"),
-				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				Bucket:             []byte(objects[2].BucketName), // pip-c
+				EncryptedObjectKey: []byte(objects[2].ObjectKey),
 			})
 			require.NoError(t, err)
 			_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{

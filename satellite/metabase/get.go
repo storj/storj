@@ -331,62 +331,6 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 	return !value, nil
 }
 
-// TestingAllCommittedObjects gets all objects from bucket.
-// Use only for testing purposes.
-func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, false)
-}
-
-func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, pending bool) (objects []ObjectEntry, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = db.IterateObjectsAllVersionsWithStatus(ctx,
-		IterateObjectsWithStatus{
-			ProjectID:             projectID,
-			BucketName:            bucketName,
-			Recursive:             true,
-			Pending:               pending,
-			IncludeCustomMetadata: true,
-			IncludeSystemMetadata: true,
-		}, func(ctx context.Context, it ObjectsIterator) error {
-			entry := ObjectEntry{}
-			for it.Next(ctx, &entry) {
-				objects = append(objects, entry)
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return objects, nil
-}
-
-// TestingAllObjectSegments gets all segments for given object.
-// Use only for testing purposes.
-func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation ObjectLocation) (segments []Segment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
-		ObjectLocation: objectLocation,
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	response, err := db.ListSegments(ctx, ListSegments{
-		StreamID: object.StreamID,
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return response.Segments, nil
-}
-
 // TestingAllObjects gets all objects.
 // Use only for testing purposes.
 func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err error) {

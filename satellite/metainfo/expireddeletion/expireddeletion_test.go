@@ -15,6 +15,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestExpiredDeletion(t *testing.T) {
@@ -107,10 +108,12 @@ func TestExpiresAtForSegmentsAfterCopy(t *testing.T) {
 		require.Len(t, objects, 4)
 
 		for _, v := range objects {
-			segments, err := satellite.Metabase.DB.TestingAllObjectSegments(ctx, v.Location())
+			result, err := satellite.Metabase.DB.ListSegments(ctx, metabase.ListSegments{
+				StreamID: v.StreamID,
+			})
 			require.NoError(t, err)
 
-			for _, k := range segments {
+			for _, k := range result.Segments {
 				require.Equal(t, expiresAt.Unix(), k.ExpiresAt.Unix())
 			}
 		}
