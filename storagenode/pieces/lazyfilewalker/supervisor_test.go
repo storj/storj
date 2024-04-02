@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/storj"
 )
@@ -47,7 +48,7 @@ func TestTrashHandler_Write(t *testing.T) {
 			expectedFinalResponse,
 		}
 
-		trashHandler := newTrashHandler(trashFunc)
+		trashHandler := newTrashHandler(zaptest.NewLogger(t), trashFunc)
 
 		for _, output := range outputs {
 			err := json.NewEncoder(trashHandler).Encode(output)
@@ -78,7 +79,7 @@ func TestTrashHandler_Write(t *testing.T) {
 			return nil
 		}
 
-		trashHandler := newTrashHandler(trashFunc)
+		trashHandler := newTrashHandler(zaptest.NewLogger(t), trashFunc)
 
 		// The string slice below is a concatenation of multiple JSON outputs:
 		// {"pieceIDs":["<pieceID0>"]}\n
