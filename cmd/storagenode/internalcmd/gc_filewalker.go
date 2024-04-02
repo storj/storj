@@ -109,6 +109,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 		}
 		err := json.NewEncoder(g.stdout).Encode(resp)
 		if err != nil {
+			log.Debug("failed to notify main process", zap.Error(err))
 			return err
 		}
 		numTrashed++
@@ -129,5 +130,10 @@ func gcCmdRun(g *RunOptions) (err error) {
 	log.Info("gc-filewalker completed", zap.Int64("piecesCount", piecesCount), zap.Int("trashPiecesCount", len(pieceIDs)), zap.Int("piecesTrashed", numTrashed), zap.Int64("piecesSkippedCount", piecesSkippedCount))
 
 	// encode the response struct and write it to stdout
-	return json.NewEncoder(g.stdout).Encode(resp)
+	err = json.NewEncoder(g.stdout).Encode(resp)
+	if err != nil {
+		log.Debug("failed to write to stdout", zap.Error(err))
+		return errs.New("Error writing response to stdout: %v", err)
+	}
+	return nil
 }
