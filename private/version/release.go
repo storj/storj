@@ -6,16 +6,16 @@ package version
 import _ "unsafe" // needed for go:linkname
 
 //go:linkname buildTimestamp storj.io/common/version.buildTimestamp
-var buildTimestamp string
+var buildTimestamp string = "1712042503"
 
 //go:linkname buildCommitHash storj.io/common/version.buildCommitHash
-var buildCommitHash string
+var buildCommitHash string = "a86ff8703f91b6fee6ee89ece3a047b77b1d2eba"
 
 //go:linkname buildVersion storj.io/common/version.buildVersion
-var buildVersion string
+var buildVersion string = "v1.101.2"
 
 //go:linkname buildRelease storj.io/common/version.buildRelease
-var buildRelease string
+var buildRelease string = "true"
 
 // ensure that linter understands that the variables are being used.
 func init() { use(buildTimestamp, buildCommitHash, buildVersion, buildRelease) }
