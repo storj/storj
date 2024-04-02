@@ -579,12 +579,12 @@ func TestFreezeEffects(t *testing.T) {
 			// Should not be able to list.
 			_, err := uplink1.ListObjects(ctx, sat, bucketName)
 			require.Error(testT, err)
-			require.ErrorIs(testT, err, uplink.ErrTooManyRequests)
+			require.ErrorIs(testT, err, uplink.ErrPermissionDenied)
 
 			// Should not be able to delete.
 			err = uplink1.DeleteObject(ctx, sat, bucketName, path)
 			require.Error(testT, err)
-			require.ErrorIs(testT, err, uplink.ErrTooManyRequests)
+			require.ErrorIs(testT, err, uplink.ErrPermissionDenied)
 		}
 
 		t.Run("BillingFreeze effect on project owner", func(t *testing.T) {
