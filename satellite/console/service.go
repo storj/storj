@@ -89,6 +89,16 @@ const (
 	contactSupportErrMsg                 = "Please contact support"
 )
 
+// VersioningOptInStatus is a type for versioning beta opt in status.
+type VersioningOptInStatus string
+
+const (
+	// VersioningOptIn is a status for opting in.
+	VersioningOptIn VersioningOptInStatus = "in"
+	// VersioningOptOut is a status for opting out.
+	VersioningOptOut VersioningOptInStatus = "out"
+)
+
 var (
 	// Error describes internal console error.
 	Error = errs.Class("console service")
@@ -1821,13 +1831,28 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		return nil, ErrNoMembership.Wrap(err)
 	}
 
+	project := isMember.project
+
 	versioningUIEnabled := true
+	promptForVersioningBeta := false
 	if !s.versioningConfig.UseBucketLevelObjectVersioning {
-		_, versioningUIEnabled = s.versioningConfig.projectMap[isMember.project.ID]
+		if _, ok := s.versioningConfig.projectMap[project.ID]; ok {
+			versioningUIEnabled = true
+		} else {
+			if !project.PromptedForVersioningBeta {
+				promptForVersioningBeta = true
+				versioningUIEnabled = false
+			} else if project.PromptedForVersioningBeta && project.DefaultVersioning != VersioningUnsupported {
+				versioningUIEnabled = true
+			} else {
+				versioningUIEnabled = false
+			}
+		}
 	}
 
 	return &ProjectConfig{
-		VersioningUIEnabled: versioningUIEnabled,
+		VersioningUIEnabled:     versioningUIEnabled,
+		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
 	}, nil
 }
 
@@ -2192,6 +2217,38 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	}
 
 	return project, nil
+}
+
+// UpdateVersioningOptInStatus updates the default versioning of a project.
+// It is intended to be used to opt projects into versioning beta i.e.:
+// console.VersioningUnsupported = opt out
+// console.Unversioned or console.VersioningEnabled = opt in.
+func (s *Service) UpdateVersioningOptInStatus(ctx context.Context, projectID uuid.UUID, optInStatus VersioningOptInStatus) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update versioning opt-in status", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	project.PromptedForVersioningBeta = true
+	err = s.store.Projects().Update(ctx, project)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	versioning := VersioningUnsupported
+	if optInStatus == VersioningOptIn {
+		versioning = Unversioned
+	}
+
+	return Error.Wrap(s.store.Projects().UpdateDefaultVersioning(ctx, project.ID, versioning))
 }
 
 // RequestLimitIncrease is a method for requesting limit increase for a project.

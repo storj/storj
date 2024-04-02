@@ -213,6 +213,48 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// OptInToVersioning handles opting in/out of versioning.
+func (p *Projects) OptInToVersioning(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var optInStatus string
+	if optInStatus, ok = mux.Vars(r)["status"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing opt in status"))
+		return
+	}
+
+	if optInStatus != string(console.VersioningOptIn) && optInStatus != string(console.VersioningOptOut) {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("unknown opt in status"))
+		return
+	}
+
+	err = p.service.UpdateVersioningOptInStatus(ctx, id, console.VersioningOptInStatus(optInStatus))
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // RequestLimitIncrease handles requesting limit increase for projects.
 func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

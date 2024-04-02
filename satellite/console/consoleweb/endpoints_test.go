@@ -548,6 +548,31 @@ func TestProjects(t *testing.T) {
 				}))
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
+
+		{ // Versioning_Opt_In
+			projectID, err := uuid.FromString(test.defaultProjectID())
+			require.NoError(t, err)
+
+			checkVersioning := func(prompted bool, versioning console.DefaultVersioning) {
+				project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
+				require.NoError(t, err)
+
+				require.Equal(t, prompted, project.PromptedForVersioningBeta)
+				require.Equal(t, versioning, project.DefaultVersioning)
+			}
+
+			checkVersioning(false, console.Unversioned)
+
+			resp, _ := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-out", projectID), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			checkVersioning(true, console.VersioningUnsupported)
+
+			resp, _ = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-in", projectID), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			checkVersioning(true, console.Unversioned)
+		}
 	})
 }
 

@@ -1038,47 +1038,94 @@ func TestService(t *testing.T) {
 				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "config test")
 				require.NoError(t, err)
 				require.NotNil(t, pr)
+				require.False(t, pr.PromptedForVersioningBeta)
+				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
 
 				versioningConfig := console.VersioningConfig{
-					UseBucketLevelObjectVersioning: false,
+					UseBucketLevelObjectVersioning: true,
 				}
 				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
 
-				// Getting project config as a member should work
-				config, err := service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.EqualValues(t, console.ProjectConfig{}, *config)
-
 				// Getting project config as a non-member should not work
-				config, err = service.GetProjectConfig(userCtx2, pr.ID)
+				config, err := service.GetProjectConfig(userCtx2, pr.ID)
 				require.Error(t, err)
 				require.Nil(t, config)
 
-				versioningConfig.UseBucketLevelObjectVersioning = true
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
-
+				// Getting project config as owner should work
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				// versioning enabled for all projects
 				require.True(t, config.VersioningUIEnabled)
 
+				// add userCtx2 as member
+				member, err := service.GetUser(ctx, up2Proj.OwnerID)
+				require.NoError(t, err)
+				_, err = service.AddProjectMembers(userCtx1, pr.ID, []string{member.Email})
+				require.NoError(t, err)
+
+				// disable for all projects
+				versioningConfig.UseBucketLevelObjectVersioning = false
+				// add project to closed beta
 				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{pr.ID.String()}
 				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				// versioning disabled for all projects but this is true
+				// because project is in closed beta.
 				require.True(t, config.VersioningUIEnabled)
+				require.False(t, config.PromptForVersioningBeta)
 
-				versioningConfig.UseBucketLevelObjectVersioning = false
+				// disable closed beta
+				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{}
 				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				require.False(t, pr.PromptedForVersioningBeta)
+				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
-				// versioning still enabled because project is in config.UseBucketLevelObjectVersioningProjects
+				// 1. versioning disabled for all projects.
+				// 2. project is not in closed beta
+				// 3. project owner has not being prompted for versioning opt in
+				require.False(t, config.VersioningUIEnabled)
+				require.True(t, config.PromptForVersioningBeta)
+
+				config, err = service.GetProjectConfig(userCtx2, pr.ID)
+				require.NoError(t, err)
+				// member will not be prompted for versioning opt in
+				require.False(t, config.PromptForVersioningBeta)
+
+				pr.PromptedForVersioningBeta = true
+				err = sat.DB.Console().Projects().Update(userCtx1, pr)
+				require.NoError(t, err)
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				// 1. user prompted for versioning opt in
+				// 2. project default versioning is unversioned (user has opted project in)
 				require.True(t, config.VersioningUIEnabled)
+				require.False(t, config.PromptForVersioningBeta)
+
+				pr.PromptedForVersioningBeta = false
+				err = sat.DB.Console().Projects().Update(userCtx1, pr)
+				require.NoError(t, err)
+
+				// opt out
+				// UpdateVersioningOptInStatus sets pr.PromptedForVersioningBeta to true
+				require.NoError(t, service.UpdateVersioningOptInStatus(userCtx1, pr.ID, console.VersioningOptOut))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				// 1. user prompted for versioning opt in
+				// 2. project default versioning is VersioningUnsupported (user has opted project out)
+				require.False(t, config.VersioningUIEnabled)
+				require.False(t, config.PromptForVersioningBeta)
 			})
 		})
 }

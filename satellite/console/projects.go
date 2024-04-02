@@ -209,7 +209,8 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled bool `json:"versioningUIEnabled"`
+	VersioningUIEnabled     bool `json:"versioningUIEnabled"`
+	PromptForVersioningBeta bool `json:"promptForVersioningBeta"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.
