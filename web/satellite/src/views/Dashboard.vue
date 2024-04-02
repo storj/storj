@@ -13,6 +13,7 @@
             @click="redirectToBilling"
         />
         <limit-warning-banners v-if="billingEnabled" />
+        <versioning-beta-banner />
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
@@ -328,6 +329,7 @@ import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+import VersioningBetaBanner from '@/components/VersioningBetaBanner.vue';
 
 type ValueUnit = {
     value: number

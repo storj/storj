@@ -274,7 +274,7 @@ const showRegionTag = computed<boolean>(() => {
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
 const shouldShowVersioning = computed<boolean>(() => {
-    return displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
+    return versioningUIEnabled.value && displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
 });
 
 const isTableSortable = computed<boolean>(() => {

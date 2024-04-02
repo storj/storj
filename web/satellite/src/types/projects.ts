@@ -31,6 +31,16 @@ export interface ProjectsApi {
      * @throws Error
      */
     getConfig(projectId: string): Promise<ProjectConfig>;
+
+    /**
+     * Opt in or out of versioning beta.
+     *
+     * @param projectId - the project's ID
+     * @param status - the new opt-in status
+     * @throws Error
+     */
+    setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void>;
+
     /**
      * Update project name and description.
      *
@@ -156,6 +166,7 @@ export class Project {
 export class ProjectConfig {
     public constructor(
         public versioningUIEnabled: boolean = false,
+        public promptForVersioningBeta: boolean = false,
     ) {}
 }
 

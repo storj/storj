@@ -57,6 +57,7 @@ export const useProjectsStore = defineStore('projects', () => {
     const api: ProjectsApi = new ProjectsHttpApi();
 
     const versioningUIEnabled: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.versioningUIEnabled);
+    const promptForVersioningBeta: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.promptForVersioningBeta);
 
     function getUsageReportLink(startUTC: Date, endUTC: Date, projectID = ''): string {
         const since = Time.toUnixTimestamp(startUTC);
@@ -194,6 +195,10 @@ export const useProjectsStore = defineStore('projects', () => {
 
     async function getProjectConfig(): Promise<void> {
         state.selectedProjectConfig = await api.getConfig(state.selectedProject.id);
+    }
+
+    async function setVersioningOptInStatus(status: 'in' | 'out'): Promise<void> {
+        await api.setVersioningOptInStatus(state.selectedProject.id, status);
     }
 
     async function updateProjectName(fieldsToUpdate: ProjectFields): Promise<void> {
@@ -359,6 +364,7 @@ export const useProjectsStore = defineStore('projects', () => {
     return {
         state,
         versioningUIEnabled,
+        promptForVersioningBeta,
         getProjects,
         getOwnedProjects,
         getDailyProjectData,
@@ -366,6 +372,7 @@ export const useProjectsStore = defineStore('projects', () => {
         createDefaultProject,
         selectProject,
         getProjectConfig,
+        setVersioningOptInStatus,
         updateProjectName,
         updateProjectDescription,
         updateProjectStorageLimit,

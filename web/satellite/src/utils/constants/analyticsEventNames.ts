@@ -110,6 +110,8 @@ export enum AnalyticsErrorEventSource {
     ONBOARDING_FORM = 'Onboarding form',
     ONBOARDING_STEPPER = 'Onboarding stepper',
     VERSIONING_TOGGLE_DIALOG = 'Versioning toggle dialog',
+    VERSIONING_BETA_DIALOG = 'Versioning beta dialog',
+    VERSIONING_BETA_BANNER = 'Versioning beta banner',
 }
 
 export enum PageVisitSource {

@@ -59,7 +59,7 @@ export const useAppStore = defineStore('app', () => {
         LocalData.setProjectTableViewEnabled(state.isProjectTableViewEnabled);
     }
 
-    function toggleBrowserTableViewEnabled(isBrowserCardViewEnabled: boolean | null = null): void {
+    function toggleBrowserCardViewEnabled(isBrowserCardViewEnabled: boolean | null = null): void {
         if (isBrowserCardViewEnabled === null) {
             state.isBrowserCardViewEnabled = !state.isBrowserCardViewEnabled;
         } else {
@@ -128,7 +128,7 @@ export const useAppStore = defineStore('app', () => {
     return {
         state,
         toggleProjectTableViewEnabled,
-        toggleBrowserCardViewEnabled: toggleBrowserTableViewEnabled,
+        toggleBrowserCardViewEnabled,
         hasProjectTableViewConfigured,
         toggleHasJustLoggedIn,
         toggleProjectPassphraseDialog,
