@@ -3,7 +3,7 @@
 
 <template>
     <v-alert
-        class="mt-3"
+        class="mt-3 mb-2"
         density="compact"
         variant="tonal"
         :type="isSuccess ? 'success' : 'warning'"
@@ -16,10 +16,9 @@
 
         <template #text>
             <p v-if="isDefault">
-                <span class="font-weight-bold d-block">Send only STORJ tokens via Layer 1 or zkSync Era transaction to this address.</span>
+                <span class="font-weight-bold d-block">Send STORJ tokens via the Ethereum network or zkSync Era.</span>
                 <span>
-                    Sending anything else other than STORJ token, or using any Layer 2 other than zkSync,
-                    such as BNB, Polygon, etc... will result in the loss of your deposit.
+                    If you send any other kind of token, or use any other network, you may lose your deposit.
                 </span>
             </p>
 

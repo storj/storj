@@ -18,7 +18,7 @@
                     <v-chip
                         :key="FlowType.Default"
                         value="default"
-                        color="green"
+                        color="success"
                         variant="outlined"
                         rounded
                         filter
@@ -28,7 +28,7 @@
                     <v-chip
                         :key="FlowType.Advanced"
                         value="advanced"
-                        color="purple"
+                        color="secondary"
                         variant="outlined"
                         rounded
                         filter
@@ -36,12 +36,12 @@
                         Advanced
                     </v-chip>
                 </v-chip-group>
-                <v-alert v-if="flowType === FlowType.Default" variant="tonal" color="green" width="auto">
+                <v-alert v-if="flowType === FlowType.Default" variant="tonal" color="success" width="auto">
                     <p class="text-subtitle-2 font-weight-bold">Full Access</p>
                     <p class="text-subtitle-2">The app will be provided full permissions access to all the buckets in this project. 1-click setup.</p>
                     <p class="text-subtitle-2 font-weight-bold">Best for trying out an app.</p>
                 </v-alert>
-                <v-alert v-else variant="tonal" color="purple" width="auto">
+                <v-alert v-else variant="tonal" color="secondary" width="auto">
                     <p class="text-subtitle-2 font-weight-bold">Advanced Setup</p>
                     <p class="text-subtitle-2">You can choose what permissions to give this app, and which buckets it can access in this project.</p>
                     <p class="text-subtitle-2 font-weight-bold">Select if you want more control of the access.</p>

@@ -11,11 +11,11 @@
                 <p>Select which permissions to give this application.</p>
                 <v-btn
                     :color="permissions.length === 4 ? 'success' : 'default'"
-                    density="comfortable"
+                    density="compact"
                     variant="outlined"
                     size="default"
                     :prepend-icon="permissions.length === 4 ? mdiCheckCircle : undefined"
-                    class="mt-2"
+                    class="mt-3"
                     @click="onAllClick"
                 >
                     All
@@ -25,7 +25,7 @@
                     filter
                     multiple
                     selected-class="text-primary font-weight-bold"
-                    class="mt-2 mb-3"
+                    class="my-2"
                 >
                     <v-chip
                         :key="Permission.Read"
@@ -42,7 +42,7 @@
                         variant="outlined"
                         filter
                         :value="Permission.Write"
-                        color="green"
+                        color="secondary"
                     >
                         Write
                     </v-chip>
@@ -52,7 +52,7 @@
                         variant="outlined"
                         filter
                         :value="Permission.List"
-                        color="help"
+                        color="secondary"
                     >
                         List
                     </v-chip>
@@ -62,7 +62,7 @@
                         variant="outlined"
                         filter
                         :value="Permission.Delete"
-                        color="warning"
+                        color="secondary"
                     >
                         Delete
                     </v-chip>

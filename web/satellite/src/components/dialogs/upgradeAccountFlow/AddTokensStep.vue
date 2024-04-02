@@ -3,7 +3,7 @@
 
 <template>
     <p v-if="isPaidTier" class="text-body-2 mb-4">
-        Send STORJ Tokens to the following deposit address to credit your Storj account:
+        Send STORJ Tokens to the following deposit address to credit your Storj account. In addition, you will receive a 10% bonus on your deposit.
     </p>
     <p v-else class="text-body-2 mb-4">
         Send more than $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.

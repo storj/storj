@@ -34,7 +34,7 @@
                     </v-chip>
                 </v-chip-group>
 
-                <v-alert v-if="option === BucketsOption.All" variant="tonal" color="default">
+                <v-alert v-if="option === BucketsOption.All" variant="tonal" color="info">
                     <p class="text-subtitle-2 font-weight-bold">All Buckets</p>
                     <p class="text-subtitle-2">The application can access all of the current and future buckets you create in this project.</p>
                 </v-alert>
