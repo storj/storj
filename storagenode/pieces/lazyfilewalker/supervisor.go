@@ -153,7 +153,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).setStdout(newTrashHandler(trashFunc)).run(ctx, req, &resp)
+	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).setStdout(newTrashHandler(log, trashFunc)).run(ctx, req, &resp)
 	if err != nil {
 		return nil, 0, 0, err
 	}
@@ -184,18 +184,22 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 type trashHandler struct {
 	bytes.Buffer
 
+	log        *zap.Logger
 	lineBuffer []byte
 
 	trashFunc func(pieceID storj.PieceID) error
 }
 
-func newTrashHandler(trashFunc func(pieceID storj.PieceID) error) *trashHandler {
+func newTrashHandler(log *zap.Logger, trashFunc func(pieceID storj.PieceID) error) *trashHandler {
 	return &trashHandler{
+		log:       log.Named("trash-handler"),
 		trashFunc: trashFunc,
 	}
 }
 
 func (t *trashHandler) Write(b []byte) (n int, err error) {
+	t.log.Debug("received data from subprocess")
+
 	n = len(b)
 	t.lineBuffer = append(t.lineBuffer, b...)
 	for {
@@ -226,11 +230,13 @@ func (t *trashHandler) writeLine(b []byte) (remaining []byte, err error) {
 func (t *trashHandler) processTrashPiece(b []byte) error {
 	var resp GCFilewalkerResponse
 	if err := json.Unmarshal(b, &resp); err != nil {
+		t.log.Error("failed to unmarshal data from subprocess", zap.Error(err))
 		return err
 	}
 
 	if !resp.Completed {
 		for _, pieceID := range resp.PieceIDs {
+			t.log.Debug("trashing piece", zap.String("pieceID", pieceID.String()))
 			return t.trashFunc(pieceID)
 		}
 	}
