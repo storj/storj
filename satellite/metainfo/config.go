@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink/private/eestream"
 )
@@ -186,16 +187,23 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 }
 
 // UseBucketLevelObjectVersioningByProject checks if UseBucketLevelObjectVersioning should be enabled for specific project.
-func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(projectID uuid.UUID) bool {
+func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *console.Project) bool {
 	// if its globally enabled don't look at projects
-	if ec.UseBucketLevelObjectVersioning {
-		return true
-	}
-	for _, p := range ec.useBucketLevelObjectVersioningProjects {
-		if p == projectID {
+	if !ec.UseBucketLevelObjectVersioning {
+		for _, p := range ec.useBucketLevelObjectVersioningProjects {
+			if p == project.ID {
+				return true
+			}
+		}
+		// account for whether the project has opted in to versioning beta
+		if !project.PromptedForVersioningBeta {
+			return false
+		} else if project.PromptedForVersioningBeta && project.DefaultVersioning != console.VersioningUnsupported {
 			return true
+		} else {
+			return false
 		}
 	}
 
-	return false
+	return true
 }

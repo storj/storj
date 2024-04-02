@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -100,27 +100,60 @@ func TestRSConfigValidation(t *testing.T) {
 }
 
 func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
-	projectA := testrand.UUID()
-	projectB := testrand.UUID()
-	projectC := testrand.UUID()
+	projectA := &console.Project{
+		ID: testrand.UUID(),
+	}
+	projectB := &console.Project{
+		ID: testrand.UUID(),
+	}
+
+	// 1. Versioning globally enabled
 	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioningProjects: []string{
-			projectA.String(),
-			projectB.String(),
-		},
+		UseBucketLevelObjectVersioning: true,
 	})
 	require.NoError(t, err)
-
 	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
 	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectC))
 
+	// 2.1. Versioning disabled globally, but enabled for project A (closed beta)
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
 		UseBucketLevelObjectVersioning: false,
 		UseBucketLevelObjectVersioningProjects: []string{
-			"01000000-0000-0000-0000-000000000000",
+			projectA.ID.String(),
 		},
 	})
 	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(uuid.UUID{1}))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+
+	// 2.2. Versioning disabled globally, but enabled for project B (closed beta)
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioning: false,
+		UseBucketLevelObjectVersioningProjects: []string{
+			projectB.ID.String(),
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+
+	// 3. Versioning disabled globally
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioning: false,
+	})
+	require.NoError(t, err)
+
+	// 3.1. Project A is prompted for versioning beta, but has not opted in
+	projectA.PromptedForVersioningBeta = true
+	projectA.DefaultVersioning = console.VersioningUnsupported
+	// 3.2. Project B is prompted for versioning beta, and has opted in
+	projectB.PromptedForVersioningBeta = true
+	projectB.DefaultVersioning = console.Unversioned
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+
+	// 3.3. Project A is not prompted for versioning beta
+	projectA.PromptedForVersioningBeta = false
+	projectA.DefaultVersioning = console.Unversioned
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
 }

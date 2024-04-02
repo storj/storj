@@ -1676,7 +1676,11 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	if len(version) == 0 {
 		versioned := false
 		suspended := false
-		if endpoint.config.UseBucketLevelObjectVersioningByProject(projectID) {
+		project, err := endpoint.projects.Get(ctx, projectID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
 			// TODO(ver): for production we need to avoid somehow additional GetBucket call
 			bucket, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
 			if err != nil {
@@ -1696,6 +1700,9 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			Versioned:      versioned,
 			Suspended:      suspended,
 		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	} else {
 		var sv metabase.StreamVersionID
 		sv, err = metabase.StreamVersionIDFromBytes(version)

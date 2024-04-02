@@ -133,7 +133,12 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) {
+	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed for this project")
 	}
 	if req.Versioning {
@@ -209,7 +214,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 	bucketReq.Placement = project.DefaultPlacement
 
-	if endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) {
+	if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
 		defaultVersioning, err := endpoint.projects.GetDefaultVersioning(ctx, keyInfo.ProjectID)
 		if err != nil {
 			return nil, err
