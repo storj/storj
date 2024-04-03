@@ -56,7 +56,7 @@ func TestTrashHandler_Write(t *testing.T) {
 		}
 
 		var resp GCFilewalkerResponse
-		err := json.NewDecoder(trashHandler).Decode(&resp)
+		err := trashHandler.Decode(&resp)
 		require.NoError(t, err)
 
 		// check that the final response is as expected
@@ -112,7 +112,7 @@ func TestTrashHandler_Write(t *testing.T) {
 		}
 
 		var resp GCFilewalkerResponse
-		err := json.NewDecoder(trashHandler).Decode(&resp)
+		err := trashHandler.Decode(&resp)
 		require.NoError(t, err)
 
 		// check that the final response is as expected
