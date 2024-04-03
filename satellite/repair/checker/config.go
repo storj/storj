@@ -17,10 +17,10 @@ import (
 type Config struct {
 	Interval time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s" testDefault:"$TESTINTERVAL"`
 
-	ReliabilityCacheStaleness time.Duration   `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m" testDefault:"1m"`
-	RepairOverrides           RepairOverrides `help:"[DEPRECATED] comma-separated override values for repair threshold in the format k-threshold" releaseDefault:"" devDefault:"" deprecated:"true"`
-	RepairThresholdOverrides  RepairOverrides `help:"comma-separated override values for repair threshold in the format k-threshold" releaseDefault:"29-52" devDefault:""`
-	RepairTargetOverrides     RepairOverrides `help:"comma-separated override values for repair success target in the format k-target" releaseDefault:"29-65" devDefault:""`
+	ReliabilityCacheStaleness time.Duration            `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m" testDefault:"1m"`
+	RepairOverrides           RepairOverrides          `help:"[DEPRECATED] comma-separated override values for repair threshold in the format k-threshold" releaseDefault:"" devDefault:"" deprecated:"true"`
+	RepairThresholdOverrides  RepairThresholdOverrides `help:"comma-separated override values for repair threshold in the format k-threshold" releaseDefault:"29-52" devDefault:""`
+	RepairTargetOverrides     RepairTargetOverrides    `help:"comma-separated override values for repair success target in the format k-target" releaseDefault:"29-65" devDefault:""`
 	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
 	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
 	NodeFailureRate            float64  `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
@@ -28,6 +28,16 @@ type Config struct {
 	RepairExcludedCountryCodes []string `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
 	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"true"`
 	DoPlacementCheck           bool     `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
+}
+
+// RepairThresholdOverrides override values for repair threshold.
+type RepairThresholdOverrides struct {
+	RepairOverrides
+}
+
+// RepairTargetOverrides override values for repair success target.
+type RepairTargetOverrides struct {
+	RepairOverrides
 }
 
 // RepairOverrides is a configuration struct that contains a list of  override repair
