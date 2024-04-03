@@ -300,7 +300,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ok)
 
-			err = piecesOnNodeByIndex(ctx, planet, segments[0].Pieces, allTaggedNodes)
+			err = piecesOnNodeByIndex(planet, segments[0].Pieces, allTaggedNodes)
 			require.NoError(t, err)
 		}
 
@@ -335,7 +335,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 
-			err = piecesOnNodeByIndex(ctx, planet, segments[0].Pieces, allTaggedNodes)
+			err = piecesOnNodeByIndex(planet, segments[0].Pieces, allTaggedNodes)
 			require.NoError(t, err)
 		}
 
@@ -475,7 +475,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 	})
 }
 
-func piecesOnNodeByIndex(ctx context.Context, planet *testplanet.Planet, pieces metabase.Pieces, allowedIndexes []int) error {
+func piecesOnNodeByIndex(planet *testplanet.Planet, pieces metabase.Pieces, allowedIndexes []int) error {
 
 	findIndex := func(id storj.NodeID) int {
 		for ix, storagenode := range planet.StorageNodes {
