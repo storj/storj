@@ -4,9 +4,7 @@
 package lazyfilewalker
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -128,8 +126,13 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 
 	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, req, &resp)
+	stdout := newGenericWriter(log)
+	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
 	if err != nil {
+		return 0, 0, err
+	}
+
+	if err := stdout.Decode(&resp); err != nil {
 		return 0, 0, err
 	}
 
@@ -153,8 +156,13 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).setStdout(newTrashHandler(log, trashFunc)).run(ctx, req, &resp)
+	stdout := newTrashHandler(log, trashFunc)
+	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
 	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	if err := stdout.Decode(&resp); err != nil {
 		return nil, 0, 0, err
 	}
 
@@ -173,74 +181,14 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 
 	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, req, &resp)
+	stdout := newGenericWriter(log)
+	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, stdout, req)
 	if err != nil {
+		return 0, nil, err
+	}
+	if err := stdout.Decode(&resp); err != nil {
 		return 0, nil, err
 	}
 
 	return resp.BytesDeleted, resp.KeysDeleted, nil
-}
-
-type trashHandler struct {
-	bytes.Buffer
-
-	log        *zap.Logger
-	lineBuffer []byte
-
-	trashFunc func(pieceID storj.PieceID) error
-}
-
-func newTrashHandler(log *zap.Logger, trashFunc func(pieceID storj.PieceID) error) *trashHandler {
-	return &trashHandler{
-		log:       log.Named("trash-handler"),
-		trashFunc: trashFunc,
-	}
-}
-
-func (t *trashHandler) Write(b []byte) (n int, err error) {
-	t.log.Debug("received data from subprocess")
-
-	n = len(b)
-	t.lineBuffer = append(t.lineBuffer, b...)
-	for {
-		if b, err = t.writeLine(t.lineBuffer); err != nil {
-			return n, err
-		}
-		if len(b) == len(t.lineBuffer) {
-			break
-		}
-
-		t.lineBuffer = b
-	}
-
-	return n, nil
-}
-
-func (t *trashHandler) writeLine(b []byte) (remaining []byte, err error) {
-	idx := bytes.IndexByte(b, '\n')
-	if idx < 0 {
-		return b, nil
-	}
-
-	b, remaining = b[:idx], b[idx+1:]
-
-	return remaining, t.processTrashPiece(b)
-}
-
-func (t *trashHandler) processTrashPiece(b []byte) error {
-	var resp GCFilewalkerResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
-		t.log.Error("failed to unmarshal data from subprocess", zap.Error(err))
-		return err
-	}
-
-	if !resp.Completed {
-		for _, pieceID := range resp.PieceIDs {
-			t.log.Debug("trashing piece", zap.String("pieceID", pieceID.String()))
-			return t.trashFunc(pieceID)
-		}
-	}
-
-	_, err := t.Buffer.Write(b)
-	return err
 }
