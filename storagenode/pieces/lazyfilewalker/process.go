@@ -22,7 +22,6 @@ type process struct {
 	executable string
 	args       []string
 
-	stdout io.ReadWriter
 	stderr io.Writer
 
 	cmd execwrapper.Command
@@ -37,20 +36,12 @@ func newProcess(cmd execwrapper.Command, log *zap.Logger, executable string, arg
 		executable: executable,
 		args:       args,
 		stderr:     &zapWrapper{log.Named("subprocess")},
-		stdout:     &bytes.Buffer{},
 	}
 }
 
-// setStdout overrides the stdout writer for the process.
-func (p *process) setStdout(w io.ReadWriter) *process {
-	p.stdout = w
-	return p
-}
-
-// run runs the process and decodes the response into the value pointed by `resp`.
+// run runs the process.
 // It returns an error if the Process fails to start, or if the Process exits with a non-zero status.
-// NOTE: the `resp` value must be a pointer to a struct.
-func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
+func (p *process) run(ctx context.Context, stdout io.Writer, req interface{}) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -74,7 +65,7 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	}
 
 	p.cmd.SetIn(&buf)
-	p.cmd.SetOut(p.stdout)
+	p.cmd.SetOut(stdout)
 	p.cmd.SetErr(p.stderr)
 
 	if err := p.cmd.Start(); err != nil {
@@ -95,13 +86,6 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	}
 
 	p.log.Info("subprocess finished successfully")
-
-	// Decode and receive the response data struct from the subprocess
-	decoder := json.NewDecoder(p.stdout)
-	if err := decoder.Decode(&resp); err != nil {
-		p.log.Error("failed to decode response from subprocess", zap.Error(err))
-		return errLazyFilewalker.Wrap(err)
-	}
 
 	return nil
 }
