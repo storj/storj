@@ -238,7 +238,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
 			placement,
-			config.Checker.RepairTargetOverrides,
+			config.Checker.RepairThresholdOverrides,
 			config.Checker.RepairTargetOverrides,
 			config.Repairer,
 		)

@@ -41,7 +41,7 @@ type Observer struct {
 	repairQueue              queue.RepairQueue
 	nodesCache               *ReliabilityCache
 	overlayService           *overlay.Service
-	repairThresholdOverrides RepairOverrides
+	repairThresholdOverrides RepairThresholdOverrides
 	nodeFailureRate          float64
 	repairQueueBatchSize     int
 	excludedCountryCodes     map[location.CountryCode]struct{}
@@ -68,7 +68,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 
 	if config.RepairOverrides.String() != "" {
 		// backwards compatibility
-		config.RepairThresholdOverrides = config.RepairOverrides
+		config.RepairThresholdOverrides = RepairThresholdOverrides{config.RepairOverrides}
 	}
 
 	return &Observer{
@@ -244,7 +244,7 @@ func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *o
 	return observerStats
 }
 
-func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairOverrides) (int, int, int, int) {
+func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides) (int, int, int, int) {
 	repair := int(redundancy.RepairShares)
 
 	if overrideValue := repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
@@ -265,7 +265,7 @@ type observerFork struct {
 	nodesCache               *ReliabilityCache
 	overlayService           *overlay.Service
 	rsStats                  map[storj.RedundancyScheme]*partialRSStats
-	repairThresholdOverrides RepairOverrides
+	repairThresholdOverrides RepairThresholdOverrides
 	nodeFailureRate          float64
 	getNodesEstimate         func(ctx context.Context) (int, error)
 	log                      *zap.Logger

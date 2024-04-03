@@ -98,9 +98,9 @@ type SegmentRepairer struct {
 	multiplierOptimalThreshold float64
 
 	// repairThresholdOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
-	repairThresholdOverrides checker.RepairOverrides
+	repairThresholdOverrides checker.RepairThresholdOverrides
 	// repairTargetOverrides is similar but determines the optimum number of pieces per segment.
-	repairTargetOverrides checker.RepairOverrides
+	repairTargetOverrides checker.RepairTargetOverrides
 
 	excludedCountryCodes map[location.CountryCode]struct{}
 
@@ -123,7 +123,8 @@ func NewSegmentRepairer(
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
 	placements nodeselection.PlacementDefinitions,
-	repairThresholdOverrides, repairTargetOverrides checker.RepairOverrides,
+	repairThresholdOverrides checker.RepairThresholdOverrides,
+	repairTargetOverrides checker.RepairTargetOverrides,
 	config Config,
 ) *SegmentRepairer {
 
