@@ -61,7 +61,7 @@
                                 :rules="emailRules"
                                 maxlength="72"
                                 label="Enter e-mail"
-                                hint="Members will have read & write permissions."
+                                hint="Members will have read, write, and delete permissions."
                                 required
                                 autofocus
                                 class="my-2"
