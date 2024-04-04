@@ -8,14 +8,10 @@ import (
 	"runtime/pprof"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/common/dbutil"
 	"storj.io/common/dbutil/pgtest"
 	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -68,31 +64,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 				planet.Start(ctx)
 
-				var rawDB tagsql.DB
-				var queriesBefore []string
-				if len(planet.Satellites) > 0 && satelliteDB.Name == "Cockroach" {
-					rawDB = planet.Satellites[0].DB.Testing().RawDB()
-
-					var err error
-					queriesBefore, err = satellitedbtest.FullTableScanQueries(ctx, rawDB, dbutil.Cockroach, planetConfig.applicationName)
-					if err != nil {
-						t.Fatalf("%+v", err)
-					}
-				}
-
 				test(t, ctx, planet)
-
-				if rawDB != nil {
-					queriesAfter, err := satellitedbtest.FullTableScanQueries(context2.WithoutCancellation(ctx), rawDB, dbutil.Cockroach, planetConfig.applicationName)
-					if err != nil {
-						t.Fatalf("%+v", err)
-					}
-
-					diff := cmp.Diff(queriesBefore, queriesAfter)
-					if diff != "" {
-						log.Sugar().Warnf("FULL TABLE SCAN DETECTED\n%s", diff)
-					}
-				}
 			})
 		})
 	}

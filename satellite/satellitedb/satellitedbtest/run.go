@@ -15,7 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -223,28 +222,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				t.Fatal(err)
 			}
 
-			var fullScansBefore []string
-			tempMasterDB, ok := db.(*tempMasterDB)
-			if ok {
-				fullScansBefore, err = FullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-
 			test(ctx, t, db)
-
-			if ok {
-				fullScansAfter, err := FullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				diff := cmp.Diff(fullScansBefore, fullScansAfter)
-				if diff != "" {
-					logger.Sugar().Warnf("FULL TABLE SCAN DETECTED\n%s", diff)
-				}
-			}
 		})
 	}
 }
@@ -282,48 +260,4 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 			bench(b, db)
 		})
 	}
-}
-
-// FullTableScanQueries is a helper method to list all queries which performed full table scan recently. It works only for cockroach db.
-func FullTableScanQueries(ctx context.Context, db tagsql.DB, implementation dbutil.Implementation, applicationName string) (queries []string, err error) {
-	if implementation != dbutil.Cockroach {
-		return nil, nil
-	}
-
-	rows, err := db.QueryContext(ctx,
-		"SELECT key FROM crdb_internal.node_statement_statistics WHERE full_scan = TRUE AND application_name = $1 ORDER BY count DESC",
-		applicationName,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	result := map[string]struct{}{}
-	for rows.Next() {
-		var query string
-		err := rows.Scan(&query)
-		if err != nil {
-			return nil, err
-		}
-
-		// find smarter way to ignore known full table scan queries
-		if !strings.Contains(strings.ToUpper(query), "WHERE") {
-			continue
-		}
-
-		result[query] = struct{}{}
-	}
-
-	if rows.Err() != nil {
-		return nil, rows.Err()
-	}
-
-	for query := range result {
-		queries = append(queries, query)
-	}
-
-	return queries, nil
 }
