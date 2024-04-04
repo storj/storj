@@ -6,7 +6,6 @@ package console_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
@@ -390,55 +389,75 @@ func TestGetUsersByStatus(t *testing.T) {
 func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		usersRepo := db.Console().Users()
+		accountFreezeRepo := db.Console().AccountFreezeEvents()
 
 		now := time.Now()
 		expired := now.Add(-time.Hour)
 		notExpired := now.Add(time.Hour)
-		expiries := []*time.Time{nil, &expired, &notExpired}
-		for i, expiry := range expiries {
-			user := console.User{
-				ID:              testrand.UUID(),
-				FullName:        fmt.Sprintf("User %d", i),
-				Email:           email,
-				PasswordHash:    []byte("123a123"),
-				Status:          console.Active,
-				TrialExpiration: expiry,
-			}
 
-			_, err := usersRepo.Insert(ctx, &user)
-			require.NoError(t, err)
-		}
-
-		// expect paid tier user with expired trial to not be returned.
-		user := console.User{
+		expiredUser, err := usersRepo.Insert(ctx, &console.User{
 			ID:              testrand.UUID(),
-			FullName:        "Active User",
-			Email:           email,
+			FullName:        "expired",
+			Email:           email + "1",
+			PasswordHash:    []byte("123a123"),
+			Status:          console.Active,
+			TrialExpiration: &expired,
+		})
+		require.NoError(t, err)
+
+		_, err = usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "not expired",
+			Email:           email + "2",
+			PasswordHash:    []byte("123a123"),
+			Status:          console.Active,
+			TrialExpiration: &notExpired,
+		})
+		require.NoError(t, err)
+
+		_, err = usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "nil expiry",
+			Email:           email + "3",
+			PasswordHash:    []byte("123a123"),
+			Status:          console.Active,
+			TrialExpiration: nil,
+		})
+		require.NoError(t, err)
+
+		// expect pro user with expired trial to not be returned.
+		proUser, err := usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "Paid User",
+			Email:           email + "4",
 			Status:          console.Active,
 			PasswordHash:    []byte("123a123"),
 			TrialExpiration: &expired,
-		}
-		_, err := usersRepo.Insert(ctx, &user)
+		})
 		require.NoError(t, err)
 
 		paidTier := true
-		err = usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+		err = usersRepo.Update(ctx, proUser.ID, console.UpdateUserRequest{
 			PaidTier: &paidTier,
 		})
 		require.NoError(t, err)
 
-		cursor := console.UserCursor{
-			Limit: 50,
-			Page:  1,
-		}
-		usersPage, err := usersRepo.GetExpiredFreeTrialsAfter(ctx, now, cursor)
+		limit := 100
+		users, err := usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit)
 		require.NoError(t, err)
-		require.Len(t, usersPage.Users, 1, "expected 1 expired user")
+		require.Len(t, users, 1, "expected 1 expired user")
+		require.Equal(t, expiredUser.ID, users[0].ID)
 
-		cursor.Page = 2
-		usersPage, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, cursor)
+		// trial expiration freeze user
+		_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: expiredUser.ID,
+			Type:   console.TrialExpirationFreeze,
+		})
 		require.NoError(t, err)
-		require.Empty(t, usersPage.Users, "expected no users")
+
+		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit)
+		require.NoError(t, err)
+		require.Empty(t, users, "expected no trial frozen users")
 	})
 }
 

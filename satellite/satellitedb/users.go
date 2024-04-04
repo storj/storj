@@ -61,65 +61,43 @@ func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err
 	return userFromDBX(ctx, user)
 }
 
-func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, cursor console.UserCursor) (page *console.UsersPage, err error) {
+// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
+// AND have not been frozen.
+func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]console.User, error) {
+	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if cursor.Limit == 0 {
+	if limit == 0 {
 		return nil, Error.New("limit cannot be 0")
 	}
 
-	if cursor.Page == 0 {
-		return nil, Error.New("page cannot be 0")
-	}
-
-	page = &console.UsersPage{
-		Limit:  cursor.Limit,
-		Offset: uint64((cursor.Page - 1) * cursor.Limit),
-	}
-
-	count, err := users.db.Count_User_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx, dbx.User_TrialExpiration(after))
-	if err != nil {
-		return nil, err
-	}
-	page.TotalCount = uint64(count)
-
-	if page.TotalCount == 0 {
-		return page, nil
-	}
-
-	dbxUsers, err := users.db.Limited_User_Id_User_Email_By_PaidTier_Equal_False_And_TrialExpiration_Less(ctx,
-		dbx.User_TrialExpiration(after),
-		int(page.Limit), int64(page.Offset))
+	rows, err := users.db.Query(ctx, `
+		SELECT u.id, u.email FROM users AS u
+		LEFT JOIN account_freeze_events AS ae
+		    ON u.id = ae.user_id
+		WHERE u.paid_tier = false
+		    AND u.trial_expiration < $1
+		    AND ae.user_id IS NULL
+		LIMIT $2;`, after, limit)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
-			return &console.UsersPage{
-				Users: []console.User{},
-			}, nil
+			return []console.User{}, nil
 		}
 		return nil, Error.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	for _, usr := range dbxUsers {
-		id, err := uuid.FromBytes(usr.Id)
+	expiredUsers := make([]console.User, 0, limit)
+	for rows.Next() {
+		var user console.User
+		err = rows.Scan(&user.ID, &user.Email)
 		if err != nil {
-			return &console.UsersPage{
-				Users: []console.User{},
-			}, nil
+			return nil, Error.Wrap(err)
 		}
-		page.Users = append(page.Users, console.User{
-			ID:    id,
-			Email: usr.Email,
-		})
+		expiredUsers = append(expiredUsers, user)
 	}
 
-	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
-	if page.TotalCount%uint64(cursor.Limit) != 0 {
-		page.PageCount++
-	}
-
-	page.CurrentPage = cursor.Page
-
-	return page, nil
+	return expiredUsers, Error.Wrap(rows.Err())
 }
 
 // GetByEmailWithUnverified is a method for querying users by email from the database.

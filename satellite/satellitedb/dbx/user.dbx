@@ -138,18 +138,6 @@ read limitoffset (
 	where user.status = ?
 )
 
-read count (
-	select user
-	where user.paid_tier = false
-	where user.trial_expiration < ?
-)
-
-read limitoffset (
-	select user.id user.email
-	where user.paid_tier = false
-	where user.trial_expiration < ?
-)
-
 model webapp_session (
     key id
     index ( fields user_id )

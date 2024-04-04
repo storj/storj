@@ -22,8 +22,9 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
-	// GetExpiredFreeTrialsAfter is a method for querying users in free trial from the database with trial expiry (after).
-	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, cursor UserCursor) (*UsersPage, error)
+	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
+	// AND have not been frozen.
+	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]User, error)
 	// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
 	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.

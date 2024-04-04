@@ -498,22 +498,11 @@ func (chore *Chore) attemptTrialExpirationFreeze(ctx context.Context) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	cursor := console.UserCursor{
-		Limit: 100,
-		Page:  1,
-	}
-
-	getUsers := func(c console.UserCursor) (users *console.UsersPage, err error) {
-		users, err = chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), c)
-		if err != nil {
-			return nil, err
-		}
-		return users, err
-	}
-
+	limit := 100
 	totalFrozen := 0
+
 	for {
-		userPage, err := getUsers(cursor)
+		users, err := chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), limit)
 		if err != nil {
 			chore.log.Error("Unable to list expired free trials",
 				zap.String("process", "trial expiration freeze"),
@@ -522,48 +511,25 @@ func (chore *Chore) attemptTrialExpirationFreeze(ctx context.Context) {
 			break
 		}
 
-		if len(userPage.Users) == 0 {
+		if len(users) == 0 {
 			chore.log.Info("No expired free trials found",
 				zap.String("process", "trial expiration freeze"),
 			)
 			break
 		}
 
-		for _, user := range userPage.Users {
-			errorLog := func(message string, err error) {
-				chore.log.Error(message,
-					zap.String("process", "trial expiration freeze"),
-					zap.Any("userID", user.ID),
-					zap.Error(Error.Wrap(err)),
-				)
-			}
-			infoLog := func(message string) {
-				chore.log.Info(message,
-					zap.String("process", "trial expiration freeze"),
-					zap.Any("userID", user.ID),
-					zap.Error(Error.Wrap(err)),
-				)
-			}
-
-			frozen, err := chore.freezeService.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
-			if err != nil {
-				errorLog("Could not check if user is frozen", err)
-				continue
-			}
-			if frozen {
-				infoLog("Skipping user; account already frozen")
-				continue
-			}
-
+		for _, user := range users {
 			err = chore.freezeService.TrialExpirationFreezeUser(ctx, user.ID)
-			if err != nil {
-				errorLog("Could not trial expiration freeze user", err)
+			if err == nil {
+				totalFrozen++
+				continue
 			}
-
-			totalFrozen++
+			chore.log.Error("Could not trial expiration freeze user",
+				zap.String("process", "trial expiration freeze"),
+				zap.Any("userID", user.ID),
+				zap.Error(Error.Wrap(err)),
+			)
 		}
-
-		cursor.Page++
 	}
 
 	chore.log.Info("trial expiration freeze executed",
