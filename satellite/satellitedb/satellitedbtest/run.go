@@ -271,7 +271,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				}
 			}()
 
-			err = db.MigrateToLatest(ctx)
+			err = db.Testing().TestMigrateToLatest(ctx)
 			if err != nil {
 				b.Fatal(err)
 			}
