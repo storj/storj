@@ -46,19 +46,6 @@ pipeline {
         }
         stage('Build') {
             parallel {
-                stage('go') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
-                    }
-                }
-                stage('go -race') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
-                    }
-                }
-
                 stage('db') {
                     steps {
                         dir('.build') {
