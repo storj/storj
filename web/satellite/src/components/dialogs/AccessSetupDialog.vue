@@ -13,7 +13,7 @@
             <v-sheet>
                 <v-card-item class="py-4 pl-7">
                     <v-card-title class="font-weight-bold">
-                        Setup App Access
+                        Setup {{ isAppSetup ? 'App' : '' }} Access
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -36,9 +36,22 @@
                 class="setup-app__window"
                 :class="{ 'setup-app__window--loading': isFetching }"
             >
+                <v-window-item :value="SetupStep.ChooseAccessStep">
+                    <choose-access-step
+                        :ref="stepInfos[SetupStep.ChooseAccessStep].ref"
+                        @name-changed="newName => name = newName"
+                        @typeChanged="newType => accessType = newType"
+                    />
+                </v-window-item>
+
+                <v-window-item :value="SetupStep.EncryptionInfo">
+                    <encryption-info-step :ref="stepInfos[SetupStep.EncryptionInfo].ref" />
+                </v-window-item>
+
                 <v-window-item :value="SetupStep.ChooseFlowStep">
                     <choose-flow-step
                         :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
+                        :is-app-setup="isAppSetup"
                         @setFlowType="val => flowType = val"
                     />
                 </v-window-item>
@@ -80,10 +93,23 @@
                     />
                 </v-window-item>
 
+                <v-window-item :value="SetupStep.OptionalExpirationStep">
+                    <optional-expiration-step
+                        :ref="stepInfos[SetupStep.OptionalExpirationStep].ref"
+                        :end-date="endDate"
+                        @endDateChanged="val => endDate = val"
+                    />
+                </v-window-item>
+
                 <v-window-item :value="SetupStep.AccessCreatedStep">
                     <access-created-step
                         :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
+                        :name="name"
+                        :is-app-setup="isAppSetup"
+                        :cli-access="cliAccess"
+                        :access-grant="accessGrant"
                         :credentials="credentials"
+                        :access-type="accessType"
                     />
                 </v-window-item>
             </v-window>
@@ -100,7 +126,7 @@
                             :disabled="isCreating || isFetching"
                             @click="prevStep"
                         >
-                            {{ stepInfos[step].prevText }}
+                            {{ stepInfos[step].prevText.value }}
                         </v-btn>
                     </v-col>
                     <v-col>
@@ -150,8 +176,10 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { useRoute } from 'vue-router';
 
 import {
+    AccessType,
     FlowType,
     PassphraseOption,
     Permission,
@@ -166,14 +194,19 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/modules/usersStore';
 
-import ChooseFlowStep from '@/components/dialogs/appSetupSteps/ChooseFlowStep.vue';
-import ChoosePermissionsStep from '@/components/dialogs/appSetupSteps/ChoosePermissionsStep.vue';
-import SelectBucketsStep from '@/components/dialogs/appSetupSteps/SelectBucketsStep.vue';
-import AccessCreatedStep from '@/components/dialogs/appSetupSteps/AccessCreatedStep.vue';
+import ChooseFlowStep from '@/components/dialogs/accessSetupSteps/ChooseFlowStep.vue';
+import ChooseAccessStep from '@/components/dialogs/accessSetupSteps/ChooseAccessStep.vue';
+import ChoosePermissionsStep from '@/components/dialogs/accessSetupSteps/ChoosePermissionsStep.vue';
+import SelectBucketsStep from '@/components/dialogs/accessSetupSteps/SelectBucketsStep.vue';
+import AccessCreatedStep from '@/components/dialogs/accessSetupSteps/AccessCreatedStep.vue';
 import AccessEncryptionStep from '@/components/dialogs/createAccessSteps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
 import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/PassphraseGeneratedStep.vue';
+import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/OptionalExpirationStep.vue';
+import EncryptionInfoStep from '@/components/dialogs/createAccessSteps/EncryptionInfoStep.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 
@@ -182,10 +215,11 @@ class StepInfo {
     public prev: Ref<SetupStep | undefined>;
     public next: Ref<SetupStep | undefined>;
     public nextText: Ref<string>;
+    public prevText: Ref<string>;
 
     constructor(
         nextText: string | (() => string),
-        public prevText: string,
+        prevText: string | (() => string),
         prev: SetupLocation = undefined,
         next: SetupLocation = undefined,
         public beforeNext?: () => Promise<void>,
@@ -193,21 +227,30 @@ class StepInfo {
         this.prev = (typeof prev === 'function') ? computed<SetupStep | undefined>(prev) : ref<SetupStep | undefined>(prev);
         this.next = (typeof next === 'function') ? computed<SetupStep | undefined>(next) : ref<SetupStep | undefined>(next);
         this.nextText = (typeof nextText === 'function') ? computed<string>(nextText) : ref<string>(nextText);
+        this.prevText = (typeof prevText === 'function') ? computed<string>(prevText) : ref<string>(prevText);
     }
 }
 
-const props = defineProps<{
-    accessName: string
+const props = withDefaults(defineProps<{
     docsLink: string
-}>();
+    isAppSetup?: boolean
+    accessName?: string
+    defaultAccessType?: AccessType
+}>(), {
+    isAppSetup: false,
+    accessName: undefined,
+    defaultAccessType: undefined,
+});
 
 const agStore = useAccessGrantsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 const analyticsStore = useAnalyticsStore();
+const userStore = useUsersStore();
 
 const notify = useNotify();
+const route = useRoute();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -223,42 +266,76 @@ function resettableRef<T>(value: T): Ref<T> {
     return thisRef;
 }
 
-const step = resettableRef<SetupStep>(SetupStep.ChooseFlowStep);
-const flowType = resettableRef<FlowType>(FlowType.Default);
+const step = resettableRef<SetupStep>(props.defaultAccessType ? SetupStep.ChooseFlowStep : SetupStep.ChooseAccessStep);
+const accessType = resettableRef<AccessType>(props.defaultAccessType ?? AccessType.S3);
+const flowType = resettableRef<FlowType>(FlowType.FullAccess);
 const name = resettableRef<string>('');
 const permissions = resettableRef<Permission[]>([]);
 const buckets = resettableRef<string[]>([]);
 const passphrase = resettableRef<string>(bucketsStore.state.passphrase);
+const endDate = resettableRef<Date | null>(null);
 const passphraseOption = resettableRef<PassphraseOption>(PassphraseOption.EnterNewPassphrase);
+const cliAccess = resettableRef<string>('');
+const accessGrant = resettableRef<string>('');
 const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
 const stepInfos: Record<SetupStep, StepInfo> = {
-    [SetupStep.ChooseFlowStep]: new StepInfo(
-        () => promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next' : 'Create Access',
+    [SetupStep.ChooseAccessStep]: new StepInfo(
+        'Next',
         'Cancel',
         undefined,
+        () => (accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption)
+            ? SetupStep.EncryptionInfo
+            : SetupStep.ChooseFlowStep,
+    ),
+    [SetupStep.EncryptionInfo]: new StepInfo(
+        'Next',
+        'Back',
+        SetupStep.ChooseAccessStep,
+        SetupStep.ChooseFlowStep,
+    ),
+    [SetupStep.ChooseFlowStep]: new StepInfo(
         () => {
+            if (accessType.value === AccessType.APIKey) {
+                return flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next';
+            }
+
+            return promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next' : 'Create Access';
+        },
+        () => props.defaultAccessType ? 'Cancel' : 'Back',
+        () => {
+            if (props.defaultAccessType) return undefined;
+
+            return accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption
+                ? SetupStep.EncryptionInfo
+                : SetupStep.ChooseAccessStep;
+        },
+        () => {
+            if (accessType.value === AccessType.APIKey) {
+                return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            }
+
             if (promptForPassphrase.value) return SetupStep.AccessEncryption;
 
-            return flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
         },
         async () => {
-            if (!promptForPassphrase.value && flowType.value === FlowType.Default) {
-                await createCredentials();
+            if (flowType.value === FlowType.FullAccess && (accessType.value === AccessType.APIKey || !promptForPassphrase.value)) {
+                await generate();
             }
         },
     ),
     [SetupStep.AccessEncryption]: new StepInfo(
-        () => flowType.value === FlowType.Default && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next',
+        () => flowType.value === FlowType.FullAccess && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next',
         'Back',
         SetupStep.ChooseFlowStep,
         () => {
             if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
             if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
 
-            return flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
         },
         async () => {
             if (
@@ -267,32 +344,32 @@ const stepInfos: Record<SetupStep, StepInfo> = {
                 flowType.value === FlowType.Advanced
             ) return;
 
-            await createCredentials();
+            await generate();
         },
     ),
     [SetupStep.PassphraseGenerated]: new StepInfo(
-        () => flowType.value === FlowType.Default ? 'Create Access' : 'Next',
+        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next',
         'Back',
         SetupStep.AccessEncryption,
-        () => flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
+        () => flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
         async () => {
-            if (flowType.value === FlowType.Default) await createCredentials();
+            if (flowType.value === FlowType.FullAccess) await generate();
         },
     ),
     [SetupStep.EnterNewPassphrase]: new StepInfo(
-        () => flowType.value === FlowType.Default ? 'Create Access' : 'Next',
+        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next',
         'Back',
         SetupStep.AccessEncryption,
-        () => flowType.value === FlowType.Default ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
+        () => flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
         async () => {
-            if (flowType.value === FlowType.Default) await createCredentials();
+            if (flowType.value === FlowType.FullAccess) await generate();
         },
     ),
     [SetupStep.ChoosePermissionsStep]: new StepInfo(
         'Next',
         'Back',
         () => {
-            if (bucketsStore.state.promptForPassphrase) {
+            if (bucketsStore.state.promptForPassphrase && accessType.value !== AccessType.APIKey) {
                 if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
                 if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
 
@@ -304,11 +381,20 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         SetupStep.SelectBucketsStep,
     ),
     [SetupStep.SelectBucketsStep]: new StepInfo(
-        'Create Access',
+        () => props.isAppSetup ? 'Create Access' : 'Next',
         'Back',
         SetupStep.ChoosePermissionsStep,
+        () => props.isAppSetup ? SetupStep.AccessCreatedStep : SetupStep.OptionalExpirationStep,
+        async () => {
+            if (props.isAppSetup) await generate();
+        },
+    ),
+    [SetupStep.OptionalExpirationStep]: new StepInfo(
+        'Create Access',
+        'Back',
+        SetupStep.SelectBucketsStep,
         SetupStep.AccessCreatedStep,
-        createCredentials,
+        generate,
     ),
     [SetupStep.AccessCreatedStep]: new StepInfo('', 'Close'),
 };
@@ -317,28 +403,51 @@ const stepInfos: Record<SetupStep, StepInfo> = {
  * Set unique name of access to be created.
  */
 function setDefaultName(): void {
+    if (!props.accessName) return;
+
     name.value = getUniqueName(props.accessName, agStore.state.allAGNames);
 }
 
 /**
- * Set unique name of access to be created.
+ * Generates access based on selected properties.
  */
-async function createCredentials(): Promise<void> {
-    if (!worker.value) {
-        throw new Error('Web worker is not initialized.');
-    }
-
-    if (!passphrase.value) throw new Error('Passphrase can\'t be empty');
-
-    const projectID = projectsStore.state.selectedProject.id;
+async function generate(): Promise<void> {
+    if (isCreating.value) return;
 
     isCreating.value = true;
 
+    await createAPIKey();
+    if (accessType.value === AccessType.AccessGrant || accessType.value === AccessType.S3) {
+        await createAccessGrant();
+        if (passphraseOption.value === PassphraseOption.SetMyProjectPassphrase) {
+            bucketsStore.setEdgeCredentials(new EdgeCredentials());
+            bucketsStore.setPassphrase(passphrase.value);
+            bucketsStore.setPromptForPassphrase(false);
+        }
+    }
+    if (accessType.value === AccessType.S3) await createEdgeCredentials();
+
+    isCreating.value = false;
+}
+
+/**
+ * Generates API Key.
+ */
+async function createAPIKey(): Promise<void> {
+    if (!worker.value) throw new Error('Web worker is not initialized.');
+
+    const projectID = projectsStore.state.selectedProject.id;
     const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name.value, projectID);
 
-    const noCaveats = flowType.value === FlowType.Default;
+    if (route.name === ROUTES.Access.name) {
+        agStore.getAccessGrants(1, projectID).catch(err => {
+            notify.error(`Unable to fetch access grants. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
+        });
+    }
 
-    const permissionsMsg = {
+    const noCaveats = flowType.value === FlowType.FullAccess;
+
+    let permissionsMsg = {
         'type': 'SetPermission',
         'buckets': JSON.stringify(noCaveats ? [] : buckets.value),
         'apiKey': cleanAPIKey.secret,
@@ -349,6 +458,8 @@ async function createCredentials(): Promise<void> {
         'notBefore': new Date().toISOString(),
     };
 
+    if (endDate.value && !noCaveats) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': endDate.value.toISOString() });
+
     worker.value.postMessage(permissionsMsg);
 
     const grantEvent: MessageEvent = await new Promise(resolve => {
@@ -356,14 +467,25 @@ async function createCredentials(): Promise<void> {
     });
     if (grantEvent.data.error) throw new Error(grantEvent.data.error);
 
-    const keyWithCaveats = grantEvent.data.value;
+    cliAccess.value = grantEvent.data.value;
+
+    if (accessType.value === AccessType.APIKey) analyticsStore.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+}
+
+/**
+ * Generates access grant.
+ */
+async function createAccessGrant(): Promise<void> {
+    if (!worker.value) throw new Error('Web worker is not initialized.');
+    if (!passphrase.value) throw new Error('Passphrase can\'t be empty');
+
     const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
 
     const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
     worker.value.postMessage({
         'type': 'GenerateAccess',
-        'apiKey': keyWithCaveats,
+        'apiKey': cliAccess.value,
         'passphrase': passphrase.value,
         'salt': salt,
         'satelliteNodeURL': satelliteNodeURL,
@@ -374,18 +496,17 @@ async function createCredentials(): Promise<void> {
     });
     if (accessEvent.data.error) throw new Error(accessEvent.data.error);
 
-    const accessGrant = accessEvent.data.value;
+    accessGrant.value = accessEvent.data.value;
 
-    credentials.value = await agStore.getEdgeCredentials(accessGrant);
+    if (accessType.value === AccessType.AccessGrant) analyticsStore.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
+}
+
+/**
+ * Generates edge credentials.
+ */
+async function createEdgeCredentials(): Promise<void> {
+    credentials.value = await agStore.getEdgeCredentials(accessGrant.value);
     analyticsStore.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
-
-    if (passphraseOption.value === PassphraseOption.SetMyProjectPassphrase) {
-        bucketsStore.setEdgeCredentials(new EdgeCredentials());
-        bucketsStore.setPassphrase(passphrase.value);
-        bucketsStore.setPromptForPassphrase(false);
-    }
-
-    isCreating.value = false;
 }
 
 /**
@@ -402,7 +523,7 @@ async function nextStep(): Promise<void> {
         try {
             await info.beforeNext();
         } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.SETUP_APPLICATION_MODAL);
+            notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
             isCreating.value = false;
             return;
         }
@@ -474,7 +595,7 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+            notify.error(error.message, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
         };
     }
 
@@ -482,14 +603,14 @@ watch(innerContent, async (comp: Component): Promise<void> => {
 
     const projectID = projectsStore.state.selectedProject.id;
     await agStore.getAllAGNames(projectID).catch(err => {
-        notify.error(`Error fetching access grant names. ${err.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        notify.error(`Error fetching access grant names. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
     });
     await bucketsStore.getAllBucketsNames(projectID).catch(err => {
-        notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
     });
 
     passphrase.value = bucketsStore.state.passphrase;
-    if (props.accessName) setDefaultName();
+    setDefaultName();
 
     isFetching.value = false;
 

@@ -22,9 +22,9 @@ export interface Exposed {
 }
 
 export enum AccessType {
-    APIKey = 'API Key',
-    S3 = 'S3 Credentials',
-    AccessGrant = 'Access Grant',
+    APIKey = 'API-Key',
+    S3 = 'S3-Credentials',
+    AccessGrant = 'Access-Grant',
 }
 
 export enum PassphraseOption {
@@ -49,17 +49,20 @@ export enum CreateAccessStep {
 }
 
 export enum SetupStep {
-    ChooseFlowStep = 'chooseFlowStep',
+    ChooseAccessStep = 'chooseAccess',
+    EncryptionInfo = 'encryptionInfo',
+    ChooseFlowStep = 'chooseFlow',
     AccessEncryption = 'accessEncryption',
     PassphraseGenerated = 'passphraseGenerated',
     EnterNewPassphrase = 'enterNewPassphrase',
     ChoosePermissionsStep = 'choosePermission',
     SelectBucketsStep = 'selectBuckets',
+    OptionalExpirationStep = 'optionalExpiration',
     AccessCreatedStep = 'accessCreated',
 }
 
 export enum FlowType {
-    Default = 'default',
+    FullAccess = 'fullAccess',
     Advanced = 'advanced',
 }
 

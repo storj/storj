@@ -5,7 +5,7 @@
     <v-row class="pa-4 ma-0">
         <v-col cols="12">
             By generating S3 credentials, you are opting in to
-            <a class="link" href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/">
+            <a class="link" href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/" target="_blank" rel="noopener noreferrer">
                 server-side encryption.
             </a>
         </v-col>
@@ -14,8 +14,8 @@
                 density="compact"
                 label="I understand, don't show this again."
                 color="default"
-                :hide-details="true"
-                @update:model-value="value => toggleServerSideEncryptionNotice(value)"
+                hide-details
+                @update:model-value="value => toggleServerSideEncryptionNotice(value as boolean)"
             />
         </v-col>
     </v-row>
@@ -33,7 +33,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 
-async function toggleServerSideEncryptionNotice(value: boolean) {
+async function toggleServerSideEncryptionNotice(value: boolean): Promise<void> {
     try {
         const noticeDismissal = { ...userStore.state.settings.noticeDismissal };
         noticeDismissal.serverSideEncryption = value;

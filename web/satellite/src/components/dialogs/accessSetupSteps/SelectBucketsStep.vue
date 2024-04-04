@@ -54,7 +54,7 @@
                         multiple
                         chips
                         closable-chips
-                        :rules="bucketsRules"
+                        hide-details
                         :custom-filter="bucketFilter"
                     >
                         <template #item="{ props: slotProps }">
@@ -86,7 +86,6 @@ import {
 } from 'vuetify/components';
 
 import { BucketsOption } from '@/types/createAccessGrant';
-import { ValidationRule } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 const bucketsStore = useBucketsStore();
@@ -98,8 +97,6 @@ const emit = defineEmits<{
 const option = ref<BucketsOption>(BucketsOption.All);
 const buckets = ref<string[]>([]);
 const bucketSearch = ref<string>('');
-
-const bucketsRules: ValidationRule<string[]>[] = [ v => !!v.length  || 'Required' ];
 
 /**
  * Returns all bucket names from the store.
