@@ -452,7 +452,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.satellite-operator: Storj Labs
 
 # url link to schedule a meeting with a storj representative
-# console.schedule-meeting-url: https://meetings.hubspot.com/tom144/meeting-with-tom-troy
+# console.schedule-meeting-url: https://meetings.hubspot.com/tom144/free-trial
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"

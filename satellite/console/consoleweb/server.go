@@ -72,7 +72,7 @@ type Config struct {
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
 	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storj.io"`
-	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storj representative" default:"https://meetings.hubspot.com/tom144/meeting-with-tom-troy"`
+	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storj representative" default:"https://meetings.hubspot.com/tom144/free-trial"`
 	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
