@@ -8,14 +8,14 @@
                 <img
                     v-if="theme.global.current.value.dark"
                     src="@/assets/logo-dark.svg"
-                    height="36"
+                    height="29"
                     width="auto"
                     alt="Storj Logo"
                 >
                 <img
                     v-else
                     src="@/assets/logo.svg"
-                    height="36"
+                    height="29"
                     width="auto"
                     alt="Storj Logo"
                 >
@@ -24,7 +24,7 @@
                     <a :href="partnerConfig.partnerUrl">
                         <img
                             :src="partnerConfig.partnerLogoTopUrl"
-                            height="36"
+                            height="29"
                             width="auto"
                             :alt="partnerConfig.name + ' logo'"
                             class="rounded mt-2"
