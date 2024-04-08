@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/dbutil"
@@ -37,33 +36,9 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
-			mudtest.Run[*metabase.DB](t, func(ball *mud.Ball) {
-				mud.Provide[*metabase.DB](ball, createMetabaseDBOnTopOf)
-				mud.Provide[*dbutil.TempDatabase](ball, satellitedbtest.CreateTempDB)
-				mud.Provide[metabase.Config](ball, func() metabase.Config {
-					cfg := metabase.Config{
-						ApplicationName:  "satellite-metabase-test" + pgutil.CreateRandomTestingSchemaName(6),
-						MinPartSize:      config.MinPartSize,
-						MaxNumberOfParts: config.MaxNumberOfParts,
-
-						ServerSideCopy:         config.ServerSideCopy,
-						ServerSideCopyDisabled: config.ServerSideCopyDisabled,
-
-						TestingUniqueUnversioned: true,
-					}
-					return cfg
-				})
-				mud.Supply[satellitedbtest.Database](ball, satellitedbtest.Database{
-					Name:    dbinfo.MetabaseDB.Name,
-					URL:     dbinfo.MetabaseDB.URL,
-					Message: dbinfo.MetabaseDB.Message,
-				})
-				mud.Supply[satellitedbtest.TempDBSchemaConfig](ball, satellitedbtest.TempDBSchemaConfig{
-					Name:     "test",
-					Category: "M",
-					Index:    0,
-				})
-			}, func(ctx context.Context, t *testing.T, db *metabase.DB) {
+			mudtest.Run[*metabase.DB](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
+				Modules(ball, dbinfo.MetabaseDB, config)
+			}), func(ctx context.Context, t *testing.T, db *metabase.DB) {
 				tctx := testcontext.New(t)
 				defer tctx.Cleanup()
 
@@ -102,30 +77,57 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 	for _, dbinfo := range satellitedbtest.Databases() {
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
-			ctx := testcontext.New(b)
-			defer ctx.Cleanup()
-			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
+			config := metabase.Config{
 				ApplicationName:  "satellite-bench",
 				MinPartSize:      5 * memory.MiB,
 				MaxNumberOfParts: 10000,
-			})
-			if err != nil {
-				b.Fatal(err)
 			}
-			defer func() {
-				if err := db.Close(); err != nil {
-					b.Error(err)
+
+			mudtest.Run[*metabase.DB](b, func(ball *mud.Ball) {
+				mud.Provide[*zap.Logger](ball, zap.NewNop)
+				Modules(ball, dbinfo.MetabaseDB, config)
+			}, func(ctx context.Context, b *testing.B, db *metabase.DB) {
+				tctx := testcontext.New(b)
+				defer tctx.Cleanup()
+
+				if err := db.TestMigrateToLatest(ctx); err != nil {
+					b.Fatal(err)
 				}
-			}()
 
-			if err := db.MigrateToLatest(ctx); err != nil {
-				b.Fatal(err)
-			}
-
-			b.ResetTimer()
-			fn(ctx, b, db)
+				b.ResetTimer()
+				fn(tctx, b, db)
+			})
 		})
 	}
+}
+
+// Modules provides all dependencies to run metabase tests.
+func Modules(ball *mud.Ball, dbinfo satellitedbtest.Database, config metabase.Config) {
+	mud.Provide[*metabase.DB](ball, createMetabaseDBOnTopOf)
+	mud.Provide[*dbutil.TempDatabase](ball, satellitedbtest.CreateTempDB)
+	mud.Provide[metabase.Config](ball, func() metabase.Config {
+		cfg := metabase.Config{
+			ApplicationName:  "satellite-metabase-test" + pgutil.CreateRandomTestingSchemaName(6),
+			MinPartSize:      config.MinPartSize,
+			MaxNumberOfParts: config.MaxNumberOfParts,
+
+			ServerSideCopy:         config.ServerSideCopy,
+			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
+
+			TestingUniqueUnversioned: true,
+		}
+		return cfg
+	})
+	mud.Supply[satellitedbtest.Database](ball, satellitedbtest.Database{
+		Name:    dbinfo.Name,
+		URL:     dbinfo.URL,
+		Message: dbinfo.Message,
+	})
+	mud.Supply[satellitedbtest.TempDBSchemaConfig](ball, satellitedbtest.TempDBSchemaConfig{
+		Name:     "test",
+		Category: "M",
+		Index:    0,
+	})
 }
 
 func createMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config) (*metabase.DB, error) {

@@ -20,9 +20,6 @@ import (
 func Run[Target any, TB testing.TB](tb TB, modules func(ball *mud.Ball), testRun func(ctx context.Context, tb TB, target Target)) {
 	ctx := testcontext.New(tb)
 	ball := mud.NewBall()
-	mud.Provide[*zap.Logger](ball, func() *zap.Logger {
-		return zaptest.NewLogger(tb)
-	})
 	modules(ball)
 	for _, component := range mud.FindSelectedWithDependencies(ball, mud.Select[Target](ball)) {
 		err := component.Init(ctx)
@@ -36,4 +33,14 @@ func Run[Target any, TB testing.TB](tb TB, modules func(ball *mud.Ball), testRun
 	}()
 	target := mud.MustLookup[Target](ball)
 	testRun(ctx, tb, target)
+}
+
+// WithTestLogger utility to provide test logger for mud ball.
+func WithTestLogger(tb testing.TB, modules func(ball *mud.Ball)) func(ball *mud.Ball) {
+	return func(ball *mud.Ball) {
+		mud.Provide[*zap.Logger](ball, func() *zap.Logger {
+			return zaptest.NewLogger(tb)
+		})
+		modules(ball)
+	}
 }
