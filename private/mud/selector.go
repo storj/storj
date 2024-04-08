@@ -6,7 +6,7 @@ package mud
 // Select is a component selector based on the specified type ([A]).
 func Select[A any](ball *Ball) ComponentSelector {
 	t := typeOf[A]()
-	mustLookup[A](ball)
+	MustLookupComponent[A](ball)
 	return func(c *Component) bool {
 		return c.target == t
 	}
