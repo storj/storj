@@ -234,7 +234,7 @@
 
                             <p class="mt-6">
                                 <v-icon :icon="mdiCheckBold" color="primary" />
-                                You can upload and download up to 25GB for free.
+                                You can upload and download up to 25GB for free, for 30 days.
                             </p>
 
                             <p class="mt-4">

@@ -54,14 +54,14 @@ const plans = ref<PricingPlanInfo[]>([
     new PricingPlanInfo(
         PricingPlanType.PRO,
         'Pro Account',
-        '25 GB Free',
+        '',
         'Only pay for what you need. $4/TB stored per month* $7/TB for download bandwidth.',
         '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and download. Only pay for what you use beyond that.',
+        'Add a credit card to activate your Pro Account.<br><br>Only pay for what you use.',
         'No charge today',
-        '25GB Free',
+        '',
     ),
 ]);
 
@@ -76,7 +76,7 @@ onBeforeMount(async () => {
                 PricingPlanType.FREE,
                 'Free Trial',
                 'Limited',
-                'Free usage up to 25GB storage and 25GB egress bandwidth per month.',
+                'Free usage up to 25GB storage and 25GB egress bandwidth for 30 days.',
                 null,
                 null,
                 null,
