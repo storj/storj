@@ -9,6 +9,11 @@ model user (
         fields normalized_email status
     )
 
+    index (
+         name trial_expiration_index
+         fields trial_expiration
+    )
+
     // id is an uuid for the user.
     field id                 blob
     // email is the user specified email.

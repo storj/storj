@@ -2694,6 +2694,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN prompted_for_versioning_beta boolean NOT NULL DEFAULT false;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index on trial_expiration column in users table",
+				Version:     267,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS trial_expiration_index ON users (trial_expiration);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
