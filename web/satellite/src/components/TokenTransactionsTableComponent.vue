@@ -51,7 +51,7 @@
                 </v-chip>
             </template>
             <template #item.link="{ item }">
-                <a :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
+                <a v-if="!item.type.includes('bonus')" :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
             </template>
         </v-data-table>
     </v-card>
