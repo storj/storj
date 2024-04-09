@@ -354,8 +354,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
-		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners)
+
+		allowedRoutes := []string{"/api/v0/payments/account"} // var partners can still setup stripe account
+		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
 		paymentsRouter.Use(varBlocker.withVarBlocker)
+
 		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
@@ -703,17 +706,25 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 type varBlockerMiddleWare struct {
 	partners map[string]struct{}
 	server   *Server
+	// routes that should be allowed by the varBlocker regardless
+	// of whether the request is from a VAR partner user or not
+	allowedRoutes map[string]struct{}
 }
 
 // newVarBlockerMiddleWare creates a new instance of varBlocker.
-func newVarBlockerMiddleWare(server *Server, varPartners []string) *varBlockerMiddleWare {
+func newVarBlockerMiddleWare(server *Server, varPartners []string, allowedRoutes []string) *varBlockerMiddleWare {
 	partners := make(map[string]struct{}, len(varPartners))
 	for _, partner := range varPartners {
 		partners[partner] = struct{}{}
 	}
+	allowed := make(map[string]struct{}, len(allowedRoutes))
+	for _, route := range allowedRoutes {
+		allowed[route] = struct{}{}
+	}
 	return &varBlockerMiddleWare{
-		partners: partners,
-		server:   server,
+		partners:      partners,
+		server:        server,
+		allowedRoutes: allowed,
 	}
 }
 
@@ -725,10 +736,16 @@ func (v *varBlockerMiddleWare) withVarBlocker(handler http.Handler) http.Handler
 
 		defer mon.Task()(&ctx)(&err)
 
-		user, err := console.GetUser(ctx)
-		if _, ok := v.partners[string(user.UserAgent)]; ok {
-			web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, errs.New("VAR Partner not supported"))
-			return
+		if _, ok := v.allowedRoutes[r.URL.Path]; !ok {
+			user, err := console.GetUser(ctx)
+			if err != nil {
+				web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, Error.Wrap(err))
+				return
+			}
+			if _, ok := v.partners[string(user.UserAgent)]; ok {
+				web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, errs.New("VAR Partner not supported"))
+				return
+			}
 		}
 
 		handler.ServeHTTP(w, r.Clone(ctx))
