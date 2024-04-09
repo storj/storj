@@ -109,7 +109,7 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM node_aliases;
 		WITH ignore_full_scan_for_test AS (SELECT 1) SELECT setval('node_alias_seq', 1, false);
 	`)
-	db.aliasCache = NewNodeAliasCache(db)
+	db.aliasCache.reset()
 	return Error.Wrap(err)
 }
 
@@ -349,3 +349,130 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 	}
 	return segs, nil
 }
+
+// TestingBatchInsertSegments batch inserts segments for testing.
+// This implementation does no verification on the correctness of segments.
+func (db *DB) TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error) {
+	return db.ChooseAdapter(uuid.UUID{}).TestingBatchInsertSegments(ctx, segments)
+}
+
+// TestingBatchInsertSegments implements postgres adapter.
+func (p *PostgresAdapter) TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error) {
+	const maxRowsPerCopy = 250000
+
+	minLength := len(segments)
+	if maxRowsPerCopy < minLength {
+		minLength = maxRowsPerCopy
+	}
+
+	aliases := make([]AliasPieces, 0, minLength)
+	return Error.Wrap(pgxutil.Conn(ctx, p.db,
+		func(conn *pgx.Conn) error {
+			progress, total := 0, len(segments)
+			for len(segments) > 0 {
+				batch := segments
+				if len(batch) > maxRowsPerCopy {
+					batch = batch[:maxRowsPerCopy]
+				}
+				segments = segments[len(batch):]
+
+				aliases = aliases[:len(batch)]
+				for i, segment := range batch {
+					aliases[i], err = p.aliasCache.EnsurePiecesToAliases(ctx, segment.Pieces)
+					if err != nil {
+						return err
+					}
+				}
+
+				source := newCopyFromRawSegments(batch, aliases)
+				_, err := conn.CopyFrom(ctx, pgx.Identifier{"segments"}, source.Columns(), source)
+				if err != nil {
+					return err
+				}
+
+				progress += len(batch)
+				p.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+			}
+			return err
+		}))
+}
+
+type copyFromRawSegments struct {
+	idx     int
+	rows    []RawSegment
+	aliases []AliasPieces
+	row     []any
+}
+
+func newCopyFromRawSegments(rows []RawSegment, aliases []AliasPieces) *copyFromRawSegments {
+	return &copyFromRawSegments{
+		rows:    rows,
+		aliases: aliases,
+		idx:     -1,
+	}
+}
+
+func (ctr *copyFromRawSegments) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
+
+func (ctr *copyFromRawSegments) Columns() []string {
+	return []string{
+		"stream_id",
+		"position",
+
+		"created_at",
+		"repaired_at",
+		"expires_at",
+
+		"root_piece_id",
+		"encrypted_key_nonce",
+		"encrypted_key",
+		"encrypted_etag",
+
+		"encrypted_size",
+		"plain_size",
+		"plain_offset",
+
+		"redundancy",
+		"inline_data",
+		"remote_alias_pieces",
+		"placement",
+	}
+}
+
+func (ctr *copyFromRawSegments) Values() ([]any, error) {
+	obj := &ctr.rows[ctr.idx]
+	aliases := &ctr.aliases[ctr.idx]
+
+	aliasPieces, err := aliases.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	ctr.row = append(ctr.row[:0],
+		obj.StreamID.Bytes(),
+		obj.Position.Encode(),
+
+		obj.CreatedAt,
+		obj.RepairedAt,
+		obj.ExpiresAt,
+
+		obj.RootPieceID.Bytes(),
+		obj.EncryptedKeyNonce,
+		obj.EncryptedKey,
+		obj.EncryptedETag,
+
+		obj.EncryptedSize,
+		obj.PlainSize,
+		obj.PlainOffset,
+
+		redundancyScheme{&obj.Redundancy},
+		obj.InlineData,
+		aliasPieces,
+		obj.Placement,
+	)
+	return ctr.row, nil
+}
+
+func (ctr *copyFromRawSegments) Err() error { return nil }

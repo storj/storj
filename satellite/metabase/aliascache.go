@@ -199,6 +199,11 @@ func (cache *NodeAliasCache) EnsurePiecesToAliases(ctx context.Context, pieces P
 	return aliasPieces, nil
 }
 
+// reset resets cache to it's initial state.
+func (cache *NodeAliasCache) reset() {
+	cache.latest.Store(NewNodeAliasMap(nil))
+}
+
 // ConvertAliasesToPieces converts alias pieces to pieces.
 func (cache *NodeAliasCache) ConvertAliasesToPieces(ctx context.Context, aliasPieces AliasPieces) (_ Pieces, err error) {
 	return cache.convertAliasesToPieces(ctx, aliasPieces, make(Pieces, len(aliasPieces)))

@@ -98,12 +98,16 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	switch impl {
 	case dbutil.Postgres:
 		db.adapters = append(db.adapters, &PostgresAdapter{
-			db: rawdb,
+			log:        log,
+			db:         rawdb,
+			aliasCache: db.aliasCache,
 		})
 	case dbutil.Cockroach:
 		db.adapters = append(db.adapters, &CockroachAdapter{
 			PostgresAdapter{
-				db: rawdb,
+				log:        log,
+				db:         rawdb,
+				aliasCache: db.aliasCache,
 			},
 		})
 	default:
@@ -158,7 +162,7 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 		DROP TABLE IF EXISTS metabase_versions;
 		DROP SEQUENCE IF EXISTS node_alias_seq;
 	`)
-	db.aliasCache = NewNodeAliasCache(db)
+	db.aliasCache.reset()
 	return Error.Wrap(err)
 }
 

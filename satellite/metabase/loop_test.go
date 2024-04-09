@@ -499,41 +499,26 @@ func TestIterateLoopSegments(t *testing.T) {
 			numberOfSegments := 5
 
 			committed := metabasetest.RandObjectStream()
-			expectedObject := metabasetest.CreateObject(ctx, t, db, committed, byte(numberOfSegments))
 			expected := make([]metabase.LoopSegmentEntry, numberOfSegments)
 			expectedRaw := make([]metabase.RawSegment, numberOfSegments)
 			for i := 0; i < numberOfSegments; i++ {
-				entry := metabase.LoopSegmentEntry{
-					StreamID:      committed.StreamID,
-					Position:      metabase.SegmentPosition{0, uint32(i)},
-					RootPieceID:   storj.PieceID{1},
-					Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-					CreatedAt:     now,
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   int64(i) * 512,
-					Redundancy:    metabasetest.DefaultRedundancy,
-					AliasPieces: metabase.AliasPieces([]metabase.AliasPiece{
-						{Alias: 1},
-					}),
+				rawSegment := metabasetest.DefaultRawSegment(committed, metabase.SegmentPosition{0, uint32(i)})
+				expected[i] = metabase.LoopSegmentEntry{
+					StreamID:      rawSegment.StreamID,
+					Position:      rawSegment.Position,
+					RootPieceID:   rawSegment.RootPieceID,
+					Pieces:        rawSegment.Pieces,
+					CreatedAt:     rawSegment.CreatedAt,
+					EncryptedSize: rawSegment.EncryptedSize,
+					PlainSize:     rawSegment.PlainSize,
+					PlainOffset:   rawSegment.PlainOffset,
+					Redundancy:    rawSegment.Redundancy,
 				}
-				expected[i] = entry
-				expectedRaw[i] = metabase.RawSegment{
-					StreamID:      entry.StreamID,
-					Position:      entry.Position,
-					RootPieceID:   entry.RootPieceID,
-					Pieces:        entry.Pieces,
-					CreatedAt:     entry.CreatedAt,
-					EncryptedSize: entry.EncryptedSize,
-					PlainSize:     entry.PlainSize,
-					PlainOffset:   entry.PlainOffset,
-					Redundancy:    entry.Redundancy,
-
-					EncryptedKey:      []byte{3},
-					EncryptedKeyNonce: []byte{4},
-					EncryptedETag:     []byte{5},
-				}
+				expectedRaw[i] = rawSegment
 			}
+
+			err := db.TestingBatchInsertSegments(ctx, expectedRaw)
+			require.NoError(t, err)
 
 			{ // less segments than limit
 				limit := 10
@@ -572,9 +557,6 @@ func TestIterateLoopSegments(t *testing.T) {
 			}
 
 			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(expectedObject),
-				},
 				Segments: expectedRaw,
 			}.Check(ctx, t, db)
 		})

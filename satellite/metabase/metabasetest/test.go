@@ -414,7 +414,8 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 		}
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	// ignore AliasPieces because we won't be always able to predict node aliases for tests
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.IgnoreFields(metabase.LoopSegmentEntry{}, "AliasPieces"))
 	require.Zero(t, diff)
 }
 

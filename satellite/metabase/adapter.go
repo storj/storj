@@ -6,6 +6,8 @@ package metabase
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/tagsql"
 )
 
@@ -15,11 +17,14 @@ type Adapter interface {
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
+	TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error)
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.
 type PostgresAdapter struct {
-	db tagsql.DB
+	log        *zap.Logger
+	db         tagsql.DB
+	aliasCache *NodeAliasCache
 }
 
 var _ Adapter = &PostgresAdapter{}
