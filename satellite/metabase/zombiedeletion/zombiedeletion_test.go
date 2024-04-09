@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -123,8 +124,7 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 		require.NoError(t, err)
 		_, err = partUpload.Write(testrand.Bytes(140 * memory.KiB))
 		require.NoError(t, err)
-		err = partUpload.Commit()
-		require.NoError(t, err)
+		require.NoError(t, partUpload.Commit())
 
 		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
@@ -135,30 +135,24 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, segments, 3)
 
-		// now we need to change creation dates for all segments
-		db := planet.Satellites[0].Metabase.DB.UnderlyingTagSQL()
+		// workaround to set custom ZombieDeletionDeadline for object and custom creation time for segments
+		// we drop existing object and insert it with changed fields
+		require.NoError(t, project.AbortUpload(ctx, "testbucket1", "pending_object", info.UploadID))
 
-		// change object zombie_deletion_deadline to trigger full segments verification before deletion
 		zombieDeletionDeadline := now.Add(-12 * time.Hour)
 		objects[0].ZombieDeletionDeadline = &zombieDeletionDeadline
-		_, err = db.Exec(ctx, "UPDATE objects SET zombie_deletion_deadline = $1", zombieDeletionDeadline)
-		require.NoError(t, err)
 
 		s0CreatedAt := now.Add(3 * -23 * time.Hour)
 		segments[0].CreatedAt = s0CreatedAt
-		_, err = db.Exec(ctx, "UPDATE segments SET created_at = $1 WHERE stream_id = $2 AND position = $3", s0CreatedAt, objects[0].StreamID, 0)
-		require.NoError(t, err)
 
 		s1CreatedAt := now.Add(2 * -23 * time.Hour)
 		segments[1].CreatedAt = s1CreatedAt
-		_, err = db.Exec(ctx, "UPDATE segments SET created_at = $1 WHERE stream_id = $2 AND position = $3", s1CreatedAt, objects[0].StreamID, 1)
-		require.NoError(t, err)
 
-		// last segment should mark this object as active as it was uploaded 23h ago
 		s2CreatedAt := now.Add(-23 * time.Hour)
 		segments[2].CreatedAt = s2CreatedAt
-		_, err = db.Exec(ctx, "UPDATE segments SET created_at = $1 WHERE stream_id = $2 AND position = $3", s2CreatedAt, objects[0].StreamID, 2)
-		require.NoError(t, err)
+
+		require.NoError(t, planet.Satellites[0].Metabase.DB.TestingBatchInsertObjects(ctx, []metabase.RawObject{metabase.RawObject(objects[0])}))
+		require.NoError(t, planet.Satellites[0].Metabase.DB.TestingBatchInsertSegments(ctx, metabasetest.SegmentsToRaw(segments)))
 
 		// running deletion process
 		zombieChore.Loop.TriggerWait()
@@ -169,14 +163,10 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 
 		// Diff is used because DB manipulation changes value time zone and require.Equal
 		// fails on that even when value is correct
-		diff := cmp.Diff(objects, afterObjects,
-			cmpopts.EquateApproxTime(1*time.Second))
-		require.Zero(t, diff)
+		require.Zero(t, cmp.Diff(objects, afterObjects, cmpopts.EquateApproxTime(1*time.Second)))
 
 		afterSegments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
-		diff = cmp.Diff(segments, afterSegments,
-			cmpopts.EquateApproxTime(1*time.Second))
-		require.Zero(t, diff)
+		require.Zero(t, cmp.Diff(segments, afterSegments, cmpopts.EquateApproxTime(1*time.Second)))
 	})
 }

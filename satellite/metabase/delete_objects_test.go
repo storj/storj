@@ -483,15 +483,13 @@ func TestDeleteZombieObjects(t *testing.T) {
 		t.Run("migrated objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-				ObjectStream: obj1,
-			})
-			require.NoError(t, err)
-
-			// metabase is always setting default value for zombie_deletion_deadline
-			// so we need to set it manually
-			_, err = db.UnderlyingTagSQL().Exec(ctx, "UPDATE objects SET zombie_deletion_deadline = NULL")
-			require.NoError(t, err)
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, []metabase.RawObject{
+				{
+					ObjectStream:           obj1,
+					Status:                 metabase.Pending,
+					ZombieDeletionDeadline: nil,
+				},
+			}))
 
 			objects, err := db.TestingAllObjects(ctx)
 			require.NoError(t, err)
