@@ -239,10 +239,10 @@ func TestVarPartnerBlocker(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
-		makeRequest := func(token string, shouldForbid bool) {
-			urlLink := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/payments/wallet/payments"
+		makeRequest := func(route, method, token string, shouldForbid bool) {
+			urlLink := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/payments" + route
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlLink, http.NoBody)
+			req, err := http.NewRequestWithContext(ctx, method, urlLink, http.NoBody)
 			require.NoError(t, err)
 
 			req.AddCookie(&http.Cookie{
@@ -257,6 +257,8 @@ func TestVarPartnerBlocker(t *testing.T) {
 			require.NoError(t, result.Body.Close())
 			if shouldForbid {
 				require.Equal(t, http.StatusForbidden, result.StatusCode)
+			} else {
+				require.Equal(t, http.StatusOK, result.StatusCode)
 			}
 		}
 
@@ -273,7 +275,9 @@ func TestVarPartnerBlocker(t *testing.T) {
 
 			tokenStr := tokenInfo.Token.String()
 
-			makeRequest(tokenStr, string(user.UserAgent) == "partner1")
+			makeRequest("/wallet/payments", http.MethodGet, tokenStr, string(user.UserAgent) == "partner1")
+			// account setup account endpoint should be allowed even for var partners
+			makeRequest("/account", http.MethodPost, tokenStr, false)
 		}
 	})
 }
