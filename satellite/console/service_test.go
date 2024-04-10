@@ -1564,6 +1564,39 @@ func TestResetPassword(t *testing.T) {
 		// Expect success when providing good passcode.
 		err = service.ResetPassword(ctx, token.Secret.String(), newPass, passcode, "", token.CreatedAt)
 		require.NoError(t, err)
+
+		// Expect account to be locked when providing bad passcode or recovery code 3 times in a row.
+		token = getNewResetToken()
+		require.NotNil(t, token)
+		badPasscode, err = console.NewMFAPasscode(key, token.CreatedAt.Add(time.Hour))
+		require.NoError(t, err)
+
+		for i := 0; i < sat.Config.Console.LoginAttemptsWithoutPenalty; i++ {
+			err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, "", token.CreatedAt)
+			require.True(t, console.ErrMFAPasscode.Has(err))
+		}
+
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, "", token.CreatedAt)
+		require.True(t, console.ErrTooManyAttempts.Has(err))
+
+		err = service.ResetAccountLock(ctx, user)
+		require.NoError(t, err)
+
+		badRecoveryCode := "badRecovery"
+		for i := 0; i < sat.Config.Console.LoginAttemptsWithoutPenalty; i++ {
+			err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", badRecoveryCode, token.CreatedAt)
+			require.True(t, console.ErrMFARecoveryCode.Has(err))
+		}
+
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", badRecoveryCode, token.CreatedAt)
+		require.True(t, console.ErrTooManyAttempts.Has(err))
+
+		err = service.ResetAccountLock(ctx, user)
+		require.NoError(t, err)
+
+		// Expect success when providing good passcode.
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, passcode, "", token.CreatedAt)
+		require.NoError(t, err)
 	})
 }
 

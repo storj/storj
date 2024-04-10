@@ -64,6 +64,7 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	tooManyAttemptsErrMsg                = "Too many attempts, please try again later"
 	generateSessionTokenErrMsg           = "Failed to generate session token"
 	failedToRetrieveUserErrMsg           = "Failed to retrieve user from database"
 	apiKeyCredentialsErrMsg              = "Your API Key is incorrect"
@@ -123,6 +124,9 @@ var (
 
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
+
+	// ErrTooManyAttempts occurs when user tries to produce auth-related action too many times.
+	ErrTooManyAttempts = errs.Class("too many attempts")
 
 	// ErrActivationCode is error class for failed signup code activation.
 	ErrActivationCode = errs.Class("activation code")
@@ -1166,6 +1170,46 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	if user.MFAEnabled {
+		now := time.Now()
+		if user.LoginLockoutExpiration.After(now) {
+			mon.Counter("reset_password_2fa_locked_out").Inc(1) //mon:locked
+			s.auditLog(ctx, "reset password: 2fa failed account locked out", &user.ID, user.Email)
+			return ErrTooManyAttempts.New(tooManyAttemptsErrMsg)
+		}
+
+		handleLockAccount := func() error {
+			lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+			if err != nil {
+				return err
+			}
+
+			if lockoutDuration > 0 {
+				s.mailService.SendRenderedAsync(
+					ctx,
+					[]post.Address{{Address: user.Email, Name: user.FullName}},
+					&LoginLockAccountEmail{
+						LockoutDuration: lockoutDuration,
+						ActivityType:    MfaAccountLock,
+					},
+				)
+			}
+
+			mon.Counter("reset_password_2fa_failed").Inc(1)                                     //mon:locked
+			mon.IntVal("reset_password_2fa_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+
+			if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("reset_password_2fa_lockout_initiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "reset password: failed reset password 2fa count reached maximum attempts", &user.ID, user.Email)
+			}
+
+			if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("reset_password_2fa_lockout_reinitiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "reset password: 2fa failed locked account", &user.ID, user.Email)
+			}
+
+			return nil
+		}
+
 		if recoveryCode != "" {
 			found := false
 			for _, code := range user.MFARecoveryCodes {
@@ -1175,7 +1219,11 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 				}
 			}
 			if !found {
-				return ErrUnauthorized.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
+				err = handleLockAccount()
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				return ErrValidation.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
 			}
 		} else if passcode != "" {
 			valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
@@ -1183,6 +1231,10 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 				return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
 			}
 			if !valid {
+				err = handleLockAccount()
+				if err != nil {
+					return Error.Wrap(err)
+				}
 				return ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
 			}
 		} else {
@@ -1312,6 +1364,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 				&LoginLockAccountEmail{
 					LockoutDuration:   lockoutDuration,
 					ResetPasswordLink: address + "forgot-password",
+					ActivityType:      LoginAccountLock,
 				},
 			)
 		}

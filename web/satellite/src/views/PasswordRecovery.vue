@@ -85,10 +85,10 @@ import { VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VTextField } fro
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { useConfigStore } from '@/store/modules/configStore';
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
+import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
@@ -100,7 +100,6 @@ import PasswordStrength from '@/components/PasswordStrength.vue';
 
 const auth: AuthHttpApi = new AuthHttpApi();
 
-const configStore = useConfigStore();
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
@@ -168,6 +167,8 @@ function onResetClick(): void {
             }
 
             if (isMFARequired.value) {
+                if (error instanceof ErrorTooManyAttempts) notify.notifyError(error);
+
                 isMFAError.value = true;
                 return;
             }

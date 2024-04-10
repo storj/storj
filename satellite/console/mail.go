@@ -174,10 +174,22 @@ func (*AccountAlreadyExistsEmail) Subject() string {
 	return "Are you trying to sign in?"
 }
 
+// LockAccountActivityType is an auth activity type which led to account lock.
+type LockAccountActivityType = string
+
+const (
+	// LoginAccountLock represents an account lock activity type triggered by multiple failed login attempts.
+	LoginAccountLock LockAccountActivityType = "login"
+
+	// MfaAccountLock stands for "2fa check" and represents an account lock activity type triggered by multiple failed two-factor authentication attempts.
+	MfaAccountLock LockAccountActivityType = "2fa check"
+)
+
 // LoginLockAccountEmail is mailservice template with login lock account data.
 type LoginLockAccountEmail struct {
 	LockoutDuration   time.Duration
 	ResetPasswordLink string
+	ActivityType      LockAccountActivityType
 }
 
 // Template returns email template name.
