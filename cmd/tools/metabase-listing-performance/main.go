@@ -23,7 +23,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	_ "storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/errs2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
@@ -230,7 +229,7 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 
 						if !*skipList {
 							err := benchmarkListObjects(ctx, slog, db, testName, opts, listFile)
-							err = errs2.IgnoreCanceled(err)
+							err = ignoreTimeoutOrCancel(err)
 							if err != nil {
 								return errs.Wrap(err)
 							}
@@ -238,11 +237,15 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 						}
 						if !*skipIterator {
 							err := benchmarkIterator(ctx, slog, db, testName, opts, iterateFile)
-							err = errs2.IgnoreCanceled(err)
+							err = ignoreTimeoutOrCancel(err)
 							if err != nil {
 								return errs.Wrap(err)
 							}
 							_ = iterateFile.Sync()
+						}
+
+						if ctx.Err() != nil {
+							return errs.Wrap(ctx.Err())
 						}
 					}
 				}
@@ -250,6 +253,21 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 		}
 	}
 	return nil
+}
+
+// isCanceledOrTimeout returns true, when the error is a cancellation.
+func isCanceledOrTimeout(err error) bool {
+	return errs.IsFunc(err, func(err error) bool {
+		return err == context.Canceled || err == context.DeadlineExceeded //nolint:errorlint,goerr113
+	})
+}
+
+// ignoreTimeoutOrCancel returns nil, when the operation was about canceling.
+func ignoreTimeoutOrCancel(err error) error {
+	if isCanceledOrTimeout(err) {
+		return nil
+	}
+	return err
 }
 
 const maxTimePerBenchmark = 5 * time.Minute
