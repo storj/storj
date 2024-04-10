@@ -155,10 +155,17 @@ pipeline {
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
+                SPANNER_EMULATOR_HOST= 'localhost:9010'
+                STORJ_TEST_SPANNER = 'projects/storj-build/instances/test-instance/databases/metabase'
             }
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+
+                sh 'gcloud emulators spanner start &'
+
+                sh 'gcloud spanner instances create test-instance --config=emulator --description="Test Instance" --nodes=1'
+                sh 'gcloud spanner databases create metabase --instance=test-instance'
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
