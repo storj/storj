@@ -478,25 +478,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             )
             .filter(isFileSystemEntry) as FileSystemEntry[];
 
-        const fileNames = state.files.map((file) => file.Key);
-
-        function getUniqueFileName(fileName: string): string {
-            for (let count = 1; fileNames.includes(fileName); count++) {
-                if (count > 1) {
-                    fileName = fileName.replace(/\((\d+)\)(.*)/, `(${count})$2`);
-                } else {
-                    fileName = fileName.replace(/([^.]*)(.*)/, `$1 (${count})$2`);
-                }
-            }
-
-            return fileName;
-        }
-
         for await (const { path, file } of traverse(iterator)) {
             const directories = path.split('/');
-            directories[0] = getUniqueFileName(directories[0]);
-
-            const fileName = getUniqueFileName(directories.join('/') + file.name);
+            const fileName = directories.join('/') + file.name;
             const key = state.path + fileName;
 
             await enqueueUpload(key, file);
