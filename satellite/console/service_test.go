@@ -1336,9 +1336,12 @@ func TestMFA(t *testing.T) {
 			err = service.EnableUserMFA(userCtx, goodCode, mfaTime)
 			require.NoError(t, err)
 
-			_, user = updateContext()
+			userCtx, user = updateContext()
 			require.True(t, user.MFAEnabled)
 			require.Equal(t, user.MFASecretKey, key)
+
+			err = service.EnableUserMFA(userCtx, goodCode, mfaTime)
+			require.True(t, console.ErrMFAEnabled.Has(err))
 		})
 
 		t.Run("MFAGetToken", func(t *testing.T) {
