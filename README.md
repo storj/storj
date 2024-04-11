@@ -5,13 +5,13 @@
 [![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/main/cobertura)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/storj/.github/assets/3217669/15b2f86d-e585-430f-83f8-67cccda07f73">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/storj/.github/assets/3217669/de7657b7-0497-4b72-8d71-99bf210164dc">
-  <img alt="Storj logo" src="https://github.com/storj/.github/assets/3217669/de7657b7-0497-4b72-8d71-99bf210164dc" height="100">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storj/.github/main/assets/storj-logo-full-white.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/storj/.github/main/assets/storj-logo-full-color.png">
+  <img alt="Storj logo" src="https://raw.githubusercontent.com/storj/.github/main/assets/storj-logo-full-color.png" height="100">
 </picture>
 
 Storj is building a distributed cloud storage network.
-[Check out our white paper for more info!](https://storj.io/storj.pdf)
+[Check out our white paper for more info!](https://storj.io/storjv3.pdf)
 
 ----
 
