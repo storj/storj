@@ -86,25 +86,44 @@ pipeline {
         }
 
         stage('Lint') {
-            steps {
-                sh 'check-mod-tidy'
-                sh 'check-copyright'
-                sh 'check-imports -race ./...'
-                sh 'check-peer-constraints -race'
-                sh 'check-atomic-align ./...'
-                sh 'check-monkit ./...'
-                sh 'check-errs ./...'
-                sh 'staticcheck ./...'
-                sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                sh 'check-downgrades'
-                sh 'make check-monitoring'
-                sh 'make test-wasm-size'
-
-                sh 'protolock status'
-                sh './scripts/check-package-lock.sh'
-
-                // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                sh 'go-licenses check --ignore "storj.io/storj" ./...'
+            parallel {
+                stage('Storj Checks') {
+                    steps {
+                        sh 'check-mod-tidy'
+                        sh 'check-copyright'
+                        sh 'check-imports -race ./...'
+                        sh 'check-peer-constraints -race'
+                        sh 'check-atomic-align ./...'
+                        sh 'check-monkit ./...'
+                        sh 'check-errs ./...'
+                        sh 'check-deferloop ./...'
+                        sh 'check-downgrades'
+                        sh 'make check-monitoring'
+                        sh 'make test-wasm-size'
+                        sh './scripts/check-package-lock.sh'
+                    }
+                }
+                stage('Staticcheck') {
+                    steps {
+                         sh 'staticcheck ./...'
+                    }
+                }
+                stage('Other') {
+                    steps {
+                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                        sh 'protolock status'
+                        sh 'go.min vet ./...'
+                        dir("testsuite/storjscan") {
+                            sh 'go vet ./...'
+                        }
+                    }
+                }
+                stage('licenses check') {
+                    steps {
+                        // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
+                        sh 'go-licenses check --ignore "storj.io/storj" ./...'
+                    }
+                }
             }
         }
 
