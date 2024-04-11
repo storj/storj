@@ -4,7 +4,7 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
@@ -73,35 +73,6 @@ pipeline {
 
         stage('Build') {
             parallel {
-                stage('go') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
-                    }
-                }
-                stage('go -race') {
-                    steps {
-                        // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
-
-                        // install storj-sim
-                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
-                                'storj.io/storj/cmd/storagenode ' +
-                                'storj.io/storj/cmd/storj-sim ' +
-                                'storj.io/storj/cmd/versioncontrol ' +
-                                'storj.io/storj/cmd/uplink ' +
-                                'storj.io/storj/cmd/identity ' +
-                                'storj.io/storj/cmd/certificates ' +
-                                'storj.io/storj/cmd/multinode'
-                    }
-                }
-                stage('go -race gateway') {
-                    steps {
-                        // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
-                    }
-                }
-
                 stage('db') {
                     steps {
                         sh 'service postgresql start'
@@ -162,7 +133,7 @@ pipeline {
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
-                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
             }
 
             post {
