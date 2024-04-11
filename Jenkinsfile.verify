@@ -49,8 +49,9 @@ pipeline {
                 stage('db') {
                     steps {
                         dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 1024MiB --max-sql-memory 1024MiB --background'
                         }
                     }
                 }
@@ -89,28 +90,37 @@ pipeline {
         }
 
         stage('Lint') {
-            steps {
-                sh 'check-mod-tidy'
-                sh 'check-copyright'
-                sh 'check-imports -race ./...'
-                sh 'check-peer-constraints -race'
-                sh 'check-atomic-align ./...'
-                sh 'check-monkit ./...'
-                sh 'check-errs ./...'
-                sh 'check-deferloop ./...'
-                sh 'staticcheck ./...'
-                sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                sh 'check-downgrades'
-                sh 'make check-monitoring'
-                sh 'make test-wasm-size'
-                sh 'go.min vet ./...'
-
-                sh 'protolock status'
-
-                sh './scripts/check-package-lock.sh'
-
-                dir("testsuite/storjscan") {
-                    sh 'go vet ./...'
+            parallel {
+                stage('Storj Checks') {
+                    steps {
+                        sh 'check-mod-tidy'
+                        sh 'check-copyright'
+                        sh 'check-imports -race ./...'
+                        sh 'check-peer-constraints -race'
+                        sh 'check-atomic-align ./...'
+                        sh 'check-monkit ./...'
+                        sh 'check-errs ./...'
+                        sh 'check-deferloop ./...'
+                        sh 'check-downgrades'
+                        sh 'make check-monitoring'
+                        sh 'make test-wasm-size'
+                        sh './scripts/check-package-lock.sh'
+                    }
+                }
+                stage('Staticcheck') {
+                    steps {
+                         sh 'staticcheck ./...'
+                    }
+                }
+                stage('Other') {
+                    steps {
+                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                        sh 'protolock status'
+                        sh 'go.min vet ./...'
+                        dir("testsuite/storjscan") {
+                            sh 'go vet ./...'
+                        }
+                    }
                 }
             }
         }
@@ -149,7 +159,8 @@ pipeline {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
+                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable;'+
+                    'cockroach://root@localhost:26258/testcockroach?sslmode=disable'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
@@ -159,10 +170,11 @@ pipeline {
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+                sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
-                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
             }
 
             post {
