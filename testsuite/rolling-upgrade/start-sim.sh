@@ -255,6 +255,9 @@ for version in ${unique_versions}; do
     fi
 done
 
+# TODO remove this when all tested satellite versions will support compressed baches
+export STORJ_COMPRESSED_BATCH=false
+
 # Use stage 1 satellite version as the starting state. Create a cp of that
 # version folder so we don't worry about dirty states. Then copy/link/mv
 # appropriate resources into that folder to ensure we have correct versions.
