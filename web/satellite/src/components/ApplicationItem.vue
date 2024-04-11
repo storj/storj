@@ -5,7 +5,7 @@
     <v-col cols="12" md="6" lg="6" xl="3">
         <v-card class="px-2 py-4 h-100 align-content-space-between">
             <v-card-item class="pb-0">
-                <img :src="app.src" :alt="app.name" width="42" class="rounded">
+                <img :src="app.src" :alt="app.name" width="42" height="42" class="rounded">
             </v-card-item>
 
             <v-card-item>
@@ -41,14 +41,14 @@
         v-model="dialog"
         :access-name="app.name"
         :docs-link="app.docs"
-        :default-access-type="AccessType.S3"
+        :default-access-type="neededAccessType"
         is-app-setup
     />
     <CreateAccessDialog v-else ref="accessDialog" v-model="dialog" :default-name="app.name" />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
 import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 
@@ -60,7 +60,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 
-defineProps<{
+const props = defineProps<{
     app: Application
 }>();
 
@@ -72,12 +72,19 @@ const accessDialog = ref<Exposed>();
 const dialog = ref<boolean>(false);
 
 /**
+ * Returns access type needed for current app.
+ */
+const neededAccessType = computed<AccessType>(() => {
+    return props.app.name === 'Uplink' ? AccessType.AccessGrant : AccessType.S3;
+});
+
+/**
  * Holds on setup button click logic.
  * Starts create S3 credentials flow.
  */
 function onSetup(): void {
     withTrialCheck(() => {
-        accessDialog.value?.setTypes([AccessType.S3]);
+        accessDialog.value?.setTypes([neededAccessType.value]);
         dialog.value = true;
     });
 }
