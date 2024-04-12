@@ -356,9 +356,9 @@ func TestSettledAmountsMatch(t *testing.T) {
 
 func TestProjectBandwidthDailyRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.ReconfigureRS(3, 3, 3, 3),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// stop any async flushes because we want to be sure when some values are
