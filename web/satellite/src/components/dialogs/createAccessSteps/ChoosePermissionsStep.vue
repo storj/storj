@@ -215,8 +215,12 @@ import { AccessGrantEndDate, Permission } from '@/types/createAccessGrant';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { ValidationRule, RequiredRule, DialogStepComponent } from '@/types/common';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 type EndDateListItem = AccessGrantEndDate | { divider: true };
+
+const notify = useNotify();
 
 const allPermissions: Permission[] = [
     Permission.Read,
@@ -323,9 +327,21 @@ function onDatePickerSubmit(): void {
     if (!datePickerModel.value) return;
 
     const date = datePickerModel.value;
+    const submitted = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        11, 59, 59,
+    );
+
+    if (submitted.getTime() < new Date().getTime()) {
+        notify.error('Please select future date', AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        return;
+    }
+
     endDate.value = {
         title: `${date.getDate()} ${SHORT_MONTHS_NAMES[date.getMonth()]} ${date.getFullYear()}`,
-        date: new Date(date.getFullYear(), date.getMonth(), date.getDate(), 11, 59, 59),
+        date: submitted,
     };
 
     isDatePicker.value = false;
