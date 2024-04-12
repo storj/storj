@@ -358,9 +358,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	if fields.FullName == "" {
 		// the new minimal signup flow does not require a name.
 		service.hubspot.EnqueueCreateUserMinimal(fields)
-		return
 	}
-	service.hubspot.EnqueueCreateUser(fields)
 }
 
 // TrackUserOnboardingInfo sends onboarding info to Hubspot.
