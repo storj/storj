@@ -109,21 +109,31 @@ const innerContent = ref<Component | null>(null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
-const fileCount = computed<number>(() => props.files.filter(file => file.type === 'file').length);
+const fileCount = computed<number>(() => props.files.filter(file => file.type === 'file' && !file.VersionId).length);
 
 const folderCount = computed<number>(() => props.files.filter(file => file.type === 'folder').length);
+
+const versionsCount = computed<number>(() => props.files.filter(file => !!file.VersionId).length);
 
 /**
  * types of objects to be deleted.
  */
 const fileTypes = computed<string>(() => {
-    if (fileCount.value > 0 && folderCount.value > 0) {
-        return `file${fileCount.value > 1 ? 's' : ''} and folder${folderCount.value > 1 ? 's' : ''}`;
-    } else if (folderCount.value > 0) {
-        return `folder${folderCount.value > 1 ? 's' : ''}`;
-    } else {
-        return `file${fileCount.value > 1 ? 's' : ''}`;
+    let result = '';
+
+    if (versionsCount.value > 0) {
+        result += `version${versionsCount.value > 1 ? 's' : ''}`;
     }
+
+    if (fileCount.value > 0) {
+        result += `${result ? ' and' : ''} file${fileCount.value > 1 ? 's' : ''}`;
+    }
+
+    if (folderCount.value > 0) {
+        result += `${result ? ' and' : ''} folder${folderCount.value > 1 ? 's' : ''}`;
+    }
+
+    return result;
 });
 
 const isFolder = computed<boolean>(() => {

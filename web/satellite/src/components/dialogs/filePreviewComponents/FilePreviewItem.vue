@@ -77,8 +77,10 @@ const props = withDefaults(defineProps<{
     file: BrowserObject,
     active: boolean, // whether this item is visible
     videoAutoplay?: boolean
+    showingVersion?: boolean
 }>(), {
     videoAutoplay: false,
+    showingVersion: false,
 });
 
 const emit = defineEmits<{
@@ -92,12 +94,17 @@ const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
     return obStore.state.cachedObjectPreviewURLs;
 });
 
+const cacheKey = computed(() => props.showingVersion ? props.file.VersionId ?? '' : encodedFilePath.value);
+
 /**
  * Returns object preview URL from cache.
  */
 const objectPreviewUrl = computed((): string => {
-    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
+    const cache = cachedObjectPreviewURLs.value.get(cacheKey.value);
     const url = cache?.url || '';
+    if (props.showingVersion) {
+        return url;
+    }
     return `${url}?view=1`;
 });
 
@@ -141,7 +148,11 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
     let url = '';
     try {
-        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, props.file.path + props.file.Key);
+        if (props.showingVersion) {
+            url = await obStore.getDownloadLink(props.file);
+        } else {
+            url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, props.file.path + props.file.Key);
+        }
     } catch (error) {
         error.message = `Unable to get file preview and map URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
@@ -152,7 +163,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
         isLoading.value = false;
         return;
     }
-    obStore.cacheObjectPreviewURL(encodedFilePath.value, { url, lastModified: props.file.LastModified.getTime() });
+    obStore.cacheObjectPreviewURL(cacheKey.value, { url, lastModified: props.file.LastModified.getTime() });
 
     isLoading.value = false;
 }
@@ -172,12 +183,12 @@ function processFilePath(): void {
  * Try to find current object path in cache.
  */
 function findCachedURL(): string | undefined {
-    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
+    const cache = cachedObjectPreviewURLs.value.get(cacheKey.value);
 
     if (!cache) return undefined;
 
     if (cache.lastModified !== props.file.LastModified.getTime()) {
-        obStore.removeFromObjectPreviewCache(encodedFilePath.value);
+        obStore.removeFromObjectPreviewCache(cacheKey.value);
         return undefined;
     }
 

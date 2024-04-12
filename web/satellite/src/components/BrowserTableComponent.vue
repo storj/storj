@@ -21,12 +21,12 @@
         <v-data-table-server
             v-model="selectedFiles"
             v-model:options="options"
-            v-model:expanded="expandedKeys"
+            v-model:expanded="expandedFiles"
             :sort-by="sortBy"
             :headers="headers"
             :items="tableFiles"
             :search="search"
-            :item-value="(item: BrowserObjectWrapper) => item.browserObject.path + item.browserObject.Key"
+            :item-value="(item: BrowserObjectWrapper) => item.browserObject"
             :page="cursor.page"
             hover
             must-sort
@@ -39,18 +39,21 @@
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
         >
-            <template #expanded-row="{ columns, internalItem: {key} }">
-                <template v-if="!versionsCache.get(key)?.length">
+            <!-- the key of the row is defined by :item-value="(item: BrowserObjectWrapper) => item.browserObject" above -->
+            <template #expanded-row="{ columns, internalItem: { key } }">
+                <template v-if="!versionsCache.get(key.path + key.Key)?.length">
                     <tr>
                         <td :colspan="columns.length">
                             <p class="text-center">No older versions stored</p>
                         </td>
                     </tr>
                 </template>
-                <tr v-for="file in versionsCache.get(key) as BrowserObject[]" v-else :key="file.VersionId" class="bg-altbg">
-                    <td />
+                <tr v-for="file in versionsCache.get(key.path + key.Key) as BrowserObject[]" v-else :key="file.VersionId" class="bg-altbg">
+                    <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
+                        <v-checkbox-btn :model-value="selectedFiles.includes(file)" hide-details @update:modelValue="(selected) => toggleSelectObjectVersion(selected as boolean, file)" />
+                    </td>
                     <td>
-                        <v-list-item class="rounded-lg text-caption pl-1 ml-n1" link>
+                        <v-list-item class="rounded-lg text-caption pl-1 ml-n1" link @click="() => onFileClick(file)">
                             <template #prepend>
                                 <icon-curve-right />
                                 <icon-versioning-clock class="ml-4 mr-3" size="32" dotted />
@@ -73,7 +76,15 @@
                             {{ getFormattedDate(file) }}
                         </p>
                     </td>
-                    <td />
+                    <td>
+                        <browser-row-actions
+                            :file="file"
+                            is-version
+                            align="right"
+                            @preview-click="onFileClick(file)"
+                            @delete-file-click="onDeleteFileClick(file)"
+                        />
+                    </td>
                     <td />
                 </tr>
             </template>
@@ -140,7 +151,11 @@
             </template>
         </v-data-table-server>
 
-        <file-preview-dialog v-model="previewDialog" />
+        <file-preview-dialog
+            v-model="previewDialog"
+            v-model:current-file="fileToPreview"
+            :showing-versions="!!fileToPreview?.VersionId"
+        />
     </v-card>
 
     <v-snackbar
@@ -193,6 +208,7 @@ import { useRouter } from 'vue-router';
 import {
     VBtn,
     VCard,
+    VCheckboxBtn,
     VCol,
     VDataTableRow,
     VDataTableServer,
@@ -271,6 +287,7 @@ const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
 const fileToDelete = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
@@ -315,9 +332,17 @@ const isPaginationEnabled = computed<boolean>(() => config.state.config.objectBr
 
 const versionsCache = computed<Map<string, BrowserObject[]>>(() => obStore.state.objectVersions);
 
-const expandedKeys = computed<string[]>({
-    get: () => obStore.state.versionsExpandedKeys,
-    set: (keys: string[]) => obStore.updateVersionsExpandedKeys(keys),
+const expandedFiles = computed<BrowserObject[]>({
+    get: () => {
+        const files = obStore.state.versionsExpandedKeys.map(name => {
+            const parts = name.split('/');
+            const key = parts.pop();
+            const path = parts.join('/') + (parts.length ? '/' : '');
+            return allFiles.value.find(f => f.browserObject.Key === key && f.browserObject.path === path)?.browserObject;
+        });
+        return files.filter(f => f !== undefined) as BrowserObject[];
+    },
+    set: (files: BrowserObject[]) => obStore.updateVersionsExpandedKeys(files.map(f => f.path + f.Key)),
 });
 
 /**
@@ -402,19 +427,9 @@ const tableFiles = computed<BrowserObjectWrapper[]>(() => {
 /**
  * Returns a list of path+keys for selected files in the table.
  */
-const selectedFiles: WritableComputedRef<string[]> = computed({
-    get: () => obStore.state.selectedFiles.map(f => {
-        return f.path + f.Key;
-    }),
-    set: (names: string[]) => {
-        const files = names.map(name => {
-            const parts = name.split('/');
-            const key = parts.pop();
-            const path = parts.join('/') + (parts.length ? '/' : '');
-            return allFiles.value.find(f => f.browserObject.Key === key && f.browserObject.path === path)?.browserObject;
-        });
-        obStore.updateSelectedFiles(files.filter(f => f !== undefined) as BrowserObject[]);
-    },
+const selectedFiles: WritableComputedRef<BrowserObject[]> = computed({
+    get: () => obStore.state.selectedFiles,
+    set: obStore.updateSelectedFiles,
 });
 
 /**
@@ -471,6 +486,15 @@ function onLimitChange(newLimit: number): void {
     obStore.setCursor({ page: options.value?.page ?? 1, limit: newLimit });
 }
 
+function toggleSelectObjectVersion(isSelected: boolean, version: BrowserObject) {
+    const selected = obStore.state.selectedFiles;
+    if (isSelected) {
+        obStore.updateSelectedFiles([...selected, version]);
+    } else {
+        obStore.updateSelectedFiles(selected.filter(f => f.VersionId !== version.VersionId));
+    }
+}
+
 /**
  * Returns the string form of the file's last modified date.
  */
@@ -522,6 +546,7 @@ function onFileClick(file: BrowserObject): void {
     }
 
     obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+    fileToPreview.value = file;
     previewDialog.value = true;
     isFileGuideShown.value = false;
     dismissFileGuide();
@@ -593,14 +618,14 @@ watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
 
 // watch which table rows are expanded and fetch their versions.
-watch(expandedKeys, (keys, oldKeys) => {
-    const newKeys = keys.filter(key => {
-        return !oldKeys?.some(oldKey => {
-            return oldKey === key;
+watch(expandedFiles, (objects, oldObjects) => {
+    const newObjects = objects.filter(obj => {
+        return !oldObjects?.some(oldObj => {
+            return oldObj.path + oldObj.Key === obj.path + obj.Key;
         });
     });
-    newKeys.forEach(key => {
-        obStore.listVersions(key);
+    newObjects.forEach(obj => {
+        obStore.listVersions(obj.path + obj.Key);
     });
 });
 

@@ -17,6 +17,7 @@
             >
                 <v-toolbar-title class="text-subtitle-2">
                     {{ fileName }}
+                    <p v-if="showingVersions && currentFile"> Version ID: {{ currentFile.VersionId }} </p>
                 </v-toolbar-title>
                 <template #append>
                     <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" @click="download">
@@ -29,7 +30,17 @@
                             Download
                         </v-tooltip>
                     </v-btn>
-                    <v-btn id="Share" icon size="small" color="white" @click="isShareDialogShown = true">
+                    <v-btn v-if="showingVersions" id="Delete" icon size="small" color="red" @click="onDeleteFileClick">
+                        <icon-trash />
+                        <v-tooltip
+                            activator="parent"
+                            location="bottom"
+                            theme="light"
+                        >
+                            Delete
+                        </v-tooltip>
+                    </v-btn>
+                    <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" @click="isShareDialogShown = true">
                         <icon-share size="22" />
                         <v-tooltip
                             activator="parent"
@@ -39,7 +50,7 @@
                             Share
                         </v-tooltip>
                     </v-btn>
-                    <v-btn id="Distribution" icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
+                    <v-btn v-if="!showingVersions" id="Distribution" icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
                         <icon-distribution size="22" />
                         <v-tooltip
                             activator="parent"
@@ -49,7 +60,7 @@
                             Geographic Distribution
                         </v-tooltip>
                     </v-btn>
-                    <v-btn icon size="small" color="white">
+                    <v-btn v-if="!showingVersions" icon size="small" color="white">
                         <img src="@/assets/icon-more.svg" width="22" alt="More">
                         <v-tooltip
                             activator="parent"
@@ -120,14 +131,20 @@
                     <!-- v-carousel will mount all items at the same time -->
                     <!-- so :active will tell file-preview-item if it is the current. -->
                     <!-- If it is, it'll load the preview. -->
-                    <file-preview-item :active="i === fileIndex" :file="file" :video-autoplay="videoAutoplay" @download="download" />
+                    <file-preview-item
+                        :active="i === fileIndex"
+                        :file="file"
+                        :video-autoplay="videoAutoplay"
+                        :showing-version="showingVersions"
+                        @download="download"
+                    />
                 </v-carousel-item>
             </v-carousel>
         </v-card>
     </v-dialog>
 
-    <share-dialog v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
-    <geographic-distribution-dialog v-model="isGeographicDistributionDialogShown" />
+    <share-dialog v-if="!showingVersions" v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
+    <geographic-distribution-dialog v-if="!showingVersions" v-model="isGeographicDistributionDialogShown" />
     <delete-file-dialog
         v-if="fileToDelete"
         v-model="isDeleteFileDialogShown"
@@ -137,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, nextTick, ref, watch } from 'vue';
+import { computed, h, nextTick, ref, watch, watchEffect } from 'vue';
 import {
     VBtn,
     VCard,
@@ -172,10 +189,12 @@ const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     videoAutoplay?: boolean
+    showingVersions?: boolean
 }>(), {
     videoAutoplay: false,
+    showingVersions: false,
 });
 
 const carousel = ref<VCarousel | null>(null);
@@ -188,18 +207,15 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 const folderType = 'folder';
 
 const model = defineModel<boolean>({ required: true });
+const currentFile = defineModel<BrowserObject | null>('currentFile', { required: true });
 
 const constCarouselIndex = computed(() => carouselIndex.value);
 const carouselIndex = ref(0);
 
-/**
- * Retrieve the file object that the modal is set to from the store.
- */
-const currentFile = computed((): BrowserObject => {
-    return obStore.sortedFiles[fileIndex.value];
-});
-
 const files = computed((): BrowserObject[] => {
+    if (props.showingVersions) {
+        return obStore.state.objectVersions.get(filePath.value) ?? [];
+    }
     return obStore.sortedFiles;
 });
 
@@ -207,6 +223,11 @@ const files = computed((): BrowserObject[] => {
  * Retrieve the file index that the modal is set to from the store.
  */
 const fileIndex = computed((): number => {
+    if (props.showingVersions) {
+        return files.value.findIndex((file) => {
+            return file.path + file.Key === filePath.value && file.VersionId === currentFile.value?.VersionId;
+        });
+    }
     return files.value.findIndex(f => f.Key === filePath.value.split('/').pop());
 });
 
@@ -214,14 +235,15 @@ const fileIndex = computed((): number => {
  * Retrieve the name of the current file.
  */
 const fileName = computed((): string | undefined => {
-    return filePath.value.split('/').pop();
+    return currentFile.value?.Key;
 });
 
 /**
  * Retrieve the current filepath.
  */
 const filePath = computed((): string => {
-    return obStore.state.objectPathForModal;
+    if (!currentFile.value) return obStore.state.objectPathForModal;
+    return currentFile.value.path + currentFile.value.Key;
 });
 
 /**
@@ -242,7 +264,7 @@ const bucketName = computed((): string => {
  * Download the current opened file.
  */
 async function download(): Promise<void> {
-    if (isDownloading.value) {
+    if (isDownloading.value || !currentFile.value) {
         return;
     }
 
@@ -264,39 +286,39 @@ async function download(): Promise<void> {
  * Handles on previous click logic.
  */
 function onPrevious(): void {
+    if (files.value.length === 1) return;
     const currentIndex = fileIndex.value;
-    const sortedFilesLength = obStore.sortedFiles.length;
+    const filesLength = files.value.length;
 
-    let newFile: BrowserObject;
-    if (currentIndex <= 0) {
-        newFile = obStore.sortedFiles[sortedFilesLength - 1];
-    } else {
-        newFile = obStore.sortedFiles[currentIndex - 1];
-        if (newFile.type === folderType) {
-            newFile = obStore.sortedFiles[sortedFilesLength - 1];
-        }
+    let newFile = currentIndex <= 0 ? files.value[filesLength - 1] : files.value[currentIndex - 1];
+    if (newFile.type === folderType) {
+        newFile = files.value[filesLength - 1];
     }
-    setNewObjectPath(newFile.Key);
+    setNewObjectPath(newFile);
 }
 
 /**
  * Handles on next click logic.
  */
 function onNext(): void {
-    let newFile: BrowserObject | undefined = obStore.sortedFiles[fileIndex.value + 1];
+    if (files.value.length === 1) return;
+    const newIndex = fileIndex.value + 1;
+    const filesLength = files.value.length;
+    let newFile: BrowserObject | undefined = newIndex >= filesLength ? files.value[0] : files.value[newIndex];
     if (!newFile || newFile.type === folderType) {
-        newFile = obStore.sortedFiles.find(f => f.type !== folderType);
+        newFile = files.value.find(f => f.type !== folderType);
 
         if (!newFile) return;
     }
-    setNewObjectPath(newFile.Key);
+    setNewObjectPath(newFile);
 }
 
 /**
  * Sets new object path.
  */
-function setNewObjectPath(objectKey: string): void {
-    obStore.setObjectPathForModal(`${currentPath.value}${objectKey}`);
+function setNewObjectPath(file: BrowserObject): void {
+    obStore.setObjectPathForModal(`${currentPath.value}${file.Key}`);
+    currentFile.value = file;
 }
 
 /**
@@ -323,23 +345,14 @@ function onDeleteComplete(): void {
     model.value = false;
 }
 
-/**
- * Watch for changes on the filepath and changes the current carousel item accordingly.
- */
-watch(filePath, () => {
-    if (!filePath.value) return;
-
-    carouselIndex.value = fileIndex.value;
-});
-
-watch(model, async (shown) => {
-    if (!shown) {
+watchEffect(async () => {
+    if (!model.value) {
         return;
     }
 
     carouselIndex.value = fileIndex.value;
     await focusOnCarousel();
-}, { immediate: true });
+});
 
 watch(isShareDialogShown, async () => {
     if (isShareDialogShown.value) {

@@ -4,18 +4,18 @@
 import { computed, reactive, UnwrapNestedRefs } from 'vue';
 import { defineStore } from 'pinia';
 import {
-    S3Client,
+    _Object,
     CommonPrefix,
-    S3ClientConfig,
+    DeleteObjectCommand,
+    GetObjectCommand,
     ListObjectsCommand,
     ListObjectsV2Command,
-    DeleteObjectCommand,
-    PutObjectCommand,
-    _Object,
-    GetObjectCommand,
-    paginateListObjectsV2,
     ListObjectsV2CommandInput,
     ListObjectVersionsCommand,
+    paginateListObjectsV2,
+    PutObjectCommand,
+    S3Client,
+    S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
@@ -693,6 +693,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         await state.s3.send(new DeleteObjectCommand({
             Bucket: state.bucket,
             Key: path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
         }));
 
         state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
@@ -702,6 +703,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 await initList();
             } else {
                 await list();
+            }
+
+            if (file['VersionId']) {
+                // versioned object
+                await listVersions(state.path + file.Key);
             }
 
             removeFileFromToBeDeleted(file);
@@ -782,13 +788,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         clearAllSelectedFiles();
     }
 
-    async function download(file: BrowserObject): Promise<void> {
+    async function getDownloadLink(file: BrowserObject): Promise<string> {
         assertIsInitialized(state);
 
-        const url = await getSignedUrl(state.s3, new GetObjectCommand({
+        return await getSignedUrl(state.s3, new GetObjectCommand({
             Bucket: state.bucket,
             Key: state.path + file.Key,
+            VersionId: file.VersionId,
         }));
+    }
+
+    async function download(file: BrowserObject): Promise<void> {
+        const url = await getDownloadLink(file);
         const downloadURL = function(data: string, fileName: string) {
             const a = document.createElement('a');
             a.href = data;
@@ -935,6 +946,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         deleteObject,
         deleteFolder,
         deleteSelected,
+        getDownloadLink,
         download,
         updateSelectedFiles,
         updateShiftSelectedFiles,

@@ -5,7 +5,7 @@
     <div class="text-no-wrap" :class="alignClass">
         <v-btn
             v-if="file.type !== 'folder'"
-            variant="text"
+            :variant="isVersion ? 'outlined' : 'text'"
             color="default"
             size="small"
             class="mr-1 text-caption"
@@ -16,10 +16,16 @@
             @click="onDownloadClick"
         >
             <icon-download />
-            <!-- <v-tooltip activator="parent" location="start">Download</v-tooltip> -->
+            <v-tooltip
+                activator="parent"
+                location="top"
+            >
+                Download
+            </v-tooltip>
         </v-btn>
 
         <v-btn
+            v-if="!isVersion"
             variant="text"
             color="default"
             size="small"
@@ -33,7 +39,7 @@
         </v-btn>
 
         <v-btn
-            variant="text"
+            :variant="isVersion ? 'outlined' : 'text'"
             color="default"
             size="small"
             class="mr-1 text-caption"
@@ -74,7 +80,7 @@
                         </v-list-item>
                     </template>
 
-                    <v-list-item density="comfortable" link rounded="lg" @click="emit('shareClick')">
+                    <v-list-item v-if="!isVersion" density="comfortable" link rounded="lg" @click="emit('shareClick')">
                         <template #prepend>
                             <icon-share />
                         </template>
@@ -110,14 +116,13 @@ import {
     VProgressCircular,
     VFadeTransition,
     VIcon,
-    VBtn,
+    VBtn, VTooltip,
 } from 'vuetify/components';
 import { mdiDotsHorizontal } from '@mdi/js';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconDownload from '@/components/icons/IconDownload.vue';
 import IconShare from '@/components/icons/IconShare.vue';
@@ -125,10 +130,10 @@ import IconPreview from '@/components/icons/IconPreview.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 
 const obStore = useObjectBrowserStore();
-const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
 const props = defineProps<{
+    isVersion?: boolean;
     file: BrowserObject;
     align: 'left' | 'right';
 }>();
