@@ -14,12 +14,15 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that projects implements console.Projects.
 var _ console.Projects = (*projects)(nil)
+
+var ek = eventkit.Package()
 
 // implementation of Projects interface repository using spacemonkeygo/dbx orm.
 type projects struct {
@@ -223,12 +226,29 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 }
 
 // Delete is a method for deleting project by Id from the database.
-func (projects *projects) Delete(ctx context.Context, id uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (projects *projects) Delete(ctx context.Context, id uuid.UUID) (deleteErr error) {
+	defer mon.Task()(&ctx)(&deleteErr)
+	// get project info to send to eventkit for historical usage tracking. OK to drop getErr
+	project, getErr := projects.Get(ctx, id)
 
-	_, err = projects.db.Delete_Project_By_Id(ctx, dbx.Project_Id(id[:]))
+	_, deleteErr = projects.db.Delete_Project_By_Id(ctx, dbx.Project_Id(id[:]))
 
-	return err
+	if getErr == nil && deleteErr == nil {
+		tags := []eventkit.Tag{
+			eventkit.String("private-id", project.ID.String()),
+			eventkit.String("public-id", project.PublicID.String()),
+			eventkit.String("user-agent", string(project.UserAgent)),
+			eventkit.String("owner-id", project.OwnerID.String()),
+			eventkit.Timestamp("created-at", project.CreatedAt),
+			eventkit.Int64("default-placement", int64(project.DefaultPlacement)),
+		}
+		ek.Event("delete-project", tags...)
+		return nil
+	}
+	if deleteErr != nil {
+		return deleteErr
+	}
+	return nil
 }
 
 // Update is a method for updating project entity.

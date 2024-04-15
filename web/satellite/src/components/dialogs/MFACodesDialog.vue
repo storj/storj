@@ -35,23 +35,33 @@
                 </v-card-item>
                 <v-divider />
                 <v-card-item class="px-8 pt-4 pb-0">
-                    <v-form v-model="formValid" class="pt-2" @submit.prevent="regenerate">
+                    <v-otp-input
+                        v-if="!useRecoveryCode"
+                        ref="otpInput"
+                        class="pt-2"
+                        :model-value="confirmPasscode"
+                        :error="isError"
+                        :disabled="isLoading"
+                        type="number"
+                        autofocus
+                        maxlength="6"
+                        @update:modelValue="value => onValueChange(value)"
+                    />
+                    <v-form v-else v-model="formValid" class="pt-2" @submit.prevent="regenerate">
                         <v-text-field
                             v-model="confirmPasscode"
                             variant="outlined"
-                            density="compact"
-                            :hint="useRecoveryCode ? '' : 'e.g.: 000000'"
-                            :rules="rules"
+                            :rules="recoveryCodeRules"
                             :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
-                            :label="useRecoveryCode ? 'Recovery code' : '2FA Code'"
+                            label="Recovery code"
                             :hide-details="false"
-                            :maxlength="useRecoveryCode ? 50 : 6"
+                            :maxlength="50"
                             required
                             autofocus
                         />
                     </v-form>
                 </v-card-item>
-                <v-card-item class="px-8 py-0">
+                <v-card-item class="px-8 py-0 text-center">
                     <a class="text-decoration-underline text-cursor-pointer" @click="toggleRecoveryCodeState">
                         {{ useRecoveryCode ? "or use 2FA code" : "or use a recovery code" }}
                     </a>
@@ -115,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -126,16 +136,14 @@ import {
     VDialog,
     VDivider,
     VForm,
+    VOtpInput,
     VTextField,
 } from 'vuetify/components';
 
-import { AuthHttpApi } from '@/api/auth';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-
-const auth: AuthHttpApi = new AuthHttpApi();
 
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -143,25 +151,15 @@ const { withLoading, isLoading } = useLoading();
 
 const model = defineModel<boolean>({ required: true });
 
+const otpInput = ref<VOtpInput>();
+
 const confirmPasscode = ref<string>('');
 const isError = ref<boolean>(false);
 const formValid = ref<boolean>(false);
 const isConfirmCode = ref(true);
 const useRecoveryCode = ref<boolean>(false);
 
-const rules = computed(() => {
-    if (useRecoveryCode.value) {
-        return [
-            (value: string) => (!!value || 'Can\'t be empty'),
-        ];
-    }
-    return [
-        (value: string) => (!!value || 'Can\'t be empty'),
-        (value: string) => (!value.includes(' ') || 'Can\'t contain spaces'),
-        (value: string) => (!!parseInt(value) || 'Can only be numbers'),
-        (value: string) => (value.length === 6 || 'Can only be 6 numbers long'),
-    ];
-});
+const recoveryCodeRules = [ (value: string) => (!!value || 'Can\'t be empty') ];
 
 /**
  * Returns user MFA recovery codes from store.
@@ -177,6 +175,24 @@ function toggleRecoveryCodeState(): void {
     isError.value = false;
     confirmPasscode.value = '';
     useRecoveryCode.value = !useRecoveryCode.value;
+    if (useRecoveryCode.value) {
+        cleanUpOTPInput();
+    } else {
+        initialiseOTPInput();
+    }
+}
+
+function onValueChange(value: string) {
+    if (!useRecoveryCode.value) {
+        const val = value.slice(0, 6);
+        if (isNaN(+val)) {
+            confirmPasscode.value = '';
+            return;
+        }
+        confirmPasscode.value = val;
+        formValid.value = val.length === 6;
+    }
+    isError.value = false;
 }
 
 /**
@@ -200,17 +216,41 @@ function regenerate(): void {
     });
 }
 
+function initialiseOTPInput() {
+    setTimeout(() => {
+        otpInput.value?.focus();
+    }, 0);
+
+    document.addEventListener('keyup', onKeyUp);
+}
+
+function cleanUpOTPInput() {
+    document.removeEventListener('keyup', onKeyUp);
+}
+
+function onKeyUp(event: KeyboardEvent) {
+    if (event.key === 'Enter' && otpInput.value?.isFocused) {
+        regenerate();
+    }
+}
+
 watch(confirmPasscode, () => {
     isError.value = false;
 });
 
 watch(model, shown => {
     if (shown) {
+        initialiseOTPInput();
         return;
     }
     isConfirmCode.value = true;
     useRecoveryCode.value = false;
     confirmPasscode.value = '';
     isError.value = false;
+    cleanUpOTPInput();
+});
+
+onBeforeUnmount(() => {
+    cleanUpOTPInput();
 });
 </script>

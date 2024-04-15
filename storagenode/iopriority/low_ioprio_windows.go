@@ -4,10 +4,22 @@
 package iopriority
 
 import (
+	"errors"
+	"syscall"
+
 	"golang.org/x/sys/windows"
 )
 
 // SetLowIOPriority lowers the process I/O priority.
 func SetLowIOPriority() (err error) {
-	return windows.SetPriorityClass(windows.CurrentProcess(), windows.PROCESS_MODE_BACKGROUND_BEGIN)
+	err = windows.SetPriorityClass(windows.CurrentProcess(), windows.PROCESS_MODE_BACKGROUND_BEGIN)
+
+	var errNo syscall.Errno
+	if errors.As(err, &errNo) {
+		if errNo == windows.ERROR_PROCESS_MODE_ALREADY_BACKGROUND {
+			return nil
+		}
+	}
+
+	return err
 }
