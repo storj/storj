@@ -36,7 +36,14 @@
             </v-card-item>
         </v-card>
     </v-col>
-    <AppSetupDialog v-if="newAppSetupFlowEnabled" v-model="dialog" :access-name="app.name" :docs-link="app.docs" />
+    <AccessSetupDialog
+        v-if="newAppSetupFlowEnabled"
+        v-model="dialog"
+        :access-name="app.name"
+        :docs-link="app.docs"
+        :default-access-type="AccessType.S3"
+        is-app-setup
+    />
     <CreateAccessDialog v-else ref="accessDialog" v-model="dialog" :default-name="app.name" />
 </template>
 
@@ -51,7 +58,7 @@ import { useTrialCheck } from '@/composables/useTrialCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
-import AppSetupDialog from '@/components/dialogs/AppSetupDialog.vue';
+import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 
 defineProps<{
     app: Application

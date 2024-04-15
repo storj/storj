@@ -63,11 +63,6 @@ const isErrorPageShown = computed<boolean>((): boolean => {
 });
 
 /**
- * Indicates if billing features are enabled.
- */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
-
-/**
  * Returns user entity from store.
  */
 const user = computed<User>(() => usersStore.state.user);
@@ -86,7 +81,7 @@ async function setup() {
             projectsStore.getUserInvitations(),
             abTestingStore.fetchValues(),
         ];
-        if (billingEnabled.value) {
+        if (configStore.state.config.billingFeaturesEnabled) {
             promises.push(billingStore.setupAccount());
         }
         await Promise.all(promises);

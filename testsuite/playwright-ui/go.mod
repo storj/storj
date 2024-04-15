@@ -2,13 +2,15 @@ module storj.io/storj/testsuite/playwright-ui
 
 go 1.21.4
 
+replace storj.io/storj => ../../
+
 require (
 	github.com/spacemonkeygo/monkit/v3 v3.0.22
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20240312163747-de28b7045716
+	storj.io/common v0.0.0-20240329051534-e16d36937e83
 	storj.io/edge v1.74.1-0.20240320132813-10b6e5e71fe5
 	storj.io/storj v1.91.0-alpha.0.20240320150624-bf817ece68fd
 )
@@ -102,7 +104,7 @@ require (
 	github.com/jtolio/crawlspace/tools v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b // indirect
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
@@ -250,5 +252,5 @@ require (
 	storj.io/minio v0.0.0-20240305214730-e70e32900cff // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
-	storj.io/uplink v1.12.3-0.20240227083244-7974a2e1a6c2 // indirect
+	storj.io/uplink v1.12.3-0.20240410114230-190796a0f006 // indirect
 )

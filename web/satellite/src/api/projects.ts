@@ -125,7 +125,7 @@ export class ProjectsHttpApi implements ProjectsApi {
      * @throws Error
      */
     public async setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void> {
-        const path = `${this.ROOT_PATH}/${projectId}/opt-${status}`;
+        const path = `${this.ROOT_PATH}/${projectId}/versioning-opt-${status}`;
         const response = await this.http.patch(path, null);
         if (response.ok) {
             return;
