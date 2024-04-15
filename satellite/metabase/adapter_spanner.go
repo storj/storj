@@ -22,12 +22,6 @@ type SpannerAdapter struct {
 	client *spanner.Client
 }
 
-// TestingBatchInsertSegments implements Adapter.
-func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error) {
-	// TODO implement
-	return nil
-}
-
 // NewSpannerAdapter creates a new Spanner adapter.
 func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig) (*SpannerAdapter, error) {
 	client, err := spanner.NewClientWithConfig(ctx, cfg.Database,

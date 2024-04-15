@@ -5,11 +5,14 @@ package metabase
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/storj"
@@ -93,7 +96,7 @@ func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 		return nil, Error.New("GetState: %w", err)
 	}
 
-	state.Segments, err = db.testingGetAllSegments(ctx)
+	state.Segments, err = db.ChooseAdapter(uuid.UUID{}).TestingGetAllSegments(ctx, db.aliasCache)
 	if err != nil {
 		return nil, Error.New("GetState: %w", err)
 	}
@@ -109,7 +112,7 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM node_aliases;
 		WITH ignore_full_scan_for_test AS (SELECT 1) SELECT setval('node_alias_seq', 1, false);
 	`)
-	db.aliasCache.reset()
+	db.aliasCache = NewNodeAliasCache(db)
 	return Error.Wrap(err)
 }
 
@@ -279,11 +282,11 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 
 func (ctr *copyFromRawObjects) Err() error { return nil }
 
-// testingGetAllSegments returns the state of the database.
-func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err error) {
+// TestingGetAllSegments implements Adapter.
+func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error) {
 	segs := []RawSegment{}
 
-	rows, err := db.db.QueryContext(ctx, `
+	rows, err := p.db.QueryContext(ctx, `
 		WITH ignore_full_scan_for_test AS (SELECT 1)
 		SELECT
 			stream_id, position,
@@ -333,7 +336,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			return nil, Error.New("testingGetAllSegments scan failed: %w", err)
 		}
 
-		seg.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		seg.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
 			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
 		}
@@ -350,14 +353,103 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 	return segs, nil
 }
 
+// TestingGetAllSegments implements Adapter.
+func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (segments []RawSegment, err error) {
+	iter := s.client.Single().Query(ctx, spanner.Statement{SQL: `
+		SELECT
+			stream_id, position,
+			created_at, repaired_at, expires_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		ORDER BY stream_id ASC, position ASC
+	`})
+	defer iter.Stop()
+
+	for {
+		row, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			return segments, nil
+		}
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		var position int64
+		var createdAt time.Time
+		var repairedAt, expiresAt spanner.NullTime
+		var encryptedSize, plainOffset, plainSize, redundancy, placement int64
+		var streamID, rootPieceID, encryptedKeyNonce, encryptedKey, encryptedETag, inlineData, remoteAliasPieces []byte
+		if err := row.Columns(&streamID, &position,
+			&createdAt, &repairedAt, &expiresAt,
+			&rootPieceID, &encryptedKeyNonce, &encryptedKey,
+			&encryptedSize, &plainOffset, &plainSize,
+			&encryptedETag,
+			&redundancy,
+			&inlineData, &remoteAliasPieces,
+			&placement,
+		); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		var segment RawSegment
+		segment.StreamID, err = uuid.FromBytes(streamID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		segment.Position = SegmentPositionFromEncoded(uint64(position))
+		segment.CreatedAt = createdAt
+		segment.RootPieceID, err = storj.PieceIDFromBytes(rootPieceID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		segment.EncryptedKeyNonce = encryptedKeyNonce
+		segment.EncryptedKey = encryptedKey
+		if repairedAt.Valid {
+			segment.RepairedAt = &repairedAt.Time
+		}
+		if expiresAt.Valid {
+			segment.ExpiresAt = &expiresAt.Time
+		}
+		segment.EncryptedSize = int32(encryptedSize)
+		segment.PlainOffset = plainOffset
+		segment.PlainSize = int32(plainSize)
+		segment.EncryptedETag = encryptedETag
+		rs := redundancyScheme{RedundancyScheme: &storj.RedundancyScheme{}}
+		err = rs.Scan(redundancy)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		segment.Redundancy = *rs.RedundancyScheme
+		segment.InlineData = inlineData
+
+		aliasPieces := AliasPieces{}
+		err = aliasPieces.SetBytes(remoteAliasPieces)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		segment.Placement = storj.PlacementConstraint(placement)
+
+		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
+		}
+
+		segments = append(segments, segment)
+	}
+}
+
 // TestingBatchInsertSegments batch inserts segments for testing.
 // This implementation does no verification on the correctness of segments.
 func (db *DB) TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error) {
-	return db.ChooseAdapter(uuid.UUID{}).TestingBatchInsertSegments(ctx, segments)
+	return db.ChooseAdapter(uuid.UUID{}).TestingBatchInsertSegments(ctx, db.aliasCache, segments)
 }
 
 // TestingBatchInsertSegments implements postgres adapter.
-func (p *PostgresAdapter) TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error) {
+func (p *PostgresAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
 	const maxRowsPerCopy = 250000
 
 	minLength := len(segments)
@@ -397,6 +489,29 @@ func (p *PostgresAdapter) TestingBatchInsertSegments(ctx context.Context, segmen
 		}))
 }
 
+var rawSegmentColumns = []string{
+	"stream_id",
+	"position",
+
+	"created_at",
+	"repaired_at",
+	"expires_at",
+
+	"root_piece_id",
+	"encrypted_key_nonce",
+	"encrypted_key",
+	"encrypted_etag",
+
+	"encrypted_size",
+	"plain_size",
+	"plain_offset",
+
+	"redundancy",
+	"inline_data",
+	"remote_alias_pieces",
+	"placement",
+}
+
 type copyFromRawSegments struct {
 	idx     int
 	rows    []RawSegment
@@ -418,28 +533,7 @@ func (ctr *copyFromRawSegments) Next() bool {
 }
 
 func (ctr *copyFromRawSegments) Columns() []string {
-	return []string{
-		"stream_id",
-		"position",
-
-		"created_at",
-		"repaired_at",
-		"expires_at",
-
-		"root_piece_id",
-		"encrypted_key_nonce",
-		"encrypted_key",
-		"encrypted_etag",
-
-		"encrypted_size",
-		"plain_size",
-		"plain_offset",
-
-		"redundancy",
-		"inline_data",
-		"remote_alias_pieces",
-		"placement",
-	}
+	return rawSegmentColumns
 }
 
 func (ctr *copyFromRawSegments) Values() ([]any, error) {
@@ -476,3 +570,53 @@ func (ctr *copyFromRawSegments) Values() ([]any, error) {
 }
 
 func (ctr *copyFromRawSegments) Err() error { return nil }
+
+// TestingBatchInsertSegments implements SpannerAdapter.
+func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
+	mutations := make([]*spanner.Mutation, len(segments))
+	for i, segment := range segments {
+		aliasPieces, err := aliasCache.EnsurePiecesToAliases(ctx, segment.Pieces)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		aliasPiecesBytes, err := aliasPieces.Bytes()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		redundancyValue, err := redundancyScheme{&segment.Redundancy}.Value()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		redundancy := redundancyValue.(int64)
+
+		// TODO(spanner) verify if casting is good
+		vals := append([]interface{}{},
+			segment.StreamID.Bytes(),
+			int64(segment.Position.Encode()),
+
+			segment.CreatedAt,
+			segment.RepairedAt,
+			segment.ExpiresAt,
+
+			segment.RootPieceID.Bytes(),
+			segment.EncryptedKeyNonce,
+			segment.EncryptedKey,
+			segment.EncryptedETag,
+
+			int64(segment.EncryptedSize),
+			int64(segment.PlainSize),
+			segment.PlainOffset,
+
+			redundancy,
+			segment.InlineData,
+			aliasPiecesBytes,
+			int64(segment.Placement),
+		)
+
+		mutations[i] = spanner.InsertOrUpdate("segments", rawSegmentColumns, vals)
+	}
+
+	_, err = s.client.Apply(ctx, mutations)
+	return Error.Wrap(err)
+}
