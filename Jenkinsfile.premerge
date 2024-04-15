@@ -132,7 +132,8 @@ pipeline {
         stage('Lint') {
             steps {
                 // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                sh 'go-licenses check --ignore "storj.io/storj" ./...'
+                // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
+                sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
             }
         }
 
