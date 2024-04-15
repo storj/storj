@@ -90,7 +90,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-select
                         v-model="storageNeeds"
-                        :items="['Under 25 TB', '25 TB - 50 TB', '51 TB - 150 TB', '151 TB - 250 TB', '251 TB -500 TB', '501 TB and above']"
+                        :items="['Under 25 TB', '25 TB - 50 TB', '51 TB - 150 TB', '151 TB - 250 TB', '251 TB - 500 TB', '501 TB and above']"
                         label="Storage Needs"
                         variant="outlined"
                         hide-details="auto"
@@ -99,7 +99,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-select
                         v-model="useCase"
-                        :items="[ 'Active Archive', 'Backup & Recovery', 'CDN Origin', 'Generative AI', 'Media Workflows', 'Other']"
+                        :items="[ 'Active archive', 'Backup & recovery', 'CDN origin', 'Generative AI', 'Media workflows', 'Other']"
                         label="Use Case"
                         variant="outlined"
                         hide-details="auto"

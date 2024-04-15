@@ -189,17 +189,17 @@ func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFiel
 	}
 
 	properties := map[string]interface{}{
-		"email":       fields.Email,
-		"firstname":   firstName,
-		"lastname":    lastName,
-		"storage_use": fields.StorageUseCase,
+		"email":     fields.Email,
+		"firstname": firstName,
+		"lastname":  lastName,
+		"use_case":  fields.StorageUseCase,
 	}
 	if fields.Type == Professional {
 		properties["have_sales_contact"] = fields.HaveSalesContact
-		properties["interested_in_partnering"] = fields.InterestedInPartnering
+		properties["interested_in_partnering_"] = fields.InterestedInPartnering // trailing underscore in property name is not a mistake
 		properties["company_size"] = fields.EmployeeCount
 		properties["company"] = fields.CompanyName
-		properties["title"] = fields.JobTitle
+		properties["jobtitle"] = fields.JobTitle
 		properties["storage_needs"] = fields.StorageNeeds
 		properties["functional_area"] = fields.FunctionalArea
 	}
