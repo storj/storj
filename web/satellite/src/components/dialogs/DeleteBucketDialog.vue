@@ -85,7 +85,7 @@ import {
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -134,13 +134,14 @@ async function onDelete(): Promise<void> {
                 return;
             }
 
+            const now = new Date();
+
             if (!apiKey.value) {
-                await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
-                const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
+                const name = `${configStore.state.config.objectBrowserKeyNamePrefix}${now.getTime()}`;
+                const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name, projectID);
                 bucketsStore.setApiKey(cleanAPIKey.secret);
             }
 
-            const now = new Date();
             const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
             worker.value.postMessage({

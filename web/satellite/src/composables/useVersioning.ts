@@ -6,7 +6,7 @@ import { computed } from 'vue';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { FILE_BROWSER_AG_NAME, useBucketsStore } from '@/store/modules/bucketsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { Versioning } from '@/types/versioning';
 
@@ -42,13 +42,14 @@ export function useVersioning() {
             throw new Error('Worker is not defined');
         }
 
+        const now = new Date();
+
         if (!apiKey.value) {
-            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
-            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
+            const name = `${configStore.state.config.objectBrowserKeyNamePrefix}${now.getTime()}`;
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name, projectID);
             bucketsStore.setApiKey(cleanAPIKey.secret);
         }
 
-        const now = new Date();
         const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
         worker.value.postMessage({

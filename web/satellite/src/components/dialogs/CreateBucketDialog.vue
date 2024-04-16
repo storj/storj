@@ -157,7 +157,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { FILE_BROWSER_AG_NAME, useBucketsStore } from '@/store/modules/bucketsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -350,13 +350,14 @@ function onCreate(): void {
                 return;
             }
 
+            const now = new Date();
+
             if (!apiKey.value) {
-                await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
-                const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
+                const name = `${configStore.state.config.objectBrowserKeyNamePrefix}${now.getTime()}`;
+                const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name, projectID);
                 bucketsStore.setApiKey(cleanAPIKey.secret);
             }
 
-            const now = new Date();
             const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
             worker.value.postMessage({
