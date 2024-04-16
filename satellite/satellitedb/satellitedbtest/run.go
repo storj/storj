@@ -33,6 +33,8 @@ import (
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
 var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
 
+var spanner = flag.String("spanner-test-db", os.Getenv("STORJ_TEST_SPANNER"), "Spanner test database connection string, \"omit\" or empty string is used to omit the tests from output")
+
 func stringToBool(v string) bool {
 	b, err := strconv.ParseBool(v)
 	if err != nil {
@@ -46,6 +48,10 @@ type SatelliteDatabases struct {
 	Name       string
 	MasterDB   Database
 	MetabaseDB Database
+
+	// TODO: until full metabase implementation.
+	// For the time being: Spanner is an override and Cockroach/Postgres (MetabaseDB field) is used when implementation is missing.
+	Spanner string
 }
 
 // Database describes a test database.
@@ -81,6 +87,22 @@ func Databases() []SatelliteDatabases {
 		})
 	}
 
+	return dbs
+}
+
+// DatabasesWithSpanner returns default databases AND spanner connection (if enabled).
+func DatabasesWithSpanner() []SatelliteDatabases {
+	dbs := Databases()
+	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	if *spanner != "" && *spanner != "omit" {
+		// TODO: this is not ideal, as we couldn't execute CockroachSpanner only
+		dbs = append(dbs, SatelliteDatabases{
+			Name:       "CockroachSpanner",
+			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
+			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
+			Spanner:    *spanner,
+		})
+	}
 	return dbs
 }
 
@@ -200,8 +222,8 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 
 // CreateMetabaseDBOnTopOf creates a new metabase on top of an already existing
 // temporary database.
-func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config) (*metabase.DB, error) {
-	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config)
+func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config, adapters ...metabase.Adapter) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config, adapters...)
 	if err != nil {
 		return nil, err
 	}
