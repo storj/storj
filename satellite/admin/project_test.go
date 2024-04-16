@@ -794,7 +794,7 @@ func TestProjectDelete(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apikeys.APIKeys, 1)
 
@@ -856,7 +856,7 @@ func TestProjectCheckUsage_withoutUsage(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
@@ -901,7 +901,7 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
@@ -1007,7 +1007,7 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
@@ -1092,7 +1092,7 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
@@ -1206,7 +1206,7 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
@@ -1325,7 +1325,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			Page:   1,
 			Limit:  2,
 			Search: "",
-		})
+		}, "")
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
