@@ -106,13 +106,33 @@ func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 
 // TestingDeleteAll deletes all objects and segments from the database.
 func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
-	_, err = db.db.ExecContext(ctx, `
+	db.aliasCache = NewNodeAliasCache(db)
+	for _, a := range db.adapters {
+		if err := a.TestingDeleteAll(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// TestingDeleteAll implements Adapter.
+func (p *PostgresAdapter) TestingDeleteAll(ctx context.Context) (err error) {
+	_, err = p.db.ExecContext(ctx, `
 		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM objects;
 		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM segments;
 		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM node_aliases;
 		WITH ignore_full_scan_for_test AS (SELECT 1) SELECT setval('node_alias_seq', 1, false);
 	`)
-	db.aliasCache = NewNodeAliasCache(db)
+	return Error.Wrap(err)
+}
+
+// TestingDeleteAll implements Adapter.
+func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
+	_, err = s.client.Apply(ctx, []*spanner.Mutation{
+		spanner.Delete("objects", spanner.AllKeys()),
+		spanner.Delete("segments", spanner.AllKeys()),
+		spanner.Delete("node_aliases", spanner.AllKeys()),
+	})
 	return Error.Wrap(err)
 }
 

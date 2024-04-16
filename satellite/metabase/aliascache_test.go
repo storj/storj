@@ -138,6 +138,7 @@ func TestNodeAliasCache(t *testing.T) {
 	})
 }
 
+// TODO(spanner) enable this test for spanner.
 func TestNodeAliasCache_DB(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("missing aliases", func(t *testing.T) {
