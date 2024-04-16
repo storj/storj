@@ -4,7 +4,6 @@
 package metabase_test
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -32,30 +31,25 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 		objStream := metabasetest.RandObjectStream()
 		obj := metabasetest.CreateObject(ctx, t, db, objStream, 0)
 
-		internaldb := db.UnderlyingTagSQL()
-		_, err := internaldb.Exec(ctx, `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				status
-			) VALUES (
-				$1, $2, $3, $4, $5,
-				`+strconv.Itoa(int(metabase.CommittedUnversioned))+`
-			)
-		`, obj.ProjectID, []byte(obj.BucketName), obj.ObjectKey, obj.Version+1, testrand.UUID(),
-		)
+		object := metabase.RawObject{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  obj.ProjectID,
+				BucketName: obj.BucketName,
+				ObjectKey:  obj.ObjectKey,
+				Version:    obj.Version + 1,
+				StreamID:   testrand.UUID(),
+			},
+			Status: metabase.CommittedUnversioned,
+		}
+
+		err := db.TestingBatchInsertObjects(ctx, []metabase.RawObject{object})
+
 		require.True(t, pgerrcode.IsConstraintViolation(err))
 		require.ErrorContains(t, err, "objects_one_unversioned_per_location")
 
-		_, err = internaldb.Exec(ctx, `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				status
-			) VALUES (
-				$1, $2, $3, $4, $5,
-				`+strconv.Itoa(int(metabase.DeleteMarkerUnversioned))+`
-			)
-		`, obj.ProjectID, []byte(obj.BucketName), obj.ObjectKey, obj.Version+1, testrand.UUID(),
-		)
+		object.Status = metabase.DeleteMarkerUnversioned
+		err = db.TestingBatchInsertObjects(ctx, []metabase.RawObject{object})
+
 		require.True(t, pgerrcode.IsConstraintViolation(err))
 		require.ErrorContains(t, err, "objects_one_unversioned_per_location")
 

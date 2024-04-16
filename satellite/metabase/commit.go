@@ -9,8 +9,10 @@ import (
 	"errors"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/dbutil"
 	"storj.io/common/dbutil/pgutil/pgerrcode"
@@ -129,6 +131,67 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
 	).Scan(&object.Status, &object.Version, &object.CreatedAt)
+}
+
+// BeginObjectNextVersion implements Adapter.
+func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
+	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		enc, err := encryptionParameters{&opts.Encryption}.Value()
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		stmt := spanner.Statement{
+			SQL: `INSERT objects (
+					project_id, bucket_name, object_key, version, stream_id,
+					expires_at, encryption,
+					zombie_deletion_deadline,
+					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key)
+				  VALUES(
+                  	@project_id, @bucket_name, @object_key,
+					coalesce(
+						(SELECT version + 1
+						FROM objects
+						WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+						ORDER BY version DESC
+						LIMIT 1)
+					,1),
+					@stream_id, @expires_at,
+					@encryption, @zombie_deletion_deadline,
+					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key)
+                  THEN RETURN status,version,created_at`,
+			Params: map[string]interface{}{
+				"project_id":                       opts.ProjectID.Bytes(),
+				"bucket_name":                      opts.BucketName,
+				"object_key":                       []byte(opts.ObjectKey),
+				"stream_id":                        opts.StreamID.Bytes(),
+				"expires_at":                       opts.ExpiresAt,
+				"encryption":                       enc,
+				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
+				"encrypted_metadata":               opts.EncryptedMetadata,
+				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
+				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			},
+		}
+		updateIter := txn.Query(ctx, stmt)
+		defer updateIter.Stop()
+		for {
+			row, err := updateIter.Next()
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			var status int64
+			if err := row.Columns(&status, &object.Version, &object.CreatedAt); err != nil {
+				return errs.Wrap(err)
+			}
+			object.Status = ObjectStatus(byte(status))
+		}
+		return nil
+	})
+	return err
 }
 
 // BeginObjectExactVersion contains arguments necessary for starting an object upload.

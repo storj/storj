@@ -20,6 +20,7 @@ import (
 func Run[Target any, TB testing.TB](tb TB, modules func(ball *mud.Ball), testRun func(ctx context.Context, tb TB, target Target)) {
 	ctx := testcontext.New(tb)
 	ball := mud.NewBall()
+	mud.Supply[testing.TB](ball, tb)
 	modules(ball)
 	for _, component := range mud.FindSelectedWithDependencies(ball, mud.Select[Target](ball)) {
 		err := component.Init(ctx)

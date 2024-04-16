@@ -94,24 +94,42 @@
                     </template>
                     <v-list class="pa-2">
                         <v-list-item
-                            v-if="versioningUIEnabled && bucket && bucket.versioning !== Versioning.NotSupported"
+                            v-if="versioningUIEnabled"
                             density="comfortable"
                             link
                             rounded="lg"
                             @click="onToggleVersioning"
                         >
                             <template #prepend>
-                                <IconVersioning v-if="bucket.versioning !== Versioning.Enabled" />
+                                <IconVersioning v-if="bucket?.versioning !== Versioning.Enabled" />
                                 <IconPause v-else />
                             </template>
                             <v-list-item-title
                                 class="pl-2 text-body-2 font-weight-medium"
                             >
                                 {{
-                                    bucket.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                    bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
                                 }}
                             </v-list-item-title>
                         </v-list-item>
+
+                        <v-list-item
+                            v-if="versioningUIEnabled"
+                            density="comfortable"
+                            link
+                            rounded="lg"
+                            @click="obStore.toggleShowObjectVersions()"
+                        >
+                            <template #prepend>
+                                <icon-finger-print />
+                            </template>
+                            <v-list-item-title
+                                class="pl-2 text-body-2 font-weight-medium"
+                            >
+                                {{ showObjectVersions ? "Hide" : "Show" }} Versions
+                            </v-list-item-title>
+                        </v-list-item>
+
                         <v-list-item
                             density="comfortable"
                             link
@@ -190,7 +208,7 @@
         </v-col>
 
         <browser-card-view-component v-if="isCardView" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-        <browser-table-component v-else :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
     </v-container>
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
@@ -253,6 +271,7 @@ import IconVersioning from '@/components/icons/IconVersioning.vue';
 import IconShare from '@/components/icons/IconShare.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
+import IconFingerPrint from '@/components/icons/IconFingerPrint.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -280,9 +299,14 @@ const isDeleteBucketDialogShown = ref<boolean>(false);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
 
 /**
- * Whether versioning has been enabled for current project.
+ * Whether versioning has been enabled for current project and allowed for this bucket specifically.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning !== Versioning.NotSupported);
+
+/**
+ * Whether object versions should be shown.
+ */
+const showObjectVersions = computed(() => obStore.state.showObjectVersions);
 
 /**
  * Returns the name of the selected bucket.

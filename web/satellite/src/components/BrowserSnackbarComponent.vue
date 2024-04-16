@@ -3,9 +3,9 @@
 
 <template>
     <v-snackbar
-        v-model="isObjectsUploadModal"
+        :model-value="isObjectsUploadModal"
         vertical
-        :timeout="4000"
+        :timeout="-1"
         color="default"
         elevation="24"
         rounded="lg"

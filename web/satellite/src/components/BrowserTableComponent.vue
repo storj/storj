@@ -21,6 +21,7 @@
         <v-data-table-server
             v-model="selectedFiles"
             v-model:options="options"
+            v-model:expanded="expandedKeys"
             :sort-by="sortBy"
             :headers="headers"
             :items="tableFiles"
@@ -34,9 +35,42 @@
             :loading="isFetching || loading"
             :items-length="isPaginationEnabled ? totalObjectCount : allFiles.length"
             :items-per-page-options="isPaginationEnabled ? tableSizeOptions(totalObjectCount, true) : undefined"
+            :show-expand="showObjectVersions"
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
         >
+            <template #expanded-row="{ internalItem: {key} }">
+                <tr v-for="file in versionsCache.get(key) as BrowserObject[]" :key="file.VersionId" class="bg-altbg">
+                    <td />
+                    <td>
+                        <v-list-item class="rounded-lg text-caption pl-1 ml-n1" link>
+                            <template #prepend>
+                                <icon-curve-right />
+                                <icon-versioning-clock class="ml-4 mr-3" size="32" dotted />
+                            </template>
+                            {{ file.Key }}
+                        </v-list-item>
+                    </td>
+                    <td>
+                        <p class="text-caption">
+                            {{ getFormattedSize(file) }}
+                        </p>
+                    </td>
+                    <td>
+                        <p class="text-caption">
+                            {{ getFileInfo(file).typeInfo.title }}
+                        </p>
+                    </td>
+                    <td>
+                        <p class="text-caption">
+                            {{ getFormattedDate(file) }}
+                        </p>
+                    </td>
+                    <td />
+                    <td />
+                </tr>
+            </template>
+
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
                     {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
@@ -44,6 +78,7 @@
             </template>
             <template #item="{ props: rowProps }">
                 <v-data-table-row v-bind="rowProps">
+                    <template v-if="rowProps.item.raw.browserObject.type === 'folder'" #item.data-table-expand />
                     <template #item.name="{ item }: ItemSlotProps">
                         <v-btn
                             class="rounded-lg w-100 px-1 ml-n1 justify-start font-weight-bold"
@@ -146,18 +181,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, WritableComputedRef } from 'vue';
+import { computed, ref, watch, WritableComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import {
+    VBtn,
     VCard,
     VCol,
-    VRow,
-    VTextField,
-    VBtn,
-    VTooltip,
-    VDataTableServer,
     VDataTableRow,
+    VDataTableServer,
+    VListItem,
+    VRow,
     VSnackbar,
+    VTextField,
+    VTooltip,
 } from 'vuetify/components';
 import { mdiMagnify } from '@mdi/js';
 
@@ -169,7 +205,6 @@ import {
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
-import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -180,12 +215,16 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
+import { Versioning } from '@/types/versioning';
+import { BucketMetadata } from '@/types/buckets';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
+import IconCurveRight from '@/components/icons/IconCurveRight.vue';
+import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -203,6 +242,7 @@ type ItemSlotProps = { item: BrowserObjectWrapper };
 const props = defineProps<{
     forceEmpty?: boolean;
     loading?: boolean;
+    bucket: BucketMetadata;
 }>();
 
 const emit = defineEmits<{
@@ -255,9 +295,23 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
 /**
- * Returns total object count from store.
+ * Whether versioning has been enabled for current project and versions should be shown.
  */
+const showObjectVersions = computed(() => {
+    if (!projectsStore.versioningUIEnabled) {
+        return false;
+    }
+    return obStore.state.showObjectVersions && props.bucket && props.bucket?.versioning !== Versioning.NotSupported;
+});
+
 const isPaginationEnabled = computed<boolean>(() => config.state.config.objectBrowserPaginationEnabled);
+
+const versionsCache = computed<Map<string, BrowserObject[]>>(() => obStore.state.objectVersions);
+
+const expandedKeys = computed<string[]>({
+    get: () => obStore.state.versionsExpandedKeys,
+    set: (keys: string[]) => obStore.updateVersionsExpandedKeys(keys),
+});
 
 /**
  * Returns total object count from store.
@@ -277,13 +331,12 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
 
     const objects = isPaginationEnabled.value ? obStore.displayedObjects : obStore.state.files;
     return objects.map<BrowserObjectWrapper>(file => {
-        const lowerName = file.Key.toLowerCase();
-        const dotIdx = lowerName.lastIndexOf('.');
-        const ext = dotIdx === -1 ? '' : file.Key.slice(dotIdx + 1);
+
+        const { name, ext, typeInfo } = getFileInfo(file);
         return {
             browserObject: file,
-            typeInfo: getFileTypeInfo(ext, file.type),
-            lowerName,
+            typeInfo,
+            lowerName : name,
             ext,
         };
     });
@@ -432,15 +485,17 @@ function getFormattedSize(file: BrowserObject): string {
 /**
  * Returns the title and icon representing a file's type.
  */
-function getFileTypeInfo(ext: string, type: BrowserObject['type']): BrowserObjectTypeInfo {
-    if (!type) return FILE_INFO;
-    if (type === 'folder') return FOLDER_INFO;
+function getFileInfo(file: BrowserObject): { name: string; ext: string; typeInfo: BrowserObjectTypeInfo } {
+    const name = file.Key.toLowerCase();
+    if (!file.type) return { name, ext: '', typeInfo: FILE_INFO };
+    if (file.type === 'folder') return { name, ext: '', typeInfo: FOLDER_INFO };
 
-    ext = ext.toLowerCase();
+    const dotIdx = name.lastIndexOf('.');
+    const ext = dotIdx === -1 ? '' : file.Key.slice(dotIdx + 1).toLowerCase();
     for (const [exts, info] of EXTENSION_INFOS.entries()) {
-        if (exts.indexOf(ext) !== -1) return info;
+        if (exts.indexOf(ext) !== -1) return { name, ext, typeInfo: info };
     }
-    return FILE_INFO;
+    return { name, ext, typeInfo: FILE_INFO };
 }
 
 /**
@@ -529,6 +584,24 @@ async function dismissFileGuide() {
 
 watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
+
+// watch which table rows are expanded and fetch their versions.
+watch(expandedKeys, (keys, oldKeys) => {
+    const newKeys = keys.filter(key => {
+        return !oldKeys?.some(oldKey => {
+            return oldKey === key;
+        });
+    });
+    newKeys.forEach(key => {
+        obStore.listVersions(key);
+    });
+});
+
+watch(() => obStore.state.showObjectVersions, showObjectVersions => {
+    if (!showObjectVersions) {
+        obStore.updateVersionsExpandedKeys([]);
+    }
+});
 
 if (!userStore.noticeDismissal.fileGuide) {
     const unwatch = watch(firstFile, () => {

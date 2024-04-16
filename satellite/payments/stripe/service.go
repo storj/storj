@@ -1201,6 +1201,8 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 			footerMsg += fmt.Sprintf("\nEstimated Trees Saved: %d\nMore information on trees saved: %s", savedTrees, treesCalcLink)
 		}
 
+		footerMsg += "\n\nNote: The carbon emissions displayed are estimated based on the total account usage, calculated for the dates of this invoice."
+
 		footer = stripe.String(footerMsg)
 	} else {
 		itemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
