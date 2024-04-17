@@ -157,6 +157,7 @@ func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 		}
 
 		hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, obs.config.FalsePositiveRate, obs.config.MaxBloomFilterSize)
+		tableSize = 10_000_000
 		// limit size of bloom filter to ensure we are under the limit for RPC
 		filter := bloomfilter.NewExplicit(obs.seed, hashCount, tableSize)
 		info = &RetainInfo{
