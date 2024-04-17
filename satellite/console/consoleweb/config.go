@@ -66,6 +66,8 @@ type FrontendConfig struct {
 	PlausibleScriptUrl              string                `json:"plausibleScriptUrl"`
 	PlausibleDomain                 string                `json:"plausibleDomain"`
 	NewAppSetupFlowEnabled          bool                  `json:"newAppSetupFlowEnabled"`
+	ObjectBrowserKeyNamePrefix      string                `json:"objectBrowserKeyNamePrefix"`
+	ObjectBrowserKeyLifetime        time.Duration         `json:"objectBrowserKeyLifetime"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

@@ -872,6 +872,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PlausibleScriptUrl:              server.AnalyticsConfig.Plausible.ScriptUrl,
 		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
 		NewAppSetupFlowEnabled:          server.config.NewAppSetupFlowEnabled,
+		ObjectBrowserKeyNamePrefix:      server.config.ObjectBrowserKeyNamePrefix,
+		ObjectBrowserKeyLifetime:        server.config.ObjectBrowserKeyLifetime,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

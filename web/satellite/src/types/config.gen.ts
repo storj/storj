@@ -62,6 +62,8 @@ export class FrontendConfig {
     plausibleScriptUrl: string;
     plausibleDomain: string;
     newAppSetupFlowEnabled: boolean;
+    objectBrowserKeyNamePrefix: string;
+    objectBrowserKeyLifetime: number;
 }
 
 export class MultiCaptchaConfig {
