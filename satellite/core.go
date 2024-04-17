@@ -585,6 +585,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console.dbcleanup:chore"),
 			peer.DB.Console(),
 			config.ConsoleDBCleanup,
+			config.Console.Config,
 		)
 
 		peer.Services.Add(lifecycle.Item{

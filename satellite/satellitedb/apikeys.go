@@ -5,10 +5,14 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/lrucache"
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
@@ -255,6 +259,92 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = keys.methods.Delete_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
 	return err
+}
+
+// DeleteExpiredByNamePrefix deletes expired APIKeyInfo from store by key name prefix.
+func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime time.Duration, prefix string, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if pageSize <= 0 {
+		return Error.New("expected page size to be positive; got %d", pageSize)
+	}
+
+	type keyInfo struct {
+		id        uuid.UUID
+		createdAt time.Time
+	}
+
+	var pageCursor uuid.UUID
+	var toBeDeleted []uuid.UUID
+	found := make([]keyInfo, pageSize)
+	aost := keys.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
+	now := time.Now()
+
+	cursorQuery := `
+		SELECT id FROM api_keys
+	` + aost + `
+		WHERE id > $1 AND api_keys.name LIKE
+	'` + prefix + `%'
+		ORDER BY id LIMIT 1
+	`
+	selectQuery := `
+		SELECT id, created_at FROM api_keys
+	` + aost + `
+		WHERE id >= $1 AND api_keys.name LIKE
+	'` + prefix + `%'
+		ORDER BY id LIMIT $2
+	`
+
+	for {
+		// Select the ID beginning this page of records
+		err = keys.db.QueryRowContext(ctx, cursorQuery, pageCursor).Scan(&pageCursor)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+
+		// Select page of records
+		rows, err := keys.db.QueryContext(ctx, selectQuery, pageCursor, pageSize)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		var i int
+		for i = 0; rows.Next(); i++ {
+			key := keyInfo{}
+
+			err = rows.Scan(&key.id, &key.createdAt)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			found[i] = key
+
+			if now.After(key.createdAt.Add(lifetime)) {
+				toBeDeleted = append(toBeDeleted, key.id)
+			}
+		}
+		if err = errs.Combine(rows.Err(), rows.Close()); err != nil {
+			return Error.Wrap(err)
+		}
+
+		// Delete all expired keys in the page
+		if len(toBeDeleted) != 0 {
+			_, err = keys.db.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ANY($1)`, pgutil.UUIDArray(toBeDeleted))
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		if i < pageSize {
+			return nil
+		}
+
+		// Advance the cursor to the next page
+		pageCursor = found[i-1].id
+	}
 }
 
 func apiKeyToAPIKeyInfo(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {

@@ -6,6 +6,7 @@ package console_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -270,6 +271,97 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.NotNil(t, keys)
 			assert.Equal(t, uint64(0), keys.TotalCount)
 			assert.Equal(t, 0, len(keys.APIKeys))
+		})
+
+		t.Run("DeleteExpiredByNamePrefix", func(t *testing.T) {
+			pr, err := projects.Insert(ctx, &console.Project{
+				Name: "ProjectName3",
+			})
+			assert.NotNil(t, pr)
+			assert.NoError(t, err)
+
+			secret, err := macaroon.NewSecret()
+			assert.NoError(t, err)
+
+			key, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+			key1, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+			key2, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+			key3, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+
+			prefix := "prefix"
+			now := time.Now()
+
+			keyInfo := console.APIKeyInfo{
+				Name:      "randomName",
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+			keyInfo1 := console.APIKeyInfo{
+				Name:      prefix,
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+			keyInfo2 := console.APIKeyInfo{
+				Name:      prefix + "test",
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+			keyInfo3 := console.APIKeyInfo{
+				Name:      prefix + "test1",
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+
+			createdKey, err := apikeys.Create(ctx, key.Head(), keyInfo)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey)
+			createdKey1, err := apikeys.Create(ctx, key1.Head(), keyInfo1)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey1)
+			createdKey2, err := apikeys.Create(ctx, key2.Head(), keyInfo2)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey2)
+			createdKey3, err := apikeys.Create(ctx, key3.Head(), keyInfo3)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey3)
+
+			query := "UPDATE api_keys SET created_at = $1 WHERE id = $2"
+
+			_, err = db.Testing().RawDB().ExecContext(ctx, query, now.Add(-24*time.Hour), createdKey1.ID)
+			assert.NoError(t, err)
+			_, err = db.Testing().RawDB().ExecContext(ctx, query, now.Add(-24*2*time.Hour), createdKey2.ID)
+			assert.NoError(t, err)
+			_, err = db.Testing().RawDB().ExecContext(ctx, query, now.Add(-24*3*time.Hour), createdKey3.ID)
+			assert.NoError(t, err)
+
+			cursor := console.APIKeyCursor{Page: 1, Limit: 10}
+			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			assert.NoError(t, err)
+			assert.NotNil(t, keys)
+			assert.Len(t, keys.APIKeys, 4)
+
+			// Even with a page size set to 1, 2 of the 4 keys must be deleted.
+			err = apikeys.DeleteExpiredByNamePrefix(ctx, time.Hour*47, prefix, 0, 1)
+			assert.NoError(t, err)
+
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			assert.NoError(t, err)
+			assert.NotNil(t, keys)
+			assert.Len(t, keys.APIKeys, 2)
+
+			// 1 of the 2 remaining keys has to be deleted because the only one doesn't have a prefix.
+			err = apikeys.DeleteExpiredByNamePrefix(ctx, time.Hour*23, prefix, 0, 1)
+			assert.NoError(t, err)
+
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, "")
+			assert.NoError(t, err)
+			assert.NotNil(t, keys)
+			assert.Len(t, keys.APIKeys, 1)
+			assert.Equal(t, keyInfo.Name, keys.APIKeys[0].Name)
 		})
 	})
 }

@@ -31,6 +31,8 @@ type APIKeys interface {
 	Update(ctx context.Context, key APIKeyInfo) error
 	// Delete deletes APIKeyInfo from store
 	Delete(ctx context.Context, id uuid.UUID) error
+	// DeleteExpiredByNamePrefix deletes expired APIKeyInfo from store by key name prefix
+	DeleteExpiredByNamePrefix(ctx context.Context, lifetime time.Duration, prefix string, asOfSystemTimeInterval time.Duration, pageSize int) error
 }
 
 // RESTKeys is an interface for rest key operations.
