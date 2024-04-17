@@ -221,29 +221,32 @@ func TestObserverGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T)
 		config := planet.Satellites[0].Config.GarbageCollectionBF
 		config.AccessGrant = accessString
 		config.Bucket = "bloomfilters"
-		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
 
-		// TODO: see comment above. ideally this should use the rangedloop
-		// service instantiated for the testplanet.
-		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
-		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
-			[]rangedloop.Observer{observer})
+		for _, observer := range []rangedloop.Observer{
+			bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB),
+			bloomfilter.NewSyncObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB),
+		} {
+			t.Run(fmt.Sprintf("%T", observer), func(t *testing.T) {
+				// TODO: see comment above. ideally this should use the rangedloop
+				// service instantiated for the testplanet.
+				rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+				rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
+					[]rangedloop.Observer{observer})
 
-		_, err = rangedLoop.RunOnce(ctx)
-		require.NoError(t, err)
+				_, err = rangedLoop.RunOnce(ctx)
+				require.NoError(t, err)
 
-		// check that there are 2 objects and the names match
-		iterator := project.ListObjects(ctx, "bloomfilters", nil)
-		keys := []string{}
-		for iterator.Next() {
-			if !iterator.Item().IsPrefix {
-				keys = append(keys, iterator.Item().Key)
-			}
+				latestData, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], config.Bucket, bloomfilter.LATEST)
+				require.NoError(t, err)
+
+				iterator := project.ListObjects(ctx, config.Bucket, &uplink.ListObjectsOptions{
+					Prefix: string(latestData) + "/",
+				})
+				require.True(t, iterator.Next())
+				require.NoError(t, iterator.Err())
+			})
 		}
-		require.Len(t, keys, 2)
-		require.Contains(t, keys, "some object")
-		require.Contains(t, keys, bloomfilter.LATEST)
 	})
 }
 

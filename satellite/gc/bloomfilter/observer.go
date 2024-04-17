@@ -19,6 +19,12 @@ import (
 
 var mon = monkit.Package()
 
+// TestingObserver provides testing methods for bloom filter generation ranged loop observers.
+type TestingObserver interface {
+	TestingRetainInfos() map[storj.NodeID]*RetainInfo
+	TestingForceTableSize(size int)
+}
+
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
 type RetainInfo struct {
 	Filter *bloomfilter.Filter
