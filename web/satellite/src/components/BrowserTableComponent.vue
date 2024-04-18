@@ -39,8 +39,15 @@
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
         >
-            <template #expanded-row="{ internalItem: {key} }">
-                <tr v-for="file in versionsCache.get(key) as BrowserObject[]" :key="file.VersionId" class="bg-altbg">
+            <template #expanded-row="{ columns, internalItem: {key} }">
+                <template v-if="!versionsCache.get(key)?.length">
+                    <tr>
+                        <td :colspan="columns.length">
+                            <p class="text-center">No older versions stored</p>
+                        </td>
+                    </tr>
+                </template>
+                <tr v-for="file in versionsCache.get(key) as BrowserObject[]" v-else :key="file.VersionId" class="bg-altbg">
                     <td />
                     <td>
                         <v-list-item class="rounded-lg text-caption pl-1 ml-n1" link>

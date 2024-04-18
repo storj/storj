@@ -298,9 +298,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             type: 'file',
         });
 
-        const files: BrowserObject[] = [
-            ...versions.map(makeFileRelative),
-        ];
+        const files = versions.map(file => ({
+            ...file,
+            Key,
+            path,
+            type: 'file',
+        })) as BrowserObject[];
+        // remove the first element which is the current version of the object
+        files.shift();
 
         state.objectVersions.set(objectKey, files);
     }
