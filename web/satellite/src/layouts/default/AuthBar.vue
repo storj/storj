@@ -4,18 +4,18 @@
 <template>
     <v-app-bar :elevation="0" border="0">
         <template #prepend>
-            <div class="d-flex flex-row align-center mr-1">
+            <div class="d-flex flex-row align-center ml-2 mr-1 mt-n1">
                 <img
                     v-if="theme.global.current.value.dark"
                     src="@/assets/logo-dark.svg"
-                    height="29"
+                    height="23"
                     width="auto"
                     alt="Storj Logo"
                 >
                 <img
                     v-else
                     src="@/assets/logo.svg"
-                    height="29"
+                    height="23"
                     width="auto"
                     alt="Storj Logo"
                 >
@@ -24,7 +24,7 @@
                     <a :href="partnerConfig.partnerUrl">
                         <img
                             :src="partnerConfig.partnerLogoTopUrl"
-                            height="29"
+                            height="23"
                             width="auto"
                             :alt="partnerConfig.name + ' logo'"
                             class="rounded mt-2"
