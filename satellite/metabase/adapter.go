@@ -17,7 +17,9 @@ type Adapter interface {
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
-	TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error)
+
+	TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error)
+	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.

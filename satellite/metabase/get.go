@@ -359,7 +359,7 @@ func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err erro
 func (db *DB) TestingAllSegments(ctx context.Context) (segments []Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rawSegments, err := db.testingGetAllSegments(ctx)
+	rawSegments, err := db.ChooseAdapter(uuid.UUID{}).TestingGetAllSegments(ctx, db.aliasCache)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

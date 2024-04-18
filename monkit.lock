@@ -63,6 +63,11 @@ storj.io/storj/satellite/console."login_success" Counter
 storj.io/storj/satellite/console."login_user_captcha_error" Counter
 storj.io/storj/satellite/console."login_user_captcha_unsuccessful" Counter
 storj.io/storj/satellite/console."login_user_failed_count" IntVal
+storj.io/storj/satellite/console."reset_password_2fa_failed" Counter
+storj.io/storj/satellite/console."reset_password_2fa_failed_count" IntVal
+storj.io/storj/satellite/console."reset_password_2fa_locked_out" Counter
+storj.io/storj/satellite/console."reset_password_2fa_lockout_initiated" Counter
+storj.io/storj/satellite/console."reset_password_2fa_lockout_reinitiated" Counter
 storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_failed" Counter
 storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_lockout_initiated" Counter
 storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_lockout_reinitiated" Counter

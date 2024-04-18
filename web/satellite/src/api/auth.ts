@@ -17,6 +17,7 @@ import {
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { APIError } from '@/utils/error';
+import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -605,6 +606,9 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
+            if (result.code === 'too_many_attempts') {
+                throw new ErrorTooManyAttempts();
+            }
             if (result.code === 'mfa_required') {
                 throw new ErrorMFARequired();
             }

@@ -27,9 +27,9 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { Duration } from '@/utils/time';
 
 const FIRST_PAGE = 1;
-export const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 export class BucketsState {
     public allBucketNames: string[] = [];
@@ -164,15 +164,13 @@ export const useBucketsStore = defineStore('buckets', () => {
 
     async function setS3Client(projectID: string): Promise<void> {
         const agStore = useAccessGrantsStore();
+        const { objectBrowserKeyNamePrefix, objectBrowserKeyLifetime } = useConfigStore().state.config;
+        const now = new Date();
 
         if (!state.apiKey) {
-            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
-            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(`${objectBrowserKeyNamePrefix}${now.getTime()}`, projectID);
             setApiKey(cleanAPIKey.secret);
         }
-
-        const now = new Date();
-        const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
         const worker = agStore.state.accessGrantsWebWorker;
         if (!worker) {
@@ -183,13 +181,14 @@ export const useBucketsStore = defineStore('buckets', () => {
             throw new Error(error.message);
         };
 
+        const notAfter = new Date(now.setDate(now.getDate() + new Duration(objectBrowserKeyLifetime).days));
         worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
             'isUpload': true,
             'isList': true,
             'isDelete': true,
-            'notAfter': inThreeDays.toISOString(),
+            'notAfter': notAfter.toISOString(),
             'buckets': JSON.stringify([]),
             'apiKey': state.apiKey,
         });

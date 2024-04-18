@@ -7,23 +7,28 @@ import (
 	"context"
 )
 
+// RegisterImplementation registers the implementation interface, without adding concrete implementation.
+func RegisterImplementation[L ~[]T, T any](ball *Ball) {
+	RegisterManual[L](ball, func(ctx context.Context) (L, error) {
+		var instances L
+		component := lookup[L](ball)
+		for _, req := range component.requirements {
+			c, _ := lookupByType(ball, req)
+			// only initialized instances are inject to the implementation list
+			if c.instance != nil {
+				instances = append(instances, c.instance.(T))
+			}
+		}
+		return instances, nil
+	})
+}
+
 // Implementation registers a new []T component, which will be filled with any registered instances.
 // Instances will be marked with "Optional{}" tag, and will be injected only, if they are initialized.
 // It's the responsibility of the Init code to exclude / include them during initialization.
 func Implementation[L ~[]T, Instance any, T any](ball *Ball) {
 	if lookup[L](ball) == nil {
-		RegisterManual[L](ball, func(ctx context.Context) (L, error) {
-			var instances L
-			component := lookup[L](ball)
-			for _, req := range component.requirements {
-				c, _ := lookupByType(ball, req)
-				// only initialized instances are inject to the implementation list
-				if c.instance != nil {
-					instances = append(instances, c.instance.(T))
-				}
-			}
-			return instances, nil
-		})
+		RegisterImplementation[L, T](ball)
 	}
 	lookup[L](ball).requirements = append(lookup[L](ball).requirements, typeOf[Instance]())
 	Tag[Instance](ball, Optional{})

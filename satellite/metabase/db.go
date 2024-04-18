@@ -60,7 +60,7 @@ type DB struct {
 }
 
 // Open opens a connection to metabase.
-func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (*DB, error) {
+func Open(ctx context.Context, log *zap.Logger, connstr string, config Config, extraAdapters ...Adapter) (*DB, error) {
 	var driverName string
 	_, _, impl, err := dbutil.SplitConnStr(connstr)
 	if err != nil {
@@ -114,6 +114,8 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		return nil, Error.New("unsupported implementation: %s", connstr)
 	}
 
+	db.adapters = append(db.adapters, extraAdapters...)
+
 	if log.Level() == zap.DebugLevel {
 		log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)))
 	}
@@ -127,6 +129,13 @@ func (db *DB) Implementation() dbutil.Implementation { return db.impl }
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
 	// TODO: choose based on configuration.
+
+	for _, a := range db.adapters {
+		// use spanner, if it's registered
+		if _, isSpanner := a.(*SpannerAdapter); isSpanner {
+			return a
+		}
+	}
 	return db.adapters[0]
 }
 

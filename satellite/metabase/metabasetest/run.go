@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/dbutil"
@@ -23,21 +24,28 @@ import (
 )
 
 // RunWithConfig runs tests with specific metabase configuration.
-func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...interface{}) {
 	RunWithConfigAndMigration(t, config, fn, func(ctx context.Context, db *metabase.DB) error {
 		return db.TestMigrateToLatest(ctx)
-	})
+	}, flags...)
 }
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
-func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error) {
-	for _, dbinfo := range satellitedbtest.Databases() {
+func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, flags ...interface{}) {
+	spannerTestEnabled := slices.ContainsFunc(flags, func(flag interface{}) bool {
+		return flag == withSpanner
+	})
+
+	for _, dbinfo := range satellitedbtest.DatabasesWithSpanner() {
+		if dbinfo.Spanner != "" && !spannerTestEnabled {
+			continue
+		}
 		dbinfo := dbinfo
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
 			mudtest.Run[*metabase.DB](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
-				Modules(ball, dbinfo.MetabaseDB, config)
+				TestModule(ball, dbinfo, config)
 			}), func(ctx context.Context, t *testing.T, db *metabase.DB) {
 				tctx := testcontext.New(t)
 				defer tctx.Cleanup()
@@ -52,8 +60,15 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 	}
 }
 
+var withSpanner = struct{}{}
+
+// WithSpanner flags the metabase test as ready for testing it with spanner.
+func WithSpanner() struct{} {
+	return withSpanner
+}
+
 // Run runs tests against all configured databases.
-func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...interface{}) {
 	var config metainfo.Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
 		cfgstruct.UseTestDefaults(),
@@ -69,7 +84,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		UseListObjectsIterator: config.UseListObjectsIterator,
 
 		TestingUniqueUnversioned: true,
-	}, fn)
+	}, fn, flags...)
 }
 
 // Bench runs benchmark for all configured databases.
@@ -83,10 +98,9 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 				MaxNumberOfParts: 10000,
 			}
 
-			mudtest.Run[*metabase.DB](b, func(ball *mud.Ball) {
-				mud.Provide[*zap.Logger](ball, zap.NewNop)
-				Modules(ball, dbinfo.MetabaseDB, config)
-			}, func(ctx context.Context, b *testing.B, db *metabase.DB) {
+			mudtest.Run[*metabase.DB](b, mudtest.WithTestLogger(b, func(ball *mud.Ball) {
+				TestModule(ball, dbinfo, config)
+			}), func(ctx context.Context, b *testing.B, db *metabase.DB) {
 				tctx := testcontext.New(b)
 				defer tctx.Cleanup()
 
@@ -101,8 +115,8 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 	}
 }
 
-// Modules provides all dependencies to run metabase tests.
-func Modules(ball *mud.Ball, dbinfo satellitedbtest.Database, config metabase.Config) {
+// TestModule provides all dependencies to run metabase tests.
+func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, config metabase.Config) {
 	mud.Provide[*metabase.DB](ball, createMetabaseDBOnTopOf)
 	mud.Provide[*dbutil.TempDatabase](ball, satellitedbtest.CreateTempDB)
 	mud.Provide[metabase.Config](ball, func() metabase.Config {
@@ -119,19 +133,24 @@ func Modules(ball *mud.Ball, dbinfo satellitedbtest.Database, config metabase.Co
 		return cfg
 	})
 	mud.Supply[satellitedbtest.Database](ball, satellitedbtest.Database{
-		Name:    dbinfo.Name,
-		URL:     dbinfo.URL,
-		Message: dbinfo.Message,
+		Name:    dbinfo.MetabaseDB.Name,
+		URL:     dbinfo.MetabaseDB.URL,
+		Message: dbinfo.MetabaseDB.Message,
 	})
 	mud.Supply[satellitedbtest.TempDBSchemaConfig](ball, satellitedbtest.TempDBSchemaConfig{
 		Name:     "test",
 		Category: "M",
 		Index:    0,
 	})
+	mud.RegisterImplementation[[]metabase.Adapter](ball)
+	if dbinfo.Spanner != "" {
+		metabase.SpannerTestModule(ball, dbinfo.Spanner)
+	}
+
 }
 
-func createMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config) (*metabase.DB, error) {
-	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config)
+func createMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config, adapters []metabase.Adapter) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config, adapters...)
 	if err != nil {
 		return nil, err
 	}
