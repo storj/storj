@@ -286,6 +286,43 @@ func TestAuth(t *testing.T) {
 	})
 }
 
+func TestAnalytics(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// test that sending /pageview event doesn't require authentication
+		test := newTest(t, ctx, planet)
+		user := test.defaultUser()
+
+		{ // Register User
+			_ = test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
+		}
+
+		{ // Analytics_Pageview
+			resp, _ := test.request(
+				http.MethodPost, "/analytics/pageview",
+				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storj.io"}`))
+			require.Equal(t, http.StatusAccepted, resp.StatusCode)
+		}
+
+		{ // Login_GetToken_Pass
+			test.login(user.email, user.password)
+		}
+
+		{ // Analytics_Pageview
+			resp, _ := test.request(
+				http.MethodPost, "/analytics/pageview",
+				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storj.io"}`))
+			require.Equal(t, http.StatusAccepted, resp.StatusCode)
+		}
+	})
+}
+
 func TestPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

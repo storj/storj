@@ -61,11 +61,14 @@
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
 
+# the url of the plausible API
+# analytics.plausible.api-url: https://plausible.io/api/event
+
+# the default timeout for the plausible http client
+# analytics.plausible.default-timeout: 10s
+
 # the domain set up on plausible for the satellite
 # analytics.plausible.domain: ""
-
-# the url of the plausible script
-# analytics.plausible.script-url: https://plausible.io/js/script.manual.js
 
 # segment write key
 # analytics.segment-write-key: ""

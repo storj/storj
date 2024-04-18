@@ -9,12 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
 	"storj.io/common/uuid"
 )
+
+var mon = monkit.Package()
 
 const (
 	// SourceTrialExpiringNotice is the trial expiring notice source.
@@ -124,12 +127,6 @@ var (
 	Error = errs.Class("analytics service")
 )
 
-// PlausibleConfig is a configuration struct for plausible analytics.
-type PlausibleConfig struct {
-	Domain    string `help:"the domain set up on plausible for the satellite" default:""`
-	ScriptUrl string `help:"the url of the plausible script" releaseDefault:"https://plausible.io/js/script.manual.js" devDefault:"https://plausible.io/js/script.local.manual.js"`
-}
-
 // Config is a configuration struct for analytics Service.
 type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
@@ -181,8 +178,9 @@ type Service struct {
 	clientEvents  map[string]bool
 	sources       map[string]interface{}
 
-	segment segment.Client
-	hubspot *HubSpotEvents
+	segment   segment.Client
+	hubspot   *HubSpotEvents
+	plausible *PlausibleService
 }
 
 // NewService creates new service for creating sending analytics.
@@ -194,6 +192,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		clientEvents:  make(map[string]bool),
 		sources:       make(map[string]interface{}),
 		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
+		plausible:     NewPlausibleService(log.Named("plausibleservice"), config.Plausible),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
@@ -765,6 +764,15 @@ func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email 
 		Name:       "Page Requested",
 		Properties: props,
 	})
+}
+
+// PageViewEvent sends a page view event to plausible.
+func (service *Service) PageViewEvent(ctx context.Context, pv PageViewBody) error {
+	if !service.config.Enabled {
+		return nil
+	}
+
+	return service.plausible.PageViewEvent(ctx, pv)
 }
 
 // TrackProjectLimitError sends an "Project Limit Error" event to Segment.

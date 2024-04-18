@@ -149,24 +149,10 @@ onBeforeMount(async (): Promise<void> => {
 
     isLoading.value = false;
 
-    setupPlausible();
-});
-
-/**
- * conditionally setup plausible analytics and track first page visit.
- */
-async function setupPlausible() {
-    const plausibleEnabled = !!configStore.state.config.plausibleDomain && !!configStore.state.config.plausibleScriptUrl;
-    if (configStore.state.config.analyticsEnabled && plausibleEnabled) {
-        await analyticsStore.loadPlausible({
-            domain: configStore.state.config.plausibleDomain,
-            scriptURL: configStore.state.config.plausibleScriptUrl,
-        });
-
-        // track first page visit
+    if (configStore.state.config.analyticsEnabled) {
         analyticsStore.pageVisit(route.matched[route.matched.length - 1].path, configStore.state.config.satelliteName);
     }
-}
+});
 
 usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {

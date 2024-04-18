@@ -14,14 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
 )
-
-var mon = monkit.Package()
 
 const (
 	eventPrefix      = "pe44965639"

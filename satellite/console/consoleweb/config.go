@@ -63,8 +63,6 @@ type FrontendConfig struct {
 	ApplicationsPageEnabled         bool                  `json:"applicationsPageEnabled"`
 	DaysBeforeTrialEndNotification  int                   `json:"daysBeforeTrialEndNotification"`
 	AnalyticsEnabled                bool                  `json:"analyticsEnabled"`
-	PlausibleScriptUrl              string                `json:"plausibleScriptUrl"`
-	PlausibleDomain                 string                `json:"plausibleDomain"`
 	NewAppSetupFlowEnabled          bool                  `json:"newAppSetupFlowEnabled"`
 	ObjectBrowserKeyNamePrefix      string                `json:"objectBrowserKeyNamePrefix"`
 	ObjectBrowserKeyLifetime        time.Duration         `json:"objectBrowserKeyLifetime"`

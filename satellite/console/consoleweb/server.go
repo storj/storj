@@ -402,7 +402,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
 
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
-	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
+
+	analyticsPath := "/api/v0/analytics"
+	router.Handle(analyticsPath+"/pageview", server.ipRateLimiter.Limit(http.HandlerFunc(analyticsController.PageViewTriggered))).Methods(http.MethodPost, http.MethodOptions)
+	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
@@ -627,11 +630,6 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 			gstatic := "https://www.gstatic.com/recaptcha/"
 			scriptSrc = appendValues(scriptSrc, recap, gstatic)
 			frameSrc = appendValues(frameSrc, recap, recapSubdomain)
-		}
-		if server.AnalyticsConfig.Enabled && server.AnalyticsConfig.Plausible.Domain != "" {
-			plausible := "https://plausible.io"
-			connectSrc = appendValues(connectSrc, plausible)
-			scriptSrc = appendValues(scriptSrc, plausible)
 		}
 		cspValues := []string{
 			"default-src 'self'",
@@ -868,8 +866,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
 		AnalyticsEnabled:                server.AnalyticsConfig.Enabled,
-		PlausibleDomain:                 server.AnalyticsConfig.Plausible.Domain,
-		PlausibleScriptUrl:              server.AnalyticsConfig.Plausible.ScriptUrl,
 		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
 		NewAppSetupFlowEnabled:          server.config.NewAppSetupFlowEnabled,
 		ObjectBrowserKeyNamePrefix:      server.config.ObjectBrowserKeyNamePrefix,

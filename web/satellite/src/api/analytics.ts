@@ -84,6 +84,19 @@ export class AnalyticsHttpApi {
         }
     }
 
+    public async pageView(body: { url: string; props: { source: string } }): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/pageview`;
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error('Attempted to notify Satellite that pageview occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about pageview event occurrence (most likely blocked by browser).');
+        }
+    }
+
     /**
      * Used to notify the satellite about error events that occur.
      * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.

@@ -59,8 +59,6 @@ export class FrontendConfig {
     applicationsPageEnabled: boolean;
     daysBeforeTrialEndNotification: number;
     analyticsEnabled: boolean;
-    plausibleScriptUrl: string;
-    plausibleDomain: string;
     newAppSetupFlowEnabled: boolean;
     objectBrowserKeyNamePrefix: string;
     objectBrowserKeyLifetime: number;
