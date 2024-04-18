@@ -528,7 +528,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{Limit: 1, Page: 1})
+	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{Limit: 1, Page: 1}, "")
 	if err != nil {
 		sendJSONError(w, "unable to list api-keys",
 			err.Error(), http.StatusInternalServerError)

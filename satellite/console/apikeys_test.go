@@ -54,7 +54,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
@@ -67,7 +67,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  2,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 2)
@@ -81,7 +81,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
@@ -100,7 +100,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
@@ -127,7 +127,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
@@ -142,7 +142,7 @@ func TestApiKeysRepository(t *testing.T) {
 			err = apikeys.Delete(ctx, key.ID)
 			assert.NoError(t, err)
 
-			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 			assert.NotNil(t, page)
 			assert.Equal(t, len(page.APIKeys), 9)
 			assert.NoError(t, err)
@@ -154,7 +154,7 @@ func TestApiKeysRepository(t *testing.T) {
 				Limit:  10,
 				Search: "",
 			}
-			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor, "")
 
 			assert.Nil(t, page)
 			assert.Error(t, err)
@@ -209,6 +209,67 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.Equal(t, 2, len(names))
 			assert.Equal(t, keyInfo.Name, names[0])
 			assert.Equal(t, keyInfo1.Name, names[1])
+		})
+
+		t.Run("GetPagedByProjectID with excluding name prefix", func(t *testing.T) {
+			pr, err := projects.Insert(ctx, &console.Project{
+				Name: "ProjectName2",
+			})
+			assert.NotNil(t, pr)
+			assert.NoError(t, err)
+
+			secret, err := macaroon.NewSecret()
+			assert.NoError(t, err)
+
+			key, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+			key1, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+			key2, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+
+			keyInfo := console.APIKeyInfo{
+				Name:      "visibleKey1",
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+			keyInfo1 := console.APIKeyInfo{
+				Name:      "visibleKey2",
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+			ignoredPrefix := "notVisibleKey"
+			keyInfo2 := console.APIKeyInfo{
+				Name:      ignoredPrefix + "123",
+				ProjectID: pr.ID,
+				Secret:    secret,
+			}
+
+			createdKey, err := apikeys.Create(ctx, key.Head(), keyInfo)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey)
+			createdKey1, err := apikeys.Create(ctx, key1.Head(), keyInfo1)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey1)
+			createdKey2, err := apikeys.Create(ctx, key2.Head(), keyInfo2)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey2)
+
+			cursor := console.APIKeyCursor{Page: 1, Limit: 10}
+			keys, err := apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, ignoredPrefix)
+			assert.NoError(t, err)
+			assert.NotNil(t, keys)
+			assert.Equal(t, uint64(2), keys.TotalCount)
+			assert.Equal(t, 2, len(keys.APIKeys))
+			assert.Equal(t, keyInfo.Name, keys.APIKeys[0].Name)
+			assert.Equal(t, keyInfo1.Name, keys.APIKeys[1].Name)
+
+			cursor.Search = ignoredPrefix
+			keys, err = apikeys.GetPagedByProjectID(ctx, pr.ID, cursor, ignoredPrefix)
+			assert.NoError(t, err)
+			assert.NotNil(t, keys)
+			assert.Equal(t, uint64(0), keys.TotalCount)
+			assert.Equal(t, 0, len(keys.APIKeys))
 		})
 	})
 }

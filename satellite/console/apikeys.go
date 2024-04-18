@@ -16,7 +16,7 @@ import (
 // architecture: Database
 type APIKeys interface {
 	// GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
-	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (akp *APIKeyPage, err error)
+	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor, ignoredNamePrefix string) (akp *APIKeyPage, err error)
 	// Get retrieves APIKeyInfo with given ID
 	Get(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error)
 	// GetByHead retrieves APIKeyInfo for given key head

@@ -2951,7 +2951,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor
 		cursor.Limit = maxLimit
 	}
 
-	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor, s.config.ObjectBrowserKeyNamePrefix)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -3510,7 +3510,7 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 		return ErrUsage.New("some buckets still exist")
 	}
 
-	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1})
+	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1}, "")
 	if err != nil {
 		return err
 	}

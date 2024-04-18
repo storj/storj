@@ -26,14 +26,10 @@ type apikeys struct {
 	db      *satelliteDB
 }
 
-func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor) (akp *console.APIKeyPage, err error) {
+func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor, ignoredNamePrefix string) (page *console.APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	search := "%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%"
-
-	if cursor.Limit > 50 {
-		cursor.Limit = 50
-	}
 
 	if cursor.Limit == 0 {
 		return nil, console.ErrAPIKeyRequest.New("limit cannot be 0")
@@ -43,7 +39,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		return nil, console.ErrAPIKeyRequest.New("page cannot be 0")
 	}
 
-	page := &console.APIKeyPage{
+	page = &console.APIKeyPage{
 		Search:         cursor.Search,
 		Limit:          cursor.Limit,
 		Offset:         uint64((cursor.Page - 1) * cursor.Limit),
@@ -58,10 +54,17 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		AND lower(ak.name) LIKE ?
 	`)
 
+	ignorePrefixClause := ""
+	if ignoredNamePrefix != "" {
+		ignorePrefixClause = "AND ak.name NOT LIKE '" + ignoredNamePrefix + "%' "
+		countQuery += ignorePrefixClause
+	}
+
 	countRow := keys.db.QueryRowContext(ctx,
 		countQuery,
 		projectID[:],
-		strings.ToLower(search))
+		strings.ToLower(search),
+	)
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
@@ -80,7 +83,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		WHERE ak.project_id = ?
 		AND ak.project_id = p.id
 		AND lower(ak.name) LIKE ?
-		` + apikeySortClause(cursor.Order, page.OrderDirection) + `
+		` + ignorePrefixClause + apikeySortClause(cursor.Order, page.OrderDirection) + `
 		LIMIT ? OFFSET ?`)
 
 	rows, err := keys.db.QueryContext(ctx,

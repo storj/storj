@@ -143,7 +143,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
 
-const selectedChips = ref<AppCategory[]>([AppCategory.All]);
+const selectedChips = ref<AppCategory[]>([AppCategory.Featured]);
 const search = ref<string>('');
 const sortKey = ref<string>('name');
 const sortOrder = ref<string>('asc');

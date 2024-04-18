@@ -324,7 +324,7 @@ func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 				Page:           i,
 				Order:          console.KeyName,
 				OrderDirection: console.Ascending,
-			},
+			}, "",
 		)
 		if err != nil {
 			sendJSONError(w, "failed retrieving a cursor page of API Keys list",
