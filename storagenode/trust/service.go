@@ -159,9 +159,13 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 // GetSatellites returns a slice containing all trusted satellites.
 func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
 	defer mon.Task()(&ctx)(nil)
+
+	pool.satellitesMu.RLock()
 	for sat := range pool.satellites {
 		satellites = append(satellites, sat)
 	}
+	pool.satellitesMu.RUnlock()
+
 	sort.Sort(storj.NodeIDList(satellites))
 	return satellites
 }
