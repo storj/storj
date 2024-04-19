@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/dbutil"
 	"storj.io/common/tagsql"
 )
 
@@ -16,6 +17,7 @@ import (
 type Adapter interface {
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
+	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
@@ -28,9 +30,9 @@ type Adapter interface {
 
 // PostgresAdapter uses Cockroach related SQL queries.
 type PostgresAdapter struct {
-	log        *zap.Logger
-	db         tagsql.DB
-	aliasCache *NodeAliasCache
+	log  *zap.Logger
+	db   tagsql.DB
+	impl dbutil.Implementation
 }
 
 var _ Adapter = &PostgresAdapter{}

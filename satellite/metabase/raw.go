@@ -490,7 +490,7 @@ func (p *PostgresAdapter) TestingBatchInsertSegments(ctx context.Context, aliasC
 
 				aliases = aliases[:len(batch)]
 				for i, segment := range batch {
-					aliases[i], err = p.aliasCache.EnsurePiecesToAliases(ctx, segment.Pieces)
+					aliases[i], err = aliasCache.EnsurePiecesToAliases(ctx, segment.Pieces)
 					if err != nil {
 						return err
 					}

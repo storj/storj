@@ -98,16 +98,16 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config, e
 	switch impl {
 	case dbutil.Postgres:
 		db.adapters = append(db.adapters, &PostgresAdapter{
-			log:        log,
-			db:         rawdb,
-			aliasCache: db.aliasCache,
+			log:  log,
+			db:   rawdb,
+			impl: impl,
 		})
 	case dbutil.Cockroach:
 		db.adapters = append(db.adapters, &CockroachAdapter{
 			PostgresAdapter{
-				log:        log,
-				db:         rawdb,
-				aliasCache: db.aliasCache,
+				log:  log,
+				db:   rawdb,
+				impl: impl,
 			},
 		})
 	default:
