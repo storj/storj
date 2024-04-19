@@ -528,18 +528,6 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{Limit: 1, Page: 1}, "")
-	if err != nil {
-		sendJSONError(w, "unable to list api-keys",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if keys.TotalCount > 0 {
-		sendJSONError(w, "api-keys still exist",
-			fmt.Sprintf("count %d", keys.TotalCount), http.StatusConflict)
-		return
-	}
-
 	// if usage exist, return error to client and exit
 	if server.checkUsage(ctx, w, project.ID) {
 		return

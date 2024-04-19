@@ -798,7 +798,7 @@ func TestProjectDelete(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, apikeys.APIKeys, 1)
 
-		// the deletion with an existing API key should fail
+		// the deletion with an existing API key should be successful
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodDelete,
@@ -809,24 +809,6 @@ func TestProjectDelete(t *testing.T) {
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Equal(t, http.StatusConflict, response.StatusCode)
-		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
-
-		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apikeys.APIKeys[0].ID)
-		require.NoError(t, err)
-
-		req, err = http.NewRequestWithContext(
-			ctx,
-			http.MethodDelete,
-			fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID),
-			nil,
-		)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
-
-		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
