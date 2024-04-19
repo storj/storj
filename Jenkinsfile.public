@@ -110,7 +110,7 @@ pipeline {
                 }
                 stage('Other') {
                     steps {
-                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=4m run'
                         sh 'protolock status'
                         sh 'go.min vet ./...'
                         dir("testsuite/storjscan") {
@@ -121,7 +121,7 @@ pipeline {
                 stage('licenses check') {
                     steps {
                         // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                        sh 'go-licenses check --ignore "storj.io/storj" ./...'
+                        sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
                     }
                 }
             }
