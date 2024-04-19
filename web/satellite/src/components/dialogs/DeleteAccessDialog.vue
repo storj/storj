@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Delete Access Key{{ accessNames.length > 1 ? 's' : '' }}
+                    Delete Access Key{{ accesses.length > 1 ? 's' : '' }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -39,13 +39,13 @@
 
             <div class="px-7 py-6">
                 <p class="mb-3">
-                    The following access key{{ accessNames.length > 1 ? 's' : '' }}
+                    The following access key{{ accesses.length > 1 ? 's' : '' }}
                     will be deleted. Any publicly shared links using
-                    {{ accessNames.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
+                    {{ accesses.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
                 </p>
-                <p v-for="accessName of accessNames" :key="accessName" class="mt-2">
-                    <v-chip :title="accessName" class="font-weight-bold text-wrap h-100 py-2">
-                        {{ accessName }}
+                <p v-for="item of accesses" :key="item.id" class="mt-2">
+                    <v-chip :title="item.name" class="font-weight-bold text-wrap h-100 py-2">
+                        {{ item.name }}
                     </v-chip>
                 </p>
             </div>
@@ -71,7 +71,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import {
     VDialog,
     VCard,
@@ -87,20 +86,20 @@ import {
 } from 'vuetify/components';
 
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AccessGrant } from '@/types/accessGrants';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 
 const agStore = useAccessGrantsStore();
-const projectsStore = useProjectsStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
-    accessNames: string[];
+    accesses: AccessGrant[];
 }>();
 
 const emit = defineEmits<{
@@ -112,13 +111,13 @@ const model = defineModel<boolean>({ required: true });
 async function onDeleteClick(): Promise<void> {
     await withLoading(async () => {
         try {
-            const projId = projectsStore.state.selectedProject.id;
-            await Promise.all(props.accessNames.map(n => agStore.deleteAccessGrantByNameAndProjectID(n, projId)));
-            notify.success(`Access Grant${props.accessNames.length > 1 ? 's' : ''} deleted successfully`);
+            const ids: string[] = props.accesses.map(ag => ag.id);
+            await agStore.deleteAccessGrants(ids);
+            notify.success(`Access Grant${props.accesses.length > 1 ? 's' : ''} deleted successfully`);
             emit('deleted');
             model.value = false;
         } catch (error) {
-            error.message = `Error deleting access grant${props.accessNames.length > 1 ? 's' : ''}. ${error.message}`;
+            error.message = `Error deleting access grant${props.accesses.length > 1 ? 's' : ''}. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
     });

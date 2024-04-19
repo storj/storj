@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" rounded="xlg">
+    <v-card variant="outlined" border rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
@@ -25,7 +25,7 @@
             :loading="areGrantsFetching"
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
-            item-value="name"
+            :item-value="(item: AccessGrant) => item"
             no-data-text="No results found"
             select-strategy="page"
             show-select
@@ -55,7 +55,7 @@
                     <v-icon :icon="mdiDotsHorizontal" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
-                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.name)">
+                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item)">
                                 <template #prepend>
                                     <icon-trash />
                                 </template>
@@ -72,7 +72,7 @@
 
     <delete-access-dialog
         v-model="isDeleteAccessDialogShown"
-        :access-names="accessesToDelete"
+        :accesses="accessesToDelete"
         @deleted="() => onUpdatePage(FIRST_PAGE)"
     />
 
@@ -127,7 +127,7 @@ import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';
+import { AccessGrant, AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useNotify } from '@/utils/hooks';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -145,9 +145,9 @@ const FIRST_PAGE = 1;
 const areGrantsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
-const selected = ref([]);
 const isDeleteAccessDialogShown = ref<boolean>(false);
-const accessNameToDelete = ref<string>('');
+const accessToDelete = ref<AccessGrant | undefined>();
+const selected = ref<AccessGrant[]>([]);
 
 const headers = [
     {
@@ -176,8 +176,8 @@ const page = computed((): AccessGrantsPage => {
 /**
  * Returns the selected accesses to the delete dialog.
  */
-const accessesToDelete = computed<string[]>(() => {
-    if (accessNameToDelete.value) return [accessNameToDelete.value];
+const accessesToDelete = computed<AccessGrant[]>(() => {
+    if (accessToDelete.value) return [accessToDelete.value];
     return selected.value;
 });
 
@@ -205,7 +205,7 @@ function onUpdateLimit(limit: number): void {
  */
 function onUpdatePage(page: number): void {
     selected.value = [];
-    accessNameToDelete.value = '';
+    accessToDelete.value = undefined;
     fetch(page, cursor.value.limit);
 }
 
@@ -226,8 +226,8 @@ function onUpdateSortBy(sortBy: {key: keyof AccessGrantsOrderBy, order: keyof So
 /**
  * Displays the Delete Access dialog.
  */
-function onDeleteClick(accessName: string): void {
-    accessNameToDelete.value = accessName;
+function onDeleteClick(access: AccessGrant): void {
+    accessToDelete.value = access;
     isDeleteAccessDialogShown.value = true;
 }
 
