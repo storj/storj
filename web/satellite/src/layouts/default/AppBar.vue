@@ -15,7 +15,7 @@
             @click.stop="appStore.toggleNavigationDrawer()"
         />
 
-        <v-app-bar-title class="mx-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
+        <v-app-bar-title class="mt-n1 mx-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
             <router-link :to="ROUTES.Projects.path">
                 <v-img
                     v-if="theme.global.current.value.dark"
