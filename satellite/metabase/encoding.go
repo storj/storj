@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/binary"
+	"strconv"
 
 	"github.com/jackc/pgtype"
 
@@ -119,7 +120,7 @@ func (params redundancyScheme) Value() (driver.Value, error) {
 	return int64(binary.LittleEndian.Uint64(bytes[:])), nil
 }
 
-func (params redundancyScheme) Scan(value interface{}) error {
+func (params redundancyScheme) Scan(value any) error {
 	switch value := value.(type) {
 	case int64:
 		var bytes [8]byte
@@ -139,6 +140,23 @@ func (params redundancyScheme) Scan(value interface{}) error {
 	default:
 		return Error.New("unable to scan %T into RedundancyScheme", value)
 	}
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (params redundancyScheme) DecodeSpanner(val any) (err error) {
+	// TODO(spanner) why spanner provide sometimes string
+	if v, ok := val.(string); ok {
+		val, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return Error.New("unable to scan %T into RedundancyScheme: %v", val, err)
+		}
+	}
+	return params.Scan(val)
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (params redundancyScheme) EncodeSpanner() (any, error) {
+	return params.Value()
 }
 
 // Value implements sql/driver.Valuer interface.

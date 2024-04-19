@@ -399,23 +399,27 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			return nil, Error.Wrap(err)
 		}
 
+		var segment RawSegment
+
 		var position int64
 		var createdAt time.Time
 		var repairedAt, expiresAt spanner.NullTime
-		var encryptedSize, plainOffset, plainSize, redundancy, placement int64
-		var streamID, rootPieceID, encryptedKeyNonce, encryptedKey, encryptedETag, inlineData, remoteAliasPieces []byte
-		if err := row.Columns(&streamID, &position,
+		var encryptedSize, plainOffset, plainSize, placement int64
+		var streamID, rootPieceID, encryptedKeyNonce, encryptedKey, encryptedETag, inlineData []byte
+		var aliasPieces AliasPieces
+		if err := row.Columns(
+			&streamID, &position,
 			&createdAt, &repairedAt, &expiresAt,
 			&rootPieceID, &encryptedKeyNonce, &encryptedKey,
 			&encryptedSize, &plainOffset, &plainSize,
 			&encryptedETag,
-			&redundancy,
-			&inlineData, &remoteAliasPieces,
+			redundancyScheme{&segment.Redundancy},
+			&inlineData, &aliasPieces,
 			&placement,
 		); err != nil {
 			return nil, Error.Wrap(err)
 		}
-		var segment RawSegment
+
 		segment.StreamID, err = uuid.FromBytes(streamID)
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -438,19 +442,7 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 		segment.PlainOffset = plainOffset
 		segment.PlainSize = int32(plainSize)
 		segment.EncryptedETag = encryptedETag
-		rs := redundancyScheme{RedundancyScheme: &storj.RedundancyScheme{}}
-		err = rs.Scan(redundancy)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		segment.Redundancy = *rs.RedundancyScheme
 		segment.InlineData = inlineData
-
-		aliasPieces := AliasPieces{}
-		err = aliasPieces.SetBytes(remoteAliasPieces)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 		segment.Placement = storj.PlacementConstraint(placement)
 
 		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
@@ -599,16 +591,6 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		aliasPiecesBytes, err := aliasPieces.Bytes()
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		redundancyValue, err := redundancyScheme{&segment.Redundancy}.Value()
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		redundancy := redundancyValue.(int64)
 
 		// TODO(spanner) verify if casting is good
 		vals := append([]interface{}{},
@@ -628,9 +610,9 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 			int64(segment.PlainSize),
 			segment.PlainOffset,
 
-			redundancy,
+			redundancyScheme{&segment.Redundancy},
 			segment.InlineData,
-			aliasPiecesBytes,
+			aliasPieces,
 			int64(segment.Placement),
 		)
 

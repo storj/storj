@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/binary"
 )
 
@@ -157,7 +158,7 @@ func (aliases *AliasPieces) SetBytes(data []byte) error {
 }
 
 // Scan implements the database/sql Scanner interface.
-func (aliases *AliasPieces) Scan(src interface{}) error {
+func (aliases *AliasPieces) Scan(src any) error {
 	if src == nil {
 		*aliases = nil
 		return nil
@@ -174,6 +175,23 @@ func (aliases *AliasPieces) Scan(src interface{}) error {
 // Value implements the database/sql/driver Valuer interface.
 func (aliases AliasPieces) Value() (driver.Value, error) {
 	return aliases.Bytes()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (aliases *AliasPieces) DecodeSpanner(val any) (err error) {
+	// TODO(spanner) why spanner returns BYTES as base64
+	if v, ok := val.(string); ok {
+		val, err = base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
+	}
+	return aliases.Scan(val)
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (aliases AliasPieces) EncodeSpanner() (any, error) {
+	return aliases.Value()
 }
 
 // EqualAliasPieces compares whether xs and ys are equal.

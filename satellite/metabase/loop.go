@@ -554,14 +554,15 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	var position int64
 	var createdAt time.Time
 	var repairedAt, expiresAt spanner.NullTime
-	var encryptedSize, plainOffset, plainSize, redundancy, placement int64
-	var streamID, rootPieceID, remoteAliasPieces []byte
+	var encryptedSize, plainOffset, plainSize, placement int64
+	var streamID, rootPieceID []byte
+	var aliasPieces AliasPieces
 	if err := it.curRow.Columns(&streamID, &position,
 		&createdAt, &repairedAt, &expiresAt,
 		&rootPieceID,
 		&encryptedSize, &plainOffset, &plainSize,
-		&redundancy,
-		&remoteAliasPieces,
+		redundancyScheme{&item.Redundancy},
+		&aliasPieces,
 		&placement,
 	); err != nil {
 		return Error.New("failed to scan segment: %w", err)
@@ -586,21 +587,10 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	item.EncryptedSize = int32(encryptedSize)
 	item.PlainOffset = plainOffset
 	item.PlainSize = int32(plainSize)
-	rs := redundancyScheme{RedundancyScheme: &storj.RedundancyScheme{}}
-	if err := rs.Scan(redundancy); err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
-	item.Redundancy = *rs.RedundancyScheme
-
-	aliasPieces := AliasPieces{}
-	err = aliasPieces.SetBytes(remoteAliasPieces)
-	if err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
 	item.AliasPieces = aliasPieces
 
 	item.Placement = storj.PlacementConstraint(placement)
-	item.Pieces, err = it.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	item.Pieces, err = it.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
 	if err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
