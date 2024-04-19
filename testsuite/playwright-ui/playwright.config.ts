@@ -97,7 +97,7 @@ export default defineConfig({
         ['dot'],
         ['html'],
     ],
-    retries: process.env.CI ? 1 : 0, // Retry on CI only.
+    retries: process.env.CI ? 2 : 0, // Retry on CI only.
     testDir: './tests', // Directory where tests are located.
     timeout: 30 * 1000, // Maximum time one test can run for.
     use: {

@@ -121,6 +121,7 @@ pipeline {
                 stage('licenses check') {
                     steps {
                         // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
+                        // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
                         sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
                     }
                 }
@@ -173,6 +174,27 @@ pipeline {
                                 failUnhealthy: true
                         }
                     }
+                }
+            }
+        }
+
+        stage('Satellite UI Tests') {
+            environment {
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'debug'
+            }
+
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'make test-satellite-ui'
+            }
+
+            post {
+                failure {
+                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
                 }
             }
         }
