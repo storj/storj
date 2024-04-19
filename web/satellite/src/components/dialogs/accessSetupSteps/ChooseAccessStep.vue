@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-7" @submit.prevent>
+    <v-form ref="form" class="pa-7" @submit.prevent="emit('submit')">
         <v-row>
             <v-col cols="12">
                 <p class="text-subtitle-2 font-weight-bold mb-5">Enter Access Name</p>
@@ -91,6 +91,7 @@ const agStore = useAccessGrantsStore();
 const emit = defineEmits<{
     'nameChanged': [name: string];
     'typeChanged': [type: AccessType];
+    'submit': [];
 }>();
 
 const form = ref<VForm | null>(null);

@@ -46,6 +46,7 @@
                         :ref="stepInfos[CreateAccessStep.CreateNewAccess].ref"
                         @name-changed="newName => name = newName"
                         @types-changed="newTypes => accessTypes = newTypes"
+                        @submit="nextStep"
                     />
                 </v-window-item>
 
@@ -67,6 +68,7 @@
                         :ref="stepInfos[CreateAccessStep.AccessEncryption].ref"
                         @select-option="newOpt => passphraseOption = newOpt"
                         @passphrase-changed="newPass => passphrase = newPass"
+                        @submit="nextStep"
                     />
                 </v-window-item>
 

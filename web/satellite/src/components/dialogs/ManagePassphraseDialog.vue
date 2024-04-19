@@ -44,6 +44,7 @@
                         :ref="stepInfo[ManageProjectPassphraseStep.EnterPassphrase].ref"
                         ack-required
                         @passphrase-changed="newPass => passphrase = newPass"
+                        @submit="onNextClick"
                     >
                         Please note that Storj does not know or store your encryption passphrase.
                         If you lose it, you will not be able to recover your files.
@@ -74,6 +75,7 @@
                         :ref="stepInfo[ManageProjectPassphraseStep.Switch].ref"
                         title="Switch Passphrase"
                         set-on-next
+                        @submit="onNextClick"
                     >
                         Switch passphrase to view existing data that is uploaded with a different passphrase, or upload new data.
                         Please note that you won't see the previous data once you switch passphrases.
