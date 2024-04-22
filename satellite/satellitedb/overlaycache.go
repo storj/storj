@@ -472,7 +472,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
 			false AS disqualified,
 			exit_initiated_at IS NOT NULL AS exiting,
-			false AS exited, 
+			false AS exited,
 			vetted_at IS NOT NULL AS vetted
 		FROM nodes
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
@@ -794,7 +794,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return nil
 	}
 
-	// TODO: pass in the apprioriate struct to database, rather than constructing it here
+	// TODO: pass in the appropriate struct to database, rather than constructing it here
 	type NodeCount struct {
 		ID    storj.NodeID
 		Count int64
