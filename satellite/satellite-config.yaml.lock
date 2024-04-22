@@ -1099,6 +1099,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storage per month in dollars/TB
 # payments.usage-price.storage-tb: "4"
 
+# batch size for updating nodes with number of pieces
+# piece-tracker.update-batch-size: 1000
+
 # whether to enable piece tracker observer with ranged loop
 # piece-tracker.use-ranged-loop: true
 
