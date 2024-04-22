@@ -512,7 +512,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 				lastNets[i] = node.LastNet
 			}
 			clumpedNets := clumpingReport{lastNets: lastNets}
-			fork.log.Info("segment needs repair only because of clumping", zap.Stringer("Segment StreamID", segment.StreamID), zap.Uint64("Segment Position", segment.Position.Encode()), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.Stringer("clumping", &clumpedNets))
+			fork.log.Debug("segment needs repair only because of clumping", zap.Stringer("Segment StreamID", segment.StreamID), zap.Uint64("Segment Position", segment.Position.Encode()), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.Stringer("clumping", &clumpedNets))
 		}
 	} else {
 		if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(
