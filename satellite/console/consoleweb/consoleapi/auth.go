@@ -460,6 +460,11 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(activateData.Code) != 6 {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("the activation code must be 6 characters long"))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, activateData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
