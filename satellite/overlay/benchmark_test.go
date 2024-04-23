@@ -17,6 +17,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
@@ -25,7 +26,7 @@ import (
 )
 
 func BenchmarkOverlay(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+	satellitedbtest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db satellite.DB) {
 		const (
 			TotalNodeCount = 211
 			OnlineCount    = 90
@@ -33,7 +34,6 @@ func BenchmarkOverlay(b *testing.B) {
 		)
 
 		overlaydb := db.OverlayCache()
-		ctx := context.Background()
 
 		var all []storj.NodeID
 		var check []storj.NodeID
@@ -179,7 +179,7 @@ func BenchmarkOverlay(b *testing.B) {
 }
 
 func BenchmarkNodeSelection(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+	satellitedbtest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db satellite.DB) {
 		var (
 			Total       = 10000
 			Offline     = 1000
@@ -204,8 +204,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		twoHoursAgo := now.Add(-2 * time.Hour)
 
 		overlaydb := db.OverlayCache()
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
 			NewNodeFraction:  newNodeFraction,

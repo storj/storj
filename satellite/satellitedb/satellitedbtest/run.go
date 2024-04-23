@@ -271,7 +271,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 
 // Bench method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
+func Bench(b *testing.B, bench func(ctx *testcontext.Context, b *testing.B, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		b.Run(dbInfo.Name, func(b *testing.B) {
@@ -298,8 +298,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				b.Fatal(err)
 			}
 
-			// TODO: pass the ctx down
-			bench(b, db)
+			bench(ctx, b, db)
 		})
 	}
 }

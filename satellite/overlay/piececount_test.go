@@ -86,10 +86,7 @@ func TestDB_PieceCounts(t *testing.T) {
 }
 
 func BenchmarkDB_PieceCounts(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
-		ctx := testcontext.New(b)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db satellite.DB) {
 		var NumberOfNodes = 10000
 		if testing.Short() {
 			NumberOfNodes = 1000
