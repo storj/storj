@@ -45,6 +45,7 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		}
 
+		nodetags := nodeselection.NodeTags{}
 		for i, id := range all {
 			addr := fmt.Sprintf("127.0.%d.0:8080", i)
 			lastNet := fmt.Sprintf("127.0.%d", i)
@@ -58,7 +59,28 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 			err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
+
+			nodetags = append(nodetags,
+				nodeselection.NodeTag{
+					NodeID:   id,
+					SignedAt: time.Now().Add(-time.Hour),
+					Signer:   id,
+					Name:     "alpha",
+					Value:    []byte("alpha"),
+				},
+				nodeselection.NodeTag{
+					NodeID:   id,
+					SignedAt: time.Now().Add(-time.Hour),
+					Signer:   id,
+					Name:     "beta",
+					Value:    []byte("beta"),
+				},
+			)
+			require.NoError(b, err)
 		}
+
+		err := overlaydb.UpdateNodeTags(ctx, nodetags)
+		require.NoError(b, err)
 
 		// create random offline node ids to check
 		for i := 0; i < OfflineCount; i++ {

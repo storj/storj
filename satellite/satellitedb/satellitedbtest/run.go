@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -279,7 +280,7 @@ func Bench(b *testing.B, bench func(ctx *testcontext.Context, b *testing.B, db s
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			ctx := testcontext.New(b)
+			ctx := testcontext.NewWithTimeout(b, 30*time.Minute)
 			defer ctx.Cleanup()
 
 			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB, "satellite-satellitedb-bench")
