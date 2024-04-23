@@ -66,6 +66,7 @@ type FrontendConfig struct {
 	NewAppSetupFlowEnabled          bool                  `json:"newAppSetupFlowEnabled"`
 	ObjectBrowserKeyNamePrefix      string                `json:"objectBrowserKeyNamePrefix"`
 	ObjectBrowserKeyLifetime        time.Duration         `json:"objectBrowserKeyLifetime"`
+	MaxNameCharacters               int                   `json:"maxNameCharacters"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

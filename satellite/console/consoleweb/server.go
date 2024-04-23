@@ -870,6 +870,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewAppSetupFlowEnabled:          server.config.NewAppSetupFlowEnabled,
 		ObjectBrowserKeyNamePrefix:      server.config.ObjectBrowserKeyNamePrefix,
 		ObjectBrowserKeyLifetime:        server.config.ObjectBrowserKeyLifetime,
+		MaxNameCharacters:               server.config.MaxNameCharacters,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

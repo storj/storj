@@ -62,6 +62,7 @@ export class FrontendConfig {
     newAppSetupFlowEnabled: boolean;
     objectBrowserKeyNamePrefix: string;
     objectBrowserKeyLifetime: number;
+    maxNameCharacters: number;
 }
 
 export class MultiCaptchaConfig {
