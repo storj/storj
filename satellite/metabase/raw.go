@@ -400,49 +400,23 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 		}
 
 		var segment RawSegment
-
-		var position int64
-		var createdAt time.Time
-		var repairedAt, expiresAt spanner.NullTime
-		var encryptedSize, plainOffset, plainSize, placement int64
-		var streamID, rootPieceID, encryptedKeyNonce, encryptedKey, encryptedETag, inlineData []byte
+		var encryptedSize, plainSize, placement int64
 		var aliasPieces AliasPieces
+		// TODO(spanner) potentially we could use row.ToStruct but we would need to add AliasPieces to RawSegment
 		if err := row.Columns(
-			&streamID, &position,
-			&createdAt, &repairedAt, &expiresAt,
-			&rootPieceID, &encryptedKeyNonce, &encryptedKey,
-			&encryptedSize, &plainOffset, &plainSize,
-			&encryptedETag,
+			&segment.StreamID, &segment.Position,
+			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			&encryptedSize, &segment.PlainOffset, &plainSize,
+			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
-			&inlineData, &aliasPieces,
+			&segment.InlineData, &aliasPieces,
 			&placement,
 		); err != nil {
 			return nil, Error.Wrap(err)
 		}
-
-		segment.StreamID, err = uuid.FromBytes(streamID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		segment.Position = SegmentPositionFromEncoded(uint64(position))
-		segment.CreatedAt = createdAt
-		segment.RootPieceID, err = storj.PieceIDFromBytes(rootPieceID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		segment.EncryptedKeyNonce = encryptedKeyNonce
-		segment.EncryptedKey = encryptedKey
-		if repairedAt.Valid {
-			segment.RepairedAt = &repairedAt.Time
-		}
-		if expiresAt.Valid {
-			segment.ExpiresAt = &expiresAt.Time
-		}
 		segment.EncryptedSize = int32(encryptedSize)
-		segment.PlainOffset = plainOffset
 		segment.PlainSize = int32(plainSize)
-		segment.EncryptedETag = encryptedETag
-		segment.InlineData = inlineData
 		segment.Placement = storj.PlacementConstraint(placement)
 
 		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
@@ -594,14 +568,14 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 
 		// TODO(spanner) verify if casting is good
 		vals := append([]interface{}{},
-			segment.StreamID.Bytes(),
-			int64(segment.Position.Encode()),
+			segment.StreamID,
+			segment.Position,
 
 			segment.CreatedAt,
 			segment.RepairedAt,
 			segment.ExpiresAt,
 
-			segment.RootPieceID.Bytes(),
+			segment.RootPieceID,
 			segment.EncryptedKeyNonce,
 			segment.EncryptedKey,
 			segment.EncryptedETag,

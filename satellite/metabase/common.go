@@ -373,6 +373,28 @@ func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint6
 // Less returns whether pos should before b.
 func (pos SegmentPosition) Less(b SegmentPosition) bool { return pos.Encode() < b.Encode() }
 
+// DecodeSpanner implements spanner.Decoder.
+func (pos *SegmentPosition) DecodeSpanner(val any) (err error) {
+	switch value := val.(type) {
+	case int64:
+		*pos = SegmentPositionFromEncoded(uint64(value))
+	case string:
+		parsedValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return Error.New("unable to scan %T into SegmentPosition: %v", val, err)
+		}
+		*pos = SegmentPositionFromEncoded(uint64(parsedValue))
+	default:
+		return Error.New("unable to scan %T into SegmentPosition", val)
+	}
+	return nil
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (pos SegmentPosition) EncodeSpanner() (any, error) {
+	return int64(pos.Encode()), nil
+}
+
 // Version is used to uniquely identify objects with the same key.
 type Version int64
 

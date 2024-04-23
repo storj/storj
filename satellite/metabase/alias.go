@@ -177,18 +177,14 @@ func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAli
 			return nil, Error.Wrap(err)
 		}
 
-		var nodeID []byte
+		var nodeID storj.NodeID
 		var nodeAlias int64
 		if err := row.Columns(&nodeID, &nodeAlias); err != nil {
 			return nil, Error.New("ListNodeAliases scan failed: %w", err)
 		}
 
-		id, err := storj.NodeIDFromBytes(nodeID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 		aliases = append(aliases, NodeAliasEntry{
-			ID:    id,
+			ID:    nodeID,
 			Alias: NodeAlias(nodeAlias),
 		})
 	}
