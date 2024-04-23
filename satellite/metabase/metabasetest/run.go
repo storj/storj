@@ -5,6 +5,7 @@ package metabasetest
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -25,9 +26,10 @@ import (
 
 // RunWithConfig runs tests with specific metabase configuration.
 func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...interface{}) {
-	RunWithConfigAndMigration(t, config, fn, func(ctx context.Context, db *metabase.DB) error {
+	migration := func(ctx context.Context, db *metabase.DB) error {
 		return db.TestMigrateToLatest(ctx)
-	}, flags...)
+	}
+	RunWithConfigAndMigration(t, config, fn, migration, flags...)
 }
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
@@ -37,7 +39,7 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 	})
 
 	for _, dbinfo := range satellitedbtest.DatabasesWithSpanner() {
-		if dbinfo.Spanner != "" && !spannerTestEnabled {
+		if !spannerTestEnabled && strings.HasPrefix(dbinfo.MetabaseDB.URL, "spanner:") {
 			continue
 		}
 		dbinfo := dbinfo
@@ -117,8 +119,17 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 
 // TestModule provides all dependencies to run metabase tests.
 func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, config metabase.Config) {
-	mud.Provide[*metabase.DB](ball, createMetabaseDBOnTopOf)
-	mud.Provide[*dbutil.TempDatabase](ball, satellitedbtest.CreateTempDB)
+	mud.Supply[satellitedbtest.SatelliteDatabases](ball, dbinfo)
+	switch dbinfo.MetabaseDB.Name {
+	case "Spanner":
+		mud.Provide[tempDB](ball, func(ctx context.Context, logger *zap.Logger) (tempDB, error) {
+			return metabase.NewSpannerTestDatabase(ctx, logger, dbinfo.MetabaseDB.URL, true)
+		})
+	default:
+		mud.Provide[tempDB](ball, newPgTempDB)
+	}
+
+	mud.Provide[*metabase.DB](ball, openTempDatabase)
 	mud.Provide[metabase.Config](ball, func() metabase.Config {
 		cfg := metabase.Config{
 			ApplicationName:  "satellite-metabase-test" + pgutil.CreateRandomTestingSchemaName(6),
@@ -132,25 +143,49 @@ func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, confi
 		}
 		return cfg
 	})
-	mud.Supply[satellitedbtest.Database](ball, satellitedbtest.Database{
+	mud.RegisterImplementation[[]metabase.Adapter](ball)
+
+}
+
+type tempDB interface {
+	Close() error
+	Connection() string
+}
+
+// pgTempDB is the temporary database wrapper for cockroach and postgres.
+// DB is deleted on close.
+type pgTempDB struct {
+	*dbutil.TempDatabase
+}
+
+func (p pgTempDB) Close() error {
+	return p.TempDatabase.Close()
+}
+
+func (p pgTempDB) Connection() string {
+	return p.ConnStr
+}
+
+func newPgTempDB(ctx context.Context, log *zap.Logger, dbinfo satellitedbtest.SatelliteDatabases) (tempDB, error) {
+	tempDB, err := satellitedbtest.CreateTempDB(ctx, log, satellitedbtest.TempDBSchemaConfig{
+		Name:     "test",
+		Category: "M",
+		Index:    0,
+	}, satellitedbtest.Database{
 		Name:    dbinfo.MetabaseDB.Name,
 		URL:     dbinfo.MetabaseDB.URL,
 		Message: dbinfo.MetabaseDB.Message,
 	})
-	mud.Supply[satellitedbtest.TempDBSchemaConfig](ball, satellitedbtest.TempDBSchemaConfig{
-		Name:     "test",
-		Category: "M",
-		Index:    0,
-	})
-	mud.RegisterImplementation[[]metabase.Adapter](ball)
-	if dbinfo.Spanner != "" {
-		metabase.SpannerTestModule(ball, dbinfo.Spanner)
+	if err != nil {
+		return nil, err
 	}
-
+	return pgTempDB{
+		TempDatabase: tempDB,
+	}, nil
 }
 
-func createMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config, adapters []metabase.Adapter) (*metabase.DB, error) {
-	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config, adapters...)
+func openTempDatabase(ctx context.Context, log *zap.Logger, tempDB tempDB, config metabase.Config) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.Connection(), config)
 	if err != nil {
 		return nil, err
 	}

@@ -138,6 +138,10 @@ func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 
 // testingGetAllObjects returns the state of the database.
 func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
+	if db.db == nil {
+		// TODO: implement it with adapter and support Spanner.
+		return nil, nil
+	}
 	objs := []RawObject{}
 
 	rows, err := db.db.QueryContext(ctx, `

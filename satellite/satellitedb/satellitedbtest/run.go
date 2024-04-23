@@ -47,10 +47,6 @@ type SatelliteDatabases struct {
 	Name       string
 	MasterDB   Database
 	MetabaseDB Database
-
-	// TODO: until full metabase implementation.
-	// For the time being: Spanner is an override and Cockroach/Postgres (MetabaseDB field) is used when implementation is missing.
-	Spanner string
 }
 
 // Database describes a test database.
@@ -97,10 +93,10 @@ func DatabasesWithSpanner() []SatelliteDatabases {
 	if spanner != "" && spanner != "omit" {
 		// TODO: this is not ideal, as we couldn't execute CockroachSpanner only
 		dbs = append(dbs, SatelliteDatabases{
-			Name:       "CockroachSpanner",
+			Name: "Spanner",
+			// TODO: satellitedb should also support spanner.
 			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
-			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
-			Spanner:    spanner,
+			MetabaseDB: Database{"Spanner", spanner, ""},
 		})
 	}
 	return dbs
@@ -222,8 +218,8 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 
 // CreateMetabaseDBOnTopOf creates a new metabase on top of an already existing
 // temporary database.
-func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config, adapters ...metabase.Adapter) (*metabase.DB, error) {
-	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config, adapters...)
+func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config)
 	if err != nil {
 		return nil, err
 	}

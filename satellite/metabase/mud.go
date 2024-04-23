@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"regexp"
 	"strings"
+	"time"
 
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
@@ -29,7 +30,7 @@ func SpannerTestModule(ball *mud.Ball, spannerConnection string) {
 	mud.RemoveTag[*SpannerAdapter, mud.Optional](ball)
 	// Please note that SpannerTestDatabase creates / deletes temporary database via the lifecycle functions.
 	mud.Provide[SpannerTestDatabase](ball, func(ctx context.Context, logger *zap.Logger) (SpannerTestDatabase, error) {
-		return NewTestDatabase(ctx, logger, spannerConnection)
+		return NewSpannerTestDatabase(ctx, logger, spannerConnection, true)
 	})
 	mud.Provide[SpannerConfig](ball, NewTestSpannerConfig)
 }
@@ -40,14 +41,14 @@ type SpannerTestDatabase struct {
 	client   *database.DatabaseAdminClient
 }
 
-// NewTestDatabase creates the database (=creates / migrates the database).
-func NewTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection string) (SpannerTestDatabase, error) {
+// NewSpannerTestDatabase creates the database (=creates / migrates the database).
+func NewSpannerTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection string, withMigration bool) (SpannerTestDatabase, error) {
+	spannerConnection = strings.TrimPrefix(spannerConnection, "spanner://")
 	data := make([]byte, 8)
 	_, err := rand.Read(data)
 	if err != nil {
 		return SpannerTestDatabase{}, errs.Wrap(err)
 	}
-	spannerConnection = strings.TrimPrefix(spannerConnection, "spanner://")
 
 	adminClient, err := database.NewDatabaseAdminClient(ctx)
 	if err != nil {
@@ -59,7 +60,7 @@ func NewTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection 
 
 	matches := regexp.MustCompile("^(.*)/databases/(.*)$").FindStringSubmatch(databaseName)
 	if matches == nil || len(matches) != 3 {
-		return SpannerTestDatabase{}, errs.New("database connection should be defined in the form of 'projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>'")
+		return SpannerTestDatabase{}, errs.New("database connection should be defined in the form of 'projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>', but it was " + spannerConnection)
 	}
 
 	req := &databasepb.CreateDatabaseRequest{
@@ -68,9 +69,11 @@ func NewTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection 
 		CreateStatement: "CREATE DATABASE " + matches[2],
 	}
 
-	for _, ddl := range strings.Split(spannerDDL, ";") {
-		if strings.TrimSpace(ddl) != "" {
-			req.ExtraStatements = append(req.ExtraStatements, ddl)
+	if withMigration {
+		for _, ddl := range strings.Split(spannerDDL, ";") {
+			if strings.TrimSpace(ddl) != "" {
+				req.ExtraStatements = append(req.ExtraStatements, ddl)
+			}
 		}
 	}
 	ddl, err := adminClient.CreateDatabase(ctx, req)
@@ -87,8 +90,15 @@ func NewTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection 
 	}, nil
 }
 
+// Connection returns with the used connection string (with added unique suffix).
+func (d SpannerTestDatabase) Connection() string {
+	return "spanner://" + d.Database
+}
+
 // Close drops the temporary test database.
-func (d SpannerTestDatabase) Close(ctx context.Context) error {
+func (d SpannerTestDatabase) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	err := d.client.DropDatabase(ctx, &databasepb.DropDatabaseRequest{
 		Database: d.Database,
 	})

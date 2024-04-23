@@ -7,9 +7,13 @@ package metabase
 import (
 	"context"
 	"fmt"
+	"io"
 	"strconv"
+	"strings"
 	"time"
 
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
+	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
@@ -60,9 +64,9 @@ type DB struct {
 }
 
 // Open opens a connection to metabase.
-func Open(ctx context.Context, log *zap.Logger, connstr string, config Config, extraAdapters ...Adapter) (*DB, error) {
+func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (*DB, error) {
 	var driverName string
-	_, _, impl, err := dbutil.SplitConnStr(connstr)
+	_, source, impl, err := dbutil.SplitConnStr(connstr)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -71,6 +75,8 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config, e
 		driverName = "pgx"
 	case dbutil.Cockroach:
 		driverName = "cockroach"
+	case dbutil.Spanner:
+		driverName = ""
 	default:
 		return nil, Error.New("unsupported implementation: %s", connstr)
 	}
@@ -80,15 +86,19 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config, e
 		return nil, Error.Wrap(err)
 	}
 
-	rawdb, err := tagsql.Open(ctx, driverName, connstr)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var rawdb tagsql.DB
+	if driverName != "" {
+		rawdb, err = tagsql.Open(ctx, driverName, connstr)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		dbutil.Configure(ctx, rawdb, "metabase", mon)
+		rawdb = postgresRebind{rawdb}
 	}
-	dbutil.Configure(ctx, rawdb, "metabase", mon)
 
 	db := &DB{
 		log:         log,
-		db:          postgresRebind{rawdb},
+		db:          rawdb,
 		connstr:     connstr,
 		impl:        impl,
 		testCleanup: func() error { return nil },
@@ -97,24 +107,30 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config, e
 	db.aliasCache = NewNodeAliasCache(db)
 	switch impl {
 	case dbutil.Postgres:
-		db.adapters = append(db.adapters, &PostgresAdapter{
+		db.adapters = []Adapter{&PostgresAdapter{
 			log:  log,
 			db:   rawdb,
 			impl: impl,
-		})
+		}}
 	case dbutil.Cockroach:
-		db.adapters = append(db.adapters, &CockroachAdapter{
+		db.adapters = []Adapter{&CockroachAdapter{
 			PostgresAdapter{
 				log:  log,
 				db:   rawdb,
 				impl: impl,
 			},
+		}}
+	case dbutil.Spanner:
+		adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
+			Database: source,
 		})
+		if err != nil {
+			return nil, err
+		}
+		db.adapters = []Adapter{adapter}
 	default:
 		return nil, Error.New("unsupported implementation: %s", connstr)
 	}
-
-	db.adapters = append(db.adapters, extraAdapters...)
 
 	if log.Level() == zap.DebugLevel {
 		log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)))
@@ -128,13 +144,8 @@ func (db *DB) Implementation() dbutil.Implementation { return db.impl }
 
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
-	// TODO: choose based on configuration.
-
-	for _, a := range db.adapters {
-		// use spanner, if it's registered
-		if _, isSpanner := a.(*SpannerAdapter); isSpanner {
-			return a
-		}
+	if len(db.adapters) != 1 {
+		panic("Multiple or zero adapter is not yet supported")
 	}
 	return db.adapters[0]
 }
@@ -155,7 +166,16 @@ func (db *DB) TestingSetCleanup(cleanup func() error) {
 
 // Close closes the connection to database.
 func (db *DB) Close() error {
-	return errs.Combine(Error.Wrap(db.db.Close()), db.testCleanup())
+	var err error
+	if db.db != nil {
+		err = Error.Wrap(db.db.Close())
+	}
+	for _, adapter := range db.adapters {
+		if c, isCloser := adapter.(io.Closer); isCloser {
+			err = errs.Combine(err, Error.Wrap(c.Close()))
+		}
+	}
+	return errs.Combine(err, db.testCleanup())
 }
 
 // DestroyTables deletes all tables.
@@ -207,6 +227,10 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return errs.Wrap(err)
 		}
+	case dbutil.Spanner:
+		// TODO: migration is not required here, as we do it when we create mud dependency hierarchy
+		// in the future we can move migration to adapters and use them in the same way.
+		return nil
 	}
 
 	migration := &migrate.Migration{
@@ -422,6 +446,8 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 				return errs.New("error creating schema: %+v", err)
 			}
 		}
+		migration := db.PostgresMigration()
+		return migration.Run(ctx, db.log.Named("migrate"))
 
 	case dbutil.Cockroach:
 		var dbName string
@@ -434,14 +460,41 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return errs.Wrap(err)
 		}
-	}
+		migration := db.PostgresMigration()
+		return migration.Run(ctx, db.log.Named("migrate"))
+	case dbutil.Spanner:
+		dbConn := strings.TrimPrefix(db.connstr, "spanner://")
+		req := &databasepb.UpdateDatabaseDdlRequest{
+			Database: strings.Split(dbConn, "?")[0],
+		}
 
-	migration := db.PostgresMigration()
-	return migration.Run(ctx, db.log.Named("migrate"))
+		for _, ddl := range strings.Split(spannerDDL, ";") {
+			if strings.TrimSpace(ddl) != "" {
+				req.Statements = append(req.Statements, ddl)
+			}
+		}
+		adminClient, err := database.NewDatabaseAdminClient(ctx)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		resp, err := adminClient.UpdateDatabaseDdl(ctx, req)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		return errs.Wrap(resp.Wait(ctx))
+	}
+	return errs.New("Unsupported database migration: %s", db.impl)
+
 }
 
 // CheckVersion checks the database is the correct version.
 func (db *DB) CheckVersion(ctx context.Context) error {
+	// TODO: migration version is not yet supported
+	if db.impl == dbutil.Spanner {
+		return nil
+	}
 	migration := db.PostgresMigration()
 	return migration.ValidateVersions(ctx, db.log)
 }
