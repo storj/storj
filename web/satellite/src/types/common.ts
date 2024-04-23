@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { Validator } from '@/utils/validation';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export enum SortDirection {
     asc = 1,
@@ -66,6 +67,12 @@ export function RequiredRule(value: unknown): string | boolean {
 
 export function EmailRule(value: string, strict = false): string | boolean {
     return Validator.email(value, strict) || 'E-mail must be valid.';
+}
+
+export function MaxNameLengthRule(value: string): string | boolean {
+    const { maxNameCharacters } = useConfigStore().state.config;
+
+    return Validator.nameLength(value, maxNameCharacters) || `The value must be less than or equal to ${maxNameCharacters}.`;
 }
 
 export interface IDialogFlowStep {

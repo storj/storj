@@ -20,7 +20,7 @@
                     <v-text-field
                         id="Name"
                         v-model="name"
-                        :rules="[RequiredRule]"
+                        :rules="[RequiredRule, MaxNameLengthRule]"
                         label="Name"
                         placeholder="Enter your name"
                         required
@@ -74,7 +74,7 @@ import { ref } from 'vue';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
 import { OnboardingStep } from '@/types/users';
-import { RequiredRule } from '@/types/common';
+import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';

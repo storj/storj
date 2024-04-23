@@ -1090,16 +1090,18 @@ func TestAuth_SetupAccount(t *testing.T) {
 		ptr := func(s string) *string {
 			return &s
 		}
+
 		tests := []console.SetUpAccountRequest{
 			{
-				FullName:       "Frodo Baggins",
+				FirstName:      ptr("Frodo"),
+				LastName:       ptr("Baggins"),
 				IsProfessional: true,
 				Position:       ptr("Ringbearer"),
 				CompanyName:    ptr("The Fellowship"),
 				EmployeeCount:  ptr("9"), // subject to change
 			},
 			{
-				FullName:       "Bilbo Baggins",
+				FullName:       ptr("Bilbo Baggins"),
 				IsProfessional: false,
 			},
 		}
@@ -1127,7 +1129,11 @@ func TestAuth_SetupAccount(t *testing.T) {
 			userAfterSetup, err := sat.DB.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.FullName, userAfterSetup.FullName)
+			if tt.IsProfessional {
+				require.Equal(t, *tt.FirstName+" "+*tt.LastName, userAfterSetup.FullName)
+			} else {
+				require.Equal(t, *tt.FullName, userAfterSetup.FullName)
+			}
 			require.Equal(t, tt.IsProfessional, userAfterSetup.IsProfessional)
 			if tt.Position != nil {
 				require.Equal(t, *tt.Position, userAfterSetup.Position)

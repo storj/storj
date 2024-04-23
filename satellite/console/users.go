@@ -374,8 +374,10 @@ type NoticeDismissal struct {
 
 // SetUpAccountRequest holds data for completing account setup.
 type SetUpAccountRequest struct {
-	FullName               string  `json:"fullName"`
 	IsProfessional         bool    `json:"isProfessional"`
+	FirstName              *string `json:"firstName"`
+	LastName               *string `json:"lastName"`
+	FullName               *string `json:"fullName"`
 	Position               *string `json:"position"`
 	CompanyName            *string `json:"companyName"`
 	EmployeeCount          *string `json:"employeeCount"`

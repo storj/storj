@@ -64,7 +64,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
 		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 
@@ -133,7 +133,7 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
 		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 
@@ -185,7 +185,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
 		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 
@@ -270,7 +270,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 		rateLimit := 20000
 		projLimits.RateLimit = &rateLimit
 		projLimits.BurstLimit = &rateLimit
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 		require.NoError(t, projectsDB.UpdateRateLimit(ctx, proj.ID, projLimits.RateLimit))
@@ -751,7 +751,7 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
 		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 

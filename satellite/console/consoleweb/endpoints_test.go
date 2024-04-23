@@ -575,7 +575,7 @@ func TestProjects(t *testing.T) {
 					"name": "My Second Project with a long name",
 				}))
 			require.Contains(t, body, "error")
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		}
 
 		{ // Post_ProjectRename

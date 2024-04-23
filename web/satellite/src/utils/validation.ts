@@ -36,4 +36,11 @@ export class Validator {
 
         return rgx.test(value);
     }
+
+    /**
+     * Checks if value string is less than or equal to max possible length.
+     */
+    public static nameLength(value: string, maxLength: number): boolean {
+        return value.length <= maxLength;
+    }
 }

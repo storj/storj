@@ -176,10 +176,12 @@ export class UpdatedUser {
  * Describes data used to set up user account.
  */
 export interface AccountSetupData {
-    fullName: string
     isProfessional: boolean
     haveSalesContact: boolean
     interestedInPartnering: boolean
+    firstName?: string
+    lastName?: string
+    fullName?: string
     position?: string
     companyName?: string
     employeeCount?: string

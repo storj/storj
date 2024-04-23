@@ -1655,23 +1655,27 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 // SetupAccount completes User's information.
 func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "update account")
+	user, err := s.getUserAndAuditLog(ctx, "setup account")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// validate fullName
-	err = ValidateFullName(requestData.FullName)
+	fullName, err := s.getValidatedFullName(&requestData)
+	if err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	companyName, err := s.getValidatedCompanyName(&requestData)
 	if err != nil {
 		return ErrValidation.Wrap(err)
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		FullName:         &requestData.FullName,
+		FullName:         &fullName,
 		IsProfessional:   &requestData.IsProfessional,
 		HaveSalesContact: &requestData.HaveSalesContact,
 		Position:         requestData.Position,
-		CompanyName:      requestData.CompanyName,
+		CompanyName:      companyName,
 		EmployeeCount:    requestData.EmployeeCount,
 	})
 	if err != nil {
@@ -1680,7 +1684,7 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 
 	onboardingFields := analytics.TrackOnboardingInfoFields{
 		ID:       user.ID,
-		FullName: requestData.FullName,
+		FullName: fullName,
 		Email:    user.Email,
 	}
 
@@ -1692,8 +1696,8 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 		onboardingFields.Type = analytics.Professional
 		onboardingFields.HaveSalesContact = requestData.HaveSalesContact
 		onboardingFields.InterestedInPartnering = requestData.InterestedInPartnering
-		if requestData.CompanyName != nil {
-			onboardingFields.CompanyName = *requestData.CompanyName
+		if companyName != nil {
+			onboardingFields.CompanyName = *companyName
 		}
 		if requestData.EmployeeCount != nil {
 			onboardingFields.EmployeeCount = *requestData.EmployeeCount
@@ -1713,6 +1717,56 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	s.analytics.TrackUserOnboardingInfo(onboardingFields)
 
 	return nil
+}
+
+func (s *Service) getValidatedFullName(requestData *SetUpAccountRequest) (name string, err error) {
+	if requestData.IsProfessional {
+		if requestData.FirstName == nil {
+			return "", errs.New("First name wasn't provided")
+		}
+
+		if len(*requestData.FirstName) == 0 || len(*requestData.FirstName) > s.config.MaxNameCharacters {
+			return "", errs.New(fmt.Sprintf("First name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters))
+		}
+
+		name = *requestData.FirstName
+
+		if requestData.LastName != nil {
+			if len(*requestData.LastName) > s.config.MaxNameCharacters {
+				return "", errs.New(fmt.Sprintf("Last name length must be less then or equal to %d", s.config.MaxNameCharacters))
+			}
+
+			name += " " + *requestData.LastName
+		}
+	} else {
+		if requestData.FullName == nil {
+			return "", errs.New("Full name wasn't provided")
+		}
+
+		if len(*requestData.FullName) == 0 || len(*requestData.FullName) > s.config.MaxNameCharacters {
+			return "", errs.New(fmt.Sprintf("Full name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters))
+		}
+
+		name = *requestData.FullName
+	}
+
+	return name, nil
+}
+
+func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (name *string, err error) {
+	if requestData.IsProfessional {
+		if requestData.CompanyName == nil {
+			return nil, errs.New("Company name wasn't provided")
+		}
+
+		if len(*requestData.CompanyName) == 0 || len(*requestData.CompanyName) > s.config.MaxNameCharacters {
+			return nil, errs.New(fmt.Sprintf("Company name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters))
+		}
+
+		name = requestData.CompanyName
+	}
+
+	return name, nil
 }
 
 // ChangePassword updates password for a given user.
@@ -2006,6 +2060,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrBotUser.New(contactSupportErrMsg)
 	}
 
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	if err != nil {
+		return nil, ErrValidation.Wrap(err)
+	}
+
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
 		s.analytics.TrackProjectLimitError(user.ID, user.Email)
@@ -2191,14 +2250,14 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		return nil, Error.Wrap(err)
 	}
 
-	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrValidation.Wrap(err)
 	}
 
 	if updatedProject.Name != project.Name {

@@ -204,7 +204,7 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if console.ErrInvalidProjectLimit.Has(err) {
+		if console.ErrInvalidProjectLimit.Has(err) || console.ErrValidation.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
@@ -321,11 +321,6 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.Name == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("project name cannot be empty"))
-		return
-	}
-
 	project, err := p.service.CreateProject(ctx, payload)
 	if err != nil {
 		if console.ErrBotUser.Has(err) {
@@ -335,6 +330,11 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 

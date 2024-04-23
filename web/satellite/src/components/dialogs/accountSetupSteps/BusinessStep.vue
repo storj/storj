@@ -27,7 +27,7 @@
                     <v-text-field
                         id="First Name"
                         v-model="firstName"
-                        :rules="[RequiredRule]"
+                        :rules="[RequiredRule, MaxNameLengthRule]"
                         label="First Name"
                         hide-details="auto"
                         required
@@ -37,6 +37,7 @@
                     <v-text-field
                         id="Last Name"
                         v-model="lastName"
+                        :rules="[MaxNameLengthRule]"
                         label="Last Name"
                         hide-details="auto"
                     />
@@ -47,7 +48,7 @@
                     <v-text-field
                         id="Company Name"
                         v-model="companyName"
-                        :rules="[RequiredRule]"
+                        :rules="[RequiredRule, MaxNameLengthRule]"
                         label="Company Name"
                         hide-details="auto"
                         required
@@ -166,7 +167,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RequiredRule } from '@/types/common';
+import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconBusiness from '@/components/icons/IconBusiness.vue';
@@ -203,7 +204,8 @@ function setupAccount() {
 
         try {
             await auth.setupAccount({
-                fullName: `${firstName.value} ${lastName.value}`,
+                firstName: firstName.value,
+                lastName: lastName.value,
                 position: position.value,
                 companyName: companyName.value,
                 employeeCount: employeeCount.value,

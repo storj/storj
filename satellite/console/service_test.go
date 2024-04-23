@@ -1204,6 +1204,133 @@ func TestPaidTier(t *testing.T) {
 	})
 }
 
+func TestSetupAccountWithLongNames(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		type requestWithExpectedError struct {
+			console.SetUpAccountRequest
+			expectErr bool
+		}
+
+		ptr := func(s string) *string {
+			return &s
+		}
+
+		allowedString := string(testrand.RandAlphaNumeric(100))
+		disallowedString := string(testrand.RandAlphaNumeric(101))
+
+		tests := []requestWithExpectedError{
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FullName:       ptr("random"),
+					IsProfessional: true,
+				},
+				// first and last names must be provided for professional user.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(disallowedString),
+					IsProfessional: true,
+				},
+				// first name is too long.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(allowedString),
+					LastName:       ptr(disallowedString),
+					IsProfessional: true,
+				},
+				// last name is too long.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(allowedString),
+					CompanyName:    ptr(disallowedString),
+					IsProfessional: true,
+				},
+				// company name is too long.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(allowedString),
+					LastName:       ptr(allowedString),
+					IsProfessional: true,
+				},
+				// company name must be provided.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(allowedString),
+					LastName:       ptr(allowedString),
+					IsProfessional: false,
+				},
+				// full name must be provided for non-professional user.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FullName:       ptr(disallowedString),
+					IsProfessional: false,
+				},
+				// full name is too long.
+				expectErr: true,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FullName:       ptr(allowedString),
+					IsProfessional: false,
+				},
+				expectErr: false,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(allowedString),
+					CompanyName:    ptr(allowedString),
+					IsProfessional: true,
+				},
+				// last name is not required.
+				expectErr: false,
+			},
+			{
+				SetUpAccountRequest: console.SetUpAccountRequest{
+					FirstName:      ptr(allowedString),
+					LastName:       ptr(allowedString),
+					CompanyName:    ptr(allowedString),
+					IsProfessional: true,
+				},
+				expectErr: false,
+			},
+		}
+
+		for _, tt := range tests {
+			err = service.SetupAccount(userCtx, tt.SetUpAccountRequest)
+			if tt.expectErr {
+				require.True(t, console.ErrValidation.Has(err))
+			} else {
+				require.NoError(t, err)
+			}
+		}
+	})
+}
+
 // TestUpdateProjectExceedsLimits ensures that a project with limits manually set above the defaults can be updated.
 func TestUpdateProjectExceedsLimits(t *testing.T) {
 	usageConfig := console.UsageLimitsConfig{
