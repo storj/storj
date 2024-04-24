@@ -16,6 +16,9 @@ import (
 	"storj.io/storj/satellite/payments"
 )
 
+// ErrInvalidTaxID is returned when a tax ID value is invalid.
+var ErrInvalidTaxID = errs.Class("Invalid tax ID value")
+
 // ensures that accounts implements payments.Accounts.
 var _ payments.Accounts = (*accounts)(nil)
 
@@ -122,9 +125,10 @@ func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UU
 			City:       stripe.String(address.City),
 			PostalCode: stripe.String(address.PostalCode),
 			State:      stripe.String(address.State),
-			Country:    stripe.String(address.Country.Code),
+			Country:    stripe.String(string(address.Country.Code)),
 		},
 	}
+	customerParams.AddExpand("tax_ids")
 
 	customer, err := accounts.service.stripeClient.Customers().Update(customerID, customerParams)
 	if err != nil {
@@ -135,6 +139,81 @@ func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UU
 		return nil, Error.Wrap(err)
 	}
 
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// AddTaxID adds a new tax ID for a user and returns the updated billing information.
+func (accounts *accounts) AddTaxID(ctx context.Context, userID uuid.UUID, taxID payments.TaxID) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	taxIDParams := stripe.TaxIDParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Customer: &customerID,
+		Type:     stripe.String(string(taxID.Tax.Code)),
+		Value:    &taxID.Value,
+	}
+	_, err = accounts.service.stripeClient.TaxIDs().New(&taxIDParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			if stripeErr.Code == stripe.ErrorCodeTaxIDInvalid {
+				err = Error.Wrap(ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
+			} else {
+				err = errs.New(stripeErr.Msg)
+			}
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+	}
+	params.AddExpand("tax_ids")
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
+func (accounts *accounts) RemoveTaxID(ctx context.Context, userID uuid.UUID, id string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	_, err = accounts.service.stripeClient.TaxIDs().Del(id, &stripe.TaxIDParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Customer: &customerID,
+	})
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.New(stripeErr.Msg)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+	}
+	params.AddExpand("tax_ids")
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return accounts.unpackBillingInformation(*customer)
 }
 
@@ -150,6 +229,7 @@ func (accounts *accounts) GetBillingInformation(ctx context.Context, userID uuid
 	params := &stripe.CustomerParams{
 		Params: stripe.Params{Context: ctx},
 	}
+	params.AddExpand("tax_ids")
 	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
 	if err != nil {
 		stripeErr := &stripe.Error{}
@@ -166,24 +246,58 @@ func (accounts *accounts) unpackBillingInformation(customer stripe.Customer) (in
 
 	// use customer.address to determine if the customer has custom billing information.
 	hasNoAddress := customer.Address == nil || customer.Address == (&stripe.Address{})
-	if hasNoAddress {
+	hasNoTaxInfo := customer.TaxIDs == nil || len(customer.TaxIDs.Data) == 0
+	if hasNoAddress && hasNoTaxInfo {
 		return &payments.BillingInformation{}, nil
 	}
 
-	stripeAddr := customer.Address
-	return &payments.BillingInformation{
-		Address: &payments.BillingAddress{
+	var address *payments.BillingAddress
+	taxIDs := make([]payments.TaxID, 0)
+	if !hasNoAddress {
+		stripeAddr := customer.Address
+		countryCode := payments.CountryCode(stripeAddr.Country)
+		var country payments.TaxCountry
+		for _, taxCountry := range payments.TaxCountries {
+			if taxCountry.Code == countryCode {
+				country = taxCountry
+				break
+			}
+		}
+		if (country == payments.TaxCountry{}) {
+			// if country is not found in the list of tax countries, use the country code as the name
+			country.Name = stripeAddr.Country
+			country.Code = countryCode
+		}
+		address = &payments.BillingAddress{
 			Name:       customer.Name,
 			Line1:      stripeAddr.Line1,
 			Line2:      stripeAddr.Line2,
 			City:       stripeAddr.City,
 			PostalCode: stripeAddr.PostalCode,
 			State:      stripeAddr.State,
-			Country: payments.TaxCountry{
-				Name: stripeAddr.Country,
-				Code: stripeAddr.Country,
-			},
-		},
+			Country:    country,
+		}
+	}
+	if !hasNoTaxInfo {
+		for _, taxID := range customer.TaxIDs.Data {
+			var tax payments.Tax
+			for _, t := range payments.Taxes {
+				if t.Code == taxID.Type {
+					tax = t
+					break
+				}
+			}
+			taxIDs = append(taxIDs, payments.TaxID{
+				ID:    taxID.ID,
+				Tax:   tax,
+				Value: taxID.Value,
+			})
+		}
+	}
+
+	return &payments.BillingInformation{
+		Address: address,
+		TaxIDs:  taxIDs,
 	}, nil
 }
 

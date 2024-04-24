@@ -110,6 +110,7 @@ type mockStripeState struct {
 	charges                     *mockCharges
 	promoCodes                  *mockPromoCodes
 	creditNotes                 *mockCreditNotes
+	taxIDs                      *mockTaxIDs
 }
 
 type mockStripeClient struct {
@@ -142,6 +143,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state.charges = &mockCharges{}
 	state.promoCodes = newMockPromoCodes(state)
 	state.creditNotes = newMockCreditNotes(state)
+	state.taxIDs = newMockTaxIDs(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -189,6 +191,10 @@ func (m *mockStripeClient) PromoCodes() PromoCodes {
 
 func (m *mockStripeClient) CreditNotes() CreditNotes {
 	return m.creditNotes
+}
+
+func (m *mockStripeClient) TaxIDs() TaxIDs {
+	return m.taxIDs
 }
 
 type mockCustomers struct {
@@ -1094,4 +1100,63 @@ func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNot
 	}
 
 	return item, nil
+}
+
+type mockTaxIDs struct {
+	root *mockStripeState
+}
+
+func newMockTaxIDs(root *mockStripeState) *mockTaxIDs {
+	return &mockTaxIDs{
+		root: root,
+	}
+}
+
+func (m *mockTaxIDs) New(params *stripe.TaxIDParams) (*stripe.TaxID, error) {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	if params.Customer == nil || params.Type == nil || params.Value == nil {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+	}
+
+	taxID := &stripe.TaxID{
+		ID:    "txi_" + string(testrand.RandAlphaNumeric(25)),
+		Type:  stripe.TaxIDType(*params.Type),
+		Value: *params.Value,
+	}
+
+	for _, c := range m.root.customers.customers {
+		if c.ID == *params.Customer {
+			if c.TaxIDs == nil {
+				c.TaxIDs = &stripe.TaxIDList{}
+			}
+			c.TaxIDs.Data = append(c.TaxIDs.Data, taxID)
+		}
+	}
+
+	return taxID, nil
+}
+
+func (m *mockTaxIDs) Del(id string, params *stripe.TaxIDParams) (*stripe.TaxID, error) {
+	for _, c := range m.root.customers.customers {
+		if c.TaxIDs == nil {
+			continue
+		}
+		for _, taxID := range c.TaxIDs.Data {
+			if taxID.ID != id {
+				continue
+			}
+			// remove this taxID from the customer
+			var newTaxIDs []*stripe.TaxID
+			for _, t := range c.TaxIDs.Data {
+				if t.ID != taxID.ID {
+					newTaxIDs = append(newTaxIDs, t)
+				}
+			}
+			c.TaxIDs.Data = newTaxIDs
+			return taxID, nil
+		}
+	}
+	return nil, nil
 }

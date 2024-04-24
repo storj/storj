@@ -26,6 +26,12 @@ type Accounts interface {
 	// SaveBillingAddress saves billing address for a user and returns the updated billing information.
 	SaveBillingAddress(ctx context.Context, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
 
+	// AddTaxID adds a new tax ID for a user and returns the updated billing information.
+	AddTaxID(ctx context.Context, userID uuid.UUID, taxID TaxID) (*BillingInformation, error)
+
+	// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
+	RemoveTaxID(ctx context.Context, userID uuid.UUID, id string) (*BillingInformation, error)
+
 	// GetBillingInformation gets the billing information for a user.
 	GetBillingInformation(ctx context.Context, userID uuid.UUID) (*BillingInformation, error)
 

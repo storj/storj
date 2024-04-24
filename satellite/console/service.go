@@ -402,6 +402,34 @@ func (payment Payments) SaveBillingAddress(ctx context.Context, address payments
 	return newInfo, Error.Wrap(err)
 }
 
+// AddTaxID adds a new tax ID for a user and returns the updated billing information.
+func (payment Payments) AddTaxID(ctx context.Context, taxID payments.TaxID) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add tax ID")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.AddTaxID(ctx, user.ID, taxID)
+
+	return newInfo, Error.Wrap(err)
+}
+
+// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
+func (payment Payments) RemoveTaxID(ctx context.Context, id string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "remove tax ID")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.RemoveTaxID(ctx, user.ID, id)
+
+	return newInfo, Error.Wrap(err)
+}
+
 // GetBillingInformation updates a user's billing information.
 func (payment Payments) GetBillingInformation(ctx context.Context) (information *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)

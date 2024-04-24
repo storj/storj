@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
@@ -374,6 +375,26 @@ func TestPayments(t *testing.T) {
 			resp, body := test.request(http.MethodGet, "/payments/account/charges?from=1619827200&to=1620844320", nil)
 			require.Contains(t, body, "egress")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Get_TaxCountries
+			resp, body := test.request(http.MethodGet, "/payments/countries", nil)
+			var countries []payments.TaxCountry
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &countries))
+			require.Equal(t, payments.TaxCountries, countries)
+
+			taxes := make([]payments.Tax, 0)
+			for _, tax := range payments.Taxes {
+				if tax.CountryCode == countries[0].Code {
+					taxes = append(taxes, tax)
+				}
+			}
+			resp, body = test.request(http.MethodGet, "/payments/countries/"+string(countries[0].Code)+"/taxes", nil)
+			var txs []payments.Tax
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &txs))
+			require.Equal(t, taxes, txs)
 		}
 	})
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/stripe/stripe-go/v75/invoiceitem"
 	"github.com/stripe/stripe-go/v75/paymentmethod"
 	"github.com/stripe/stripe-go/v75/promotioncode"
+	"github.com/stripe/stripe-go/v75/taxid"
 	"go.uber.org/zap"
 
 	"storj.io/common/time2"
@@ -37,6 +38,7 @@ type Client interface {
 	Charges() Charges
 	PromoCodes() PromoCodes
 	CreditNotes() CreditNotes
+	TaxIDs() TaxIDs
 }
 
 // Customers Stripe Customers interface.
@@ -87,6 +89,12 @@ type PromoCodes interface {
 	List(params *stripe.PromotionCodeListParams) *promotioncode.Iter
 }
 
+// TaxIDs is the Stripe TaxIDs interface.
+type TaxIDs interface {
+	New(params *stripe.TaxIDParams) (*stripe.TaxID, error)
+	Del(id string, params *stripe.TaxIDParams) (*stripe.TaxID, error)
+}
+
 // CustomerBalanceTransactions Stripe CustomerBalanceTransactions interface.
 type CustomerBalanceTransactions interface {
 	New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error)
@@ -115,6 +123,8 @@ type stripeClient struct {
 	paymentMethods *paymentmethod.Client
 	// promotionCodes is the client used to invoke /promotion_codes APIs.
 	promotionCodes *promotioncode.Client
+	// taxIDs is the client used to invoke /tax_ids APIs.
+	taxIDs *taxid.Client
 }
 
 func (s *stripeClient) Charges() Charges         { return s.charges }
@@ -127,6 +137,7 @@ func (s *stripeClient) InvoiceItems() InvoiceItems     { return s.invoiceItems }
 func (s *stripeClient) Invoices() Invoices             { return s.invoices }
 func (s *stripeClient) PaymentMethods() PaymentMethods { return s.paymentMethods }
 func (s *stripeClient) PromoCodes() PromoCodes         { return s.promotionCodes }
+func (s *stripeClient) TaxIDs() TaxIDs                 { return s.taxIDs }
 
 // NewStripeClient creates Stripe client from configuration.
 func NewStripeClient(log *zap.Logger, config Config) Client {
@@ -146,6 +157,7 @@ func NewStripeClient(log *zap.Logger, config Config) Client {
 		invoices:                    &invoice.Client{B: backends.API, Key: key},
 		paymentMethods:              &paymentmethod.Client{B: backends.API, Key: key},
 		promotionCodes:              &promotioncode.Client{B: backends.API, Key: key},
+		taxIDs:                      &taxid.Client{B: backends.API, Key: key},
 	}
 }
 

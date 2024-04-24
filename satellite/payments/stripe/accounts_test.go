@@ -183,6 +183,24 @@ func TestBillingInformation(t *testing.T) {
 		require.NotNil(t, info)
 		require.Zero(t, *info)
 
+		var us payments.TaxCountry
+		for _, country := range payments.TaxCountries {
+			if country.Code == "US" {
+				us = country
+				break
+			}
+		}
+		var usTax payments.Tax
+		for _, tax := range payments.Taxes {
+			if tax.CountryCode == "US" {
+				usTax = tax
+				break
+			}
+		}
+		taxID := payments.TaxID{
+			Tax:   usTax,
+			Value: "123456789",
+		}
 		address := payments.BillingAddress{
 			Name:       "Some Company",
 			Line1:      "Some street",
@@ -190,20 +208,36 @@ func TestBillingInformation(t *testing.T) {
 			City:       "Some city",
 			PostalCode: "12345",
 			State:      "Some state",
-			Country:    payments.TaxCountry{Code: "US", Name: "US"},
+			Country:    us,
 		}
 		newInfo, err := accounts.SaveBillingAddress(ctx, userID, address)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
 
 		newInfo, err = accounts.GetBillingInformation(ctx, userID)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
 
 		address.Name = "New Company"
 		address.City = "New City"
 		newInfo, err = accounts.SaveBillingAddress(ctx, userID, address)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+
+		newInfo, err = accounts.AddTaxID(ctx, userID, taxID)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.NotEmpty(t, newInfo.TaxIDs)
+		require.NotEmpty(t, newInfo.TaxIDs[0].ID)
+		require.Equal(t, taxID.Tax.Code, newInfo.TaxIDs[0].Tax.Code)
+		require.Equal(t, taxID.Value, newInfo.TaxIDs[0].Value)
+
+		newInfo, err = accounts.RemoveTaxID(ctx, userID, newInfo.TaxIDs[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
 	})
 }

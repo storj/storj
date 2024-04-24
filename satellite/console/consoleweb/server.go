@@ -368,6 +368,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-address", paymentController.SaveBillingAddress).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/tax-ids", paymentController.AddTaxID).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/tax-ids/{taxID}", paymentController.RemoveTaxID).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
@@ -378,6 +380,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)

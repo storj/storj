@@ -3,12 +3,6 @@
 
 package payments
 
-// TaxCountry is a country that Stripe supports for tax reporting.
-type TaxCountry struct {
-	Name string `json:"name"`
-	Code string `json:"code"`
-}
-
 // BillingAddress contains a user's custom billing address.
 type BillingAddress struct {
 	Name       string     `json:"name"`
@@ -20,7 +14,15 @@ type BillingAddress struct {
 	Country    TaxCountry `json:"country"`
 }
 
+// TaxID contains a user's tax information.
+type TaxID struct {
+	ID    string `json:"id"`
+	Tax   Tax    `json:"tax"`
+	Value string `json:"value"`
+}
+
 // BillingInformation contains a user's billing information.
 type BillingInformation struct {
 	Address *BillingAddress `json:"address"`
+	TaxIDs  []TaxID         `json:"taxIDs"`
 }

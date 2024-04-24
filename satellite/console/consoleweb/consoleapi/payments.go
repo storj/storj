@@ -725,6 +725,47 @@ func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetTaxCountries returns a list of countries whose taxes are supported.
+func (p *Payments) GetTaxCountries(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = json.NewEncoder(w).Encode(payments.TaxCountries); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetCountryTaxes returns a list of taxes supported for a country.
+func (p *Payments) GetCountryTaxes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var countryCodeStr string
+	var ok bool
+	if countryCodeStr, ok = mux.Vars(r)["countryCode"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("country code is required"))
+		return
+
+	}
+
+	ts := make([]payments.Tax, 0)
+	for _, tax := range payments.Taxes {
+		if tax.CountryCode == payments.CountryCode(countryCodeStr) {
+			ts = append(ts, tax)
+		}
+	}
+
+	if err = json.NewEncoder(w).Encode(ts); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // GetBillingInformation gets the billing information for a user.
 func (p *Payments) GetBillingInformation(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -768,6 +809,73 @@ func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newInfo, err := p.service.Payments().SaveBillingAddress(ctx, address)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// AddTaxID adds a tax ID to a user.
+func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var taxID payments.TaxID
+	if err = json.NewDecoder(r.Body).Decode(&taxID); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if taxID.Tax.Code == "" || taxID.Value == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing required tax ID fields"))
+		return
+	}
+
+	newInfo, err := p.service.Payments().AddTaxID(ctx, taxID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		status := http.StatusInternalServerError
+		if stripe.ErrInvalidTaxID.Has(err) {
+			status = http.StatusBadRequest
+		}
+		web.ServeCustomJSONError(ctx, p.log, w, status, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// RemoveTaxID adds a tax ID to a user.
+func (p *Payments) RemoveTaxID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var id string
+	var ok bool
+	if id, ok = mux.Vars(r)["taxID"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("tax ID is required"))
+		return
+
+	}
+
+	newInfo, err := p.service.Payments().RemoveTaxID(ctx, id)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
