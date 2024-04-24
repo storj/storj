@@ -86,6 +86,7 @@ type Endpoint struct {
 	versionCollector       *versionCollector
 	zstdDecoder            *zstd.Decoder
 	zstdEncoder            *zstd.Encoder
+	successTrackers        *successTrackers
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -158,7 +159,24 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		versionCollector:     newVersionCollector(log),
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
+		successTrackers:      newSuccessTrackers(extendedConfig.successTrackerTrustedUplinks),
 	}, nil
+}
+
+// Run manages the internal dependencies of the endpoint such as the
+// success tracker.
+func (endpoint *Endpoint) Run(ctx context.Context) error {
+	ticker := time.NewTicker(endpoint.config.SuccessTrackerTickDuration)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			endpoint.successTrackers.BumpGeneration()
+		}
+	}
 }
 
 // Close closes resources.

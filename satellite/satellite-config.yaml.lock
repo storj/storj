@@ -883,6 +883,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
 # metainfo.server-side-copy-disabled: false
 
+# enable success tracker based node selection
+# metainfo.success-tracker-enabled: false
+
+# how often to bump the generation in the node success tracker
+# metainfo.success-tracker-tick-duration: 10m0s
+
+# list of trusted uplinks for success tracker
+# metainfo.success-tracker-trusted-uplinks: []
+
 # which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check
 # metainfo.test-commit-segment-mode: ""
 
