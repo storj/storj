@@ -35,6 +35,9 @@
                 <v-tab>
                     Billing History
                 </v-tab>
+                <v-tab>
+                    Billing Information
+                </v-tab>
             </v-tabs>
         </v-card>
 
@@ -198,6 +201,10 @@
             <v-window-item>
                 <billing-history-tab />
             </v-window-item>
+
+            <v-window-item>
+                <billing-information-tab />
+            </v-window-item>
         </v-window>
     </v-container>
 
@@ -249,12 +256,14 @@ import TokenTransactionsTableComponent from '@/components/TokenTransactionsTable
 import ApplyCouponCodeDialog from '@/components/dialogs/ApplyCouponCodeDialog.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
+import BillingInformationTab from '@/components/billing/BillingInformationTab.vue';
 
 enum TABS {
     overview,
     'payment-methods',
     transactions,
     'billing-history',
+    'billing-information',
 }
 
 interface IStorjTokenCardComponent {

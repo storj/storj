@@ -125,6 +125,7 @@ export interface PaymentsApi {
      * @throws Error
      */
     getWallet(): Promise<Wallet>;
+
     /**
      * claim new native storj token wallet.
      *
@@ -132,6 +133,21 @@ export interface PaymentsApi {
      * @throws Error
      */
     claimWallet(): Promise<Wallet>;
+
+    /**
+     * get user's billing information.
+     *
+     * @throws Error
+     */
+    getBillingInformation(): Promise<BillingInformation>;
+
+    /**
+     * save user's billing information.
+     *
+     * @param address - billing information to save
+     * @throws Error
+     */
+    saveBillingAddress(address: BillingAddress): Promise<BillingInformation>;
 
     /**
      * Purchases the pricing package associated with the user's partner.
@@ -708,4 +724,23 @@ export class ProjectUsagePriceModel {
         public readonly egressMBCents: string = '',
         public readonly segmentMonthCents: string = '',
     ) { }
+}
+
+export interface TaxCountry {
+    code: string,
+    name?: string,
+}
+
+export interface BillingAddress {
+    name: string,
+    line1: string,
+    line2?: string | null,
+    city: string,
+    state?: string,
+    postalCode?: string,
+    country: TaxCountry,
+}
+
+export interface BillingInformation {
+    address?: BillingAddress,
 }

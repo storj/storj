@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -16,10 +16,8 @@ import { useTheme } from 'vuetify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useBillingStore } from '@/store/modules/billingStore';
 
 const configStore = useConfigStore();
-const billingStore = useBillingStore();
 
 const notify = useNotify();
 const theme = useTheme();

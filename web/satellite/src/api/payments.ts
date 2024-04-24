@@ -15,7 +15,11 @@ import {
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
-    PaymentWithConfirmations, PaymentHistoryParam, PaymentHistoryPage,
+    PaymentWithConfirmations,
+    PaymentHistoryParam,
+    PaymentHistoryPage,
+    BillingInformation,
+    BillingAddress,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -461,6 +465,49 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         throw new Error('Can not get wallet');
+    }
+
+    /**
+     * get user's billing information.
+     *
+     * @throws Error
+     */
+    public async getBillingInformation(): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/billing-information`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not get billing information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * save user's billing information.
+     *
+     * @param address - billing information to save
+     * @throws Error
+     */
+    public async saveBillingAddress(address: BillingAddress): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/billing-address`;
+        const response = await this.client.patch(path, JSON.stringify(address));
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not save billing information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
     }
 
     /**

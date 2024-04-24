@@ -6,6 +6,8 @@ import { defineStore } from 'pinia';
 
 import {
     AccountBalance,
+    BillingInformation,
+    BillingAddress,
     Coupon,
     CreditCard,
     DateRange,
@@ -33,6 +35,7 @@ export class PaymentsState {
     public endDate: Date = new Date();
     public coupon: Coupon | null = null;
     public wallet: Wallet = new Wallet();
+    public billingInformation: BillingInformation | null = null;
 }
 
 export const useBillingStore = defineStore('billing', () => {
@@ -46,6 +49,14 @@ export const useBillingStore = defineStore('billing', () => {
         state.balance = balance;
 
         return balance;
+    }
+
+    async function getBillingInformation(): Promise<void> {
+        state.billingInformation = await api.getBillingInformation();
+    }
+
+    async function saveBillingAddress(address: BillingAddress): Promise<void> {
+        state.billingInformation = await api.saveBillingAddress(address);
     }
 
     async function getWallet(): Promise<void> {
@@ -195,12 +206,15 @@ export const useBillingStore = defineStore('billing', () => {
         state.endDate = new Date();
         state.coupon = null;
         state.wallet = new Wallet();
+        state.billingInformation = null;
     }
 
     return {
         state,
         getBalance,
         getWallet,
+        getBillingInformation,
+        saveBillingAddress,
         claimWallet,
         setupAccount,
         getCreditCards,
