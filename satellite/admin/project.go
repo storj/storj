@@ -343,7 +343,7 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID)
+	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID, console.RoleAdmin)
 	if err != nil {
 		sendJSONError(w, "failed to insert project member",
 			err.Error(), http.StatusInternalServerError)

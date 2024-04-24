@@ -185,11 +185,15 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 }
 
 // Insert is a method for inserting project member into the database.
-func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.UUID) (_ *console.ProjectMember, err error) {
+func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.UUID, role console.ProjectMemberRole) (_ *console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	createdProjectMember, err := pm.methods.Create_ProjectMember(ctx,
 		dbx.ProjectMember_MemberId(memberID[:]),
-		dbx.ProjectMember_ProjectId(projectID[:]))
+		dbx.ProjectMember_ProjectId(projectID[:]),
+		dbx.ProjectMember_Create_Fields{
+			Role: dbx.ProjectMember_Role(int(role)),
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

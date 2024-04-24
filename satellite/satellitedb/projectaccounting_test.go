@@ -55,7 +55,7 @@ func TestDailyUsage(t *testing.T) {
 			user, err := satelliteSys.AddUser(ctx, newUser, 3)
 			require.NoError(t, err)
 
-			_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID)
+			_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			usage0, err := satelliteSys.DB.ProjectAccounting().GetProjectDailyUsageByDateRange(ctx, projectID, twoDaysAgo, fivePastTwelve, 0)
@@ -148,7 +148,7 @@ func TestGetSingleBucketRollup(t *testing.T) {
 			user, err := satelliteSys.AddUser(ctx, newUser, 3)
 			require.NoError(t, err)
 
-			_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID)
+			_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			planet.Satellites[0].Orders.Chore.Loop.Pause()

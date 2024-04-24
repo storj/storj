@@ -52,7 +52,7 @@ func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.
 		})
 		require.NoError(t, err)
 
-		_, err = db.ProjectMembers().Insert(ctx, member.ID, p)
+		_, err = db.ProjectMembers().Insert(ctx, member.ID, p, console.RoleAdmin)
 		require.NoError(t, err)
 
 		inviteeID := testrand.UUID()

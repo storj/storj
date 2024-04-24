@@ -877,6 +877,7 @@ CREATE TABLE project_invitations (
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
@@ -1587,6 +1588,7 @@ CREATE TABLE project_invitations (
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 );
@@ -12028,12 +12030,18 @@ func (ProjectInvitation_CreatedAt_Field) _Column() string { return "created_at" 
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
+	Role      int
 	CreatedAt time.Time
 }
 
 func (ProjectMember) _Table() string { return "project_members" }
 
+type ProjectMember_Create_Fields struct {
+	Role ProjectMember_Role_Field
+}
+
 type ProjectMember_Update_Fields struct {
+	Role ProjectMember_Role_Field
 }
 
 type ProjectMember_MemberId_Field struct {
@@ -12073,6 +12081,25 @@ func (f ProjectMember_ProjectId_Field) value() interface{} {
 }
 
 func (ProjectMember_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectMember_Role_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func ProjectMember_Role(v int) ProjectMember_Role_Field {
+	return ProjectMember_Role_Field{_set: true, _value: v}
+}
+
+func (f ProjectMember_Role_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectMember_Role_Field) _Column() string { return "role" }
 
 type ProjectMember_CreatedAt_Field struct {
 	_set   bool
@@ -13627,7 +13654,8 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 
 func (obj *pgxImpl) Create_ProjectMember(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
-	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member_project_id ProjectMember_ProjectId_Field,
+	optional ProjectMember_Create_Fields) (
 	project_member *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -13636,16 +13664,37 @@ func (obj *pgxImpl) Create_ProjectMember(ctx context.Context,
 	__project_id_val := project_member_project_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( member_id, project_id, created_at ) VALUES ( ?, ?, ? ) RETURNING project_members.member_id, project_members.project_id, project_members.created_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("member_id, project_id, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO project_members "), __clause, __sqlbundle_Literal(" RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __member_id_val, __project_id_val, __created_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Role._set {
+		__values = append(__values, optional.Role.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("role"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16794,7 +16843,7 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 	rows []*ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -16812,7 +16861,7 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 			for __rows.Next() {
 				project_member := &ProjectMember{}
-				err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+				err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -22235,7 +22284,8 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 
 func (obj *pgxcockroachImpl) Create_ProjectMember(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
-	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member_project_id ProjectMember_ProjectId_Field,
+	optional ProjectMember_Create_Fields) (
 	project_member *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -22244,16 +22294,37 @@ func (obj *pgxcockroachImpl) Create_ProjectMember(ctx context.Context,
 	__project_id_val := project_member_project_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_members ( member_id, project_id, created_at ) VALUES ( ?, ?, ? ) RETURNING project_members.member_id, project_members.project_id, project_members.created_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("member_id, project_id, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO project_members "), __clause, __sqlbundle_Literal(" RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __member_id_val, __project_id_val, __created_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Role._set {
+		__values = append(__values, optional.Role.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("role"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -25402,7 +25473,7 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 	rows []*ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -25420,7 +25491,7 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 			for __rows.Next() {
 				project_member := &ProjectMember{}
-				err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+				err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -30124,7 +30195,8 @@ type Methods interface {
 
 	Create_ProjectMember(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
-		project_member_project_id ProjectMember_ProjectId_Field) (
+		project_member_project_id ProjectMember_ProjectId_Field,
+		optional ProjectMember_Create_Fields) (
 		project_member *ProjectMember, err error)
 
 	Create_RegistrationToken(ctx context.Context,

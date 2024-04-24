@@ -2069,7 +2069,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
-		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID)
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleAdmin)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -2498,7 +2498,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
-			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID, RoleAdmin); err != nil {
 				if dbx.IsConstraintError(err) {
 					return errs.New("%s is already on the project", user.Email)
 				}
@@ -4210,7 +4210,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		return Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
 	}
 
-	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID)
+	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleAdmin)
 	if err != nil {
 		return Error.Wrap(err)
 	}

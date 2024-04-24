@@ -309,18 +309,18 @@ func TestProjectsListByOwner(t *testing.T) {
 			numMembers := i % 3
 			switch numMembers {
 			case 1:
-				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID, console.RoleAdmin)
 				require.NoError(t, err)
 			case 2:
-				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj1.ID)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj1.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj2.ID)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj2.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID, console.RoleAdmin)
 				require.NoError(t, err)
 			}
 			proj1.MemberCount = numMembers

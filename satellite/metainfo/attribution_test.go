@@ -99,7 +99,7 @@ func TestBucketAttribution(t *testing.T) {
 				UserAgent: tt.signupPartner,
 			}, 1)
 			require.NoError(t, err, errTag)
-			_, err = satellite.DB.Console().ProjectMembers().Insert(ctx, user2.ID, satProject.ID)
+			_, err = satellite.DB.Console().ProjectMembers().Insert(ctx, user2.ID, satProject.ID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			createBucketAndCheckAttribution := func(userID uuid.UUID, apiKeyName, bucketName string) {

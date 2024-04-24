@@ -695,7 +695,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		for _, project := range projects {
 			for _, user := range users {
 				if project.OwnerID != user.ID {
-					_, err := satellite.DB.Console().ProjectMembers().Insert(ctx, user.ID, project.ID)
+					_, err := satellite.DB.Console().ProjectMembers().Insert(ctx, user.ID, project.ID, console.RoleAdmin)
 					require.NoError(t, err)
 				}
 			}

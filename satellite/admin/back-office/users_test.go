@@ -111,7 +111,7 @@ func TestGetUser(t *testing.T) {
 			require.NoError(t, err)
 			projects = append(projects, proj)
 
-			_, err = consoleDB.ProjectMembers().Insert(ctx, user.User.ID, proj.ID)
+			_, err = consoleDB.ProjectMembers().Insert(ctx, user.User.ID, proj.ID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			bucket, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{

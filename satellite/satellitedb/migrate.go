@@ -2711,6 +2711,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN path_encryption boolean NOT NULL DEFAULT true;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add role column to project_members to indicate the rights each member has",
+				Version:     269,
+				Action: migrate.SQL{
+					`ALTER TABLE project_members ADD COLUMN role integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

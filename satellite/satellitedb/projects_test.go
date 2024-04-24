@@ -103,7 +103,7 @@ func TestGetProjectsByUserID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = projectMembers.Insert(ctx, user1.ID, proj.ID)
+		_, err = projectMembers.Insert(ctx, user1.ID, proj.ID, console.RoleAdmin)
 		require.NoError(t, err)
 
 		projects, err := projectsRepo.GetByUserID(ctx, user1.ID)
@@ -111,7 +111,7 @@ func TestGetProjectsByUserID(t *testing.T) {
 		require.Len(t, projects, 1)
 		require.Equal(t, 1, projects[0].MemberCount)
 
-		_, err = projectMembers.Insert(ctx, user2.ID, proj.ID)
+		_, err = projectMembers.Insert(ctx, user2.ID, proj.ID, console.RoleAdmin)
 		require.NoError(t, err)
 
 		projects, err = projectsRepo.GetByUserID(ctx, user1.ID)

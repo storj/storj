@@ -33,7 +33,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 			PasswordHash: testrand.Bytes(8),
 		})
 		require.NoError(t, err)
-		_, err = db.Console().ProjectMembers().Insert(ctx, memberUser.ID, projectID)
+		_, err = db.Console().ProjectMembers().Insert(ctx, memberUser.ID, projectID, console.RoleAdmin)
 		require.NoError(t, err)
 
 		_, err = db.Console().ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
@@ -120,7 +120,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 				_, err := db.Console().Users().Insert(ctx, &user)
 				require.NoError(t, err)
 
-				_, err = db.Console().ProjectMembers().Insert(ctx, user.ID, projectID)
+				_, err = db.Console().ProjectMembers().Insert(ctx, user.ID, projectID, console.RoleAdmin)
 				require.NoError(t, err)
 
 				result, err := db.Testing().RawDB().ExecContext(ctx,

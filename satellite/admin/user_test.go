@@ -919,7 +919,7 @@ func TestUserDelete(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, 0, members.TotalCount)
 
-			_, err = dbconsole.ProjectMembers().Insert(ctx, user.ID, sharedProject.ID)
+			_, err = dbconsole.ProjectMembers().Insert(ctx, user.ID, sharedProject.ID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			members, err = dbconsole.ProjectMembers().

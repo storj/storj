@@ -62,10 +62,10 @@ model project (
     // whether a user has been prompted to join versioning open beta
     field prompted_for_versioning_beta bool ( updatable, default false )
 
-	// encrypted passphrase for satellite-managed-encryption projects
+    // encrypted passphrase for satellite-managed-encryption projects
     field passphrase_enc blob ( nullable, updatable )
     // whether path encryption is enabled for the project
-	field path_encryption bool ( updatable, default true )
+    field path_encryption bool ( updatable, default true )
 )
 
 create project ( )
@@ -158,6 +158,9 @@ model project_member (
     field member_id            user.id      cascade
     // project_id is the project that can be accessed.
     field project_id           project.id   cascade
+
+    // role indicates the console.ProjectMemberRole. Admin=0, Member=1.
+    field role int ( updatable, default 0 )
 
     // created_at indicates when the user was added as a member.
     field created_at           timestamp ( autoinsert )
