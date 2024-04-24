@@ -20,6 +20,9 @@ import {
     ProjectCharges,
     ProjectUsagePriceModel,
     Wallet,
+    TaxCountry,
+    Tax,
+    TaxID,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 
@@ -36,6 +39,8 @@ export class PaymentsState {
     public coupon: Coupon | null = null;
     public wallet: Wallet = new Wallet();
     public billingInformation: BillingInformation | null = null;
+    public taxCountries: TaxCountry[] = [];
+    public taxes: Tax[] = [];
 }
 
 export const useBillingStore = defineStore('billing', () => {
@@ -49,6 +54,24 @@ export const useBillingStore = defineStore('billing', () => {
         state.balance = balance;
 
         return balance;
+    }
+
+    async function getTaxCountries(): Promise<void> {
+        if (!state.taxCountries.length) {
+            state.taxCountries = await api.getTaxCountries();
+        }
+    }
+
+    async function getCountryTaxes(countryCode: string): Promise<void> {
+        state.taxes = [];
+        state.taxes = await api.getCountryTaxes(countryCode);
+    }
+
+    async function addTaxID(taxID: TaxID): Promise<void> {
+        state.billingInformation = await api.addTaxID(taxID);
+    }
+    async function removeTaxID(ID: string): Promise<void> {
+        state.billingInformation = await api.removeTaxID(ID);
     }
 
     async function getBillingInformation(): Promise<void> {
@@ -213,6 +236,10 @@ export const useBillingStore = defineStore('billing', () => {
         state,
         getBalance,
         getWallet,
+        getTaxCountries,
+        getCountryTaxes,
+        addTaxID,
+        removeTaxID,
         getBillingInformation,
         saveBillingAddress,
         claimWallet,

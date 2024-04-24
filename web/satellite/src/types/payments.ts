@@ -150,6 +150,36 @@ export interface PaymentsApi {
     saveBillingAddress(address: BillingAddress): Promise<BillingInformation>;
 
     /**
+     * get a list of countries whose taxes are supported.
+     *
+     * @throws Error
+     */
+    getTaxCountries(): Promise<TaxCountry[]>;
+
+    /**
+     * get a list of supported taxes for a country.
+     *
+     * @throws Error
+     */
+    getCountryTaxes(countryCode: string): Promise<Tax[]>;
+
+    /**
+     * add a tax ID to a user's account.
+     *
+     * @param taxID - the tax ID to save
+     * @throws Error
+     */
+    addTaxID(taxID: TaxID): Promise<BillingInformation>;
+
+    /**
+     * remove a tax ID from a user's account.
+     *
+     * @param taxID - the tax ID to remove
+     * @throws Error
+     */
+    removeTaxID(taxID: string): Promise<BillingInformation>;
+
+    /**
      * Purchases the pricing package associated with the user's partner.
      *
      * @param dataStr - the Stripe payment method id or token of the credit card
@@ -731,6 +761,13 @@ export interface TaxCountry {
     name?: string,
 }
 
+export interface Tax {
+    code: string,
+    name?: string,
+    example?: string,
+    countryCode?: string,
+}
+
 export interface BillingAddress {
     name: string,
     line1: string,
@@ -741,6 +778,13 @@ export interface BillingAddress {
     country: TaxCountry,
 }
 
+export interface TaxID {
+    id?: string,
+    value: string,
+    tax: Tax,
+}
+
 export interface BillingInformation {
     address?: BillingAddress,
+    taxIDs?: TaxID[],
 }

@@ -20,6 +20,8 @@ import {
     PaymentHistoryPage,
     BillingInformation,
     BillingAddress,
+    TaxCountry,
+    TaxID,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -534,6 +536,91 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return new Wallet();
+    }
+
+    /**
+     * get a list of countries whose taxes are supported.
+     *
+     * @throws Error
+     */
+    public async getTaxCountries(): Promise<TaxCountry[]> {
+        const path = `${this.ROOT_PATH}/countries`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not countries',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * get a list of supported taxes for a country.
+     *
+     * @throws Error
+     */
+    public async getCountryTaxes(countryCode: string): Promise<TaxCountry[]> {
+        const path = `${this.ROOT_PATH}/countries/${countryCode}/taxes`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || `Could not get ${countryCode} taxes`,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * add a tax ID to a user's account.
+     *
+     * @param taxID - the tax ID to save
+     * @throws Error
+     */
+    public async addTaxID(taxID: TaxID): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/tax-ids`;
+        const response = await this.client.post(path, JSON.stringify(taxID));
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not add tax ID information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * remove a tax ID from a user's account.
+     *
+     * @throws Error
+     */
+    public async removeTaxID(taxID: string): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/tax-ids/${taxID}`;
+        const response = await this.client.delete(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not add tax ID information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
     }
 
     /**
