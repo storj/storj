@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build windows && service
-// +build windows,service
 
 package main
 

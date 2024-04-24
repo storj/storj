@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build linux && service
-// +build linux,service
 
 package main
 

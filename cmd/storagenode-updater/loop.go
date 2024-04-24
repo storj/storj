@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build unittest || !windows
-// +build unittest !windows
 
 package main
 

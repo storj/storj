@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build windows
-// +build windows
 
 package filestore
 

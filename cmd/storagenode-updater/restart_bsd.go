@@ -2,8 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build service && (darwin || freebsd || dragonfly || netbsd || openbsd || solaris)
-// +build service
-// +build darwin freebsd dragonfly netbsd openbsd solaris
 
 package main
 

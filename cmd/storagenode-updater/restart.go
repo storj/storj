@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build !service || (!windows && !linux && !freebsd && !dragonfly && !netbsd && !openbsd && !solaris && !darwin && service)
-// +build !service !windows,!linux,!freebsd,!dragonfly,!netbsd,!openbsd,!solaris,!darwin,service
 
 package main
 
