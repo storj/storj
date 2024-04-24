@@ -11,10 +11,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
-	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -47,7 +45,6 @@ import (
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/load"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/multinode"
 	"storj.io/storj/storagenode/nodestats"
@@ -71,17 +68,7 @@ import (
 	snVersion "storj.io/storj/storagenode/version"
 )
 
-var (
-	mon = monkit.Package()
-
-	initDiskMon sync.Once
-)
-
-func init() {
-	hw.Register(monkit.Default)
-	mon.Chain(hw.CPU())
-	mon.Chain(hw.Load())
-}
+var mon = monkit.Package()
 
 // Assets contains either the built admin/back-office/ui or it is nil.
 var Assets fs.FS = emptyfs.FS{}
@@ -339,10 +326,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		Services: lifecycle.NewGroup(process.NamedLog(log, "services")),
 	}
 
-	initDiskMon.Do(func() {
-		pid := os.Getpid()
-		mon.Chain(load.DiskIO(log.Named("diskio"), int32(pid)))
-	})
+	initializeDiskMon(log)
 
 	{ // setup notification service.
 		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
