@@ -61,6 +61,11 @@ model project (
 
     // whether a user has been prompted to join versioning open beta
     field prompted_for_versioning_beta bool ( updatable, default false )
+
+	// encrypted passphrase for satellite-managed-encryption projects
+    field passphrase_enc blob ( nullable, updatable )
+    // whether path encryption is enabled for the project
+	field path_encryption bool ( updatable, default true )
 )
 
 create project ( )

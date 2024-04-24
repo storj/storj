@@ -244,6 +244,8 @@ CREATE TABLE projects (
 	default_placement integer,
 	default_versioning integer NOT NULL DEFAULT 1,
 	prompted_for_versioning_beta boolean NOT NULL DEFAULT false,
+	passphrase_enc bytea,
+	path_encryption boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_bandwidth_daily_rollups (

@@ -2702,6 +2702,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS trial_expiration_index ON users (trial_expiration);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add passphrase_enc and path_encryption columns to projects to control satellite-managed-passphrase projects",
+				Version:     268,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc bytea DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN path_encryption boolean NOT NULL DEFAULT true;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
