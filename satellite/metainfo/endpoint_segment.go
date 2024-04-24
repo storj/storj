@@ -6,11 +6,13 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -38,6 +40,12 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	defer mon.Task()(&ctx)(&err)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		// N.B. jeff thinks this is a bad idea but jt convinced him
+		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -81,17 +89,58 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
-	request := overlay.FindStorageNodesRequest{
-		RequestedCount: redundancy.TotalCount(),
-		Placement:      storj.PlacementConstraint(streamID.Placement),
+	requestedCount := redundancy.TotalCount()
+	if endpoint.config.SuccessTrackerEnabled {
+		// times 2 to do power-of-2 choice filtering
+		requestedCount *= 2
 	}
-	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, request)
+
+	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
+		RequestedCount: requestedCount,
+		Placement:      storj.PlacementConstraint(streamID.Placement),
+	})
+
+	// we requested redundancy.TotalCount() * 2 nodes but we only really need
+	// redundancy.TotalCount() nodes, as we're going to toss nodes out until
+	// we get to that amount soon, anyway. so explicitly ignore the NotEnoughNodes
+	// error if we got at least the amount we really need.
+	if len(nodes) >= redundancy.TotalCount() && overlay.ErrNotEnoughNodes.Has(err) {
+		err = nil
+	}
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+
+	if endpoint.config.SuccessTrackerEnabled {
+		tracker := endpoint.successTrackers.GetTracker(peer.ID)
+
+		// shuffle the nodes to ensure the pairwise matching is fair and unbiased
+		// when the totals for either node are 0 (we just pick the first node in
+		// the pair in that case)
+		rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		})
+
+		// do pairwise selection while we have more than the total redundancy and
+		// at least 2 nodes to select on.
+		for len(nodes) > redundancy.TotalCount() && len(nodes) >= 2 {
+			success0, total0 := tracker.Get(nodes[0].ID)
+			success1, total1 := tracker.Get(nodes[1].ID)
+
+			selected := nodes[0]
+			if total0 != 0 && total1 != 0 &&
+				float64(success0)/float64(total0) > float64(success1)/float64(total1) {
+				selected = nodes[1]
+			}
+
+			// pop the 2 nodes that we compared from the front and append the selected
+			// node to the back.
+			nodes = append(nodes[2:], selected)
+		}
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -256,6 +305,12 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		// N.B. jeff thinks this is a bad idea but jt convinced him
+		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+	}
+
 	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -418,6 +473,21 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
 		return nil, err
+	}
+
+	// increment our counters in the success tracker appropriate to the committing uplink
+	if endpoint.config.SuccessTrackerEnabled {
+		tracker := endpoint.successTrackers.GetTracker(peer.ID)
+		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
+		for _, piece := range validPieces {
+			tracker.Increment(piece.NodeId, true)
+			validPieceSet[piece.NodeId] = struct{}{}
+		}
+		for _, limit := range originalLimits {
+			if _, ok := validPieceSet[limit.StorageNodeId]; !ok {
+				tracker.Increment(limit.StorageNodeId, false)
+			}
+		}
 	}
 
 	// note: we collect transfer stats in CommitSegment instead because in BeginSegment
