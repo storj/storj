@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -986,7 +985,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     133,
 				SeparateTx:  true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err := db.Exec(ctx,
 							`ALTER TABLE accounting_rollups RENAME TO accounting_rollups_original;`,
 						)
@@ -1176,7 +1175,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
 				Version:     142,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err := db.Exec(ctx,
 							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
 						)
@@ -2259,7 +2258,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
 						err := db.QueryRow(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
@@ -2436,7 +2435,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop index from bucket_metainfos",
 				Version:     243,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) (err error) {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS bucket_metainfos_project_id_name_key CASCADE`)
 					} else {
 						_, err = tx.ExecContext(ctx, `ALTER TABLE bucket_metainfos DROP CONSTRAINT IF EXISTS bucket_metainfos_project_id_name_key;`)
@@ -2451,7 +2450,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
 						err := db.QueryRow(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_metainfos) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,

@@ -11,7 +11,6 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
@@ -29,7 +28,7 @@ func TestTempCockroachDB(t *testing.T) {
 
 	require.Equal(t, "cockroach", testDB.Driver)
 	require.Equal(t, dbutil.Cockroach, testDB.Implementation)
-	require.IsType(t, &cockroachutil.Driver{}, testDB.DB.Driver())
+	require.Equal(t, tagsql.CockroachName, testDB.Name())
 
 	// save these so we can close testDB down below and then still try connecting to the same place
 	// (without requiring that the values stay intact in the testDB struct when we close it)

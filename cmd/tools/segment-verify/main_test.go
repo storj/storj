@@ -29,7 +29,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -275,7 +274,7 @@ func getConnStringFromDBConn(t *testing.T, ctx *testcontext.Context, tagsqlDB ta
 		return nil
 	})
 	require.NoError(t, err)
-	if _, ok := tagsqlDB.Driver().(*cockroachutil.Driver); ok {
+	if tagsqlDB.Name() == tagsql.CockroachName {
 		dbConnString = strings.ReplaceAll(dbConnString, "postgres://", "cockroach://")
 	}
 	return dbConnString

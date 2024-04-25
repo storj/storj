@@ -10,9 +10,10 @@ package tagsql
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
+	"fmt"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -86,10 +87,11 @@ func AllowContext(db *sql.DB) DB {
 // The wrapper adds tracing to all calls.
 // It also adds context handling compatibility for different databases.
 type DB interface {
+	Name() string
+
 	// To be deprecated, the following take ctx as argument,
 	// however do not pass it forward to the underlying database.
 	Begin(ctx context.Context) (Tx, error)
-	Driver() driver.Driver
 	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Ping(ctx context.Context) error
 	Prepare(ctx context.Context, query string) (Stmt, error)
@@ -110,8 +112,6 @@ type DB interface {
 	SetMaxIdleConns(n int)
 	SetMaxOpenConns(n int)
 	Stats() sql.DBStats
-
-	Internal() *sql.DB
 }
 
 // sqlDB implements DB, which optionally disables contexts.
@@ -122,7 +122,35 @@ type sqlDB struct {
 	tracker      leak.Ref
 }
 
-func (s *sqlDB) Internal() *sql.DB { return s.db }
+const (
+
+	// CockroachName is the name when tagsql wraps a Cockroach DB connection.
+	CockroachName string = "cockroach"
+
+	// PostgresName is the name when tagsql wraps a Cockroach DB connection.
+	PostgresName string = "postgres"
+
+	// SpannerName is the name when tagsql wraps a Cockroach DB connection.
+	SpannerName string = "spanner"
+)
+
+func (s *sqlDB) Name() string {
+	driverType := fmt.Sprintf("%T", s.db.Driver())
+	switch {
+	case strings.Contains(driverType, "cockroach"):
+		return CockroachName
+	case strings.Contains(driverType, "postgres"):
+		return PostgresName
+	case strings.Contains(driverType, "spanner"):
+		return SpannerName
+	// only used by golang benchmark
+	case strings.Contains(driverType, "stdlib.Driver"):
+		return PostgresName
+	default:
+		panic("unknown database driver: " + driverType)
+	}
+
+}
 
 func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
 	traces.Tag(ctx, traces.TagDB)
@@ -190,10 +218,6 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 		useTxContext: s.useTxContext,
 		tracker:      s.tracker.Child("sqlConn", 1),
 	}, nil
-}
-
-func (s *sqlDB) Driver() driver.Driver {
-	return s.db.Driver()
 }
 
 func (s *sqlDB) Exec(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
