@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/shared/dbutil/txutil"
@@ -37,6 +38,13 @@ var (
 	// ErrConflict is used to indicate conflict with the request.
 	ErrConflict = errs.Class("metabase: conflict")
 )
+
+type commitObjectTransactionAdapter interface {
+	updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error)
+	finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error
+
+	precommitTransactionAdapter
+}
 
 // BeginObjectNextVersion contains arguments necessary for starting an object upload.
 type BeginObjectNextVersion struct {
@@ -617,6 +625,19 @@ func (c *CommitObject) Verify() error {
 	return nil
 }
 
+// WithTx provides a TransactionAdapter for the context of a database transaction.
+func (p *PostgresAdapter) WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error {
+	return txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		txAdapter := &postgresTransactionAdapter{postgresAdapter: p, tx: tx}
+		return f(ctx, txAdapter)
+	})
+}
+
+// WithTx provides a TransactionAdapter for the context of a database transaction.
+func (s *SpannerAdapter) WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error {
+	panic("implement me")
+}
+
 // CommitObject adds a pending object to the database. If another committed object is under target location
 // it will be deleted.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
@@ -627,8 +648,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	}
 
 	var precommit precommitConstraintResult
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		segments, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+		segments, err := adapter.fetchSegmentsForCommit(ctx, opts.StreamID)
 		if err != nil {
 			return Error.New("failed to fetch segments: %w", err)
 		}
@@ -638,7 +659,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		finalSegments := convertToFinalSegments(segments)
-		err = updateSegmentOffsets(ctx, tx, opts.StreamID, finalSegments)
+		err = adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments)
 		if err != nil {
 			return Error.New("failed to update segments: %w", err)
 		}
@@ -667,21 +688,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
 
-		args := []interface{}{
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-			nextStatus,
-			len(segments),
-			totalPlainSize,
-			totalEncryptedSize,
-			fixedSegmentSize,
-			encryptionParameters{&opts.Encryption},
-		}
-
 		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,
-		}, tx)
+		}, adapter)
 		if err != nil {
 			return err
 		}
@@ -690,23 +701,66 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		if nextVersion < precommit.HighestVersion {
 			nextVersion = precommit.HighestVersion + 1
 		}
-		args = append(args, nextVersion)
-		opts.Version = nextVersion
 
-		metadataColumns := ""
-		if opts.OverrideEncryptedMetadata {
-			args = append(args,
-				opts.EncryptedMetadataNonce,
-				opts.EncryptedMetadata,
-				opts.EncryptedMetadataEncryptedKey,
-			)
-			metadataColumns = `,
+		err = adapter.finalizeObjectCommit(ctx, opts, nextStatus, nextVersion, segments, totalPlainSize, totalEncryptedSize, fixedSegmentSize, &object)
+		if err != nil {
+			return err
+		}
+
+		object.StreamID = opts.StreamID
+		object.ProjectID = opts.ProjectID
+		object.BucketName = opts.BucketName
+		object.ObjectKey = opts.ObjectKey
+		object.Version = nextVersion
+		object.Status = nextStatus
+		object.SegmentCount = int32(len(segments))
+		object.TotalPlainSize = totalPlainSize
+		object.TotalEncryptedSize = totalEncryptedSize
+		object.FixedSegmentSize = fixedSegmentSize
+		return nil
+	})
+	if err != nil {
+		return Object{}, err
+	}
+
+	precommit.submitMetrics()
+
+	mon.Meter("object_commit").Mark(1)
+	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
+	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
+
+	return object, nil
+}
+
+func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	args := []interface{}{
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		nextStatus,
+		len(finalSegments),
+		totalPlainSize,
+		totalEncryptedSize,
+		fixedSegmentSize,
+		encryptionParameters{&opts.Encryption},
+	}
+
+	args = append(args, nextVersion)
+
+	metadataColumns := ""
+	if opts.OverrideEncryptedMetadata {
+		args = append(args,
+			opts.EncryptedMetadataNonce,
+			opts.EncryptedMetadata,
+			opts.EncryptedMetadataEncryptedKey,
+		)
+		metadataColumns = `,
 				encrypted_metadata_nonce         = $13,
 				encrypted_metadata               = $14,
 				encrypted_metadata_encrypted_key = $15
 			`
-		}
-		err = tx.QueryRowContext(ctx, `
+	}
+	err = ptx.tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				version = $12,
 				status = $6,
@@ -731,43 +785,20 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
 				encryption
 			`, args...).Scan(
-			&object.CreatedAt, &object.ExpiresAt,
-			&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
-			encryptionParameters{&object.Encryption},
-		)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-			} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-				// TODO maybe we should check message if 'encryption' label is there
-				return ErrInvalidRequest.New("Encryption is missing")
-			}
-			return Error.New("failed to update object: %w", err)
-		}
-
-		object.StreamID = opts.StreamID
-		object.ProjectID = opts.ProjectID
-		object.BucketName = opts.BucketName
-		object.ObjectKey = opts.ObjectKey
-		object.Version = opts.Version
-		object.Status = nextStatus
-		object.SegmentCount = int32(len(segments))
-		object.TotalPlainSize = totalPlainSize
-		object.TotalEncryptedSize = totalEncryptedSize
-		object.FixedSegmentSize = fixedSegmentSize
-		return nil
-	})
+		&object.CreatedAt, &object.ExpiresAt,
+		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
+		encryptionParameters{&object.Encryption},
+	)
 	if err != nil {
-		return Object{}, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+			// TODO maybe we should check message if 'encryption' label is there
+			return ErrInvalidRequest.New("Encryption is missing")
+		}
+		return Error.New("failed to update object: %w", err)
 	}
-
-	precommit.submitMetrics()
-
-	mon.Meter("object_commit").Mark(1)
-	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
-	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
-
-	return object, nil
+	return nil
 }
 
 func (db *DB) validateParts(segments []segmentInfoForCommit) error {

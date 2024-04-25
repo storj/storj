@@ -17,8 +17,8 @@ type PrecommitConstraintResult precommitConstraintResult
 type StmtRow stmtRow
 
 // PrecommitConstraint exposes precommitConstraint for testing.
-func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint, tx StmtRow) (result PrecommitConstraintResult, err error) {
-	r, err := db.precommitConstraint(ctx, precommitConstraint(opts), tx)
+func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint, adapter TransactionAdapter) (result PrecommitConstraintResult, err error) {
+	r, err := db.precommitConstraint(ctx, precommitConstraint(opts), adapter)
 	return PrecommitConstraintResult(r), err
 }
 

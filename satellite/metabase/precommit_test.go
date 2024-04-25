@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -23,11 +24,16 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 			for _, disallowDelete := range []bool{false, true} {
 				name := fmt.Sprintf("Versioned:%v,DisallowDelete:%v", versioned, disallowDelete)
 				t.Run(name, func(t *testing.T) {
-					result, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-						Location:       obj.Location(),
-						Versioned:      versioned,
-						DisallowDelete: disallowDelete,
-					}, db.UnderlyingTagSQL())
+					var result metabase.PrecommitConstraintResult
+					err := db.ChooseAdapter(obj.Location().ProjectID).WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+						var err error
+						result, err = db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+							Location:       obj.Location(),
+							Versioned:      versioned,
+							DisallowDelete: disallowDelete,
+						}, adapter)
+						return err
+					})
 					require.NoError(t, err)
 					require.Equal(t, metabase.PrecommitConstraintResult{}, result)
 				})
@@ -66,32 +72,39 @@ func BenchmarkPrecommitConstraint(b *testing.B) {
 			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
 		}
 
+		adapter := db.ChooseAdapter(baseObj.ProjectID)
 		b.Run("unversioned", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-					Location: metabase.ObjectLocation{
-						ProjectID:  baseObj.ProjectID,
-						BucketName: baseObj.BucketName,
-						ObjectKey:  "foo/5",
-					},
-					Versioned:      false,
-					DisallowDelete: false,
-				}, db.UnderlyingTagSQL())
+				err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+						Location: metabase.ObjectLocation{
+							ProjectID:  baseObj.ProjectID,
+							BucketName: baseObj.BucketName,
+							ObjectKey:  "foo/5",
+						},
+						Versioned:      false,
+						DisallowDelete: false,
+					}, adapter)
+					return err
+				})
 				require.NoError(b, err)
 			}
 		})
 
 		b.Run("versioned", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-					Location: metabase.ObjectLocation{
-						ProjectID:  baseObj.ProjectID,
-						BucketName: baseObj.BucketName,
-						ObjectKey:  "foo/5",
-					},
-					Versioned:      true,
-					DisallowDelete: false,
-				}, db.UnderlyingTagSQL())
+				err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+						Location: metabase.ObjectLocation{
+							ProjectID:  baseObj.ProjectID,
+							BucketName: baseObj.BucketName,
+							ObjectKey:  "foo/5",
+						},
+						Versioned:      true,
+						DisallowDelete: false,
+					}, adapter)
+					return err
+				})
 				require.NoError(b, err)
 			}
 		})

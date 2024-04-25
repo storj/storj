@@ -13,6 +13,12 @@ import (
 	"storj.io/common/uuid"
 )
 
+type precommitTransactionAdapter interface {
+	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
+	precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error)
+	precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result precommitConstraintResult, err error)
+}
+
 type precommitConstraint struct {
 	Location ObjectLocation
 
@@ -43,7 +49,7 @@ type stmtRow interface {
 }
 
 // precommitConstraint ensures that only a single uncommitted object exists at the specified location.
-func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint, tx stmtRow) (result precommitConstraintResult, err error) {
+func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint, adapter precommitTransactionAdapter) (result precommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Location.Verify(); err != nil {
@@ -51,7 +57,7 @@ func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint,
 	}
 
 	if opts.Versioned {
-		highest, err := db.precommitQueryHighest(ctx, opts.Location, tx)
+		highest, err := adapter.precommitQueryHighest(ctx, opts.Location)
 		if err != nil {
 			return precommitConstraintResult{}, Error.Wrap(err)
 		}
@@ -60,7 +66,7 @@ func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint,
 	}
 
 	if opts.DisallowDelete {
-		highest, unversionedExists, err := db.precommitQueryHighestAndUnversioned(ctx, opts.Location, tx)
+		highest, unversionedExists, err := adapter.precommitQueryHighestAndUnversioned(ctx, opts.Location)
 		if err != nil {
 			return precommitConstraintResult{}, Error.Wrap(err)
 		}
@@ -71,18 +77,18 @@ func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint,
 		return result, nil
 	}
 
-	return db.precommitDeleteUnversioned(ctx, opts.Location, tx)
+	return adapter.precommitDeleteUnversioned(ctx, opts.Location)
 }
 
 // precommitQueryHighest queries the highest version for a given object.
-func (db *DB) precommitQueryHighest(ctx context.Context, loc ObjectLocation, tx stmtRow) (highest Version, err error) {
+func (ptx *postgresTransactionAdapter) precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := loc.Verify(); err != nil {
 		return 0, Error.Wrap(err)
 	}
 
-	err = tx.QueryRowContext(ctx, `
+	err = ptx.tx.QueryRowContext(ctx, `
 		SELECT version
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
@@ -100,7 +106,7 @@ func (db *DB) precommitQueryHighest(ctx context.Context, loc ObjectLocation, tx 
 }
 
 // precommitQueryHighestAndUnversioned queries the highest version for a given object and whether an unversioned object or delete marker exists.
-func (db *DB) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation, tx stmtRow) (highest Version, unversionedExists bool, err error) {
+func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := loc.Verify(); err != nil {
@@ -108,7 +114,7 @@ func (db *DB) precommitQueryHighestAndUnversioned(ctx context.Context, loc Objec
 	}
 
 	var version sql.NullInt64
-	err = tx.QueryRowContext(ctx, `
+	err = ptx.tx.QueryRowContext(ctx, `
 		SELECT
 			(
 				SELECT version
@@ -137,7 +143,7 @@ func (db *DB) precommitQueryHighestAndUnversioned(ctx context.Context, loc Objec
 }
 
 // precommitDeleteUnversioned deletes the unversioned object at loc and also returns the highest version.
-func (db *DB) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation, tx stmtRow) (result precommitConstraintResult, err error) {
+func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result precommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := loc.Verify(); err != nil {
@@ -157,7 +163,7 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation
 	var encryptionParams nullableValue[encryptionParameters]
 	encryptionParams.value.EncryptionParameters = &deleted.Encryption
 
-	err = tx.QueryRowContext(ctx, `
+	err = ptx.tx.QueryRowContext(ctx, `
 		WITH highest_object AS (
 			SELECT version
 			FROM objects
@@ -237,7 +243,7 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
 	if result.DeletedObjectCount > 1 {
-		db.log.Error("object with multiple committed versions were found!",
+		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 

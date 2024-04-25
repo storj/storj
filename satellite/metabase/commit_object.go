@@ -13,9 +13,16 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
+
+type commitObjectWithSegmentsTransactionAdapter interface {
+	fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error)
+	finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) error
+	deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition, aliasCache *NodeAliasCache) (deletedSegments []DeletedSegmentInfo, err error)
+
+	precommitTransactionAdapter
+}
 
 // CommitObjectWithSegments contains arguments necessary for committing an object.
 //
@@ -52,7 +59,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	}
 
 	var precommit precommitConstraintResult
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
@@ -60,12 +67,12 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,
-		}, tx)
+		}, adapter)
 		if err != nil {
 			return err
 		}
 
-		segmentsInDatabase, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
+		segmentsInDatabase, err := adapter.fetchSegmentsForCommit(ctx, opts.StreamID)
 		if err != nil {
 			return err
 		}
@@ -75,12 +82,12 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			return err
 		}
 
-		err = updateSegmentOffsets(ctx, tx, opts.StreamID, finalSegments)
+		err = adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments)
 		if err != nil {
 			return err
 		}
 
-		deletedSegments, err = db.deleteSegmentsNotInCommit(ctx, tx, opts.StreamID, segmentsToDelete)
+		deletedSegments, err = adapter.deleteSegmentsNotInCommit(ctx, opts.StreamID, segmentsToDelete, db.aliasCache)
 		if err != nil {
 			return err
 		}
@@ -113,42 +120,9 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			nextVersion = precommit.HighestVersion + 1
 		}
 
-		err = tx.QueryRowContext(ctx, `
-			UPDATE objects SET
-				version = $14,
-				status = $6,
-				segment_count = $7,
-
-				encrypted_metadata_nonce         = $8,
-				encrypted_metadata               = $9,
-				encrypted_metadata_encrypted_key = $10,
-
-				total_plain_size     = $11,
-				total_encrypted_size = $12,
-				fixed_segment_size   = $13,
-				zombie_deletion_deadline = NULL
-			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
-				status = `+statusPending+`
-			RETURNING
-				created_at, expires_at,
-				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
-			len(finalSegments),
-			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
-			totalPlainSize,
-			totalEncryptedSize,
-			fixedSegmentSize,
-			nextVersion,
-		).
-			Scan(
-				&object.CreatedAt, &object.ExpiresAt,
-				encryptionParameters{&object.Encryption},
-			)
+		err = adapter.finalizeObjectCommitWithSegments(ctx, opts, nextStatus, finalSegments, totalPlainSize, totalEncryptedSize, fixedSegmentSize, nextVersion, &object)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-			}
-			return Error.New("failed to update object: %w", err)
+			return err
 		}
 
 		object.StreamID = opts.StreamID
@@ -180,6 +154,49 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	return object, deletedSegments, nil
 }
 
+func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = ptx.tx.QueryRowContext(ctx, `
+			UPDATE objects SET
+				version = $14,
+				status = $6,
+				segment_count = $7,
+
+				encrypted_metadata_nonce         = $8,
+				encrypted_metadata               = $9,
+				encrypted_metadata_encrypted_key = $10,
+
+				total_plain_size     = $11,
+				total_encrypted_size = $12,
+				fixed_segment_size   = $13,
+				zombie_deletion_deadline = NULL
+			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+				status = `+statusPending+`
+			RETURNING
+				created_at, expires_at,
+				encryption;
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
+		len(finalSegments),
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
+		totalPlainSize,
+		totalEncryptedSize,
+		fixedSegmentSize,
+		nextVersion,
+	).
+		Scan(
+			&object.CreatedAt, &object.ExpiresAt,
+			encryptionParameters{&object.Encryption},
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		}
+		return Error.New("failed to update object: %w", err)
+	}
+	return nil
+}
+
 func verifySegmentOrder(positions []SegmentPosition) error {
 	if len(positions) == 0 {
 		return nil
@@ -205,10 +222,10 @@ type segmentInfoForCommit struct {
 }
 
 // fetchSegmentsForCommit loads information necessary for validating segment existence and offsets.
-func fetchSegmentsForCommit(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
+func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = withRows(tx.QueryContext(ctx, `
+	err = withRows(ptx.tx.QueryContext(ctx, `
 		SELECT position, encrypted_size, plain_offset, plain_size
 		FROM segments
 		WHERE stream_id = $1
@@ -288,7 +305,7 @@ func convertToFinalSegments(segmentsInDatabase []segmentInfoForCommit) (commit [
 }
 
 // updateSegmentOffsets updates segment offsets that didn't match the database state.
-func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, updates []segmentToCommit) (err error) {
+func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(updates) == 0 {
@@ -315,7 +332,7 @@ func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID,
 		return nil
 	}
 
-	updateResult, err := tx.ExecContext(ctx, `
+	updateResult, err := ptx.tx.ExecContext(ctx, `
 		UPDATE segments
 		SET plain_offset = P.plain_offset
 		FROM (SELECT unnest($2::INT8[]), unnest($3::INT8[])) as P(position, plain_offset)
@@ -337,7 +354,7 @@ func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID,
 }
 
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
-func (db *DB) deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, segments []SegmentPosition) (deletedSegments []DeletedSegmentInfo, err error) {
+func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition, aliasCache *NodeAliasCache) (deletedSegments []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(segments) == 0 {
 		return nil, nil
@@ -349,7 +366,7 @@ func (db *DB) deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, strea
 	}
 
 	// This potentially could be done together with the previous database call.
-	err = withRows(tx.QueryContext(ctx, `
+	err = withRows(ptx.tx.QueryContext(ctx, `
 			DELETE FROM segments
 			WHERE stream_id = $1 AND position = ANY($2)
 			RETURNING root_piece_id, remote_alias_pieces
@@ -366,7 +383,7 @@ func (db *DB) deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, strea
 				continue
 			}
 
-			deleted.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			deleted.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 			if err != nil {
 				return Error.New("failed to convert aliases: %w", err)
 			}

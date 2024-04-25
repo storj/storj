@@ -22,6 +22,8 @@ type Adapter interface {
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 
+	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
+
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
 
@@ -45,3 +47,18 @@ type CockroachAdapter struct {
 }
 
 var _ Adapter = &CockroachAdapter{}
+
+// TransactionAdapter is a low level extension point to use datasource related queries inside of a transaction.
+type TransactionAdapter interface {
+	commitObjectTransactionAdapter
+	commitObjectWithSegmentsTransactionAdapter
+	copyObjectTransactionAdapter
+	moveObjectTransactionAdapter
+}
+
+type postgresTransactionAdapter struct {
+	postgresAdapter *PostgresAdapter
+	tx              tagsql.Tx
+}
+
+var _ TransactionAdapter = &postgresTransactionAdapter{}

@@ -11,9 +11,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
+
+type moveObjectTransactionAdapter interface {
+	objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error)
+	objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error)
+}
 
 // BeginMoveObjectResult holds data needed to begin move object.
 type BeginMoveObjectResult BeginMoveCopyResults
@@ -176,24 +180,76 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	}
 
 	var precommit precommitConstraintResult
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
-		}, tx)
+		}, adapter)
 		if err != nil {
 			return err
 		}
 
-		var oldStatus ObjectStatus
-		var segmentsCount int
-		var hasMetadata bool
-		var streamID uuid.UUID
-
 		newStatus := committedWhereVersioned(opts.NewVersioned)
+		nextVersion := precommit.HighestVersion + 1
 
-		err = tx.QueryRowContext(ctx, `
+		oldStatus, segmentsCount, hasMetadata, streamID, err := adapter.objectMove(ctx, opts, newStatus, nextVersion)
+		if err != nil {
+			// purposefully not wrapping the error here, so as not to break expected error text in tests
+			return err
+		}
+		if streamID != opts.StreamID {
+			return ErrObjectNotFound.New("object was changed during move")
+		}
+		if segmentsCount != len(opts.NewSegmentKeys) {
+			return ErrInvalidRequest.New("wrong number of segments keys received")
+		}
+		if oldStatus.IsDeleteMarker() {
+			return ErrMethodNotAllowed.New("moving delete marker is not allowed")
+		}
+		if hasMetadata {
+			switch {
+			case opts.NewEncryptedMetadataKeyNonce.IsZero() && len(opts.NewEncryptedMetadataKey) != 0:
+				return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+			case len(opts.NewEncryptedMetadataKey) == 0 && !opts.NewEncryptedMetadataKeyNonce.IsZero():
+				return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+			}
+		}
+
+		var (
+			positions          []int64
+			encryptedKeys      [][]byte
+			encryptedKeyNonces [][]byte
+		)
+
+		for _, u := range opts.NewSegmentKeys {
+			encryptedKeys = append(encryptedKeys, u.EncryptedKey)
+			encryptedKeyNonces = append(encryptedKeyNonces, u.EncryptedKeyNonce)
+			positions = append(positions, int64(u.Position.Encode()))
+		}
+
+		affected, err := adapter.objectMoveEncryption(ctx, opts, positions, encryptedKeys, encryptedKeyNonces)
+		if err != nil {
+			return Error.New("failed to get rows affected: %w", err)
+		}
+
+		if affected != int64(len(positions)) {
+			return Error.New("segment is missing")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	precommit.submitMetrics()
+	mon.Meter("finish_move_object").Mark(1)
+
+	return nil
+}
+
+func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error) {
+	err = ptx.tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				bucket_name = $1,
 				object_key = $2,
@@ -221,47 +277,21 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
 				stream_id
 		`, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
-			opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName),
-			opts.ObjectKey, opts.Version, newStatus, precommit.HighestVersion+1).
-			Scan(&oldStatus, &segmentsCount, &hasMetadata, &streamID)
+		opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName),
+		opts.ObjectKey, opts.Version, newStatus, nextVersion).
+		Scan(&oldStatus, &segmentsCount, &hasMetadata, &streamID)
 
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrObjectNotFound.New("object not found")
-			}
-			return Error.New("unable to update object: %w", err)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
 		}
-		if streamID != opts.StreamID {
-			return ErrObjectNotFound.New("object was changed during move")
-		}
-		if segmentsCount != len(opts.NewSegmentKeys) {
-			return ErrInvalidRequest.New("wrong number of segments keys received")
-		}
-		if oldStatus.IsDeleteMarker() {
-			return ErrMethodNotAllowed.New("moving delete marker is not allowed")
-		}
-		if hasMetadata {
-			switch {
-			case opts.NewEncryptedMetadataKeyNonce.IsZero() && len(opts.NewEncryptedMetadataKey) != 0:
-				return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-			case len(opts.NewEncryptedMetadataKey) == 0 && !opts.NewEncryptedMetadataKeyNonce.IsZero():
-				return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
-			}
-		}
+		return 0, 0, false, uuid.UUID{}, Error.New("unable to update object: %w", err)
+	}
+	return oldStatus, segmentsCount, hasMetadata, streamID, nil
+}
 
-		var newSegmentKeys struct {
-			Positions          []int64
-			EncryptedKeys      [][]byte
-			EncryptedKeyNonces [][]byte
-		}
-
-		for _, u := range opts.NewSegmentKeys {
-			newSegmentKeys.EncryptedKeys = append(newSegmentKeys.EncryptedKeys, u.EncryptedKey)
-			newSegmentKeys.EncryptedKeyNonces = append(newSegmentKeys.EncryptedKeyNonces, u.EncryptedKeyNonce)
-			newSegmentKeys.Positions = append(newSegmentKeys.Positions, int64(u.Position.Encode()))
-		}
-
-		updateResult, err := tx.ExecContext(ctx, `
+func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
+	updateResult, err := ptx.tx.ExecContext(ctx, `
 			UPDATE segments SET
 				encrypted_key_nonce = P.encrypted_key_nonce,
 				encrypted_key = P.encrypted_key
@@ -269,27 +299,13 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			WHERE
 				stream_id = $1 AND
 				segments.position = P.position
-		`, opts.StreamID, pgutil.Int8Array(newSegmentKeys.Positions), pgutil.ByteaArray(newSegmentKeys.EncryptedKeyNonces), pgutil.ByteaArray(newSegmentKeys.EncryptedKeys))
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		affected, err := updateResult.RowsAffected()
-		if err != nil {
-			return Error.New("failed to get rows affected: %w", err)
-		}
-
-		if affected != int64(len(newSegmentKeys.Positions)) {
-			return Error.New("segment is missing")
-		}
-		return nil
-	})
+		`, opts.StreamID, pgutil.Int8Array(positions), pgutil.ByteaArray(encryptedKeyNonces), pgutil.ByteaArray(encryptedKeys))
 	if err != nil {
-		return err
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrObjectNotFound.New("object not found")
+		}
+		return 0, Error.Wrap(err)
 	}
 
-	precommit.submitMetrics()
-	mon.Meter("finish_move_object").Mark(1)
-
-	return nil
+	return updateResult.RowsAffected()
 }

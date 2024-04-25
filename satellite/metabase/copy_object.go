@@ -12,9 +12,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
+
+type copyObjectTransactionAdapter interface {
+	getSegmentsForCopy(ctx context.Context, object Object) (segments transposedSegmentList, err error)
+	finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error)
+	getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error)
+}
 
 // BeginCopyObjectResult holds data needed to begin copy object.
 type BeginCopyObjectResult BeginMoveCopyResults
@@ -109,6 +114,32 @@ func (finishCopy FinishCopyObject) Verify() error {
 	return nil
 }
 
+type transposedSegmentList struct {
+	Positions []int64
+
+	CreatedAts  []time.Time // non-nillable
+	RepairedAts []*time.Time
+	ExpiresAts  []*time.Time
+
+	RootPieceIDs       [][]byte
+	EncryptedKeyNonces [][]byte
+	EncryptedKeys      [][]byte
+
+	EncryptedSizes []int32 // sizes of the whole segments (not pieces)
+	// PlainSizes holds 0 for migrated objects.
+	PlainSizes []int32
+	// PlainOffsets holds 0 for a migrated object.
+	PlainOffsets   []int64
+	EncryptedETags [][]byte
+
+	RedundancySchemes []int64
+
+	InlineDatas [][]byte
+	PiecesLists [][]byte
+
+	Placements []storj.PlacementConstraint
+}
+
 // FinishCopyObject accepts new encryption keys for copied object and insert the corresponding new object ObjectKey and segments EncryptedKey.
 // It returns the object at the destination location.
 func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (object Object, err error) {
@@ -122,8 +153,8 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	var copyMetadata []byte
 
 	var precommit precommitConstraintResult
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		sourceObject, err := getObjectNonPendingExactVersion(ctx, tx, opts)
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+		sourceObject, err := adapter.getObjectNonPendingExactVersion(ctx, opts)
 		if err != nil {
 			if ErrObjectNotFound.Has(err) {
 				return ErrObjectNotFound.New("source object not found")
@@ -148,88 +179,19 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return ErrInvalidRequest.New("wrong number of segments keys received (received %d, need %d)", len(opts.NewSegmentKeys), sourceObject.SegmentCount)
 		}
 
-		var newSegments struct {
-			Positions          []int64
-			EncryptedKeys      [][]byte
-			EncryptedKeyNonces [][]byte
-		}
-
-		for _, u := range opts.NewSegmentKeys {
-			newSegments.EncryptedKeys = append(newSegments.EncryptedKeys, u.EncryptedKey)
-			newSegments.EncryptedKeyNonces = append(newSegments.EncryptedKeyNonces, u.EncryptedKeyNonce)
-			newSegments.Positions = append(newSegments.Positions, int64(u.Position.Encode()))
-		}
-
-		positions := make([]int64, sourceObject.SegmentCount)
-
-		rootPieceIDs := make([][]byte, sourceObject.SegmentCount)
-
-		expiresAts := make([]*time.Time, sourceObject.SegmentCount)
-		encryptedSizes := make([]int32, sourceObject.SegmentCount)
-		plainSizes := make([]int32, sourceObject.SegmentCount)
-		plainOffsets := make([]int64, sourceObject.SegmentCount)
-		inlineDatas := make([][]byte, sourceObject.SegmentCount)
-		placementConstraints := make([]storj.PlacementConstraint, sourceObject.SegmentCount)
-		remoteAliasPiecesLists := make([][]byte, sourceObject.SegmentCount)
-
-		redundancySchemes := make([]int64, sourceObject.SegmentCount)
-
-		err = withRows(db.db.QueryContext(ctx, `
-				SELECT
-					position,
-					expires_at,
-					root_piece_id,
-					encrypted_size, plain_offset, plain_size,
-					redundancy,
-					remote_alias_pieces,
-					placement,
-					inline_data
-				FROM segments
-				WHERE stream_id = $1
-				ORDER BY position ASC
-				LIMIT  $2
-			`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
-			index := 0
-			for rows.Next() {
-				err := rows.Scan(
-					&positions[index],
-					&expiresAts[index],
-					&rootPieceIDs[index],
-					&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
-					&redundancySchemes[index],
-					&remoteAliasPiecesLists[index],
-					&placementConstraints[index],
-					&inlineDatas[index],
-				)
-				if err != nil {
-					return err
-				}
-				index++
-			}
-
-			if err := rows.Err(); err != nil {
-				return err
-			}
-
-			if index != int(sourceObject.SegmentCount) {
-				return Error.New("could not load all of the segment information")
-			}
-
-			return nil
-		})
-
+		newSegments, err := adapter.getSegmentsForCopy(ctx, sourceObject)
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
 
-		onlyInlineSegments := true
-		for index := range positions {
-			if newSegments.Positions[index] != positions[index] {
-				return Error.New("missing new segment keys for segment %d", positions[index])
+		newSegments.EncryptedKeys = make([][]byte, len(opts.NewSegmentKeys))
+		newSegments.EncryptedKeyNonces = make([][]byte, len(opts.NewSegmentKeys))
+		for index, u := range opts.NewSegmentKeys {
+			if int64(u.Position.Encode()) != newSegments.Positions[index] {
+				return Error.New("missing new segment keys for segment %d", newSegments.Positions[index])
 			}
-			if onlyInlineSegments && (encryptedSizes[index] > 0) && len(inlineDatas[index]) == 0 {
-				onlyInlineSegments = false
-			}
+			newSegments.EncryptedKeys[index] = u.EncryptedKey
+			newSegments.EncryptedKeyNonces[index] = u.EncryptedKeyNonce
 		}
 
 		if opts.OverrideMetadata {
@@ -242,81 +204,15 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
-		}, tx)
+		}, adapter)
 		if err != nil {
 			return err
 		}
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
 
-		// TODO we need to handle metadata correctly (copy from original object or replace)
-		row := tx.QueryRowContext(ctx, `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				status, expires_at, segment_count,
-				encryption,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				zombie_deletion_deadline
-			) VALUES (
-				$1, $2, $3, $4, $5,
-				$6, $7, $8,
-				$9,
-				$10, $11, $12,
-				$13, $14, $15, null
-			)
-			RETURNING
-				created_at`,
-			opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, precommit.HighestVersion+1, opts.NewStreamID,
-			newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
-			encryptionParameters{&sourceObject.Encryption},
-			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
-			sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
-		)
-
-		newObject = sourceObject
-		newObject.Version = precommit.HighestVersion + 1
-		newObject.Status = newStatus
-
-		err = row.Scan(&newObject.CreatedAt)
-		if err != nil {
-			return Error.New("unable to copy object: %w", err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO segments (
-				stream_id, position, expires_at,
-				encrypted_key_nonce, encrypted_key,
-				root_piece_id,
-				redundancy,
-				encrypted_size, plain_offset, plain_size,
-				remote_alias_pieces, placement,
-				inline_data
-			) SELECT
-				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
-				UNNEST($4::BYTEA[]), UNNEST($5::BYTEA[]),
-				UNNEST($6::BYTEA[]),
-				UNNEST($7::INT8[]),
-				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
-				UNNEST($11::BYTEA[]), UNNEST($12::INT2[]),
-				UNNEST($13::BYTEA[])
-		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), pgutil.NullTimestampTZArray(expiresAts),
-			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
-			pgutil.ByteaArray(rootPieceIDs),
-			pgutil.Int8Array(redundancySchemes),
-			pgutil.Int4Array(encryptedSizes), pgutil.Int8Array(plainOffsets), pgutil.Int4Array(plainSizes),
-			pgutil.ByteaArray(remoteAliasPiecesLists), pgutil.PlacementConstraintArray(placementConstraints),
-			pgutil.ByteaArray(inlineDatas),
-		)
-		if err != nil {
-			return Error.New("unable to copy segments: %w", err)
-		}
-
-		if onlyInlineSegments {
-			return nil
-		}
-
-		return nil
+		newObject, err = adapter.finalizeObjectCopy(ctx, opts, precommit.HighestVersion+1, newStatus, sourceObject, copyMetadata, newSegments)
+		return err
 	})
 
 	if err != nil {
@@ -338,10 +234,138 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	return newObject, nil
 }
 
+func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
+	segments.Positions = make([]int64, sourceObject.SegmentCount)
+
+	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
+
+	segments.ExpiresAts = make([]*time.Time, sourceObject.SegmentCount)
+	segments.EncryptedSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
+	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
+	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
+
+	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
+
+	err = withRows(ptx.tx.QueryContext(ctx, `
+				SELECT
+					position,
+					expires_at,
+					root_piece_id,
+					encrypted_size, plain_offset, plain_size,
+					redundancy,
+					remote_alias_pieces,
+					placement,
+					inline_data
+				FROM segments
+				WHERE stream_id = $1
+				ORDER BY position ASC
+				LIMIT  $2
+			`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
+		index := 0
+		for rows.Next() {
+			err := rows.Scan(
+				&segments.Positions[index],
+				&segments.ExpiresAts[index],
+				&segments.RootPieceIDs[index],
+				&segments.EncryptedSizes[index], &segments.PlainOffsets[index], &segments.PlainSizes[index],
+				&segments.RedundancySchemes[index],
+				&segments.PiecesLists[index],
+				&segments.Placements[index],
+				&segments.InlineDatas[index],
+			)
+			if err != nil {
+				return err
+			}
+			index++
+		}
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		if index != int(sourceObject.SegmentCount) {
+			return Error.New("could not load all of the segment information")
+		}
+
+		return nil
+	})
+	return segments, err
+}
+
+func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
+	// TODO we need to handle metadata correctly (copy from original object or replace)
+	row := ptx.tx.QueryRowContext(ctx, `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				status, expires_at, segment_count,
+				encryption,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				zombie_deletion_deadline
+			) VALUES (
+				$1, $2, $3, $4, $5,
+				$6, $7, $8,
+				$9,
+				$10, $11, $12,
+				$13, $14, $15, null
+			)
+			RETURNING
+				created_at`,
+		opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
+		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
+		encryptionParameters{&sourceObject.Encryption},
+		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
+	)
+
+	newObject = sourceObject
+	newObject.Version = nextVersion
+	newObject.Status = newStatus
+
+	err = row.Scan(&newObject.CreatedAt)
+	if err != nil {
+		return Object{}, Error.New("unable to copy object: %w", err)
+	}
+
+	_, err = ptx.tx.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				encrypted_key_nonce, encrypted_key,
+				root_piece_id,
+				redundancy,
+				encrypted_size, plain_offset, plain_size,
+				remote_alias_pieces, placement,
+				inline_data
+			) SELECT
+				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
+				UNNEST($4::BYTEA[]), UNNEST($5::BYTEA[]),
+				UNNEST($6::BYTEA[]),
+				UNNEST($7::INT8[]),
+				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
+				UNNEST($11::BYTEA[]), UNNEST($12::INT2[]),
+				UNNEST($13::BYTEA[])
+		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), pgutil.NullTimestampTZArray(newSegments.ExpiresAts),
+		pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
+		pgutil.ByteaArray(newSegments.RootPieceIDs),
+		pgutil.Int8Array(newSegments.RedundancySchemes),
+		pgutil.Int4Array(newSegments.EncryptedSizes), pgutil.Int8Array(newSegments.PlainOffsets), pgutil.Int4Array(newSegments.PlainSizes),
+		pgutil.ByteaArray(newSegments.PiecesLists), pgutil.PlacementConstraintArray(newSegments.Placements),
+		pgutil.ByteaArray(newSegments.InlineDatas),
+	)
+	if err != nil {
+		return Object{}, Error.New("unable to copy segments: %w", err)
+	}
+
+	return newObject, nil
+}
+
 // getObjectNonPendingExactVersion returns object information for exact version.
 //
 // Note: this returns both committed objects and delete markers.
-func getObjectNonPendingExactVersion(ctx context.Context, tx tagsql.Tx, opts FinishCopyObject) (_ Object, err error) {
+func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -349,7 +373,7 @@ func getObjectNonPendingExactVersion(ctx context.Context, tx tagsql.Tx, opts Fin
 	}
 
 	object := Object{}
-	err = tx.QueryRowContext(ctx, `
+	err = ptx.tx.QueryRowContext(ctx, `
 		SELECT
 			stream_id, status,
 			created_at, expires_at,
