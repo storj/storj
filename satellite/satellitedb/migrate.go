@@ -11,11 +11,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/cockroachutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 //go:generate go run migrate_gen.go

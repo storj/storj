@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/dbutil/pgutil/pgerrcode"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
 
 func TestNow(t *testing.T) {

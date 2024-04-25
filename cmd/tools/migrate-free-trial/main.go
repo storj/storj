@@ -16,10 +16,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/process"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/cockroachutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 var mon = monkit.Package()

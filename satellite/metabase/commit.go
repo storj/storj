@@ -14,12 +14,12 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil/pgerrcode"
-	"storj.io/common/dbutil/txutil"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // we need to disable PlainSize validation for old uplinks.

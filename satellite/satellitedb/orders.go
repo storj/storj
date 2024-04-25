@@ -14,13 +14,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/pgxutil"
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)

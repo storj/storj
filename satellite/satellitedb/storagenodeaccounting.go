@@ -10,13 +10,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/cockroachutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface.
@@ -442,7 +442,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	// accounting_rollups table are fully populated or back-filled with
 	// the start_time, and the interval_end_time is non-nullable
 	query := `
-		SELECT SUM(r1.at_rest_total) as at_rest_total, 
+		SELECT SUM(r1.at_rest_total) as at_rest_total,
 				(r1.start_time at time zone 'UTC')::date as start_time,
 				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
 		FROM accounting_rollups r1

@@ -22,7 +22,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/mattn/go-sqlite3"
 
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/tagsql"
 )
 
 // Prevent conditional imports from causing build failures.

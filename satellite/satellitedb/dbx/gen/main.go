@@ -49,7 +49,7 @@ func main() {
 	replacer := strings.NewReplacer(
 		"*sql.Tx", "tagsql.Tx",
 		"*sql.Rows", "tagsql.Rows",
-		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/common/tagsql"`,
+		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/storj/shared/tagsql"`,
 		"type DB struct {\n\t*sql.DB", "type DB struct {\n\ttagsql.DB",
 		"db = &DB{\n\t\tDB: sql_db", "db = &DB{\n\t\tDB: tagsql.Wrap(sql_db)",
 	)

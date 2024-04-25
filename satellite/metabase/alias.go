@@ -16,9 +16,9 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.

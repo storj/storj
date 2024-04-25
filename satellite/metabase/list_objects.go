@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/tagsql"
 )
 
 // DelimiterNext is the string that comes immediately after Delimiter="/".

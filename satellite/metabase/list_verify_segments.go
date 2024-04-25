@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ListVerifyLimit is the maximum number of items the client can request for listing.
@@ -67,7 +67,7 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			remote_alias_pieces IS NOT NULL AND
 			(segments.expires_at IS NULL OR segments.expires_at > now()) AND
 			($3::TIMESTAMPTZ IS NULL OR segments.created_at > $3) AND -- created after
-			($4::TIMESTAMPTZ IS NULL OR segments.created_at < $4)     -- created before 
+			($4::TIMESTAMPTZ IS NULL OR segments.created_at < $4)     -- created before
 		ORDER BY stream_id ASC, position ASC
 		LIMIT $5
 	`, []interface{}{
@@ -93,7 +93,7 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			segments.remote_alias_pieces IS NOT NULL AND
 			(segments.expires_at IS NULL OR segments.expires_at > now()) AND
 			($4::TIMESTAMPTZ IS NULL OR segments.created_at > $4) AND -- created after
-			($5::TIMESTAMPTZ IS NULL OR segments.created_at < $5)     -- created before 
+			($5::TIMESTAMPTZ IS NULL OR segments.created_at < $5)     -- created before
 		ORDER BY segments.stream_id ASC, segments.position ASC
 		LIMIT $6
 	`, []interface{}{

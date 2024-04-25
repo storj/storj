@@ -16,13 +16,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 var (

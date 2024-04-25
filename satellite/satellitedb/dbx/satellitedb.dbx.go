@@ -18,7 +18,8 @@ import (
 	"unicode"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"storj.io/common/tagsql"
+
+	"storj.io/storj/shared/tagsql"
 )
 
 // Prevent conditional imports from causing build failures.

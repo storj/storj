@@ -22,15 +22,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/cockroachutil"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/dbutil/cockroachutil"
+	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/pieces"
 )
 

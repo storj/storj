@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/dbutil"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestGetTableStats(t *testing.T) {

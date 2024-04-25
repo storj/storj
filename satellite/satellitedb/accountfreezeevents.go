@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/tagsql"
 )
 
 // Ensure that accountFreezeEvents implements console.AccountFreezeEvents.
@@ -93,7 +93,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 		rows, err = events.db.Query(ctx, events.db.Rebind(`
 		SELECT user_id, event, days_till_escalation, created_at
 		FROM account_freeze_events
-			WHERE user_id > ? 
+			WHERE user_id > ?
 			ORDER BY user_id LIMIT ?
 		`), cursor.StartingAfter, cursor.Limit+1)
 	} else {

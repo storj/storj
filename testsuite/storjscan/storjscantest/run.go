@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgtest"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -22,6 +21,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/pgtest"
 	"storj.io/storjscan"
 	"storj.io/storjscan/private/testeth"
 	"storj.io/storjscan/storjscandb/storjscandbtest"

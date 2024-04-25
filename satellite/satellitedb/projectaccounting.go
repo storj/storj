@@ -14,14 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/pgutil/pgerrcode"
-	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -29,6 +24,11 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.

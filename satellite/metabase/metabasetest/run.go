@@ -12,8 +12,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/mud"
@@ -21,6 +19,8 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // RunWithConfig runs tests with specific metabase configuration.

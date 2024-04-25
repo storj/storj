@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"storj.io/common/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/dbschema"
 )
 
 func main() {

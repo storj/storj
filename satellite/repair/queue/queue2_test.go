@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -22,6 +20,8 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 func TestUntilEmpty(t *testing.T) {

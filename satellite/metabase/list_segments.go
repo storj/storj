@@ -9,8 +9,8 @@ import (
 	"errors"
 	"time"
 
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ListSegments contains arguments necessary for listing stream segments.

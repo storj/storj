@@ -14,9 +14,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/dbutil/pgxutil"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgxutil"
 )
 
 // RawObject defines the full object that is stored in the database. It should be rarely used directly.

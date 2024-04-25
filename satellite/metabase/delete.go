@@ -12,11 +12,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/txutil"
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // DeletedSegmentInfo info about deleted segment.

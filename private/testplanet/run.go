@@ -10,11 +10,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // Run runs testplanet in multiple configurations.

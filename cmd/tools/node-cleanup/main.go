@@ -19,8 +19,8 @@ import (
 
 	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/tagsql"
 )
 
 var mon = monkit.Package()

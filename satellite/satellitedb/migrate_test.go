@@ -23,15 +23,15 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 const maxMigrationsToTest = 10

@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	cmd "storj.io/storj/cmd/tools/metabase-orphaned-segments"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 func TestOrphanedSegment(t *testing.T) {

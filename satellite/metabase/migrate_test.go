@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 func TestMigration(t *testing.T) {

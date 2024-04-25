@@ -20,15 +20,15 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tempdb"
+	"storj.io/storj/shared/tagsql"
 )
 
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.

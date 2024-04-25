@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
@@ -29,6 +28,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/versioncontrol"
 )
 

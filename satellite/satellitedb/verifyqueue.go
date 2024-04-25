@@ -10,10 +10,10 @@ import (
 	"sort"
 	"time"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 const (

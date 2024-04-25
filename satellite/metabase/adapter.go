@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // Adapter is a low level extension point to use datasource related queries.

@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/currency"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 // Test no entries in table doesn't error.

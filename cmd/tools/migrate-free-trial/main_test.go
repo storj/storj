@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	migrator "storj.io/storj/cmd/tools/migrate-free-trial"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 // Test no entries in table doesn't error.
