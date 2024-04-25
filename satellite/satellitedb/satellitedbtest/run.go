@@ -34,8 +34,6 @@ import (
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
 var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
 
-var spanner = flag.String("spanner-test-db", os.Getenv("STORJ_TEST_SPANNER"), "Spanner test database connection string, \"omit\" or empty string is used to omit the tests from output")
-
 func stringToBool(v string) bool {
 	b, err := strconv.ParseBool(v)
 	if err != nil {
@@ -95,13 +93,14 @@ func Databases() []SatelliteDatabases {
 func DatabasesWithSpanner() []SatelliteDatabases {
 	dbs := Databases()
 	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
-	if *spanner != "" && *spanner != "omit" {
+	spanner := pgtest.PickSpanner(ignoreSkip{})
+	if spanner != "" && spanner != "omit" {
 		// TODO: this is not ideal, as we couldn't execute CockroachSpanner only
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "CockroachSpanner",
 			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
-			Spanner:    *spanner,
+			Spanner:    spanner,
 		})
 	}
 	return dbs

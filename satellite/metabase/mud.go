@@ -47,6 +47,7 @@ func NewTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection 
 	if err != nil {
 		return SpannerTestDatabase{}, errs.Wrap(err)
 	}
+	spannerConnection = strings.TrimPrefix(spannerConnection, "spanner://")
 
 	adminClient, err := database.NewDatabaseAdminClient(ctx)
 	if err != nil {
