@@ -1024,7 +1024,11 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, f func(context.Context, Tr
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
 func (s *SpannerAdapter) WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error {
-	panic("implement me")
+	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		txAdapter := &spannerTransactionAdapter{spannerAdapter: s, tx: tx}
+		return f(ctx, txAdapter)
+	})
+	return err
 }
 
 // CommitObject adds a pending object to the database. If another committed object is under target location
@@ -1187,6 +1191,11 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		return Error.New("failed to update object: %w", err)
 	}
 	return nil
+}
+
+func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error {
+	// TODO implement me
+	panic("implement me")
 }
 
 func (db *DB) validateParts(segments []segmentInfoForCommit) error {
@@ -1376,4 +1385,9 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 	}
 
 	return nil
+}
+
+func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
+	// TODO: implement me
+	panic("implement me")
 }

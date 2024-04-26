@@ -104,6 +104,11 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighest(ctx context.Context
 	return highest, nil
 }
 
+func (stx *spannerTransactionAdapter) precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 // precommitQueryHighestAndUnversioned queries the highest version for a given object and whether an unversioned object or delete marker exists.
 func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -139,6 +144,11 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx c
 	}
 
 	return highest, unversionedExists, nil
+}
+
+func (stx *spannerTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 // precommitDeleteUnversioned deletes the unversioned object at loc and also returns the highest version.
@@ -256,6 +266,11 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	}
 
 	return result, nil
+}
+
+func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 // PrecommitConstraintWithNonPendingResult contains the result for enforcing precommit constraint.
@@ -405,4 +420,10 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 	}
 
 	return result, nil
+}
+
+// PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
+func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+	// TODO implement me
+	panic("implement me")
 }

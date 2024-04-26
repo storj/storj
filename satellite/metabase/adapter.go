@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 
+	"github.com/storj/exp-spanner"
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
@@ -86,3 +87,10 @@ type postgresTransactionAdapter struct {
 }
 
 var _ TransactionAdapter = &postgresTransactionAdapter{}
+
+type spannerTransactionAdapter struct {
+	spannerAdapter *SpannerAdapter
+	tx             *spanner.ReadWriteTransaction
+}
+
+var _ TransactionAdapter = &spannerTransactionAdapter{}
