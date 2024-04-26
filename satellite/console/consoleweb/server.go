@@ -406,7 +406,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
 
 	analyticsPath := "/api/v0/analytics"
-	router.Handle(analyticsPath+"/pageview", server.ipRateLimiter.Limit(http.HandlerFunc(analyticsController.PageViewTriggered))).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc(analyticsPath+"/pageview", analyticsController.PageViewTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
