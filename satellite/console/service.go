@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -212,6 +213,7 @@ type Service struct {
 	mailService                *mailservice.Service
 	accountFreezeService       *AccountFreezeService
 	emission                   *emission.Service
+	kmsService                 *kms.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -246,7 +248,12 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting,
+	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
+	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
+	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, satelliteAddress string,
+	satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions,
+	versioning VersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -314,6 +321,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		mailService:                mailService,
 		accountFreezeService:       accountFreezeService,
 		emission:                   emission,
+		kmsService:                 kmsService,
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
 		maxProjectBuckets:          maxProjectBuckets,
@@ -2147,18 +2155,27 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
-		p, err = tx.Projects().Insert(ctx,
-			&Project{
-				Description:      projectInfo.Description,
-				Name:             projectInfo.Name,
-				OwnerID:          user.ID,
-				UserAgent:        user.UserAgent,
-				StorageLimit:     &storageLimit,
-				BandwidthLimit:   &bandwidthLimit,
-				SegmentLimit:     &newProjectLimits.Segment,
-				DefaultPlacement: user.DefaultPlacement,
-			},
-		)
+
+		newProject := &Project{
+			Description:      projectInfo.Description,
+			Name:             projectInfo.Name,
+			OwnerID:          user.ID,
+			UserAgent:        user.UserAgent,
+			StorageLimit:     &storageLimit,
+			BandwidthLimit:   &bandwidthLimit,
+			SegmentLimit:     &newProjectLimits.Segment,
+			DefaultPlacement: user.DefaultPlacement,
+		}
+		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase {
+			encPassphrase, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			newProject.PassphraseEnc = encPassphrase
+			newProject.PathEncryption = new(bool)
+		}
+
+		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
 		}

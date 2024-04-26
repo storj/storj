@@ -35,6 +35,7 @@ Creates new Project with given info
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	managePassphrase: boolean
 }
 
 ```
@@ -86,6 +87,7 @@ Updates project with given info
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	managePassphrase: boolean
 }
 
 ```

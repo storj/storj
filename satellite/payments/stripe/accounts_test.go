@@ -96,6 +96,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			"",
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,

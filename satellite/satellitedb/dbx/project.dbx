@@ -73,6 +73,11 @@ update project ( where project.id = ? )
 delete project ( where project.id = ? )
 
 read one (
+    select project.passphrase_enc
+    where project.id = ?
+)
+
+read one (
     select project.salt
     where project.id = ?
 )

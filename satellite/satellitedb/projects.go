@@ -157,6 +157,19 @@ func (projects *projects) GetSalt(ctx context.Context, id uuid.UUID) (salt []byt
 	return salt, nil
 }
 
+// GetEncryptedPassphrase gets the encrypted passphrase of this project.
+// NB: projects that don't have satellite managed encryption will not have this.
+func (projects *projects) GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	res, err := projects.db.Get_Project_PassphraseEnc_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.PassphraseEnc, nil
+}
+
 // GetByPublicID is a method for querying project from the database by public_id.
 func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -202,6 +215,12 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	}
 	if project.SegmentLimit != nil {
 		createFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
+	}
+	if project.PassphraseEnc != nil {
+		createFields.PassphraseEnc = dbx.Project_PassphraseEnc(project.PassphraseEnc)
+	}
+	if project.PathEncryption != nil {
+		createFields.PathEncryption = dbx.Project_PathEncryption(*project.PathEncryption)
 	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
@@ -626,6 +645,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		DefaultPlacement:          placement,
 		DefaultVersioning:         console.DefaultVersioning(project.DefaultVersioning),
 		PromptedForVersioningBeta: project.PromptedForVersioningBeta,
+		PathEncryption:            &project.PathEncryption,
 	}, nil
 }
 

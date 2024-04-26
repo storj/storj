@@ -29,6 +29,9 @@ type Projects interface {
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// GetSalt returns the project's salt.
 	GetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
+	// GetEncryptedPassphrase gets the encrypted passphrase of this project.
+	// NB: projects that don't have satellite managed encryption will not have this.
+	GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) ([]byte, error)
 	// GetByPublicID is a method for querying project from the database by public_id.
 	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
@@ -126,6 +129,8 @@ type Project struct {
 	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
 	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
 	PromptedForVersioningBeta   bool                      `json:"-"`
+	PassphraseEnc               []byte                    `json:"-"`
+	PathEncryption              *bool                     `json:"-"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.
@@ -134,7 +139,10 @@ type UpsertProjectInfo struct {
 	Description    string      `json:"description"`
 	StorageLimit   memory.Size `json:"storageLimit"`
 	BandwidthLimit memory.Size `json:"bandwidthLimit"`
-	CreatedAt      time.Time   `json:"createdAt"`
+
+	// these fields are only used for inserts and ignored for updates
+	CreatedAt        time.Time `json:"createdAt"`
+	ManagePassphrase bool      `json:"managePassphrase"`
 }
 
 // ProjectInfo holds data sent via user facing http endpoints.

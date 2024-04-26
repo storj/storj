@@ -12637,6 +12637,10 @@ type PaidTier_Row struct {
 	PaidTier bool
 }
 
+type PassphraseEnc_Row struct {
+	PassphraseEnc []byte
+}
+
 type Placement_Row struct {
 	Placement *int
 }
@@ -16335,6 +16339,28 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 		return (*OauthToken)(nil), obj.makeErr(err)
 	}
 	return oauth_token, nil
+
+}
+
+func (obj *pgxImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *PassphraseEnc_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PassphraseEnc_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc)
+	if err != nil {
+		return (*PassphraseEnc_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -25044,6 +25070,28 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *PassphraseEnc_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PassphraseEnc_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc)
+	if err != nil {
+		return (*PassphraseEnc_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Project_Salt_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *Salt_Row, err error) {
@@ -30692,6 +30740,10 @@ type Methods interface {
 	Get_Project_MaxBuckets_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		row *MaxBuckets_Row, err error)
+
+	Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *PassphraseEnc_Row, err error)
 
 	Get_Project_Salt_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (

@@ -2540,6 +2540,58 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 	})
 }
 
+func TestSatelliteManagedProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SatelliteManagedEncryptionEnabled = true
+				config.KeyManagement.TestMasterKey = "test-master-key"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		kmsService := sat.API.KeyManagement.Service
+		projectDB := sat.DB.Console().Projects()
+
+		existingUser, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, existingUser.ID)
+		require.NoError(t, err)
+
+		project, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project",
+			ManagePassphrase: false,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project.PathEncryption)
+		require.True(t, *project.PathEncryption)
+
+		encryptedPassphrase, err := projectDB.GetEncryptedPassphrase(userCtx, project.ID)
+		require.NoError(t, err)
+		// encryptedPassphrase should be empty because project encryption is not managed by satellite
+		require.Empty(t, encryptedPassphrase)
+
+		project, err = srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project2",
+			ManagePassphrase: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project.PathEncryption)
+		require.False(t, *project.PathEncryption)
+
+		encryptedPassphrase, err = projectDB.GetEncryptedPassphrase(userCtx, project.ID)
+		require.NoError(t, err)
+		// encryptedPassphrase not should be empty because project encryption is managed by satellite
+		require.NotEmpty(t, encryptedPassphrase)
+
+		_, err = kmsService.DecryptPassphrase(ctx, encryptedPassphrase)
+		require.NoError(t, err)
+	})
+}
+
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
