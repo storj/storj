@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -197,9 +199,88 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) error {
-	// TODO implement me
-	panic("implement me")
+func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// We cannot do an UPDATE here because we want to change the version column,
+	// and that column is part of the primary key. We must delete the row and
+	// insert a new one.
+
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM objects
+			WHERE project_id    = @project_id
+				AND bucket_name = @bucket_name
+				AND object_key  = @object_key
+				AND version     = @previous_version
+				AND stream_id   = @stream_id
+				AND status      = ` + statusPending + `
+			THEN RETURN
+				created_at, expires_at, encryption
+		`,
+		Params: map[string]interface{}{
+			"project_id":       opts.ProjectID,
+			"bucket_name":      opts.BucketName,
+			"object_key":       opts.ObjectKey,
+			"previous_version": opts.Version,
+			"stream_id":        opts.StreamID,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		}
+		return Error.New("failed to update object: %w", err)
+	}
+	err = row.Columns(&object.CreatedAt, &object.ExpiresAt, encryptionParameters{&object.Encryption})
+	if err != nil {
+		return Error.New("failed to read old object details: %w", err)
+	}
+
+	_, err = stx.tx.Update(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version,
+				stream_id,
+				created_at, expires_at, status,
+			    segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			    total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption, zombie_deletion_deadline
+			) VALUES (
+				@project_id, @bucket_name, @object_key, @version,
+				@stream_id,
+				@created_at, @expires_at, @status,
+			    @segment_count,
+				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+			    @total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				@encryption, NULL
+			)
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.BucketName,
+			"object_key":                       opts.ObjectKey,
+			"version":                          nextVersion,
+			"stream_id":                        opts.StreamID,
+			"created_at":                       object.CreatedAt,
+			"expires_at":                       object.ExpiresAt,
+			"status":                           int64(nextStatus),
+			"segment_count":                    len(finalSegments),
+			"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
+			"encrypted_metadata":               opts.EncryptedMetadata,
+			"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			"total_plain_size":                 totalPlainSize,
+			"total_encrypted_size":             totalEncryptedSize,
+			"fixed_segment_size":               int64(fixedSegmentSize),
+			"encryption":                       encryptionParameters{&object.Encryption},
+		},
+	})
+
+	return Error.Wrap(err)
 }
 
 func verifySegmentOrder(positions []SegmentPosition) error {
