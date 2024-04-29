@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/storj/exp-spanner"
 	"go.uber.org/zap"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 )
@@ -92,10 +94,6 @@ func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint,
 func (ptx *postgresTransactionAdapter) precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := loc.Verify(); err != nil {
-		return 0, Error.Wrap(err)
-	}
-
 	err = ptx.tx.QueryRowContext(ctx, `
 		SELECT version
 		FROM objects
@@ -114,8 +112,36 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighest(ctx context.Context
 }
 
 func (stx *spannerTransactionAdapter) precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	iter := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT version
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+			ORDER BY version DESC
+			LIMIT 1
+		`,
+		Params: map[string]interface{}{
+			"project_id":  loc.ProjectID,
+			"bucket_name": loc.BucketName,
+			"object_key":  loc.ObjectKey,
+		},
+	})
+	defer iter.Stop()
+
+	row, err := iter.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return 0, nil
+		}
+		return 0, Error.Wrap(err)
+	}
+	err = row.Columns(&highest)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	return highest, nil
 }
 
 // precommitQueryHighestAndUnversioned queries the highest version for a given object and whether an unversioned object or delete marker exists.
