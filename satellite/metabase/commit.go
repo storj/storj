@@ -13,6 +13,7 @@ import (
 	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -145,7 +146,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		enc, err := encryptionParameters{&opts.Encryption}.Value()
 		if err != nil {
-			return errs.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		stmt := spanner.Statement{
@@ -188,7 +189,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				break
 			}
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			}
 			if err := row.Columns(&object.Status, &object.Version, &object.CreatedAt); err != nil {
 				return Error.Wrap(err)
@@ -259,8 +260,8 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 
 	err = db.ChooseAdapter(opts.ProjectID).TestingBeginObjectExactVersion(ctx, opts, &object)
 	if err != nil {
-		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return Object{}, Error.Wrap(ErrObjectAlreadyExists.New(""))
+		if ErrObjectAlreadyExists.Has(err) {
+			return Object{}, err
 		}
 		return Object{}, Error.New("unable to commit object: %w", err)
 	}
@@ -272,7 +273,7 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 
 // TestingBeginObjectExactVersion implements Adapter.
 func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
-	return p.db.QueryRowContext(ctx, `
+	err := p.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -292,6 +293,62 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 	).Scan(
 		&object.Status, &object.CreatedAt,
 	)
+	if err != nil {
+		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+			return Error.Wrap(ErrObjectAlreadyExists.New(""))
+		}
+	}
+	return err
+}
+
+// TestingBeginObjectExactVersion implements Adapter.
+func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
+	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		stmt := spanner.Statement{
+			SQL: `INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				expires_at, encryption,
+				zombie_deletion_deadline,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+			) VALUES (
+				@project_id, @bucket_name, @object_key, @version, @stream_id,
+				@expires_at, @encryption,
+				@zombie_deletion_deadline,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key
+			) THEN RETURN status, created_at`,
+			Params: map[string]interface{}{
+				"project_id":                       opts.ProjectID,
+				"bucket_name":                      opts.BucketName,
+				"object_key":                       opts.ObjectKey,
+				"version":                          opts.Version,
+				"stream_id":                        opts.StreamID,
+				"expires_at":                       opts.ExpiresAt,
+				"encryption":                       &encryptionParameters{&opts.Encryption},
+				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
+				"encrypted_metadata":               opts.EncryptedMetadata,
+				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
+				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			},
+		}
+		updateIter := txn.Query(ctx, stmt)
+		defer updateIter.Stop()
+
+		row, err := updateIter.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				return Error.New("no status returned for inserted object??")
+			}
+			if errCode := spanner.ErrCode(err); errCode == codes.AlreadyExists {
+				return Error.Wrap(ErrObjectAlreadyExists.New(""))
+			}
+			return Error.Wrap(err)
+		}
+		if err := row.Columns(&object.Status, &object.CreatedAt); err != nil {
+			return Error.Wrap(err)
+		}
+		return nil
+	})
+	return err
 }
 
 // BeginSegment contains options to verify, whether a new segment upload can be started.

@@ -37,11 +37,6 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig) (*SpannerAdapter,
 	}, nil
 }
 
-// TestingBeginObjectExactVersion implements Adapter.
-func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
-	panic("implement me")
-}
-
 // GetObjectLastCommitted implements Adapter.
 func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error {
 	panic("implement me")
