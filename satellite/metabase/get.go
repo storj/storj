@@ -9,9 +9,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.
@@ -177,6 +180,58 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		return ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 	}
 	return Error.Wrap(err)
+}
+
+// GetObjectLastCommitted implements Adapter.
+func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error {
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				stream_id, version, status,
+				created_at, expires_at,
+				segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+			FROM objects
+			WHERE
+				project_id = @project_id AND
+				bucket_name = @bucket_name AND
+				object_key = @object_key AND
+				status <> ` + statusPending + ` AND
+				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+			ORDER BY version DESC
+			LIMIT 1`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+		}
+		return Error.Wrap(err)
+	}
+	if err := row.Columns(
+		&object.StreamID, &object.Version, &object.Status,
+		&object.CreatedAt, &object.ExpiresAt,
+		spannerutil.Int(&object.SegmentCount),
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+		&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+		encryptionParameters{&object.Encryption},
+	); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if object.Status.IsDeleteMarker() {
+		return ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+	}
+	return nil
 }
 
 // GetSegmentByPosition contains arguments necessary for fetching a segment on specific position.

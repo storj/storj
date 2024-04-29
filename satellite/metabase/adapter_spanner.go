@@ -37,11 +37,6 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig) (*SpannerAdapter,
 	}, nil
 }
 
-// GetObjectLastCommitted implements Adapter.
-func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error {
-	panic("implement me")
-}
-
 // Close closes the internal client.
 func (s *SpannerAdapter) Close() error {
 	s.client.Close()
