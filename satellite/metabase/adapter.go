@@ -20,6 +20,8 @@ type Adapter interface {
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
+	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
+
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
 
