@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS segments
     encrypted_key_nonce BYTES( MAX) NOT NULL,
     encrypted_key       BYTES( MAX) NOT NULL,
     encrypted_size      INT64 NOT NULL,
-    encrypted_etag      BYTES( MAX) NOT NULL,
+    encrypted_etag      BYTES( MAX),
     plain_offset        INT64 NOT NULL,
     plain_size          INT64 NOT NULL,
     redundancy          INT64 NOT NULL,
