@@ -575,7 +575,22 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		return ErrInvalidRequest.New("PlainOffset negative")
 	}
 
-	_, err = db.db.ExecContext(ctx, `
+	err = db.ChooseAdapter(opts.ProjectID).CommitInlineSegment(ctx, opts)
+	if err != nil {
+		if ErrPendingObjectMissing.Has(err) {
+			return err
+		}
+		return Error.New("unable to insert segment: %w", err)
+	}
+	mon.Meter("segment_commit").Mark(1)
+	mon.IntVal("segment_commit_encrypted_size").Observe(int64(len(opts.InlineData)))
+
+	return nil
+}
+
+// CommitInlineSegment commits inline segment to the database.
+func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
+	_, err = p.db.ExecContext(ctx, `
 			INSERT INTO segments (
 				stream_id, position, expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
@@ -609,13 +624,14 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return ErrPendingObjectMissing.New("")
 		}
-		return Error.New("unable to insert segment: %w", err)
 	}
 
-	mon.Meter("segment_commit").Mark(1)
-	mon.IntVal("segment_commit_encrypted_size").Observe(int64(len(opts.InlineData)))
+	return Error.Wrap(err)
+}
 
-	return nil
+// CommitInlineSegment commits inline segment to the database.
+func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error {
+	panic("implement me")
 }
 
 // CommitObject contains arguments necessary for committing an object.

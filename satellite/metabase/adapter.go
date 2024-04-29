@@ -20,6 +20,7 @@ type Adapter interface {
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error
+	CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
