@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -88,19 +89,40 @@ type RawState struct {
 	Segments []RawSegment
 }
 
+func sortRawObjects(objects []RawObject) {
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].ObjectStream.Less(objects[j].ObjectStream)
+	})
+}
+
+func sortRawSegments(segments []RawSegment) {
+	sort.Slice(segments, func(i, j int) bool {
+		if segments[i].StreamID == segments[j].StreamID {
+			return segments[i].Position.Less(segments[j].Position)
+		}
+		return segments[i].StreamID.Less(segments[j].StreamID)
+	})
+}
+
 // TestingGetState returns the state of the database.
 func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 	state := &RawState{}
 
-	state.Objects, err = db.testingGetAllObjects(ctx)
-	if err != nil {
-		return nil, Error.New("GetState: %w", err)
-	}
+	for _, a := range db.adapters {
+		objects, err := a.TestingGetAllObjects(ctx)
+		if err != nil {
+			return nil, Error.New("GetState: %w", err)
+		}
+		state.Objects = append(state.Objects, objects...)
 
-	state.Segments, err = db.ChooseAdapter(uuid.UUID{}).TestingGetAllSegments(ctx, db.aliasCache)
-	if err != nil {
-		return nil, Error.New("GetState: %w", err)
+		segments, err := a.TestingGetAllSegments(ctx, db.aliasCache)
+		if err != nil {
+			return nil, Error.New("GetState: %w", err)
+		}
+		state.Segments = append(state.Segments, segments...)
 	}
+	sortRawObjects(state.Objects)
+	sortRawSegments(state.Segments)
 
 	return state, nil
 }
@@ -137,15 +159,11 @@ func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
-// testingGetAllObjects returns the state of the database.
-func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	if db.db == nil {
-		// TODO: implement it with adapter and support Spanner.
-		return nil, nil
-	}
+// TestingGetAllObjects returns the state of the database.
+func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
 	objs := []RawObject{}
 
-	rows, err := db.db.QueryContext(ctx, `
+	rows, err := p.db.QueryContext(ctx, `
 		WITH ignore_full_scan_for_test AS (SELECT 1)
 		SELECT
 			project_id, bucket_name, object_key, version, stream_id,
@@ -201,6 +219,11 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 		return nil, nil
 	}
 	return objs, nil
+}
+
+// TestingGetAllObjects returns the state of the database.
+func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
+	return nil, nil
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.

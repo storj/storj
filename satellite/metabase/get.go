@@ -342,13 +342,18 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rawObjects, err := db.testingGetAllObjects(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var rawObjects []RawObject
+	for _, a := range db.adapters {
+		adapterObjects, err := a.TestingGetAllObjects(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		rawObjects = append(rawObjects, adapterObjects...)
 	}
-
-	for _, o := range rawObjects {
-		objects = append(objects, Object(o))
+	sortRawObjects(rawObjects)
+	objects = make([]Object, len(rawObjects))
+	for i, o := range rawObjects {
+		objects[i] = Object(o)
 	}
 
 	return objects, nil
@@ -359,11 +364,15 @@ func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err erro
 func (db *DB) TestingAllSegments(ctx context.Context) (segments []Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rawSegments, err := db.ChooseAdapter(uuid.UUID{}).TestingGetAllSegments(ctx, db.aliasCache)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var rawSegments []RawSegment
+	for _, a := range db.adapters {
+		adapterSegments, err := a.TestingGetAllSegments(ctx, db.aliasCache)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		rawSegments = append(rawSegments, adapterSegments...)
 	}
-
+	sortRawSegments(rawSegments)
 	for _, s := range rawSegments {
 		segments = append(segments, Segment(s))
 	}

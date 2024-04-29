@@ -31,6 +31,7 @@ type Adapter interface {
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
 
 	TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error)
+	TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error)
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
 }
