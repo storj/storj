@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -335,8 +336,36 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 }
 
 func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT position, encrypted_size, plain_offset, plain_size
+			FROM segments
+			WHERE stream_id = @stream_id
+			ORDER BY position
+		`,
+		Params: map[string]interface{}{
+			"stream_id": streamID,
+		},
+	})
+	defer result.Stop()
+
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("failed to fetch segments: %w", err)
+		}
+		var segment segmentInfoForCommit
+		if err := row.Columns(&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize)); err != nil {
+			return nil, Error.New("failed to scan segments: %w", err)
+		}
+		segments = append(segments, segment)
+	}
+	return segments, nil
 }
 
 type segmentToCommit struct {
