@@ -969,8 +969,54 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 }
 
 // CommitInlineSegment commits inline segment to the database.
-func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error {
-	panic("implement me")
+func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		stmt := spanner.Statement{
+			SQL: `
+				INSERT OR UPDATE INTO segments (
+					stream_id, position, expires_at,
+					root_piece_id, encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					inline_data, redundancy
+				) VALUES (
+					(
+						SELECT stream_id
+						FROM objects
+						WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
+							status = ` + statusPending + `
+					), @position, @expires_at,
+					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
+					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@inline_data, 0
+				)
+			`,
+			Params: map[string]interface{}{
+				"position":            opts.Position,
+				"expires_at":          opts.ExpiresAt,
+				"root_piece_id":       storj.PieceID{},
+				"encrypted_key_nonce": opts.EncryptedKeyNonce,
+				"encrypted_key":       opts.EncryptedKey,
+				"encrypted_size":      len(opts.InlineData),
+				"plain_offset":        opts.PlainOffset,
+				"plain_size":          int64(opts.PlainSize),
+				"encrypted_etag":      opts.EncryptedETag,
+				"inline_data":         opts.InlineData,
+				"project_id":          opts.ProjectID.Bytes(),
+				"bucket_name":         opts.BucketName,
+				"object_key":          opts.ObjectKey,
+				"version":             opts.Version,
+				"stream_id":           opts.StreamID,
+			},
+		}
+		_, err := txn.Update(ctx, stmt)
+		return err
+	})
+	if err != nil {
+		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
+			return ErrPendingObjectMissing.New("")
+		}
+	}
+	return Error.Wrap(err)
 }
 
 // CommitObject contains arguments necessary for committing an object.

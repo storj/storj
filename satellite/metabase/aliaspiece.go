@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"encoding/base64"
 	"encoding/binary"
+	"reflect"
 )
 
 // AliasPieces is a slice of AliasPiece.
@@ -160,6 +161,10 @@ func (aliases *AliasPieces) SetBytes(data []byte) error {
 // Scan implements the database/sql Scanner interface.
 func (aliases *AliasPieces) Scan(src any) error {
 	if src == nil {
+		*aliases = nil
+		return nil
+	}
+	if reflect.ValueOf(src).IsNil() {
 		*aliases = nil
 		return nil
 	}

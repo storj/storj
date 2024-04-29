@@ -2117,6 +2117,9 @@ func TestCommitInlineSegment(t *testing.T) {
 				if mode == "no-pending-object-check" {
 					t.Skip()
 				}
+				if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+					t.Skip("not ready for Spanner until CommitObject is implemented")
+				}
 
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -2333,7 +2336,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
-		})
+		}, metabasetest.WithSpanner())
 	}
 }
 
