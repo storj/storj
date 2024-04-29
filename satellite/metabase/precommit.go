@@ -148,10 +148,6 @@ func (stx *spannerTransactionAdapter) precommitQueryHighest(ctx context.Context,
 func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := loc.Verify(); err != nil {
-		return 0, false, Error.Wrap(err)
-	}
-
 	var version sql.NullInt64
 	err = ptx.tx.QueryRowContext(ctx, `
 		SELECT
@@ -182,8 +178,49 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx c
 }
 
 func (stx *spannerTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	iter := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				(
+					SELECT version
+					FROM objects
+					WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+					ORDER BY version DESC
+					LIMIT 1
+				),
+				(
+					SELECT EXISTS (
+						SELECT 1
+						FROM objects
+						WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
+							status IN ` + statusesUnversioned + `
+					)
+				)
+		`,
+		Params: map[string]interface{}{
+			"project_id":  loc.ProjectID,
+			"bucket_name": loc.BucketName,
+			"object_key":  loc.ObjectKey,
+		},
+	})
+	defer iter.Stop()
+
+	row, err := iter.Next()
+	if err != nil {
+		return 0, false, Error.Wrap(err)
+	}
+	var version *int64
+	err = row.Columns(&version, &unversionedExists)
+	if err != nil {
+		return 0, false, Error.Wrap(err)
+	}
+	if version != nil {
+		highest = Version(*version)
+	}
+
+	return highest, unversionedExists, nil
 }
 
 // precommitDeleteUnversioned deletes the unversioned object at loc and also returns the highest version.
