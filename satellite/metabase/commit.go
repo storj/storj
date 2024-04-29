@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	pgxerrcode "github.com/jackc/pgerrcode"
@@ -697,8 +698,70 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 }
 
 // CommitPendingObjectSegment commits segment to the database.
-func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error {
-	panic("implement me")
+func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var numRows int64
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		stmt := spanner.Statement{
+			SQL: `
+				INSERT OR UPDATE INTO segments (
+					stream_id, position,
+					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					redundancy,
+					remote_alias_pieces,
+					placement
+				) VALUES (
+					(
+						SELECT stream_id
+						FROM objects
+						WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
+							status = ` + statusPending + `
+					), @position,
+					@expires_at, @root_piece_id, @encrypted_key_nonce, @encrypted_key,
+					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@redundancy,
+					@alias_pieces,
+					@placement
+				)
+			`,
+			Params: map[string]interface{}{
+				"position":            opts.Position,
+				"expires_at":          opts.ExpiresAt,
+				"root_piece_id":       opts.RootPieceID.Bytes(),
+				"encrypted_key_nonce": opts.EncryptedKeyNonce,
+				"encrypted_key":       opts.EncryptedKey,
+				"encrypted_size":      int64(opts.EncryptedSize),
+				"plain_offset":        opts.PlainOffset,
+				"plain_size":          int64(opts.PlainSize),
+				"encrypted_etag":      opts.EncryptedETag,
+				"redundancy":          redundancyScheme{&opts.Redundancy},
+				"alias_pieces":        aliasPieces,
+				"project_id":          opts.ProjectID.Bytes(),
+				"bucket_name":         opts.BucketName,
+				"object_key":          opts.ObjectKey,
+				"version":             opts.Version,
+				"stream_id":           opts.StreamID.Bytes(),
+				"placement":           int64(opts.Placement),
+			},
+		}
+		numRows, err = txn.Update(ctx, stmt)
+		return err
+	})
+	if err != nil {
+		if spanner.ErrCode(err) == codes.FailedPrecondition {
+			if strings.Contains(err.Error(), "column: segments.stream_id") {
+				return ErrPendingObjectMissing.New("")
+			}
+			return ErrFailedPrecondition.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+	if numRows < 1 {
+		return ErrPendingObjectMissing.New("")
+	}
+	return nil
 }
 
 // CommitInlineSegment contains all necessary information about the segment.
