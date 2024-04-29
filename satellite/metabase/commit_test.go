@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -1042,6 +1043,9 @@ func TestBeginSegment(t *testing.T) {
 		})
 
 		t.Run("pending object missing when object committed", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for Spanner until CommitObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -1158,7 +1162,7 @@ func TestBeginSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestCommitSegment(t *testing.T) {

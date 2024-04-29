@@ -416,7 +416,42 @@ func (p *PostgresAdapter) PendingObjectExists(ctx context.Context, opts BeginSeg
 
 // PendingObjectExists checks whether an object already exists.
 func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
-	panic("implement me")
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT EXISTS (
+				SELECT 1
+				FROM objects
+				WHERE
+					project_id      = @project_id
+					AND bucket_name = @bucket_name
+					AND object_key  = @object_key
+					AND version     = @version
+					AND stream_id   = @stream_id
+					AND status      = ` + statusPending + `
+			)
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+			"stream_id":   opts.StreamID,
+		},
+	})
+	defer result.Stop()
+	for {
+		row, err := result.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return false, Error.Wrap(err)
+		}
+		if err := row.Columns(&exists); err != nil {
+			return false, Error.Wrap(err)
+		}
+	}
+	return exists, nil
 }
 
 // CommitSegment contains all necessary information about the segment.
