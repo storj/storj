@@ -223,7 +223,67 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 // TestingGetAllObjects returns the state of the database.
 func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	return nil, nil
+	objs := []RawObject{}
+
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				project_id, bucket_name, object_key, version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				zombie_deletion_deadline
+			FROM objects
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+		`,
+	})
+	defer result.Stop()
+
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("testingGetAllObjects query: %w", err)
+		}
+		var obj RawObject
+		err = row.Columns(
+			&obj.ProjectID,
+			&obj.BucketName,
+			&obj.ObjectKey,
+			&obj.Version,
+			&obj.StreamID,
+
+			&obj.CreatedAt,
+			&obj.ExpiresAt,
+
+			&obj.Status,
+			spannerutil.Int(&obj.SegmentCount),
+
+			&obj.EncryptedMetadataNonce,
+			&obj.EncryptedMetadata,
+			&obj.EncryptedMetadataEncryptedKey,
+
+			&obj.TotalPlainSize,
+			&obj.TotalEncryptedSize,
+			spannerutil.Int(&obj.FixedSegmentSize),
+
+			encryptionParameters{&obj.Encryption},
+			&obj.ZombieDeletionDeadline,
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllObjects scan failed: %w", err)
+		}
+		objs = append(objs, obj)
+	}
+
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	return objs, nil
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.

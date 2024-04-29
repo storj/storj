@@ -337,6 +337,21 @@ func TestBeginObjectNextVersion(t *testing.T) {
 	})
 }
 
+// Test that TestingGetAllObjects works at least nominally.
+// This will probably not be necessary once TestBeginObjectExactVersion
+// includes a spanner adapter.
+func TestTestingGetAllObjects(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objs, err := db.TestingAllObjects(ctx)
+		if err != nil {
+			t.Fatalf("could not query all objects: %v", err)
+		}
+		if len(objs) != 0 {
+			t.Fatalf("expected no objects, but got %+v", objs)
+		}
+	}, metabasetest.WithSpanner())
+}
+
 func TestBeginObjectExactVersion(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
