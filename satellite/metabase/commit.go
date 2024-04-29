@@ -328,18 +328,10 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 	if !opts.ObjectExistsChecked {
 		// NOTE: Find a way to safely remove this. This isn't strictly necessary,
 		// since we can also fail this in CommitSegment.
-		// We should prevent creating segements for non-partial objects.
+		// We should prevent creating segments for non-partial objects.
 
 		// Verify that object exists and is partial.
-		var exists bool
-		err = db.db.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM objects
-			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
-				status = `+statusPending+`
-		)`,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
+		exists, err := db.ChooseAdapter(opts.ProjectID).PendingObjectExists(ctx, opts)
 		if err != nil {
 			return Error.New("unable to query object status: %w", err)
 		}
@@ -351,6 +343,24 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 	mon.Meter("segment_begin").Mark(1)
 
 	return nil
+}
+
+// PendingObjectExists checks whether an object already exists.
+func (p *PostgresAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
+	err = p.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+				status = `+statusPending+`
+		)`,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
+	return exists, err
+}
+
+// PendingObjectExists checks whether an object already exists.
+func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
+	panic("implement me")
 }
 
 // CommitSegment contains all necessary information about the segment.

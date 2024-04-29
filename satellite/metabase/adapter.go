@@ -18,6 +18,7 @@ type Adapter interface {
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
+	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
