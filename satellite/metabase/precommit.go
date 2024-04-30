@@ -8,11 +8,12 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/storj/exp-spanner"
+	spanner "github.com/storj/exp-spanner"
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 type precommitTransactionAdapter interface {
@@ -227,10 +228,6 @@ func (stx *spannerTransactionAdapter) precommitQueryHighestAndUnversioned(ctx co
 func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := loc.Verify(); err != nil {
-		return PrecommitConstraintResult{}, Error.Wrap(err)
-	}
-
 	var deleted Object
 
 	// TODO(ver): this scanning can probably simplified somehow.
@@ -309,6 +306,14 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 		return PrecommitConstraintResult{}, Error.Wrap(err)
 	}
 
+	// If there are no objects with the given (project_id, bucket_name, object_key),
+	// all of the values queried from deleted_objects will be NULL. We must not
+	// dereference the sql.NullX values until we have checked at least one of them.
+	if !version.Valid {
+		// it looks like the intended behavior here is to return an empty result.Deleted list.
+		return result, nil
+	}
+
 	deleted.ProjectID = loc.ProjectID
 	deleted.BucketName = loc.BucketName
 	deleted.ObjectKey = loc.ObjectKey
@@ -324,6 +329,11 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
 	if result.DeletedObjectCount > 1 {
+		// It should be impossible to hit this code. Since we use subqueries like "(SELECT version
+		// FROM deleted_objects)" in single-valued contexts, we are asserting that there is no more
+		// than one row in deleted_objects. If there is more than one, PG or CR should have errored
+		// with something like "more than one row returned by a subquery used as an expression".
+		// But this is left as a protection against a broken implementation.
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
@@ -341,8 +351,122 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 }
 
 func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	err = func() error {
+		iter := stx.tx.Query(ctx, spanner.Statement{
+			SQL: `
+				SELECT version
+				FROM objects
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				ORDER BY version DESC
+				LIMIT 1
+			`,
+			Params: map[string]interface{}{
+				"project_id":  loc.ProjectID,
+				"bucket_name": loc.BucketName,
+				"object_key":  loc.ObjectKey,
+			},
+		})
+		defer iter.Stop()
+
+		row, err := iter.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				result.HighestVersion = 0
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+		err = row.Columns(&result.HighestVersion)
+		return Error.Wrap(err)
+	}()
+	if err != nil {
+		return PrecommitConstraintResult{}, err
+	}
+
+	err = func() error {
+		iter := stx.tx.Query(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					project_id      = @project_id
+					AND bucket_name = @bucket_name
+					AND object_key  = @object_key
+					AND status IN ` + statusesUnversioned + `
+				THEN RETURN
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			`,
+			Params: map[string]any{
+				"project_id":  loc.ProjectID,
+				"bucket_name": loc.BucketName,
+				"object_key":  loc.ObjectKey,
+			},
+		})
+		defer iter.Stop()
+
+		for {
+			row, err := iter.Next()
+			if err != nil {
+				if errors.Is(err, iterator.Done) {
+					return nil
+				}
+				return err
+			}
+
+			var deleted Object
+			err = row.Columns(
+				&deleted.Version, &deleted.StreamID,
+				&deleted.CreatedAt, &deleted.ExpiresAt,
+				&deleted.Status, spannerutil.Int(&deleted.SegmentCount),
+				&deleted.EncryptedMetadataNonce, &deleted.EncryptedMetadata, &deleted.EncryptedMetadataEncryptedKey,
+				&deleted.TotalPlainSize, &deleted.TotalEncryptedSize, spannerutil.Int(&deleted.FixedSegmentSize),
+				encryptionParameters{&deleted.Encryption},
+			)
+			if err != nil {
+				return err
+			}
+
+			result.Deleted = append(result.Deleted, deleted)
+		}
+	}()
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+	result.DeletedObjectCount = len(result.Deleted)
+
+	if len(result.Deleted) > 1 {
+		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
+			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", len(result.Deleted)))
+
+		mon.Meter("multiple_committed_versions").Mark(1)
+
+		return result, Error.New("internal error: multiple committed unversioned objects")
+	}
+
+	if len(result.Deleted) == 1 {
+		rowCount, err := stx.tx.Update(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE segments.stream_id = @stream_id
+			`,
+			Params: map[string]interface{}{
+				"stream_id": result.Deleted[0].StreamID,
+			},
+		})
+		if err != nil {
+			return result, Error.Wrap(err)
+		}
+		result.DeletedSegmentCount = int(rowCount)
+	}
+
+	return result, Error.Wrap(err)
 }
 
 // PrecommitConstraintWithNonPendingResult contains the result for enforcing precommit constraint.
