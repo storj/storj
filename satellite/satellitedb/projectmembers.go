@@ -35,15 +35,27 @@ func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID)
 	return projectMembersFromDbxSlice(ctx, projectMembersDbx)
 }
 
+func (pm *projectMembers) UpdateRole(ctx context.Context, memberID, projectID uuid.UUID, newRole console.ProjectMemberRole) (_ *console.ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+	projectMember, err := pm.methods.Update_ProjectMember_By_MemberId_And_ProjectId(ctx,
+		dbx.ProjectMember_MemberId(memberID[:]),
+		dbx.ProjectMember_ProjectId(projectID[:]),
+		dbx.ProjectMember_Update_Fields{
+			Role: dbx.ProjectMember_Role(int(newRole)),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return projectMemberFromDBX(ctx, projectMember)
+}
+
 // GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID, offset and limit.
 func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	search := "%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%"
-
-	if cursor.Limit > 50 {
-		cursor.Limit = 50
-	}
 
 	if cursor.Limit == 0 {
 		return nil, errs.New("limit cannot be 0")
@@ -233,6 +245,7 @@ func projectMemberFromDBX(ctx context.Context, projectMember *dbx.ProjectMember)
 	return &console.ProjectMember{
 		MemberID:  memberID,
 		ProjectID: projectID,
+		Role:      console.ProjectMemberRole(projectMember.Role),
 		CreatedAt: projectMember.CreatedAt,
 	}, nil
 }

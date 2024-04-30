@@ -19555,6 +19555,48 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
+func (obj *pgxImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	update ProjectMember_Update_Fields) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.member_id = ? AND project_members.project_id = ? RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Role._set {
+		__values = append(__values, update.Role.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("role = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_member_member_id.value(), project_member_project_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member, nil
+}
+
 func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 	project_invitation_project_id ProjectInvitation_ProjectId_Field,
 	project_invitation_email ProjectInvitation_Email_Field,
@@ -28185,6 +28227,48 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
+func (obj *pgxcockroachImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	update ProjectMember_Update_Fields) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.member_id = ? AND project_members.project_id = ? RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Role._set {
+		__values = append(__values, update.Role.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("role = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_member_member_id.value(), project_member_project_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member, nil
+}
+
 func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 	project_invitation_project_id ProjectInvitation_ProjectId_Field,
 	project_invitation_email ProjectInvitation_Email_Field,
@@ -30873,6 +30957,12 @@ type Methods interface {
 		project_invitation_email ProjectInvitation_Email_Field,
 		update ProjectInvitation_Update_Fields) (
 		project_invitation *ProjectInvitation, err error)
+
+	Update_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field,
+		project_member_project_id ProjectMember_ProjectId_Field,
+		update ProjectMember_Update_Fields) (
+		project_member *ProjectMember, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,

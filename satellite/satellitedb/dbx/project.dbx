@@ -172,6 +172,11 @@ delete project_member (
     where project_member.project_id = ?
 )
 
+update project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
 read all (
     select project_member
     where project_member.member_id = ?

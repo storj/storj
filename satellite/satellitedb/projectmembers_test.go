@@ -181,3 +181,29 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateRole(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		membersDB := db.Console().ProjectMembers()
+
+		projectID := testrand.UUID()
+		_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projectID})
+		require.NoError(t, err)
+
+		memberUser, err := db.Console().Users().Insert(ctx, &console.User{
+			FullName:     "Alice",
+			Email:        "alice@mail.test",
+			ID:           testrand.UUID(),
+			PasswordHash: testrand.Bytes(8),
+		})
+		require.NoError(t, err)
+
+		member, err := membersDB.Insert(ctx, memberUser.ID, projectID, console.RoleAdmin)
+		require.NoError(t, err)
+		require.Equal(t, console.RoleAdmin, member.Role)
+
+		member, err = membersDB.UpdateRole(ctx, memberUser.ID, projectID, console.RoleMember)
+		require.NoError(t, err)
+		require.Equal(t, console.RoleMember, member.Role)
+	})
+}
