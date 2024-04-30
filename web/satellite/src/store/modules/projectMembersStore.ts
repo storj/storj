@@ -10,6 +10,7 @@ import {
     ProjectMemberOrderBy,
     ProjectMembersApi,
     ProjectMembersPage,
+    ProjectRole,
 } from '@/types/projectMembers';
 import { ProjectMembersHttpApi } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
@@ -37,6 +38,14 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     async function getInviteLink(email: string, projectID: string): Promise<string> {
         return await api.getInviteLink(projectID, email);
+    }
+
+    async function updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<void> {
+        const updatedMember = await api.updateRole(projectID, memberID, role);
+
+        state.page.projectMembers?.forEach(pr => {
+            if (pr.id === updatedMember.id) pr.role = updatedMember.role;
+        });
     }
 
     async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
@@ -120,6 +129,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     return {
         state,
         inviteMember,
+        updateRole,
         reinviteMembers,
         getInviteLink,
         deleteProjectMembers,

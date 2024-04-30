@@ -117,7 +117,6 @@ async function onDeleteClick(): Promise<void> {
             emit('deleted');
             model.value = false;
         } catch (error) {
-            error.message = `Error deleting access grant${props.accesses.length > 1 ? 's' : ''}. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
     });

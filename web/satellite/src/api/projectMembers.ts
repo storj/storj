@@ -1,7 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ProjectInvitationItemModel, ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
+import {
+    ProjectInvitationItemModel,
+    ProjectMember,
+    ProjectMemberCursor,
+    ProjectMembersApi,
+    ProjectMembersPage,
+    ProjectRole,
+} from '@/types/projectMembers';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
 
@@ -69,6 +76,35 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
     }
 
     /**
+     * Handles updating project member's role.
+     *
+     * @throws Error
+     */
+    public async updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<ProjectMember> {
+        const path = `${this.ROOT_PATH}/${projectID}/members/${memberID}`;
+        const body = role === ProjectRole.Admin ? 0 : 1;
+        const response = await this.http.patch(path, body.toString());
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || `Failed update member's role`,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return new ProjectMember(
+            result.fullName,
+            result.shortName,
+            result.email,
+            new Date(result.joinedAt),
+            result.id,
+            result.role,
+        );
+    }
+
+    /**
      * Handles resending invitations to project.
      *
      * @throws Error
@@ -125,6 +161,7 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
             key.email,
             new Date(key.joinedAt),
             key.id,
+            key.role,
         ));
         projectMembersPage.projectInvitations = projectMembers.projectInvitations.map(key => new ProjectInvitationItemModel(
             key.email,
