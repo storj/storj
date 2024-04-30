@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"cloud.google.com/go/spanner"
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 )
 

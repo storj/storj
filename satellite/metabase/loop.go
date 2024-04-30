@@ -9,7 +9,7 @@ import (
 	"math"
 	"time"
 
-	"cloud.google.com/go/spanner"
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 

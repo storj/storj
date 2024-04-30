@@ -8,8 +8,8 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
