@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,11 +45,12 @@ type ProjectMembersPage struct {
 
 // Member is a project member in a ProjectMembersPage.
 type Member struct {
-	ID        uuid.UUID `json:"id"`
-	FullName  string    `json:"fullName"`
-	ShortName string    `json:"shortName"`
-	Email     string    `json:"email"`
-	JoinedAt  time.Time `json:"joinedAt"`
+	ID        uuid.UUID                 `json:"id"`
+	FullName  string                    `json:"fullName"`
+	ShortName string                    `json:"shortName"`
+	Email     string                    `json:"email"`
+	Role      console.ProjectMemberRole `json:"role"`
+	JoinedAt  time.Time                 `json:"joinedAt"`
 }
 
 // Invitation is a project invitation in a ProjectMembersPage.
@@ -456,6 +458,7 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 			FullName:  user.FullName,
 			ShortName: user.ShortName,
 			Email:     user.Email,
+			Role:      m.Role,
 			JoinedAt:  m.CreatedAt,
 		}
 		memberPage.Members = append(memberPage.Members, member)
@@ -469,6 +472,94 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 		memberPage.Invitations = append(memberPage.Invitations, invitee)
 	}
 	err = json.NewEncoder(w).Encode(memberPage)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// UpdateMemberRole updates project member role.
+func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(projectIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	memberIDParam, ok := mux.Vars(r)["memberID"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing member id route param"))
+		return
+	}
+
+	memberID, err := uuid.FromString(memberIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	newRoleBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	newRoleInt, err := strconv.Atoi(string(newRoleBytes))
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var newRole console.ProjectMemberRole
+	switch newRoleInt {
+	case int(console.RoleAdmin), int(console.RoleMember):
+		newRole = console.ProjectMemberRole(newRoleInt)
+	default:
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid role value"))
+		return
+	}
+
+	updatedMember, err := p.service.UpdateProjectMemberRole(ctx, memberID, publicID, newRole)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrConflict.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	user, err := p.service.GetUser(ctx, updatedMember.MemberID)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	member := Member{
+		ID:        user.ID,
+		FullName:  user.FullName,
+		ShortName: user.ShortName,
+		Email:     user.Email,
+		Role:      updatedMember.Role,
+		JoinedAt:  updatedMember.CreatedAt,
+	}
+
+	err = json.NewEncoder(w).Encode(member)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
