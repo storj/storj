@@ -9,6 +9,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+	github.com/dsnet/try v0.0.3
 	github.com/fatih/color v1.15.0
 	github.com/go-oauth2/oauth2/v4 v4.4.2
 	github.com/gogo/protobuf v1.3.2

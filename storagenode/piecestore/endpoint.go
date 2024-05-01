@@ -407,7 +407,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	// Ensure that the order is saved even in the face of an error. In the
 	// success path, the order will be saved just before sending the response
 	// and closing the stream (in which case, orderSaved will be true).
-	commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+	commitOrderToStore, err := endpoint.beginSaveOrder(ctx, limit)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
@@ -775,7 +775,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	})
 
 	recvErr := func() (err error) {
-		commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+		commitOrderToStore, err := endpoint.beginSaveOrder(ctx, limit)
 		if err != nil {
 			return err
 		}
@@ -879,8 +879,8 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 }
 
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
-	defer mon.Task()(nil)(&err)
+func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
 	if err != nil {
