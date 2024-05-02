@@ -35,6 +35,22 @@ func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID)
 	return projectMembersFromDbxSlice(ctx, projectMembersDbx)
 }
 
+// GetByMemberIDAndProjectID is a method for querying project member from the database by memberID and projectID.
+func (pm *projectMembers) GetByMemberIDAndProjectID(ctx context.Context, memberID, projectID uuid.UUID) (*console.ProjectMember, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	projectMember, err := pm.methods.Get_ProjectMember_By_MemberId_And_ProjectId(ctx,
+		dbx.ProjectMember_MemberId(memberID[:]),
+		dbx.ProjectMember_ProjectId(projectID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return projectMemberFromDBX(ctx, projectMember)
+}
+
 func (pm *projectMembers) UpdateRole(ctx context.Context, memberID, projectID uuid.UUID, newRole console.ProjectMemberRole) (_ *console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	projectMember, err := pm.methods.Update_ProjectMember_By_MemberId_And_ProjectId(ctx,

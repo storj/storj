@@ -78,6 +78,7 @@ func (v Versioning) IsUnversioned() bool {
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
 	Name      []byte
+	CreatedBy uuid.UUID
 	CreatedAt time.Time
 }
 

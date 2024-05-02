@@ -169,7 +169,7 @@ func (db *bucketsDB) SuspendBucketVersioning(ctx context.Context, bucketName []b
 // GetMinimalBucket returns existing bucket with minimal number of fields.
 func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.MinimalBucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	row, err := db.db.Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
+	row, err := db.db.Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
@@ -179,8 +179,18 @@ func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, pr
 		}
 		return buckets.MinimalBucket{}, buckets.ErrBucket.Wrap(err)
 	}
+
+	var createdBy uuid.UUID
+	if row.CreatedBy != nil {
+		createdBy, err = uuid.FromBytes(row.CreatedBy)
+		if err != nil {
+			return buckets.MinimalBucket{}, buckets.ErrBucket.Wrap(err)
+		}
+	}
+
 	return buckets.MinimalBucket{
 		Name:      bucketName,
+		CreatedBy: createdBy,
 		CreatedAt: row.CreatedAt,
 	}, nil
 }

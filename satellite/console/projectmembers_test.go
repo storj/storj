@@ -137,6 +137,29 @@ func TestProjectMembersRepository(t *testing.T) {
 			assert.Equal(t, originalMember2.ID, selectedMembers2[0].MemberID)
 		})
 
+		t.Run("Get member by memberID and projectID success", func(t *testing.T) {
+			project, err := projects.Insert(ctx, &console.Project{Name: "testProjName"})
+			require.NoError(t, err)
+			require.NotNil(t, project)
+
+			user, err := users.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        "getmember@example.test",
+				PasswordHash: []byte("some_readable_hash"),
+			})
+			require.NoError(t, err)
+			require.NotNil(t, user)
+
+			projMember, err := projectMembers.Insert(ctx, user.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+			require.NotNil(t, projMember)
+
+			projMember, err = projectMembers.GetByMemberIDAndProjectID(ctx, projMember.MemberID, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, projMember)
+			require.Equal(t, console.RoleMember, projMember.Role)
+		})
+
 		t.Run("Delete member by memberID and projectID success", func(t *testing.T) {
 			err := projectMembers.Delete(ctx, createdUsers[0].ID, createdProjects[0].ID)
 			assert.NoError(t, err)

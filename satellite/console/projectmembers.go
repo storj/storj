@@ -16,6 +16,8 @@ import (
 type ProjectMembers interface {
 	// GetByMemberID is a method for querying project members from the database by memberID.
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)
+	// GetByMemberIDAndProjectID is a method for querying project member from the database by memberID and projectID.
+	GetByMemberIDAndProjectID(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID and cursor.
 	GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
 	// UpdateRole is a method for updating project member role in the database.

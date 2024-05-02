@@ -178,9 +178,10 @@ func TestDeleteBucket(t *testing.T) {
 		},
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		ownerAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		satelliteSys := planet.Satellites[0]
 		uplnk := planet.Uplinks[0]
+		project := uplnk.Projects[0]
 
 		expectedBucketName := "remote-segments-bucket"
 
@@ -195,9 +196,37 @@ func TestDeleteBucket(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, objects, 3)
 
+		member, err := satelliteSys.AddUser(ctx, console.CreateUser{
+			FullName: "Member User",
+			Email:    "deletebucket@example.com",
+		}, 1)
+		require.NoError(t, err)
+		require.NotNil(t, member)
+
+		memberCtx, err := satelliteSys.UserContext(ctx, member.ID)
+		require.NoError(t, err)
+
+		_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
+		require.NoError(t, err)
+
+		memberKeyInfo, memberKey, err := satelliteSys.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key")
+		require.NoError(t, err)
+		require.NotNil(t, memberKey)
+		require.NotNil(t, memberKeyInfo)
+
 		delResp, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
 			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
+				ApiKey: memberKey.SerializeRaw(),
+			},
+			Name:      []byte(expectedBucketName),
+			DeleteAll: true,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.Nil(t, delResp)
+
+		delResp, err = satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: ownerAPIKey.SerializeRaw(),
 			},
 			Name:      []byte(expectedBucketName),
 			DeleteAll: true,
@@ -208,12 +237,29 @@ func TestDeleteBucket(t *testing.T) {
 		// confirm the bucket is deleted
 		buckets, err := satelliteSys.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
 			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
+				ApiKey: ownerAPIKey.SerializeRaw(),
 			},
 			Direction: buckets.DirectionForward,
 		})
 		require.NoError(t, err)
 		require.Len(t, buckets.GetItems(), 0)
+
+		// re-create owner's bucket.
+		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "single-segment-object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		_, err = satelliteSys.DB.Console().ProjectMembers().UpdateRole(ctx, member.ID, project.ID, console.RoleAdmin)
+		require.NoError(t, err)
+
+		delResp, err = satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: memberKey.SerializeRaw(),
+			},
+			Name:      []byte(expectedBucketName),
+			DeleteAll: true,
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(1), delResp.DeletedObjectsCount)
 	})
 }
 

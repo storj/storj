@@ -93,7 +93,7 @@ read one (
 )
 
 read one (
-	select bucket_metainfo.created_at
+	select bucket_metainfo.created_by bucket_metainfo.created_at
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )

@@ -12503,7 +12503,8 @@ type BlockNumber_Row struct {
 	BlockNumber int64
 }
 
-type CreatedAt_Row struct {
+type CreatedBy_CreatedAt_Row struct {
+	CreatedBy []byte
 	CreatedAt time.Time
 }
 
@@ -16838,6 +16839,29 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 }
 
+func (obj *pgxImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err != nil {
+		return (*ProjectMember)(nil), obj.makeErr(err)
+	}
+	return project_member, nil
+
+}
+
 func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*ProjectMember, err error) {
@@ -17086,13 +17110,13 @@ func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 
 }
 
-func (obj *pgxImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+func (obj *pgxImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *CreatedAt_Row, err error) {
+	row *CreatedBy_CreatedAt_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
@@ -17100,10 +17124,10 @@ func (obj *pgxImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &CreatedAt_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedAt)
+	row = &CreatedBy_CreatedAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt)
 	if err != nil {
-		return (*CreatedAt_Row)(nil), obj.makeErr(err)
+		return (*CreatedBy_CreatedAt_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -25510,6 +25534,29 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 }
 
+func (obj *pgxcockroachImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err != nil {
+		return (*ProjectMember)(nil), obj.makeErr(err)
+	}
+	return project_member, nil
+
+}
+
 func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*ProjectMember, err error) {
@@ -25758,13 +25805,13 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *CreatedAt_Row, err error) {
+	row *CreatedBy_CreatedAt_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
@@ -25772,10 +25819,10 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &CreatedAt_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedAt)
+	row = &CreatedBy_CreatedAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt)
 	if err != nil {
-		return (*CreatedAt_Row)(nil), obj.makeErr(err)
+		return (*CreatedBy_CreatedAt_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -30505,10 +30552,10 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		bucket_metainfo *BucketMetainfo, err error)
 
-	Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+	Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
-		row *CreatedAt_Row, err error)
+		row *CreatedBy_CreatedAt_Row, err error)
 
 	Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -30569,6 +30616,11 @@ type Methods interface {
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
 		project_invitation *ProjectInvitation, err error)
+
+	Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+		project_member_member_id ProjectMember_MemberId_Field,
+		project_member_project_id ProjectMember_ProjectId_Field) (
+		project_member *ProjectMember, err error)
 
 	Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (

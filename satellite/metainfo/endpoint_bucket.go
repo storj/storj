@@ -305,20 +305,28 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	var (
-		bucket     buckets.MinimalBucket
-		convBucket *pb.Bucket
-	)
-	if canRead || canList {
-		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		return nil, err
+	}
+
+	if !keyInfo.CreatedBy.IsZero() {
+		member, err := endpoint.projectMembers.GetByMemberIDAndProjectID(ctx, keyInfo.CreatedBy, keyInfo.ProjectID)
 		if err != nil {
-			if buckets.ErrBucketNotFound.Has(err) {
-				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-			}
-			return nil, err
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 		}
 
+		if member.Role != console.RoleAdmin && bucket.CreatedBy != keyInfo.CreatedBy {
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "not enough access to delete this bucket")
+		}
+	}
+
+	var convBucket *pb.Bucket
+	if canRead || canList {
+		// Info about deleted bucket is returned only if either Read, or List permission is granted.
 		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 		if err != nil {
 			return nil, err

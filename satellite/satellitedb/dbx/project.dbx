@@ -177,6 +177,12 @@ update project_member (
     where project_member.project_id = ?
 )
 
+read one (
+    select project_member
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
 read all (
     select project_member
     where project_member.member_id = ?
