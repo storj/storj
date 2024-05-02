@@ -12,7 +12,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -155,9 +154,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		// TODO: zombie deletion deadline
 
 		t.Run("older committed version exists", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CommitObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objectStream.Version = metabase.NextVersion
@@ -224,9 +220,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		})
 
 		t.Run("newer committed version exists", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CommitObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -493,9 +486,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		})
 
 		t.Run("Duplicate committed version", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CommitObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -545,9 +535,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		// TODO: zombie deletion deadline
 
 		t.Run("Older committed version exists", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CommitObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -603,9 +590,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		})
 
 		t.Run("Newer committed version exists", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CommitObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -841,9 +825,6 @@ func TestBeginSegment(t *testing.T) {
 		})
 
 		t.Run("pending object missing when object committed", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CommitObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -1444,9 +1425,6 @@ func TestCommitSegment(t *testing.T) {
 				if mode == "no-pending-object-check" {
 					t.Skip()
 				}
-				if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-					t.Skip("not ready for Spanner until CommitObject is implemented")
-				}
 
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -1914,9 +1892,6 @@ func TestCommitInlineSegment(t *testing.T) {
 			t.Run("commit segment of committed object", func(t *testing.T) {
 				if mode == "no-pending-object-check" {
 					t.Skip()
-				}
-				if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-					t.Skip("not ready for Spanner until CommitObject is implemented")
 				}
 
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -2875,7 +2850,7 @@ func TestCommitObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestCommitObjectVersioned(t *testing.T) {
@@ -3629,7 +3604,7 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Objects: rawObjects,
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
@@ -3959,7 +3934,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
@@ -4046,7 +4021,7 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestCommitInlineObject(t *testing.T) {
