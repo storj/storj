@@ -617,6 +617,63 @@ func TestService(t *testing.T) {
 				require.Equal(t, up2Proj.OwnerID, createdAPIKey.CreatedBy)
 			})
 
+			t.Run("DeleteAPIKeys", func(t *testing.T) {
+				owner, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Owner Name",
+					Email:    "deletekeys_owner@example.com",
+				}, 1)
+				require.NoError(t, err)
+				member, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Member Name",
+					Email:    "deletekeys_member@example.com",
+				}, 1)
+				require.NoError(t, err)
+
+				pr, err := sat.AddProject(ctx, owner.ID, "Delete Keys Project")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				ownerCtx, err := sat.UserContext(ctx, owner.ID)
+				require.NoError(t, err)
+				memberCtx, err := sat.UserContext(ctx, member.ID)
+				require.NoError(t, err)
+
+				_, err = service.AddProjectMembers(ownerCtx, pr.ID, []string{member.Email})
+				require.NoError(t, err)
+
+				_, err = service.UpdateProjectMemberRole(ownerCtx, member.ID, pr.ID, console.RoleMember)
+				require.NoError(t, err)
+
+				ownerKey, _, err := service.CreateAPIKey(ownerCtx, pr.ID, "owner's key")
+				require.NoError(t, err)
+				require.NotNil(t, ownerKey)
+				memberKey, _, err := service.CreateAPIKey(memberCtx, pr.ID, "member's key")
+				require.NoError(t, err)
+				require.NotNil(t, memberKey)
+
+				// member can't delete owner's key.
+				err = service.DeleteAPIKeys(memberCtx, []uuid.UUID{ownerKey.ID, memberKey.ID})
+				require.True(t, console.ErrForbidden.Has(err))
+
+				// owner can delete all the keys.
+				err = service.DeleteAPIKeys(ownerCtx, []uuid.UUID{ownerKey.ID, memberKey.ID})
+				require.NoError(t, err)
+
+				ownerKey, _, err = service.CreateAPIKey(ownerCtx, pr.ID, "owner's key")
+				require.NoError(t, err)
+				require.NotNil(t, ownerKey)
+				memberKey, _, err = service.CreateAPIKey(memberCtx, pr.ID, "member's key")
+				require.NoError(t, err)
+				require.NotNil(t, memberKey)
+
+				_, err = service.UpdateProjectMemberRole(ownerCtx, member.ID, pr.ID, console.RoleAdmin)
+				require.NoError(t, err)
+
+				// admin can delete all the keys.
+				err = service.DeleteAPIKeys(memberCtx, []uuid.UUID{ownerKey.ID, memberKey.ID})
+				require.NoError(t, err)
+			})
+
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
 				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
 				storageLimit := sat.Config.Console.UsageLimits.Storage.Free

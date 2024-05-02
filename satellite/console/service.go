@@ -174,6 +174,9 @@ var (
 	// ErrConflict occurs when a user attempts an operation that conflicts with the current state.
 	ErrConflict = errs.Class("conflict detected")
 
+	// ErrForbidden occurs when a user attempts an operation without sufficient access rights.
+	ErrForbidden = errs.Class("insufficient access rights")
+
 	// ErrAlreadyInvited occurs when trying to invite a user who has already been invited.
 	ErrAlreadyInvited = errs.Class("user is already invited")
 
@@ -3006,9 +3009,14 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 			continue
 		}
 
-		_, err = s.isProjectMember(ctx, user.ID, key.ProjectID)
+		pm, err := s.isProjectMember(ctx, user.ID, key.ProjectID)
 		if err != nil {
 			keysErr.Add(ErrUnauthorized.Wrap(err))
+			continue
+		}
+
+		if pm.membership.Role != RoleAdmin && key.CreatedBy != pm.membership.MemberID {
+			keysErr.Add(ErrForbidden.Wrap(errs.New("you do not have permission to delete this API key: %s", key.Name)))
 			continue
 		}
 	}
@@ -3062,14 +3070,18 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 		return Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	pm, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
+	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, pm.project.ID)
 	if err != nil {
 		return ErrNoAPIKey.New(apiKeyWithNameDoesntExistErrMsg)
+	}
+
+	if pm.membership.Role != RoleAdmin && key.CreatedBy != pm.membership.MemberID {
+		return ErrForbidden.Wrap(errs.New("you do not have permission to delete this API key"))
 	}
 
 	err = s.store.APIKeys().Delete(ctx, key.ID)

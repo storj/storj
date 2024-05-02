@@ -251,6 +251,11 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if console.ErrForbidden.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
