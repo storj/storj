@@ -433,8 +433,7 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 		return nil
 	}
 
-	// We may be able to skip this, if the database state have been already submitted
-	// and the plain offsets haven't changed.
+	// When none of the segments have changed, then the update will be skipped.
 
 	// Update plain offsets of the segments.
 	var batch struct {
@@ -475,8 +474,50 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 }
 
 func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// When none of the segments have changed, then the update will be skipped.
+
+	// Update plain offsets of the segments.
+	var batch []spanner.Statement
+	expectedOffset := int64(0)
+	for _, u := range updates {
+		if u.OldPlainOffset != expectedOffset {
+			batch = append(batch, spanner.Statement{
+				SQL: `
+					UPDATE segments SET plain_offset = @plain_offset
+					WHERE stream_id = @stream_id and position = @position
+				`,
+				Params: map[string]interface{}{
+					"position":     u.Position,
+					"plain_offset": expectedOffset,
+					"stream_id":    streamID,
+				},
+			})
+		}
+		expectedOffset += int64(u.PlainSize)
+	}
+	if len(batch) == 0 {
+		return nil
+	}
+
+	affecteds, err := stx.tx.BatchUpdate(ctx, batch)
+	if err != nil {
+		return Error.New("unable to update segments offsets: %w", err)
+	}
+	sumAffected := int64(0)
+	for _, affected := range affecteds {
+		sumAffected += affected
+	}
+	if sumAffected != int64(len(batch)) {
+		return Error.New("not all segments were updated, expected %d got %d", len(batch), sumAffected)
+	}
+
+	return nil
 }
 
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
