@@ -94,30 +94,12 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 		}
 	}
 
-	err = withRows(db.db.QueryContext(ctx, `
-		SELECT
-			position, encrypted_key_nonce, encrypted_key
-		FROM segments
-		WHERE stream_id = $1
-		ORDER BY stream_id, position ASC
-	`, object.StreamID))(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var keys EncryptedKeyAndNonce
-
-			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
-			}
-
-			result.EncryptedKeysNonces = append(result.EncryptedKeysNonces, keys)
-		}
-
-		return nil
-	})
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return BeginMoveCopyResults{}, Error.New("unable to fetch object segments: %w", err)
+	keysNonces, err := db.ChooseAdapter(location.ProjectID).GetSegmentPositionsAndKeys(ctx, object.StreamID)
+	if err != nil {
+		return BeginMoveCopyResults{}, err
 	}
 
+	result.EncryptedKeysNonces = keysNonces
 	result.StreamID = object.StreamID
 	result.Version = object.Version
 	result.EncryptionParameters = object.Encryption
@@ -126,6 +108,41 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
 
 	return result, nil
+}
+
+// GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
+// segments in the db for the given stream ID, ordered by position.
+func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
+	err = withRows(p.db.QueryContext(ctx, `
+		SELECT
+			position, encrypted_key_nonce, encrypted_key
+		FROM segments
+		WHERE stream_id = $1
+		ORDER BY stream_id, position ASC
+	`, streamID))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var keys EncryptedKeyAndNonce
+
+			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+
+			keysNonces = append(keysNonces, keys)
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, Error.New("unable to fetch object segments: %w", err)
+	}
+	return keysNonces, nil
+}
+
+// GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
+// segments in the db for the given stream ID, ordered by position.
+func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // FinishMoveObject holds all data needed to finish object move.
