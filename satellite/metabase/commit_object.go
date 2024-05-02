@@ -566,8 +566,57 @@ func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Con
 }
 
 func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition, aliasCache *NodeAliasCache) (deletedSegments []DeletedSegmentInfo, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+	if len(segments) == 0 {
+		return nil, nil
+	}
+
+	positions := make([]int64, 0, len(segments))
+	for _, p := range segments {
+		positions = append(positions, int64(p.Encode()))
+	}
+
+	// This potentially could be done together with the previous database call.
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM segments
+			WHERE stream_id = @stream_id AND ARRAY_INCLUDES(@positions, position)
+			THEN RETURN root_piece_id, remote_alias_pieces
+		`,
+		Params: map[string]interface{}{
+			"stream_id": streamID,
+			"positions": positions,
+		},
+	})
+	defer result.Stop()
+
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("unable to delete segments: %w", err)
+		}
+		var deleted DeletedSegmentInfo
+		var aliasPieces AliasPieces
+		err = row.Columns(&deleted.RootPieceID, &aliasPieces)
+		if err != nil {
+			return nil, Error.New("failed to scan segments: %w", err)
+		}
+		// we don't need to report info about inline segments
+		if deleted.RootPieceID.IsZero() {
+			continue
+		}
+
+		deleted.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return nil, Error.New("failed to convert aliases: %w", err)
+		}
+		deletedSegments = append(deletedSegments, deleted)
+	}
+
+	return deletedSegments, nil
 }
 
 // diffSegmentsWithDatabase matches up segment positions with their database information.
