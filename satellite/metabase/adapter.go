@@ -27,6 +27,8 @@ type Adapter interface {
 
 	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
 
+	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
+
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
 

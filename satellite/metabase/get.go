@@ -83,8 +83,17 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 		return Object{}, err
 	}
 
+	object, err := db.ChooseAdapter(opts.ProjectID).GetObjectExactVersion(ctx, opts)
+	if err != nil {
+		return Object{}, err
+	}
+	return object, nil
+}
+
+// GetObjectExactVersion returns object information for exact version.
+func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error) {
 	object := Object{}
-	err = db.db.QueryRowContext(ctx, `
+	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, status,
 			created_at, expires_at,
@@ -119,6 +128,12 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	object.Version = opts.Version
 
 	return object, nil
+}
+
+// GetObjectExactVersion returns object information for exact version.
+func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // GetObjectLastCommitted contains arguments necessary for fetching
