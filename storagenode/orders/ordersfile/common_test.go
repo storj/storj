@@ -327,28 +327,3 @@ func TestGetCreationHourString(t *testing.T) {
 		})
 	}
 }
-
-func TestGetVersion(t *testing.T) {
-	type args struct {
-		filename string
-	}
-	var tests []struct {
-		name string
-		args func(t *testing.T) args
-
-		want1 string
-		want2 Version
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tArgs := tt.args(t)
-
-			got1, got2 := getVersion(tArgs.filename)
-
-			assert.Equal(t, tt.want1, got1)
-
-			assert.Equal(t, tt.want2, got2)
-		})
-	}
-}

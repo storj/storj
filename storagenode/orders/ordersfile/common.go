@@ -64,19 +64,8 @@ type Readable interface {
 
 // OpenWritableUnsent creates or opens for appending the unsent orders file for a given satellite ID and creation hour.
 func OpenWritableUnsent(unsentDir string, satelliteID storj.NodeID, creationTime time.Time) (Writable, error) {
-	// if V0 file already exists, use that. Otherwise use V1 file.
-	versionToUse := V0
-	fileName := UnsentFileName(satelliteID, creationTime, V0)
+	fileName := UnsentFileName(satelliteID, creationTime, V1)
 	filePath := filepath.Join(unsentDir, fileName)
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		fileName = UnsentFileName(satelliteID, creationTime, V1)
-		filePath = filepath.Join(unsentDir, fileName)
-		versionToUse = V1
-	}
-
-	if versionToUse == V0 {
-		return OpenWritableV0(filePath)
-	}
 	return OpenWritableV1(filePath, satelliteID, creationTime)
 }
 
@@ -144,9 +133,12 @@ func MoveUnsent(unsentDir, archiveDir string, satelliteID storj.NodeID, createdA
 }
 
 // it expects the file name to be in the format "unsent-orders-<satelliteID>-<createdAtHour>.<version>".
-// V0 will not have ".<version>" at the end of the filename.
+// V0 will not have ".<version>" at the end of the filename, but all unsent orders are now V1, so it is safe to disregard.
+// TODO: should we remove version of being returned? Right now, we only handle one version, however,
+// may we want to keep it in case that in the future we need to introduce a new format?
 func getUnsentFileInfo(filename string) (satellite storj.NodeID, createdHour time.Time, version Version, err error) {
-	filename, version = getVersion(filename)
+	version = V1
+	filename = strings.TrimSuffix(filename, fmt.Sprintf(".%s", V1)) // remove version suffix from filename
 
 	if !strings.HasPrefix(filename, unsentFilePrefix) {
 		return storj.NodeID{}, time.Time{}, version, Error.New("invalid path: %q", filename)
@@ -178,7 +170,8 @@ func getUnsentFileInfo(filename string) (satellite storj.NodeID, createdHour tim
 // it expects the file name to be in the format "archived-orders-<satelliteID>-<createdAtHour>-<archviedAtTime>-<status>.<version>".
 // V0 will not have ".<version>" at the end of the filename.
 func getArchivedFileInfo(name string) (satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status string, version Version, err error) {
-	name, version = getVersion(name)
+	version = V1
+	name = strings.TrimSuffix(name, fmt.Sprintf(".%s", V1)) // remove version suffix from filename
 
 	if !strings.HasPrefix(name, archiveFilePrefix) {
 		return storj.NodeID{}, time.Time{}, time.Time{}, "", version, Error.New("invalid path: %q", name)
@@ -247,12 +240,4 @@ func getCreationHourString(t time.Time) string {
 	creationHour := date.TruncateToHourInNano(t)
 	timeStr := strconv.FormatInt(creationHour, 10)
 	return timeStr
-}
-
-func getVersion(filename string) (trimmedPath string, version Version) {
-	ext := filepath.Ext(filename)
-	if ext == "."+string(V1) {
-		return strings.TrimSuffix(filename, ext), V1
-	}
-	return filename, V0
 }
