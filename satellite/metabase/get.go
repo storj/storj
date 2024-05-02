@@ -271,8 +271,26 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		return Segment{}, err
 	}
 
-	var aliasPieces AliasPieces
-	err = db.db.QueryRowContext(ctx, `
+	segment, aliasPieces, err := db.ChooseAdapter(uuid.UUID{}).GetSegmentByPosition(ctx, opts)
+	if err != nil {
+		return Segment{}, err
+	}
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	segment.StreamID = opts.StreamID
+	segment.Position = opts.Position
+
+	return segment, nil
+}
+
+// GetSegmentByPosition returns information about segment on the specified position.
+func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
+	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
@@ -295,22 +313,18 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, ErrSegmentNotFound.New("segment missing")
+			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
-		return Segment{}, Error.New("unable to query segment: %w", err)
+		return Segment{}, nil, Error.New("unable to query segment: %w", err)
 	}
 
-	if len(aliasPieces) > 0 {
-		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-		}
-	}
+	return segment, aliasPieces, err
+}
 
-	segment.StreamID = opts.StreamID
-	segment.Position = opts.Position
-
-	return segment, nil
+// GetSegmentByPosition returns information about segment on the specified position.
+func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // GetLatestObjectLastSegment contains arguments necessary for fetching a last segment information.

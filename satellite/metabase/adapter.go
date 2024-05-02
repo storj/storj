@@ -27,6 +27,7 @@ type Adapter interface {
 
 	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
 
+	GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error)
 	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
 
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
