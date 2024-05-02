@@ -9,9 +9,13 @@ import (
 	"errors"
 	"time"
 
+	spanner "github.com/storj/exp-spanner"
+	"google.golang.org/api/iterator"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -378,10 +382,6 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.Verify(); err != nil {
-		return Object{}, err
-	}
-
 	object := Object{}
 	err = ptx.tx.QueryRowContext(ctx, `
 		SELECT
@@ -421,6 +421,55 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 }
 
 func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	object := Object{}
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				stream_id, status,
+				created_at, expires_at,
+				segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
+				status <> ` + statusPending + ` AND
+				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+	err = row.Columns(
+		&object.StreamID, &object.Status,
+		&object.CreatedAt, &object.ExpiresAt,
+		spannerutil.Int(&object.SegmentCount),
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+		&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+		encryptionParameters{&object.Encryption},
+	)
+	if err != nil {
+		return Object{}, Error.New("unable to read object status: %w", err)
+	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
+	object.Version = opts.Version
+
+	return object, nil
 }
