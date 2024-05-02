@@ -471,6 +471,36 @@ func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context,
 }
 
 func (stx *spannerTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
-	// TODO implement me
-	panic("implement me")
+	if len(positions) == 0 {
+		return 0, nil
+	}
+
+	stmts := make([]spanner.Statement, 0, len(positions))
+	for i := range positions {
+		stmts = append(stmts, spanner.Statement{
+			SQL: `
+				UPDATE segments SET
+					encrypted_key_nonce = COALESCE(@encrypted_key_nonce, B''),
+					encrypted_key = COALESCE(@encrypted_key, B'')
+				WHERE
+					stream_id = @stream_id
+					AND position = @position
+			`,
+			Params: map[string]interface{}{
+				"stream_id":           opts.StreamID,
+				"position":            positions[i],
+				"encrypted_key_nonce": encryptedKeyNonces[i],
+				"encrypted_key":       encryptedKeys[i],
+			},
+		})
+	}
+	affecteds, err := stx.tx.BatchUpdate(ctx, stmts)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	var totalFound int64
+	for _, affected := range affecteds {
+		totalFound += affected
+	}
+	return totalFound, nil
 }
