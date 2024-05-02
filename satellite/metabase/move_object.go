@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/storj/exp-spanner"
 	"google.golang.org/api/iterator"
@@ -340,8 +341,113 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 }
 
 func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error) {
-	// TODO implement me
-	panic("implement me")
+	// We cannot UPDATE the object record in place, because some of the columns we need to update are
+	// part of the primary key. We must DELETE and INSERT instead.
+
+	// TODO(spanner): check whether INSERT FROM and then DELETE would be more performant, because
+	// it will use a single round trip, instead of two.
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+			THEN RETURN
+				stream_id, created_at, expires_at, status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				zombie_deletion_deadline
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
+		}
+		return 0, 0, false, uuid.UUID{}, Error.New("unable to remove old object record: %w", err)
+	}
+
+	var (
+		createdAt                     time.Time
+		expiresAt                     *time.Time
+		segmentCount                  int64
+		encryptedMetadataNonce        []byte
+		encryptedMetadata             []byte
+		encryptedMetadataEncryptedKey []byte
+		totalPlainSize                int64
+		totalEncryptedSize            int64
+		fixedSegmentSize              int64
+		encryption                    storj.EncryptionParameters
+		zombieDeletionDeadline        *time.Time
+	)
+	err = row.Columns(
+		&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
+		&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey,
+		&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
+		encryptionParameters{&encryption},
+		&zombieDeletionDeadline,
+	)
+	if err != nil {
+		return 0, 0, false, uuid.UUID{}, Error.New("unable to read old object record: %w", err)
+	}
+	segmentsCount = int(segmentCount)
+
+	if encryptedMetadata != nil {
+		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
+		encryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+	}
+
+	_, err = stx.tx.Update(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+			    project_id, bucket_name, object_key, version,
+				stream_id, created_at, expires_at, status, segment_count,
+			    encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				zombie_deletion_deadline
+			) VALUES (
+			    @project_id, @bucket_name, @object_key, @version,
+				@stream_id, @created_at, @expires_at, @status, @segment_count,
+			    @encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				@encryption,
+				@zombie_deletion_deadline
+			)
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.NewBucket,
+			"object_key":                       opts.NewEncryptedObjectKey,
+			"version":                          nextVersion,
+			"stream_id":                        streamID,
+			"created_at":                       createdAt,
+			"expires_at":                       expiresAt,
+			"status":                           newStatus,
+			"segment_count":                    segmentsCount,
+			"encrypted_metadata_nonce":         encryptedMetadataNonce,
+			"encrypted_metadata":               encryptedMetadata,
+			"encrypted_metadata_encrypted_key": encryptedMetadataEncryptedKey,
+			"total_plain_size":                 totalPlainSize,
+			"total_encrypted_size":             totalEncryptedSize,
+			"fixed_segment_size":               fixedSegmentSize,
+			"encryption":                       encryptionParameters{&encryption},
+			"zombie_deletion_deadline":         zombieDeletionDeadline,
+		},
+	})
+	if err != nil {
+		return 0, 0, false, uuid.UUID{}, Error.New("unable to create new object record: %w", err)
+	}
+
+	return oldStatus, segmentsCount, len(encryptedMetadata) > 0, streamID, nil
 }
 
 func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
