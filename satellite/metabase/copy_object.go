@@ -393,7 +393,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
 		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		encryptionParameters{&sourceObject.Encryption},
-		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+		copyMetadata, &opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 	)
 
@@ -439,8 +439,92 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 }
 
 func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
-	// TODO implement me
-	panic("implement me")
+	// TODO we need to handle metadata correctly (copy from original object or replace)
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				status, expires_at, segment_count,
+				encryption,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				zombie_deletion_deadline
+			) VALUES (
+				@project_id, @bucket_name, @object_key, @version, @stream_id,
+				@status, @expires_at, @segment_count,
+				@encryption,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				NULL
+			)
+			THEN RETURN
+				created_at
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.NewBucket,
+			"object_key":                       opts.NewEncryptedObjectKey,
+			"version":                          nextVersion,
+			"stream_id":                        opts.NewStreamID,
+			"status":                           newStatus,
+			"expires_at":                       sourceObject.ExpiresAt,
+			"segment_count":                    int64(sourceObject.SegmentCount),
+			"encryption":                       encryptionParameters{&sourceObject.Encryption},
+			"encrypted_metadata":               copyMetadata,
+			"encrypted_metadata_nonce":         &opts.NewEncryptedMetadataKeyNonce,
+			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataKey,
+			"total_plain_size":                 sourceObject.TotalPlainSize,
+			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
+			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		return Object{}, Error.New("unable to copy object: %w", err)
+	}
+
+	newObject = sourceObject
+	newObject.Version = nextVersion
+	newObject.Status = newStatus
+
+	err = row.Columns(&newObject.CreatedAt)
+	if err != nil {
+		return Object{}, Error.New("unable to copy object: %w", err)
+	}
+
+	// Warning: these mutations will not be visible inside the transaction! Mutations only take
+	// effect when the transaction is closed. As the code is now, this is not a problem, but in
+	// case things are rearranged this may become an issue.
+	inserts := make([]*spanner.Mutation, len(newSegments.Positions))
+	for i := range newSegments.Positions {
+		inserts[i] = spanner.Insert("segments",
+			[]string{
+				"stream_id", "position", "expires_at",
+				"encrypted_key_nonce", "encrypted_key",
+				"root_piece_id",
+				"redundancy",
+				"encrypted_size", "plain_offset", "plain_size",
+				"remote_alias_pieces", "placement",
+				"inline_data",
+			}, []any{
+				opts.NewStreamID, newSegments.Positions[i], newSegments.ExpiresAts[i],
+				newSegments.EncryptedKeyNonces[i], newSegments.EncryptedKeys[i],
+				newSegments.RootPieceIDs[i],
+				newSegments.RedundancySchemes[i],
+				int64(newSegments.EncryptedSizes[i]), newSegments.PlainOffsets[i], int64(newSegments.PlainSizes[i]),
+				newSegments.PiecesLists[i], int64(newSegments.Placements[i]),
+				newSegments.InlineDatas[i],
+			},
+		)
+	}
+	err = stx.tx.BufferWrite(inserts)
+	if err != nil {
+		return Object{}, Error.New("unable to copy segments: %w", err)
+	}
+
+	return newObject, nil
 }
 
 // getObjectNonPendingExactVersion returns object information for exact version.
