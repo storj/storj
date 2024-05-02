@@ -300,8 +300,75 @@ func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, s
 }
 
 func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
-	// TODO implement me
-	panic("implement me")
+	segments.Positions = make([]int64, sourceObject.SegmentCount)
+
+	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
+
+	segments.ExpiresAts = make([]*time.Time, sourceObject.SegmentCount)
+	segments.EncryptedSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
+	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
+	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
+
+	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
+
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				position,
+				expires_at,
+				root_piece_id,
+				encrypted_size, plain_offset, plain_size,
+				redundancy,
+				remote_alias_pieces,
+				placement,
+				COALESCE(inline_data, B'') AS inline_data
+			FROM segments
+			WHERE stream_id = @stream_id
+			ORDER BY position ASC
+			LIMIT @segment_count
+		`,
+		Params: map[string]interface{}{
+			"stream_id":     sourceObject.StreamID,
+			"segment_count": int64(sourceObject.SegmentCount),
+		},
+	})
+	defer result.Stop()
+
+	index := 0
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return transposedSegmentList{}, Error.New("could not load segments for copy: %w", err)
+		}
+		err = row.Columns(
+			&segments.Positions[index],
+			&segments.ExpiresAts[index],
+			&segments.RootPieceIDs[index],
+			spannerutil.Int(&segments.EncryptedSizes[index]),
+			&segments.PlainOffsets[index],
+			spannerutil.Int(&segments.PlainSizes[index]),
+			&segments.RedundancySchemes[index],
+			&segments.PiecesLists[index],
+			spannerutil.Int(&segments.Placements[index]), // this spannerutil.Int call can be removed if gerrit common/13077 has been merged
+			&segments.InlineDatas[index],
+		)
+		if err != nil {
+			return transposedSegmentList{}, Error.New("could not read segments for copy: %w", err)
+		}
+		index++
+	}
+
+	if index != int(sourceObject.SegmentCount) {
+		return transposedSegmentList{}, Error.New("could not load all of the segment information (%d != %d)", index, sourceObject.SegmentCount)
+	}
+
+	return segments, err
 }
 
 func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
