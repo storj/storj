@@ -60,6 +60,23 @@ func (params encryptionParameters) Scan(value interface{}) error {
 	}
 }
 
+// EncodeSpanner implements spanner.Encoder interface.
+func (params encryptionParameters) EncodeSpanner() (interface{}, error) {
+	return params.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder interface.
+func (params encryptionParameters) DecodeSpanner(input interface{}) error {
+	if value, ok := input.(string); ok {
+		iVal, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return err
+		}
+		input = iVal
+	}
+	return params.Scan(input)
+}
+
 // Value implements sql/driver.Valuer interface.
 func (params SegmentPosition) Value() (driver.Value, error) {
 	return int64(params.Encode()), nil
