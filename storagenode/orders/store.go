@@ -44,7 +44,9 @@ type FileStore struct {
 	active   map[activeWindow]int
 
 	// mutex for unsent directory
-	unsentMu sync.Mutex
+	unsentMu             sync.Mutex
+	unsentOrdersFileName string
+	unsentOrdersFile     ordersfile.Writable
 	// mutex for archive directory
 	archiveMu sync.Mutex
 
@@ -69,6 +71,19 @@ func NewFileStore(log *zap.Logger, ordersDir string, orderLimitGracePeriod time.
 	}
 
 	return fs, nil
+}
+
+// Close closes the file store.
+func (store *FileStore) Close() error {
+	store.unsentMu.Lock()
+	defer store.unsentMu.Unlock()
+	store.activeMu.Lock()
+	defer store.activeMu.Unlock()
+
+	if store.unsentOrdersFile != nil {
+		return OrderError.Wrap(store.unsentOrdersFile.Close())
+	}
+	return nil
 }
 
 // BeginEnqueue returns a function that can be called to enqueue the passed in Info. If the Info
@@ -110,13 +125,10 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 		}
 
 		// write out the data
-		of, err := ordersfile.OpenWritableUnsent(store.unsentDir, info.Limit.SatelliteId, info.Limit.OrderCreation)
+		of, err := store.getWritableUnsent(store.unsentDir, info.Limit.SatelliteId, info.Limit.OrderCreation)
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
-		defer func() {
-			err = errs.Combine(err, OrderError.Wrap(of.Close()))
-		}()
 
 		err = of.Append(info)
 		if err != nil {
@@ -125,6 +137,30 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 
 		return nil
 	}, nil
+}
+
+// getWritableUnsent retrieves an already open "unsent orders" file, or otherwise opens a new one.
+// Caller must guarantee to obtain the unset lock before calling this method.
+func (store *FileStore) getWritableUnsent(unsentDir string, satelliteID storj.NodeID, creationTime time.Time) (of ordersfile.Writable, err error) {
+	fileName := ordersfile.UnsentFileName(satelliteID, creationTime, ordersfile.V1)
+	// check whether the active unsent orders file needs to be closed and a new one needs to be opened
+	if fileName != store.unsentOrdersFileName {
+		if store.unsentOrdersFile != nil {
+			err := store.unsentOrdersFile.Close()
+			if err != nil {
+				return nil, OrderError.Wrap(err)
+			}
+		}
+		filePath := filepath.Join(unsentDir, fileName)
+		store.unsentOrdersFile, err = ordersfile.OpenWritableV1(filePath, satelliteID, creationTime)
+		if err != nil {
+			return nil, OrderError.Wrap(err)
+		}
+		store.unsentOrdersFileName = fileName
+	}
+
+	// return the active unsent orders file
+	return store.unsentOrdersFile, nil
 }
 
 // enqueueStartedLocked records that there is an order pending to be written to the window.
