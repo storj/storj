@@ -10,6 +10,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -719,6 +720,9 @@ func TestFinishMoveObject(t *testing.T) {
 		})
 
 		t.Run("unversioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for spanner until DeleteObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
@@ -777,6 +781,9 @@ func TestFinishMoveObject(t *testing.T) {
 		})
 
 		t.Run("versioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for spanner until DeleteObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
@@ -834,5 +841,5 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
