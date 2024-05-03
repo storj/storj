@@ -17,6 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // RawObject defines the full object that is stored in the database. It should be rarely used directly.
@@ -404,24 +405,20 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 		}
 
 		var segment RawSegment
-		var encryptedSize, plainSize, placement int64
 		var aliasPieces AliasPieces
 		// TODO(spanner) potentially we could use row.ToStruct but we would need to add AliasPieces to RawSegment
 		if err := row.Columns(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			&encryptedSize, &segment.PlainOffset, &plainSize,
+			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
-			&placement,
+			spannerutil.Int(&segment.Placement), // can remove this spannerutil.Int call once gerrit common/13077 is merged
 		); err != nil {
 			return nil, Error.Wrap(err)
 		}
-		segment.EncryptedSize = int32(encryptedSize)
-		segment.PlainSize = int32(plainSize)
-		segment.Placement = storj.PlacementConstraint(placement)
 
 		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
