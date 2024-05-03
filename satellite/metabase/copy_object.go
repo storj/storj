@@ -350,12 +350,10 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 			&segments.Positions[index],
 			&segments.ExpiresAts[index],
 			&segments.RootPieceIDs[index],
-			spannerutil.Int(&segments.EncryptedSizes[index]),
-			&segments.PlainOffsets[index],
-			spannerutil.Int(&segments.PlainSizes[index]),
+			spannerutil.Int(&segments.EncryptedSizes[index]), &segments.PlainOffsets[index], spannerutil.Int(&segments.PlainSizes[index]),
 			&segments.RedundancySchemes[index],
 			&segments.PiecesLists[index],
-			spannerutil.Int(&segments.Placements[index]), // this spannerutil.Int call can be removed if gerrit common/13077 has been merged
+			&segments.Placements[index],
 			&segments.InlineDatas[index],
 		)
 		if err != nil {

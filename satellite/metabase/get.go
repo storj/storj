@@ -403,7 +403,7 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 		&segment.EncryptedETag,
 		redundancyScheme{&segment.Redundancy},
 		&segment.InlineData, &aliasPieces,
-		spannerutil.Int(&segment.Placement), // this spannerutil.Int call can be removed if gerrit common/13077 has been merged
+		&segment.Placement,
 	)
 	if err != nil {
 		return Segment{}, nil, Error.New("unable to query segment: %w", err)
@@ -536,7 +536,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 		&segment.EncryptedETag,
 		redundancyScheme{&segment.Redundancy},
 		&segment.InlineData, &aliasPieces,
-		spannerutil.Int(&segment.Placement),
+		&segment.Placement,
 	)
 	if err != nil {
 		return Segment{}, nil, Error.New("unable to read segment from query: %w", err)
