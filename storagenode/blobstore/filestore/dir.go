@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
-	"storj.io/common/experiment"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore"
 )
@@ -186,6 +185,29 @@ func (dir *Dir) CreateTemporaryFile(ctx context.Context) (_ *os.File, err error)
 	return file, nil
 }
 
+// CreateNamedFile creates a preallocated file in the correct destination directory.
+func (dir *Dir) CreateNamedFile(ctx context.Context, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (file *os.File, err error) {
+	path, err := dir.blobToBasePath(ref)
+	if err != nil {
+		return nil, err
+	}
+	path = blobPathForFormatVersion(path, formatVersion)
+
+	file, err = os.Create(path)
+	if err != nil {
+		mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
+		if mkdirErr != nil {
+			return nil, Error.Wrap(errs.Combine(err, mkdirErr))
+		}
+		file, err = os.Create(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return file, nil
+}
+
 // DeleteTemporary deletes a temporary file.
 func (dir *Dir) DeleteTemporary(ctx context.Context, file *os.File) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -259,10 +281,10 @@ func blobPathForFormatVersion(path string, formatVersion blobstore.FormatVersion
 }
 
 // Commit commits the temporary file to permanent storage.
-func (dir *Dir) Commit(ctx context.Context, file *os.File, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (err error) {
+func (dir *Dir) Commit(ctx context.Context, file *os.File, sync bool, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var syncErr error
-	if !experiment.Has(ctx, "nosync") {
+	if sync {
 		syncErr = file.Sync()
 	}
 
@@ -280,20 +302,21 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref blobstore.BlobRef
 	}
 	path = blobPathForFormatVersion(path, formatVersion)
 
-	mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
-	if os.IsExist(mkdirErr) {
-		mkdirErr = nil
-	}
+	if file.Name() != path {
+		mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
+		if os.IsExist(mkdirErr) {
+			mkdirErr = nil
+		}
+		if mkdirErr != nil {
+			removeErr := os.Remove(file.Name())
+			return errs.Combine(mkdirErr, removeErr)
+		}
 
-	if mkdirErr != nil {
-		removeErr := os.Remove(file.Name())
-		return errs.Combine(mkdirErr, removeErr)
-	}
-
-	renameErr := rename(file.Name(), path)
-	if renameErr != nil {
-		removeErr := os.Remove(file.Name())
-		return errs.Combine(renameErr, removeErr)
+		renameErr := rename(file.Name(), path)
+		if renameErr != nil {
+			removeErr := os.Remove(file.Name())
+			return errs.Combine(renameErr, removeErr)
+		}
 	}
 
 	return nil

@@ -83,11 +83,12 @@ type blobWriter struct {
 	formatVersion blobstore.FormatVersion
 	buffer        *bufio.Writer
 	fh            *os.File
+	sync          bool
 
 	track leak.Ref
 }
 
-func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int) *blobWriter {
+func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int, sync bool) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,
@@ -95,6 +96,7 @@ func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, form
 		formatVersion: formatVersion,
 		buffer:        bufio.NewWriterSize(file, bufferSize),
 		fh:            file,
+		sync:          sync,
 
 		track: track,
 	}
@@ -133,7 +135,7 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 		return err
 	}
 
-	err = blob.store.dir.Commit(ctx, blob.fh, blob.ref, blob.formatVersion)
+	err = blob.store.dir.Commit(ctx, blob.fh, blob.sync, blob.ref, blob.formatVersion)
 	return Error.Wrap(errs.Combine(err, blob.track.Close()))
 }
 

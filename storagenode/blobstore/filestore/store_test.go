@@ -147,10 +147,6 @@ func TestDeleteWhileReading(t *testing.T) {
 	_, err = writer.Write(data)
 	require.NoError(t, err)
 
-	// loading uncommitted file should fail
-	_, err = store.Open(ctx, ref)
-	require.Error(t, err, "loading uncommitted file should fail")
-
 	// commit the file
 	err = writer.Commit(ctx)
 	require.NoError(t, err, "commit the file")

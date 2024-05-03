@@ -354,7 +354,7 @@ func writeTestBlob(ctx context.Context, t *testing.T, dir *Dir, ref blobstore.Bl
 	require.NoError(t, err)
 	_, err = f.Write(contents)
 	require.NoError(t, err)
-	err = dir.Commit(ctx, f, ref, FormatV1)
+	err = dir.Commit(ctx, f, false, ref, FormatV1)
 	require.NoError(t, err)
 }
 

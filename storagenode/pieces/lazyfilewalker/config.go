@@ -32,6 +32,7 @@ func (config *Config) Args() []string {
 		"--pieces", config.Pieces,
 		"--driver", config.Driver,
 		"--filestore.write-buffer-size", config.Filestore.WriteBufferSize.String(),
+		fmt.Sprintf("--filestore.force-sync=%v", config.Filestore.ForceSync),
 		// set log output to stderr, so it doesn't interfere with the output of the command
 		"--log.output", "stderr",
 		// use the json formatter in the subprocess, so we could read lines and re-log them in the main process

@@ -44,11 +44,13 @@ func MonFileInTrash(namespace []byte) *monkit.Meter {
 // Config is configuration for the blob store.
 type Config struct {
 	WriteBufferSize memory.Size `help:"in-memory buffer for uploads" default:"128KiB"`
+	ForceSync       bool        `help:"if true, force disk synchronization and atomic writes" default:"false"`
 }
 
 // DefaultConfig is the default value for Config.
 var DefaultConfig = Config{
 	WriteBufferSize: 128 * memory.KiB,
+	ForceSync:       false,
 }
 
 // blobStore implements a blob store.
@@ -192,11 +194,16 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 // Create creates a new blob that can be written.
 func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
-	file, err := store.dir.CreateTemporaryFile(ctx)
+	var file *os.File
+	if store.config.ForceSync {
+		file, err = store.dir.CreateTemporaryFile(ctx)
+	} else {
+		file, err = store.dir.CreateNamedFile(ctx, ref, MaxFormatVersionSupported)
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int(), store.config.ForceSync), nil
 }
 
 // SpaceUsedForBlobs adds up the space used in all namespaces for blob storage.
@@ -333,7 +340,7 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, FormatV0, file, store.config.WriteBufferSize.Int(), store.config.ForceSync), nil
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
