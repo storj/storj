@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 var (
@@ -531,6 +532,16 @@ func (status ObjectStatus) String() string {
 	default:
 		return fmt.Sprintf("ObjectStatus(%d)", int(status))
 	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (status ObjectStatus) EncodeSpanner() (any, error) {
+	return int64(status), nil
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (status *ObjectStatus) DecodeSpanner(val any) (err error) {
+	return spannerutil.Int(status).DecodeSpanner(val)
 }
 
 // Pieces defines information for pieces.

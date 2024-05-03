@@ -191,11 +191,9 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 			if err != nil {
 				return errs.Wrap(err)
 			}
-			var status int64
-			if err := row.Columns(&status, &object.Version, &object.CreatedAt); err != nil {
-				return errs.Wrap(err)
+			if err := row.Columns(&object.Status, &object.Version, &object.CreatedAt); err != nil {
+				return Error.Wrap(err)
 			}
-			object.Status = ObjectStatus(byte(status))
 		}
 		return nil
 	})
