@@ -687,7 +687,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			return rpcstatus.Wrap(rpcstatus.NotFound, err)
 		}
 		restoredFromTrash = true
-		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String()), monkit.NewSeriesTag("piece_id", limit.PieceId.String())).Mark(1)
+		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String())).Mark(1)
 		filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
 		log.Warn("file found in trash")
 
