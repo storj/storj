@@ -6,7 +6,6 @@ package collector
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -74,9 +73,6 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 
 	service.usedSerials.DeleteExpired(now)
 
-	const maxBatches = 100
-	const batchSize = 1000
-
 	var count int64
 	defer func() {
 		if count > 0 {
@@ -84,40 +80,16 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		}
 	}()
 
-	for k := 0; k < maxBatches; k++ {
-		infos, err := service.pieces.GetExpired(ctx, now, batchSize)
+	err = service.pieces.GetExpired(ctx, now, func(ctx context.Context, ei pieces.ExpiredInfo) bool {
+		err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID)
 		if err != nil {
-			return err
-		}
-		if len(infos) == 0 {
-			return nil
-		}
-
-		for _, expired := range infos {
-			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
-			if err != nil {
-				if errs.Is(err, os.ErrNotExist) {
-					service.log.Warn("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
-					err := service.pieces.DeleteExpired(ctx, expired.SatelliteID, expired.PieceID)
-					if err != nil {
-						service.log.Error("unable to delete expired piece info from DB", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
-						continue
-					}
-					service.log.Info("deleted expired piece info from DB", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
-					continue
-				}
-				errfailed := service.pieces.DeleteFailed(ctx, expired, now)
-				if errfailed != nil {
-					service.log.Error("unable to update piece info", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(errfailed))
-				}
-				service.log.Error("unable to delete piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
-				continue
-			}
-			service.log.Info("deleted expired piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
-
+			service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID), zap.Error(err))
+		} else {
+			service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID))
 			count++
 		}
-	}
-
-	return nil
+		return true
+	})
+	_ = service.pieces.DeleteExpired(ctx, now)
+	return errs.Wrap(err)
 }

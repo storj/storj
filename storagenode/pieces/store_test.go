@@ -394,19 +394,6 @@ func TestTrashAndRestore(t *testing.T) {
 				r, err := store.Reader(ctx, satellite.satelliteID, piece.pieceID)
 				require.Error(t, err)
 				require.Nil(t, r)
-
-				// Verify no expiry information is returned for this piece
-				if !piece.expiration.IsZero() {
-					infos, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour), 1000)
-					require.NoError(t, err)
-					var found bool
-					for _, info := range infos {
-						if info.SatelliteID == satellite.satelliteID && info.PieceID == piece.pieceID {
-							found = true
-						}
-					}
-					require.False(t, found)
-				}
 			}
 		}
 
@@ -505,14 +492,12 @@ func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTe
 	assert.True(t, bytes.Equal(buf, expected))
 
 	// Require expiration to match expected
-	infos, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour), 1000)
+	found := false
+	err = store.GetExpired(ctx, time.Now().Add(720*time.Hour), func(_ context.Context, ei pieces.ExpiredInfo) bool {
+		found = ei.SatelliteID == satelliteID && ei.PieceID == pieceID
+		return !found
+	})
 	require.NoError(t, err)
-	var found bool
-	for _, info := range infos {
-		if info.SatelliteID == satelliteID && info.PieceID == pieceID {
-			found = true
-		}
-	}
 	if expiration.IsZero() {
 		require.False(t, found)
 	} else {
@@ -743,22 +728,12 @@ func TestGetExpired(t *testing.T) {
 		err = expirationInfo.SetExpiration(ctx, testPieces[3].SatelliteID, testPieces[3].PieceID, testPieces[3].PieceExpiration)
 		require.NoError(t, err)
 
-		// GetExpired with limit 0 gives empty result
-		expired, err := store.GetExpired(ctx, now, 0)
-		require.NoError(t, err)
-		assert.Empty(t, expired)
-
-		// GetExpired with limit 1 gives only 1 result, although there are 2 possible
-		expired, err = store.GetExpired(ctx, now, 1)
-		require.NoError(t, err)
-		require.Len(t, expired, 1)
-		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
-		assert.Equal(t, testPieces[2].SatelliteID, expired[0].SatelliteID)
-		assert.False(t, expired[0].InPieceInfo)
-
-		// GetExpired with 2 or more gives all expired results correctly; one from
-		// piece_expirations, and one from pieceinfo
-		expired, err = store.GetExpired(ctx, now, 1000)
+		// GetExpired with gives all results
+		var expired []pieces.ExpiredInfo
+		err = store.GetExpired(ctx, now, func(_ context.Context, ei pieces.ExpiredInfo) bool {
+			expired = append(expired, ei)
+			return true
+		})
 		require.NoError(t, err)
 		require.Len(t, expired, 2)
 		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)

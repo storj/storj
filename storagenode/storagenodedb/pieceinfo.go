@@ -163,22 +163,8 @@ func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, p
 	return ErrPieceInfo.Wrap(err)
 }
 
-// DeleteFailed marks piece as a failed deletion.
-func (db *v0PieceInfoDB) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = db.ExecContext(ctx, `
-		UPDATE pieceinfo_
-		SET deletion_failed_at = ?
-		WHERE satellite_id = ?
-		  AND piece_id = ?
-	`, now.UTC(), satelliteID, pieceID)
-
-	return ErrPieceInfo.Wrap(err)
-}
-
 // GetExpired gets ExpiredInfo records for pieces that are expired.
-func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, cb func(context.Context, pieces.ExpiredInfo) bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
@@ -186,23 +172,37 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, li
 		FROM pieceinfo_
 		WHERE piece_expiration IS NOT NULL
 		AND piece_expiration < ?
-		AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
 		ORDER BY satellite_id
-		LIMIT ?
-	`, expiredAt.UTC(), expiredAt.UTC(), limit)
+	`, expiredAt.UTC())
 	if err != nil {
-		return nil, ErrPieceInfo.Wrap(err)
+		return ErrPieceInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	for rows.Next() {
 		info := pieces.ExpiredInfo{InPieceInfo: true}
 		err = rows.Scan(&info.SatelliteID, &info.PieceID)
 		if err != nil {
-			return infos, ErrPieceInfo.Wrap(err)
+			return ErrPieceInfo.Wrap(err)
 		}
-		infos = append(infos, info)
+		if !cb(ctx, info) {
+			return nil
+		}
 	}
-	return infos, rows.Err()
+
+	return ErrPieceInfo.Wrap(rows.Err())
+}
+
+func (db *v0PieceInfoDB) DeleteExpirations(ctx context.Context, expiredAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, `
+		DELETE FROM pieceinfo_
+		WHERE piece_expiration IS NOT NULL
+		AND piece_expiration < ?
+	`, expiredAt.UTC())
+
+	return ErrPieceInfo.Wrap(err)
 }
 
 type v0StoredPieceAccess struct {

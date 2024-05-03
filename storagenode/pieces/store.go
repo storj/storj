@@ -58,19 +58,12 @@ type ExpiredInfo struct {
 //
 // architecture: Database
 type PieceExpirationDB interface {
-	// GetExpired gets piece IDs that expire or have expired before the given time
-	GetExpired(ctx context.Context, expiresBefore time.Time, limit int64) ([]ExpiredInfo, error)
 	// SetExpiration sets an expiration time for the given piece ID on the given satellite
 	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) error
-	// DeleteExpiration removes an expiration record for the given piece ID on the given satellite
-	DeleteExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (found bool, err error)
-	// DeleteFailed marks an expiration record as having experienced a failure in deleting the
-	// piece from the disk
-	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
-	// Trash marks a piece as in the trash
-	Trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
-	// RestoreTrash marks all piece as not being in trash
-	RestoreTrash(ctx context.Context, satelliteID storj.NodeID) error
+	// GetExpired gets piece IDs that expire or have expired before the given time
+	GetExpired(ctx context.Context, expiresBefore time.Time, cb func(context.Context, ExpiredInfo) bool) error
+	// DeleteExpirations deletes approximately all the expirations that happen before the given time
+	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
 }
 
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
@@ -83,11 +76,11 @@ type V0PieceInfoDB interface {
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
-	// DeleteFailed marks piece deletion from disk failed
-	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
 	// GetExpired gets piece IDs stored with storage format V0 that expire or have expired
 	// before the given time
-	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
+	GetExpired(ctx context.Context, expiredAt time.Time, cb func(context.Context, ExpiredInfo) bool) error
+	// DeleteExpirations deletes approximately all the expirations that happen before the given time
+	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
 	// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored
 	// with storage format V0 in the namespace of the given satellite. If walkFunc returns a
 	// non-nil error, WalkSatelliteV0Pieces will stop iterating and return the error
@@ -344,29 +337,36 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	// delete expired piece records
-	err = store.DeleteExpired(ctx, satellite, pieceID)
-	if err == nil {
-		store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
-			zap.String("Piece ID", pieceID.String()))
+	if store.v0PieceInfo != nil {
+		err := store.v0PieceInfo.Delete(ctx, satellite, pieceID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
-
-	return Error.Wrap(err)
+	return nil
 }
 
-// DeleteExpired deletes records in both the piece_expirations and pieceinfo DBs, wherever we find it.
-// Should return no error if the requested record is not found in any of the DBs.
-func (store *Store) DeleteExpired(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+// DeleteSkipV0 deletes the specified piece skipping V0 format and pieceinfo database.
+func (store *Store) DeleteSkipV0(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.blobs.DeleteWithStorageFormat(ctx, blobstore.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}, filestore.FormatV1)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// DeleteExpired deletes all pieces with an expiration earlier than the provided time.
+func (store *Store) DeleteExpired(ctx context.Context, expiresAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if store.expirationInfo != nil {
-		_, err = store.expirationInfo.DeleteExpiration(ctx, satellite, pieceID)
-	}
+	err = store.expirationInfo.DeleteExpirations(ctx, expiresAt)
 	if store.v0PieceInfo != nil {
-		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
+		err = errs.Combine(err, store.v0PieceInfo.DeleteExpirations(ctx, expiresAt))
 	}
-
 	return Error.Wrap(err)
 }
 
@@ -405,43 +405,22 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 		}
 	}
 
-	err = store.expirationInfo.Trash(ctx, satellite, pieceID)
-	err = errs.Combine(err, store.blobs.Trash(ctx, blobstore.BlobRef{
+	return Error.Wrap(store.blobs.Trash(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}, timestamp))
-
-	return Error.Wrap(err)
 }
 
 // EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval.
 func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var errList errs.Group
 	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
-		_, deletedIDs, err := store.lazyFilewalker.WalkCleanupTrash(ctx, satelliteID, trashedBefore)
-		errList.Add(err)
-		// the lazyfilewalker has already transmitted PieceIDs; we don't have to parse them
-		for _, deletedID := range deletedIDs {
-			_, err := store.expirationInfo.DeleteExpiration(ctx, satelliteID, deletedID)
-			errList.Add(err)
-		}
-	} else {
-		_, deletedIDs, err := store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
-		errList.Add(err)
-		// we have this answer directly from the blobstore, and must translate the blob keys to PieceIDs
-		for _, deletedID := range deletedIDs {
-			pieceID, err := storj.PieceIDFromBytes(deletedID)
-			if err != nil {
-				store.log.Error("stored blob has invalid PieceID", zap.ByteString("deletedKey", deletedID), zap.Error(err))
-				continue
-			}
-			_, err = store.expirationInfo.DeleteExpiration(ctx, satelliteID, pieceID)
-			errList.Add(err)
-		}
+		_, _, err := store.lazyFilewalker.WalkCleanupTrash(ctx, satelliteID, trashedBefore)
+		return Error.Wrap(err)
 	}
-	return Error.Wrap(errList.Err())
+	_, _, err = store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
+	return Error.Wrap(err)
 }
 
 // RestoreTrash restores all pieces in the trash.
@@ -449,10 +428,7 @@ func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) 
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = store.blobs.RestoreTrash(ctx, satelliteID.Bytes())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	return Error.Wrap(store.expirationInfo.RestoreTrash(ctx, satelliteID))
+	return Error.Wrap(err)
 }
 
 // MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
@@ -586,36 +562,22 @@ func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID 
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.
-func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (_ []ExpiredInfo, err error) {
+func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, cb func(context.Context, ExpiredInfo) bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	expired, err := store.expirationInfo.GetExpired(ctx, expiredAt, limit)
+	err = store.expirationInfo.GetExpired(ctx, expiredAt, cb)
 	if err != nil {
-		return nil, err
+		return Error.Wrap(err)
 	}
-	if int64(len(expired)) < limit && store.v0PieceInfo != nil {
-		v0Expired, err := store.v0PieceInfo.GetExpired(ctx, expiredAt, limit-int64(len(expired)))
-		if err != nil {
-			return nil, err
-		}
-		expired = append(expired, v0Expired...)
+	if store.v0PieceInfo != nil {
+		return Error.Wrap(store.v0PieceInfo.GetExpired(ctx, expiredAt, cb))
 	}
-	return expired, nil
+	return nil
 }
 
 // SetExpiration records an expiration time for the specified piece ID owned by the specified satellite.
 func (store *Store) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) (err error) {
 	return store.expirationInfo.SetExpiration(ctx, satellite, pieceID, expiresAt)
-}
-
-// DeleteFailed marks piece as a failed deletion.
-func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if expired.InPieceInfo {
-		return store.v0PieceInfo.DeleteFailed(ctx, expired.SatelliteID, expired.PieceID, when)
-	}
-	return store.expirationInfo.DeleteFailed(ctx, expired.SatelliteID, expired.PieceID, when)
 }
 
 // SpaceUsedForPieces returns *an approximation of* the disk space used by all local pieces (both
