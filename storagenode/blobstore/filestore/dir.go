@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	blobPermission = 0600
+	blobPermission = 0600 // matches os.CreateTemp
 	dirPermission  = 0700
 
 	v0PieceFileSuffix      = ""
@@ -281,12 +281,11 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref blobstore.BlobRef
 		syncErr = file.Sync()
 	}
 
-	chmodErr := os.Chmod(file.Name(), blobPermission)
 	closeErr := file.Close()
 
-	if seekErr != nil || truncErr != nil || syncErr != nil || chmodErr != nil || closeErr != nil {
+	if seekErr != nil || truncErr != nil || syncErr != nil || closeErr != nil {
 		removeErr := os.Remove(file.Name())
-		return errs.Combine(seekErr, truncErr, syncErr, chmodErr, closeErr, removeErr)
+		return errs.Combine(seekErr, truncErr, syncErr, closeErr, removeErr)
 	}
 
 	path, err := dir.blobToBasePath(ref)
