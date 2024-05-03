@@ -340,8 +340,24 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		return Segment{}, err
 	}
 
-	var aliasPieces AliasPieces
-	err = db.db.QueryRowContext(ctx, `
+	segment, aliasPieces, err := db.ChooseAdapter(opts.ProjectID).GetLatestObjectLastSegment(ctx, opts)
+	if err != nil {
+		return Segment{}, err
+	}
+
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	return segment, nil
+}
+
+// GetLatestObjectLastSegment returns an object last segment information.
+func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
+	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, repaired_at,
@@ -377,19 +393,17 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
-		return Segment{}, Error.New("unable to query segment: %w", err)
+		return Segment{}, nil, Error.New("unable to query segment: %w", err)
 	}
+	return segment, aliasPieces, nil
+}
 
-	if len(aliasPieces) > 0 {
-		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-		}
-	}
-
-	return segment, nil
+// GetLatestObjectLastSegment returns an object last segment information.
+func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
