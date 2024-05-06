@@ -487,8 +487,61 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 
 // GetLatestObjectLastSegment returns an object last segment information.
 func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
-	// TODO: implement me
-	panic("implement me")
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				stream_id, position,
+				created_at, repaired_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag,
+				redundancy,
+				inline_data, remote_alias_pieces,
+				placement
+			FROM segments
+			WHERE
+				stream_id IN (
+					SELECT stream_id
+					FROM objects
+					WHERE
+						(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
+						status <> ` + statusPending + `
+						ORDER BY version DESC
+						LIMIT 1
+				)
+			ORDER BY position DESC
+			LIMIT 1
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+		}
+		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.StreamID, &segment.Position,
+		&segment.CreatedAt, &segment.RepairedAt,
+		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		&segment.EncryptedETag,
+		redundancyScheme{&segment.Redundancy},
+		&segment.InlineData, &aliasPieces,
+		spannerutil.Int(&segment.Placement),
+	)
+	if err != nil {
+		return Segment{}, nil, Error.New("unable to read segment from query: %w", err)
+	}
+	return segment, aliasPieces, nil
 }
 
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
