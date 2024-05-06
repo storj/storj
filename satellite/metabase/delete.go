@@ -232,7 +232,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 		return DeleteObjectResult{}, err
 	}
 
-	// It is aleady verified that all object locations are in the same bucket
+	// It is already verified that all object locations are in the same bucket
 	projectID := opts.Locations[0].ProjectID
 	bucketName := opts.Locations[0].BucketName
 
@@ -241,12 +241,27 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 		objectKeys[i] = []byte(opts.Locations[i].ObjectKey)
 	}
 
+	result, err = db.ChooseAdapter(projectID).DeleteObjectsAllVersions(ctx, projectID, bucketName, objectKeys)
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	mon.Meter("object_delete").Mark(len(result.Removed))
+	for _, object := range result.Removed {
+		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
+	}
+
+	return result, nil
+}
+
+// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
+func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error) {
 	// Sorting the object keys just in case.
 	sort.Slice(objectKeys, func(i, j int) bool {
 		return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
 	})
 
-	err = withRows(db.db.QueryContext(ctx, `
+	err = withRows(p.db.QueryContext(ctx, `
 		WITH deleted_objects AS (
 			DELETE FROM objects
 			WHERE
@@ -270,20 +285,17 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 			fixed_segment_size, encryption
 		FROM deleted_objects
 	`, projectID, []byte(bucketName), pgutil.ByteaArray(objectKeys)))(func(rows tagsql.Rows) error {
-		result.Removed, err = db.scanMultipleObjectsDeletion(ctx, rows)
+		result.Removed, err = scanMultipleObjectsDeletionPostgres(ctx, rows)
 		return err
 	})
 
-	if err != nil {
-		return DeleteObjectResult{}, err
-	}
-
-	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
-	}
-
 	return result, nil
+}
+
+// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
+func (s *SpannerAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // scanObjectDeletionPostgres reads in the results of an object deletion from the database.
@@ -315,7 +327,8 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 	return objects, nil
 }
 
-func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows) (objects []Object, err error) {
+// scanMultipleObjectsDeletionPostgres reads in the results of multiple object deletions from the database.
+func scanMultipleObjectsDeletionPostgres(ctx context.Context, rows tagsql.Rows) (objects []Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	objects = make([]Object, 0, 10)
