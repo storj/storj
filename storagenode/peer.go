@@ -303,7 +303,10 @@ type Peer struct {
 		Endpoint *payouts.Endpoint
 	}
 
-	Bandwidth *bandwidth.Service
+	Bandwidth struct {
+		Service *bandwidth.Service
+		Cache   *bandwidth.Cache
+	}
 
 	Reputation *reputation.Service
 
@@ -479,6 +482,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
+	// setup bandwidth service
+	{
+		peer.Bandwidth.Cache = bandwidth.NewCache(peer.DB.Bandwidth())
+		peer.Bandwidth.Service = bandwidth.NewService(process.NamedLog(peer.Log, "bandwidth"), peer.Bandwidth.Cache, config.Bandwidth)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "bandwidth",
+			Run:   peer.Bandwidth.Service.Run,
+			Close: peer.Bandwidth.Service.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Bandwidth", peer.Bandwidth.Service.Loop))
+	}
+
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(process.NamedLog(log, "blobscache"), peer.DB.Pieces())
 		peer.Storage2.FileWalker = pieces.NewFileWalker(process.NamedLog(log, "filewalker"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo(), peer.DB.GCFilewalkerProgress())
@@ -541,7 +557,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			process.NamedLog(log, "piecestore:monitor"),
 			peer.Storage2.Store,
 			peer.Contact.Service,
-			peer.DB.Bandwidth(),
+			peer.Bandwidth.Cache,
 			config.Storage.AllocatedDiskSpace.Int64(),
 			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
@@ -594,7 +610,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.TrashChore,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
-			peer.DB.Bandwidth(),
+			peer.Bandwidth.Cache,
 			peer.UsedSerials,
 			config.Storage2,
 		)
@@ -701,7 +717,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup estimation service
 		peer.Estimation.Service = estimatedpayouts.NewService(
-			peer.DB.Bandwidth(),
+			peer.Bandwidth.Cache,
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),
 			peer.DB.Pricing(),
@@ -714,7 +730,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		_, port, _ := net.SplitHostPort(peer.Addr())
 		peer.Console.Service, err = console.NewService(
 			process.NamedLog(peer.Log, "console:service"),
-			peer.DB.Bandwidth(),
+			peer.Bandwidth.Cache,
 			peer.Storage2.Store,
 			peer.Version.Service,
 			config.Storage.AllocatedDiskSpace,
@@ -773,7 +789,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Store,
 			peer.Contact.Service,
 			peer.Contact.PingStats,
-			peer.DB.Bandwidth(),
+			peer.Bandwidth.Cache,
 			config.Storage,
 			peer.Console.Listener.Addr(),
 			config.Contact.ExternalAddress,
@@ -874,15 +890,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	peer.Debug.Server.Panel.Add(
 		debug.Cycle("Collector", peer.Collector.Loop))
 
-	peer.Bandwidth = bandwidth.NewService(process.NamedLog(peer.Log, "bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
-	peer.Services.Add(lifecycle.Item{
-		Name:  "bandwidth",
-		Run:   peer.Bandwidth.Run,
-		Close: peer.Bandwidth.Close,
-	})
-	peer.Debug.Server.Panel.Add(
-		debug.Cycle("Bandwidth", peer.Bandwidth.Loop))
-
 	{ // setup multinode endpoints
 		// TODO: add to peer?
 		apiKeys := apikeys.NewService(peer.DB.APIKeys())
@@ -897,7 +904,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Multinode.Bandwidth = multinode.NewBandwidthEndpoint(
 			process.NamedLog(peer.Log, "multinode:bandwidth-endpoint"),
 			apiKeys,
-			peer.DB.Bandwidth(),
+			peer.Bandwidth.Cache,
 		)
 
 		peer.Multinode.Node = multinode.NewNodeEndpoint(

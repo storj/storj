@@ -11,43 +11,28 @@ func Schema() map[string]*dbschema.Schema {
 		"bandwidth": {
 			Tables: []*dbschema.Table{
 				{
-					Name: "bandwidth_usage",
+					Name:       "bandwidth_usage",
+					PrimaryKey: []string{"interval_start", "satellite_id"},
 					Columns: []*dbschema.Column{
 						{
-							Name:       "action",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
-						{
-							Name:       "amount",
+							Name:       "delete_total",
 							Type:       "BIGINT",
-							IsNullable: false,
+							IsNullable: true,
 						},
 						{
-							Name:       "created_at",
-							Type:       "TIMESTAMP",
-							IsNullable: false,
-						},
-						{
-							Name:       "satellite_id",
-							Type:       "BLOB",
-							IsNullable: false,
-						},
-					},
-				},
-				{
-					Name:       "bandwidth_usage_rollups",
-					PrimaryKey: []string{"action", "interval_start", "satellite_id"},
-					Columns: []*dbschema.Column{
-						{
-							Name:       "action",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
-						{
-							Name:       "amount",
+							Name:       "get_audit_total",
 							Type:       "BIGINT",
-							IsNullable: false,
+							IsNullable: true,
+						},
+						{
+							Name:       "get_repair_total",
+							Type:       "BIGINT",
+							IsNullable: true,
+						},
+						{
+							Name:       "get_total",
+							Type:       "BIGINT",
+							IsNullable: true,
 						},
 						{
 							Name:       "interval_start",
@@ -55,16 +40,22 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						{
+							Name:       "put_repair_total",
+							Type:       "BIGINT",
+							IsNullable: true,
+						},
+						{
+							Name:       "put_total",
+							Type:       "BIGINT",
+							IsNullable: true,
+						},
+						{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
 						},
 					},
 				},
-			},
-			Indexes: []*dbschema.Index{
-				{Name: "idx_bandwidth_usage_created", Table: "bandwidth_usage", Columns: []string{"created_at"}, Unique: false, Partial: ""},
-				{Name: "idx_bandwidth_usage_satellite", Table: "bandwidth_usage", Columns: []string{"satellite_id"}, Unique: false, Partial: ""},
 			},
 		},
 		"garbage_collection_filewalker_progress": {
