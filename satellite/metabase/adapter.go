@@ -25,6 +25,7 @@ type Adapter interface {
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
+	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 
 	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
 

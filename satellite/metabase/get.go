@@ -424,8 +424,14 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 		return false, ErrInvalidRequest.New("BucketName missing")
 	}
 
+	return db.ChooseAdapter(opts.ProjectID).BucketEmpty(ctx, opts)
+}
+
+// BucketEmpty returns true if bucket does not contain objects (pending or committed).
+// This method doesn't check bucket existence.
+func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
 	var value bool
-	err = db.db.QueryRowContext(ctx, `
+	err = p.db.QueryRowContext(ctx, `
 		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = ($1, $2))
 	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&value)
 	if err != nil {
@@ -433,6 +439,13 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 	}
 
 	return !value, nil
+}
+
+// BucketEmpty returns true if bucket does not contain objects (pending or committed).
+// This method doesn't check bucket existence.
+func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // TestingAllObjects gets all objects.
