@@ -163,7 +163,26 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 		return DeleteObjectResult{}, err
 	}
 
-	err = withRows(db.db.QueryContext(ctx, `
+	result, err = db.ChooseAdapter(opts.ProjectID).DeletePendingObject(ctx, opts)
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	if len(result.Removed) == 0 {
+		return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+	}
+
+	mon.Meter("object_delete").Mark(len(result.Removed))
+	for _, object := range result.Removed {
+		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
+	}
+
+	return result, nil
+}
+
+// DeletePendingObject deletes a pending object with specified version and streamID.
+func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
+	err = withRows(p.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
@@ -187,21 +206,13 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
 		return err
 	})
+	return result, err
+}
 
-	if err != nil {
-		return DeleteObjectResult{}, err
-	}
-
-	if len(result.Removed) == 0 {
-		return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
-	}
-
-	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
-	}
-
-	return result, nil
+// DeletePendingObject deletes a pending object with specified version and streamID.
+func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
