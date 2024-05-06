@@ -10,11 +10,14 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -137,8 +140,50 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 
 // DeleteObjectExactVersion deletes an exact object version.
 func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		objectDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+				THEN RETURN
+					version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
+					encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
+					fixed_segment_size, encryption
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+				"version":     opts.Version,
+			},
+		}
+		objectsDeleted := tx.Query(ctx, objectDeletion)
+		defer objectsDeleted.Stop()
+
+		result.Removed, err = scanObjectDeletionSpanner(ctx, opts.ObjectLocation, objectsDeleted)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		streamIDs := make([][]byte, 0, len(result.Removed))
+		for _, object := range result.Removed {
+			streamIDs = append(streamIDs, object.StreamID.Bytes())
+		}
+		segmentDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids": streamIDs,
+			},
+		}
+		_, err = tx.Update(ctx, segmentDeletion)
+		return Error.Wrap(err)
+	})
+	return result, err
 }
 
 // DeletePendingObject contains arguments necessary for deleting a pending object.
@@ -318,6 +363,42 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 		)
 		if err != nil {
 			return nil, Error.New("unable to delete object: %w", err)
+		}
+
+		objects = append(objects, object)
+	}
+
+	return objects, nil
+}
+
+// scanObjectDeletionSpanner reads in the results of an object deletion from the database.
+func scanObjectDeletionSpanner(ctx context.Context, location ObjectLocation, resultIter *spanner.RowIterator) (objects []Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	objects = make([]Object, 0, 10)
+
+	var object Object
+	for {
+		row, err := resultIter.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("unable to delete object: %w", err)
+		}
+		object.ProjectID = location.ProjectID
+		object.BucketName = location.BucketName
+		object.ObjectKey = location.ObjectKey
+
+		err = row.Columns(&object.Version, &object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			&object.Status, spannerutil.Int(&object.SegmentCount),
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+			encryptionParameters{&object.Encryption},
+		)
+		if err != nil {
+			return nil, Error.New("unable to read object deletion result: %w", err)
 		}
 
 		objects = append(objects, object)
