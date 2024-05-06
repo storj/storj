@@ -88,27 +88,29 @@ func (delete *DeleteObjectsAllVersions) Verify() error {
 
 // DeleteObjectExactVersion deletes an exact object version.
 func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
-	result, err = db.deleteObjectExactVersion(ctx, opts, db.db)
-	if err != nil {
-		return DeleteObjectResult{}, err
-	}
-	return result, nil
-}
-
-type stmt interface {
-	QueryContext(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error)
-}
-
-// implementation of DB.DeleteObjectExactVersion for re-use internally in metabase package.
-func (db *DB) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion, stmt stmt) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
+	result, err = db.ChooseAdapter(opts.ProjectID).DeleteObjectExactVersion(ctx, opts)
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	mon.Meter("object_delete").Mark(len(result.Removed))
+	for _, object := range result.Removed {
+		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
+	}
+	return result, nil
+}
+
+// DeleteObjectExactVersion deletes an exact object version.
+func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(
-		stmt.QueryContext(ctx, `
+		p.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
@@ -128,19 +130,16 @@ func (db *DB) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 			FROM deleted_objects`,
 			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version),
 	)(func(rows tagsql.Rows) error {
-		result.Removed, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
 	})
-	if err != nil {
-		return DeleteObjectResult{}, err
-	}
+	return result, err
+}
 
-	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
-	}
-
-	return result, nil
+// DeleteObjectExactVersion deletes an exact object version.
+func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // DeletePendingObject contains arguments necessary for deleting a pending object.
@@ -185,7 +184,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 				total_plain_size, total_encrypted_size, fixed_segment_size, encryption
 			FROM deleted_objects
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
-		result.Removed, err = db.scanObjectDeletion(ctx, opts.Location(), rows)
+		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
 		return err
 	})
 
@@ -276,7 +275,8 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 	return result, nil
 }
 
-func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
+// scanObjectDeletionPostgres reads in the results of an object deletion from the database.
+func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	objects = make([]Object, 0, 10)
@@ -486,7 +486,7 @@ func (db *DB) DeleteObjectLastCommitted(
 			FROM deleted_objects`,
 			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey),
 	)(func(rows tagsql.Rows) error {
-		result.Removed, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
 	})
 	if err != nil {
