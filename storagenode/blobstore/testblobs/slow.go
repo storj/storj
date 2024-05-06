@@ -60,13 +60,12 @@ func newSlowBlobs(log *zap.Logger, blobs blobstore.Blobs) *SlowBlobs {
 	}
 }
 
-// Create creates a new blob that can be written optionally takes a size
-// argument for performance improvements, -1 is unknown size.
-func (slow *SlowBlobs) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (blobstore.BlobWriter, error) {
+// Create creates a new blob that can be written.
+func (slow *SlowBlobs) Create(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobWriter, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return slow.blobs.Create(ctx, ref, size)
+	return slow.blobs.Create(ctx, ref)
 }
 
 // Close closes the blob store and any resources associated with it.

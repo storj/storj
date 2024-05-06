@@ -350,7 +350,7 @@ func TestEmptyTrash(t *testing.T) {
 }
 
 func writeTestBlob(ctx context.Context, t *testing.T, dir *Dir, ref blobstore.BlobRef, contents []byte, format blobstore.FormatVersion) {
-	f, err := dir.CreateTemporaryFile(ctx, 0)
+	f, err := dir.CreateTemporaryFile(ctx)
 	require.NoError(t, err)
 	_, err = f.Write(contents)
 	require.NoError(t, err)

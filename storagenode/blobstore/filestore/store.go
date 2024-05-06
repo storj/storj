@@ -190,10 +190,9 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 }
 
 // Create creates a new blob that can be written.
-// Optionally takes a size argument for performance improvements, -1 is unknown size.
-func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (_ blobstore.BlobWriter, err error) {
+func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
-	file, err := store.dir.CreateTemporaryFile(ctx, size)
+	file, err := store.dir.CreateTemporaryFile(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -330,7 +329,7 @@ func (store *blobStore) walkNamespaceInTrash(ctx context.Context, namespace []by
 func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	file, err := store.dir.CreateTemporaryFile(ctx, -1)
+	file, err := store.dir.CreateTemporaryFile(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

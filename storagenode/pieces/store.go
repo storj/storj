@@ -151,7 +151,7 @@ type SatelliteUsage struct {
 
 // Config is configuration for Store.
 type Config struct {
-	WritePreallocSize    memory.Size `help:"file preallocated for uploading" default:"4MiB"`
+	WritePreallocSize    memory.Size `help:"deprecated" default:"4MiB"`
 	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
 	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`
 }
@@ -233,7 +233,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 	blobWriter, err := store.blobs.Create(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}, store.config.WritePreallocSize.Int64())
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -265,7 +265,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 		}
 		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
-		blobWriter, err = store.blobs.Create(ctx, blobRef, store.config.WritePreallocSize.Int64())
+		blobWriter, err = store.blobs.Create(ctx, blobRef)
 	default:
 		return nil, Error.New("please teach me how to make V%d pieces", formatVersion)
 	}

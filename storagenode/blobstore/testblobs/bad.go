@@ -104,11 +104,11 @@ func (bad *BadBlobs) SetCheckError(err error) {
 
 // Create creates a new blob that can be written optionally takes a size
 // argument for performance improvements, -1 is unknown size.
-func (bad *BadBlobs) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (blobstore.BlobWriter, error) {
+func (bad *BadBlobs) Create(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobWriter, error) {
 	if err := bad.err.Err(); err != nil {
 		return nil, err
 	}
-	return bad.blobs.Create(ctx, ref, size)
+	return bad.blobs.Create(ctx, ref)
 }
 
 // Close closes the blob store and any resources associated with it.

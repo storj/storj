@@ -153,11 +153,13 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if formatVer == filestore.FormatV0 {
 		return nil
 	}
+
 	pieceHeader.FormatVersion = pb.PieceHeader_FormatVersion(formatVer)
 	headerBytes, err := pb.Marshal(pieceHeader)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
+
 	mon.IntVal("storagenode_pieces_pieceheader_size").Observe(int64(len(headerBytes)))
 	if len(headerBytes) > (V1PieceHeaderReservedArea - v1PieceHeaderFramingSize) {
 		// This should never happen under normal circumstances, and it might deserve a panic(),
@@ -166,12 +168,14 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		mon.Meter("storagenode_pieces_pieceheader_overflow").Mark(len(headerBytes))
 		return Error.New("marshaled piece header too big!")
 	}
+
+	// keep track of the size now so that we can seek back to it later (see below).
 	size, err := w.blob.Size()
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	if _, err := w.blob.Seek(0, io.SeekStart); err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	// We need to store some "framing" bytes first, because protobufs are not self-delimiting.
@@ -179,14 +183,11 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	// (probably _all_ cases), without this marker, we wouldn't have any way to take the
 	// V1PieceHeaderReservedArea bytes from a piece blob and trim off the right number of zeroes
 	// at the end so that the protobuf unmarshals correctly.
-	var framingBytes [v1PieceHeaderFramingSize]byte
-	binary.BigEndian.PutUint16(framingBytes[:], uint16(len(headerBytes)))
-	if _, err = w.blob.Write(framingBytes[:]); err != nil {
-		return Error.New("failed writing piece framing field at file start: %w", err)
-	}
+	var fullHeader [V1PieceHeaderReservedArea]byte
+	binary.BigEndian.PutUint16(fullHeader[0:2], uint16(len(headerBytes)))
+	copy(fullHeader[2:], headerBytes)
 
-	// Now write the serialized header bytes.
-	if _, err = w.blob.Write(headerBytes); err != nil {
+	if _, err = w.blob.Write(fullHeader[:]); err != nil {
 		return Error.New("failed writing piece header at file start: %w", err)
 	}
 
@@ -194,7 +195,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	// (don't try to seek(0, io.SeekEnd), because dir.CreateTemporaryFile preallocs space
 	// and the actual end of the file might be far past the intended end of the piece.)
 	if _, err := w.blob.Seek(size, io.SeekStart); err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	return nil
 }

@@ -70,8 +70,7 @@ type BlobWriter interface {
 // architecture: Database
 type Blobs interface {
 	// Create creates a new blob that can be written.
-	// Optionally takes a size argument for performance improvements, -1 is unknown size.
-	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
+	Create(ctx context.Context, ref BlobRef) (BlobWriter, error)
 	// Open opens a reader with the specified namespace and key.
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential

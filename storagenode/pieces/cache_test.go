@@ -207,7 +207,7 @@ func TestCacheServiceRun(t *testing.T) {
 		w, err := store.Create(ctx, blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
-		}, -1)
+		})
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expBlobSize))
 		require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestCacheServiceRun(t *testing.T) {
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err = store.Create(ctx, trashRef, -1)
+		w, err = store.Create(ctx, trashRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
@@ -288,7 +288,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		w, err := store.Create(ctx, blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
-		}, -1)
+		})
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expBlobSize))
 		require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err = store.Create(ctx, trashRef, -1)
+		w, err = store.Create(ctx, trashRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
@@ -697,7 +697,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 			},
 		}
 		for _, ref := range refs {
-			blob, err := cache.Create(ctx, ref, int64(4096))
+			blob, err := cache.Create(ctx, ref)
 			require.NoError(t, err)
 			blobWriter, err := pieces.NewWriter(zaptest.NewLogger(t), blob, cache, satelliteID, pb.PieceHashAlgorithm_SHA256)
 			require.NoError(t, err)

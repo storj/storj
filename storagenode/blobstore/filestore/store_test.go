@@ -58,7 +58,7 @@ func TestStoreLoad(t *testing.T) {
 		}
 		refs = append(refs, ref)
 
-		writer, err := store.Create(ctx, ref, -1)
+		writer, err := store.Create(ctx, ref)
 		require.NoError(t, err)
 
 		n, err := writer.Write(data)
@@ -73,44 +73,6 @@ func TestStoreLoad(t *testing.T) {
 	}
 
 	namespace = testrand.Bytes(32)
-	// store with size
-	for i := 0; i < repeatCount; i++ {
-		ref := blobstore.BlobRef{
-			Namespace: namespace,
-			Key:       testrand.Bytes(32),
-		}
-		refs = append(refs, ref)
-
-		writer, err := store.Create(ctx, ref, int64(len(data)))
-		require.NoError(t, err)
-
-		n, err := writer.Write(data)
-		require.NoError(t, err)
-		require.Equal(t, n, len(data))
-
-		require.NoError(t, writer.Commit(ctx))
-	}
-
-	namespace = testrand.Bytes(32)
-	// store with larger size
-	{
-		ref := blobstore.BlobRef{
-			Namespace: namespace,
-			Key:       testrand.Bytes(32),
-		}
-		refs = append(refs, ref)
-
-		writer, err := store.Create(ctx, ref, int64(len(data)*2))
-		require.NoError(t, err)
-
-		n, err := writer.Write(data)
-		require.NoError(t, err)
-		require.Equal(t, n, len(data))
-
-		require.NoError(t, writer.Commit(ctx))
-	}
-
-	namespace = testrand.Bytes(32)
 	// store with error
 	{
 		ref := blobstore.BlobRef{
@@ -118,7 +80,7 @@ func TestStoreLoad(t *testing.T) {
 			Key:       testrand.Bytes(32),
 		}
 
-		writer, err := store.Create(ctx, ref, -1)
+		writer, err := store.Create(ctx, ref)
 		require.NoError(t, err)
 
 		n, err := writer.Write(data)
@@ -179,7 +141,7 @@ func TestDeleteWhileReading(t *testing.T) {
 		Key:       []byte{1},
 	}
 
-	writer, err := store.Create(ctx, ref, -1)
+	writer, err := store.Create(ctx, ref)
 	require.NoError(t, err)
 
 	_, err = writer.Write(data)
@@ -247,7 +209,7 @@ func writeABlob(ctx context.Context, t testing.TB, store blobstore.Blobs, blobRe
 		require.Truef(t, ok, "can't make a WriterForFormatVersion with this blob store (%T)", store)
 		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
-		blobWriter, err = store.Create(ctx, blobRef, int64(len(data)))
+		blobWriter, err = store.Create(ctx, blobRef)
 	default:
 		t.Fatalf("please teach me how to make a V%d blob", formatVersion)
 	}
@@ -385,7 +347,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 		contents := testrand.Bytes(size)
 		blobRef := blobstore.BlobRef{Namespace: namespace, Key: testrand.Bytes(keySize)}
 
-		blobWriter, err := store.Create(ctx, blobRef, int64(len(contents)))
+		blobWriter, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = blobWriter.Write(contents)
 		require.NoError(t, err)
@@ -436,7 +398,7 @@ func TestStoreTraversals(t *testing.T) {
 				Namespace: recordsToInsert[i].namespace,
 				Key:       testrand.Bytes(keySize),
 			}
-			blobWriter, err := store.Create(ctx, recordsToInsert[i].blobs[j], 0)
+			blobWriter, err := store.Create(ctx, recordsToInsert[i].blobs[j])
 			require.NoError(t, err)
 			// also vary the sizes of the blobs so we can check Stat results
 			_, err = blobWriter.Write(testrand.Bytes(memory.Size(j)))
@@ -625,7 +587,7 @@ func TestEmptyTrash(t *testing.T) {
 					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
 					w, err = fStore.TestCreateV0(ctx, blobref)
 				} else if file.formatVer == filestore.FormatV1 {
-					w, err = store.Create(ctx, blobref, int64(size))
+					w, err = store.Create(ctx, blobref)
 				}
 				require.NoError(t, err)
 				require.NotNil(t, w)
@@ -750,7 +712,7 @@ func TestTrashAndRestore(t *testing.T) {
 					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
 					w, err = fStore.TestCreateV0(ctx, blobref)
 				} else if file.formatVer == filestore.FormatV1 {
-					w, err = store.Create(ctx, blobref, int64(size))
+					w, err = store.Create(ctx, blobref)
 				}
 				require.NoError(t, err)
 				require.NotNil(t, w)
@@ -846,7 +808,7 @@ func TestBlobMemoryBuffer(t *testing.T) {
 		Key:       testrand.Bytes(32),
 	}
 
-	writer, err := store.Create(ctx, ref, size)
+	writer, err := store.Create(ctx, ref)
 	require.NoError(t, err)
 
 	for _, v := range rand.Perm(size) {

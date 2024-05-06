@@ -80,7 +80,7 @@ func TestCmdForgetSatellite(t *testing.T) {
 			Namespace: satellite.ID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err := store.Create(ctx, blobRef, -1)
+		w, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(blobSize))
 		require.NoError(t, err)

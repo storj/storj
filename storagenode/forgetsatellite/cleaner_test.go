@@ -39,7 +39,7 @@ func TestCleaner(t *testing.T) {
 			Namespace: cleanupSatellite.ID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err := store.Create(ctx, blobRef, -1)
+		w, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(blobSize))
 		require.NoError(t, err)

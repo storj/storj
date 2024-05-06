@@ -177,23 +177,11 @@ func (dir *Dir) Verify(ctx context.Context, id storj.NodeID) error {
 	return nil
 }
 
-// CreateTemporaryFile creates a preallocated temporary file in the temp directory
-// prealloc preallocates file to make writing faster.
-func (dir *Dir) CreateTemporaryFile(ctx context.Context, prealloc int64) (_ *os.File, err error) {
-	const preallocLimit = 5 << 20 // 5 MB
-	if prealloc > preallocLimit {
-		prealloc = preallocLimit
-	}
-
+// CreateTemporaryFile creates a preallocated temporary file in the temp directory.
+func (dir *Dir) CreateTemporaryFile(ctx context.Context) (_ *os.File, err error) {
 	file, err := os.CreateTemp(dir.tempdir(), "blob-*.partial")
 	if err != nil {
 		return nil, err
-	}
-
-	if prealloc >= 0 {
-		if err := file.Truncate(prealloc); err != nil {
-			return nil, errs.Combine(err, file.Close())
-		}
 	}
 	return file, nil
 }
@@ -273,9 +261,6 @@ func blobPathForFormatVersion(path string, formatVersion blobstore.FormatVersion
 // Commit commits the temporary file to permanent storage.
 func (dir *Dir) Commit(ctx context.Context, file *os.File, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	position, seekErr := file.Seek(0, io.SeekCurrent)
-	truncErr := file.Truncate(position)
-
 	var syncErr error
 	if !experiment.Has(ctx, "nosync") {
 		syncErr = file.Sync()
@@ -283,9 +268,9 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref blobstore.BlobRef
 
 	closeErr := file.Close()
 
-	if seekErr != nil || truncErr != nil || syncErr != nil || closeErr != nil {
+	if syncErr != nil || closeErr != nil {
 		removeErr := os.Remove(file.Name())
-		return errs.Combine(seekErr, truncErr, syncErr, closeErr, removeErr)
+		return errs.Combine(syncErr, closeErr, removeErr)
 	}
 
 	path, err := dir.blobToBasePath(ref)
