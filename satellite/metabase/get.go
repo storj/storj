@@ -582,8 +582,28 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
-	// TODO: implement me
-	panic("implement me")
+	var value bool
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name))
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		return false, Error.New("unable to query objects: %w", err)
+	}
+	err = row.Columns(&value)
+	if err != nil {
+		return false, Error.New("unable to read objects query: %w", err)
+	}
+
+	return !value, nil
 }
 
 // TestingAllObjects gets all objects.
