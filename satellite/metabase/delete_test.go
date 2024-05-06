@@ -256,7 +256,7 @@ func TestDeletePendingObject(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestDeleteObjectExactVersion(t *testing.T) {

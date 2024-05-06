@@ -10,7 +10,7 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/storj/exp-spanner"
+	spanner "github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
@@ -255,8 +255,52 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 
 // DeletePendingObject deletes a pending object with specified version and streamID.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		objectDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
+					status = ` + statusPending + `
+				THEN RETURN
+					version, stream_id, created_at, expires_at, status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size, encryption
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+				"version":     opts.Version,
+				"stream_id":   opts.StreamID,
+			},
+		}
+		objectsDeleted := tx.Query(ctx, objectDeletion)
+		defer objectsDeleted.Stop()
+
+		result.Removed, err = scanObjectDeletionSpanner(ctx, opts.Location(), objectsDeleted)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// TODO(spanner): check whether this can be optimized.
+		streamIDs := make([][]byte, 0, len(result.Removed))
+		for _, object := range result.Removed {
+			streamIDs = append(streamIDs, object.StreamID.Bytes())
+		}
+		segmentDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids": streamIDs,
+			},
+		}
+		_, err = tx.Update(ctx, segmentDeletion)
+		return Error.Wrap(err)
+	})
+	return result, err
 }
 
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
