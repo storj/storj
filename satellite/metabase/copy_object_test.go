@@ -115,7 +115,6 @@ func TestBeginCopyObject(t *testing.T) {
 			if db.Implementation() == dbutil.Spanner {
 				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
 			}
-
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			object := metabasetest.CreateObjectVersioned(ctx, t, db, metabasetest.RandObjectStream(), 0)
@@ -930,7 +929,6 @@ func TestFinishCopyObject(t *testing.T) {
 			if db.Implementation() == dbutil.Spanner {
 				t.Skip("TODO(spanner): ListSegments not yet implemented for Spanner")
 			}
-
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			expiresAt := time.Now().Add(2 * time.Hour)
@@ -1394,7 +1392,6 @@ func TestFinishCopyObject(t *testing.T) {
 			if db.Implementation() == dbutil.Spanner {
 				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
 			}
-
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
@@ -1457,7 +1454,6 @@ func TestFinishCopyObject(t *testing.T) {
 			if db.Implementation() == dbutil.Spanner {
 				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
 			}
-
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()

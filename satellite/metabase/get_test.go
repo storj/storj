@@ -1778,7 +1778,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Segments: metabasetest.SegmentsToRaw(segments),
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestBucketEmpty(t *testing.T) {
@@ -1878,5 +1878,5 @@ func TestBucketEmpty(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
