@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/maps"
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/pb"
@@ -182,11 +184,7 @@ func (store *RequestStore) Add(satelliteID storj.NodeID, pbReq *pb.RetainRequest
 	store.data[satelliteID] = request
 
 	// save the new request
-	err = SaveRequest(store.path, request.GetFilename(), pbReq)
-	if err != nil {
-		return true, err
-	}
-	return true, nil
+	return true, SaveRequest(store.path, request.GetFilename(), pbReq)
 }
 
 // Remove removes a request from the queue. It returns true if the request was found
@@ -214,10 +212,15 @@ func (store *RequestStore) DeleteCache(req Request) error {
 
 // Next returns the next request from the store.
 func (store *RequestStore) Next() (Request, bool) {
-	for _, req := range store.data {
-		return req, true
+	if len(store.data) == 0 {
+		return Request{}, false
 	}
-	return Request{}, false
+
+	filters := maps.Values(store.data)
+	sort.Slice(filters, func(i, j int) bool {
+		return filters[i].CreatedBefore.Before(filters[j].CreatedBefore)
+	})
+	return filters[0], true
 }
 
 // Len returns the number of requests in the store.
@@ -241,11 +244,7 @@ func SaveRequest(path, filename string, request *pb.RetainRequest) error {
 		return err
 	}
 
-	err = os.WriteFile(filepath.Join(path, filename), data, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(filepath.Join(path, filename), data, 0644)
 }
 
 // verifyHash calculates and verifies the hash of the filter.

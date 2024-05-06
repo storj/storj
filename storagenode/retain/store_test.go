@@ -35,7 +35,7 @@ func TestNewRequestStore(t *testing.T) {
 	require.NoError(t, err)
 
 	pbReq := &pb.RetainRequest{
-		CreationDate:  time.Now(),
+		CreationDate:  time.Now().UTC(),
 		Filter:        filter.Bytes(),
 		HashAlgorithm: pb.PieceHashAlgorithm_BLAKE3,
 		Hash:          hasher.Sum(nil),
@@ -56,6 +56,40 @@ func TestNewRequestStore(t *testing.T) {
 
 	actualData := store.Data()[req.SatelliteID]
 
+	require.Equal(t, req.CreatedBefore.UTC(), actualData.CreatedBefore.UTC())
+	require.Equal(t, req.Filter, actualData.Filter)
+
+	// simulate newer request
+	req.CreatedBefore = time.Now().UTC()
+	pbReq.CreationDate = req.CreatedBefore
+
+	// replace existing entry
+	added, err := store.Add(req.SatelliteID, pbReq)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	actualData = store.Data()[req.SatelliteID]
+	require.Equal(t, req.CreatedBefore.UTC(), actualData.CreatedBefore.UTC())
+	require.Equal(t, req.Filter, actualData.Filter)
+
+	files, err := os.ReadDir(retainDir)
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+
+	for _, file := range files {
+		require.NoError(t, os.Remove(filepath.Join(retainDir, file.Name())))
+	}
+
+	// simulate newer request
+	req.CreatedBefore = time.Now()
+	pbReq.CreationDate = req.CreatedBefore
+
+	// replace existing entry without file on disk
+	added, err = store.Add(req.SatelliteID, pbReq)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	actualData = store.Data()[req.SatelliteID]
 	require.Equal(t, req.CreatedBefore.UTC(), actualData.CreatedBefore.UTC())
 	require.Equal(t, req.Filter, actualData.Filter)
 }
