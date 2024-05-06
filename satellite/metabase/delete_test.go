@@ -444,7 +444,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestDeleteObjectVersioning(t *testing.T) {
@@ -1253,7 +1253,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 				})
 			})
 		}
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestDeleteObjectLastCommitted(t *testing.T) {

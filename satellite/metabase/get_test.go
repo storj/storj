@@ -473,9 +473,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for spanner until DeleteObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			copyObjStream := metabasetest.RandObjectStream()
