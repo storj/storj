@@ -112,9 +112,6 @@ func TestBeginCopyObject(t *testing.T) {
 		})
 
 		t.Run("begin copy object with delete marker as source", func(t *testing.T) {
-			if db.Implementation() == dbutil.Spanner {
-				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			object := metabasetest.CreateObjectVersioned(ctx, t, db, metabasetest.RandObjectStream(), 0)
@@ -1389,9 +1386,6 @@ func TestFinishCopyObject(t *testing.T) {
 		})
 
 		t.Run("unversioned delete marker targets unversioned and versioned", func(t *testing.T) {
-			if db.Implementation() == dbutil.Spanner {
-				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
@@ -1451,9 +1445,6 @@ func TestFinishCopyObject(t *testing.T) {
 		})
 
 		t.Run("versioned delete marker targets unversioned and versioned", func(t *testing.T) {
-			if db.Implementation() == dbutil.Spanner {
-				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()

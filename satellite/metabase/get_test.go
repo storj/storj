@@ -157,9 +157,6 @@ func TestGetObjectExactVersion(t *testing.T) {
 		})
 
 		t.Run("get committed/deletemarker unversioned/versioned", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for spanner until DeleteObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			unversionedLocation := obj
@@ -427,9 +424,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get object delete marker, multiple versions", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for spanner until DeleteObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			first := obj
@@ -1660,9 +1654,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 		})
 
 		t.Run("versioned delete marker", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for spanner until DeleteObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			object := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 2)
@@ -1709,9 +1700,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 		t.Run("unversioned delete marker", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for spanner until DeleteObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			unversioned := metabasetest.CreateObject(ctx, t, db, obj, 2)
