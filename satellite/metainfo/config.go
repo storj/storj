@@ -181,6 +181,9 @@ type Config struct {
 	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
+	UseBucketLevelObjectLock         bool     `help:"enable the use of bucket-level Object Lock" default:"false"`
+	UseBucketLevelObjectLockProjects []string `help:"list of project IDs for which bucket-level Object Lock functionality is enabled" default:"" hidden:"true"`
+
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
 	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
@@ -204,18 +207,30 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 type ExtendedConfig struct {
 	Config
 
-	useBucketLevelObjectVersioningProjects []uuid.UUID
+	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
+	useBucketLevelObjectLockProjects       map[uuid.UUID]struct{}
 }
 
 // NewExtendedConfig creates new instance of extended config.
 func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
-	extendedConfig := ExtendedConfig{Config: config}
+	extendedConfig := ExtendedConfig{
+		Config:                                 config,
+		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
+		useBucketLevelObjectLockProjects:       make(map[uuid.UUID]struct{}),
+	}
 	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(projectIDString)
 		if err != nil {
 			return ExtendedConfig{}, err
 		}
-		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
+		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
+	}
+	for _, projectIDString := range config.UseBucketLevelObjectLockProjects {
+		projectID, err := uuid.FromString(projectIDString)
+		if err != nil {
+			return ExtendedConfig{}, err
+		}
+		extendedConfig.useBucketLevelObjectLockProjects[projectID] = struct{}{}
 	}
 
 	return extendedConfig, nil
@@ -225,10 +240,8 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *console.Project) bool {
 	// if its globally enabled don't look at projects
 	if !ec.UseBucketLevelObjectVersioning {
-		for _, p := range ec.useBucketLevelObjectVersioningProjects {
-			if p == project.ID {
-				return true
-			}
+		if _, ok := ec.useBucketLevelObjectVersioningProjects[project.ID]; ok {
+			return true
 		}
 		// account for whether the project has opted in to versioning beta
 		if !project.PromptedForVersioningBeta {
@@ -241,4 +254,15 @@ func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *consol
 	}
 
 	return true
+}
+
+// UseBucketLevelObjectLockByProjectID checks if bucket-level Object Lock functionality
+// should be enabled for a specific project.
+func (ec ExtendedConfig) UseBucketLevelObjectLockByProjectID(projectID uuid.UUID) bool {
+	// if its globally enabled don't look at projects
+	if ec.UseBucketLevelObjectLock {
+		return true
+	}
+	_, ok := ec.useBucketLevelObjectLockProjects[projectID]
+	return ok
 }
