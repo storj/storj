@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-app-bar :elevation="0" border="0">
+    <v-app-bar :elevation="0" border="0" class="bg-background">
         <template #prepend>
             <div class="d-flex flex-row align-center ml-2 mr-1 mt-n1">
                 <img
@@ -42,7 +42,7 @@
                 border
                 inset
                 density="comfortable"
-                class="pa-1"
+                class="pa-1 bg-surface"
             >
                 <v-tooltip text="Light Theme" location="bottom">
                     <template #activator="{ props }">
