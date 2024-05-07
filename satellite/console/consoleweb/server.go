@@ -878,6 +878,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectBrowserKeyNamePrefix:      server.config.ObjectBrowserKeyNamePrefix,
 		ObjectBrowserKeyLifetime:        server.config.ObjectBrowserKeyLifetime,
 		MaxNameCharacters:               server.config.MaxNameCharacters,
+		BillingInformationTabEnabled:    server.config.BillingInformationTabEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
