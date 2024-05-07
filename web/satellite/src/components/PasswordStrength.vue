@@ -8,9 +8,20 @@
         position="absolute"
         elevation="12"
         variant="elevated"
+        :theme="oppositeTheme"
     >
+        <v-card-item class="mt-1">
+            <v-card-title>Password Security Level</v-card-title>
+            <template #append>
+                <v-btn
+                    icon="$close"
+                    variant="text"
+                    size="x-small"
+                    color="default"
+                />
+            </template>
+        </v-card-item>
         <v-card-item>
-            <p class="font-weight-bold mt-1 mb-3">Password strength</p>
             <p class="text-body-2 font-weight-bold mb-2" :style="strengthLabelColor">{{ passwordStrength }}</p>
             <v-progress-linear :model-value="barWidth" :color="passwordStrengthColor" rounded="lg" />
         </v-card-item>
@@ -62,16 +73,25 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useTheme } from 'vuetify';
 import {
     VCard,
     VCardItem,
     VProgressLinear,
     VCheckbox,
+    VCardTitle,
+    VBtn,
 } from 'vuetify/components';
 
 import { useConfigStore } from '@/store/modules/configStore';
 
 const configStore = useConfigStore();
+
+const theme = useTheme();
+
+const oppositeTheme = computed(() => {
+    return theme.current.value.dark ? 'light' : 'dark';
+});
 
 const PASSWORD_STRENGTH = {
     veryStrong: 'Very Strong',
