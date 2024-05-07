@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
-import { VBtn, VCol, VRow, VCard } from 'vuetify/components';
+import { VBtn, VCol, VRow, VSheet } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 import { mdiArrowRight } from '@mdi/js';
 
