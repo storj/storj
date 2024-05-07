@@ -501,6 +501,70 @@ func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, 
 
 // DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
 func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (objectsDeleted, segmentsDeleted int64, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(objects) == 0 {
+		return 0, 0, nil
+	}
+
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		// can't use Mutations here, since we only want to delete objects by the specified keys
+		// if and only if the stream_id matches and no associated segments were uploaded after
+		// opts.InactiveDeadline.
+		var statements []spanner.Statement
+		for _, obj := range objects {
+			obj := obj
+			statements = append(statements, spanner.Statement{
+				SQL: `
+					DELETE FROM objects
+					WHERE
+						(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id)
+						AND NOT EXISTS (
+							SELECT 1 FROM segments
+							WHERE
+								segments.stream_id = objects.stream_id
+								AND segments.created_at > @inactive_deadline
+						)
+				`,
+				Params: map[string]interface{}{
+					"project_id":        obj.ProjectID,
+					"bucket_name":       obj.BucketName,
+					"object_key":        obj.ObjectKey,
+					"version":           obj.Version,
+					"stream_id":         obj.StreamID,
+					"inactive_deadline": opts.InactiveDeadline,
+				},
+			})
+		}
+		numDeleteds, err := tx.BatchUpdate(ctx, statements)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for _, numDeleted := range numDeleteds {
+			objectsDeleted += numDeleted
+		}
+		streamIDs := make([][]byte, 0, len(objects))
+		for _, obj := range objects {
+			streamIDs = append(streamIDs, obj.StreamID.Bytes())
+		}
+		numSegments, err := tx.Update(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids":        streamIDs,
+				"inactive_deadline": opts.InactiveDeadline,
+			},
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		segmentsDeleted += numSegments
+		return nil
+	})
+	if err != nil {
+		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)
+	}
+	return objectsDeleted, segmentsDeleted, nil
 }
