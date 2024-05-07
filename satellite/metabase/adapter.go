@@ -54,6 +54,7 @@ type Adapter interface {
 	TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error)
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
+	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.

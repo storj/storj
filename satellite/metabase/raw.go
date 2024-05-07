@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sort"
 	"time"
 
@@ -289,9 +290,28 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 // TestingBatchInsertObjects batch inserts objects for testing.
 // This implementation does no verification on the correctness of objects.
 func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	objectsByAdapterType := make(map[reflect.Type][]RawObject)
+	for _, obj := range objects {
+		adapter := db.ChooseAdapter(obj.ProjectID)
+		adapterType := reflect.TypeOf(adapter)
+		objectsByAdapterType[adapterType] = append(objectsByAdapterType[adapterType], obj)
+	}
+	for _, adapter := range db.adapters {
+		adapterType := reflect.TypeOf(adapter)
+		err := adapter.TestingBatchInsertObjects(ctx, objectsByAdapterType[adapterType])
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		delete(objectsByAdapterType, adapterType)
+	}
+	return nil
+}
+
+// TestingBatchInsertObjects batch inserts objects for testing.
+func (p *PostgresAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
 	const maxRowsPerCopy = 250000
 
-	return Error.Wrap(pgxutil.Conn(ctx, db.db,
+	return Error.Wrap(pgxutil.Conn(ctx, p.db,
 		func(conn *pgx.Conn) error {
 			progress, total := 0, len(objects)
 			for len(objects) > 0 {
@@ -308,10 +328,16 @@ func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject
 				}
 
 				progress += len(batch)
-				db.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+				p.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
 			}
 			return err
 		}))
+}
+
+// TestingBatchInsertObjects batch inserts objects for testing.
+func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 type copyFromRawObjects struct {
