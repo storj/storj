@@ -656,8 +656,57 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, op
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
 func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	// TODO(ver): do we need to pretend here that `expires_at` matters?
+	// TODO(ver): should this report an error when the object doesn't exist?
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		// TODO(spanner): is there a better way to combine these deletes from different tables?
+		objectDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
+					status = ` + statusCommittedUnversioned + ` AND
+					(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+				THEN RETURN
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+			},
+		}
+		objectsDeleted := tx.Query(ctx, objectDeletion)
+		defer objectsDeleted.Stop()
+
+		result.Removed, err = scanObjectDeletionSpanner(ctx, opts.ObjectLocation, objectsDeleted)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		streamIDs := make([][]byte, 0, len(result.Removed))
+		for _, object := range result.Removed {
+			streamIDs = append(streamIDs, object.StreamID.Bytes())
+		}
+		// TODO(spanner): make sure this is an efficient query
+		segmentDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids": streamIDs,
+			},
+		}
+		_, err = tx.Update(ctx, segmentDeletion)
+		return Error.Wrap(err)
+	})
+	return result, err
 }
 
 type deleteTransactionAdapter interface {
