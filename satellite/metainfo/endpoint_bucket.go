@@ -327,12 +327,23 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+	var (
+		bucket      buckets.MinimalBucket
+		lockEnabled bool
+	)
+	if endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+		var fullBucket buckets.Bucket
+		fullBucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+		lockEnabled = fullBucket.ObjectLockEnabled
+	} else {
+		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+	}
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		return nil, err
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket")
 	}
 
 	if !keyInfo.CreatedBy.IsZero() {
@@ -344,6 +355,10 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		if member.Role != console.RoleAdmin && bucket.CreatedBy != keyInfo.CreatedBy {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "not enough access to delete this bucket")
 		}
+	}
+
+	if lockEnabled && req.DeleteAll {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 	}
 
 	var convBucket *pb.Bucket

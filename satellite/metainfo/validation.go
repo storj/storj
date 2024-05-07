@@ -35,7 +35,8 @@ import (
 const encryptedKeySize = 48
 
 var (
-	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+	ipRegexp           = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+	unauthorizedErrMsg = "Unauthorized API credentials"
 )
 
 var ek = eventkit.Package()
@@ -66,7 +67,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 	}
 
 	return keyInfo, nil
@@ -112,7 +113,7 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 		}
 		if err != nil && !p.Optional {
 			endpoint.log.Debug("unauthorized request", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 		}
 	}
 
@@ -144,7 +145,7 @@ func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.Reques
 	}
 
 	endpoint.log.Debug("unauthorized request", zap.Error(combinedErrs))
-	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 }
 
 func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestHeader, rateKind console.LimitKind) (_ *macaroon.APIKey, _ *console.APIKeyInfo, err error) {
@@ -159,7 +160,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 	}
 
 	userAgent := ""

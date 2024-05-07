@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
@@ -176,92 +177,196 @@ func TestDeleteBucket(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 				testplanet.MaxSegmentSize(13*memory.KiB),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.UseBucketLevelObjectLock = true
+				},
 			),
 		},
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ownerAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		satelliteSys := planet.Satellites[0]
+		sat := planet.Satellites[0]
 		uplnk := planet.Uplinks[0]
 		project := uplnk.Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
 
-		expectedBucketName := "remote-segments-bucket"
+		expectedObjects := map[string][]byte{
+			"single-segment-object":        testrand.Bytes(10 * memory.KiB),
+			"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
+			"remote-segment-inline-object": testrand.Bytes(33 * memory.KiB),
+		}
 
-		err := uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "single-segment-object", testrand.Bytes(10*memory.KiB))
-		require.NoError(t, err)
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "multi-segment-object", testrand.Bytes(50*memory.KiB))
-		require.NoError(t, err)
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "remote-segment-inline-object", testrand.Bytes(33*memory.KiB))
-		require.NoError(t, err)
+		uploadObjects := func(t *testing.T, bucketName string) {
+			for name, bytes := range expectedObjects {
+				require.NoError(t, uplnk.Upload(ctx, sat, bucketName, name, bytes))
+			}
+		}
 
-		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 3)
+		requireBucketDeleted := func(t *testing.T, bucketName string) {
+			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.True(t, buckets.ErrBucketNotFound.Has(err))
 
-		member, err := satelliteSys.AddUser(ctx, console.CreateUser{
-			FullName: "Member User",
-			Email:    "deletebucket@example.com",
-		}, 1)
-		require.NoError(t, err)
-		require.NotNil(t, member)
+			objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  project.ID,
+				BucketName: bucketName,
+				Limit:      1,
+			})
+			require.NoError(t, err)
+			require.Empty(t, objects.Objects)
+		}
 
-		memberCtx, err := satelliteSys.UserContext(ctx, member.ID)
-		require.NoError(t, err)
+		requireBucketNotDeleted := func(t *testing.T, bucketName string) {
+			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
 
-		_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
-		require.NoError(t, err)
+			objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  project.ID,
+				BucketName: bucketName,
+				Limit:      len(expectedObjects),
+			})
+			require.NoError(t, err)
+			require.Len(t, objects.Objects, len(expectedObjects))
+		}
 
-		memberKeyInfo, memberKey, err := satelliteSys.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key", macaroon.APIKeyVersionMin)
-		require.NoError(t, err)
-		require.NotNil(t, memberKey)
-		require.NotNil(t, memberKeyInfo)
+		t.Run("Delete bucket as owner", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			uploadObjects(t, bucketName)
 
-		delResp, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: memberKey.SerializeRaw(),
-			},
-			Name:      []byte(expectedBucketName),
-			DeleteAll: true,
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, delResp)
+			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+			requireBucketDeleted(t, bucketName)
 		})
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
-		require.Nil(t, delResp)
 
-		delResp, err = satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: ownerAPIKey.SerializeRaw(),
-			},
-			Name:      []byte(expectedBucketName),
-			DeleteAll: true,
+		t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ProjectID:         project.ID,
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			require.NoError(t, err)
+
+			uploadObjects(t, bucketName)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+			require.Nil(t, delResp)
+
+			requireBucketNotDeleted(t, bucketName)
+
+			objs, err := sat.Admin.MetabaseDB.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  project.ID,
+				BucketName: bucketName,
+				Limit:      len(expectedObjects),
+			})
+			require.NoError(t, err)
+			for _, obj := range objs.Objects {
+				_, err := sat.Admin.MetabaseDB.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  project.ID,
+						BucketName: bucketName,
+						ObjectKey:  obj.ObjectKey,
+					},
+				})
+				require.NoError(t, err)
+			}
+
+			_, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			require.NoError(t, err)
+
+			requireBucketDeleted(t, bucketName)
 		})
-		require.NoError(t, err)
-		require.Equal(t, int64(3), delResp.DeletedObjectsCount)
 
-		// confirm the bucket is deleted
-		buckets, err := satelliteSys.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: ownerAPIKey.SerializeRaw(),
-			},
-			Direction: buckets.DirectionForward,
+		t.Run("Delete bucket as member", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			uploadObjects(t, bucketName)
+
+			member, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Member User",
+				Email:    "member@example.com",
+			}, 1)
+			require.NoError(t, err)
+			require.NotNil(t, member)
+
+			memberCtx, err := sat.UserContext(ctx, member.ID)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			memberKeyInfo, memberKey, err := sat.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+			require.NotNil(t, memberKey)
+			require.NotNil(t, memberKeyInfo)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: memberKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+			require.Nil(t, delResp)
+
+			requireBucketNotDeleted(t, bucketName)
 		})
-		require.NoError(t, err)
-		require.Len(t, buckets.GetItems(), 0)
 
-		// re-create owner's bucket.
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "single-segment-object", testrand.Bytes(10*memory.KiB))
-		require.NoError(t, err)
+		t.Run("Delete bucket as admin", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			uploadObjects(t, bucketName)
 
-		_, err = satelliteSys.DB.Console().ProjectMembers().UpdateRole(ctx, member.ID, project.ID, console.RoleAdmin)
-		require.NoError(t, err)
+			admin, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Admin User",
+				Email:    "admin@example.com",
+			}, 1)
+			require.NoError(t, err)
+			require.NotNil(t, admin)
 
-		delResp, err = satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: memberKey.SerializeRaw(),
-			},
-			Name:      []byte(expectedBucketName),
-			DeleteAll: true,
+			adminCtx, err := sat.UserContext(ctx, admin.ID)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, admin.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+
+			adminKeyInfo, adminKey, err := sat.API.Console.Service.CreateAPIKey(adminCtx, project.ID, "admin key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+			require.NotNil(t, adminKey)
+			require.NotNil(t, adminKeyInfo)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: adminKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, delResp)
+			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+			requireBucketDeleted(t, bucketName)
 		})
-		require.NoError(t, err)
-		require.Equal(t, int64(1), delResp.DeletedObjectsCount)
 	})
 }
 
