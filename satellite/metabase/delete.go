@@ -877,8 +877,63 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
 func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		rowIterator := tx.Query(ctx, spanner.Statement{
+			SQL: `
+				INSERT INTO objects (
+					project_id, bucket_name, object_key, version, stream_id,
+					status,
+					zombie_deletion_deadline
+				)
+				SELECT
+					@project_id, @bucket_name, @object_key,
+						coalesce((
+							SELECT version + 1
+							FROM objects
+							WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+							ORDER BY version DESC
+							LIMIT 1
+						), 1),
+					@marker,
+					` + statusDeleteMarkerVersioned + `,
+					NULL
+				THEN RETURN version, created_at
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+				"marker":      deleterMarkerStreamID,
+			},
+		})
+		defer rowIterator.Stop()
+
+		row, err := rowIterator.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				return ErrObjectNotFound.Wrap(Error.New("object does not exist"))
+			}
+			return Error.Wrap(err)
+		}
+
+		var deleted Object
+		deleted.ProjectID = opts.ProjectID
+		deleted.BucketName = opts.BucketName
+		deleted.ObjectKey = opts.ObjectKey
+		deleted.StreamID = deleterMarkerStreamID
+		deleted.Status = DeleteMarkerVersioned
+
+		err = row.Columns(&deleted.Version, &deleted.CreatedAt)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		result.Markers = []Object{deleted}
+		return nil
+	})
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+	return result, nil
 }
 
 // generateDeleteMarkerStreamID returns a uuid that has the first 6 bytes as 0xff.
