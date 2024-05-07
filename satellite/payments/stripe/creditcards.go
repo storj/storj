@@ -132,7 +132,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -205,7 +205,7 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}

@@ -134,7 +134,7 @@ func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UU
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return nil, Error.Wrap(err)
 	}
@@ -166,7 +166,7 @@ func (accounts *accounts) AddTaxID(ctx context.Context, userID uuid.UUID, taxID 
 			if stripeErr.Code == stripe.ErrorCodeTaxIDInvalid {
 				err = Error.Wrap(ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
 			} else {
-				err = errs.New(stripeErr.Msg)
+				err = errs.Wrap(errors.New(stripeErr.Msg))
 			}
 		}
 		return nil, Error.Wrap(err)
@@ -201,7 +201,7 @@ func (accounts *accounts) RemoveTaxID(ctx context.Context, userID uuid.UUID, id 
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return nil, Error.Wrap(err)
 	}
@@ -234,7 +234,7 @@ func (accounts *accounts) GetBillingInformation(ctx context.Context, userID uuid
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return nil, Error.Wrap(err)
 	}

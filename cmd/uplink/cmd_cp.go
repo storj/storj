@@ -474,8 +474,8 @@ func (c *cmdCp) calculatePartSize(contentLength, preferredPartSize int64, parall
 	// check whether we can use preferred part size instead?
 	if preferredPartSize > 0 {
 		if preferredPartSize < partSize {
-			return cfg, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
-				memory.FormatBytes(preferredPartSize), memory.FormatBytes(partSize)))
+			return cfg, errs.New("the specified chunk size %s is too small, requires %s or larger",
+				memory.FormatBytes(preferredPartSize), memory.FormatBytes(partSize))
 		}
 
 		partSize = roundUpToNext(preferredPartSize, alignPartSize.Int64())

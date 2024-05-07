@@ -60,7 +60,7 @@ func NewSpannerTestDatabase(ctx context.Context, logger *zap.Logger, spannerConn
 
 	matches := regexp.MustCompile("^(.*)/databases/(.*)$").FindStringSubmatch(databaseName)
 	if matches == nil || len(matches) != 3 {
-		return SpannerTestDatabase{}, errs.New("database connection should be defined in the form of 'projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>', but it was " + spannerConnection)
+		return SpannerTestDatabase{}, errs.New("database connection should be defined in the form of 'projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>', but it was %q", spannerConnection)
 	}
 
 	req := &databasepb.CreateDatabaseRequest{
