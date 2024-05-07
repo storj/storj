@@ -12,6 +12,7 @@
             class="ml-2 ml-sm-3 mr-0 mr-sm-2"
             size="small"
             density="comfortable"
+            title="Toggle sidebar navigation"
             @click.stop="appStore.toggleNavigationDrawer()"
         />
 
