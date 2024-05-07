@@ -35,7 +35,7 @@
                 <v-tab>
                     Billing History
                 </v-tab>
-                <v-tab>
+                <v-tab v-if="billingInformationUIEnabled">
                     Billing Information
                 </v-tab>
             </v-tabs>
@@ -197,7 +197,7 @@
                 <billing-history-tab />
             </v-window-item>
 
-            <v-window-item>
+            <v-window-item v-if="billingInformationUIEnabled">
                 <billing-information-tab />
             </v-window-item>
         </v-window>
@@ -287,6 +287,7 @@ const creditCards = computed((): CreditCard[] => {
 });
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
+const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
 
 /**
  * projectIDs is an array of all of the project IDs for which there exist project usage charges.

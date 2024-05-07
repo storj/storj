@@ -36,6 +36,7 @@ type Config struct {
 	ObjectBrowserKeyNamePrefix      string                    `help:"prefix for object browser API key names" default:".storj-web-file-browser-api-key-"`
 	ObjectBrowserKeyLifetime        time.Duration             `help:"duration for which the object browser API key remains valid" default:"72h"`
 	MaxNameCharacters               int                       `help:"defines the maximum number of characters allowed for names, e.g. user first/last names and company names" default:"100"`
+	BillingInformationTabEnabled    bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig

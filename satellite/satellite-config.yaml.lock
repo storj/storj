@@ -241,6 +241,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
 
+# indicates if billing information tab should be enabled
+# console.billing-information-tab-enabled: false
+
 # url of the transaction block explorer
 # console.block-explorer-url: https://etherscan.io/
 

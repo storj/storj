@@ -67,6 +67,7 @@ type FrontendConfig struct {
 	ObjectBrowserKeyNamePrefix      string                `json:"objectBrowserKeyNamePrefix"`
 	ObjectBrowserKeyLifetime        time.Duration         `json:"objectBrowserKeyLifetime"`
 	MaxNameCharacters               int                   `json:"maxNameCharacters"`
+	BillingInformationTabEnabled    bool                  `json:"billingInformationTabEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

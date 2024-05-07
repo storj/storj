@@ -63,6 +63,7 @@ export class FrontendConfig {
     objectBrowserKeyNamePrefix: string;
     objectBrowserKeyLifetime: number;
     maxNameCharacters: number;
+    billingInformationTabEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
