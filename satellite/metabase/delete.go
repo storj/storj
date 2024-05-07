@@ -766,8 +766,73 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 
 // DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
 func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	var precommit PrecommitConstraintWithNonPendingResult
+	err = s.WithTx(ctx, func(ctx context.Context, atx TransactionAdapter) error {
+		stx := atx.(*spannerTransactionAdapter)
+
+		precommit, err = stx.PrecommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
+			// an object didn't exist in the first place
+			return ErrObjectNotFound.New("unable to delete object")
+		}
+
+		resultIterator := stx.tx.Query(ctx, spanner.Statement{
+			SQL: `
+				INSERT INTO objects (
+					project_id, bucket_name, object_key, version, stream_id,
+					status,
+					zombie_deletion_deadline
+				) VALUES (
+					@project_id, @bucket_name, @object_key, @version, @marker,
+					` + statusDeleteMarkerUnversioned + `,
+					NULL
+				)
+				THEN RETURN
+					version,
+					created_at
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+				"version":     precommit.HighestVersion + 1,
+				"marker":      deleterMarkerStreamID,
+			},
+		})
+		defer resultIterator.Stop()
+
+		row, err := resultIterator.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				return Error.New("could not insert deletion marker: %w", err)
+			}
+			return Error.Wrap(err)
+		}
+		var marker Object
+		marker.ProjectID = opts.ProjectID
+		marker.BucketName = opts.BucketName
+		marker.ObjectKey = opts.ObjectKey
+		marker.Status = DeleteMarkerUnversioned
+		marker.StreamID = deleterMarkerStreamID
+
+		err = row.Columns(&marker.Version, &marker.CreatedAt)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		result.Markers = append(result.Markers, marker)
+		result.Removed = precommit.Deleted
+		return nil
+	})
+
+	if err != nil {
+		return result, err
+	}
+	precommit.submitMetrics()
+	return result, err
 }
 
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
