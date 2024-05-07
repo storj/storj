@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,66 +32,85 @@ type DeleteExpiredObjects struct {
 func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
-		query := `
-			SELECT
-				project_id, bucket_name, object_key, version, stream_id,
-				expires_at
-			FROM objects
-			` + db.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
-			WHERE
-				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-				AND expires_at < $5
-				ORDER BY project_id, bucket_name, object_key, version
-			LIMIT $6;`
-
-		expiredObjects := make([]ObjectStream, 0, batchsize)
-
-		scanErrClass := errs.Class("DB rows scan has failed")
-		err = withRows(db.db.QueryContext(ctx, query,
-			startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
-			opts.ExpiredBefore,
-			batchsize),
-		)(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				var expiresAt time.Time
-				err = rows.Scan(
-					&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID,
-					&expiresAt)
-				if err != nil {
-					return scanErrClass.Wrap(err)
-				}
-
-				db.log.Info("Deleting expired object",
-					zap.Stringer("Project", last.ProjectID),
-					zap.String("Bucket", last.BucketName),
-					zap.String("Object Key", string(last.ObjectKey)),
-					zap.Int64("Version", int64(last.Version)),
-					zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
-					zap.Time("Expired At", expiresAt),
-				)
-				expiredObjects = append(expiredObjects, last)
-			}
-
-			return nil
-		})
-		if err != nil {
-			if scanErrClass.Has(err) {
+	for _, a := range db.adapters {
+		err = db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
+			expiredObjects, err := a.FindExpiredObjects(ctx, opts, startAfter, batchsize)
+			if err != nil {
 				return ObjectStream{}, Error.New("unable to select expired objects for deletion: %w", err)
 			}
+			if len(expiredObjects) == 0 {
+				return ObjectStream{}, nil
+			}
 
-			db.log.Warn("unable to select expired objects for deletion", zap.Error(Error.Wrap(err)))
-			return ObjectStream{}, nil
-		}
+			objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegments(ctx, expiredObjects)
 
-		err = db.deleteObjectsAndSegments(ctx, expiredObjects)
+			mon.Meter("object_delete").Mark64(objectsDeleted)
+			mon.Meter("segment_delete").Mark64(segmentsDeleted)
+
+			return expiredObjects[len(expiredObjects)-1], err
+		})
 		if err != nil {
-			db.log.Warn("delete from DB expired objects", zap.Error(err))
-			return ObjectStream{}, nil
+			db.log.Error("failed to delete expired objects from DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
+		}
+	}
+	return nil
+}
+
+// FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
+func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
+	query := `
+		SELECT
+			project_id, bucket_name, object_key, version, stream_id,
+			expires_at
+		FROM objects
+		` + p.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
+		WHERE
+			(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
+			AND expires_at < $5
+			ORDER BY project_id, bucket_name, object_key, version
+		LIMIT $6;
+	`
+
+	expiredObjects = make([]ObjectStream, 0, batchSize)
+
+	err = withRows(p.db.QueryContext(ctx, query,
+		startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
+		opts.ExpiredBefore,
+		batchSize),
+	)(func(rows tagsql.Rows) error {
+		var last ObjectStream
+		for rows.Next() {
+			var expiresAt time.Time
+			err = rows.Scan(
+				&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID,
+				&expiresAt)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			p.log.Info("Deleting expired object",
+				zap.Stringer("Project", last.ProjectID),
+				zap.String("Bucket", last.BucketName),
+				zap.String("Object Key", string(last.ObjectKey)),
+				zap.Int64("Version", int64(last.Version)),
+				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
+				zap.Time("Expired At", expiresAt),
+			)
+			expiredObjects = append(expiredObjects, last)
 		}
 
-		return last, nil
+		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return expiredObjects, nil
+}
+
+// FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
+func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // DeleteZombieObjects contains all the information necessary to delete zombie objects and segments.
@@ -184,14 +204,15 @@ func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, 
 	}
 }
 
-func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (err error) {
+// DeleteObjectsAndSegments deletes expired objects and associated segments.
+func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(objects) == 0 {
-		return nil
+		return 0, 0, nil
 	}
 
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+	err = pgxutil.Conn(ctx, p.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 		for _, obj := range objects {
 			obj := obj
@@ -210,8 +231,6 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
 
-		var objectsDeletedGuess, segmentsDeleted int64
-
 		var errlist errs.Group
 		for i := 0; i < batch.Len(); i++ {
 			result, err := results.Exec()
@@ -222,20 +241,23 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 				// there doesn't seem to be a simple work around for this.
 				// Luckily, this is used only for metrics, where it's not a
 				// significant problem to slightly miscount.
-				objectsDeletedGuess++
+				objectsDeleted++
 				segmentsDeleted += affectedSegmentCount
 			}
 		}
 
-		mon.Meter("object_delete").Mark64(objectsDeletedGuess)
-		mon.Meter("segment_delete").Mark64(segmentsDeleted)
-
 		return errlist.Err()
 	})
 	if err != nil {
-		return Error.New("unable to delete expired objects: %w", err)
+		return 0, 0, Error.New("unable to delete expired objects: %w", err)
 	}
-	return nil
+	return objectsDeleted, segmentsDeleted, nil
+}
+
+// DeleteObjectsAndSegments deletes expired objects and associated segments.
+func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (err error) {
