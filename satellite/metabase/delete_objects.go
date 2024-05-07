@@ -338,8 +338,62 @@ func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects 
 
 // DeleteObjectsAndSegments deletes expired objects and associated segments.
 func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(objects) == 0 {
+		return 0, 0, nil
+	}
+
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		// can't use Mutations here, since we only want to delete objects by the specified keys
+		// if and only if the stream_id matches.
+		var statements []spanner.Statement
+		for _, obj := range objects {
+			obj := obj
+			statements = append(statements, spanner.Statement{
+				SQL: `
+					DELETE FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id)
+				`,
+				Params: map[string]interface{}{
+					"project_id":  obj.ProjectID,
+					"bucket_name": obj.BucketName,
+					"object_key":  obj.ObjectKey,
+					"version":     obj.Version,
+					"stream_id":   obj.StreamID,
+				},
+			})
+		}
+		numDeleteds, err := tx.BatchUpdate(ctx, statements)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for _, numDeleted := range numDeleteds {
+			objectsDeleted += numDeleted
+		}
+		streamIDs := make([][]byte, 0, len(objects))
+		for _, obj := range objects {
+			streamIDs = append(streamIDs, obj.StreamID.Bytes())
+		}
+		numSegments, err := tx.Update(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids": streamIDs,
+			},
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		segmentsDeleted += numSegments
+		return nil
+	})
+	if err != nil {
+		return 0, 0, Error.New("unable to delete expired objects: %w", err)
+	}
+	return objectsDeleted, segmentsDeleted, nil
 }
 
 // DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
