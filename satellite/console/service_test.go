@@ -520,7 +520,7 @@ func TestService(t *testing.T) {
 
 				// only project owner can change member's role.
 				_, err = service.UpdateProjectMemberRole(newUserCtx, up1Proj.OwnerID, up1Proj.ID, console.RoleMember)
-				require.True(t, console.ErrUnauthorized.Has(err))
+				require.True(t, console.ErrForbidden.Has(err))
 
 				// project owner's role can't be changed.
 				_, err = service.UpdateProjectMemberRole(userCtx1, up1Proj.OwnerID, up1Proj.ID, console.RoleMember)
@@ -540,6 +540,9 @@ func TestService(t *testing.T) {
 					FullName: "Test User",
 					Email:    "test@mail.test",
 				}, 1)
+				require.NoError(t, err)
+
+				invitedUserCtx, err := sat.UserContext(ctx, invitedUser.ID)
 				require.NoError(t, err)
 
 				for _, id := range []uuid.UUID{up1Proj.ID, up2Proj.ID} {
@@ -565,6 +568,7 @@ func TestService(t *testing.T) {
 					[]string{invitedUser.Email, "nobody@mail.test"},
 				)
 				require.Error(t, err)
+
 				_, err = sat.DB.Console().ProjectInvitations().Get(ctx, up2Proj.ID, invitedUser.Email)
 				require.NoError(t, err)
 
@@ -579,6 +583,24 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, memberships, 1)
 				require.NotEqual(t, up2Proj.ID, memberships[0].ProjectID)
+
+				err = service.RespondToProjectInvitation(invitedUserCtx, up1Proj.ID, console.ProjectInvitationAccept)
+				require.NoError(t, err)
+
+				invitedMember, err := sat.DB.Console().ProjectMembers().GetByMemberIDAndProjectID(ctx, invitedUser.ID, up1Proj.ID)
+				require.NoError(t, err)
+				require.Equal(t, console.RoleMember, invitedMember.Role)
+
+				// Members with console.RoleMember status can't delete other members.
+				err = service.DeleteProjectMembersAndInvitations(invitedUserCtx, up1Proj.ID, []string{invitedUser.Email, user1.Email})
+				require.True(t, console.ErrForbidden.Has(err))
+
+				// Members with console.RoleMember status can delete themselves.
+				err = service.DeleteProjectMembersAndInvitations(invitedUserCtx, up1Proj.ID, []string{invitedUser.Email})
+				require.NoError(t, err)
+
+				_, err = sat.DB.Console().ProjectMembers().GetByMemberIDAndProjectID(ctx, invitedMember.MemberID, up1Proj.ID)
+				require.ErrorIs(t, err, sql.ErrNoRows)
 			})
 
 			t.Run("DeleteProject", func(t *testing.T) {
@@ -3009,14 +3031,7 @@ func (v *EmailVerifier) FromAddress() post.Address {
 }
 
 func TestProjectInvitations(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.VarPartners = []string{"partner1"}
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 		invitesDB := sat.DB.Console().ProjectInvitations()
@@ -3088,23 +3103,15 @@ func TestProjectInvitations(t *testing.T) {
 			project, err := sat.AddProject(ctx, user.ID, "Test Project")
 			require.NoError(t, err)
 
-			// inviting without being a paid tier user should fail.
-			invite, err := service.InviteNewProjectMember(ctx, project.ID, user2.Email)
-			require.True(t, console.ErrNotPaidTier.Has(err))
-			require.Nil(t, invite)
-
-			ctx = upgradeToPaidTier(t, ctx, user)
-
 			// expect reinvitation to fail due to lack of preexisting invitation record.
 			invites, err := service.ReinviteProjectMembers(ctx, project.ID, []string{user2.Email})
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 			require.Empty(t, invites)
 
-			invite, err = service.InviteNewProjectMember(ctx, project.ID, user2.Email)
+			invite, err := service.InviteNewProjectMember(ctx, project.ID, user2.Email)
 			require.NoError(t, err)
 			require.NotNil(t, invite)
 
-			// inviting while being a paid tier user should succeed.
 			invites, err = service.GetUserProjectInvitations(ctx2)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
@@ -3121,6 +3128,10 @@ func TestProjectInvitations(t *testing.T) {
 			require.True(t, console.ErrNoMembership.Has(err))
 
 			require.NoError(t, service.RespondToProjectInvitation(ctx2, project.ID, console.ProjectInvitationAccept))
+
+			pm2, err := service.UpdateProjectMemberRole(ctx, user2.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+			require.Equal(t, console.RoleAdmin, pm2.Role)
 
 			// inviting a user with a preexisting invitation record should fail.
 			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
@@ -3175,22 +3186,14 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, body, "/activation")
 
-			varUser, err := sat.AddUser(ctx, console.CreateUser{
-				FullName:  "Test User",
-				Email:     fmt.Sprintf("%s@mail.test", testrand.RandAlphaNumeric(16)),
-				UserAgent: []byte("partner1"),
-			}, 1)
-			require.NoError(t, err)
-			varCtx, err := sat.UserContext(ctx, varUser.ID)
+			user3, ctx3 := getUserAndCtx(t)
+
+			_, err = service.AddProjectMembers(ctx, project.ID, []string{user3.Email})
 			require.NoError(t, err)
 
-			varProj, err := sat.AddProject(varCtx, varUser.ID, "Test Project")
-			require.NoError(t, err)
-
-			// inviting as a var-partner user should fail when config.FreeTierInvitesEnabled is false.
-			invite, err = service.InviteNewProjectMember(varCtx, varProj.ID, user2.Email)
-			require.True(t, console.ErrHasVarPartner.Has(err))
-			require.Nil(t, invite)
+			// Members with console.RoleMember status can't invite other members.
+			_, err = service.InviteNewProjectMember(ctx3, project.ID, "test@example.com")
+			require.True(t, console.ErrForbidden.Has(err))
 		})
 
 		t.Run("get invitation", func(t *testing.T) {

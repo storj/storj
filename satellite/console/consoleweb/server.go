@@ -863,7 +863,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
 		StripePaymentElementEnabled:     server.config.StripePaymentElementEnabled,
 		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
-		FreeTierInvitesEnabled:          server.config.FreeTierInvitesEnabled,
 		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,

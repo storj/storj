@@ -48,7 +48,6 @@ export class FrontendConfig {
     billingFeaturesEnabled: boolean;
     stripePaymentElementEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
-    freeTierInvitesEnabled: boolean;
     userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;

@@ -340,9 +340,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
 
-# indicates whether free tier users can send project invitations
-# console.free-tier-invites-enabled: false
-
 # duration for which users can access the system free of charge, 0 = unlimited time trial
 # console.free-trial-duration: 0s
 

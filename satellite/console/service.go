@@ -85,8 +85,6 @@ const (
 	activeProjInviteExistsErrMsg         = "An active invitation for '%s' already exists"
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
-	varPartnerInviteErr                  = "Your partner does not support inviting users"
-	paidTierInviteErrMsg                 = "Only paid tier users can invite project members"
 	contactSupportErrMsg                 = "Please contact support"
 )
 
@@ -185,9 +183,6 @@ var (
 
 	// ErrNotPaidTier occurs when a user must be paid tier in order to complete an operation.
 	ErrNotPaidTier = errs.Class("user is not paid tier")
-
-	// ErrHasVarPartner occurs when a user's user agent is a var partner for which an operation is not allowed.
-	ErrHasVarPartner = errs.Class("VAR Partner")
 
 	// ErrBotUser occurs when a user must be verified by admin first in order to complete operation.
 	ErrBotUser = errs.Class("user has to be verified by admin first")
@@ -2646,6 +2641,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return Error.Wrap(err)
@@ -2654,6 +2650,13 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	var isMember isProjectMember
 	if isMember, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
 		return Error.Wrap(err)
+	}
+
+	if isMember.membership.Role != RoleAdmin {
+		// We still allow user to remove themselves even with Member role.
+		if len(emails) != 1 || user.Email != emails[0] {
+			return ErrForbidden.New("only project Owner or Admin can remove other members")
+		}
 	}
 
 	projectID = isMember.project.ID
@@ -2724,7 +2727,11 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 
 	_, pr, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		if ErrUnauthorized.Has(err) {
+			return nil, ErrForbidden.Wrap(errs.New("only project owners can change the role"))
+		}
+
+		return nil, Error.Wrap(err)
 	}
 
 	if pr.OwnerID == memberID {
@@ -4446,14 +4453,12 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	projectID = isMember.project.ID
 
-	if s.config.BillingFeaturesEnabled && !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
-		if _, ok := s.varPartners[string(sender.UserAgent)]; ok {
-			return nil, ErrHasVarPartner.New(varPartnerInviteErr)
-		}
-		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
+	if isMember.membership.Role != RoleAdmin {
+		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
 	}
+
+	projectID = isMember.project.ID
 
 	var users []*User
 	var newUserEmails []string
