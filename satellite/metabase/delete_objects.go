@@ -126,14 +126,43 @@ type DeleteZombieObjects struct {
 func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
-		// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
-		// of that we need to get into account also object with zombie_deletion_deadline set to NULL
-		query := `
+	for _, a := range db.adapters {
+		err = db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
+			objects, err := a.FindZombieObjects(ctx, opts, startAfter, batchsize)
+			if err != nil {
+				return ObjectStream{}, Error.Wrap(err)
+			}
+			if len(objects) == 0 {
+				return ObjectStream{}, nil
+			}
+			objectsDeleted, segmentsDeleted, err := a.DeleteInactiveObjectsAndSegments(ctx, objects, opts)
+			if err != nil {
+				return ObjectStream{}, Error.Wrap(err)
+			}
+
+			mon.Meter("zombie_object_delete").Mark64(objectsDeleted)
+			mon.Meter("object_delete").Mark64(objectsDeleted)
+			mon.Meter("zombie_segment_delete").Mark64(segmentsDeleted)
+			mon.Meter("segment_delete").Mark64(segmentsDeleted)
+
+			return objects[len(objects)-1], nil
+		})
+		if err != nil {
+			db.log.Warn("delete from DB zombie objects", zap.Error(err))
+		}
+	}
+	return nil
+}
+
+// FindZombieObjects locates up to batchSize zombie objects that need deletion.
+func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
+	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
+	query := `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
 			FROM objects
-			` + db.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
+			` + p.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
 			WHERE
 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 				AND status = ` + statusPending + `
@@ -141,49 +170,42 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 				ORDER BY project_id, bucket_name, object_key, version
 			LIMIT $6;`
 
-		objects := make([]ObjectStream, 0, batchsize)
+	objects = make([]ObjectStream, 0, batchSize)
 
-		scanErrClass := errs.Class("DB rows scan has failed")
-		err = withRows(db.db.QueryContext(ctx, query,
-			startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
-			opts.DeadlineBefore,
-			batchsize),
-		)(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				err = rows.Scan(&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
-				if err != nil {
-					return scanErrClass.Wrap(err)
-				}
-
-				db.log.Debug("selected zombie object for deleting it",
-					zap.Stringer("Project", last.ProjectID),
-					zap.String("Bucket", last.BucketName),
-					zap.String("Object Key", string(last.ObjectKey)),
-					zap.Int64("Version", int64(last.Version)),
-					zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
-				)
-				objects = append(objects, last)
+	err = withRows(p.db.QueryContext(ctx, query,
+		startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
+		opts.DeadlineBefore,
+		batchSize),
+	)(func(rows tagsql.Rows) error {
+		var last ObjectStream
+		for rows.Next() {
+			err = rows.Scan(&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
+			if err != nil {
+				return Error.Wrap(err)
 			}
 
-			return nil
-		})
-		if err != nil {
-			if scanErrClass.Has(err) {
-				return ObjectStream{}, Error.New("unable to select zombie objects for deletion: %w", err)
-			}
-
-			db.log.Warn("unable to select zombie objects for deletion", zap.Error(Error.Wrap(err)))
-			return ObjectStream{}, nil
+			p.log.Debug("selected zombie object for deleting it",
+				zap.Stringer("Project", last.ProjectID),
+				zap.String("Bucket", last.BucketName),
+				zap.String("Object Key", string(last.ObjectKey)),
+				zap.Int64("Version", int64(last.Version)),
+				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
+			)
+			objects = append(objects, last)
 		}
 
-		err = db.deleteInactiveObjectsAndSegments(ctx, objects, opts)
-		if err != nil {
-			db.log.Warn("delete from DB zombie objects", zap.Error(err))
-			return ObjectStream{}, nil
-		}
-
-		return last, nil
+		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return objects, nil
+}
+
+// FindZombieObjects locates up to batchSize zombie objects that need deletion.
+func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, deleteBatch func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error)) (err error) {
@@ -260,14 +282,15 @@ func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects [
 	panic("implement me")
 }
 
-func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (err error) {
+// DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
+func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (objectsDeleted, segmentsDeleted int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(objects) == 0 {
-		return nil
+		return 0, 0, nil
 	}
 
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+	err = pgxutil.Conn(ctx, p.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 		for _, obj := range objects {
 			batch.Queue(`
@@ -289,26 +312,27 @@ func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []Ob
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
 
-		var segmentsDeleted int64
-		var errlist errs.Group
+		// TODO calculate deleted objects
+		var errList errs.Group
 		for i := 0; i < batch.Len(); i++ {
 			result, err := results.Exec()
-			errlist.Add(err)
+			errList.Add(err)
 
 			if err == nil {
 				segmentsDeleted += result.RowsAffected()
 			}
 		}
 
-		// TODO calculate deleted objects
-		mon.Meter("zombie_segment_delete").Mark64(segmentsDeleted)
-		mon.Meter("segment_delete").Mark64(segmentsDeleted)
-
-		return errlist.Err()
+		return errList.Err()
 	})
 	if err != nil {
-		return Error.New("unable to delete zombie objects: %w", err)
+		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)
 	}
+	return objectsDeleted, segmentsDeleted, nil
+}
 
-	return nil
+// DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
+func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (objectsDeleted, segmentsDeleted int64, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
