@@ -61,6 +61,21 @@
                     <v-menu activator="parent">
                         <v-list class="pa-1">
                             <v-list-item
+                                v-if="item.role === ProjectRole.Member || item.role === ProjectRole.Admin"
+                                density="comfortable"
+                                link
+                                rounded="lg"
+                                @click="() => showChangeRoleDialog(item)"
+                            >
+                                <template #prepend>
+                                    <icon-member />
+                                </template>
+                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                    Change Role
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item
+                                v-if="item.role === ProjectRole.Invited || item.role === ProjectRole.InviteExpired"
                                 density="comfortable"
                                 link
                                 rounded="lg"
@@ -99,6 +114,12 @@
         v-model="isRemoveMembersDialogShown"
         :emails="membersToDelete"
         @deleted="onPostDelete"
+    />
+
+    <change-member-role-dialog
+        v-model="isChangeMembersRoleShown"
+        :email="memberToUpdate?.email"
+        :member-id="memberToUpdate?.id"
     />
 
     <v-snackbar
@@ -176,10 +197,13 @@ import { ROUTES } from '@/router';
 
 import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberDialog.vue';
 import IconUpload from '@/components/icons/IconUpload.vue';
+import IconMember from '@/components/icons/IconMember.vue';
 import IconCopy from '@/components/icons/IconCopy.vue';
 import IconRemove from '@/components/icons/IconRemove.vue';
+import ChangeMemberRoleDialog from '@/components/dialogs/ChangeMemberRoleDialog.vue';
 
 type RenderedItem = {
+    id: string,
     name: string,
     email: string,
     role: ProjectRole,
@@ -199,10 +223,12 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const isRemoveMembersDialogShown = ref<boolean>(false);
+const isChangeMembersRoleShown = ref<boolean>(false);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const selectedMembers = ref<string[]>([]);
 const memberToDelete = ref<string>();
+const memberToUpdate = ref<RenderedItem>();
 
 const headers = ref([
     {
@@ -236,7 +262,7 @@ const projectMembers = computed((): RenderedItem[] => {
     projectOwner && projectMembersToReturn.unshift(projectOwner);
 
     return projectMembersToReturn.map(member => {
-        let role = ProjectRole.Member;
+        let role = member.getRole();
         if (member.getUserID() === projectOwner?.getUserID()) {
             role = ProjectRole.Owner;
         } else if (member.isPending()) {
@@ -248,6 +274,7 @@ const projectMembers = computed((): RenderedItem[] => {
         }
 
         return {
+            id: member.getUserID(),
             name: member.getName(),
             email: member.getEmail(),
             role,
@@ -383,6 +410,14 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
             notify.error(`Unable to fetch Project Members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     });
+}
+
+/**
+ * Makes change project member role dialog visible.
+ */
+function showChangeRoleDialog(item: RenderedItem): void {
+    memberToUpdate.value = item;
+    isChangeMembersRoleShown.value = true;
 }
 
 /**

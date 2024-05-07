@@ -108,9 +108,9 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 	}
 
 	membersQuery := `
-		SELECT member_id, project_id, created_at, email, inviter_id FROM (
+		SELECT member_id, project_id, role, created_at, email, inviter_id FROM (
 			(
-				SELECT pm.member_id, pm.project_id, pm.created_at, u.email, u.full_name, NULL as inviter_id
+				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, NULL as inviter_id
 				FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
 				WHERE pm.project_id = $1
@@ -120,7 +120,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 					u.short_name ILIKE $2
 				)
 			) UNION ALL (
-				SELECT NULL as member_id, project_id, created_at, LOWER(email) as email, LOWER(SPLIT_PART(email, '@', 1)) as full_name, inviter_id
+				SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT_PART(email, '@', 1)) as full_name, inviter_id
 				FROM project_invitations pi
 				WHERE project_id = $1
 				AND email ILIKE $2
@@ -147,6 +147,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		var (
 			memberID  uuid.NullUUID
 			projectID uuid.UUID
+			role      console.ProjectMemberRole
 			createdAt time.Time
 			email     string
 			inviterID uuid.NullUUID
@@ -155,6 +156,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		err = rows.Scan(
 			&memberID,
 			&projectID,
+			&role,
 			&createdAt,
 			&email,
 			&inviterID,
@@ -167,6 +169,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			page.ProjectMembers = append(page.ProjectMembers, console.ProjectMember{
 				MemberID:  memberID.UUID,
 				ProjectID: projectID,
+				Role:      role,
 				CreatedAt: createdAt,
 			})
 		} else {

@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -140,6 +141,24 @@ func (o *ObjectKey) Scan(value interface{}) error {
 	default:
 		return Error.New("unable to scan %T into ObjectKey", value)
 	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (o ObjectKey) EncodeSpanner() (any, error) {
+	return o.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (o *ObjectKey) DecodeSpanner(value any) error {
+	if base64Val, ok := value.(string); ok {
+		bytesVal, err := base64.StdEncoding.DecodeString(base64Val)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		*o = ObjectKey(bytesVal)
+		return nil
+	}
+	return Error.New("unable to scan %T into ObjectKey", value)
 }
 
 // ObjectLocation is decoded object key information.

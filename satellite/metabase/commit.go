@@ -170,7 +170,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 			Params: map[string]interface{}{
 				"project_id":                       opts.ProjectID.Bytes(),
 				"bucket_name":                      opts.BucketName,
-				"object_key":                       []byte(opts.ObjectKey),
+				"object_key":                       opts.ObjectKey,
 				"stream_id":                        opts.StreamID.Bytes(),
 				"expires_at":                       opts.ExpiresAt,
 				"encryption":                       enc,

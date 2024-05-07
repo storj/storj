@@ -40,6 +40,17 @@ export interface ProjectMembersApi {
     reinvite(projectId: string, emails: string[]): Promise<void>;
 
     /**
+     * Handles updating project member's role.
+     *
+     * @param projectID
+     * @param memberID
+     * @param role
+     *
+     * @throws Error
+     */
+    updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<ProjectMember>
+
+    /**
      * Get invite link for the specified project and email.
      *
      * @param projectId
@@ -144,6 +155,11 @@ export interface ProjectMemberItemModel {
     getJoinDate(): Date;
 
     /**
+     * Returns the member's role.
+     */
+    getRole(): ProjectRole;
+
+    /**
      * Sets whether the member item has been selected.
      */
     setSelected(selected: boolean): void;
@@ -164,6 +180,7 @@ export interface ProjectMemberItemModel {
  */
 export class ProjectMember implements ProjectMemberItemModel {
     public user: User;
+    public role: ProjectRole;
     public _isSelected = false;
 
     public constructor(
@@ -172,8 +189,10 @@ export class ProjectMember implements ProjectMemberItemModel {
         public email: string = '',
         public joinedAt: Date = new Date(),
         public id: string = '',
+        private _role: number = 0,
     ) {
         this.user = new User(this.id, this.fullName, this.shortName, this.email);
+        this.setRole();
     }
 
     /**
@@ -205,6 +224,13 @@ export class ProjectMember implements ProjectMemberItemModel {
     }
 
     /**
+     * Returns project member role.
+     */
+    public getRole(): ProjectRole {
+        return this.role;
+    }
+
+    /**
      * Sets whether the member item has been selected.
      */
     public setSelected(selected: boolean): void {
@@ -224,6 +250,16 @@ export class ProjectMember implements ProjectMemberItemModel {
      */
     public isPending(): boolean {
         return false;
+    }
+
+    private setRole(): void {
+        switch (this._role) {
+        case 1:
+            this.role = ProjectRole.Member;
+            break;
+        default:
+            this.role = ProjectRole.Admin;
+        }
     }
 }
 
@@ -268,6 +304,13 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
     }
 
     /**
+     * Returns project member role.
+     */
+    public getRole(): ProjectRole {
+        return ProjectRole.Member;
+    }
+
+    /**
      * Sets whether the invitation item has been selected.
      */
     public setSelected(selected: boolean): void {
@@ -294,6 +337,7 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
  * ProjectRole represents a project member's role.
  */
 export enum ProjectRole {
+    Admin = 'Admin',
     Member = 'Member',
     Owner = 'Owner',
     Invited = 'Invited',

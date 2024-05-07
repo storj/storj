@@ -390,6 +390,7 @@ export type ProjectItemRole = Exclude<ProjectRole, ProjectRole.InviteExpired>;
  * PROJECT_ROLE_COLORS defines what colors project role tags should use.
  */
 export const PROJECT_ROLE_COLORS: Record<ProjectRole, string> = {
+    [ProjectRole.Admin]: 'primary',
     [ProjectRole.Member]: 'success',
     [ProjectRole.Owner]: 'secondary',
     [ProjectRole.Invited]: 'warning',

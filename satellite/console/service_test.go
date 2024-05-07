@@ -504,6 +504,34 @@ func TestService(t *testing.T) {
 				require.Nil(t, userPage)
 			})
 
+			t.Run("UpdateProjectMemberRole", func(t *testing.T) {
+				newUser, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "New User",
+					Email:    "updateRole@example.com",
+					Password: "password",
+				}, 1)
+				require.NoError(t, err)
+
+				newUserCtx, err := sat.UserContext(ctx, newUser.ID)
+				require.NoError(t, err)
+
+				_, err = service.AddProjectMembers(userCtx1, up1Proj.ID, []string{newUser.Email})
+				require.NoError(t, err)
+
+				// only project owner can change member's role.
+				_, err = service.UpdateProjectMemberRole(newUserCtx, up1Proj.OwnerID, up1Proj.ID, console.RoleMember)
+				require.True(t, console.ErrUnauthorized.Has(err))
+
+				// project owner's role can't be changed.
+				_, err = service.UpdateProjectMemberRole(userCtx1, up1Proj.OwnerID, up1Proj.ID, console.RoleMember)
+				require.True(t, console.ErrConflict.Has(err))
+
+				// project owner can change member's role.
+				pm, err := service.UpdateProjectMemberRole(userCtx1, newUser.ID, up1Proj.ID, console.RoleAdmin)
+				require.NoError(t, err)
+				require.EqualValues(t, console.RoleAdmin, pm.Role)
+			})
+
 			t.Run("DeleteProjectMembersAndInvitations", func(t *testing.T) {
 				user1, user1Ctx := getOwnerAndCtx(ctx, up1Proj)
 				_, user2Ctx := getOwnerAndCtx(ctx, up2Proj)

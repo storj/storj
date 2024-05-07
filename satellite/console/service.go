@@ -171,6 +171,9 @@ var (
 	// or has expired.
 	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
 
+	// ErrConflict occurs when a user attempts an operation that conflicts with the current state.
+	ErrConflict = errs.Class("conflict detected")
+
 	// ErrAlreadyInvited occurs when trying to invite a user who has already been invited.
 	ErrAlreadyInvited = errs.Class("user is already invited")
 
@@ -1782,14 +1785,14 @@ func (s *Service) getValidatedFullName(requestData *SetUpAccountRequest) (name s
 		}
 
 		if len(*requestData.FirstName) == 0 || len(*requestData.FirstName) > s.config.MaxNameCharacters {
-			return "", errs.New(fmt.Sprintf("First name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters))
+			return "", errs.New("First name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
 		}
 
 		name = *requestData.FirstName
 
 		if requestData.LastName != nil {
 			if len(*requestData.LastName) > s.config.MaxNameCharacters {
-				return "", errs.New(fmt.Sprintf("Last name length must be less then or equal to %d", s.config.MaxNameCharacters))
+				return "", errs.New("Last name length must be less then or equal to %d", s.config.MaxNameCharacters)
 			}
 
 			name += " " + *requestData.LastName
@@ -1800,7 +1803,7 @@ func (s *Service) getValidatedFullName(requestData *SetUpAccountRequest) (name s
 		}
 
 		if len(*requestData.FullName) == 0 || len(*requestData.FullName) > s.config.MaxNameCharacters {
-			return "", errs.New(fmt.Sprintf("Full name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters))
+			return "", errs.New("Full name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
 		}
 
 		name = *requestData.FullName
@@ -1816,7 +1819,7 @@ func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (nam
 		}
 
 		if len(*requestData.CompanyName) == 0 || len(*requestData.CompanyName) > s.config.MaxNameCharacters {
-			return nil, errs.New(fmt.Sprintf("Company name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters))
+			return nil, errs.New("Company name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
 		}
 
 		name = requestData.CompanyName
@@ -2613,7 +2616,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
-			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID, RoleAdmin); err != nil {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID, RoleMember); err != nil {
 				if dbx.IsConstraintError(err) {
 					return errs.New("%s is already on the project", user.Email)
 				}
@@ -2700,6 +2703,37 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email)
 
 	return Error.Wrap(err)
+}
+
+// UpdateProjectMemberRole updates project member's role and returns an updated one.
+func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (pm *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	_, pr, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if pr.OwnerID == memberID {
+		return nil, ErrConflict.Wrap(errs.New("project owner's status can't be changed"))
+	}
+
+	_, err = s.isProjectMember(ctx, memberID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	pm, err = s.store.ProjectMembers().UpdateRole(ctx, memberID, pr.ID, newRole)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return pm, err
 }
 
 // GetProjectMembersAndInvitations returns the project members and invitations for a given project.
@@ -4325,7 +4359,8 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		return Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
 	}
 
-	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleAdmin)
+	// All the new team members have regular Member role, which can be updated by the project owner later.
+	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
 	if err != nil {
 		return Error.Wrap(err)
 	}

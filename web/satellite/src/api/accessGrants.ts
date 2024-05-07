@@ -80,13 +80,17 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
         const path = `${this.ROOT_PATH}/delete-by-ids`;
         const response = await this.client.delete(path, JSON.stringify({ ids }));
 
-        if (!response.ok) {
-            throw new APIError({
-                status: response.status,
-                message: 'Can not delete access grants',
-                requestID: response.headers.get('x-request-id'),
-            });
+        if (response.ok) {
+            return;
         }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not delete access grants',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
