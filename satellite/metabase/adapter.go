@@ -37,6 +37,9 @@ type Adapter interface {
 	DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
 	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
 	DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error)
+	DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error)
+	DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
+	DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
 
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
@@ -69,6 +72,7 @@ type TransactionAdapter interface {
 	commitObjectWithSegmentsTransactionAdapter
 	copyObjectTransactionAdapter
 	moveObjectTransactionAdapter
+	deleteTransactionAdapter
 }
 
 type postgresTransactionAdapter struct {
