@@ -382,8 +382,51 @@ func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectI
 
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 func (s *SpannerAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		objectDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					(project_id, bucket_name) = (@project_id, @bucket_name) AND
+					ARRAY_INCLUDES(@keys, object_key) AND
+					status <> ` + statusPending + `
+				THEN RETURN
+					project_id, bucket_name, object_key, version, stream_id, created_at, expires_at,
+					status, segment_count, encrypted_metadata_nonce, encrypted_metadata,
+					encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
+					fixed_segment_size, encryption
+			`,
+			Params: map[string]interface{}{
+				"project_id":  projectID,
+				"bucket_name": bucketName,
+				"keys":        objectKeys,
+			},
+		}
+		objectsDeleted := tx.Query(ctx, objectDeletion)
+		defer objectsDeleted.Stop()
+
+		result.Removed, err = scanMultipleObjectsDeletionSpanner(ctx, objectsDeleted)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		streamIDs := make([][]byte, 0, len(result.Removed))
+		for _, object := range result.Removed {
+			streamIDs = append(streamIDs, object.StreamID.Bytes())
+		}
+		segmentDeletion := spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids": streamIDs,
+			},
+		}
+		_, err = tx.Update(ctx, segmentDeletion)
+		return Error.Wrap(err)
+	})
+	return result, nil
 }
 
 // scanObjectDeletionPostgres reads in the results of an object deletion from the database.
@@ -465,6 +508,41 @@ func scanMultipleObjectsDeletionPostgres(ctx context.Context, rows tagsql.Rows) 
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
+			encryptionParameters{&object.Encryption})
+		if err != nil {
+			return nil, Error.New("unable to delete object: %w", err)
+		}
+
+		objects = append(objects, object)
+	}
+
+	if len(objects) == 0 {
+		objects = nil
+	}
+
+	return objects, nil
+}
+
+func scanMultipleObjectsDeletionSpanner(ctx context.Context, rowIterator *spanner.RowIterator) (objects []Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	objects = make([]Object, 0, 10)
+
+	var object Object
+	for {
+		row, err := rowIterator.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("unable to delete object: %w", err)
+		}
+		err = row.Columns(&object.ProjectID, &object.BucketName,
+			&object.ObjectKey, &object.Version, &object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			&object.Status, spannerutil.Int(&object.SegmentCount),
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption})
 		if err != nil {
 			return nil, Error.New("unable to delete object: %w", err)

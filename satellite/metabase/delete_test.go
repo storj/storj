@@ -1061,7 +1061,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
