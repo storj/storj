@@ -785,7 +785,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestDeleteObjectsAllVersions(t *testing.T) {
@@ -1442,5 +1442,5 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
