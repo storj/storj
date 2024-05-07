@@ -43,10 +43,10 @@ func TestPreflightSchema(t *testing.T) {
 		err := db.Preflight(ctx)
 		require.NoError(t, err)
 
-		// remove index from used serials db
+		// remove index from orders db
 		rawDBs := db.(*storagenodedb.DB).RawDatabases()
-		bandwidthDB := rawDBs[storagenodedb.BandwidthDBName]
-		_, err = bandwidthDB.GetDB().Exec(ctx, "DROP INDEX idx_bandwidth_usage_created;")
+		ordersDB := rawDBs[storagenodedb.OrdersDBName]
+		_, err = ordersDB.GetDB().Exec(ctx, "DROP INDEX idx_order_archived_at;")
 		require.NoError(t, err)
 
 		// expect error from preflight check for removal

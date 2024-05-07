@@ -2129,6 +2129,101 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.bandwidthDB.DB,
+				Description: "Create new bandwidth_usage table, backfilling data from bandwidth_usage_rollups and bandwidth_usage tables, and dropping the old tables.",
+				Version:     57,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, BandwidthDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`CREATE TABLE bandwidth_usage_new (
+    						interval_start TIMESTAMP NOT NULL,
+    						satellite_id BLOB NOT NULL,
+    						put_total BIGINT DEFAULT 0,
+    						get_total BIGINT DEFAULT 0,
+    						get_audit_total BIGINT DEFAULT 0,
+    						get_repair_total BIGINT DEFAULT 0,
+    						put_repair_total BIGINT DEFAULT 0,
+    						delete_total BIGINT DEFAULT 0,
+    						PRIMARY KEY (interval_start, satellite_id)
+                        );
+						INSERT INTO bandwidth_usage_new (
+							interval_start,
+							satellite_id,
+							put_total,
+							get_total,
+							get_audit_total,
+							get_repair_total,
+							put_repair_total,
+							delete_total
+						)
+						SELECT
+						    datetime(date(interval_start)) as interval_start,
+						    satellite_id,
+							SUM(CASE WHEN action = 1 THEN amount ELSE 0 END) AS put_total,
+							SUM(CASE WHEN action = 2 THEN amount ELSE 0 END) AS get_total,
+							SUM(CASE WHEN action = 3 THEN amount ELSE 0 END) AS get_audit_total,
+							SUM(CASE WHEN action = 4 THEN amount ELSE 0 END) AS get_repair_total,
+							SUM(CASE WHEN action = 5 THEN amount ELSE 0 END) AS put_repair_total,
+							SUM(CASE WHEN action = 6 THEN amount ELSE 0 END) AS delete_total
+						FROM
+						    bandwidth_usage_rollups
+						GROUP BY
+							datetime(date(interval_start)), satellite_id, action
+						ON CONFLICT(interval_start, satellite_id) DO UPDATE SET
+						    put_total = put_total + excluded.put_total,
+							get_total = get_total + excluded.get_total,
+							get_audit_total = get_audit_total + excluded.get_audit_total,
+							get_repair_total = get_repair_total + excluded.get_repair_total,
+							put_repair_total = put_repair_total + excluded.put_repair_total,
+							delete_total = delete_total + excluded.delete_total;
+
+						-- Backfill data from bandwidth_usage table
+						INSERT INTO bandwidth_usage_new (
+						    interval_start,
+							satellite_id,
+							put_total,
+							get_total,
+							get_audit_total,
+							get_repair_total,
+							put_repair_total,
+							delete_total
+						)
+						SELECT
+						    datetime(date(created_at)) as interval_start,
+						    satellite_id,
+							SUM(CASE WHEN action = 1 THEN amount ELSE 0 END) AS put_total,
+							SUM(CASE WHEN action = 2 THEN amount ELSE 0 END) AS get_total,
+							SUM(CASE WHEN action = 3 THEN amount ELSE 0 END) AS get_audit_total,
+							SUM(CASE WHEN action = 4 THEN amount ELSE 0 END) AS get_repair_total,
+							SUM(CASE WHEN action = 5 THEN amount ELSE 0 END) AS put_repair_total,
+							SUM(CASE WHEN action = 6 THEN amount ELSE 0 END) AS delete_total
+						FROM
+						    bandwidth_usage
+						GROUP BY
+							datetime(date(created_at)), satellite_id, action
+						ON CONFLICT(interval_start, satellite_id) DO UPDATE SET
+						    put_total = put_total + excluded.put_total,
+							get_total = get_total + excluded.get_total,
+							get_audit_total = get_audit_total + excluded.get_audit_total,
+							get_repair_total = get_repair_total + excluded.get_repair_total,
+							put_repair_total = put_repair_total + excluded.put_repair_total,
+							delete_total = delete_total + excluded.delete_total;
+
+						DROP TABLE bandwidth_usage_rollups;
+						DROP TABLE bandwidth_usage;
+						ALTER TABLE bandwidth_usage_new RENAME TO bandwidth_usage;
+					`)
+
+					return errs.Wrap(err)
+				}),
+			},
 		},
 	}
 }

@@ -18,7 +18,7 @@ type DB interface {
 	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
 	// MonthSummary returns summary of the current months bandwidth usages.
 	MonthSummary(ctx context.Context, now time.Time) (int64, error)
-	Rollup(ctx context.Context) (err error)
+	AddBatch(ctx context.Context, usages map[CacheKey]*Usage) (err error)
 	// Summary returns summary of bandwidth usages.
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// EgressSummary returns summary of egress bandwidth usages.
@@ -118,6 +118,22 @@ func (usage *Usage) Total() int64 {
 		usage.GetRepair +
 		usage.PutRepair +
 		usage.Delete
+}
+
+// Rollup returns rolluped bandwidth usage.
+func (usage *Usage) Rollup() *UsageRollup {
+	return &UsageRollup{
+		Egress: Egress{
+			Repair: usage.GetRepair,
+			Audit:  usage.GetAudit,
+			Usage:  usage.Get,
+		},
+		Ingress: Ingress{
+			Repair: usage.PutRepair,
+			Usage:  usage.Put,
+		},
+		Delete: usage.Delete,
+	}
 }
 
 // TotalMonthlySummary returns total bandwidth usage for current month.
