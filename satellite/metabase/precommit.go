@@ -620,6 +620,107 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 
 // PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
 func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := loc.Verify(); err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+
+	rowIterator := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			WITH highest_object AS (
+				SELECT version
+				FROM objects
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				ORDER BY version DESC
+				LIMIT 1
+			), highest_non_pending_object AS (
+				SELECT version
+				FROM objects
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+					AND status <> ` + statusPending + `
+				ORDER BY version DESC
+				LIMIT 1
+			)
+			SELECT
+				COALESCE((SELECT version FROM highest_object), 0) AS highest,
+				COALESCE((SELECT version FROM highest_non_pending_object), 0) AS highest_non_pending
+		`,
+		Params: map[string]interface{}{
+			"project_id":  loc.ProjectID,
+			"bucket_name": loc.BucketName,
+			"object_key":  loc.ObjectKey,
+		},
+	})
+	defer rowIterator.Stop()
+
+	row, err := rowIterator.Next()
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.New("could not get existing object versions: %w", err)
+	}
+	err = row.Columns(&result.HighestVersion, &result.HighestNonPendingVersion)
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.New("could not read existing object versions: %w", err)
+	}
+
+	objectDeletion := spanner.Statement{
+		SQL: `
+			DELETE FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				AND status IN ` + statusesUnversioned + `
+			THEN RETURN
+				version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+		`,
+		Params: map[string]interface{}{
+			"project_id":  loc.ProjectID,
+			"bucket_name": loc.BucketName,
+			"object_key":  loc.ObjectKey,
+		},
+	}
+	objectsDeleted := stx.tx.Query(ctx, objectDeletion)
+	defer objectsDeleted.Stop()
+
+	result.Deleted, err = scanObjectDeletionSpanner(ctx, loc, objectsDeleted)
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+
+	streamIDs := make([][]byte, 0, len(result.Deleted))
+	for _, object := range result.Deleted {
+		streamIDs = append(streamIDs, object.StreamID.Bytes())
+	}
+	segmentDeletion := spanner.Statement{
+		SQL: `
+			DELETE FROM segments
+			WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+		`,
+		Params: map[string]interface{}{
+			"stream_ids": streamIDs,
+		},
+	}
+	segmentsDeleted, err := stx.tx.Update(ctx, segmentDeletion)
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
+	}
+
+	result.DeletedObjectCount = len(result.Deleted)
+	result.DeletedSegmentCount = int(segmentsDeleted)
+
+	if len(result.Deleted) > 1 {
+		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
+			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+
+		mon.Meter("multiple_committed_versions").Mark(1)
+
+		return result, Error.New("internal error: multiple committed unversioned objects")
+	}
+
+	return result, nil
 }
