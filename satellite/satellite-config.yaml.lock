@@ -1004,7 +1004,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.distinct-ip: true
 
 # how much disk space a node at minimum must have to be selected for upload
-# overlay.node.minimum-disk-space: 500.00 MB
+# overlay.node.minimum-disk-space: 5.00 GB
 
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""

@@ -49,7 +49,7 @@ type NodeSelectionConfig struct {
 	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
 	NetworkPrefixIPv4 int           `help:"the prefix to use in determining 'network' for IPv4 addresses" default:"24" hidden:"true"`
 	NetworkPrefixIPv6 int           `help:"the prefix to use in determining 'network' for IPv6 addresses" default:"64" hidden:"true"`
-	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
+	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"5.00GB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
 
