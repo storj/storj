@@ -179,6 +179,11 @@ pipeline {
         }
 
         stage('Satellite UI Tests') {
+            when {
+                // temporarily disable UI tests in Jenkins until cross-dependency issues related to storj/common, storj/storj/shared, and storj/edge are resolved.
+                expression { false }
+            }
+
             environment {
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
