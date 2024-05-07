@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-7">
+    <v-form ref="form" class="pa-6">
         <v-row>
             <v-col v-if="$slots.default" cols="12">
                 <slot />

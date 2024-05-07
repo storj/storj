@@ -8,8 +8,8 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -33,7 +33,7 @@
                 </template>
             </v-card-item>
 
-            <v-card-item class="px-7 py-0">
+            <v-card-item class="px-6 py-0">
                 <v-divider />
 
                 <p class="py-4">The following team members will be removed.</p>
@@ -41,7 +41,7 @@
                 <v-divider />
             </v-card-item>
 
-            <v-card-item class="px-7 pt-4 pb-1">
+            <v-card-item class="px-6 pt-4 pb-1">
                 <v-chip
                     v-for="email in firstThreeSelected"
                     :key="email"
@@ -59,7 +59,7 @@
                 </v-chip>
             </v-card-item>
 
-            <v-card-item class="px-7 py-0">
+            <v-card-item class="px-6 py-0">
                 <v-alert variant="tonal" class="mb-4 pa-4" color="warning" border="start">
                     <template #text>
                         <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
@@ -69,7 +69,7 @@
                 <v-divider />
             </v-card-item>
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">

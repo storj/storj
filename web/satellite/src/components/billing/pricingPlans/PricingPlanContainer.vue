@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" rounded="xlg" class="h-100">
+    <v-card class="h-100">
         <div class="h-100 d-flex flex-column justify-space-between pa-8">
             <div>
                 <div class="d-flex justify-center align-center ma-0">

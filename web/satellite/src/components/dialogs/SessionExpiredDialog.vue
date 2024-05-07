@@ -8,8 +8,8 @@
         transition="fade-transition"
         persistent
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-session-timeout.svg" alt="Session expired">
                 </template>
@@ -18,14 +18,14 @@
 
             <v-divider />
 
-            <v-card-item class="pa-8">
+            <v-card-item class="pa-6">
                 To protect your account and data, you've been automatically logged out.
                 You can change your session timeout preferences in your account settings.
             </v-card-item>
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-btn
                     color="primary"
                     variant="flat"

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form class="pa-7" @submit.prevent>
+    <v-form class="pa-6" @submit.prevent>
         <v-row>
             <v-col>
                 <p class="font-weight-bold mb-2">Select Buckets</p>

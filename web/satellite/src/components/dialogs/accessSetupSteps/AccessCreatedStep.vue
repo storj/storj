@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form class="pa-7">
+    <v-form class="pa-6">
         <v-row>
             <v-col>
                 <p class="font-weight-bold mb-2">Access Created</p>

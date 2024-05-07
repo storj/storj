@@ -13,7 +13,7 @@
 
         <v-row>
             <v-col cols="12" lg="4">
-                <v-card title="Name" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Name">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ user.getFullName() }}
@@ -26,7 +26,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" lg="4">
-                <v-card title="Email Address" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Email Address">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ user.email }}
@@ -47,7 +47,7 @@
                 </v-card>
             </v-col>
             <v-col v-if="billingEnabled" cols="12" lg="4">
-                <v-card title="Account Type" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Account Type">
                     <v-card-text>
                         <v-chip
                             class="font-weight-bold"
@@ -78,7 +78,7 @@
 
         <v-row>
             <v-col cols="12" lg="4">
-                <v-card title="Password" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Password" variant="outlined">
                     <v-card-subtitle>
                         **********
                     </v-card-subtitle>
@@ -92,7 +92,7 @@
             </v-col>
 
             <v-col cols="12" lg="4">
-                <v-card title="Two-factor authentication" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Two-factor authentication">
                     <v-card-subtitle>
                         Improve security by enabling 2FA.
                     </v-card-subtitle>
@@ -108,7 +108,7 @@
             </v-col>
 
             <v-col cols="12" lg="4">
-                <v-card title="Session Timeout" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Session Timeout">
                     <v-card-subtitle>
                         Log out after {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}.
                     </v-card-subtitle>
@@ -124,7 +124,7 @@
 
         <v-row>
             <v-col cols="12" lg="4">
-                <v-card title="Passphrase Preference" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Passphrase Preference">
                     <v-card-subtitle>
                         Ask for passphrase when opening projects.
                     </v-card-subtitle>

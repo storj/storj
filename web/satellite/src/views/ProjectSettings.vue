@@ -14,7 +14,7 @@
 
         <v-row>
             <v-col cols="12" lg="4">
-                <v-card title="Project Name" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Project Name">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ project.name }}
@@ -27,7 +27,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" lg="4">
-                <v-card title="Project Description" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Project Description">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ project.description }}
@@ -40,7 +40,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" lg="4">
-                <v-card title="Delete Project" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Delete Project">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
                             Not Available
@@ -63,7 +63,7 @@
 
         <v-row v-if="!isPaidTier && billingEnabled">
             <v-col cols="12">
-                <v-card title="Free Trial" variant="outlined" border rounded="xlg">
+                <v-card title="Free Trial">
                     <v-card-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
                         Need more? Upgrade to Pro Account.
@@ -80,7 +80,7 @@
 
         <v-row v-else>
             <v-col cols="12" lg="4">
-                <v-card title="Storage Limit" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Storage Limit">
                     <v-card-subtitle>
                         Storage Limit: {{ storageLimitFormatted }} <br>
                         Available Storage: {{ paidStorageLimitFormatted }}
@@ -95,7 +95,7 @@
             </v-col>
 
             <v-col cols="12" lg="4">
-                <v-card title="Download Limit" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Download Limit">
                     <v-card-subtitle>
                         Download Limit: {{ bandwidthLimitFormatted }} per month<br>
                         Available Download: {{ paidBandwidthLimitFormatted }} per month
@@ -110,7 +110,7 @@
             </v-col>
 
             <v-col cols="12" lg="4">
-                <v-card title="Account Limits" variant="outlined" :border="true" rounded="xlg">
+                <v-card title="Account Limits">
                     <v-card-subtitle>
                         Storage limit: {{ paidStorageLimitFormatted }} <br>
                         Download limit: {{ paidBandwidthLimitFormatted }} per month

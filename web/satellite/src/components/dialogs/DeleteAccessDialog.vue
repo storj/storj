@@ -8,8 +8,8 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -37,7 +37,7 @@
 
             <v-divider />
 
-            <div class="px-7 py-6">
+            <div class="pa-6">
                 <p class="mb-3">
                     The following access key{{ accesses.length > 1 ? 's' : '' }}
                     will be deleted. Any publicly shared links using
@@ -52,7 +52,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">

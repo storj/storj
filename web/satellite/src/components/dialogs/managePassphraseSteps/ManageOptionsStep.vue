@@ -3,7 +3,7 @@
 
 <template>
     <div class="pa-4">
-        <v-sheet v-for="item in items" :key="item.next" class="ma-2" border rounded="xlg">
+        <v-sheet v-for="item in items" :key="item.next" class="ma-2">
             <v-list-item class="pa-2" link @click="emit('optionClick', item.next)">
                 <template #prepend>
                     <component :is="item.icon" width="20" height="20" class="ml-3 mr-4" />

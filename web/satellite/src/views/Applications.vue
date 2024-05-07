@@ -11,7 +11,7 @@
                 <PageSubtitleComponent subtitle="Connect Storj with third-party applications." link="https://www.storj.io/integrations" />
                 <v-chip-group
                     v-model="selectedChips"
-                    class="border rounded-xl px-2 mt-4"
+                    class="border rounded-xlg px-2 mt-4 bg-surface"
                     selected-class="font-weight-bold v-chip--variant-tonal"
                     color="info"
                     mandatory
@@ -24,7 +24,7 @@
                         color="info"
                         variant="text"
                         class="font-weight-medium"
-                        rounded
+                        rounded-lg
                         filter
                     >
                         {{ category }}

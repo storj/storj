@@ -9,7 +9,7 @@
         max-width="450px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-sheet>
                 <v-card-item class="py-4 pl-6">
                     <template #prepend>

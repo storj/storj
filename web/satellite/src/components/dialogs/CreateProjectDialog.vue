@@ -12,8 +12,8 @@
         :scrim="false"
         @update:model-value="v => model = v"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
                     <img v-else class="d-block" src="@/assets/icon-blue-box.svg" alt="Box">
@@ -37,7 +37,7 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-7" @submit.prevent>
+            <v-form v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
                     <template v-if="!billingEnabled || !isProjectLimitReached">
                         <v-col cols="12">
@@ -122,7 +122,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">

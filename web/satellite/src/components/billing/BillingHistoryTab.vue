@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card border rounded="xlg">
+    <v-card variant="flat">
         <v-data-table-server
             :loading="isLoading"
             :headers="headers"

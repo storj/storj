@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" rounded="xlg">
+    <v-card>
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">
@@ -12,7 +12,7 @@
                     </v-chip>
                 </div>
                 <v-card-title :class="{ 'text-primary': item && item.role !== ProjectRole.Invited }">
-                    <a v-if="item && item.role !== ProjectRole.Invited" class="link" @click="openProject">
+                    <a v-if="item && item.role !== ProjectRole.Invited" class="link text-decoration-none" @click="openProject">
                         {{ item.name }}
                     </a>
                     <template v-else>
