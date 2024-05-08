@@ -416,7 +416,11 @@ func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, tr
 	defer mon.Task()(&ctx)(&err)
 
 	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
-		_, _, err := store.lazyFilewalker.WalkCleanupTrash(ctx, satelliteID, trashedBefore)
+		bytesDeleted, _, err := store.lazyFilewalker.WalkCleanupTrash(ctx, satelliteID, trashedBefore)
+		// The lazy filewalker does not update the space used by the trash so we need to update it here.
+		if cache, ok := store.blobs.(*BlobsUsageCache); ok {
+			cache.Update(ctx, satelliteID, 0, 0, -bytesDeleted)
+		}
 		return Error.Wrap(err)
 	}
 	_, _, err = store.blobs.EmptyTrash(ctx, satelliteID[:], trashedBefore)
