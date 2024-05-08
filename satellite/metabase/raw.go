@@ -336,14 +336,58 @@ func (p *PostgresAdapter) TestingBatchInsertObjects(ctx context.Context, objects
 
 // TestingBatchInsertObjects batch inserts objects for testing.
 func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
-	// TODO: implement me
-	panic("implement me")
+	const maxRowsPerBatch = 250000
+
+	progress, total := 0, len(objects)
+	for len(objects) > 0 {
+		batch := objects
+		if len(batch) > maxRowsPerBatch {
+			batch = batch[:maxRowsPerBatch]
+		}
+		objects = objects[len(batch):]
+
+		source := newCopyFromRawObjects(batch)
+		muts := make([]*spanner.Mutation, 0, len(batch))
+		for source.Next() {
+			vals, err := source.Values()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			cols := source.Columns()
+
+			// Change the int32s to int64s to appease the capricious gods of Spanner.
+			// Also encode the "bucket_name" column value as a string instead of a byte array
+			// so that it doesn't come back as base64 for ridiculous Spanner reasons.
+			//
+			// At least this hacky bit is better than having a whole separate implementation
+			// of copyFromRawObjects.
+			//
+			// TODO: see whether there's a better way to approach this.
+			for i := range vals {
+				if v, ok := vals[i].(int32); ok {
+					vals[i] = int64(v)
+				}
+				if cols[i] == "bucket_name" {
+					vals[i] = string(vals[i].([]byte))
+				}
+			}
+
+			muts = append(muts, spanner.Insert("objects", source.Columns(), vals))
+		}
+		_, err = s.client.Apply(ctx, muts)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		progress += len(batch)
+		s.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+	}
+	return nil
 }
 
 type copyFromRawObjects struct {
 	idx  int
 	rows []RawObject
-	row  []any
 }
 
 func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
@@ -387,7 +431,7 @@ func (ctr *copyFromRawObjects) Columns() []string {
 
 func (ctr *copyFromRawObjects) Values() ([]any, error) {
 	obj := &ctr.rows[ctr.idx]
-	ctr.row = append(ctr.row[:0],
+	return []any{
 		obj.ProjectID.Bytes(),
 		[]byte(obj.BucketName),
 		[]byte(obj.ObjectKey),
@@ -410,8 +454,7 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 
 		encryptionParameters{&obj.Encryption},
 		obj.ZombieDeletionDeadline,
-	)
-	return ctr.row, nil
+	}, nil
 }
 
 func (ctr *copyFromRawObjects) Err() error { return nil }
