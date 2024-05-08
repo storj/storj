@@ -41,6 +41,7 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 			if err != nil {
 				return ObjectStream{}, Error.New("unable to select expired objects for deletion: %w", err)
 			}
+
 			if len(expiredObjects) == 0 {
 				return ObjectStream{}, nil
 			}
@@ -192,6 +193,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			if err != nil {
 				return ObjectStream{}, Error.Wrap(err)
 			}
+
 			if len(objects) == 0 {
 				return ObjectStream{}, nil
 			}
@@ -547,10 +549,22 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 		for _, obj := range objects {
 			streamIDs = append(streamIDs, obj.StreamID.Bytes())
 		}
+
+		// TODO(spanner): this is not quite correct, instead of assuming how the previous check went,
+		// we should delete the segments based on what we actually deleted.
+		//
+		// Alternatively, we might be able to do a single statement per object to delete both segments
+		// and object itself at the same time.
 		numSegments, err := tx.Update(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM segments
 				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+					AND NOT EXISTS (
+					    SELECT 1 FROM segments s2
+						WHERE
+							s2.stream_id = segments.stream_id
+							AND s2.created_at > @inactive_deadline
+					)
 			`,
 			Params: map[string]interface{}{
 				"stream_ids":        streamIDs,

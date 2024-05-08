@@ -504,5 +504,5 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
