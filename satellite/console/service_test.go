@@ -2123,13 +2123,50 @@ func TestSetActivationCodeAndSignupID(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, existingUser.ActivationCode)
 
+		// should not work with active status
+		require.Equal(t, console.Active, existingUser.Status)
 		updatedUser, err := srv.SetActivationCodeAndSignupID(ctx, *existingUser)
-		require.NoError(t, err)
-		require.NotEmpty(t, updatedUser.ActivationCode)
+		require.Error(t, err)
+		require.Equal(t, console.User{}, updatedUser)
 
+		// should work with inactive status
+		newStatus := console.Inactive
+		err = sat.DB.Console().Users().Update(ctx, existingUser.ID, console.UpdateUserRequest{
+			Status: &newStatus,
+		})
+		require.NoError(t, err)
+
+		activeUser, inactiveUsers, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Nil(t, activeUser)
+		require.Len(t, inactiveUsers, 1)
+		existingUser = &inactiveUsers[0]
+
+		require.Empty(t, existingUser.ActivationCode)
 		updatedUser2, err := srv.SetActivationCodeAndSignupID(ctx, *existingUser)
 		require.NoError(t, err)
-		require.NotEqual(t, updatedUser.ActivationCode, updatedUser2.ActivationCode)
+		require.NotEmpty(t, updatedUser2.ActivationCode)
+
+		// should be possible to get new activation code
+		updatedUser3, err := srv.SetActivationCodeAndSignupID(ctx, *existingUser)
+		require.NoError(t, err)
+		require.NotEqual(t, updatedUser2.ActivationCode, updatedUser3.ActivationCode)
+
+		// should not work with a status that is not "Inactive"
+		newStatus = console.PendingDeletion
+		err = sat.DB.Console().Users().Update(ctx, existingUser.ID, console.UpdateUserRequest{
+			Status: &newStatus,
+		})
+		require.NoError(t, err)
+		activeUser, inactiveUsers, err = srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Nil(t, activeUser)
+		require.Len(t, inactiveUsers, 1)
+		existingUser = &inactiveUsers[0]
+
+		updatedUser4, err := srv.SetActivationCodeAndSignupID(ctx, *existingUser)
+		require.Error(t, err)
+		require.Equal(t, console.User{}, updatedUser4)
 	})
 }
 

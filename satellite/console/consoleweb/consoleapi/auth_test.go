@@ -1078,6 +1078,24 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
 		require.Contains(t, body, "/signup")
+
+		// trying to activate an account that is not "inactive" or "active" should result in an error
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, email)
+		require.NoError(t, err)
+		newStatus := console.PendingDeletion
+		err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &newStatus,
+		})
+		require.NoError(t, err)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Equal(t, http.StatusNotFound, result.StatusCode)
+		require.NoError(t, result.Body.Close())
 	})
 }
 

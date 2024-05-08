@@ -493,11 +493,17 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user *console.User
-	if len(unverified) == 0 {
+	for _, u := range unverified {
+		if u.Status == console.Inactive {
+			u2 := u
+			user = &u2
+			break
+		}
+	}
+	if user == nil {
 		a.serveJSONError(ctx, w, console.ErrEmailNotFound.New("no unverified user found"))
 		return
 	}
-	user = &unverified[0]
 
 	now := time.Now()
 
@@ -1354,6 +1360,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusPaymentRequired
 	case errors.As(err, &maxBytesError):
 		return http.StatusRequestEntityTooLarge
+	case console.ErrEmailNotFound.Has(err):
+		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
 	}

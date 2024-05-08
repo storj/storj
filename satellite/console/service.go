@@ -1191,6 +1191,11 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 func (s *Service) SetActivationCodeAndSignupID(ctx context.Context, user User) (_ User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if user.Status != Inactive {
+		s.auditLog(ctx, "set activation code attempted on active user", &user.ID, user.Email)
+		return User{}, ErrActivationCode.New("user already active")
+	}
+
 	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
 	if err != nil {
 		return User{}, Error.Wrap(err)
