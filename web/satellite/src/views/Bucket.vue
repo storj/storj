@@ -6,7 +6,7 @@
         class="bucket-view"
         @dragover.prevent="isDragging = true"
     >
-        <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="upload" />
+        <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="onUpload" />
         <page-title-component title="Browse Files" />
 
         <browser-breadcrumbs-component />
@@ -54,7 +54,7 @@
                     aria-roledescription="file-upload"
                     hidden
                     multiple
-                    @change="upload"
+                    @change="onUpload"
                 >
                 <input
                     id="Folder Input"
@@ -65,7 +65,7 @@
                     multiple
                     webkitdirectory
                     mozdirectory
-                    @change="upload"
+                    @change="onUpload"
                 >
                 <v-btn
                     variant="outlined"
@@ -216,6 +216,12 @@
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="() => bucketsStore.getAllBucketsMetadata(projectId)" />
+    <upload-overwrite-warning-dialog
+        v-model="isDuplicateUploadDialogShown"
+        :filenames="duplicateFiles"
+        @proceed="upload(true)"
+        @cancel="clearUpload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -249,6 +255,8 @@ import { ROUTES } from '@/router';
 import { Versioning } from '@/types/versioning';
 import { BucketMetadata } from '@/types/buckets';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { DuplicateUploadError } from '@/utils/error';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
@@ -272,12 +280,14 @@ import IconShare from '@/components/icons/IconShare.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import IconFingerPrint from '@/components/icons/IconFingerPrint.vue';
+import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
+const userStore = useUsersStore();
 
 const router = useRouter();
 const route = useRoute();
@@ -296,12 +306,24 @@ const isBucketPassphraseDialogOpen = ref<boolean>(false);
 const isNewFolderDialogOpen = ref<boolean>(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isDeleteBucketDialogShown = ref<boolean>(false);
+const isDuplicateUploadDialogShown = ref<boolean>(false);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
+
+const duplicateFiles = ref<string[]>([]);
 
 /**
  * Whether versioning has been enabled for current project and allowed for this bucket specifically.
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning !== Versioning.NotSupported);
+
+/**
+ * Whether the user should be warned when uploading duplicate files.
+ */
+const ignoreDuplicateUploads = computed<boolean>(() => {
+    const duplicateWarningDismissed = !!userStore.state.settings.noticeDismissal?.uploadOverwriteWarning;
+    const versioningEnabled = projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning === Versioning.Enabled;
+    return versioningEnabled || duplicateWarningDismissed;
+});
 
 /**
  * Whether object versions should be shown.
@@ -385,18 +407,45 @@ function initObjectStore(): void {
     isInitialized.value = true;
 }
 
-/**
- * Upload the current selected or dragged-and-dropped file.
- */
-async function upload(e: Event): Promise<void> {
+const uploadEvent = ref<Event>();
+
+function clearUpload() {
+    if (!uploadEvent.value) {
+        return;
+    }
+    const target = uploadEvent.value.target as HTMLInputElement;
+    target.value = '';
+    uploadEvent.value = undefined;
+    duplicateFiles.value = [];
+}
+
+function onUpload(e: Event | undefined) {
     if (isDragging.value) {
         isDragging.value = false;
     }
 
-    await obStore.upload({ e });
-    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
-    const target = e.target as HTMLInputElement;
-    target.value = '';
+    uploadEvent.value = e;
+    duplicateFiles.value = [];
+
+    upload(ignoreDuplicateUploads.value);
+}
+/**
+ * Upload the current selected or dragged-and-dropped file.
+ */
+async function upload(ignoreDuplicate: boolean): Promise<void> {
+    if (!uploadEvent.value) {
+        return;
+    }
+    try {
+        await obStore.upload({ e: uploadEvent.value }, ignoreDuplicate);
+        clearUpload();
+        analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    } catch (error) {
+        if (error instanceof DuplicateUploadError) {
+            duplicateFiles.value = error.files;
+            isDuplicateUploadDialogShown.value = true;
+        }
+    }
 }
 
 /**

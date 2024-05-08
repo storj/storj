@@ -236,6 +236,7 @@ export interface NoticeDismissal {
     serverSideEncryption: boolean
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
+    uploadOverwriteWarning?: boolean;
 }
 
 export interface SetUserSettingsData {

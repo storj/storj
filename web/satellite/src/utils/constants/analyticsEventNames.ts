@@ -112,6 +112,7 @@ export enum AnalyticsErrorEventSource {
     VERSIONING_TOGGLE_DIALOG = 'Versioning toggle dialog',
     VERSIONING_BETA_DIALOG = 'Versioning beta dialog',
     VERSIONING_BETA_BANNER = 'Versioning beta banner',
+    UPLOAD_OVERWRITE_WARNING_DIALOG = 'Upload Overwrite Warning Dialog',
 }
 
 export enum PageVisitSource {

@@ -559,6 +559,7 @@ async function fetchFiles(): Promise<void> {
     if (isFetching.value || props.forceEmpty) return;
 
     obStore.updateSelectedFiles([]);
+    obStore.updateVersionsExpandedKeys([]);
     isFetching.value = true;
 
     try {

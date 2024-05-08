@@ -370,6 +370,7 @@ type NoticeDismissal struct {
 	ServerSideEncryption     bool `json:"serverSideEncryption"`
 	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
 	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
+	UploadOverwriteWarning   bool `json:"uploadOverwriteWarning"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

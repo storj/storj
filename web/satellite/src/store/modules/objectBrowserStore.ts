@@ -26,6 +26,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { DuplicateUploadError } from '@/utils/error';
 
 const listCache = new Map();
 
@@ -457,7 +458,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.objectsCount = (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
-    async function upload({ e }: { e: DragEvent | Event }): Promise<void> {
+    async function upload({ e }: { e: DragEvent | Event }, ignoreDuplicate = false): Promise<void> {
         assertIsInitialized(state);
 
         type Item = DataTransferItem | FileSystemEntry;
@@ -520,7 +521,31 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             )
             .filter(isFileSystemEntry) as FileSystemEntry[];
 
+        const fileNames = state.files.map((file) => file.Key);
+        const files: { path: string, file: File }[] = [];
+        const duplicateFiles: string[] = [];
+        let traversedCount = 0;
         for await (const { path, file } of traverse(iterator)) {
+            const directories = path.split('/');
+            const fileName = path + file.name;
+            const hasDuplicate = fileNames.includes(directories[0]) || fileNames.includes(fileName);
+            if (!ignoreDuplicate && duplicateFiles.length < 5 && hasDuplicate) {
+                duplicateFiles.push(fileName);
+                // if we have 5 duplicate files, or we have traversed 100 files, we stop the loop.
+                // and later throw DuplicateUploadError to notify the user of possible duplicates overwrites.
+                if (duplicateFiles.length === 5 || traversedCount === 100) {
+                    break;
+                }
+            }
+            files.push({ path, file });
+            traversedCount++;
+        }
+
+        if (duplicateFiles.length > 0) {
+            throw new DuplicateUploadError(duplicateFiles);
+        }
+
+        for await (const { path, file } of files) {
             const directories = path.split('/');
             const fileName = directories.join('/') + file.name;
             const key = state.path + fileName;

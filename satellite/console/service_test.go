@@ -2056,6 +2056,7 @@ func TestUserSettings(t *testing.T) {
 			ServerSideEncryption:     false,
 			PartnerUpgradeBanner:     false,
 			ProjectMembersPassphrase: false,
+			UploadOverwriteWarning:   false,
 		}
 		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
@@ -2087,6 +2088,7 @@ func TestUserSettings(t *testing.T) {
 		noticeDismissal.FileGuide = true
 		noticeDismissal.PartnerUpgradeBanner = true
 		noticeDismissal.ProjectMembersPassphrase = true
+		noticeDismissal.UploadOverwriteWarning = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,
