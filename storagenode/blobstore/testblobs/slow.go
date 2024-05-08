@@ -187,14 +187,6 @@ func (slow *SlowBlobs) ListNamespaces(ctx context.Context) ([][]byte, error) {
 	return slow.blobs.ListNamespaces(ctx)
 }
 
-// FreeSpace return how much free space left for writing.
-func (slow *SlowBlobs) FreeSpace(ctx context.Context) (int64, error) {
-	if err := slow.sleep(ctx); err != nil {
-		return 0, errs.Wrap(err)
-	}
-	return slow.blobs.FreeSpace(ctx)
-}
-
 // DiskInfo returns the disk space information.
 func (slow *SlowBlobs) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
 	if err := slow.sleep(ctx); err != nil {

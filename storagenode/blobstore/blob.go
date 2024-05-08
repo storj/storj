@@ -101,8 +101,6 @@ type Blobs interface {
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 
-	// FreeSpace return how much free space is left on the whole disk, not just the allocated disk space.
-	FreeSpace(ctx context.Context) (int64, error)
 	// DiskInfo returns information about the disk.
 	DiskInfo(ctx context.Context) (DiskInfo, error)
 	// SpaceUsedForTrash returns the total space used by the trash.
@@ -147,7 +145,6 @@ type BlobInfo interface {
 
 // DiskInfo contains information about the disk.
 type DiskInfo struct {
-	ID             string
 	TotalSpace     int64
 	AvailableSpace int64
 }
