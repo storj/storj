@@ -285,15 +285,6 @@ func (store *blobStore) SpaceUsedForBlobsInNamespaceInTrash(ctx context.Context,
 	return totalUsed, nil
 }
 
-// FreeSpace returns how much space left in underlying directory.
-func (store *blobStore) FreeSpace(ctx context.Context) (int64, error) {
-	info, err := store.dir.Info(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return info.AvailableSpace, nil
-}
-
 // DiskInfo returns information about the disk.
 func (store *blobStore) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
 	return store.dir.Info(ctx)

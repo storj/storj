@@ -236,14 +236,6 @@ func (bad *BadBlobs) ListNamespaces(ctx context.Context) ([][]byte, error) {
 	return bad.blobs.ListNamespaces(ctx)
 }
 
-// FreeSpace return how much free space left for writing.
-func (bad *BadBlobs) FreeSpace(ctx context.Context) (int64, error) {
-	if err := bad.err.Err(); err != nil {
-		return 0, err
-	}
-	return bad.blobs.FreeSpace(ctx)
-}
-
 // DiskInfo returns information about the disk.
 func (bad *BadBlobs) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
 	if err := bad.err.Err(); err != nil {

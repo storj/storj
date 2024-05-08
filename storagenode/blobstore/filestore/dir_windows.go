@@ -7,7 +7,6 @@ package filestore
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"unsafe"
@@ -25,15 +24,9 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 
 	info, err = getDiskFreeSpace(absPath)
 	if err != nil {
-		return blobstore.DiskInfo{ID: "", TotalSpace: -1, AvailableSpace: -1}, err
+		return blobstore.DiskInfo{TotalSpace: -1, AvailableSpace: -1}, err
 	}
 
-	filesystemID, err := getVolumeSerialNumber(absPath)
-	if err != nil {
-		return info, err
-	}
-
-	info.ID = filesystemID
 	return info, nil
 }
 
@@ -52,36 +45,6 @@ func getDiskFreeSpace(path string) (info blobstore.DiskInfo, err error) {
 	info.TotalSpace = int64(totalNumberOfBytes)
 
 	return info, err
-}
-
-func getVolumeSerialNumber(path string) (string, error) {
-	path16, err := windows.UTF16PtrFromString(path)
-	if err != nil {
-		return "", err
-	}
-
-	var volumePath [1024]uint16
-	err = windows.GetVolumePathName(path16, &volumePath[0], uint32(len(volumePath)))
-	if err != nil {
-		return "", err
-	}
-
-	var volumeSerial uint32
-
-	err = windows.GetVolumeInformation(
-		&volumePath[0],
-		nil, 0, // volume name buffer
-		&volumeSerial,
-		nil,    // maximum component length
-		nil,    // filesystem flags
-		nil, 0, // filesystem name buffer
-	)
-	err = ignoreSuccess(err)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%08x", volumeSerial), nil
 }
 
 // windows api occasionally returns.

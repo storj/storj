@@ -34,11 +34,7 @@ func TestDiskInfoFromPath(t *testing.T) {
 	if info.AvailableSpace <= 0 {
 		t.Fatal("expected to have some disk space")
 	}
-	if info.ID == "" {
-		t.Fatal("didn't get filesystem id")
-	}
-
-	t.Logf("Got: %v %v", info.ID, info.AvailableSpace)
+	t.Logf("Got: %v", info.AvailableSpace)
 }
 
 func BenchmarkDiskInfoFromPath(b *testing.B) {
