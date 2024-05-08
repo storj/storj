@@ -9,8 +9,8 @@
         max-width="460px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -40,34 +40,34 @@
 
             <v-divider />
 
-            <v-card-item class="pl-7">
+            <v-card-item class="pl-6">
                 <h4>Name</h4>
-                <p>{{ bucket.name }}</p>
+                <p class="text-body-2">{{ bucket.name }}</p>
             </v-card-item>
 
-            <v-card-item class="pl-7">
+            <v-card-item class="pl-6">
                 <h4>Files</h4>
-                <p>{{ bucket.objectCount.toLocaleString() }}</p>
+                <p class="text-body-2">{{ bucket.objectCount.toLocaleString() }}</p>
             </v-card-item>
 
-            <v-card-item class="pl-7">
+            <v-card-item class="pl-6">
                 <h4>Segments</h4>
-                <p>{{ bucket.segmentCount.toLocaleString() }}</p>
+                <p class="text-body-2">{{ bucket.segmentCount.toLocaleString() }}</p>
             </v-card-item>
 
-            <v-card-item class="pl-7">
+            <v-card-item class="pl-6">
                 <h4>Date Created</h4>
-                <p>{{ bucket.since.toUTCString() }}</p>
+                <p class="text-body-2">{{ bucket.since.toUTCString() }}</p>
             </v-card-item>
 
-            <v-card-item class="mb-4 pl-7">
+            <v-card-item class="mb-4 pl-6">
                 <h4>Last Updated</h4>
-                <p>{{ bucket.before.toUTCString() }}</p>
+                <p class="text-body-2">{{ bucket.before.toUTCString() }}</p>
             </v-card-item>
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn color="primary" variant="flat" block @click="model = false">Close</v-btn>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-7 pb-4" @submit.prevent="emit('submit')">
+    <v-form ref="form" class="pa-6 pb-4" @submit.prevent="emit('submit')">
         <v-row>
             <v-col cols="12">
                 <p class="text-subtitle-2 font-weight-bold mb-5">Enter Access Name</p>

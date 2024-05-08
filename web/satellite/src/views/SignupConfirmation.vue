@@ -4,44 +4,43 @@
 <template>
     <v-container v-if="!codeActivationEnabled" class="fill-height" fluid>
         <v-row justify="center" align="center">
-            <v-col class="text-center py-5" cols="12">
-                <icon-blue-checkmark />
-                <h2 class="my-3">You are almost ready to use Storj</h2>
-                <p>
-                    A verification email has been sent to your email
-                    <span class="font-weight-bold">{{ userEmail }}</span>
-                </p>
-                <p>
-                    Check your inbox to activate your account and get started.
-                </p>
-                <v-btn
-                    class="mt-7"
-                    size="large"
-                    :disabled="secondsToWait !== 0"
-                    :loading="isLoading"
-                    @click="resendMail"
-                >
-                    <template v-if="secondsToWait !== 0">
-                        Resend in {{ timeToEnableResendEmailButton }}
-                    </template>
-                    <template v-else>
-                        Resend Verification Email
-                    </template>
-                </v-btn>
-            </v-col>
+            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+                <v-card class="pa-2 pa-sm-7">
+                    <h2 class="mb-3">You are almost ready to use Storj</h2>
+                    <p>
+                        A verification email has been sent to your email
+                        <span class="font-weight-bold">{{ userEmail }}</span>
+                    </p>
+                    <p>
+                        Check your inbox to activate your account and get started.
+                    </p>
+                    <v-btn
+                        class="my-5"
+                        size="large"
+                        :disabled="secondsToWait !== 0"
+                        :loading="isLoading"
+                        @click="resendMail"
+                    >
+                        <template v-if="secondsToWait !== 0">
+                            Resend in {{ timeToEnableResendEmailButton }}
+                        </template>
+                        <template v-else>
+                            Resend Verification Email
+                        </template>
+                    </v-btn>
 
-            <v-col cols="12">
-                <p class="text-center text-body-2">
-                    Or <a
-                        class="link"
-                        href="https://supportdcs.storj.io/hc/en-us/requests/new"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >contact our support team</a>
-                </p>
+                    <p class="text-body-2">
+                        Or <a
+                            class="link"
+                            href="https://supportdcs.storj.io/hc/en-us/requests/new"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >contact the Storj support team</a>
+                    </p>
+                </v-card>
             </v-col>
             <v-col cols="12">
-                <p class="text-center text-body-2"><router-link class="link" :to="ROUTES.Login.path">Go to login page</router-link></p>
+                <p class="text-center text-body-2"><router-link class="link font-weight-bold" :to="ROUTES.Login.path">Go to Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -129,8 +128,6 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-
-import IconBlueCheckmark from '@/components/icons/IconBlueCheckmark.vue';
 
 const props = withDefaults(defineProps<{
     email?: string;

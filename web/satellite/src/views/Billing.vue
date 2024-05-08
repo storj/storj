@@ -15,7 +15,7 @@
             </v-col>
         </v-row>
 
-        <v-card variant="outlined" :border="true" color="default" class="mt-2 mb-6 rounded">
+        <v-card color="default" class="mt-2 mb-6">
             <v-tabs
                 v-model="tab"
                 color="default"
@@ -49,8 +49,6 @@
                             title="Total Cost"
                             :subtitle="`Estimated for ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
                             variant="flat"
-                            :border="true"
-                            rounded="xlg"
                         >
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
@@ -66,7 +64,7 @@
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card title="Account Balance" subtitle="Your STORJ account balance" variant="flat" :border="true" rounded="xlg">
+                        <v-card title="Account Balance" subtitle="Your STORJ account balance" variant="flat">
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
@@ -87,7 +85,6 @@
                             v-if="isLoading"
                             class="d-flex align-center justify-center"
                             height="200"
-                            rounded="xlg"
                             variant="flat"
                         >
                             <template #loader>
@@ -99,7 +96,6 @@
                             :title="`Coupon / ${coupon.name}`"
                             height="100%"
                             :subtitle="`${isCouponActive ? 'Active' : 'Expired'} / ${couponExpiration}`"
-                            rounded="xlg"
                             variant="flat"
                         >
                             <v-card-text>
@@ -133,7 +129,6 @@
                             title="Coupon"
                             subtitle="Apply a new coupon to your account"
                             variant="flat"
-                            rounded="xlg"
                         >
                             <v-card-text>
                                 <v-chip rounded color="default" variant="tonal" class="font-weight-bold mb-2">
@@ -159,7 +154,7 @@
 
                 <v-row>
                     <v-col>
-                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." border variant="flat">
+                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." variant="flat">
                             <v-card-text>
                                 <v-btn variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
                                     <detailed-usage-report-dialog />

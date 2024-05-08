@@ -9,8 +9,8 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <v-card-title class="font-weight-bold"> Update Billing Address </v-card-title>
                 <template #append>
                     <v-btn

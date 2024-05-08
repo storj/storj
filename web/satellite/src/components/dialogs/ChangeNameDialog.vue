@@ -10,8 +10,8 @@
         max-width="410px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="py-4">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-change-name.svg" alt="Change name">
                 </template>

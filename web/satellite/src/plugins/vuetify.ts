@@ -36,6 +36,7 @@ export default createVuetify({
         },
         VTooltip: {
             transition: 'fade-transition',
+            rounded: 'lg',
         },
         VSelect: {
             // rounded: 'lg',

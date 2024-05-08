@@ -9,7 +9,7 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-card-item class="pl-6 py-4">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-green-coupon.svg" alt="Coupon">

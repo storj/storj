@@ -8,8 +8,8 @@
         min-width="400px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-card-title class="font-weight-bold">Join Project</v-card-title>
                 </template>
@@ -26,9 +26,9 @@
                 </template>
             </v-card-item>
             <v-divider />
-            <div class="px-7 py-4">Join the {{ name }} project.</div>
+            <div class="px-6 py-4">Join the {{ name }} project.</div>
             <v-divider />
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn

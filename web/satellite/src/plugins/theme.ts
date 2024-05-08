@@ -11,7 +11,7 @@ export const THEME_OPTIONS: ThemeOptions = {
             colors: {
                 primary: '#0052FF',
                 secondary: '#091C45',
-                background: '#FFF',
+                background: '#F5F6F8',
                 surface: '#FFF',
                 info: '#0059D0',
                 help: '#FFA800',

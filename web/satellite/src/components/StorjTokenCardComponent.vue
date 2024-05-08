@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="STORJ Token" variant="flat" border rounded="xlg">
+    <v-card title="STORJ Token" variant="flat">
         <v-card-text>
             <v-row class="ma-0 align-center">
                 <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>

@@ -5,7 +5,7 @@
     <v-container>
         <v-row>
             <v-col cols="12" lg="4">
-                <v-card :loading="isLoading" title="Address" variant="outlined" :border="true" rounded="xlg">
+                <v-card :loading="isLoading" title="Address" variant="flat">
                     <v-card-text>
                         <v-chip v-if="!billingAddress" rounded color="default" variant="tonal" size="small" class="font-weight-bold">
                             No billing address added
@@ -27,7 +27,7 @@
                 </v-card>
             </v-col>
             <v-col v-if="!taxIDs.length" cols="12" lg="4">
-                <v-card :loading="isLoading" title="Tax Information" variant="outlined" :border="true" rounded="xlg">
+                <v-card :loading="isLoading" title="Tax Information" variant="flat">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
                             No tax information added
@@ -40,7 +40,7 @@
                 </v-card>
             </v-col>
             <v-col v-for="(taxID, index) in taxIDs" v-else :key="index" cols="12" lg="4">
-                <v-card :title="taxID.tax.name" variant="outlined" :border="true" rounded="xlg">
+                <v-card :title="taxID.tax.name" variant="flat">
                     <v-card-text>
                         <p>{{ taxID.value }}</p>
                         <v-divider class="my-4" />

@@ -8,6 +8,7 @@
         block
         color="success"
         @click="emit('continue')"
+        class="mb-2"
     >
         <template #append>
             <v-icon :icon="mdiArrowRight" />

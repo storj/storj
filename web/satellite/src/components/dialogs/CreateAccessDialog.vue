@@ -10,8 +10,8 @@
         scrollable
         persistent
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7 pos-relative">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6 pos-relative">
                 <template #prepend>
                     <img class="d-block" :src="STEP_ICON_AND_TITLE[step].icon" alt="icon">
                 </template>
@@ -134,7 +134,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn

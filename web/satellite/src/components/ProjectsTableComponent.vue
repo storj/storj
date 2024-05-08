@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" class="rounded-xlg">
+    <v-card>
         <v-text-field
             v-model="search"
             label="Search"

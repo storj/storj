@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8">
+    <div class="pa-6">
         By choosing to clear your passphrase for this session, your data will become locked
         while you can use the rest of the dashboard.
     </div>

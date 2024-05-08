@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="Add Card" variant="flat" border rounded="xlg">
+    <v-card variant="flat" title="Add Card">
         <v-card-text>
             <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
 
@@ -41,8 +41,8 @@
         width="460px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-success.svg" alt="success">
                 </template>

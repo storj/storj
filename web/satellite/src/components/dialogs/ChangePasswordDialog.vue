@@ -10,8 +10,8 @@
         max-width="410px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-change-password.svg" alt="Change password">
                 </template>
@@ -28,10 +28,10 @@
                 </template>
             </v-card-item>
             <v-divider />
-            <v-card-item class="px-7 pt-5">
+            <v-card-item class="px-6 pt-5">
                 <p>You will receive a verification link in your email to confirm the password change.</p>
             </v-card-item>
-            <v-card-item class="px-7">
+            <v-card-item class="px-6">
                 <v-form v-model="formValid" @submit.prevent="onChangePassword">
                     <v-col cols="12" class="px-0">
                         <v-text-field

@@ -17,7 +17,7 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <PageTitleComponent title="Project Dashboard" />
+                <PageTitleComponent title="Project dashboard" />
                 <PageSubtitleComponent
                     subtitle="View your project statistics, check daily usage, and set project limits."
                     link="https://docs.storj.io/support/projects"
@@ -160,7 +160,7 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <v-card-title class="font-weight-bold pl-0">Daily Usage</v-card-title>
+                <v-card-title class="font-weight-bold pl-0">Daily usage</v-card-title>
                 <v-card-subtitle class="pl-0">Select date range to view daily usage statistics.</v-card-subtitle>
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
@@ -172,7 +172,7 @@
 
         <v-row class="d-flex align-center justify-center mt-2 mb-5">
             <v-col cols="12" md="6">
-                <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true" rounded="xlg">
+                <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true">
                     <template #title>
                         <v-card-title class="d-flex align-center">
                             <IconCloud class="mr-2" width="16" height="16" />
@@ -190,7 +190,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
-                <v-card class="pb-4" variant="outlined" :border="true" rounded="xlg">
+                <v-card class="pb-4" variant="outlined" :border="true">
                     <template #title>
                         <v-card-title class="d-flex align-center justify-space-between">
                             <v-row class="ma-0 align-center">
@@ -231,7 +231,7 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <v-card-title class="font-weight-bold pl-0">Storage Buckets</v-card-title>
+                <v-card-title class="font-weight-bold pl-0">Storage buckets</v-card-title>
                 <v-card-subtitle class="pl-0">Buckets are where you upload and organize your data.</v-card-subtitle>
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">

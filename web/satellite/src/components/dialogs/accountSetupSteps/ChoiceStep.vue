@@ -16,7 +16,7 @@
 
         <v-row justify="center">
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="personal" border class="px-3 py-5" @click="typeSelected(OnboardingStep.PersonalAccountForm)">
+                <v-card id="personal" class="px-3 py-5" @click="typeSelected(OnboardingStep.PersonalAccountForm)">
                     <v-card-item>
                         <div>
                             <icon-personal />
@@ -37,7 +37,7 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="business" border class="px-3 py-5" @click="typeSelected(OnboardingStep.BusinessAccountForm)">
+                <v-card id="business" class="px-3 py-5" @click="typeSelected(OnboardingStep.BusinessAccountForm)">
                     <v-card-item>
                         <div>
                             <icon-business />

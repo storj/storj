@@ -9,8 +9,8 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <v-card-title class="font-weight-bold"> Add Tax ID </v-card-title>
                 <template #append>
                     <v-btn
@@ -25,7 +25,7 @@
 
             <v-divider />
 
-            <v-card-item class="px-7">
+            <v-card-item class="px-6">
                 <v-form ref="form" v-model="formValid" class="pt-2" @submit.prevent="addTaxID">
                     <v-select
                         v-model="countryCode"

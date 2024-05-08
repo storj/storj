@@ -11,8 +11,8 @@
         :persistent="loading"
         :scrim="scrim"
     >
-        <v-card ref="content" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="content">
+            <v-card-item class="pa-6">
                 <template v-if="step === UpgradeAccountStep.Success" #prepend>
                     <img class="d-block" src="@/assets/icon-success.svg" alt="success">
                 </template>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="title" :subtitle="subtitle" variant="outlined" border rounded="xlg" :to="to">
+    <v-card :title="title" :subtitle="subtitle" :to="to">
         <v-card-text>
             <v-chip :color="color" variant="tonal" class="font-weight-bold mt-n1" :to="to">{{ data }}</v-chip>
         </v-card-text>

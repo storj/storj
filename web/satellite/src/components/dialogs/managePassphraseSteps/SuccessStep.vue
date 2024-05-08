@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8">
+    <div class="pa-6">
         Your encryption passphrase is ready to use.
         Now you can upload files into your buckets securely using an encryption passphrase only you know.
     </div>

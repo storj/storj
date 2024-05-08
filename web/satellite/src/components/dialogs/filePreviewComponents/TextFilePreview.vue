@@ -10,7 +10,7 @@
             :theme="isDark ? 'dark' : 'light'"
             :color="isDark ? 'rgba(0, 0, 0, 0.3)' : undefined"
             :border="isDark"
-            class="w-100 pa-7 rounded-lg mx-auto break-word"
+            class="w-100 pa-6 rounded-lg mx-auto break-word"
             max-width="calc(100% - 144px)"
             min-height="100%"
         >
