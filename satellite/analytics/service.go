@@ -353,11 +353,14 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Event:       service.satelliteName + " " + eventAccountCreated,
 		Properties:  props,
 	})
+}
 
-	if fields.FullName == "" {
-		// the new minimal signup flow does not require a name.
-		service.hubspot.EnqueueCreateUserMinimal(fields)
+// CreateContact creates a contact in hubspot for a user.
+func (service *Service) CreateContact(fields TrackCreateUserFields) {
+	if !service.config.Enabled {
+		return
 	}
+	service.hubspot.EnqueueCreateUserMinimal(fields)
 }
 
 // TrackUserOnboardingInfo sends onboarding info to Hubspot.

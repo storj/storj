@@ -558,6 +558,28 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// see if referrer was provided in URL query, otherwise use the Referer header in the request.
+	referrer := r.URL.Query().Get("referrer")
+	if referrer == "" {
+		referrer = r.Referer()
+	}
+	hubspotUTK := ""
+	hubspotCookie, err := r.Cookie("hubspotutk")
+	if err == nil {
+		hubspotUTK = hubspotCookie.Value
+	}
+
+	trackCreateUserFields := analytics.TrackCreateUserFields{
+		ID:            user.ID,
+		Email:         user.Email,
+		OriginHeader:  r.Header.Get("Origin"),
+		Referrer:      referrer,
+		HubspotUTK:    hubspotUTK,
+		UserAgent:     string(user.UserAgent),
+		SignupCaptcha: user.SignupCaptcha,
+	}
+	a.analytics.CreateContact(trackCreateUserFields)
+
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
