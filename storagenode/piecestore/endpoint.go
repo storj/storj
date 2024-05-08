@@ -21,7 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/bloomfilter"
-	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
@@ -71,7 +70,7 @@ type Config struct {
 	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
-	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
+	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"5GB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
 	MinUploadSpeed                    memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
@@ -907,16 +906,6 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
-		} else {
-			amount := order.Amount
-			if amountFunc != nil {
-				amount = amountFunc()
-			}
-			// We always want to save order to the database to be able to settle.
-			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
-			if err != nil {
-				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
-			}
 		}
 	}, nil
 }
