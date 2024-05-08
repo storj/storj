@@ -35,6 +35,8 @@ type Adapter interface {
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
 	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)
 
+	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
+
 	DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
 	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
 	DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error)

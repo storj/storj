@@ -66,6 +66,17 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 		return db.ListObjectsWithIterator(ctx, opts)
 	}
 
+	if err := opts.Verify(); err != nil {
+		return ListObjectsResult{}, err
+	}
+
+	ListLimit.Ensure(&opts.Limit)
+
+	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
+}
+
+// ListObjects lists objects.
+func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	// maxSkipVersionsUntilRequery is the limit on how many versions we query for a single object, until we requery.
 	const maxSkipVersionsUntilRequery = 100
 
@@ -74,12 +85,6 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
 	const minQuerySize = 100
-
-	if err := opts.Verify(); err != nil {
-		return ListObjectsResult{}, err
-	}
-
-	ListLimit.Ensure(&opts.Limit)
 
 	// requeryLimit is a safety net for invalid implementation.
 	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
@@ -133,7 +138,7 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 			statusCondition = `status = ` + statusPending
 		}
 
-		rows, err := db.db.QueryContext(ctx, `SELECT
+		rows, err := p.db.QueryContext(ctx, `SELECT
 			`+objectKey+`,
 			version
 			`+opts.selectedFields()+`
@@ -252,6 +257,12 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 	}
 
 	panic("too many requeries")
+}
+
+// ListObjects lists objects.
+func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 func entryKeyMatchesCursor(prefix, entryKey, cursorKey ObjectKey) bool {
