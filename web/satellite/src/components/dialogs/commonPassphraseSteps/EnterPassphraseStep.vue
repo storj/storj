@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8" @submit.prevent="emit('submit')">
+    <v-form ref="form" class="pa-6" @submit.prevent="emit('submit')">
         <v-row>
             <v-col v-if="$slots.default" cols="12">
                 <slot />

@@ -3,7 +3,7 @@
 
 <template>
     <v-list>
-        <v-list-item>
+        <v-list-item class="pl-0">
             <template #prepend>
                 <v-icon
                     v-if="!isPro"

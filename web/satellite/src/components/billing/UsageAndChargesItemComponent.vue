@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card rounded="lg" variant="flat" border class="mb-4">
+    <v-card rounded="lg" variant="flat" class="mb-4">
         <v-expansion-panels>
             <v-expansion-panel rounded="lg">
                 <v-expansion-panel-title>

@@ -10,8 +10,8 @@
         max-width="460px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-mfa.svg" alt="MFA">
                 </template>
@@ -30,11 +30,11 @@
             <v-divider />
 
             <template v-if="isConfirmCode">
-                <v-card-item class="px-8 py-4">
+                <v-card-item class="px-6 py-4">
                     <p>Enter the authentication code generated in your two-factor application to regenerate recovery codes.</p>
                 </v-card-item>
                 <v-divider />
-                <v-card-item class="px-8 pt-4 pb-0">
+                <v-card-item class="px-6 pt-4 pb-0">
                     <v-otp-input
                         v-if="!useRecoveryCode"
                         ref="otpInput"
@@ -61,7 +61,7 @@
                         />
                     </v-form>
                 </v-card-item>
-                <v-card-item class="px-8 py-0 text-center">
+                <v-card-item class="px-6 py-0 text-center">
                     <a class="text-decoration-underline text-cursor-pointer" @click="toggleRecoveryCodeState">
                         {{ useRecoveryCode ? "or use 2FA code" : "or use a recovery code" }}
                     </a>
@@ -70,11 +70,11 @@
                 <v-divider class="my-4" />
             </template>
             <template v-else>
-                <v-card-item class="px-8 py-4">
+                <v-card-item class="px-6 py-4">
                     <p>Please save these codes somewhere to be able to recover access to your account.</p>
                 </v-card-item>
                 <v-divider />
-                <v-card-item class="px-8 py-4">
+                <v-card-item class="px-6 py-4">
                     <p
                         v-for="(code, index) in userMFARecoveryCodes"
                         :key="index"
@@ -85,7 +85,7 @@
                 <v-divider class="mb-4" />
             </template>
 
-            <v-card-actions dense class="px-7 pb-5 pt-0">
+            <v-card-actions dense class="px-6 pb-5 pt-0">
                 <v-col v-if="!isConfirmCode" class="px-0">
                     <v-btn
                         color="primary"

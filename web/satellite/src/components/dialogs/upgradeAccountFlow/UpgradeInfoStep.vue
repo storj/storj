@@ -4,7 +4,7 @@
 <template>
     <v-row>
         <v-col v-if="!smAndDown" cols="6">
-            <h4 class="font-weight-bold my-2">Free Trial</h4>
+            <h4 class="font-weight-bold mt-2 mb-4">Free Trial</h4>
             <v-btn
                 block
                 disabled
@@ -12,17 +12,17 @@
             >
                 {{ freeTrialButtonLabel }}
             </v-btn>
-            <v-card class="my-4">
+            <v-sheet class="my-2">
                 <InfoBullet title="Projects" :info="freeProjects" />
                 <InfoBullet title="Storage" :info="`${freeUsageValue(user.projectStorageLimit)} limit`" />
                 <InfoBullet title="Download" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
                 <InfoBullet title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                 <InfoBullet title="Link Sharing" info="Link sharing with Storj domain" />
                 <InfoBullet title="Single User" info="Project can't be shared" />
-            </v-card>
+            </v-sheet>
         </v-col>
         <v-col :cols="smAndDown ? 12 : '6'">
-            <h4 class="font-weight-bold my-2">Pro Account</h4>
+            <h4 class="font-weight-bold mt-2 mb-4">Pro Account</h4>
             <v-btn
                 class="mb-1"
                 block
@@ -32,7 +32,7 @@
             >
                 Upgrade
             </v-btn>
-            <v-card class="my-4">
+            <v-sheet class="my-2">
                 <InfoBullet is-pro title="Projects" :info="projectsInfo" />
                 <InfoBullet is-pro :title="storagePrice" :info="storagePriceInfo" />
                 <InfoBullet is-pro :title="downloadPrice" :info="downloadInfo">
@@ -55,14 +55,14 @@
                 </InfoBullet>
                 <InfoBullet is-pro title="Secure Custom Domains (HTTPS)" info="Link sharing with your domain" />
                 <InfoBullet is-pro title="Team" info="Share projects and collaborate" />
-            </v-card>
+            </v-sheet>
         </v-col>
     </v-row>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
-import { VBtn, VCol, VRow, VCard } from 'vuetify/components';
+import { VBtn, VCol, VRow, VSheet } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 import { mdiArrowRight } from '@mdi/js';
 

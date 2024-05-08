@@ -8,8 +8,8 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -35,7 +35,7 @@
 
             <v-divider />
 
-            <div class="px-7 py-6">
+            <div class="pa-6">
                 <p class="mb-3">The following {{ fileTypes }}<template v-if="isFolder">, and all contained data</template> will be deleted. This action cannot be undone.</p>
                 <p v-for="file of files" :key="file.path + file.Key" class="mt-2">
                     <v-chip :title="file.path + file.Key" class="font-weight-bold text-wrap h-100 py-2">
@@ -46,7 +46,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">

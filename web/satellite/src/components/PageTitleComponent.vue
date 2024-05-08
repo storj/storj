@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <h1 class="text-h5 font-weight-bold my-2">{{ title }}</h1>
+    <h1 class="text-h5 font-weight-bold mt-2 mb-3">{{ title }}</h1>
 </template>
 
 <script setup lang="ts">

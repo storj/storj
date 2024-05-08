@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-7 pb-4" @submit.prevent="emit('submit')">
+    <v-form ref="form" class="6 pb-4" @submit.prevent="emit('submit')">
         <v-row>
             <v-col cols="12">
                 <!-- <p class="text-subtitle-2 font-weight-bold mb-2">Encryption Passphrase</p> -->
@@ -82,7 +82,7 @@
             </v-col>
             <v-expand-transition>
                 <v-col v-show="areAdvancedOptionsShown" cols="12">
-                    <v-alert class="mb-4" type="info" variant="tonal" rounded="xlg">
+                    <v-alert class="mb-4" type="info" variant="tonal">
                         Creating a new passphrase for this access will prevent it from accessing any data
                         that has been uploaded with the current passphrase.
                     </v-alert>

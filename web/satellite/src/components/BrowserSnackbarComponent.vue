@@ -20,12 +20,12 @@
                         color="default"
                         rounded="lg"
                     >
-                        <v-expansion-panel-title color="">
+                        <v-expansion-panel-title color="" class="pr-5">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
                                 <v-row class="ma-0 align-center">
-                                    <v-icon v-if="!isExpanded" :icon="mdiChevronUp" class="mr-2" />
-                                    <v-icon v-else :icon="mdiChevronDown" class="mr-2" />
+                                    <v-icon v-if="!isExpanded" :icon="mdiChevronUp" class="mr-3" />
+                                    <v-icon v-else :icon="mdiChevronDown" class="mr-3" />
                                     <v-btn variant="outlined" color="default" size="x-small" :icon="mdiClose" title="Close" @click="closeDialog" />
                                 </v-row>
                             </template>

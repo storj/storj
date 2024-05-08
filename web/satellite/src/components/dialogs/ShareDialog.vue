@@ -8,8 +8,8 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -38,7 +38,7 @@
 
             <v-divider />
 
-            <div class="pa-7 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
+            <div class="pa-6 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
                 <v-row>
                     <v-col cols="12">
                         <v-alert type="info" variant="tonal">
@@ -81,7 +81,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">

@@ -8,8 +8,8 @@
         width="400px"
         transition="fade-transition"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6 pr-5">
                 <template #prepend>
                     <img class="d-block" src="@/assets/createAccessGrantFlow/accessEncryption.svg" alt="icon">
                 </template>
@@ -32,7 +32,7 @@
 
             <v-divider />
 
-            <v-card-item class="pa-7 pb-3">
+            <v-card-item class="pa-6 pb-3">
                 <v-form v-model="formValid" @submit.prevent="onContinue">
                     <v-row>
                         <v-col cols="12">
@@ -77,7 +77,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-4">
+            <v-card-actions class="pa-3">
                 <v-col>
                     <v-btn
                         variant="outlined"

@@ -7,8 +7,8 @@
         width="410px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -37,7 +37,7 @@
 
             <v-divider />
 
-            <div class="pa-7">
+            <div class="pa-6">
                 <img id="Map" class="w-100" :src="mapURL" alt="map">
                 <p class="font-weight-bold my-4">
                     This map shows the real-time locations of this file’s pieces.
@@ -50,7 +50,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn

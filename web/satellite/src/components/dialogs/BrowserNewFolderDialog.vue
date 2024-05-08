@@ -9,9 +9,9 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card ref="innerContent" rounded="xlg">
+        <v-card ref="innerContent">
             <v-sheet>
-                <v-card-item class="pa-5 pl-7">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <v-sheet
                             class="border-sm d-flex justify-center align-center"
@@ -42,7 +42,7 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="px-7 pt-9 pb-4" @submit.prevent="createFolder">
+            <v-form v-model="formValid" class="px-6 pt-9 pb-4" @submit.prevent="createFolder">
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
@@ -63,7 +63,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn

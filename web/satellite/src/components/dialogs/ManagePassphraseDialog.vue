@@ -3,8 +3,8 @@
 
 <template>
     <v-dialog v-model="model" max-width="420" transition="fade-transition">
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" :src="stepInfo[step].ref.value?.iconSrc || LockIcon" alt="step icon">
                 </template>
@@ -92,7 +92,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col v-if="stepInfo[step].prev.value">
                         <v-btn
