@@ -12,6 +12,12 @@ import { Project } from '@/types/projects';
 
 const WORKER_ERR_MSG = 'Worker is not defined';
 
+export enum ShareType {
+    Object = 'object',
+    Folder = 'folder',
+    Bucket = 'bucket',
+}
+
 export function useLinksharing() {
     const agStore = useAccessGrantsStore();
     const configStore = useConfigStore();
@@ -30,24 +36,32 @@ export function useLinksharing() {
         return selectedProject.value.edgeURLOverrides?.publicLinksharing || configStore.state.config.publicLinksharingURL;
     });
 
-    async function generateFileOrFolderShareURL(bucketName: string, path: string, isFolder = false): Promise<string> {
-        const fullPath = `${bucketName}/${path}`;
-        const type = isFolder ? 'folder' : 'object';
-        return generateShareURL(fullPath, type);
+    async function generateFileOrFolderShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<string> {
+        return generateShareURL(bucketName, prefix, objectKey, type);
     }
 
     async function generateBucketShareURL(bucketName: string): Promise<string> {
-        return generateShareURL(bucketName, 'bucket');
+        return generateShareURL(bucketName, '', '', ShareType.Bucket);
     }
 
-    async function generateShareURL(path: string, type: string): Promise<string> {
+    async function generateShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<string> {
         if (!worker.value) throw new Error(WORKER_ERR_MSG);
 
-        const LINK_SHARING_AG_NAME = `${path}_shared-${type}_${new Date().toISOString()}`;
-        const grant: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, selectedProject.value.id);
-        const creds: EdgeCredentials = await generateCredentials(grant.secret, path, null);
+        let fullPath = bucketName;
+        if (prefix) fullPath = `${fullPath}/${prefix}`;
+        if (objectKey) fullPath = `${fullPath}/${objectKey}`;
+        if (type === ShareType.Folder) fullPath = `${fullPath}/`;
 
-        return `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${encodeURIComponent(path.trim())}`;
+        const LINK_SHARING_AG_NAME = `${fullPath}_shared-${type}_${new Date().toISOString()}`;
+        const grant: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, selectedProject.value.id);
+        const creds: EdgeCredentials = await generateCredentials(grant.secret, fullPath, null);
+
+        let url = `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${bucketName}`;
+        if (prefix) url = `${url}/${encodeURIComponent(prefix.trim())}`;
+        if (objectKey) url = `${url}/${encodeURIComponent(objectKey.trim())}`;
+        if (type === ShareType.Folder) url = `${url}/`;
+
+        return url;
     }
 
     async function generateObjectPreviewAndMapURL(bucketName: string, path: string): Promise<string> {

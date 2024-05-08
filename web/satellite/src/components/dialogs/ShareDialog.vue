@@ -107,29 +107,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, Component } from 'vue';
+import { Component, computed, ref, watch } from 'vue';
 import {
-    VDialog,
-    VCard,
-    VCardItem,
-    VSheet,
-    VCardTitle,
-    VDivider,
-    VCardActions,
-    VRow,
-    VCol,
-    VBtn,
-    VChip,
-    VTextarea,
     VAlert,
+    VBtn,
+    VCard,
+    VCardActions,
+    VCardItem,
+    VCardTitle,
+    VChip,
     VChipGroup,
+    VCol,
+    VDialog,
+    VDivider,
+    VRow,
+    VSheet,
+    VTextarea,
 } from 'vuetify/components';
 import { mdiCheck, mdiContentCopy } from '@mdi/js';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
-import { useLinksharing } from '@/composables/useLinksharing';
+import { ShareType, useLinksharing } from '@/composables/useLinksharing';
 import { SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -197,8 +197,10 @@ watch(() => innerContent.value, async (comp: Component | null): Promise<void> =>
         } else {
             link.value = await generateFileOrFolderShareURL(
                 props.bucketName,
-                `${filePath.value ? filePath.value + '/' : ''}${props.file.Key}`,
-                props.file.type === 'folder',
+                filePath.value,
+                props.file.Key,
+                // TODO: replace magic string type of BrowserObject.type with some constant/enum.
+                props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
             );
         }
     } catch (error) {
