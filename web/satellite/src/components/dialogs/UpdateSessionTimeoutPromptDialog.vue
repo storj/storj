@@ -8,8 +8,8 @@
         transition="fade-transition"
         persistent
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-session-timeout.svg" alt="Session expired">
                 </template>
@@ -27,13 +27,13 @@
 
             <v-divider />
 
-            <v-card-item class="pa-8">
+            <v-card-item class="pa-6">
                 Your last session was logged out due to inactivity. Did you know you can update your preferred session timeout?
             </v-card-item>
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block @click="onLeaveAsIs">

@@ -8,7 +8,7 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-card-item class="pa-5 pl-6">
                 <v-card-title class="font-weight-bold">Remove Credit Card</v-card-title>
                 <template #append>

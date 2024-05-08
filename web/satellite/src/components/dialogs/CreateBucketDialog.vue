@@ -10,9 +10,9 @@
         max-width="450px"
         transition="fade-transition"
     >
-        <v-card ref="innerContent" rounded="xlg">
+        <v-card ref="innerContent">
             <v-sheet>
-                <v-card-item class="pa-5 pl-7">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <v-sheet
                             class="border-sm d-flex justify-center align-center"
@@ -46,7 +46,7 @@
 
             <v-window v-model="step">
                 <v-window-item :value="CreateStep.Name">
-                    <v-form v-model="formValid" class="pa-7 pb-3" @submit.prevent="createOrNext">
+                    <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="createOrNext">
                         <v-row>
                             <v-col>
                                 <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
@@ -70,7 +70,7 @@
                     </v-form>
                 </v-window-item>
                 <v-window-item :value="CreateStep.Versioning">
-                    <v-form v-model="versioningValid" class="pa-7">
+                    <v-form v-model="versioningValid" class="pa-6">
                         <v-row>
                             <v-col>
                                 <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
@@ -111,7 +111,7 @@
             </v-window>
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="closeOrBack">

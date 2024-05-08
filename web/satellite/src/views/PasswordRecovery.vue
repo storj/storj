@@ -5,7 +5,7 @@
     <v-container class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card v-if="!isMFARequired" title="Reset Password" subtitle="Please enter your new password." rounded="xlg" class="pa-2 pa-sm-7 overflow-visible">
+                <v-card v-if="!isMFARequired" title="Reset Password" subtitle="Please enter your new password." class="pa-2 pa-sm-7 overflow-visible">
                     <v-card-text>
                         <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
                             <div class="pos-relative">

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" rounded="xlg">
+    <v-card>
         <v-text-field
             v-model="search"
             label="Search"
@@ -115,7 +115,7 @@
                                 <IconForward />
                             </template>
                             <v-list-item-title
-                                class="pl-2 text-body-2 font-weight-medium"
+                                class="ml-3 text-body-2 font-weight-medium"
                             >
                                 Open Bucket
                             </v-list-item-title>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-7">
+    <div class="pa-6">
         <v-row>
             <v-col cols="12">
                 <p>Confirm that the access details are correct before creating.</p>

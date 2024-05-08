@@ -6,7 +6,7 @@
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible">
+                <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item v-if="isInvited">
                         <v-alert
                             variant="tonal"
@@ -224,7 +224,7 @@
                 <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                         <v-card-text>
-                            <h1 class="font-weight-black" style="line-height: 1.25;">
+                            <h1 class="font-weight-black signup-heading">
                                 <template v-if="partnerConfig && partnerConfig.name">Start using Storj on {{ partnerConfig.name }} today.</template>
                                 <template v-else>Start using Storj today.</template>
                             </h1>
@@ -234,7 +234,7 @@
 
                             <p class="mt-6">
                                 <v-icon :icon="mdiCheckBold" color="primary" />
-                                You can upload and download up to 25GB for free, for 30 days.
+                                Upload and download 25GB free for 30 days.
                             </p>
 
                             <p class="mt-4">
@@ -253,17 +253,17 @@
                             </p>
 
                             <p class="mt-6">
-                                Need help figuring out if Storj is a fit for your business? <a href="https://meetings.hubspot.com/tom144/meeting-with-tom-troy" target="_blank" class="link font-weight-bold">Schedule a meeting.</a>
+                                Need help figuring out if Storj is a fit for your business? <a href="https://meetings.hubspot.com/tom144/meeting-with-tom-troy" target="_blank" class="link font-weight-bold">Schedule a meeting</a>.
                             </p>
                         </v-card-text>
                     </v-card>
                 </v-col>
             </template>
-        </v-row>
-        <v-row justify="center" class="v-col-12">
-            <v-col>
-                <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
-            </v-col>
+            <v-row justify="center" class="v-col-12">
+                <v-col>
+                    <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                </v-col>
+            </v-row>
         </v-row>
     </v-container>
 </template>

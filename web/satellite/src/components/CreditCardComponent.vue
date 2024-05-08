@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="Credit Card" variant="flat" border rounded="xlg">
+    <v-card title="Credit Card" variant="flat">
         <v-card-text>
             <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
             <v-chip v-if="card.isDefault" rounded color="info" variant="tonal" class="font-weight-bold">Default</v-chip>

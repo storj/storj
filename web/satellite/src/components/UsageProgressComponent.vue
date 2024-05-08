@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="title" variant="outlined" border rounded="xlg">
+    <v-card :title="title">
         <template #title>
             <v-card-title class="d-flex align-center">
                 <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" bold />

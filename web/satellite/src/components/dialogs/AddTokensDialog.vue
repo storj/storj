@@ -9,8 +9,8 @@
         transition="fade-transition"
         :persistent="loading"
     >
-        <v-card ref="content" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="content">
+            <v-card-item class="pa-6">
                 <v-card-title class="font-weight-bold"> Add Tokens </v-card-title>
                 <template #append>
                     <v-btn

@@ -9,9 +9,9 @@
         min-width="400px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-sheet>
-                <v-card-item class="pl-7 py-4">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <v-card-title class="font-weight-bold">
                             Get Detailed Usage Report
@@ -32,7 +32,7 @@
 
             <v-divider />
 
-            <v-form class="pa-8">
+            <v-form class="pa-6">
                 <p class="text-subtitle-2 mb-2">Select date range to generate your report:</p>
                 <v-chip-group v-model="option" mandatory filter color="primary">
                     <v-chip :value="Options.Month">Past Month</v-chip>
@@ -53,7 +53,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>

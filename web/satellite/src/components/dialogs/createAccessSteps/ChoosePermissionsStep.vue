@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-7">
+    <v-form ref="form" class="pa-6">
         <v-row>
             <v-col cols="12">
                 <p class="text-subtitle-2 font-weight-bold mb-5">Select the permissions for this access</p>

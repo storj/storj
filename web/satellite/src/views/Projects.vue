@@ -35,7 +35,7 @@
                         border
                         inset
                         density="comfortable"
-                        class="pa-1"
+                        class="pa-1 bg-surface"
                     >
                         <v-btn
                             size="small"

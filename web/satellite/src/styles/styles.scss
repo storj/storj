@@ -22,9 +22,9 @@ body {
 
 // Light Theme
 .v-theme--light {
-  --v-border-color: 0, 0, 0;
+  // --v-border-color: 216,222,227 !important;
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-border-opacity: 0.09 !important;
+  // --v-border-opacity: 0.09 !important;
   --v-theme-on-background: var(--v-theme-secondary) !important;
   --v-theme-on-surface: var(--v-theme-secondary) !important;
   --v-theme-surface-variant: var(--v-theme-secondary) !important;
@@ -33,7 +33,7 @@ body {
 // Dark Theme
 .v-theme--dark {
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-border-opacity: 0.09 !important;
+  --v-border-opacity: 0.14 !important;
   --v-theme-on-surface-variant: 70,70,70 !important;
 }
 
@@ -52,6 +52,18 @@ h1,h2,h3,h4,h5,h6 {
 // Nav
 .v-app-bar.v-toolbar {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.v-app-bar-title {
+  padding-left: 3px;
+}
+
+// Nav toggle icon
+.v-app-bar-nav-icon {
+  opacity: 0.8 !important;
+}
+.v-app-bar-nav-icon:hover {
+  opacity: 1 !important;
 }
 
 // Toggle visibility class
@@ -85,12 +97,12 @@ h1,h2,h3,h4,h5,h6 {
 
 // Button Outlines
 .v-btn.v-theme--light.text-default.v-btn--variant-outlined {
-  border-color: rgba(var(--v-border-color), 0.2);
+  border-color: rgba(var(--v-border-color), 0.3);
   background: rgb(var(--v-theme-surface));
 }
 .v-btn.v-theme--light.text-default.v-btn--variant-outlined:hover {
   border-color: #9da3a7;
-  border-color: rgba(var(--v-border-color), 0.5);
+  border-color: rgba(var(--v-border-color), 0.9);
 }
 .v-btn.v-theme--dark.text-default.v-btn--variant-outlined {
   border-color: #a9b0b949;
@@ -119,6 +131,17 @@ h1,h2,h3,h4,h5,h6 {
   --v-btn-size: 0.875rem;
   --v-btn-height: 48px;
 }
+
+// Button Icons
+.v-btn__append {
+  margin-inline-start: calc(var(--v-btn-height) / 10);
+  margin-inline-end: calc(var(--v-btn-height) / -20);
+}
+.v-btn__prepend {
+  margin-inline-start: calc(var(--v-btn-height) / -20);
+  margin-inline-end: calc(var(--v-btn-height) / 10);
+}
+
 
 // Menu
 .v-menu > .v-overlay__content > .v-card, .v-menu > .v-overlay__content > .v-sheet, .v-menu > .v-overlay__content > .v-list {
@@ -171,19 +194,23 @@ h1,h2,h3,h4,h5,h6 {
 // Card Light Theme
 .v-card.v-theme--light {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  // box-shadow: rgba(88, 102, 126, 0.07) 0px 4px 20px;
-  box-shadow: none;
+  box-shadow: 0 6px 33px rgba(0, 28, 74, .05);
+  background: #fff;
 }
 
 // Card Dark Theme
 .v-card.v-theme--dark {
   background: --v-theme-surface;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  // box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  box-shadow: none;
+  box-shadow: 0px 2px 24px 0px rgba(0,0,0,0.19);
 }
 .v-card--variant-flat {
   box-shadow: none !important;
+}
+
+// Card link hover
+a.v-card:hover {
+ box-shadow: none;
 }
 
 // Cards Padding
@@ -198,6 +225,7 @@ h1,h2,h3,h4,h5,h6 {
   letter-spacing: 0;
 }
 
+// Cards Subtitle
 .v-card-subtitle {
   opacity: 1;
 }
@@ -230,6 +258,11 @@ h1,h2,h3,h4,h5,h6 {
 // High contrast labels
 .v-label {
   opacity: var(--v-high-emphasis-opacity) !important;
+}
+
+// Checkbox label
+.v-checkbox .v-label {
+  font-size: 100%;
 }
 
 // Ensure that the compact checkbox isn't too close to its label
@@ -321,44 +354,38 @@ table {
 
 // Links
 .link {
-  text-decoration: none;
-  background-image: linear-gradient(currentColor,currentColor);
-  background-size: 0 1px;
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  transition: background-size .15s ease;
+  text-decoration: underline;
 }
 .link:hover {
-  background-size: 100% 1px;
   cursor: pointer;
 }
 .v-theme--light .link {
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-secondary));
 }
 .v-theme--light .link:hover {
-  color: rgb(var(--v-theme-secondary));
+  color: rgb(var(--v-theme-primary));
 }
 .v-theme--dark .link {
-  color: rgb(var(--v-theme-secondary));
+  color: rgb(var(--v-theme-on-background));
 }
 .v-theme--dark .link:hover {
-  color: rgb(var(--v-theme-on-background));
+  color: rgb(var(--v-theme-secondary));
 }
 
 
 // Tooltips
 .v-tooltip>.v-overlay__content {
-  background: rgba(var(--v-theme-surface),0.9) !important;
-  color: rgba(var(--v-theme-on-surface),0.9) !important;
+  background: rgb(var(--v-theme-surface)) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
   border: 1px solid rgba(var(--v-theme-on-surface),0.2);
-  box-shadow: rgba(0, 0, 0, 0.03) 0 1px 10px 10px !important;
-  font-weight: 500;
-  border-radius: 20px !important;
-  padding: 6px 14px;
-  backdrop-filter: blur(12px);
+  box-shadow: rgba(0, 0, 0, 0.03) 0 1px 4px 2px !important;
+  border-radius: 10px !important;
+  padding: 8px 14px !important;
   pointer-events: all !important;
 }
-
+.v-tooltip>.v-overlay__content .link {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
 // Upload Snackbar
 .upload-snackbar .v-snackbar__content {
   padding: 2px;
@@ -397,8 +424,13 @@ table {
 .v-alert__close .v-btn {
   color: currentColor !important;
 }
+// Tonal alert background
+.v-alert--variant-tonal .v-alert__underlay {
+  background: currentColor;
+  opacity: 0.05 !important;
+}
 
-
+// Background color class
 .bg-on-surface-variant {
   background-color: rgb(var(--v-theme-on-surface-variant)) !important;
   color: rgb(var(--v-theme-surface-variant)) !important;
@@ -407,11 +439,6 @@ table {
 // Positions
 .pos-relative {
   position: relative !important;
-}
-
-// Sizing
-.max-h-100 {
-  max-height: 100%;
 }
 
 // Sizing
@@ -500,6 +527,7 @@ table {
   flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
 }
 
+// No pointer events helper class
 .no-pointer-events {
   pointer-events: none;
 }
@@ -512,23 +540,6 @@ table {
   }
 }
 
-// Login and Signup Background
-.signup-background::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  opacity: 0.15;
-  pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
-}
-
-.v-theme--dark .signup-background::before {
-  opacity: 0.05;
-}
-
 .loader {
   background: rgb(var(--v-theme-background));
 }
@@ -538,6 +549,10 @@ table {
   content: "*";
 }
 
+.signup-heading {
+  line-height: 1.25;
+}
+
 // fix for the table footer info width being too big for its small content
 // a huge min-width was added in Vuetify 3.4.11
 // https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2
@@ -545,10 +560,9 @@ table {
   min-width: unset !important;
 }
 
-@media (min-width: 600px) {
-  .signup-background::before {
-    background-image: url('../assets/icon-bg.svg');
-    background-position: 40% center;
+@media (max-width: 599px) {
+  .signup-heading {
+    font-size: 1.1rem;
   }
 }
 
@@ -559,32 +573,21 @@ table {
 }
 
 @media (min-width: 960px) {
+  // Login and Signup Background
   .signup-background::before {
-    background-position: 35% center;
+    content: "";
+    background-image: url('../assets/bg-line-light.jpg');
+    background-position: center;
+    background-size: cover;
+    position: absolute;
+    top: 45%;
+    left: 0;
+    width: 100%;
+    height: 149px;
+    pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
   }
-}
-
-@media (min-width: 1264px) {
-  .signup-background::before {
-    background-position: 30% center;
-  }
-}
-
-@media (min-width: 1400px) {
-  .signup-background::before {
-    background-position: 15% center;
-  }
-}
-
-@media (min-width: 1600px) {
-  .signup-background::before {
-    background-position: 10% center;
-  }
-}
-
-@media (min-width: 1904px) {
-  .signup-background::before {
-    background-position: 5% center;
+  .v-theme--dark .signup-background::before {
+    background-image: url('../assets/bg-line-dark.jpg');
   }
 }
 

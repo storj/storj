@@ -9,9 +9,9 @@
         max-width="450px"
         transition="fade-transition"
     >
-        <v-card ref="innerContent" rounded="xlg">
+        <v-card ref="innerContent">
             <v-sheet>
-                <v-card-item class="py-4 pl-7">
+                <v-card-item class="py-4 pl-6">
                     <v-card-title class="font-weight-bold">
                         Setup {{ isAppSetup ? 'App' : '' }} Access
                     </v-card-title>
@@ -118,7 +118,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn

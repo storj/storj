@@ -13,8 +13,8 @@
         :scrim="false"
         @update:model-value="v => model = v"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-team-members.svg" alt="Team members">
                 </template>
@@ -37,7 +37,7 @@
 
             <v-divider />
 
-            <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onPrimaryClick">
+            <v-form v-model="valid" class="pa-6 pb-4" @submit.prevent="onPrimaryClick">
                 <v-row>
                     <v-col v-if="needsUpgrade">
                         <p class="mb-4">Upgrade now to unlock collaboration and bring your team together in this project.</p>
@@ -73,7 +73,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">Cancel</v-btn>
