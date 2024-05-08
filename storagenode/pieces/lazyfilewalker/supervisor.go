@@ -170,6 +170,8 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 }
 
 // WalkCleanupTrash deletes per-day trash directories which are older than the given time.
+// The lazyfilewalker does not update the space used by the trash so the caller should update the space used
+// after the filewalker completes.
 func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
