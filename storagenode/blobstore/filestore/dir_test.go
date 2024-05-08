@@ -266,6 +266,20 @@ func TestTrashRecoveryWithMultipleDayDirs(t *testing.T) {
 	}
 }
 
+func BenchmarkDirInfo(b *testing.B) {
+	ctx := testcontext.New(b)
+	log := zaptest.NewLogger(b)
+	dir, err := NewDir(log, ctx.Dir("store"))
+	require.NoError(b, err)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err = dir.Info(ctx)
+		require.NoError(b, err)
+	}
+}
+
 // check that trash emptying works as expected with per-day trash directories.
 func TestEmptyTrash(t *testing.T) {
 	ctx := testcontext.New(t)

@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -47,6 +49,16 @@ var PathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPa
 type Dir struct {
 	log  *zap.Logger
 	path string
+
+	mu   sync.Mutex
+	info atomic.Pointer[infoAge]
+}
+
+const infoMaxAge = time.Second
+
+type infoAge struct {
+	info blobstore.DiskInfo
+	age  time.Time
 }
 
 // OpenDir opens existing folder for storing blobs.
@@ -998,11 +1010,28 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 
 // Info returns information about the current state of the dir.
 func (dir *Dir) Info(ctx context.Context) (blobstore.DiskInfo, error) {
+	if info := dir.info.Load(); info != nil && time.Since(info.age) < infoMaxAge {
+		return info.info, nil
+	}
+
+	dir.mu.Lock()
+	defer dir.mu.Unlock()
+
+	if info := dir.info.Load(); info != nil && time.Since(info.age) < infoMaxAge {
+		return info.info, nil
+	}
+
 	path, err := filepath.Abs(dir.path)
 	if err != nil {
 		return blobstore.DiskInfo{}, err
 	}
-	return diskInfoFromPath(path)
+	info, err := diskInfoFromPath(path)
+	if err != nil {
+		return blobstore.DiskInfo{}, err
+	}
+
+	dir.info.Store(&infoAge{info: info, age: time.Now()})
+	return info, nil
 }
 
 type blobInfo struct {
