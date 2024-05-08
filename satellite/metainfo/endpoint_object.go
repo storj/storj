@@ -750,9 +750,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
-		StreamID: object.StreamID,
-		Range:    streamRange,
-		Limit:    int(req.Limit),
+		ProjectID: keyInfo.ProjectID,
+		StreamID:  object.StreamID,
+		Range:     streamRange,
+		Limit:     int(req.Limit),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
