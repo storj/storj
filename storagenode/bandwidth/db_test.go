@@ -145,22 +145,14 @@ func TestEgressSummary(t *testing.T) {
 
 		// test egress summarizing.
 		{
-			usage, err := bandwidthdb.EgressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
-			require.NoError(t, err)
-			require.Equal(t, &bandwidth.Usage{}, usage)
-
 			// only range capturing second satellite.
-			usage, err = bandwidthdb.EgressSummary(ctx, time.Time{}, time.Now())
+			usage, err := bandwidthdb.EgressSummary(ctx, time.Time{}, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageTotal, usage)
 		}
 
 		{
-			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
-			require.NoError(t, err)
-			require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
-
-			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
 		}
@@ -208,22 +200,14 @@ func TestIngressSummary(t *testing.T) {
 
 		// test ingress summarizing.
 		{
-			usage, err := bandwidthdb.IngressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
-			require.NoError(t, err)
-			require.Equal(t, &bandwidth.Usage{}, usage)
-
 			// only range capturing second satellite.
-			usage, err = bandwidthdb.IngressSummary(ctx, time.Time{}, time.Now())
+			usage, err := bandwidthdb.IngressSummary(ctx, time.Time{}, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsage, usage)
 		}
 
 		{
-			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
-			require.NoError(t, err)
-			require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
-
-			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite, usageBySatellite)
 		}
