@@ -79,9 +79,7 @@ export const useAppStore = defineStore('app', () => {
     function toggleUpgradeFlow(isShown?: boolean): void {
         state.isUpgradeFlowDialogShown = isShown ?? !state.isUpgradeFlowDialogShown;
         if (state.isUpgradeFlowDialogShown) {
-            const props = new Map();
-            props.set('expired', String(userStore.state.user.freezeStatus.trialExpiredFrozen));
-            analyticsStore.eventTriggered(AnalyticsEvent.UPGRADE_CLICKED, props);
+            analyticsStore.eventTriggered(AnalyticsEvent.UPGRADE_CLICKED, { expired: String(userStore.state.user.freezeStatus.trialExpiredFrozen) });
         }
     }
 

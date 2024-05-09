@@ -7,8 +7,8 @@
     <v-btn
         block
         color="success"
-        @click="emit('continue')"
         class="mb-2"
+        @click="emit('continue')"
     >
         <template #append>
             <v-icon :icon="mdiArrowRight" />

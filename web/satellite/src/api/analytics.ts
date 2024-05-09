@@ -19,14 +19,14 @@ export class AnalyticsHttpApi {
      * @param eventName - name of the event
      * @param props - additional properties to send with the event
      */
-    public async eventTriggered(eventName: string, props?: Map<string, string>): Promise<void> {
+    public async eventTriggered(eventName: string, props?: { [p: string]: string }): Promise<void> {
         try {
             const path = `${this.ROOT_PATH}/event`;
             const body = {
                 eventName: eventName,
             };
             if (props) {
-                body['props'] = Object.fromEntries(props);
+                body['props'] = props;
             }
             const response = await this.http.post(path, JSON.stringify(body));
             if (response.ok) {

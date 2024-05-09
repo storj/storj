@@ -120,6 +120,9 @@ const (
 	eventUserUpgraded                 = "User Upgraded"
 	eventUpgradeClicked               = "Upgrade Clicked"
 	eventArrivedFromSource            = "Arrived From Source"
+	eventApplicationsSetupClicked     = "Applications Setup Clicked"
+	eventApplicationsSetupCompleted   = "Applications Setup Completed"
+	eventApplicationsDocsClicked      = "Applications Docs Clicked"
 )
 
 var (
@@ -211,7 +214,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
-		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource} {
+		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked,
+		eventApplicationsSetupClicked, eventApplicationsSetupCompleted} {
 		service.clientEvents[name] = true
 	}
 

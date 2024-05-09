@@ -90,9 +90,7 @@ async function setup() {
         const projects = projectsStore.state.projects;
 
         if (source) {
-            const props = new Map();
-            props.set('source', source);
-            analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, props);
+            analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, { source: source });
         }
 
         if (appStore.state.hasJustLoggedIn && !invites.length && projects.length <= 1) {

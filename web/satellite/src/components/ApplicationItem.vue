@@ -27,7 +27,15 @@
                         <v-icon :icon="mdiArrowRight" />
                     </template>
                 </v-btn>
-                <v-btn variant="outlined" color="default" class="ml-2" :href="app.docs" target="_blank" rel="noopener noreferrer">
+                <v-btn
+                    variant="outlined"
+                    color="default"
+                    class="ml-2"
+                    :href="app.docs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click="() => sendAnalytics(AnalyticsEvent.APPLICATIONS_DOCS_CLICKED)"
+                >
                     Docs
                     <template #append>
                         <v-icon :icon="mdiOpenInNew" />
@@ -56,6 +64,8 @@ import { Application, UplinkApp } from '@/types/applications';
 import { AccessType, Exposed } from '@/types/createAccessGrant';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
@@ -65,6 +75,7 @@ const props = defineProps<{
 }>();
 
 const { newAppSetupFlowEnabled } = useConfigStore().state.config;
+const analyticsStore  = useAnalyticsStore();
 
 const { withTrialCheck } = useTrialCheck();
 
@@ -84,8 +95,13 @@ const neededAccessType = computed<AccessType>(() => {
  */
 function onSetup(): void {
     withTrialCheck(() => {
+        sendAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_CLICKED);
         accessDialog.value?.setTypes([neededAccessType.value]);
         dialog.value = true;
     });
+}
+
+function sendAnalytics(e: AnalyticsEvent): void {
+    analyticsStore.eventTriggered(e, { application: props.app.name });
 }
 </script>

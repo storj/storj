@@ -9,7 +9,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 export const useAnalyticsStore = defineStore('analytics', () => {
     const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    function eventTriggered(eventName: AnalyticsEvent, props?: Map<string, string>): void {
+    function eventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): void {
         analytics.eventTriggered(eventName, props).catch(_ => { });
     }
 

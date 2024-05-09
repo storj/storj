@@ -49,6 +49,9 @@ export enum AnalyticsEvent {
     BUSINESS_SELECTED = 'Business Selected',
     UPGRADE_CLICKED = 'Upgrade Clicked',
     ARRIVED_FROM_SOURCE = 'Arrived From Source',
+    APPLICATIONS_SETUP_CLICKED = 'Applications Setup Clicked',
+    APPLICATIONS_SETUP_COMPLETED = 'Applications Setup Completed',
+    APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked'
 }
 
 export enum AnalyticsErrorEventSource {

@@ -151,6 +151,7 @@
                             :href="docsLink"
                             target="_blank"
                             rel="noopener noreferrer"
+                            @click="() => sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_DOCS_CLICKED)"
                         >
                             Read Docs
                         </v-btn>
@@ -429,6 +430,8 @@ async function generate(): Promise<void> {
     }
     if (accessType.value === AccessType.S3) await createEdgeCredentials();
 
+    sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_COMPLETED);
+
     isCreating.value = false;
 }
 
@@ -550,6 +553,12 @@ function prevStep(): void {
         step.value = info.prev.value;
     } else {
         model.value = false;
+    }
+}
+
+function sendApplicationsAnalytics(e: AnalyticsEvent): void {
+    if (props.isAppSetup && props.accessName) {
+        analyticsStore.eventTriggered(e, { application: props.accessName });
     }
 }
 
