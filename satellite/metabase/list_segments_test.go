@@ -749,5 +749,5 @@ func TestListStreamPositions(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	})
+	}, metabasetest.WithSpanner())
 }

@@ -348,6 +348,74 @@ func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStre
 
 // ListStreamPositions lists specified stream segment positions.
 func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	var stmt spanner.Statement
+	if opts.Range == nil {
+		stmt = spanner.Statement{
+			SQL: `
+				SELECT
+					position, plain_size, plain_offset, created_at,
+					encrypted_etag, encrypted_key_nonce, encrypted_key
+				FROM segments
+				WHERE
+					stream_id = @stream_id AND
+					(@cursor = 0 OR position > @cursor)
+				ORDER BY position ASC
+				LIMIT @limit
+			`,
+			Params: map[string]any{
+				"stream_id": opts.StreamID,
+				"cursor":    opts.Cursor,
+				"limit":     opts.Limit + 1,
+			},
+		}
+	} else {
+		stmt = spanner.Statement{
+			SQL: `
+				SELECT
+					position, plain_size, plain_offset, created_at,
+					encrypted_etag, encrypted_key_nonce, encrypted_key
+				FROM segments
+				WHERE
+					stream_id = @stream_id AND
+					(@cursor = 0 OR position > @cursor) AND
+					@plain_start < plain_offset + plain_size AND plain_offset < @plain_limit
+				ORDER BY position ASC
+				LIMIT @limit
+			`,
+			Params: map[string]any{
+				"stream_id":   opts.StreamID,
+				"cursor":      opts.Cursor,
+				"limit":       opts.Limit + 1,
+				"plain_start": opts.Range.PlainStart,
+				"plain_limit": opts.Range.PlainLimit,
+			},
+		}
+	}
+	rowIterator := s.client.Single().Query(ctx, stmt)
+
+	for {
+		row, err := rowIterator.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return ListStreamPositionsResult{}, Error.New("unable to fetch object segments: %w", err)
+		}
+		var segment SegmentPositionInfo
+		err = row.Columns(
+			&segment.Position, spannerutil.Int(&segment.PlainSize), &segment.PlainOffset, &segment.CreatedAt,
+			&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+		)
+		if err != nil {
+			return ListStreamPositionsResult{}, Error.New("failed to scan segments: %w", err)
+		}
+		result.Segments = append(result.Segments, segment)
+	}
+
+	if len(result.Segments) > opts.Limit {
+		result.More = true
+		result.Segments = result.Segments[:len(result.Segments)-1]
+	}
+
+	return result, nil
 }
