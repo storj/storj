@@ -56,7 +56,7 @@
                         placeholder="Enter your Tax ID"
                         :hint="'e.g.: ' + tax?.example"
                         :hide-details="false"
-                        :maxlength="tax?.example?.length"
+                        :maxlength="50"
                         required
                     />
                 </v-form>
