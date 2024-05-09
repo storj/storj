@@ -3236,7 +3236,7 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 
 // CreateAPIKey creates new api key.
 // projectID here may be project.PublicID or project.ID.
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("projectID", projectID.String()))
@@ -3270,6 +3270,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		CreatedBy: user.ID,
 		Secret:    secret,
 		UserAgent: user.UserAgent,
+		Version:   version,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)

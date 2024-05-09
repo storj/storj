@@ -24,7 +24,10 @@ type bucketsDB struct {
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	optionalFields := dbx.BucketMetainfo_Create_Fields{}
+	optionalFields := dbx.BucketMetainfo_Create_Fields{
+		Placement:         dbx.BucketMetainfo_Placement(int(bucket.Placement)),
+		ObjectLockEnabled: dbx.BucketMetainfo_ObjectLockEnabled(bucket.ObjectLockEnabled),
+	}
 	if bucket.UserAgent != nil {
 		optionalFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
 	}
@@ -34,7 +37,6 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	if !bucket.CreatedBy.IsZero() {
 		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
 	}
-	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
@@ -385,7 +387,8 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
-		Versioning: buckets.Versioning(dbxBucket.Versioning),
+		Versioning:        buckets.Versioning(dbxBucket.Versioning),
+		ObjectLockEnabled: dbxBucket.ObjectLockEnabled,
 	}
 
 	if dbxBucket.Placement != nil {
@@ -436,4 +439,20 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, pageSize int, f
 		}
 
 	}
+}
+
+// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.
+func (db *bucketsDB) GetBucketObjectLockEnabled(ctx context.Context, bucketName []byte, projectID uuid.UUID) (enabled bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	row, err := db.db.Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return false, buckets.ErrBucket.Wrap(err)
+	}
+	return row.ObjectLockEnabled, nil
 }

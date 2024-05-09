@@ -631,7 +631,7 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("CreateAPIKey", func(t *testing.T) {
-				createdAPIKey, _, err := service.CreateAPIKey(userCtx2, up2Proj.ID, "test key")
+				createdAPIKey, _, err := service.CreateAPIKey(userCtx2, up2Proj.ID, "test key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
 				require.NotNil(t, createdAPIKey)
 				require.Equal(t, up2Proj.OwnerID, createdAPIKey.CreatedBy)
@@ -664,10 +664,10 @@ func TestService(t *testing.T) {
 				_, err = service.UpdateProjectMemberRole(ownerCtx, member.ID, pr.ID, console.RoleMember)
 				require.NoError(t, err)
 
-				ownerKey, _, err := service.CreateAPIKey(ownerCtx, pr.ID, "owner's key")
+				ownerKey, _, err := service.CreateAPIKey(ownerCtx, pr.ID, "owner's key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
 				require.NotNil(t, ownerKey)
-				memberKey, _, err := service.CreateAPIKey(memberCtx, pr.ID, "member's key")
+				memberKey, _, err := service.CreateAPIKey(memberCtx, pr.ID, "member's key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
 				require.NotNil(t, memberKey)
 
@@ -679,10 +679,10 @@ func TestService(t *testing.T) {
 				err = service.DeleteAPIKeys(ownerCtx, []uuid.UUID{ownerKey.ID, memberKey.ID})
 				require.NoError(t, err)
 
-				ownerKey, _, err = service.CreateAPIKey(ownerCtx, pr.ID, "owner's key")
+				ownerKey, _, err = service.CreateAPIKey(ownerCtx, pr.ID, "owner's key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
 				require.NotNil(t, ownerKey)
-				memberKey, _, err = service.CreateAPIKey(memberCtx, pr.ID, "member's key")
+				memberKey, _, err = service.CreateAPIKey(memberCtx, pr.ID, "member's key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
 				require.NotNil(t, memberKey)
 

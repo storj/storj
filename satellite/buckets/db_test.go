@@ -41,7 +41,8 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   9 * 10,
 		},
-		Placement: storj.EU,
+		Placement:         storj.EU,
+		ObjectLockEnabled: true,
 	}
 }
 
@@ -76,6 +77,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 		require.Equal(t, expectedBucket.Placement, bucket.Placement)
+		require.Equal(t, expectedBucket.ObjectLockEnabled, bucket.ObjectLockEnabled)
 
 		// GetMinimalBucket
 		minimalBucket, err := bucketsDB.GetMinimalBucket(ctx, []byte("testbucket"), project.ID)
@@ -103,11 +105,24 @@ func TestBasicBucketOperations(t *testing.T) {
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
-		_, err = bucketsDB.CreateBucket(ctx, newTestBucket("testbucket2", project.ID))
+
+		expectedBucket2 := newTestBucket("testbucket2", project.ID)
+		expectedBucket2.ObjectLockEnabled = false
+		_, err = bucketsDB.CreateBucket(ctx, expectedBucket2)
 		require.NoError(t, err)
+
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, count)
+
+		// GetBucketObjectLockEnabled
+		enabled, err := bucketsDB.GetBucketObjectLockEnabled(ctx, []byte("testbucket"), project.ID)
+		require.NoError(t, err)
+		require.True(t, enabled)
+
+		enabled, err = bucketsDB.GetBucketObjectLockEnabled(ctx, []byte("testbucket2"), project.ID)
+		require.NoError(t, err)
+		require.False(t, enabled)
 
 		// DeleteBucket
 		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"), project.ID)

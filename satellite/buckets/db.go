@@ -44,6 +44,7 @@ type Bucket struct {
 	DefaultEncryptionParameters storj.EncryptionParameters
 	Placement                   storj.PlacementConstraint
 	Versioning                  Versioning
+	ObjectLockEnabled           bool
 }
 
 // ListDirection specifies listing direction.
@@ -141,4 +142,6 @@ type DB interface {
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
 	// IterateBucketLocations iterates through all buckets with specific page size.
 	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
+	// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.
+	GetBucketObjectLockEnabled(ctx context.Context, bucketName []byte, projectID uuid.UUID) (enabled bool, err error)
 }

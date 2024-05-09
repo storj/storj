@@ -15,9 +15,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/rpc/rpctest"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -209,7 +211,7 @@ func TestDeleteBucket(t *testing.T) {
 		_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
 		require.NoError(t, err)
 
-		memberKeyInfo, memberKey, err := satelliteSys.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key")
+		memberKeyInfo, memberKey, err := satelliteSys.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 		require.NotNil(t, memberKey)
 		require.NotNil(t, memberKeyInfo)
@@ -358,7 +360,7 @@ func TestCraeteBucketWithCreatedBy(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		apiKeyInfo, apiKey, err := service.CreateAPIKey(userCtx, project.ID, "test key")
+		apiKeyInfo, apiKey, err := service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 		require.NotNil(t, apiKey)
 		require.False(t, apiKeyInfo.CreatedBy.IsZero())
@@ -656,6 +658,133 @@ func TestDefaultBucketVersioning(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.Equal(t, buckets.VersioningEnabled, buckets.Versioning(getResponse.Versioning))
+		})
+	})
+}
+
+func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningEnabled))
+
+		t.Run("Success - Object Lock enabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			require.NoError(t, err)
+
+			enabled, err := sat.DB.Buckets().GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.True(t, enabled)
+		})
+
+		t.Run("Success - Object Lock disabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			require.NoError(t, err)
+
+			enabled, err := sat.DB.Buckets().GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.False(t, enabled)
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			endpoint.SetUseBucketLevelObjectLock(false)
+			defer endpoint.SetUseBucketLevelObjectLock(true)
+
+			bucketName := []byte(testrand.BucketName())
+			req := &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			}
+			_, err = endpoint.CreateBucket(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+
+			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+
+			_, err = endpoint.CreateBucket(ctx, req)
+			require.NoError(t, err)
+
+			enabled, err := sat.DB.Buckets().GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.True(t, enabled)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			bucketName := []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			require.NoError(t, err)
+
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: noLockApiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
+
+		t.Run("Object versioning disabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			req := &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			}
+
+			require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.Unversioned))
+			_, err = endpoint.CreateBucket(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+
+			require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningUnsupported))
+			_, err = endpoint.CreateBucket(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 		})
 	})
 }

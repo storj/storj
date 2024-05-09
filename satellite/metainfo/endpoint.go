@@ -22,6 +22,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -182,6 +183,23 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 
 // Close closes resources.
 func (endpoint *Endpoint) Close() error { return nil }
+
+// SetUseBucketLevelObjectLock sets whether bucket-level Object Lock functionality should be globally enabled.
+// Used for testing.
+func (endpoint *Endpoint) SetUseBucketLevelObjectLock(enabled bool) {
+	endpoint.config.UseBucketLevelObjectLock = enabled
+}
+
+// SetUseBucketLevelObjectLockByProjectID sets whether bucket-level Object Lock functionality should be enabled
+// for a specific project. If Object Lock functionality is globally enabled, this will have no effect.
+// Used for testing.
+func (endpoint *Endpoint) SetUseBucketLevelObjectLockByProjectID(projectID uuid.UUID, enabled bool) {
+	if !enabled {
+		delete(endpoint.config.useBucketLevelObjectLockProjects, projectID)
+		return
+	}
+	endpoint.config.useBucketLevelObjectLockProjects[projectID] = struct{}{}
+}
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {

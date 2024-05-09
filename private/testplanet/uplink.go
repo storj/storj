@@ -161,7 +161,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root")
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root", macaroon.APIKeyVersionMin)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}

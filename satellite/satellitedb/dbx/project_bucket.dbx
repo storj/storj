@@ -119,6 +119,12 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read one (
+    select bucket_metainfo.object_lock_enabled
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
 read has (
 	select bucket_metainfo
 	where bucket_metainfo.project_id = ?

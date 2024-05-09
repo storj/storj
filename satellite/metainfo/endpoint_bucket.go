@@ -163,11 +163,24 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionWrite,
-		Bucket: req.Name,
-		Time:   time.Now(),
-	}, console.RateLimitPut)
+	perms := []VerifyPermission{{
+		Action: macaroon.Action{
+			Op:     macaroon.ActionWrite,
+			Bucket: req.Name,
+			Time:   time.Now(),
+		},
+	}}
+	if req.ObjectLockEnabled {
+		perms = append(perms, VerifyPermission{
+			Action: macaroon.Action{
+				Op:     macaroon.ActionLock,
+				Bucket: req.Name,
+				Time:   time.Now(),
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, perms...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +189,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	err = endpoint.validateBucketName(req.Name)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	if req.ObjectLockEnabled && !endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -228,6 +245,11 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 			bucketReq.Versioning = buckets.VersioningEnabled
 		}
 	}
+
+	if bucketReq.ObjectLockEnabled && bucketReq.Versioning != buckets.VersioningEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock may only be enabled for versioned buckets")
+	}
+
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
 		if buckets.ErrBucketAlreadyExists.Has(err) {
@@ -506,10 +528,11 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 	}
 
 	return buckets.Bucket{
-		ID:        bucketID,
-		Name:      string(req.GetName()),
-		ProjectID: keyInfo.ProjectID,
-		CreatedBy: keyInfo.CreatedBy,
+		ID:                bucketID,
+		Name:              string(req.GetName()),
+		ProjectID:         keyInfo.ProjectID,
+		CreatedBy:         keyInfo.CreatedBy,
+		ObjectLockEnabled: req.GetObjectLockEnabled(),
 	}, nil
 }
 

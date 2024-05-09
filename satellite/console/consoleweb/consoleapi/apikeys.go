@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -65,7 +66,7 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	name := string(bodyBytes)
 
-	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name)
+	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, macaroon.APIKeyVersionMin)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
