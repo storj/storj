@@ -656,8 +656,33 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 }
 
 func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				object_key, stream_id, version, status, encryption,
+				created_at, expires_at,
+				segment_count,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
+				AND stream_id > @stream_id
+				AND status = ` + statusPending + `
+			ORDER BY stream_id ASC
+			LIMIT @batch_size
+		`,
+		Params: map[string]any{
+			"project_id":  it.projectID,
+			"bucket_name": string(it.bucketName),
+			"cursor_key":  []byte(it.cursor.Key),
+			"stream_id":   it.cursor.StreamID,
+			"batch_size":  int64(it.batchSize),
+		},
+	})
+	return newSpannerRows(rowIterator), nil
 }
 
 // scanItem scans doNextQuery results into ObjectEntry.
