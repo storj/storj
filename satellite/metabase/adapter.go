@@ -58,6 +58,10 @@ type Adapter interface {
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
 
+	doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+
 	TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error)
 	TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error)
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)

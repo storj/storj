@@ -107,7 +107,7 @@ func (db *DB) IterateObjectsAllVersionsWithStatus(ctx context.Context, opts Iter
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatusDescending(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusDescending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // IterateObjectsAllVersionsWithStatusAscending iterates through all versions of all objects with specified status. Ordered from oldest to latest.
@@ -118,7 +118,7 @@ func (db *DB) IterateObjectsAllVersionsWithStatusAscending(ctx context.Context, 
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatusAscending(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusAscending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // Verify verifies get object request fields.

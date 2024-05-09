@@ -16,7 +16,7 @@ import (
 
 // objectIterator enables iteration on objects in a bucket.
 type objectsIterator struct {
-	db *DB
+	adapter Adapter
 
 	projectID             uuid.UUID
 	bucketName            []byte
@@ -47,11 +47,11 @@ type ObjectsIteratorCursor struct {
 	Inclusive bool
 }
 
-func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
-		db: db,
+		adapter: adapter,
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
@@ -66,7 +66,7 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts It
 		curIndex: 0,
 		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
 
-		doNextQuery: doNextQueryAllVersionsWithStatus,
+		doNextQuery: adapter.doNextQueryAllVersionsWithStatus,
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
@@ -79,11 +79,11 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts It
 	return iterate(ctx, it, fn)
 }
 
-func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
-		db: db,
+		adapter: adapter,
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
@@ -98,7 +98,7 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts Ite
 		curIndex: 0,
 		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
 
-		doNextQuery: doNextQueryAllVersionsWithStatusAscending,
+		doNextQuery: adapter.doNextQueryAllVersionsWithStatusAscending,
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
@@ -111,11 +111,11 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts Ite
 	return iterate(ctx, it, fn)
 }
 
-func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
-		db: db,
+		adapter: adapter,
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
@@ -133,7 +133,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 			Version:  MaxVersion, // TODO: this needs to come as an argument
 			StreamID: opts.Cursor.StreamID,
 		},
-		doNextQuery: doNextQueryPendingObjectsByKey,
+		doNextQuery: adapter.doNextQueryPendingObjectsByKey,
 	}
 
 	return iterate(ctx, it, fn)
@@ -250,7 +250,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	return true
 }
 
-func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -265,7 +265,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
-		return it.db.db.QueryContext(ctx, `
+		return p.db.QueryContext(ctx, `
 			SELECT
 				`+querySelectFields+`
 			FROM objects
@@ -295,7 +295,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	}
 
 	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
-	return it.db.db.QueryContext(ctx, `
+	return p.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
 		FROM objects
@@ -320,7 +320,12 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	)
 }
 
-func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	// TODO: implement me
+	panic("implement me")
+}
+
+func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -335,7 +340,7 @@ func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsI
 
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
-		return it.db.db.QueryContext(ctx, `
+		return p.db.QueryContext(ctx, `
 			SELECT
 				`+querySelectFields+`
 			FROM objects
@@ -359,7 +364,7 @@ func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsI
 	}
 
 	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
-	return it.db.db.QueryContext(ctx, `
+	return p.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
 		FROM objects
@@ -376,6 +381,11 @@ func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsI
 		it.batchSize,
 		fromSubstring,
 	)
+}
+
+func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
@@ -413,10 +423,10 @@ func nextBucket(b []byte) []byte {
 }
 
 // doNextQuery executes query to fetch the next batch returning the rows.
-func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.QueryContext(ctx, `
+	return p.db.QueryContext(ctx, `
 			SELECT
 				object_key, stream_id, version, status, encryption,
 				created_at, expires_at,
@@ -435,6 +445,11 @@ func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_
 		it.cursor.StreamID,
 		it.batchSize,
 	)
+}
+
+func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // scanItem scans doNextQuery results into ObjectEntry.
