@@ -9,7 +9,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -140,6 +142,53 @@ func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSe
 
 // UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
 func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
-	// TODO: implement me
-	panic("implement me")
+	updateRepairAt := !opts.NewRepairedAt.IsZero()
+
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		rowIterator := tx.Query(ctx, spanner.Statement{
+			SQL: `
+				UPDATE segments SET
+					remote_alias_pieces = CASE
+						WHEN remote_alias_pieces = @old_pieces THEN @new_pieces
+						ELSE remote_alias_pieces
+					END,
+					redundancy = CASE
+						WHEN remote_alias_pieces = @old_pieces THEN @redundancy
+						ELSE redundancy
+					END,
+					repaired_at = CASE
+						WHEN remote_alias_pieces = @old_pieces AND @update_repaired_at = true THEN @new_repaired_at
+						ELSE repaired_at
+					END
+				WHERE
+					stream_id     = @stream_id AND
+					position      = @position
+				THEN RETURN remote_alias_pieces
+			`,
+			Params: map[string]any{
+				"stream_id":          opts.StreamID,
+				"position":           opts.Position,
+				"old_pieces":         oldPieces,
+				"new_pieces":         newPieces,
+				"redundancy":         redundancyScheme{&opts.NewRedundancy},
+				"new_repaired_at":    opts.NewRepairedAt,
+				"update_repaired_at": updateRepairAt,
+			},
+		})
+		defer rowIterator.Stop()
+
+		row, err := rowIterator.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				return ErrSegmentNotFound.New("segment missing")
+			}
+			return Error.New("unable to update segment pieces: %w", err)
+		}
+		err = row.Columns(&resultPieces)
+		return Error.New("unable to decode result pieces: %w", err)
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return resultPieces, nil
 }
