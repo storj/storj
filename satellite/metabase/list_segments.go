@@ -9,7 +9,11 @@ import (
 	"errors"
 	"time"
 
+	spanner "github.com/storj/exp-spanner"
+	"google.golang.org/api/iterator"
+
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -132,8 +136,96 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 
 // ListSegments lists specified stream segments.
 func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	var stmt spanner.Statement
+	if opts.Range == nil {
+		stmt = spanner.Statement{
+			SQL: `
+				SELECT
+					position, created_at, expires_at, root_piece_id,
+					encrypted_key_nonce, encrypted_key, encrypted_size,
+					plain_offset, plain_size, encrypted_etag, redundancy,
+					inline_data, remote_alias_pieces, placement
+				FROM segments
+				WHERE
+					stream_id = @stream_id AND
+					(@position = 0 OR position > @position)
+				ORDER BY stream_id, position ASC
+				LIMIT @limit
+			`,
+			Params: map[string]any{
+				"stream_id": opts.StreamID,
+				"position":  opts.Cursor,
+				"limit":     opts.Limit + 1,
+			},
+		}
+	} else {
+		stmt = spanner.Statement{
+			SQL: `
+				SELECT
+					position, created_at, expires_at, root_piece_id,
+					encrypted_key_nonce, encrypted_key, encrypted_size,
+					plain_offset, plain_size, encrypted_etag, redundancy,
+					inline_data, remote_alias_pieces, placement
+				FROM segments
+				WHERE
+					stream_id = @stream_id AND
+					(@position = 0 OR position > @position) AND
+					@plain_start < plain_offset + plain_size AND plain_offset < @plain_limit
+				ORDER BY stream_id, position ASC
+				LIMIT @limit
+			`,
+			Params: map[string]any{
+				"stream_id":   opts.StreamID,
+				"position":    opts.Cursor,
+				"limit":       opts.Limit + 1,
+				"plain_start": opts.Range.PlainStart,
+				"plain_limit": opts.Range.PlainLimit,
+			},
+		}
+	}
+
+	rowIterator := s.client.Single().Query(ctx, stmt)
+	defer rowIterator.Stop()
+
+	for {
+		row, err := rowIterator.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return ListSegmentsResult{}, Error.New("failed to scan segments: %w", err)
+		}
+		var segment Segment
+		var aliasPieces AliasPieces
+		err = row.Columns(
+			&segment.Position,
+			&segment.CreatedAt, &segment.ExpiresAt,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+			&segment.EncryptedETag,
+			redundancyScheme{&segment.Redundancy},
+			&segment.InlineData, &aliasPieces,
+			spannerutil.Int(&segment.Placement),
+		)
+		if err != nil {
+			return ListSegmentsResult{}, Error.New("failed to read segments: %w", err)
+		}
+
+		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return ListSegmentsResult{}, Error.New("failed to convert aliases to pieces: %w", err)
+		}
+
+		segment.StreamID = opts.StreamID
+		result.Segments = append(result.Segments, segment)
+	}
+
+	if len(result.Segments) > opts.Limit {
+		result.More = true
+		result.Segments = result.Segments[:len(result.Segments)-1]
+	}
+
+	return result, nil
 }
 
 // ListStreamPositions contains arguments necessary for listing stream segments.

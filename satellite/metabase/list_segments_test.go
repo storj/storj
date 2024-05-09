@@ -334,7 +334,7 @@ func TestListSegments(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestListStreamPositions(t *testing.T) {

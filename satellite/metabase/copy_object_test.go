@@ -14,7 +14,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestBeginCopyObject(t *testing.T) {
@@ -923,9 +922,6 @@ func TestFinishCopyObject(t *testing.T) {
 		})
 
 		t.Run("copied segments has same expires_at as original", func(t *testing.T) {
-			if db.Implementation() == dbutil.Spanner {
-				t.Skip("TODO(spanner): ListSegments not yet implemented for Spanner")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			expiresAt := time.Now().Add(2 * time.Hour)
