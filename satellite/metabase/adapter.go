@@ -17,6 +17,8 @@ import (
 // Adapter is a low level extension point to use datasource related queries.
 // TODO: we may need separated adapter for segments/objects/etc.
 type Adapter interface {
+	Name() string
+
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
@@ -38,6 +40,8 @@ type Adapter interface {
 	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
 	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)
 	ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error)
+
+	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)
 
 	DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
 	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
@@ -68,11 +72,21 @@ type PostgresAdapter struct {
 	impl dbutil.Implementation
 }
 
+// Name returns the name of the adapter.
+func (p *PostgresAdapter) Name() string {
+	return "postgres"
+}
+
 var _ Adapter = &PostgresAdapter{}
 
 // CockroachAdapter uses Cockroach related SQL queries.
 type CockroachAdapter struct {
 	PostgresAdapter
+}
+
+// Name returns the name of the adapter.
+func (c *CockroachAdapter) Name() string {
+	return "cockroach"
 }
 
 var _ Adapter = &CockroachAdapter{}

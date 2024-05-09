@@ -20,6 +20,10 @@ var ErrValueChanged = errs.Class("value changed")
 
 // UpdateSegmentPieces contains arguments necessary for updating segment pieces.
 type UpdateSegmentPieces struct {
+	// Name of the database adapter to use for this segment. If empty (""), check all adapters
+	// until the segment is found.
+	DBAdapterName string
+
 	StreamID uuid.UUID
 	Position SegmentPosition
 
@@ -64,8 +68,6 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return err
 	}
 
-	updateRepairAt := !opts.NewRepairedAt.IsZero()
-
 	oldPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.OldPieces)
 	if err != nil {
 		return Error.New("unable to convert pieces to aliases: %w", err)
@@ -77,7 +79,37 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 	}
 
 	var resultPieces AliasPieces
-	err = db.db.QueryRowContext(ctx, `
+	for _, adapter := range db.adapters {
+		if opts.DBAdapterName == "" || opts.DBAdapterName == adapter.Name() {
+			resultPieces, err = adapter.UpdateSegmentPieces(ctx, opts, oldPieces, newPieces)
+			if err != nil {
+				if ErrSegmentNotFound.Has(err) {
+					continue
+				}
+				return err
+			}
+			// segment was found
+			break
+		}
+	}
+	if resultPieces == nil {
+		return ErrSegmentNotFound.New("segment missing")
+	}
+
+	if !EqualAliasPieces(newPieces, resultPieces) {
+		return ErrValueChanged.New("segment remote_alias_pieces field was changed")
+	}
+
+	mon.Meter("segment_update").Mark(1)
+
+	return nil
+}
+
+// UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
+func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
+	updateRepairAt := !opts.NewRepairedAt.IsZero()
+
+	err = p.db.QueryRowContext(ctx, `
 		UPDATE segments SET
 			remote_alias_pieces = CASE
 				WHEN remote_alias_pieces = $3 THEN $4
@@ -99,16 +131,15 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		Scan(&resultPieces)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrSegmentNotFound.New("segment missing")
+			return nil, ErrSegmentNotFound.New("segment missing")
 		}
-		return Error.New("unable to update segment pieces: %w", err)
+		return nil, Error.New("unable to update segment pieces: %w", err)
 	}
+	return resultPieces, nil
+}
 
-	if !EqualAliasPieces(newPieces, resultPieces) {
-		return ErrValueChanged.New("segment remote_alias_pieces field was changed")
-	}
-
-	mon.Meter("segment_update").Mark(1)
-
-	return nil
+// UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
+func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
