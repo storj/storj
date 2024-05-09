@@ -45,7 +45,7 @@ const (
 	// hoursPerMonth is the number of months in a billing month. For the purpose of billing, the billing month is always 30 days.
 	hoursPerMonth = 24 * 30
 
-	storageInvoiceItemDesc = " - Segment Storage (MB-Month)"
+	storageInvoiceItemDesc = " - Storage (MB-Month)"
 	egressInvoiceItemDesc  = " - Egress Bandwidth (MB)"
 	segmentInvoiceItemDesc = " - Segment Fee (Segment-Month)"
 )

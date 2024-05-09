@@ -892,7 +892,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 					require.NotNil(t, item)
 				}
 
-				require.Equal(t, prefix+" - Segment Storage (MB-Month)", *items[0].Description)
+				require.Equal(t, prefix+" - Storage (MB-Month)", *items[0].Description)
 				require.Equal(t, expectedStorageQuantity, *items[0].Quantity)
 				storage, _ := tt.priceModel.StorageMBMonthCents.Float64()
 				require.Equal(t, storage, *items[0].UnitAmountDecimal)
