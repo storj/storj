@@ -8,6 +8,7 @@ import (
 	"context"
 	"strings"
 
+	spanner "github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
@@ -321,8 +322,86 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, 
 }
 
 func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	cursorCompare := ">"
+	if it.cursor.Inclusive {
+		cursorCompare = ">="
+	}
+
+	statusFilter := `AND status <> ` + statusPending
+	if it.pending {
+		statusFilter = `AND status = ` + statusPending
+	}
+
+	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
+		rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+			SQL: `
+				SELECT
+					` + querySelectFields + `
+				FROM objects
+				WHERE
+					project_id = @project_id
+					AND (
+						-- equivalent to (bucket_name, object_key, @cursor_version) ` + cursorCompare + ` (@bucket_name, @cursor_key, version)
+						(bucket_name > @bucket_name)
+						OR (bucket_name = @bucket_name AND object_key > @cursor_key)
+						OR (bucket_name = @bucket_name AND object_key = @cursor_key AND @cursor_version ` + cursorCompare + ` version)
+					)
+					AND bucket_name < @next_bucket
+					` + statusFilter + `
+					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
+				LIMIT @batch_size
+			`,
+			Params: map[string]any{
+				"project_id":     it.projectID,
+				"bucket_name":    string(it.bucketName),
+				"cursor_key":     []byte(it.cursor.Key),
+				"cursor_version": it.cursor.Version,
+				"batch_size":     int64(it.batchSize),
+				"next_bucket":    string(nextBucket(it.bucketName)),
+			},
+		})
+		return newSpannerRows(rowIterator), nil
+	}
+
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring)", it)
+	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				` + querySelectFields + `
+			FROM objects
+			WHERE
+				project_id = @project_id
+				AND bucket_name = @bucket_name
+				AND (
+					object_key > @cursor_key
+					OR (object_key = @cursor_key AND @cursor_version ` + cursorCompare + ` version)
+				)
+				AND object_key < @prefix_limit
+				` + statusFilter + `
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
+			LIMIT @batch_size
+		`,
+		Params: map[string]any{
+			"project_id":     it.projectID,
+			"bucket_name":    string(it.bucketName),
+			"cursor_key":     []byte(it.cursor.Key),
+			"cursor_version": it.cursor.Version,
+			"prefix_limit":   []byte(it.prefixLimit),
+			"batch_size":     int64(it.batchSize),
+			"from_substring": int64(fromSubstring),
+		},
+	})
+	return newSpannerRows(rowIterator), nil
 }
 
 func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
