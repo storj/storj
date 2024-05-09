@@ -583,7 +583,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	result, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
-		StreamID: id,
+		ProjectID: keyInfo.ProjectID,
+		StreamID:  id,
 		Cursor: metabase.SegmentPosition{
 			Part:  uint32(cursor.PartNumber),
 			Index: uint32(cursor.Index),
