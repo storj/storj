@@ -82,6 +82,11 @@ func (p *PostgresAdapter) Name() string {
 	return "postgres"
 }
 
+// UnderlyingDB returns a handle to the underlying DB.
+func (p *PostgresAdapter) UnderlyingDB() tagsql.DB {
+	return p.db
+}
+
 var _ Adapter = &PostgresAdapter{}
 
 // CockroachAdapter uses Cockroach related SQL queries.

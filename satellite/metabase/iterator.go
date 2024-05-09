@@ -343,12 +343,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 				FROM objects
 				WHERE
 					project_id = @project_id
-					AND (
-						-- equivalent to (bucket_name, object_key, @cursor_version) ` + cursorCompare + ` (@bucket_name, @cursor_key, version)
-						(bucket_name > @bucket_name)
-						OR (bucket_name = @bucket_name AND object_key > @cursor_key)
-						OR (bucket_name = @bucket_name AND object_key = @cursor_key AND @cursor_version ` + cursorCompare + ` version)
-					)
+					AND ` + TupleGreaterThanSQL([]string{"bucket_name", "object_key", "@cursor_version"}, []string{"@bucket_name", "@cursor_key", "version"}, it.cursor.Inclusive) + `
 					AND bucket_name < @next_bucket
 					` + statusFilter + `
 					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
@@ -463,8 +458,142 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.
 }
 
 func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	cursorCompare := ">"
+	if it.cursor.Inclusive {
+		cursorCompare = ">="
+	}
+
+	statusFilter := `AND status <> ` + statusPending
+	if it.pending {
+		statusFilter = `AND status = ` + statusPending
+	}
+
+	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
+		rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+			SQL: `
+				SELECT
+					` + querySelectFields + `
+				FROM objects
+				WHERE
+					project_id = @project_id
+					AND ` + TupleGreaterThanSQL([]string{"bucket_name", "object_key", "version"}, []string{"@bucket_name", "@cursor_key", "@cursor_version"}, it.cursor.Inclusive) + `
+					AND bucket_name < @next_bucket
+					` + statusFilter + `
+					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+				LIMIT @batch_size
+			`,
+			Params: map[string]any{
+				"project_id":     it.projectID,
+				"bucket_name":    string(it.bucketName),
+				"cursor_key":     []byte(it.cursor.Key),
+				"cursor_version": int64(it.cursor.Version),
+				"batch_size":     int64(it.batchSize),
+				"next_bucket":    string(nextBucket(it.bucketName)),
+			},
+		})
+		return newSpannerRows(rowIterator), nil
+	}
+
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring)", it)
+	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				` + querySelectFields + `
+			FROM objects
+			WHERE
+				project_id = @project_id
+				AND bucket_name = @bucket_name
+				AND (
+					(object_key > @cursor_key)
+					OR (object_key = @cursor_key AND version ` + cursorCompare + ` @cursor_version)
+				)
+				AND object_key < @prefix_limit
+				` + statusFilter + `
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+			LIMIT @batch_size
+		`,
+		Params: map[string]any{
+			"project_id":     it.projectID,
+			"bucket_name":    string(it.bucketName),
+			"cursor_key":     []byte(it.cursor.Key),
+			"cursor_version": int64(it.cursor.Version),
+			"prefix_limit":   []byte(it.prefixLimit),
+			"batch_size":     int64(it.batchSize),
+			"from_substring": int64(fromSubstring),
+		},
+	})
+	return newSpannerRows(rowIterator), nil
+}
+
+// TupleGreaterThanSQL returns a constructed SQL expression equivalent to a
+// tuple comparison (e.g. (tup1[0], tup1[1], ...) > (tup2[0], tup2[1], ...)).
+//
+// If orEqual is true, the returned expression will compare the tuples as
+// "greater than or equal" (>=) instead of "greater than" (>).
+//
+// This is necessary because Spanner does not support comparison of tuples,
+// except with equality (=).
+//
+// Example:
+//
+//	(a, b, c) >= (d, e, f)
+//
+// becomes
+//
+//	TupleGreaterThanSQL([]string{"a", "b", "c"}, []string{"d", "e", "f"}, true)
+//
+// which returns
+//
+//	"((a > d) OR (a = d AND b > e) OR (a = d AND b = e AND c >= f))"
+func TupleGreaterThanSQL(tup1, tup2 []string, orEqual bool) string {
+	if len(tup1) != len(tup2) {
+		panic("programming error: comparing tuples of different lengths")
+	}
+	if len(tup1) == 0 {
+		panic("programming error: comparing tuples of zero length")
+	}
+	comparator := " > "
+	if orEqual {
+		comparator = " >= "
+	}
+	var sb strings.Builder
+	if len(tup1) > 1 {
+		sb.WriteString("(")
+	}
+	for i := range tup1 {
+		sb.WriteString("(")
+		for j := 0; j < i; j++ {
+			sb.WriteString(tup1[j])
+			sb.WriteString(" = ")
+			sb.WriteString(tup2[j])
+			sb.WriteString(" AND ")
+		}
+		sb.WriteString(tup1[i])
+		if i == len(tup1)-1 {
+			sb.WriteString(comparator)
+		} else {
+			sb.WriteString(" > ")
+		}
+		sb.WriteString(tup2[i])
+		sb.WriteString(")")
+		if i < len(tup1)-1 {
+			sb.WriteString(" OR ")
+		}
+	}
+	if len(tup1) > 1 {
+		sb.WriteString(")")
+	}
+	return sb.String()
 }
 
 func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {

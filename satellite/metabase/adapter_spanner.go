@@ -50,4 +50,9 @@ func (s *SpannerAdapter) Name() string {
 	return "spanner"
 }
 
+// UnderlyingDB returns a handle to the underlying DB.
+func (s *SpannerAdapter) UnderlyingDB() *spanner.Client {
+	return s.client
+}
+
 var _ Adapter = &SpannerAdapter{}
