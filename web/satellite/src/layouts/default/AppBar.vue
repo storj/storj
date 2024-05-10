@@ -90,6 +90,22 @@
 
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg">
+                    <v-list-item class="py-2 rounded-lg">
+                        <v-list-item-title class="text-body-2">
+                            <v-chip
+                                class="font-weight-bold"
+                                color="default"
+                                variant="outlined"
+                                size="small"
+                                rounded
+                            >
+                                {{ user.email }}
+                                <v-tooltip activator="parent" location="bottom">
+                                    {{ user.email }}
+                                </v-tooltip>
+                            </v-chip>
+                        </v-list-item-title>
+                    </v-list-item>
                     <v-list-item v-if="billingEnabled" class="py-2 rounded-lg">
                         <v-list-item-title class="text-body-2">
                             <v-chip
@@ -200,6 +216,7 @@ import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
+import { User } from '@/types/users';
 
 import IconCard from '@/components/icons/IconCard.vue';
 import IconUpgrade from '@/components/icons/IconUpgrade.vue';
@@ -207,9 +224,6 @@ import IconSettings from '@/components/icons/IconSettings.vue';
 import IconLogout from '@/components/icons/IconLogout.vue';
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
-
-const activeTheme = ref<number>(0);
-const theme = useTheme();
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -223,17 +237,18 @@ const projectsStore = useProjectsStore();
 const obStore = useObjectBrowserStore();
 const configStore = useConfigStore();
 
+const theme = useTheme();
 const router = useRouter();
 const notify = useNotify();
-
 const { mdAndDown } = useDisplay();
 
 const auth: AuthHttpApi = new AuthHttpApi();
-
 const settingsPath = ROUTES.Account.with(ROUTES.AccountSettings).path;
 const billingPath = ROUTES.Account.with(ROUTES.Billing).path;
 
-const props = withDefaults(defineProps<{
+const activeTheme = ref<number>(0);
+
+withDefaults(defineProps<{
     showNavDrawerButton: boolean;
 }>(), {
     showNavDrawerButton: false,
@@ -252,10 +267,15 @@ const satelliteName = computed<string>(() => {
 });
 
 /**
- * Returns user's paid tier status from store.
+ * Returns user entity from store.
+ */
+const user = computed<User>(() => usersStore.state.user);
+
+/**
+ * Indicates if user is in paid tier.
  */
 const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier ?? false;
+    return user.value.paidTier ?? false;
 });
 
 function toggleTheme(newTheme: string): void {
@@ -311,5 +331,12 @@ async function onLogout(): Promise<void> {
 <style scoped lang="scss">
 .flex-initial {
     flex: initial;
+}
+
+:deep(.v-chip__content) {
+    display: inline-block !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 </style>
