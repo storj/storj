@@ -124,13 +124,13 @@
 
         <v-row>
             <v-col cols="12" lg="4">
-                <v-card title="Passphrase Preference">
-                    <v-card-subtitle>
-                        Ask for passphrase when opening projects.
-                    </v-card-subtitle>
+                <v-card title="Passphrase Prompt Preference">
+                    <v-card-text>
+                        {{ userSettings.passphrasePrompt ? 'Ask for encryption passphrase when opening a project' : 'Only ask for encryption passphrase when necessary' }}
+                    </v-card-text>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" :loading="isTogglingPassphrasePrompt" @click="togglePassphrasePrompt">
+                        <v-btn variant="outlined" color="default" size="small" @click="isSetPassphrasePromptDialogShown = true">
                             {{ userSettings.passphrasePrompt ? 'Disable' : 'Enable' }}
                         </v-btn>
                     </v-card-text>
@@ -161,6 +161,10 @@
 
     <SetSessionTimeoutDialog
         v-model="isSetSessionTimeoutDialogShown"
+    />
+
+    <SetPassphrasePromptDialog
+        v-model="isSetPassphrasePromptDialogShown"
     />
 </template>
 
@@ -197,6 +201,7 @@ import DisableMFADialog from '@/components/dialogs/DisableMFADialog.vue';
 import MFACodesDialog from '@/components/dialogs/MFACodesDialog.vue';
 import SetSessionTimeoutDialog from '@/components/dialogs/SetSessionTimeoutDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+import SetPassphrasePromptDialog from '@/components/dialogs/SetPassphrasePromptDialog.vue';
 
 const appStore = useAppStore();
 const configStore = useConfigStore();
@@ -205,13 +210,13 @@ const usersStore = useUsersStore();
 const notify = useNotify();
 const { isTrialExpirationBanner, isExpired } = useTrialCheck();
 
-const isTogglingPassphrasePrompt = ref<boolean>(false);
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
 const isEnableMFADialogShown = ref<boolean>(false);
 const isDisableMFADialogShown = ref<boolean>(false);
 const isRecoveryCodesDialogShown = ref<boolean>(false);
 const isSetSessionTimeoutDialogShown = ref<boolean>(false);
+const isSetPassphrasePromptDialogShown = ref<boolean>(false);
 
 /**
  * Returns user entity from store.
@@ -254,19 +259,6 @@ async function toggleRecoveryCodesDialog() {
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
     }
-}
-
-async function togglePassphrasePrompt() {
-    try {
-        isTogglingPassphrasePrompt.value = true;
-        await usersStore.updateSettings({
-            passphrasePrompt: !userSettings.value.passphrasePrompt,
-        });
-        await usersStore.getSettings();
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
-    }
-    isTogglingPassphrasePrompt.value = false;
 }
 
 onMounted(() => {
