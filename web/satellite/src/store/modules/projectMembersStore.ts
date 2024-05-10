@@ -5,6 +5,7 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
+    ProjectMember,
     ProjectMemberCursor,
     ProjectMemberItemModel,
     ProjectMemberOrderBy,
@@ -38,6 +39,10 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     async function getInviteLink(email: string, projectID: string): Promise<string> {
         return await api.getInviteLink(projectID, email);
+    }
+
+    async function getSingleMember(projectID: string, memberID: string): Promise<ProjectMember> {
+        return await api.getSingleMember(projectID, memberID);
     }
 
     async function updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<void> {
@@ -129,6 +134,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     return {
         state,
         inviteMember,
+        getSingleMember,
         updateRole,
         reinviteMembers,
         getInviteLink,

@@ -13,25 +13,42 @@
 
         <v-col>
             <v-row class="mt-2 mb-4">
-                <v-btn @click="onAddMember">
-                    <IconNew class="mr-2" size="16" bold />
-                    Add Members
-                </v-btn>
+                <div class="d-inline">
+                    <v-btn
+                        :loading="isLoading"
+                        :disabled="!isLoading && !isUserAdmin"
+                        @click="onAddMember"
+                    >
+                        <IconNew class="mr-2" size="16" bold />
+                        Add Members
+                    </v-btn>
+                    <v-tooltip v-if="!isLoading && !isUserAdmin" activator="parent" location="right">
+                        Only project Owner or Admin can add new project members
+                    </v-tooltip>
+                </div>
             </v-row>
         </v-col>
 
-        <TeamTableComponent />
+        <TeamTableComponent :is-user-admin="isUserAdmin" />
     </v-container>
 
-    <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="selectedProjectID" />
+    <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="selectedProject.id" />
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { VContainer, VCol, VRow, VBtn } from 'vuetify/components';
+import { computed, onMounted, ref } from 'vue';
+import { VBtn, VCol, VContainer, VRow, VTooltip } from 'vuetify/components';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { useLoading } from '@/composables/useLoading';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useNotify } from '@/utils/hooks';
+import { Project } from '@/types/projects';
+import { User } from '@/types/users';
+import { ProjectRole } from '@/types/projectMembers';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -40,20 +57,44 @@ import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
 import IconNew from '@/components/icons/IconNew.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
+const usersStore = useUsersStore();
+const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const isAddMemberDialogShown = ref<boolean>(false);
+const isUserAdmin = ref<boolean>(false);
 
-const selectedProjectID = computed((): string => projectsStore.state.selectedProject.id);
+const selectedProject = computed<Project>(() => projectsStore.state.selectedProject);
+const user = computed<User>(() => usersStore.state.user);
 
 /**
  * Starts create bucket flow if user's free trial is not expired.
  */
 function onAddMember(): void {
+    if (isLoading.value || !isUserAdmin.value) return;
+
     withTrialCheck(() => {
         isAddMemberDialogShown.value = true;
     });
 }
+
+onMounted(() => {
+    if (selectedProject.value.ownerId === user.value.id) {
+        isUserAdmin.value = true;
+        return;
+    }
+
+    withLoading(async () => {
+        try {
+            const pm = await pmStore.getSingleMember(selectedProject.value.id, user.value.id);
+            isUserAdmin.value = pm.role === ProjectRole.Admin;
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+        }
+    });
+});
 </script>

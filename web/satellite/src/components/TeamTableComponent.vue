@@ -31,8 +31,8 @@
             item-value="email"
             select-strategy="all"
             item-selectable="selectable"
-            show-select
-            hover
+            :show-select="isUserAdmin"
+            :hover="isUserAdmin"
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
             @update:sortBy="onUpdateSortBy"
@@ -49,7 +49,7 @@
             </template>
             <template #item.actions="{ item }">
                 <v-btn
-                    v-if="item.role !== ProjectRole.Owner"
+                    v-if="hasActionMenu(item)"
                     variant="outlined"
                     color="default"
                     size="small"
@@ -61,7 +61,7 @@
                     <v-menu activator="parent">
                         <v-list class="pa-1">
                             <v-list-item
-                                v-if="item.role === ProjectRole.Member || item.role === ProjectRole.Admin"
+                                v-if="hasChangeRoleActionItem(item)"
                                 density="comfortable"
                                 link
                                 rounded="lg"
@@ -75,7 +75,7 @@
                                 </v-list-item-title>
                             </v-list-item>
                             <v-list-item
-                                v-if="item.role === ProjectRole.Invited || item.role === ProjectRole.InviteExpired"
+                                v-if="hasInviteActionItem(item)"
                                 density="comfortable"
                                 link
                                 rounded="lg"
@@ -89,7 +89,10 @@
                                     {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
                                 </v-list-item-title>
                             </v-list-item>
-                            <v-divider class="my-1" />
+                            <v-divider
+                                v-if="hasInviteActionItem(item) || hasChangeRoleActionItem(item)"
+                                class="my-1"
+                            />
                             <v-list-item
                                 class="text-error"
                                 density="comfortable"
@@ -194,6 +197,7 @@ import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/type
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
+import { User } from '@/types/users';
 
 import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberDialog.vue';
 import IconUpload from '@/components/icons/IconUpload.vue';
@@ -222,6 +226,10 @@ const router = useRouter();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
+const props = defineProps<{
+    isUserAdmin: boolean
+}>();
+
 const isRemoveMembersDialogShown = ref<boolean>(false);
 const isChangeMembersRoleShown = ref<boolean>(false);
 const search = ref<string>('');
@@ -243,6 +251,8 @@ const headers = ref([
 ]);
 
 const selectedProject = computed<Project>(() => projectsStore.state.selectedProject);
+const user = computed<User>(() => usersStore.state.user);
+const isProjectOwner = computed<boolean>(() => selectedProject.value.ownerId === user.value.id);
 const cursor = computed<ProjectMemberCursor>(() => pmStore.state.cursor);
 const page = computed<ProjectMembersPage>(() => pmStore.state.page as ProjectMembersPage);
 
@@ -292,6 +302,27 @@ const membersToDelete = computed<string[]>(() => {
     if (memberToDelete.value) return [memberToDelete.value];
     return selectedMembers.value;
 });
+
+/**
+ * Indicates if action menu should be rendered.
+ */
+function hasActionMenu(item: RenderedItem): boolean {
+    return item.role !== ProjectRole.Owner && (props.isUserAdmin || user.value.id === item.id);
+}
+
+/**
+ * Indicates if action menu should have change role item.
+ */
+function hasChangeRoleActionItem(item: RenderedItem): boolean {
+    return isProjectOwner.value && (item.role === ProjectRole.Member || item.role === ProjectRole.Admin);
+}
+
+/**
+ * Indicates if action menu should have invite-related item.
+ */
+function hasInviteActionItem(item: RenderedItem): boolean {
+    return item.role === ProjectRole.Invited || item.role === ProjectRole.InviteExpired;
+}
 
 /**
  * Handles update table rows limit event.

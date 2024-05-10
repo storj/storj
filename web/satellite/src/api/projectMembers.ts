@@ -76,6 +76,34 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
     }
 
     /**
+     * Used for fetching team member related to project.
+     *
+     * @throws Error
+     */
+    public async getSingleMember(projectID: string, memberID: string): Promise<ProjectMember> {
+        const path = `${this.ROOT_PATH}/${projectID}/members/${memberID}`;
+        const response = await this.http.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || `Failed to get project member`,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return new ProjectMember(
+            '',
+            '',
+            '',
+            new Date(result.joinedAt),
+            result.id,
+            result.role,
+        );
+    }
+
+    /**
      * Handles updating project member's role.
      *
      * @throws Error

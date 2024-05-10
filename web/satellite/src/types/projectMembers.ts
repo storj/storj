@@ -40,6 +40,16 @@ export interface ProjectMembersApi {
     reinvite(projectId: string, emails: string[]): Promise<void>;
 
     /**
+     * Used for fetching team member related to project.
+     *
+     * @param projectID
+     * @param memberID
+     *
+     * @throws Error
+     */
+    getSingleMember(projectID: string, memberID: string): Promise<ProjectMember>
+
+    /**
      * Handles updating project member's role.
      *
      * @param projectID
