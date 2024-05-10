@@ -696,6 +696,39 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 			})
 
+			t.Run("GetProjectMember", func(t *testing.T) {
+				owner, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Owner Name",
+					Email:    "get_member_owner@example.com",
+				}, 1)
+				require.NoError(t, err)
+				member, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Member Name",
+					Email:    "get_member_member@example.com",
+				}, 1)
+				require.NoError(t, err)
+
+				pr, err := sat.AddProject(ctx, owner.ID, "Get Project Member")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				ownerCtx, err := sat.UserContext(ctx, owner.ID)
+				require.NoError(t, err)
+				memberCtx, err := sat.UserContext(ctx, member.ID)
+				require.NoError(t, err)
+
+				pm, err := service.GetProjectMember(memberCtx, owner.ID, pr.ID)
+				require.True(t, console.ErrNoMembership.Has(err))
+				require.Nil(t, pm)
+
+				_, err = service.AddProjectMembers(ownerCtx, pr.ID, []string{member.Email})
+				require.NoError(t, err)
+
+				pm, err = service.GetProjectMember(memberCtx, member.ID, pr.ID)
+				require.NoError(t, err)
+				require.Equal(t, console.RoleMember, pm.Role)
+			})
+
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
 				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
 				storageLimit := sat.Config.Console.UsageLimits.Storage.Free

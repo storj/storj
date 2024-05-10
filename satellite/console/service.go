@@ -2751,6 +2751,28 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 	return pm, err
 }
 
+// GetProjectMember queries and returns project member by given project and member IDs.
+func (s *Service) GetProjectMember(ctx context.Context, memberID, projectID uuid.UUID) (pm *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get project member", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	member, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	pm, err = s.store.ProjectMembers().GetByMemberIDAndProjectID(ctx, memberID, member.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return pm, err
+}
+
 // GetProjectMembersAndInvitations returns the project members and invitations for a given project.
 func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)

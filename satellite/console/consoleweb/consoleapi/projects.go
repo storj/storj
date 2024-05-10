@@ -569,6 +569,66 @@ func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetMember returns project member.
+func (p *Projects) GetMember(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(projectIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	memberIDParam, ok := mux.Vars(r)["memberID"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing member id route param"))
+		return
+	}
+
+	memberID, err := uuid.FromString(memberIDParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	member, err := p.service.GetProjectMember(ctx, memberID, publicID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	var returnedMember struct {
+		ID              uuid.UUID                 `json:"id"`
+		PublicProjectID uuid.UUID                 `json:"projectID"`
+		Role            console.ProjectMemberRole `json:"role"`
+		JoinedAt        time.Time                 `json:"joinedAt"`
+	}
+
+	returnedMember.ID = member.MemberID
+	returnedMember.PublicProjectID = publicID
+	returnedMember.Role = member.Role
+	returnedMember.JoinedAt = member.CreatedAt
+
+	err = json.NewEncoder(w).Encode(returnedMember)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // GetSalt returns the project's salt.
 func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
