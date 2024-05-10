@@ -3,6 +3,7 @@ module storj.io/storj
 go 1.20
 
 require (
+	cloud.google.com/go/secretmanager v1.12.0
 	cloud.google.com/go/spanner v1.61.0
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3

@@ -63,6 +63,7 @@ export class FrontendConfig {
     objectBrowserKeyLifetime: number;
     maxNameCharacters: number;
     billingInformationTabEnabled: boolean;
+    satelliteManagedEncryptionEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

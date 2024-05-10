@@ -466,6 +466,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of clients whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# indicates whether satellite managed encryption projects can be created.
+# console.satellite-managed-encryption-enabled: false
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
@@ -765,6 +768,12 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+
+# checksum of the master key in Google Secret Manager
+# key-management.secret-checksum: 0
+
+# version name of the master key in Google Secret Manager. E.g.: projects/{projectID}/secrets/{secretName}/versions/{latest}
+# key-management.secret-version: ""
 
 # as of system interval
 # live-accounting.as-of-system-interval: -10s

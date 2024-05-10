@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
@@ -173,6 +174,10 @@ type API struct {
 
 	Buckets struct {
 		Service *buckets.Service
+	}
+
+	KeyManagement struct {
+		Service *kms.Service
 	}
 }
 
@@ -446,6 +451,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Metainfo.Endpoint.Run,
 			Close: peer.Metainfo.Endpoint.Close,
 		})
+	}
+
+	{ // setup kms
+		if config.Console.Config.SatelliteManagedEncryptionEnabled {
+			peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "kms:service",
+				Run:   peer.KeyManagement.Service.Initialize,
+				Close: peer.KeyManagement.Service.Close,
+			})
+		}
 	}
 
 	{ // setup userinfo.

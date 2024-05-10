@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -225,6 +226,8 @@ type Config struct {
 	PieceTracker piecetracker.Config
 
 	DurabilityReport durability.ReportConfig
+
+	KeyManagement kms.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 }
