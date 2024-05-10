@@ -10,11 +10,12 @@
                 <PageTitleComponent title="Applications" />
                 <PageSubtitleComponent subtitle="Connect Storj with third-party applications." link="https://www.storj.io/integrations" />
                 <v-chip-group
-                    v-model="selectedChips"
+                    v-model="selectedChip"
                     class="border rounded-xlg px-2 mt-4 bg-surface"
                     selected-class="font-weight-bold v-chip--variant-tonal"
                     color="info"
                     mandatory
+                    :max="1"
                     column
                 >
                     <v-chip
@@ -106,6 +107,7 @@
             </template>
             <template #default="{ items }">
                 <v-row>
+                    <ApplicationItem v-if="showUplinkItem" :app="UplinkApp" />
                     <ApplicationItem v-for="app in items" :key="app.raw.name" :app="app.raw" />
                 </v-row>
             </template>
@@ -116,24 +118,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import {
-    VContainer,
-    VRow,
-    VCol,
-    VChipGroup,
-    VChip,
-    VCard,
-    VList,
-    VIcon,
     VBtn,
     VBtnToggle,
-    VMenu,
-    VTextField,
-    VListItem,
+    VCard,
+    VChip,
+    VChipGroup,
+    VCol,
+    VContainer,
     VDataIterator,
+    VIcon,
+    VList,
+    VListItem,
+    VMenu,
+    VRow,
+    VTextField,
 } from 'vuetify/components';
 import { mdiChevronDown, mdiMagnify, mdiSort, mdiSortAscending, mdiSortDescending } from '@mdi/js';
 
-import { AppCategory, Application, applications } from '@/types/applications';
+import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -143,11 +145,16 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
 
-const selectedChips = ref<AppCategory[]>([AppCategory.Featured]);
+const selectedChip = ref<AppCategory>(AppCategory.All);
 const search = ref<string>('');
 const sortKey = ref<string>('name');
 const sortOrder = ref<string>('asc');
 const sortKeys = ['Name', 'Category'];
+
+/**
+ * Indicates if uplink item should be shown.
+ */
+const showUplinkItem = computed<boolean>(() => !search.value && selectedChip.value === AppCategory.All);
 
 /**
  * The sorting criteria to be used for the file list.
@@ -158,19 +165,17 @@ const sortBy = computed(() => [{ key: sortKey.value, order: sortOrder.value }]);
  * Returns all application categories.
  */
 const categories = computed<string[]>(() => {
-    return Object.values(AppCategory);
+    const values = Object.values(AppCategory);
+    values.shift();
+    return values;
 });
 
 /**
  * Returns filtered apps based on selected category.
  */
 const filteredApps = computed<Application[]>(() => {
-    if (selectedChips.value.includes(AppCategory.All)) {
-        return applications;
-    }
+    if (selectedChip.value === AppCategory.All) return applications;
 
-    return applications.filter(app => {
-        return selectedChips.value.includes(app.category);
-    });
+    return applications.filter(app => selectedChip.value === app.category);
 });
 </script>

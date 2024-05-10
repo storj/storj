@@ -57,14 +57,15 @@ export type Application = {
     docs: string
 }
 
+export const UplinkApp: Application = {
+    name: 'Storj Uplink CLI',
+    description: 'Official Storj command-line application that allows you to access, upload, download, and manage your data.',
+    category: AppCategory.Featured,
+    src: UplinkIcon,
+    docs: 'https://docs.storj.io/dcs/api/uplink-cli/installation',
+};
+
 export const applications: Application[] = [
-    {
-        name: 'Uplink',
-        description: 'An application that allows you to access Object Storage from the command line.',
-        category: AppCategory.Featured,
-        src: UplinkIcon,
-        docs: 'https://docs.storj.io/dcs/api/uplink-cli/setup-command',
-    },
     {
         name: 'TrueNAS - iX Systems',
         description: 'TrueNAS is a network attached storage (NAS) solution that allows for an off-site backup to your Storj account.',

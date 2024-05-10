@@ -52,7 +52,7 @@ import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
 import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 
-import { Application } from '@/types/applications';
+import { Application, UplinkApp } from '@/types/applications';
 import { AccessType, Exposed } from '@/types/createAccessGrant';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -75,7 +75,7 @@ const dialog = ref<boolean>(false);
  * Returns access type needed for current app.
  */
 const neededAccessType = computed<AccessType>(() => {
-    return props.app.name === 'Uplink' ? AccessType.AccessGrant : AccessType.S3;
+    return props.app.name === UplinkApp.name ? AccessType.AccessGrant : AccessType.S3;
 });
 
 /**
