@@ -148,7 +148,12 @@
             </v-card>
         </template>
     </v-data-iterator>
-    <file-preview-dialog v-model="previewDialog" video-autoplay />
+    <file-preview-dialog
+        v-model="previewDialog"
+        v-model:current-file="fileToPreview"
+        :showing-versions="!!fileToPreview?.VersionId"
+        video-autoplay
+    />
 
     <delete-file-dialog
         v-model="isDeleteFileDialogShown"
@@ -237,6 +242,7 @@ const isFetching = ref<boolean>(false);
 const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
+const fileToPreview = ref<BrowserObject | null>(null);
 const filesToDelete = ref<BrowserObject[]>([]);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
@@ -438,7 +444,8 @@ function onFileClick(file: BrowserObject): void {
         return;
     }
 
-    obStore.setObjectPathForModal(file.path + file.Key);
+    obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+    fileToPreview.value = file;
     previewDialog.value = true;
 }
 
