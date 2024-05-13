@@ -292,13 +292,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         const { Versions } = response;
         const versions = Versions ?? [];
 
-        const makeFileRelative = (file) => ({
-            ...file,
-            Key,
-            path,
-            type: 'file',
-        });
-
         const files = versions.map(file => ({
             ...file,
             Key,

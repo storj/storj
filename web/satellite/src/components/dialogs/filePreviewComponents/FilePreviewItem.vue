@@ -173,10 +173,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
  */
 function processFilePath(): void {
     const url = findCachedURL();
-    if (!url) {
-        fetchPreviewAndMapUrl();
-        return;
-    }
+    if (!url) fetchPreviewAndMapUrl();
 }
 
 /**

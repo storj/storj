@@ -12,6 +12,7 @@
                         alt="preview"
                         :aspect-ratio="1"
                         cover
+                        :draggable="false"
                     >
                         <template #placeholder>
                             <v-progress-linear indeterminate />
