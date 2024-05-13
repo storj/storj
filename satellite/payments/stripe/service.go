@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -340,17 +341,20 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		return Error.New("allowed for past periods only")
 	}
 
-	var totalRecords int
-	var totalSkipped int
+	var totalRecords atomic.Int64
+	var totalSkipped atomic.Int64
 
-	var errMu sync.Mutex
-	var skipMu sync.Mutex
-	var recordMu sync.Mutex
+	var mu sync.Mutex
 	var errGrp errs.Group
+
+	addErr := func(mu *sync.Mutex, err error) {
+		mu.Lock()
+		errGrp.Add(errs.Wrap(err))
+		mu.Unlock()
+	}
+
 	limiter := sync2.NewLimiter(service.maxParallelCalls)
-	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
-		cancel()
 		limiter.Wait()
 	}()
 
@@ -366,28 +370,18 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		for _, c := range customersPage.Customers {
 			c := c
 			limiter.Go(ctx, func() {
-				if err := ctx.Err(); err != nil {
-					errMu.Lock()
-					errGrp.Add(errs.Wrap(err))
-					errMu.Unlock()
+				skip, err := service.mustSkipUser(ctx, c.UserID)
+				if err != nil {
+					addErr(&mu, err)
 					return
 				}
-				if skip, err := service.mustSkipUser(ctx, c.UserID); err != nil {
-					errMu.Lock()
-					errGrp.Add(errs.Wrap(err))
-					errMu.Unlock()
-					return
-				} else if skip {
-					skipMu.Lock()
-					totalSkipped++
-					skipMu.Unlock()
+				if skip {
+					totalSkipped.Add(1)
 					return
 				}
 				projects, err := service.projectsDB.GetOwn(ctx, c.UserID)
 				if err != nil {
-					errMu.Lock()
-					errGrp.Add(errs.Wrap(err))
-					errMu.Unlock()
+					addErr(&mu, err)
 					return
 				}
 
@@ -400,28 +394,20 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 
 				records, err := service.db.ProjectRecords().GetUnappliedByProjectIDs(ctx, projectIDs, start, end)
 				if err != nil {
-					errMu.Lock()
-					errGrp.Add(errs.Wrap(err))
-					errMu.Unlock()
+					addErr(&mu, err)
 					return
 				}
 
 				for _, r := range records {
-					recordMu.Lock()
-					totalRecords++
-					recordMu.Unlock()
+					totalRecords.Add(1)
 
 					skipped, err := service.createInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period)
 					if err != nil {
-						errMu.Lock()
-						errGrp.Add(errs.Wrap(err))
-						errMu.Unlock()
+						addErr(&mu, err)
 						return
 					}
 					if skipped {
-						skipMu.Lock()
-						totalSkipped++
-						skipMu.Unlock()
+						totalSkipped.Add(1)
 					}
 				}
 			})
@@ -431,8 +417,8 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 	limiter.Wait()
 
 	service.log.Info("Processed regular project records.",
-		zap.Int("Total", totalRecords),
-		zap.Int("Skipped", totalSkipped))
+		zap.Int64("Total", totalRecords.Load()),
+		zap.Int64("Skipped", totalSkipped.Load()))
 	return errGrp.Err()
 }
 
