@@ -265,7 +265,7 @@ type ItemSlotProps = { item: BrowserObjectWrapper };
 const props = defineProps<{
     forceEmpty?: boolean;
     loading?: boolean;
-    bucket: BucketMetadata;
+    bucket?: BucketMetadata;
 }>();
 
 const emit = defineEmits<{

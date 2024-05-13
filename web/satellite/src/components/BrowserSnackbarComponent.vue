@@ -73,7 +73,11 @@
         </v-row>
     </v-snackbar>
 
-    <file-preview-dialog v-model="previewDialog" />
+    <file-preview-dialog
+        v-model="previewDialog"
+        v-model:current-file="fileToPreview"
+        :showing-versions="!!fileToPreview?.VersionId"
+    />
 </template>
 
 <script setup lang="ts">
@@ -121,6 +125,7 @@ const notify = useNotify();
 const startDate = ref<number>(Date.now());
 const isExpanded = ref<boolean>(false);
 const previewDialog = ref<boolean>(false);
+const fileToPreview = ref<BrowserObject | null>(null);
 
 /**
  * Indicates whether objects upload modal should be shown.
@@ -226,7 +231,16 @@ function onFileClick(file: BrowserObject): void {
         return;
     }
 
-    obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+    const objectToPreview = { ...file };
+    const pathParts = objectToPreview.Key.split('/');
+    const key = pathParts.pop();
+    const path = pathParts.length ? `${pathParts.join('/')}/` : '';
+
+    objectToPreview.Key = key ?? file.Key;
+    objectToPreview.path = path;
+
+    obStore.setObjectPathForModal((objectToPreview.path ?? '') + objectToPreview.Key);
+    fileToPreview.value = objectToPreview;
     previewDialog.value = true;
 }
 
