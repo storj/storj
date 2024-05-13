@@ -567,8 +567,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.StorjscanPayments(),
 				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.Analytics.Service,
+				peer.Mail.Service,
+				config.Console.AccountFreeze,
 				config.AccountFreeze,
 				config.Console.Captcha.FlagBotsEnabled,
+				config.Console.ExternalAddress,
+				config.Console.GeneralRequestURL,
 			)
 
 			peer.Services.Add(lifecycle.Item{

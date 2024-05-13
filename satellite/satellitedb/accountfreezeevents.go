@@ -228,6 +228,20 @@ func (events *accountFreezeEvents) DeleteByUserIDAndEvent(ctx context.Context, u
 	return err
 }
 
+// IncrementNotificationsCount is a method for incrementing the notification count for a user's account freeze event.
+func (events *accountFreezeEvents) IncrementNotificationsCount(ctx context.Context, userID uuid.UUID, eventType console.AccountFreezeEventType) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = events.db.ExecContext(ctx, events.db.Rebind(`
+		UPDATE account_freeze_events
+		SET notifications_count = notifications_count + 1
+		WHERE user_id = $1
+		AND event = $2
+	`), userID.Bytes(), int(eventType))
+
+	return err
+}
+
 // fromDBXAccountFreezeEvent converts *dbx.AccountFreezeEvent to *console.AccountFreezeEvent.
 func fromDBXAccountFreezeEvent(dbxEvent *dbx.AccountFreezeEvent) (_ *console.AccountFreezeEvent, err error) {
 	if dbxEvent == nil {

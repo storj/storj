@@ -120,5 +120,23 @@ func TestAccountFreezeEvents(t *testing.T) {
 			require.NotNil(t, events.DelayedBotFreeze)
 			require.NotNil(t, events.BotFreeze)
 		})
+
+		t.Run("Increment notifications count", func(t *testing.T) {
+			event := &console.AccountFreezeEvent{
+				UserID: userID,
+				Type:   console.BillingFreeze,
+			}
+
+			dbEvent, err := eventsDB.Upsert(ctx, event)
+			require.NoError(t, err)
+			require.Equal(t, 0, dbEvent.NotificationsCount)
+
+			err = eventsDB.IncrementNotificationsCount(ctx, userID, console.BillingFreeze)
+			require.NoError(t, err)
+
+			dbEvent, err = eventsDB.Get(ctx, userID, console.BillingFreeze)
+			require.NoError(t, err)
+			require.Equal(t, 1, dbEvent.NotificationsCount)
+		})
 	})
 }

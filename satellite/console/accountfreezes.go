@@ -37,6 +37,8 @@ type AccountFreezeEvents interface {
 	DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error
 	// DeleteByUserIDAndEvent is a method for deleting all account `eventType` events from the database by user ID.
 	DeleteByUserIDAndEvent(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) error
+	// IncrementNotificationsCount is a method for incrementing the notification count for a user's account freeze event.
+	IncrementNotificationsCount(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) error
 }
 
 // AccountFreezeEvent represents an event related to account freezing.
@@ -1008,4 +1010,9 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 	}
 
 	return nil
+}
+
+// IncrementNotificationsCount is a method for incrementing the notification count for a user's account freeze event.
+func (s *AccountFreezeService) IncrementNotificationsCount(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) error {
+	return Error.Wrap(s.freezeEventsDB.IncrementNotificationsCount(ctx, userID, eventType))
 }
