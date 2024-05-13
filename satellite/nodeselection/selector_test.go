@@ -5,6 +5,7 @@ package nodeselection_test
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -350,29 +351,43 @@ func TestBalancedSelector(t *testing.T) {
 		}
 	}
 
+	ctx := testcontext.New(t)
 	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
 
-	badSelection := 0
+	var badSelection atomic.Int64
 	for i := 0; i < 1000; i++ {
-		selectedNodes, err := selector(10, nil, nil)
-		require.NoError(t, err)
-
-		require.Len(t, selectedNodes, 10)
-
-		histogram := map[string]int{}
-		for _, node := range selectedNodes {
-			histogram[attribute(*node)] = histogram[attribute(*node)] + 1
-		}
-		for _, c := range histogram {
-			if c > 5 {
-				badSelection++
-				break
+		ctx.Go(func() error {
+			selectedNodes, err := selector(10, nil, nil)
+			if err != nil {
+				t.Log("Selection is failed", err.Error())
+				badSelection.Add(1)
+				return nil
 			}
-		}
+
+			if len(selectedNodes) != 10 {
+				t.Log("Wrong number of nodes are selected", len(selectedNodes))
+				badSelection.Add(1)
+				return nil
+
+			}
+
+			histogram := map[string]int{}
+			for _, node := range selectedNodes {
+				histogram[attribute(*node)] = histogram[attribute(*node)] + 1
+			}
+			for _, c := range histogram {
+				if c > 5 {
+					badSelection.Add(1)
+					break
+				}
+			}
+			return nil
+		})
 	}
+	ctx.Wait()
 	// there is a very-very low chance to have wrong selection if we select one from A
 	// and all the other random selection will select the same node again
-	require.True(t, badSelection < 5)
+	require.Equal(t, int64(0), badSelection.Load())
 }
 
 func TestBalancedSelectorWithExisting(t *testing.T) {
@@ -425,12 +440,13 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 	// A is fully excluded
 	require.Equal(t, 0, histogram["A"])
 
-	require.Greater(t, histogram["B"], 100)
-	require.Less(t, histogram["B"], 800)
+	// 9 out of 10 are excluded, we always select the remaining one
+	require.Equal(t, 1000, histogram["B"])
 
 	require.Greater(t, histogram["C"], 1000)
 	require.Greater(t, histogram["D"], 1000)
 
+	// one option, we always select one, as we choose 7 from 4 groups
 	require.Equal(t, 1000, histogram["E"])
 
 }

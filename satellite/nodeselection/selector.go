@@ -4,8 +4,6 @@
 package nodeselection
 
 import (
-	mathrand "math/rand"
-
 	"storj.io/common/storj"
 )
 
@@ -178,8 +176,6 @@ func FilterSelector(loadTimeFilter NodeFilter, init NodeSelectorInit) NodeSelect
 // BalancedGroupBasedSelector first selects a group with equal chance (like last_net) and choose one single node randomly. .
 // One group can be tried multiple times, and if the node is already selected, it will be ignored.
 func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
-	rng := mathrand.New(mathrand.NewSource(mathrand.Int63()))
-
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		mon.IntVal("selector_balanced_input_nodes").Observe(int64(len(nodes)))
 		nodeByAttribute := make(map[string][]*SelectedNode)
@@ -206,40 +202,53 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 				return selected, nil
 			}
 
-			// for each node attribute --> how many nodes are selected already
-			var alreadySelectedGroup map[string]int
-			if len(alreadySelected) > 0 {
-				alreadySelectedGroup = make(map[string]int)
-				for _, node := range alreadySelected {
-					alreadySelectedGroup[attribute(*node)]++
-				}
+			// random order to iterate on groups
+			rGroup := NewRandomOrder(len(groupedNodes))
+
+			// random orders inside each groups
+			rCandidates := make([]RandomOrder, len(groupedNodes))
+			for i := range rCandidates {
+				rCandidates[i] = NewRandomOrder(len(groupedNodes[i]))
 			}
 
-			// upper limit: we should find at least one node in each full group loop.
-			// Ideally we find len(group) in each iteration, so we stop earlier
-			for i := 0; i < n; i++ {
-				r := NewRandomOrder(len(groupedNodes))
+			for {
+				rGroup.Reset()
 
-				// check all the groups in random order
-				for r.Next() {
-					nodes := groupedNodes[r.At()]
+				alreadyFinished := 0
 
-					// this group has one chance to give a candidate
-					randomOne := nodes[rng.Intn(len(nodes))].Clone()
-
-					if !includedInNodes(alreadySelected, randomOne) && !included(excluded, randomOne) && !includedInNodes(selected, randomOne) {
-						selected = append(selected, randomOne)
-					}
-
+				// check all the groups in random order, each group can delegate one node in this turn
+				for rGroup.Next() {
 					if len(selected) >= n {
-						mon.IntVal("selector_balanced_requested").Observe(int64(n))
-						mon.IntVal("selector_balanced_found").Observe(int64(len(selected)))
-						return selected, nil
+						break
 					}
+					rCandidate := &rCandidates[rGroup.At()]
+					if rCandidate.Finished() {
+						// no more chance in this group
+						alreadyFinished++
+						continue
+					}
+
+					nodes := groupedNodes[rGroup.At()]
+
+					// in each group, we will try to select one, which is good enough
+					for rCandidate.Next() {
+						randomOne := nodes[rCandidate.At()].Clone()
+						if !includedInNodes(alreadySelected, randomOne) &&
+							!included(excluded, randomOne) &&
+							!includedInNodes(selected, randomOne) {
+							selected = append(selected, randomOne)
+							break
+						}
+					}
+
 				}
 
+				if len(selected) >= n || len(rCandidates) == alreadyFinished {
+					mon.IntVal("selector_balanced_requested").Observe(int64(n))
+					mon.IntVal("selector_balanced_found").Observe(int64(len(selected)))
+					return selected, nil
+				}
 			}
-			return nil, nil
 		}
 	}
 }
