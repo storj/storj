@@ -20,16 +20,13 @@ export class ABHttpApi implements ABTestApi {
     public async fetchABTestValues(): Promise<ABTestValues> {
         const path = `${this.ROOT_PATH}/values`;
         const response = await this.http.get(path);
-        if (response.ok) {
-            const abResponse = await response.json();
+        const abResponse = await response.json();
 
-            return new ABTestValues(
-                abResponse.has_new_banner,
-            );
+        if (!(response.ok && abResponse)) {
+            return new ABTestValues();
         }
 
-        // use default values on error
-        return new ABTestValues();
+        return new ABTestValues(abResponse.has_new_banner);
     }
 
     public async sendHit(action: ABHitAction): Promise<void> {
