@@ -28,7 +28,7 @@ var (
 // VerifyOrderLimit verifies that the order limit is properly signed and has sane values.
 // It also verifies that the serial number has not been used.
 func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderLimit) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	// defer mon.Task()(&ctx)(&err)
 
 	// sanity checks
 	now := time.Now()
@@ -82,7 +82,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 
 // VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
 func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, largestOrderAmount int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	// defer mon.Task()(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "order serial number changed during upload")
@@ -108,7 +108,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit,
 
 // VerifyPieceHash verifies whether the piece hash is properly signed and matches the locally computed hash.
 func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	// defer mon.Task()(&ctx)(&err)
 
 	if limit == nil || hash == nil || len(expectedHash) == 0 {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "invalid arguments")
@@ -129,7 +129,7 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLi
 
 // VerifyOrderLimitSignature verifies that the order limit signature is valid.
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	// defer mon.Task()(&ctx)(&err)
 
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {

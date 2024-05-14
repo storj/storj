@@ -294,7 +294,7 @@ func blobPathForFormatVersion(path string, formatVersion blobstore.FormatVersion
 
 // Commit commits the temporary file to permanent storage.
 func (dir *Dir) Commit(ctx context.Context, file *os.File, sync bool, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	// defer mon.Task()(&ctx)(&err)
 	var syncErr error
 	if sync {
 		syncErr = file.Sync()

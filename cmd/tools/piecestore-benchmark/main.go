@@ -9,13 +9,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"runtime/pprof"
 	"time"
 
 	"github.com/dsnet/try"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spacemonkeygo/monkit/v3/collect"
-	"github.com/spacemonkeygo/monkit/v3/present"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
@@ -200,8 +201,18 @@ func main() {
 		allUploads = append(allUploads, createUpload(ctx, satIdent, snIdent))
 	}
 
-	allSpans := make([][]*collect.FinishedSpan, 0, *piecesToUpload)
+	// allSpans := make([][]*collect.FinishedSpan, 0, *piecesToUpload)
 	start := time.Now()
+
+	// if *cpuprofile != "" {
+	f, err := os.Create("cpu.pprof")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+	// }
+
 	queue := make(chan *stream, 100)
 	spans := make(chan []*collect.FinishedSpan, 100)
 	for i := 0; i < *workers; i++ {
@@ -219,7 +230,7 @@ func main() {
 	}()
 
 	for i := 0; i < *piecesToUpload; i++ {
-		allSpans = append(allSpans, <-spans)
+		<-spans
 	}
 
 	uploadDuration := time.Since(start)
@@ -228,29 +239,30 @@ func main() {
 		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*uploadDuration.Seconds()),
 		float64(*piecesToUpload)/uploadDuration.Seconds())
 
-	allSpans = append(allSpans, runCollector(ctx, collector))
+	// allSpans = append(allSpans, runCollector(ctx, collector)
+	runCollector(ctx, collector)
 
 	collectDuration := time.Since(start) - uploadDuration
 	fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, collectDuration, float64((*pieceSize)*(*piecesToUpload))/(1024*1024*collectDuration.Seconds()))
 
-	statsfh := try.E1(os.Create("stats.txt"))
-	try.E(present.StatsText(monkit.Default, statsfh))
-	try.E(statsfh.Close())
+	// statsfh := try.E1(os.Create("stats.txt"))
+	// try.E(present.StatsText(monkit.Default, statsfh))
+	// try.E(statsfh.Close())
 
-	funcsfh := try.E1(os.Create("funcs.dot"))
-	try.E(present.FuncsDot(monkit.Default, funcsfh))
-	try.E(funcsfh.Close())
+	// funcsfh := try.E1(os.Create("funcs.dot"))
+	// try.E(present.FuncsDot(monkit.Default, funcsfh))
+	// try.E(funcsfh.Close())
 
-	tracefh := try.E1(os.Create("traces.json"))
-	try.E1(tracefh.WriteString("[\n"))
-	for i, spans := range allSpans {
-		if i > 0 {
-			try.E1(tracefh.WriteString(",\n"))
-		}
-		try.E(present.SpansToJSON(tracefh, spans))
-	}
-	try.E1(tracefh.WriteString("]"))
-	try.E(tracefh.Close())
+	// tracefh := try.E1(os.Create("traces.json"))
+	// try.E1(tracefh.WriteString("[\n"))
+	// for i, spans := range allSpans {
+	// 	if i > 0 {
+	// 		try.E1(tracefh.WriteString(",\n"))
+	// 	}
+	// 	try.E(present.SpansToJSON(tracefh, spans))
+	// }
+	// try.E1(tracefh.WriteString("]"))
+	// try.E(tracefh.Close())
 }
 
 type stream struct {

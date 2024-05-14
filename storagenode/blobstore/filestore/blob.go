@@ -4,7 +4,6 @@
 package filestore
 
 import (
-	"bufio"
 	"context"
 	"io"
 	"os"
@@ -81,7 +80,8 @@ type blobWriter struct {
 	store         *blobStore
 	closed        bool
 	formatVersion blobstore.FormatVersion
-	buffer        *bufio.Writer
+	buffer        []byte
+	pos           int
 	fh            *os.File
 	sync          bool
 
@@ -94,7 +94,7 @@ func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, form
 		store:         store,
 		closed:        false,
 		formatVersion: formatVersion,
-		buffer:        bufio.NewWriterSize(file, bufferSize),
+		buffer:        make([]byte, 0, bufferSize),
 		fh:            file,
 		sync:          sync,
 
@@ -104,7 +104,13 @@ func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, form
 
 // Write adds data to the blob.
 func (blob *blobWriter) Write(p []byte) (int, error) {
-	return blob.buffer.Write(p)
+	if blob.pos+len(p) < len(blob.buffer) {
+		copy(blob.buffer[blob.pos:], p)
+	} else {
+		blob.buffer = append(blob.buffer[:blob.pos], p...)
+	}
+	blob.pos += len(p)
+	return len(p), nil
 }
 
 // Cancel discards the blob.
@@ -128,12 +134,10 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 	if blob.closed {
 		return Error.New("already closed")
 	}
-	blob.closed = true
-
-	if err := blob.buffer.Flush(); err != nil {
-		// TODO: when flush fails, it looks like we don't close the file handle
-		return err
+	if _, err := blob.fh.Write(blob.buffer); err != nil {
+		return errs.Combine(Error.Wrap(err), blob.Cancel(ctx))
 	}
+	blob.closed = true
 
 	err = blob.store.dir.Commit(ctx, blob.fh, blob.sync, blob.ref, blob.formatVersion)
 	return Error.Wrap(errs.Combine(err, blob.track.Close()))
@@ -141,21 +145,30 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 
 // Seek flushes any buffer and seeks the underlying file.
 func (blob *blobWriter) Seek(offset int64, whence int) (int64, error) {
-	if err := blob.buffer.Flush(); err != nil {
-		return 0, err
+	switch whence {
+	case io.SeekCurrent:
+		blob.pos += int(offset)
+	case io.SeekEnd:
+		blob.pos = len(blob.buffer) + int(offset)
+	case io.SeekStart:
+		blob.pos = int(offset)
 	}
-
-	return blob.fh.Seek(offset, whence)
+	if blob.pos > cap(blob.buffer) {
+		// do some geometric growth so that we don't get quadratic behavior
+		// from some bozo calling .Seek(1, io.SeekCurrent) over and over
+		buffer := make([]byte, blob.pos, 3*blob.pos/2)
+		copy(buffer, blob.buffer)
+		blob.buffer = buffer
+	}
+	if blob.pos > len(blob.buffer) {
+		blob.buffer = blob.buffer[:blob.pos]
+	}
+	return int64(blob.pos), nil
 }
 
 // Size returns how much has been written so far.
 func (blob *blobWriter) Size() (int64, error) {
-	pos, err := blob.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return 0, err
-	}
-
-	return pos, err
+	return int64(len(blob.buffer)), nil
 }
 
 // StorageFormatVersion indicates what storage format version the blob is using.
