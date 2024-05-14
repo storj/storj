@@ -5,8 +5,7 @@
     <v-form class="pa-6" @submit.prevent>
         <v-row>
             <v-col>
-                <p v-if="isAppSetup">Setup access to third-party applications.</p>
-                <p v-else class="text-subtitle-2 font-weight-bold mb-4">Choose Setup Flow</p>
+                <p>Create new access{{ app ? ` for ${app.name}` : '' }}.</p>
                 <v-chip-group
                     v-model="flowType"
                     class="my-3"
@@ -38,7 +37,7 @@
                     </v-chip>
                 </v-chip-group>
                 <v-alert v-if="flowType === FlowType.FullAccess" variant="tonal" color="success" width="auto">
-                    <template v-if="isAppSetup">
+                    <template v-if="app">
                         <p class="text-subtitle-2 font-weight-bold">Full Access</p>
                         <p class="text-subtitle-2">
                             The app will be provided full permissions access to all the buckets in this project. 1-click setup.
@@ -50,7 +49,7 @@
                     </p>
                 </v-alert>
                 <v-alert v-else variant="tonal" color="secondary" width="auto">
-                    <template v-if="isAppSetup">
+                    <template v-if="app">
                         <p class="text-subtitle-2 font-weight-bold">Advanced Setup</p>
                         <p class="text-subtitle-2">
                             You can choose what permissions to give this app, and which buckets it can access in this project.
@@ -72,11 +71,12 @@ import { VAlert, VChip, VChipGroup, VCol, VForm, VRow } from 'vuetify/components
 
 import { FlowType } from '@/types/createAccessGrant';
 import { IDialogFlowStep } from '@/types/common';
+import { Application } from '@/types/applications';
 
 withDefaults(defineProps<{
-    isAppSetup?: boolean
+    app?: Application
 }>(), {
-    isAppSetup: false,
+    app: undefined,
 });
 
 const emit = defineEmits<{

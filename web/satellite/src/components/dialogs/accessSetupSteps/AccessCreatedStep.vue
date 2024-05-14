@@ -5,10 +5,7 @@
     <v-form class="pa-6">
         <v-row>
             <v-col>
-                <p class="font-weight-bold mb-2">Access Created</p>
-                <p>
-                    Copy and save the access credentials {{ isAppSetup ? 'for this application' : '' }} as they will only appear once.
-                </p>
+                <p>Copy and save the access credentials {{ app ? `for ${app.name}` : '' }} as they will only appear once.</p>
                 <v-row class="mt-2">
                     <save-buttons :items="saveItems" :name="name" :type="accessType" />
                 </v-row>
@@ -16,92 +13,50 @@
 
             <template v-if="accessType === AccessType.APIKey">
                 <v-col cols="12">
-                    <v-text-field
-                        flat
-                        density="comfortable"
+                    <text-output-area
                         label="Satellite Address"
-                        :model-value="satelliteAddress"
-                        readonly
-                        hide-details
-                    >
-                        <template #append-inner>
-                            <input-copy-button :value="satelliteAddress" />
-                        </template>
-                    </v-text-field>
+                        :value="satelliteAddress"
+                        show-copy
+                    />
                 </v-col>
                 <v-col cols="12">
-                    <v-text-field
-                        flat
-                        density="comfortable"
+                    <text-output-area
                         label="API Key"
-                        :model-value="cliAccess"
-                        readonly
-                        hide-details
-                    >
-                        <template #append-inner>
-                            <input-copy-button :value="cliAccess" />
-                        </template>
-                    </v-text-field>
+                        :value="cliAccess"
+                        show-copy
+                    />
                 </v-col>
             </template>
 
             <v-col v-else-if="accessType === AccessType.AccessGrant" cols="12">
-                <v-text-field
-                    flat
-                    density="comfortable"
+                <text-output-area
                     label="Access Grant"
-                    :model-value="accessGrant"
-                    readonly
-                    hide-details
-                >
-                    <template #append-inner>
-                        <input-copy-button :value="accessGrant" />
-                    </template>
-                </v-text-field>
+                    :value="accessGrant"
+                    show-copy
+                />
             </v-col>
 
             <template v-else>
                 <v-col cols="12">
-                    <v-text-field
-                        flat
-                        density="comfortable"
+                    <text-output-area
                         label="Access Key"
-                        :model-value="credentials.accessKeyId"
-                        readonly
-                        hide-details
-                    >
-                        <template #append-inner>
-                            <input-copy-button :value="credentials.accessKeyId" />
-                        </template>
-                    </v-text-field>
+                        :value="credentials.accessKeyId"
+                        show-copy
+                    />
                 </v-col>
                 <v-col cols="12">
-                    <v-text-field
-                        flat
-                        density="comfortable"
+                    <text-output-area
                         label="Secret Key"
-                        :model-value="credentials.secretKey"
-                        readonly
-                        hide-details
-                    >
-                        <template #append-inner>
-                            <input-copy-button :value="credentials.secretKey" />
-                        </template>
-                    </v-text-field>
+                        :value="credentials.secretKey"
+                        show-copy
+                    />
                 </v-col>
                 <v-col cols="12">
-                    <v-text-field
-                        flat
-                        density="comfortable"
+                    <text-output-area
                         label="Endpoint"
-                        :model-value="credentials.endpoint"
-                        readonly
-                        hide-details
-                    >
-                        <template #append-inner>
-                            <input-copy-button :value="credentials.endpoint" />
-                        </template>
-                    </v-text-field>
+                        :value="credentials.endpoint"
+                        show-copy
+                    />
                 </v-col>
             </template>
 
@@ -116,25 +71,28 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert, VCol, VForm, VRow, VTextField } from 'vuetify/components';
+import { VAlert, VCol, VForm, VRow } from 'vuetify/components';
 import { computed } from 'vue';
 
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AccessType } from '@/types/createAccessGrant';
 import { useConfigStore } from '@/store/modules/configStore';
 import { SaveButtonsItem } from '@/types/common';
+import { Application } from '@/types/applications';
 
-import InputCopyButton from '@/components/InputCopyButton.vue';
 import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
+import TextOutputArea from '@/components/dialogs/createAccessSteps/TextOutputArea.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     name: string
-    isAppSetup: boolean
     accessType: AccessType
     cliAccess: string
     accessGrant: string
     credentials: EdgeCredentials
-}>();
+    app?: Application
+}>(), {
+    app: undefined,
+});
 
 const configStore = useConfigStore();
 

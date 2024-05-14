@@ -47,6 +47,7 @@
     <AccessSetupDialog
         v-if="newAppSetupFlowEnabled"
         v-model="dialog"
+        :app="app"
         :access-name="app.name"
         :docs-link="app.docs"
         :default-access-type="neededAccessType"

@@ -5,8 +5,7 @@
     <v-form class="pa-6" @submit.prevent>
         <v-row>
             <v-col>
-                <p class="font-weight-bold mb-2">Select Buckets</p>
-                <p>Choose buckets you want this application to access.</p>
+                <p>Choose buckets you want to be accessible.</p>
                 <v-chip-group
                     v-model="option"
                     filter

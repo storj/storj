@@ -13,7 +13,7 @@
             <v-sheet>
                 <v-card-item class="py-4 pl-6">
                     <v-card-title class="font-weight-bold">
-                        Setup {{ isAppSetup ? 'App' : '' }} Access
+                        New {{ app ? app.name : '' }} Access
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -24,6 +24,9 @@
                             :disabled="isCreating"
                             @click="model = false"
                         />
+                    </template>
+                    <template v-if="app" #prepend>
+                        <img :src="app.src" :alt="app.name" width="auto" height="40" class="rounded">
                     </template>
                     <v-progress-linear height="2px" indeterminate absolute location="bottom" :active="isFetching || isCreating" />
                 </v-card-item>
@@ -52,7 +55,7 @@
                 <v-window-item :value="SetupStep.ChooseFlowStep">
                     <choose-flow-step
                         :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
-                        :is-app-setup="isAppSetup"
+                        :app="app"
                         @setFlowType="val => flowType = val"
                     />
                 </v-window-item>
@@ -103,11 +106,22 @@
                     />
                 </v-window-item>
 
+                <v-window-item :value="SetupStep.ConfirmDetailsStep">
+                    <confirm-details-step
+                        :ref="stepInfos[SetupStep.ConfirmDetailsStep].ref"
+                        :name="name"
+                        :type="accessType"
+                        :permissions="permissions"
+                        :buckets="buckets"
+                        :end-date="endDate"
+                    />
+                </v-window-item>
+
                 <v-window-item :value="SetupStep.AccessCreatedStep">
                     <access-created-step
                         :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
                         :name="name"
-                        :is-app-setup="isAppSetup"
+                        :app="app"
                         :cli-access="cliAccess"
                         :access-grant="accessGrant"
                         :credentials="credentials"
@@ -199,6 +213,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { Application } from '@/types/applications';
 
 import ChooseFlowStep from '@/components/dialogs/accessSetupSteps/ChooseFlowStep.vue';
 import ChooseAccessStep from '@/components/dialogs/accessSetupSteps/ChooseAccessStep.vue';
@@ -210,6 +225,7 @@ import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/Ente
 import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/PassphraseGeneratedStep.vue';
 import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/OptionalExpirationStep.vue';
 import EncryptionInfoStep from '@/components/dialogs/createAccessSteps/EncryptionInfoStep.vue';
+import ConfirmDetailsStep from '@/components/dialogs/accessSetupSteps/ConfirmDetailsStep.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 
@@ -236,11 +252,11 @@ class StepInfo {
 
 const props = withDefaults(defineProps<{
     docsLink: string
-    isAppSetup?: boolean
+    app?: Application
     accessName?: string
     defaultAccessType?: AccessType
 }>(), {
-    isAppSetup: false,
+    app: undefined,
     accessName: undefined,
     defaultAccessType: undefined,
 });
@@ -384,18 +400,21 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         SetupStep.SelectBucketsStep,
     ),
     [SetupStep.SelectBucketsStep]: new StepInfo(
-        () => props.isAppSetup ? 'Create Access' : 'Next',
+        'Next',
         'Back',
         SetupStep.ChoosePermissionsStep,
-        () => props.isAppSetup ? SetupStep.AccessCreatedStep : SetupStep.OptionalExpirationStep,
-        async () => {
-            if (props.isAppSetup) await generate();
-        },
+        SetupStep.OptionalExpirationStep,
     ),
     [SetupStep.OptionalExpirationStep]: new StepInfo(
-        'Create Access',
+        'Next',
         'Back',
         SetupStep.SelectBucketsStep,
+        SetupStep.ConfirmDetailsStep,
+    ),
+    [SetupStep.ConfirmDetailsStep]: new StepInfo(
+        'Create Access',
+        'Back',
+        SetupStep.OptionalExpirationStep,
         SetupStep.AccessCreatedStep,
         generate,
     ),
@@ -557,9 +576,7 @@ function prevStep(): void {
 }
 
 function sendApplicationsAnalytics(e: AnalyticsEvent): void {
-    if (props.isAppSetup && props.accessName) {
-        analyticsStore.eventTriggered(e, { application: props.accessName });
-    }
+    if (props.app) analyticsStore.eventTriggered(e, { application: props.app.name });
 }
 
 /**

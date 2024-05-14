@@ -58,6 +58,7 @@ export enum SetupStep {
     ChoosePermissionsStep = 'choosePermission',
     SelectBucketsStep = 'selectBuckets',
     OptionalExpirationStep = 'optionalExpiration',
+    ConfirmDetailsStep = 'confirmDetails',
     AccessCreatedStep = 'accessCreated',
 }
 
