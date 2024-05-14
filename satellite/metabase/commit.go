@@ -801,11 +801,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		finalSegments := convertToFinalSegments(segments)
-		if len(finalSegments) > 1 {
-			// update offset only if we have more than one segment, first segment will have always offset 0
-			if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
-				return Error.New("failed to update segments: %w", err)
-			}
+		if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
+			return Error.New("failed to update segments: %w", err)
 		}
 
 		// TODO: would we even need this when we make main index plain_offset?
