@@ -403,9 +403,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
-	apiKeysRouter.Handle("/create/{projectID}", server.userIDRateLimiter.Limit(http.HandlerFunc(apiKeysController.CreateAPIKey))).Methods(http.MethodPost, http.MethodOptions)
-	apiKeysRouter.Handle("/delete-by-name", server.userIDRateLimiter.Limit(http.HandlerFunc(apiKeysController.DeleteByNameAndProjectID))).Methods(http.MethodDelete, http.MethodOptions)
-	apiKeysRouter.Handle("/delete-by-ids", server.userIDRateLimiter.Limit(http.HandlerFunc(apiKeysController.DeleteByIDs))).Methods(http.MethodDelete, http.MethodOptions)
+	apiKeysRouter.Handle("/create/{projectID}", http.HandlerFunc(apiKeysController.CreateAPIKey)).Methods(http.MethodPost, http.MethodOptions)
+	apiKeysRouter.Handle("/delete-by-name", http.HandlerFunc(apiKeysController.DeleteByNameAndProjectID)).Methods(http.MethodDelete, http.MethodOptions)
+	apiKeysRouter.Handle("/delete-by-ids", http.HandlerFunc(apiKeysController.DeleteByIDs)).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
 
