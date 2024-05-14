@@ -45,6 +45,7 @@ type AccountFreezeEvent struct {
 	Type               AccountFreezeEventType
 	Limits             *AccountFreezeEventLimits
 	DaysTillEscalation *int
+	NotificationsCount int
 	CreatedAt          time.Time
 }
 

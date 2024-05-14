@@ -37,6 +37,7 @@ func (events *accountFreezeEvents) Upsert(ctx context.Context, event *console.Ac
 	if event.DaysTillEscalation != nil {
 		createFields.DaysTillEscalation = dbx.AccountFreezeEvent_DaysTillEscalation(*event.DaysTillEscalation)
 	}
+	createFields.NotificationsCount = dbx.AccountFreezeEvent_NotificationsCount(event.NotificationsCount)
 	if event.Limits != nil {
 		limitBytes, err := json.Marshal(event.Limits)
 		if err != nil {
@@ -91,7 +92,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 	var rows tagsql.Rows
 	if len(optionalEventTypes) == 0 {
 		rows, err = events.db.Query(ctx, events.db.Rebind(`
-		SELECT user_id, event, days_till_escalation, created_at
+		SELECT user_id, event, days_till_escalation, notifications_count, created_at
 		FROM account_freeze_events
 			WHERE user_id > ?
 			ORDER BY user_id LIMIT ?
@@ -102,7 +103,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 			types = append(types, strconv.Itoa(int(t)))
 		}
 		rows, err = events.db.Query(ctx, events.db.Rebind(`
-		SELECT user_id, event, days_till_escalation, created_at
+		SELECT user_id, event, days_till_escalation, notifications_count, created_at
 		FROM account_freeze_events
 			WHERE user_id > ? AND event IN (`+strings.Join(types, ",")+`)
 			ORDER BY user_id LIMIT ?
@@ -124,7 +125,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 			break
 		}
 		var event dbx.AccountFreezeEvent
-		err = rows.Scan(&event.UserId, &event.Event, &event.DaysTillEscalation, &event.CreatedAt)
+		err = rows.Scan(&event.UserId, &event.Event, &event.DaysTillEscalation, &event.NotificationsCount, &event.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -240,6 +241,7 @@ func fromDBXAccountFreezeEvent(dbxEvent *dbx.AccountFreezeEvent) (_ *console.Acc
 		UserID:             userID,
 		Type:               console.AccountFreezeEventType(dbxEvent.Event),
 		DaysTillEscalation: dbxEvent.DaysTillEscalation,
+		NotificationsCount: dbxEvent.NotificationsCount,
 		CreatedAt:          dbxEvent.CreatedAt,
 	}
 	if dbxEvent.Limits != nil {

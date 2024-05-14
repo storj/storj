@@ -33,6 +33,10 @@ type Config struct {
 	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
 	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
+
+	EmailsEnabled                bool           `help:"whether to freeze event emails from this chore" default:"false"`
+	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait between the billing freeze warning emails" default:"240h,96h"`
+	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait between the billing freeze emails" default:"720h,480h,216h"`
 }
 
 // Chore is a chore that checks for unpaid invoices and potentially freezes corresponding accounts.

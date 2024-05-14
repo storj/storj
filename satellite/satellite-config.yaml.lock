@@ -1,3 +1,12 @@
+# how long to wait between the billing freeze emails
+# account-freeze.billing-freeze-email-intervals: 720h0m0s,480h0m0s,216h0m0s
+
+# how long to wait between the billing freeze warning emails
+# account-freeze.billing-warning-email-intervals: 240h0m0s,96h0m0s
+
+# whether to freeze event emails from this chore
+# account-freeze.emails-enabled: false
+
 # whether to run this chore.
 # account-freeze.enabled: false
 

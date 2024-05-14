@@ -5,6 +5,7 @@ CREATE TABLE account_freeze_events (
 	event integer NOT NULL,
 	limits jsonb,
 	days_till_escalation integer,
+	notifications_count integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	PRIMARY KEY ( user_id, event )
 );
