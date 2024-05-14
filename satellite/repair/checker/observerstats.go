@@ -8,6 +8,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -46,9 +47,17 @@ func (stats *observerRSStats) Stats(cb func(key monkit.SeriesKey, field string, 
 	stats.segmentStats.segmentTotalCount.Stats(cb)
 	stats.segmentStats.segmentHealthyCount.Stats(cb)
 	stats.segmentStats.segmentAge.Stats(cb)
+	stats.segmentStats.segmentFreshness.Stats(cb)
 	stats.segmentStats.segmentHealth.Stats(cb)
 	stats.segmentStats.injuredSegmentHealth.Stats(cb)
 	stats.segmentStats.segmentTimeUntilIrreparable.Stats(cb)
+
+	stats.segmentStats.allSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.freshSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.weekOldSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.monthOldSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.quarterOldSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.yearOldSegmentPiecesLostPerWeek.Stats(cb)
 }
 
 type iterationRSStats struct {
@@ -106,23 +115,40 @@ type segmentRSStats struct {
 	segmentExitingCount         *monkit.IntVal
 	segmentOffPlacementCount    *monkit.IntVal
 	segmentAge                  *monkit.IntVal
+	segmentFreshness            *monkit.IntVal
 	segmentHealth               *monkit.FloatVal
 	injuredSegmentHealth        *monkit.FloatVal
 	segmentTimeUntilIrreparable *monkit.IntVal
+
+	allSegmentPiecesLostPerWeek        *monkit.FloatVal
+	freshSegmentPiecesLostPerWeek      *monkit.FloatVal
+	weekOldSegmentPiecesLostPerWeek    *monkit.FloatVal
+	monthOldSegmentPiecesLostPerWeek   *monkit.FloatVal
+	quarterOldSegmentPiecesLostPerWeek *monkit.FloatVal
+	yearOldSegmentPiecesLostPerWeek    *monkit.FloatVal
 }
 
-func newSegmentRSStats(rs string) *segmentRSStats {
+func newSegmentRSStats(rs string, placement storj.PlacementConstraint) *segmentRSStats {
+	placementTag := fmt.Sprint(int(placement))
 	return &segmentRSStats{
-		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs)),
-		segmentTotalCount:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs)),
-		segmentHealthyCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_healthy_count").WithTag("rs_scheme", rs)),
-		segmentClumpedCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_clumped_count").WithTag("rs_scheme", rs)),
-		segmentExitingCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_exiting_count").WithTag("rs_scheme", rs)),
-		segmentOffPlacementCount:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_off_placement_count").WithTag("rs_scheme", rs)),
-		segmentAge:                  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_age").WithTag("rs_scheme", rs)),
-		segmentHealth:               monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_health").WithTag("rs_scheme", rs)),
-		injuredSegmentHealth:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_injured_segment_health").WithTag("rs_scheme", rs)),
-		segmentTimeUntilIrreparable: monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_time_until_irreparable").WithTag("rs_scheme", rs)),
+		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentTotalCount:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentHealthyCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_healthy_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentClumpedCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_clumped_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentExitingCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_exiting_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentOffPlacementCount:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_off_placement_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentAge:                  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_age").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentFreshness:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_freshness").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentHealth:               monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_health").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		injuredSegmentHealth:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_injured_segment_health").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentTimeUntilIrreparable: monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_time_until_irreparable").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+
+		allSegmentPiecesLostPerWeek:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_all_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		freshSegmentPiecesLostPerWeek:      monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_fresh_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		weekOldSegmentPiecesLostPerWeek:    monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_week_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		monthOldSegmentPiecesLostPerWeek:   monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_month_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		quarterOldSegmentPiecesLostPerWeek: monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_quarter_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		yearOldSegmentPiecesLostPerWeek:    monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_year_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
 	}
 }
 
