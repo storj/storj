@@ -865,12 +865,12 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     11,
 				Action: migrate.SQL{
 					`CREATE TABLE bandwidth_usage_rollups (
-										interval_start	TIMESTAMP NOT NULL,
-										satellite_id  	BLOB    NOT NULL,
-										action        	INTEGER NOT NULL,
-										amount        	BIGINT  NOT NULL,
-										PRIMARY KEY ( interval_start, satellite_id, action )
-									)`,
+						interval_start	TIMESTAMP NOT NULL,
+						satellite_id  	BLOB    NOT NULL,
+						action        	INTEGER NOT NULL,
+						amount        	BIGINT  NOT NULL,
+						PRIMARY KEY ( interval_start, satellite_id, action )
+					)`,
 				},
 			},
 			{
@@ -2102,10 +2102,10 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE TABLE progress (
 						satellite_id BLOB NOT NULL,
-    					bloomfilter_created_before TIMESTAMP NOT NULL,
-    					last_checked_prefix TEXT NOT NULL,
-    					PRIMARY KEY (satellite_id)
-    				);`,
+						bloomfilter_created_before TIMESTAMP NOT NULL,
+						last_checked_prefix TEXT NOT NULL,
+						PRIMARY KEY (satellite_id)
+					);`,
 				},
 			},
 			{
@@ -2121,11 +2121,11 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 				Action: migrate.SQL{
 					`CREATE TABLE used_space_per_prefix (
-					    satellite_id BLOB NOT NULL,
-					    piece_prefix TEXT NOT NULL,
-					    total_bytes INTEGER NOT NULL,
-					    last_updated TIMESTAMP NOT NULL,
-					    PRIMARY KEY (satellite_id, piece_prefix)
+						satellite_id BLOB NOT NULL,
+						piece_prefix TEXT NOT NULL,
+						total_bytes INTEGER NOT NULL,
+						last_updated TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, piece_prefix)
 					);`,
 				},
 			},
@@ -2133,26 +2133,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          &db.bandwidthDB.DB,
 				Description: "Create new bandwidth_usage table, backfilling data from bandwidth_usage_rollups and bandwidth_usage tables, and dropping the old tables.",
 				Version:     57,
-				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, BandwidthDBName); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
+				Action: migrate.SQL{`
+						CREATE TABLE bandwidth_usage_new (
+							interval_start   TIMESTAMP NOT NULL,
+							satellite_id     BLOB      NOT NULL,
+							put_total        BIGINT DEFAULT 0,
+							get_total        BIGINT DEFAULT 0,
+							get_audit_total  BIGINT DEFAULT 0,
+							get_repair_total BIGINT DEFAULT 0,
+							put_repair_total BIGINT DEFAULT 0,
+							delete_total     BIGINT DEFAULT 0,
+							PRIMARY KEY (interval_start, satellite_id)
+						);
 
-					return nil
-				},
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					_, err := tx.Exec(ctx,
-						`CREATE TABLE bandwidth_usage_new (
-    						interval_start TIMESTAMP NOT NULL,
-    						satellite_id BLOB NOT NULL,
-    						put_total BIGINT DEFAULT 0,
-    						get_total BIGINT DEFAULT 0,
-    						get_audit_total BIGINT DEFAULT 0,
-    						get_repair_total BIGINT DEFAULT 0,
-    						put_repair_total BIGINT DEFAULT 0,
-    						delete_total BIGINT DEFAULT 0,
-    						PRIMARY KEY (interval_start, satellite_id)
-                        );
 						INSERT INTO bandwidth_usage_new (
 							interval_start,
 							satellite_id,
@@ -2164,8 +2157,8 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							delete_total
 						)
 						SELECT
-						    datetime(date(interval_start)) as interval_start,
-						    satellite_id,
+							datetime(date(interval_start)) as interval_start,
+							satellite_id,
 							SUM(CASE WHEN action = 1 THEN amount ELSE 0 END) AS put_total,
 							SUM(CASE WHEN action = 2 THEN amount ELSE 0 END) AS get_total,
 							SUM(CASE WHEN action = 3 THEN amount ELSE 0 END) AS get_audit_total,
@@ -2174,19 +2167,23 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							SUM(CASE WHEN action = 6 THEN amount ELSE 0 END) AS delete_total
 						FROM
 						    bandwidth_usage_rollups
+						WHERE -- protection against data corruption
+							datetime(interval_start) IS NOT NULL AND
+							satellite_id IS NOT NULL AND
+							1 <= action AND action <= 6
 						GROUP BY
 							datetime(date(interval_start)), satellite_id, action
 						ON CONFLICT(interval_start, satellite_id) DO UPDATE SET
-						    put_total = put_total + excluded.put_total,
-							get_total = get_total + excluded.get_total,
-							get_audit_total = get_audit_total + excluded.get_audit_total,
+							put_total        = put_total + excluded.put_total,
+							get_total        = get_total + excluded.get_total,
+							get_audit_total  = get_audit_total + excluded.get_audit_total,
 							get_repair_total = get_repair_total + excluded.get_repair_total,
 							put_repair_total = put_repair_total + excluded.put_repair_total,
-							delete_total = delete_total + excluded.delete_total;
+							delete_total     = delete_total + excluded.delete_total;
 
 						-- Backfill data from bandwidth_usage table
 						INSERT INTO bandwidth_usage_new (
-						    interval_start,
+							interval_start,
 							satellite_id,
 							put_total,
 							get_total,
@@ -2196,8 +2193,8 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							delete_total
 						)
 						SELECT
-						    datetime(date(created_at)) as interval_start,
-						    satellite_id,
+							datetime(date(created_at)) as interval_start,
+							satellite_id,
 							SUM(CASE WHEN action = 1 THEN amount ELSE 0 END) AS put_total,
 							SUM(CASE WHEN action = 2 THEN amount ELSE 0 END) AS get_total,
 							SUM(CASE WHEN action = 3 THEN amount ELSE 0 END) AS get_audit_total,
@@ -2206,23 +2203,25 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							SUM(CASE WHEN action = 6 THEN amount ELSE 0 END) AS delete_total
 						FROM
 						    bandwidth_usage
+						WHERE -- protection against data corruption
+							datetime(created_at) IS NOT NULL AND
+							satellite_id IS NOT NULL AND
+							1 <= action AND action <= 6
 						GROUP BY
 							datetime(date(created_at)), satellite_id, action
 						ON CONFLICT(interval_start, satellite_id) DO UPDATE SET
-						    put_total = put_total + excluded.put_total,
-							get_total = get_total + excluded.get_total,
-							get_audit_total = get_audit_total + excluded.get_audit_total,
+							put_total        = put_total + excluded.put_total,
+							get_total        = get_total + excluded.get_total,
+							get_audit_total  = get_audit_total + excluded.get_audit_total,
 							get_repair_total = get_repair_total + excluded.get_repair_total,
 							put_repair_total = put_repair_total + excluded.put_repair_total,
-							delete_total = delete_total + excluded.delete_total;
+							delete_total     = delete_total + excluded.delete_total;
 
 						DROP TABLE bandwidth_usage_rollups;
 						DROP TABLE bandwidth_usage;
 						ALTER TABLE bandwidth_usage_new RENAME TO bandwidth_usage;
-					`)
-
-					return errs.Wrap(err)
-				}),
+					`,
+				},
 			},
 		},
 	}
