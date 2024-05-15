@@ -4,3 +4,5 @@ retain/
 *.dot
 *.txt
 *.json
+*.prof
+*.pprof

@@ -109,8 +109,12 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	usedSerials := usedserials.NewTable(cfg.Storage2.MaxUsedSerialsSize)
 
-	return try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecesStore, trashChore, pieceDeleter, ordersStore, snDB.Bandwidth(), usedSerials, cfg.Storage2)),
-		collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
+	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecesStore, trashChore, pieceDeleter, ordersStore, snDB.Bandwidth(), usedSerials, cfg.Storage2))
+
+	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
+	collectorService.Loop.SetDelayStart()
+
+	return endpoint, collectorService
 }
 
 func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity) *stream {
