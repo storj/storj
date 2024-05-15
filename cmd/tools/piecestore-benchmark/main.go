@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/pprof"
 	"time"
 
 	"github.com/dsnet/try"
@@ -49,6 +50,9 @@ var (
 	ttl             = flag.Duration("ttl", time.Hour, "")
 	forceSync       = flag.Bool("force-sync", false, "")
 	disablePrealloc = flag.Bool("disable-prealloc", false, "")
+
+	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
+	notrace    = flag.Bool("notrace", false, "disable tracing")
 
 	mon  = monkit.Package()
 	data []byte
@@ -168,6 +172,11 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity)
 func uploadPiece(ctx context.Context, endpoint *piecestore.Endpoint, upload *stream) []*collect.FinishedSpan {
 	defer mon.Task()(&ctx)(nil)
 
+	if *notrace {
+		try.E(endpoint.Upload(upload))
+		return nil
+	}
+
 	return collect.CollectSpans(ctx, func(ctx context.Context) {
 		defer mon.TaskNamed("start-upload-piece")(&ctx)(nil)
 		upload.ctx = ctx
@@ -202,8 +211,16 @@ func main() {
 
 	allSpans := make([][]*collect.FinishedSpan, 0, *piecesToUpload)
 	start := time.Now()
+
 	queue := make(chan *stream, 100)
 	spans := make(chan []*collect.FinishedSpan, 100)
+
+	if *cpuprofile != "" {
+		cpufile := try.E1(os.Create(*cpuprofile))
+		defer func() { try.E(cpufile.Close()) }()
+		try.E(pprof.StartCPUProfile(cpufile))
+	}
+
 	for i := 0; i < *workers; i++ {
 		go func() {
 			for upload := range queue {
@@ -222,35 +239,42 @@ func main() {
 		allSpans = append(allSpans, <-spans)
 	}
 
+	if *cpuprofile != "" {
+		pprof.StopCPUProfile()
+	}
+
 	uploadDuration := time.Since(start)
+
 	fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
 		*piecesToUpload, memory.Size(*pieceSize).Base10String(), uploadDuration,
 		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*uploadDuration.Seconds()),
 		float64(*piecesToUpload)/uploadDuration.Seconds())
 
-	allSpans = append(allSpans, runCollector(ctx, collector))
+	if !*notrace {
+		allSpans = append(allSpans, runCollector(ctx, collector))
 
-	collectDuration := time.Since(start) - uploadDuration
-	fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, collectDuration, float64((*pieceSize)*(*piecesToUpload))/(1024*1024*collectDuration.Seconds()))
+		collectDuration := time.Since(start) - uploadDuration
+		fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, collectDuration, float64((*pieceSize)*(*piecesToUpload))/(1024*1024*collectDuration.Seconds()))
 
-	statsfh := try.E1(os.Create("stats.txt"))
-	try.E(present.StatsText(monkit.Default, statsfh))
-	try.E(statsfh.Close())
+		statsfh := try.E1(os.Create("stats.txt"))
+		try.E(present.StatsText(monkit.Default, statsfh))
+		try.E(statsfh.Close())
 
-	funcsfh := try.E1(os.Create("funcs.dot"))
-	try.E(present.FuncsDot(monkit.Default, funcsfh))
-	try.E(funcsfh.Close())
+		funcsfh := try.E1(os.Create("funcs.dot"))
+		try.E(present.FuncsDot(monkit.Default, funcsfh))
+		try.E(funcsfh.Close())
 
-	tracefh := try.E1(os.Create("traces.json"))
-	try.E1(tracefh.WriteString("[\n"))
-	for i, spans := range allSpans {
-		if i > 0 {
-			try.E1(tracefh.WriteString(",\n"))
+		tracefh := try.E1(os.Create("traces.json"))
+		try.E1(tracefh.WriteString("[\n"))
+		for i, spans := range allSpans {
+			if i > 0 {
+				try.E1(tracefh.WriteString(",\n"))
+			}
+			try.E(present.SpansToJSON(tracefh, spans))
 		}
-		try.E(present.SpansToJSON(tracefh, spans))
+		try.E1(tracefh.WriteString("]"))
+		try.E(tracefh.Close())
 	}
-	try.E1(tracefh.WriteString("]"))
-	try.E(tracefh.Close())
 }
 
 type stream struct {

@@ -1,0 +1,6 @@
+orders/
+storage/
+retain/
+*.dot
+*.txt
+*.json
