@@ -125,46 +125,79 @@ func (db *bucketsDB) GetBucketVersioningState(ctx context.Context, bucketName []
 // EnableBucketVersioning enables versioning for a bucket.
 func (db *bucketsDB) EnableBucketVersioning(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+
+	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
-		// only enable versioning if current versioning state is unversioned, enabled, or suspended.
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket.Versioning == int(buckets.VersioningUnsupported) {
+		return buckets.ErrConflict.New("versioning is unsupported for this bucket")
+	}
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		// Only enable versioning if current versioning state is unversioned, enabled, or suspended.
 		dbx.BucketMetainfo_Versioning(int(buckets.Unversioned)),
 		dbx.BucketMetainfo_Update_Fields{
 			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
-		})
+		},
+	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
 		return buckets.ErrBucket.Wrap(err)
 	}
-	if dbxBucket == nil {
-		return buckets.ErrBucketNotFound.New("%s", bucketName)
-	}
-	if buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningEnabled {
-		return buckets.ErrBucket.New("cannot transition bucket versioning state to enabled")
-	}
+
 	return nil
 }
 
 // SuspendBucketVersioning disables versioning for a bucket.
 func (db *bucketsDB) SuspendBucketVersioning(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+
+	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
-		// only suspend versioning if current versioning state is enabled, or suspended.
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket.Versioning < int(buckets.VersioningEnabled) {
+		return buckets.ErrConflict.New("versioning may only be suspended for buckets with versioning enabled")
+	}
+	if dbxBucket.ObjectLockEnabled {
+		return buckets.ErrLocked.New("versioning may not be suspended for buckets with Object Lock enabled")
+	}
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual_And_ObjectLockEnabled_Equal_False(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		// Only suspend versioning if current versioning state is enabled or suspended.
 		dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
 		dbx.BucketMetainfo_Update_Fields{
 			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningSuspended)),
-		})
+		},
+	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// This should only occur if, between the execution of the two queries,
+			// the bucket was deleted or Object Lock was enabled for it.
+			return buckets.ErrUnavailable.New("")
+		}
 		return buckets.ErrBucket.Wrap(err)
 	}
-	if dbxBucket == nil {
-		return buckets.ErrBucketNotFound.New("%s", bucketName)
-	}
-	if buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningSuspended {
-		return buckets.ErrBucket.New("cannot transition bucket versioning state to suspended")
-	}
+
 	return nil
 }
 

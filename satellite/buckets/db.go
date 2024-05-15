@@ -28,6 +28,16 @@ var (
 
 	// ErrBucketAlreadyExists is used to indicate that bucket already exists.
 	ErrBucketAlreadyExists = errs.Class("bucket already exists")
+
+	// ErrConflict is used when a request conflicts with the state of a bucket.
+	ErrConflict = errs.Class("bucket operation conflict")
+
+	// ErrUnavailable is used when an operation is temporarily unavailable
+	// due to a transient issue with the database's state.
+	ErrUnavailable = errs.Class("bucket operation temporarily unavailable")
+
+	// ErrLocked is used when an operation fails because a bucket has Object Lock enabled.
+	ErrLocked = errs.Class("bucket has Object Lock enabled")
 )
 
 // Bucket contains information about a specific bucket.

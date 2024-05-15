@@ -554,8 +554,6 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 		bucketName := "testbucket"
 		projectID := planet.Uplinks[0].Projects[0].ID
 		satellite := planet.Satellites[0]
-		enable := true
-		suspend := false
 
 		deleteBucket := func() error {
 			err := satellite.API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
@@ -590,25 +588,66 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 
 		for _, tt := range []struct {
 			name                     string
+			objectLockEnabled        bool
 			initialVersioningState   buckets.Versioning
 			versioning               bool
 			resultantVersioningState buckets.Versioning
+			expectedErrCode          rpcstatus.StatusCode
 		}{
-			{"Enable unsupported bucket fails", buckets.VersioningUnsupported, enable, buckets.VersioningUnsupported},
-			{"Suspend unsupported bucket fails", buckets.VersioningUnsupported, suspend, buckets.VersioningUnsupported},
-			{"Enable unversioned bucket succeeds", buckets.Unversioned, enable, buckets.VersioningEnabled},
-			{"Suspend unversioned bucket fails", buckets.Unversioned, suspend, buckets.Unversioned},
-			{"Enable enabled bucket succeeds", buckets.VersioningEnabled, enable, buckets.VersioningEnabled},
-			{"Suspend enabled bucket succeeds", buckets.VersioningEnabled, suspend, buckets.VersioningSuspended},
-			{"Enable suspended bucket succeeds", buckets.VersioningSuspended, enable, buckets.VersioningEnabled},
-			{"Suspend suspended bucket succeeds", buckets.VersioningSuspended, suspend, buckets.VersioningSuspended},
+			{
+				name:                     "Enable unsupported bucket fails",
+				initialVersioningState:   buckets.VersioningUnsupported,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningUnsupported,
+				expectedErrCode:          rpcstatus.FailedPrecondition,
+			}, {
+				name:                     "Suspend unsupported bucket fails",
+				initialVersioningState:   buckets.VersioningUnsupported,
+				resultantVersioningState: buckets.VersioningUnsupported,
+				expectedErrCode:          rpcstatus.FailedPrecondition,
+			}, {
+				name:                     "Enable unversioned bucket succeeds",
+				initialVersioningState:   buckets.Unversioned,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningEnabled,
+			}, {
+				name:                     "Suspend unversioned bucket fails",
+				initialVersioningState:   buckets.Unversioned,
+				resultantVersioningState: buckets.Unversioned,
+				expectedErrCode:          rpcstatus.FailedPrecondition,
+			}, {
+				name:                     "Enable enabled bucket succeeds",
+				initialVersioningState:   buckets.VersioningEnabled,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningEnabled,
+			}, {
+				name:                     "Suspend enabled bucket succeeds",
+				initialVersioningState:   buckets.VersioningEnabled,
+				resultantVersioningState: buckets.VersioningSuspended,
+			}, {
+				name:                     "Enable suspended bucket succeeds",
+				initialVersioningState:   buckets.VersioningSuspended,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningEnabled,
+			}, {
+				name:                     "Suspend suspended bucket succeeds",
+				initialVersioningState:   buckets.VersioningSuspended,
+				resultantVersioningState: buckets.VersioningSuspended,
+			}, {
+				name:                     "Suspend bucket with Object Lock enabled fails",
+				objectLockEnabled:        true,
+				initialVersioningState:   buckets.VersioningEnabled,
+				resultantVersioningState: buckets.VersioningEnabled,
+				expectedErrCode:          rpcstatus.PermissionDenied,
+			},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				defer ctx.Check(deleteBucket)
 				bucket, err := satellite.API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-					ProjectID:  projectID,
-					Name:       bucketName,
-					Versioning: tt.initialVersioningState,
+					ProjectID:         projectID,
+					Name:              bucketName,
+					Versioning:        tt.initialVersioningState,
+					ObjectLockEnabled: tt.objectLockEnabled,
 				})
 				require.NoError(t, err)
 				require.NotNil(t, bucket)
@@ -619,10 +658,9 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 					Name:       []byte(bucketName),
 					Versioning: tt.versioning,
 				})
-				// only 3 error state transitions
-				if tt.initialVersioningState == buckets.VersioningUnsupported ||
-					(tt.initialVersioningState == buckets.Unversioned && tt.versioning == suspend) {
+				if tt.expectedErrCode != 0 {
 					require.Error(t, err)
+					rpctest.RequireCode(t, err, tt.expectedErrCode)
 				} else {
 					require.NoError(t, err)
 				}
@@ -637,45 +675,6 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 				require.Equal(t, tt.resultantVersioningState, buckets.Versioning(getResponse.Versioning))
 			})
 		}
-	})
-}
-
-func TestEnableSuspendBucketVersioningFeature(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satelliteSys := planet.Satellites[0]
-		apiKey := planet.Uplinks[0].APIKey[satelliteSys.ID()]
-		projectID := planet.Uplinks[0].Projects[0].ID
-
-		_, err := satelliteSys.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Name: []byte("bucket1"),
-		})
-		require.NoError(t, err)
-
-		// verify suspend unversioned bucket fails
-		err = planet.Satellites[0].API.DB.Buckets().SuspendBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.Error(t, err)
-
-		// verify enable unversioned bucket succeeds
-		err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.NoError(t, err)
-
-		// verify suspend enabled bucket succeeds
-		err = planet.Satellites[0].API.DB.Buckets().SuspendBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.NoError(t, err)
-
-		// verify re-enable suspended bucket succeeds
-		err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.NoError(t, err)
 	})
 }
 

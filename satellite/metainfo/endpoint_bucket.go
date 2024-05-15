@@ -147,11 +147,18 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		err = endpoint.buckets.SuspendBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
 	}
 	if err != nil {
-		if buckets.ErrBucketNotFound.Has(err) {
+		switch {
+		case buckets.ErrBucketNotFound.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case buckets.ErrConflict.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		case buckets.ErrLocked.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+		case buckets.ErrUnavailable.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to enable versioning for the bucket")
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set versioning state for the bucket")
 	}
 
 	return &pb.SetBucketVersioningResponse{}, nil

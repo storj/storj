@@ -343,3 +343,60 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 		}
 	})
 }
+
+func TestEnableSuspendBucketVersioning(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].API.DB.Buckets()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		requireBucketVersioning := func(name string, versioning buckets.Versioning) {
+			bucket, err := db.GetBucket(ctx, []byte(name), projectID)
+			require.NoError(t, err)
+			require.Equal(t, versioning, bucket.Versioning)
+		}
+
+		bucketName := testrand.BucketName()
+		_, err := db.CreateBucket(ctx, buckets.Bucket{
+			Name:       bucketName,
+			ProjectID:  projectID,
+			Versioning: buckets.Unversioned,
+		})
+		require.NoError(t, err)
+
+		// verify suspend unversioned bucket fails
+		err = db.SuspendBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.True(t, buckets.ErrConflict.Has(err))
+		requireBucketVersioning(bucketName, buckets.Unversioned)
+
+		// verify enable unversioned bucket succeeds
+		err = db.EnableBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		requireBucketVersioning(bucketName, buckets.VersioningEnabled)
+
+		// verify suspend enabled bucket succeeds
+		err = db.SuspendBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		requireBucketVersioning(bucketName, buckets.VersioningSuspended)
+
+		// verify re-enable suspended bucket succeeds
+		err = db.EnableBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		requireBucketVersioning(bucketName, buckets.VersioningEnabled)
+
+		// verify suspend bucket with Object Lock enabled fails
+		lockBucketName := testrand.BucketName()
+		_, err = db.CreateBucket(ctx, buckets.Bucket{
+			Name:              lockBucketName,
+			ProjectID:         projectID,
+			Versioning:        buckets.Unversioned,
+			ObjectLockEnabled: true,
+		})
+		require.NoError(t, err)
+
+		err = db.SuspendBucketVersioning(ctx, []byte(lockBucketName), projectID)
+		require.True(t, buckets.ErrConflict.Has(err))
+		requireBucketVersioning(lockBucketName, buckets.Unversioned)
+	})
+}
