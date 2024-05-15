@@ -34,6 +34,7 @@ import (
 	"storj.io/drpc"
 	satorders "storj.io/storj/satellite/orders"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/monitor"
@@ -99,9 +100,11 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	self := contact.NodeInfo{ID: snIdent.ID}
 
+	bandwidthdbCache := bandwidth.NewCache(snDB.Bandwidth())
+
 	contactService := contact.NewService(log, dialer, self, trustPool, contact.NewQUICStats(false), &pb.SignedNodeTagSets{})
 
-	monitorService := monitor.NewService(log, piecesStore, contactService, snDB.Bandwidth(), 1<<40, time.Hour, func(context.Context) {}, cfg.Storage2.Monitor)
+	monitorService := monitor.NewService(log, piecesStore, contactService, bandwidthdbCache, 1<<40, time.Hour, func(context.Context) {}, cfg.Storage2.Monitor)
 
 	retainService := retain.NewService(log, piecesStore, cfg.Retain)
 
@@ -113,7 +116,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	usedSerials := usedserials.NewTable(cfg.Storage2.MaxUsedSerialsSize)
 
-	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecesStore, trashChore, pieceDeleter, ordersStore, snDB.Bandwidth(), usedSerials, cfg.Storage2))
+	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecesStore, trashChore, pieceDeleter, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
 	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
 
 	return endpoint, collectorService
