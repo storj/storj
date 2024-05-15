@@ -616,7 +616,8 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 		scriptSrc := "script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com"
 		// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
 		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self'"
-		frameSrc := "frame-src 'self' *.stripe.com"
+		frameSrc := "frame-src 'self' *.stripe.com " + server.config.PublicLinksharingURL
+		objectSrc := "object-src 'self' " + server.config.PublicLinksharingURL
 
 		appendValues := func(str string, vals ...string) string {
 			for _, v := range vals {
@@ -645,6 +646,7 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 			scriptSrc,
 			styleSrc,
 			frameSrc,
+			objectSrc,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"img-src 'self' data: blob: " + server.config.ImgSrcSuffix,
 			"media-src 'self' blob: " + server.config.MediaSrcSuffix,
