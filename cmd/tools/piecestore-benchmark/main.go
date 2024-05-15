@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/dsnet/try"
@@ -112,9 +114,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	usedSerials := usedserials.NewTable(cfg.Storage2.MaxUsedSerialsSize)
 
 	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecesStore, trashChore, pieceDeleter, ordersStore, snDB.Bandwidth(), usedSerials, cfg.Storage2))
-
 	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
-	collectorService.Loop.SetDelayStart()
 
 	return endpoint, collectorService
 }
@@ -193,6 +193,11 @@ func uploadPiece(ctx context.Context, endpoint *piecestore.Endpoint, upload *str
 func runCollector(ctx context.Context, collector *collector.Service) []*collect.FinishedSpan {
 	defer mon.Task()(&ctx)(nil)
 
+	if *notrace {
+		try.E(collector.Collect(ctx, time.Now().Add(7*24*time.Hour+*ttl)))
+		return nil
+	}
+
 	return collect.CollectSpans(ctx, func(ctx context.Context) {
 		defer mon.TaskNamed("start-collect")(&ctx)(nil)
 		try.E(collector.Collect(ctx, time.Now().Add(7*24*time.Hour+*ttl)))
@@ -221,40 +226,25 @@ func main() {
 	queue := make(chan *stream, 100)
 	spans := make(chan []*collect.FinishedSpan, 100)
 
-	if *cpuprofile != "" {
-		cpufile := try.E1(os.Create(*cpuprofile))
-		defer func() { try.E(cpufile.Close()) }()
-		try.E(pprof.StartCPUProfile(cpufile))
-	}
-
-	for i := 0; i < *workers; i++ {
-		go func() {
-			for upload := range queue {
-				spans <- uploadPiece(ctx, endpoint, upload)
-			}
-		}()
-	}
-	go func() {
-		for _, upload := range allUploads {
-			queue <- upload
+	profile("upload", func() {
+		for i := 0; i < *workers; i++ {
+			go func() {
+				for upload := range queue {
+					spans <- uploadPiece(ctx, endpoint, upload)
+				}
+			}()
 		}
-		close(queue)
-	}()
+		go func() {
+			for _, upload := range allUploads {
+				queue <- upload
+			}
+			close(queue)
+		}()
 
-	for i := 0; i < *piecesToUpload; i++ {
-		allSpans = append(allSpans, <-spans)
-	}
-
-	if *cpuprofile != "" {
-		pprof.StopCPUProfile()
-	}
-
-	if *memprofile != "" {
-		memfile := try.E1(os.Create(*memprofile))
-		runtime.GC()
-		try.E(pprof.WriteHeapProfile(memfile))
-		try.E(memfile.Close())
-	}
+		for i := 0; i < *piecesToUpload; i++ {
+			allSpans = append(allSpans, <-spans)
+		}
+	})
 
 	uploadDuration := time.Since(start)
 
@@ -263,12 +253,14 @@ func main() {
 		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*uploadDuration.Seconds()),
 		float64(*piecesToUpload)/uploadDuration.Seconds())
 
-	if !*notrace {
+	profile("collect", func() {
 		allSpans = append(allSpans, runCollector(ctx, collector))
+	})
 
-		collectDuration := time.Since(start) - uploadDuration
-		fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, collectDuration, float64((*pieceSize)*(*piecesToUpload))/(1024*1024*collectDuration.Seconds()))
+	collectDuration := time.Since(start) - uploadDuration
+	fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, collectDuration, float64((*pieceSize)*(*piecesToUpload))/(1024*1024*collectDuration.Seconds()))
 
+	if !*notrace {
 		statsfh := try.E1(os.Create("stats.txt"))
 		try.E(present.StatsText(monkit.Default, statsfh))
 		try.E(statsfh.Close())
@@ -319,4 +311,36 @@ func setConfigStructDefaults(v interface{}) {
 	fs := pflag.NewFlagSet("defaults", pflag.ContinueOnError)
 	cfgstruct.Bind(fs, v, cfgstruct.ConfDir("."), cfgstruct.IdentityDir("."), cfgstruct.UseReleaseDefaults())
 	try.E(fs.Parse(nil))
+}
+
+func profile(suffix string, fn func()) {
+	if *memprofile != "" {
+		defer func() {
+			memfile := try.E1(os.Create(uniqueProfilePath(*memprofile, suffix)))
+			runtime.GC()
+			try.E(pprof.WriteHeapProfile(memfile))
+			try.E(memfile.Close())
+		}()
+	}
+
+	if *cpuprofile != "" {
+		cpufile := try.E1(os.Create(uniqueProfilePath(*cpuprofile, suffix)))
+		defer func() { try.E(cpufile.Close()) }()
+		try.E(pprof.StartCPUProfile(cpufile))
+
+		defer func() {
+			pprof.StopCPUProfile()
+		}()
+	}
+
+	fn()
+}
+
+var startTime = time.Now()
+
+func uniqueProfilePath(template, suffix string) string {
+	ext := filepath.Ext(template)
+	prefix := strings.TrimSuffix(template, ext)
+
+	return prefix + "." + startTime.Format("2006-01-02.15-04-05") + "." + suffix + ext
 }
