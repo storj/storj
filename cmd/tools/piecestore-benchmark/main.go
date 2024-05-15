@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"time"
 
@@ -52,6 +53,7 @@ var (
 	disablePrealloc = flag.Bool("disable-prealloc", false, "")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
+	memprofile = flag.String("memprofile", "", "write a memory profile")
 	notrace    = flag.Bool("notrace", false, "disable tracing")
 
 	mon  = monkit.Package()
@@ -245,6 +247,13 @@ func main() {
 
 	if *cpuprofile != "" {
 		pprof.StopCPUProfile()
+	}
+
+	if *memprofile != "" {
+		memfile := try.E1(os.Create(*memprofile))
+		runtime.GC()
+		try.E(pprof.WriteHeapProfile(memfile))
+		try.E(memfile.Close())
 	}
 
 	uploadDuration := time.Since(start)
