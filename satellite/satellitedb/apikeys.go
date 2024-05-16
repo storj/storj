@@ -26,7 +26,7 @@ var _ console.APIKeys = (*apikeys)(nil)
 // apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
 	methods dbx.Methods
-	lru     *lrucache.ExpiringLRUOf[*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row]
+	lru     *lrucache.ExpiringLRUOf[*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row]
 	db      *satelliteDB
 }
 
@@ -147,13 +147,13 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbKey, err := keys.lru.Get(ctx, string(head), func() (*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row, error) {
-		return keys.methods.Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_By_ApiKey_Head(ctx, dbx.ApiKey_Head(head))
+	dbKey, err := keys.lru.Get(ctx, string(head), func() (*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row, error) {
+		return keys.methods.Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_By_ApiKey_Head(ctx, dbx.ApiKey_Head(head))
 	})
 	if err != nil {
 		return nil, err
 	}
-	return fromDBXApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row(ctx, dbKey)
+	return fromDBXApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row(ctx, dbKey)
 }
 
 // GetByNameAndProjectID implements satellite.APIKeys.
@@ -400,7 +400,7 @@ func fromDBXApiKeyProjectPublicIdRow(ctx context.Context, row *dbx.ApiKey_Projec
 	return result, nil
 }
 
-func fromDBXApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Row) (_ *console.APIKeyInfo, err error) {
+func fromDBXApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := apiKeyToAPIKeyInfo(ctx, &row.ApiKey)
@@ -415,7 +415,13 @@ func fromDBXApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project
 	result.ProjectBurstLimit = row.Project_BurstLimit
 
 	result.ProjectBandwidthLimit = row.Project_BandwidthLimit
+	if row.Project_UserSpecifiedBandwidthLimit != nil {
+		result.ProjectBandwidthLimit = row.Project_UserSpecifiedBandwidthLimit
+	}
 	result.ProjectStorageLimit = row.Project_UsageLimit
+	if row.Project_UserSpecifiedUsageLimit != nil {
+		result.ProjectStorageLimit = row.Project_UserSpecifiedUsageLimit
+	}
 	result.ProjectSegmentsLimit = row.Project_SegmentLimit
 
 	return result, nil

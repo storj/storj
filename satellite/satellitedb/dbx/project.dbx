@@ -279,7 +279,7 @@ read one (
     where api_key.id = ?
 )
 read one (
-    select api_key project.public_id project.rate_limit project.burst_limit project.segment_limit project.usage_limit project.bandwidth_limit
+    select api_key project.public_id project.rate_limit project.burst_limit project.segment_limit project.usage_limit project.bandwidth_limit project.user_specified_usage_limit project.user_specified_bandwidth_limit
     join project.id = api_key.project_id
     where api_key.head = ?
 )
