@@ -152,16 +152,18 @@ type Config struct {
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+	TestListingQuery      bool   `default:"false" help:"test the new query for non-recursive listing"`
+	TestCommitSegmentMode string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
 func (c Config) Metabase(applicationName string) metabase.Config {
 	return metabase.Config{
-		ApplicationName:  applicationName,
-		MinPartSize:      c.MinPartSize,
-		MaxNumberOfParts: c.MaxNumberOfParts,
-		ServerSideCopy:   c.ServerSideCopy,
+		ApplicationName:          applicationName,
+		MinPartSize:              c.MinPartSize,
+		MaxNumberOfParts:         c.MaxNumberOfParts,
+		ServerSideCopy:           c.ServerSideCopy,
+		TestingCommitSegmentMode: c.TestCommitSegmentMode,
 	}
 }
 
