@@ -13,5 +13,5 @@ export class SignupPageObjects {
 
     // SIGNUP SUCCESS PAGE
     static SIGNUP_SUCCESS_MESSAGE_XPATH = `//h2[contains(text(),'You are almost ready to use Storj')]`;
-    static GOTO_LOGIN_PAGE_BUTTON_XPATH = `//a[contains(text(),'Go to login page')]`;
+    static GOTO_LOGIN_PAGE_BUTTON_XPATH = `//a[contains(text(),'Go to Login')]`;
 }

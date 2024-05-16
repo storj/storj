@@ -11,7 +11,7 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.27.0
 	storj.io/common v0.0.0-20240425113201-9815a85cbc32
-	storj.io/edge v1.74.1-0.20240320132813-10b6e5e71fe5
+	storj.io/edge v1.77.1-0.20240516005430-8bc806fad700
 	storj.io/storj v1.91.0-alpha.0.20240320150624-bf817ece68fd
 )
 
@@ -39,7 +39,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
-	github.com/caddyserver/certmagic v0.17.2 // indirect
+	github.com/caddyserver/certmagic v0.20.0 // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -125,8 +125,8 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/mholt/acmez v1.0.4 // indirect
-	github.com/miekg/dns v1.1.50 // indirect
+	github.com/mholt/acmez v1.2.0 // indirect
+	github.com/miekg/dns v1.1.55 // indirect
 	github.com/minio/cli v1.22.0 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.1 // indirect
@@ -220,9 +220,9 @@ require (
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/mock v0.3.0 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.13.0 // indirect
@@ -252,7 +252,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/drpc v0.0.34 // indirect
 	storj.io/eventkit v0.0.0-20240306141230-6cb545e5f892 // indirect
-	storj.io/gateway v1.9.1-0.20240306134553-0efc5d39a09d // indirect
+	storj.io/gateway v1.9.1-0.20240419023530-bfcc1af771fa // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minio v0.0.0-20240305214730-e70e32900cff // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
