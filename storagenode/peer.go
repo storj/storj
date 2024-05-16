@@ -557,7 +557,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			process.NamedLog(log, "piecestore:monitor"),
 			peer.Storage2.Store,
 			peer.Contact.Service,
-			peer.Bandwidth.Cache,
 			config.Storage.AllocatedDiskSpace.Int64(),
 			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
@@ -610,7 +609,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.TrashChore,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
-			peer.Bandwidth.Cache,
 			peer.UsedSerials,
 			config.Storage2,
 		)

@@ -18,7 +18,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -68,7 +67,6 @@ type Service struct {
 	log                   *zap.Logger
 	store                 *pieces.Store
 	contact               *contact.Service
-	usageDB               bandwidth.DB
 	allocatedDiskSpace    int64
 	cooldown              *sync2.Cooldown
 	Loop                  *sync2.Cycle
@@ -78,12 +76,11 @@ type Service struct {
 }
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace int64, interval time.Duration, reportCapacity func(context.Context), config Config) *Service {
+func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, allocatedDiskSpace int64, interval time.Duration, reportCapacity func(context.Context), config Config) *Service {
 	return &Service{
 		log:                   log,
 		store:                 store,
 		contact:               contact,
-		usageDB:               usageDB,
 		allocatedDiskSpace:    allocatedDiskSpace,
 		cooldown:              sync2.NewCooldown(config.NotifyLowDiskCooldown),
 		Loop:                  sync2.NewCycle(interval),
