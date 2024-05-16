@@ -723,55 +723,40 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 
 // CommitInlineSegment commits inline segment to the database.
 func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	return txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT stream_id
-			FROM objects
-			WHERE
-			(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
-			AND status = `+statusPending+`
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrPendingObjectMissing.New("")
-			}
-			return Error.Wrap(err)
-		}
-
-		if !rows.Next() {
-			return ErrPendingObjectMissing.New("")
-		}
-
-		if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
-			return Error.Wrap(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
+	_, err = p.db.ExecContext(ctx, `
+			WITH pending_object_check AS (
+				SELECT stream_id
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($11, $12, $13, $14, $15) AND
+					status = `+statusPending+`
+			)
 			UPSERT INTO segments (
 				stream_id, position, expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size, encrypted_etag,
 				inline_data
 			) VALUES (
-				$11,
+				(
+					SELECT stream_id FROM pending_object_check
+				),
 				$1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
 				$10
 			)
 		`, opts.Position, opts.ExpiresAt,
-			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-			opts.InlineData,
-			opts.StreamID,
-		)
-		if err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-				return ErrPendingObjectMissing.New("")
-			}
+		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		opts.InlineData,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+	)
+	if err != nil {
+		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+			return ErrPendingObjectMissing.New("")
 		}
-		return err
-	})
+	}
+
+	return Error.Wrap(err)
 }
 
 // CommitInlineSegment commits inline segment to the database.
