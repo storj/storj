@@ -45,7 +45,11 @@ type Config struct {
 	UseListObjectsIterator bool
 
 	TestingUniqueUnversioned bool
+	TestingCommitSegmentMode string
 }
+
+const commitSegmentModeTransaction = "transaction"
+const commitSegmentModeNoCheck = "no-pending-object-check"
 
 // DB implements a database for storing objects and segments.
 type DB struct {
