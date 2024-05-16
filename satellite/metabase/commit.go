@@ -477,6 +477,8 @@ type CommitSegment struct {
 	Pieces Pieces
 
 	Placement storj.PlacementConstraint
+
+	mode string
 }
 
 // CommitSegment commits segment to the database.
@@ -517,6 +519,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}
 
+	opts.mode = db.config.TestingCommitSegmentMode
 	err = db.ChooseAdapter(opts.ProjectID).CommitPendingObjectSegment(ctx, opts, aliasPieces)
 	if err != nil {
 		if ErrPendingObjectMissing.Has(err) {
@@ -585,8 +588,76 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Verify that object exists and is partial.
-	_, err = p.db.ExecContext(ctx, `
+	switch opts.mode {
+	case commitSegmentModeTransaction:
+		err = txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			rows, err := tx.QueryContext(ctx, `
+				SELECT 1
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
+				AND status = `+statusPending+`
+			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			pendingObjectFound := rows.Next()
+			if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
+				return errs.Wrap(err)
+			}
+
+			if !pendingObjectFound {
+				return ErrPendingObjectMissing.New("")
+			}
+
+			_, err = tx.ExecContext(ctx, `
+				UPSERT INTO segments (
+					stream_id, position,
+					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					redundancy,
+					remote_alias_pieces,
+					placement
+				) VALUES (
+					$1, $2,
+					$3, $4, $5,
+					$6, $7, $8, $9,
+					$10, $11, $12,
+					$13
+				)`, opts.StreamID, opts.Position, opts.ExpiresAt,
+				opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+				opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+				redundancyScheme{&opts.Redundancy},
+				aliasPieces,
+				opts.Placement,
+			)
+			return errs.Wrap(err)
+		})
+	case commitSegmentModeNoCheck:
+		_, err = p.db.ExecContext(ctx, `
+			UPSERT INTO segments (
+				stream_id, position,
+				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				redundancy,
+				remote_alias_pieces,
+				placement
+			) VALUES (
+				$1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10, $11, $12,
+				$13
+			)`, opts.StreamID, opts.Position, opts.ExpiresAt,
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			redundancyScheme{&opts.Redundancy},
+			aliasPieces,
+			opts.Placement,
+		)
+	default:
+		// Verify that object exists and is partial.
+		_, err = p.db.ExecContext(ctx, `
 			UPSERT INTO segments (
 				stream_id, position,
 				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
@@ -607,18 +678,20 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 				$11,
 				$17
 			)`, opts.Position, opts.ExpiresAt,
-		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-		redundancyScheme{&opts.Redundancy},
-		aliasPieces,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-		opts.Placement,
-	)
-	if err != nil {
-		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-			return ErrPendingObjectMissing.New("")
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			redundancyScheme{&opts.Redundancy},
+			aliasPieces,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			opts.Placement,
+		)
+		if err != nil {
+			if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+				return ErrPendingObjectMissing.New("")
+			}
 		}
 	}
+
 	return err
 }
 
