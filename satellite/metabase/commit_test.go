@@ -1620,63 +1620,84 @@ func TestCommitSegment(t *testing.T) {
 }
 
 func TestCommitInlineSegment(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
-		for _, test := range metabasetest.InvalidObjectStreams(obj) {
-			test := test
-			t.Run(test.Name, func(t *testing.T) {
+	for _, mode := range []string{"", "transaction", "no-pending-object-check"} {
+		mode := mode
+		metabasetest.RunWithConfig(t, metabase.Config{
+			ApplicationName:          "metabase-tests",
+			TestingCommitSegmentMode: mode,
+		}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+			obj := metabasetest.RandObjectStream()
+			for _, test := range metabasetest.InvalidObjectStreams(obj) {
+				test := test
+				t.Run(test.Name, func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					metabasetest.CommitInlineSegment{
+						Opts: metabase.CommitInlineSegment{
+							ObjectStream: test.ObjectStream,
+						},
+						ErrClass: test.ErrClass,
+						ErrText:  test.ErrText,
+					}.Check(ctx, t, db)
+					metabasetest.Verify{}.Check(ctx, t, db)
+				})
+			}
+
+			t.Run("invalid request", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
 				metabasetest.CommitInlineSegment{
 					Opts: metabase.CommitInlineSegment{
-						ObjectStream: test.ObjectStream,
+						ObjectStream: obj,
 					},
-					ErrClass: test.ErrClass,
-					ErrText:  test.ErrText,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "EncryptedKey missing",
 				}.Check(ctx, t, db)
-				metabasetest.Verify{}.Check(ctx, t, db)
-			})
-		}
 
-		t.Run("invalid request", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						InlineData:   []byte{1, 2, 3},
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "EncryptedKey missing",
+				}.Check(ctx, t, db)
 
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
 
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedKey missing",
-			}.Check(ctx, t, db)
+						InlineData: []byte{1, 2, 3},
 
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					InlineData:   []byte{1, 2, 3},
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedKey missing",
-			}.Check(ctx, t, db)
+						EncryptedKey: testrand.Bytes(32),
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "EncryptedKeyNonce missing",
+				}.Check(ctx, t, db)
 
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
+				if metabase.ValidatePlainSize {
+					metabasetest.CommitInlineSegment{
+						Opts: metabase.CommitInlineSegment{
+							ObjectStream: obj,
 
-					InlineData: []byte{1, 2, 3},
+							InlineData: []byte{1, 2, 3},
 
-					EncryptedKey: testrand.Bytes(32),
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedKeyNonce missing",
-			}.Check(ctx, t, db)
+							EncryptedKey:      testrand.Bytes(32),
+							EncryptedKeyNonce: testrand.Bytes(32),
 
-			if metabase.ValidatePlainSize {
+							PlainSize: -1,
+						},
+						ErrClass: &metabase.ErrInvalidRequest,
+						ErrText:  "PlainSize negative or zero",
+					}.Check(ctx, t, db)
+				}
+
 				metabasetest.CommitInlineSegment{
 					Opts: metabase.CommitInlineSegment{
 						ObjectStream: obj,
@@ -1686,418 +1707,411 @@ func TestCommitInlineSegment(t *testing.T) {
 						EncryptedKey:      testrand.Bytes(32),
 						EncryptedKeyNonce: testrand.Bytes(32),
 
-						PlainSize: -1,
+						PlainSize:   512,
+						PlainOffset: -1,
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
-					ErrText:  "PlainSize negative or zero",
+					ErrText:  "PlainOffset negative",
 				}.Check(ctx, t, db)
-			}
+			})
 
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
+			t.Run("commit inline segment of missing object", func(t *testing.T) {
+				if mode == "no-pending-object-check" {
+					t.Skip()
+				}
 
-					InlineData: []byte{1, 2, 3},
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
 
-					PlainSize:   512,
-					PlainOffset: -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "PlainOffset negative",
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("commit inline segment of missing object", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:   512,
-					PlainOffset: 0,
-				},
-				ErrClass: &metabase.ErrPendingObjectMissing,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("duplicate", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:   512,
-					PlainOffset: 0,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:   512,
-					PlainOffset: 0,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
 						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-				Segments: []metabase.RawSegment{
-					{
-						StreamID:  obj.StreamID,
-						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: now,
+						InlineData:   []byte{1, 2, 3},
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
-						PlainOffset: 0,
 						PlainSize:   512,
-
-						InlineData:    []byte{1, 2, 3},
-						EncryptedSize: 3,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("overwrite", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:   512,
-					PlainOffset: 0,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					InlineData:   []byte{4, 5, 6},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:   512,
-					PlainOffset: 0,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-				Segments: []metabase.RawSegment{
-					{
-						StreamID:  obj.StreamID,
-						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: now,
-
-						EncryptedKey:      encryptedKey,
-						EncryptedKeyNonce: encryptedKeyNonce,
-
 						PlainOffset: 0,
-						PlainSize:   512,
-
-						InlineData:    []byte{4, 5, 6},
-						EncryptedSize: 3,
 					},
-				},
-			}.Check(ctx, t, db)
-		})
+					ErrClass: &metabase.ErrPendingObjectMissing,
+				}.Check(ctx, t, db)
 
-		t.Run("commit segment of committed object", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
 
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			t.Run("duplicate", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
 
-			metabasetest.CreateObject(ctx, t, db, obj, 0)
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:   512,
-					PlainOffset: 0,
-				},
-				ErrClass: &metabase.ErrPendingObjectMissing,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
 						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.CommittedUnversioned,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
-				},
-			}.Check(ctx, t, db)
-		})
+				}.Check(ctx, t, db)
 
-		t.Run("commit empty segment of pending object", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
 
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
-			encryptedETag := testrand.Bytes(32)
-
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:     0,
-					PlainOffset:   0,
-					EncryptedETag: encryptedETag,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream:           obj,
-						CreatedAt:              now,
-						Status:                 metabase.Pending,
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-				Segments: []metabase.RawSegment{
-					{
-						StreamID:  obj.StreamID,
-						CreatedAt: now,
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+						InlineData:   []byte{1, 2, 3},
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
-						PlainOffset: 0,
-						PlainSize:   0,
-
-						EncryptedSize: 0,
-						EncryptedETag: encryptedETag,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("commit segment of pending object", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
-			encryptedETag := testrand.Bytes(32)
-
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:     512,
-					PlainOffset:   0,
-					EncryptedETag: encryptedETag,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream:           obj,
-						CreatedAt:              now,
-						Status:                 metabase.Pending,
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-				Segments: []metabase.RawSegment{
-					{
-						StreamID:  obj.StreamID,
-						CreatedAt: now,
-
-						EncryptedKey:      encryptedKey,
-						EncryptedKeyNonce: encryptedKeyNonce,
-
-						PlainOffset: 0,
 						PlainSize:   512,
-
-						InlineData:    []byte{1, 2, 3},
-						EncryptedSize: 3,
-						EncryptedETag: encryptedETag,
+						PlainOffset: 0,
 					},
-				},
-			}.Check(ctx, t, db)
-		})
+				}.Check(ctx, t, db)
 
-		t.Run("commit segment of object with expires at", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
-			encryptedETag := testrand.Bytes(32)
-
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-			expectedExpiresAt := now.Add(33 * time.Hour)
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-					ExpiresAt:    &expectedExpiresAt,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					ExpiresAt:    &expectedExpiresAt,
-					InlineData:   []byte{1, 2, 3},
-
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
-
-					PlainSize:     512,
-					PlainOffset:   0,
-					EncryptedETag: encryptedETag,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream:           obj,
-						CreatedAt:              now,
-						ExpiresAt:              &expectedExpiresAt,
-						Status:                 metabase.Pending,
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-				Segments: []metabase.RawSegment{
-					{
-						StreamID:  obj.StreamID,
-						CreatedAt: now,
-						ExpiresAt: &expectedExpiresAt,
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+						InlineData:   []byte{1, 2, 3},
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
-						PlainOffset: 0,
 						PlainSize:   512,
+						PlainOffset: 0,
+					},
+				}.Check(ctx, t, db)
 
-						InlineData:    []byte{1, 2, 3},
-						EncryptedSize: 3,
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.Pending,
+
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+					Segments: []metabase.RawSegment{
+						{
+							StreamID:  obj.StreamID,
+							Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+							CreatedAt: now,
+
+							EncryptedKey:      encryptedKey,
+							EncryptedKeyNonce: encryptedKeyNonce,
+
+							PlainOffset: 0,
+							PlainSize:   512,
+
+							InlineData:    []byte{1, 2, 3},
+							EncryptedSize: 3,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("overwrite", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
+
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+						InlineData:   []byte{1, 2, 3},
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainSize:   512,
+						PlainOffset: 0,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+						InlineData:   []byte{4, 5, 6},
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainSize:   512,
+						PlainOffset: 0,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.Pending,
+
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+					Segments: []metabase.RawSegment{
+						{
+							StreamID:  obj.StreamID,
+							Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+							CreatedAt: now,
+
+							EncryptedKey:      encryptedKey,
+							EncryptedKeyNonce: encryptedKeyNonce,
+
+							PlainOffset: 0,
+							PlainSize:   512,
+
+							InlineData:    []byte{4, 5, 6},
+							EncryptedSize: 3,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("commit segment of committed object", func(t *testing.T) {
+				if mode == "no-pending-object-check" {
+					t.Skip()
+				}
+
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
+
+				now := time.Now()
+
+				metabasetest.CreateObject(ctx, t, db, obj, 0)
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						InlineData:   []byte{1, 2, 3},
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainSize:   512,
+						PlainOffset: 0,
+					},
+					ErrClass: &metabase.ErrPendingObjectMissing,
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.CommittedUnversioned,
+							Encryption:   metabasetest.DefaultEncryption,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("commit empty segment of pending object", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
+				encryptedETag := testrand.Bytes(32)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainSize:     0,
+						PlainOffset:   0,
 						EncryptedETag: encryptedETag,
 					},
-				},
-			}.Check(ctx, t, db)
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream:           obj,
+							CreatedAt:              now,
+							Status:                 metabase.Pending,
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+					Segments: []metabase.RawSegment{
+						{
+							StreamID:  obj.StreamID,
+							CreatedAt: now,
+
+							EncryptedKey:      encryptedKey,
+							EncryptedKeyNonce: encryptedKeyNonce,
+
+							PlainOffset: 0,
+							PlainSize:   0,
+
+							EncryptedSize: 0,
+							EncryptedETag: encryptedETag,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("commit segment of pending object", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
+				encryptedETag := testrand.Bytes(32)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						InlineData:   []byte{1, 2, 3},
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainSize:     512,
+						PlainOffset:   0,
+						EncryptedETag: encryptedETag,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream:           obj,
+							CreatedAt:              now,
+							Status:                 metabase.Pending,
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+					Segments: []metabase.RawSegment{
+						{
+							StreamID:  obj.StreamID,
+							CreatedAt: now,
+
+							EncryptedKey:      encryptedKey,
+							EncryptedKeyNonce: encryptedKeyNonce,
+
+							PlainOffset: 0,
+							PlainSize:   512,
+
+							InlineData:    []byte{1, 2, 3},
+							EncryptedSize: 3,
+							EncryptedETag: encryptedETag,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("commit segment of object with expires at", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				encryptedKey := testrand.Bytes(32)
+				encryptedKeyNonce := testrand.Bytes(32)
+				encryptedETag := testrand.Bytes(32)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+				expectedExpiresAt := now.Add(33 * time.Hour)
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						ExpiresAt:    &expectedExpiresAt,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
+						ExpiresAt:    &expectedExpiresAt,
+						InlineData:   []byte{1, 2, 3},
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainSize:     512,
+						PlainOffset:   0,
+						EncryptedETag: encryptedETag,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream:           obj,
+							CreatedAt:              now,
+							ExpiresAt:              &expectedExpiresAt,
+							Status:                 metabase.Pending,
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+					Segments: []metabase.RawSegment{
+						{
+							StreamID:  obj.StreamID,
+							CreatedAt: now,
+							ExpiresAt: &expectedExpiresAt,
+
+							EncryptedKey:      encryptedKey,
+							EncryptedKeyNonce: encryptedKeyNonce,
+
+							PlainOffset: 0,
+							PlainSize:   512,
+
+							InlineData:    []byte{1, 2, 3},
+							EncryptedSize: 3,
+							EncryptedETag: encryptedETag,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
 		})
-	})
+	}
 }
 
 func TestCommitObject(t *testing.T) {

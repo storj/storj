@@ -10,7 +10,7 @@ import (
 	"time"
 
 	pgxerrcode "github.com/jackc/pgerrcode"
-	"github.com/storj/exp-spanner"
+	spanner "github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
@@ -551,6 +551,8 @@ type CommitInlineSegment struct {
 	EncryptedETag []byte
 
 	InlineData []byte
+
+	mode string
 }
 
 // CommitInlineSegment commits inline segment to the database.
@@ -575,6 +577,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		return ErrInvalidRequest.New("PlainOffset negative")
 	}
 
+	opts.mode = db.config.TestingCommitSegmentMode
 	err = db.ChooseAdapter(opts.ProjectID).CommitInlineSegment(ctx, opts)
 	if err != nil {
 		if ErrPendingObjectMissing.Has(err) {
@@ -623,6 +626,105 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return ErrPendingObjectMissing.New("")
+		}
+	}
+
+	return Error.Wrap(err)
+}
+
+// CommitInlineSegment commits inline segment to the database.
+func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
+	switch opts.mode {
+	case commitSegmentModeTransaction:
+		err = txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			rows, err := tx.QueryContext(ctx, `
+				SELECT 1
+				FROM objects
+				WHERE
+				(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
+				AND status = `+statusPending+`
+			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			pendingObjectFound := rows.Next()
+			if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
+				return errs.Wrap(err)
+			}
+
+			if !pendingObjectFound {
+				return ErrPendingObjectMissing.New("")
+			}
+
+			_, err = tx.ExecContext(ctx, `
+				UPSERT INTO segments (
+					stream_id, position, expires_at,
+					root_piece_id, encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					inline_data
+				) VALUES (
+					$11,
+					$1, $2,
+					$3, $4, $5,
+					$6, $7, $8, $9,
+					$10
+				)
+			`, opts.Position, opts.ExpiresAt,
+				storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+				len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+				opts.InlineData,
+				opts.StreamID,
+			)
+			return errs.Wrap(err)
+		})
+	case commitSegmentModeNoCheck:
+		_, err = p.db.ExecContext(ctx, `
+			UPSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				inline_data
+			) VALUES (
+				$1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10, $11
+			)
+		`, opts.StreamID, opts.Position, opts.ExpiresAt,
+			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			opts.InlineData,
+		)
+	default:
+		_, err = p.db.ExecContext(ctx, `
+			UPSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				inline_data
+			) VALUES (
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($11, $12, $13, $14, $15) AND
+						status = `+statusPending+`
+				),
+				$1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10
+			)
+		`, opts.Position, opts.ExpiresAt,
+			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			opts.InlineData,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		)
+		if err != nil {
+			if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+				return ErrPendingObjectMissing.New("")
+			}
 		}
 	}
 
