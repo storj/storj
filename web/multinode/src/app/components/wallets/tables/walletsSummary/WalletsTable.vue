@@ -74,14 +74,26 @@ export default class WalletsTable extends Vue {
     }
 
     // Initialize sorting variables
-    sortByKey: string | null = null;
+    sortByKey: string = "";
     sortDirection: string = 'asc';
+
+    // Cache the sort state in browser to persist between sessions
+    created() {
+        const savedSortByKey = localStorage.getItem('walletSortByKey');
+        const savedSortDirection = localStorage.getItem('walletSortDirection');
+        if (savedSortByKey) {
+            this.sortByKey = savedSortByKey;
+        }
+        if (savedSortDirection) {
+            this.sortDirection = savedSortDirection;
+        }
+    }
 
     // Sorted operators getter
     public get sortedOperators(): Operator[] {
         const key = this.sortByKey;
         const direction = this.sortDirection === 'asc' ? 1 : -1;
-        if (!key) return this.operators;
+        if (key === "") return this.operators;
         return this.operators.slice().sort((a, b) => {
             if (a[key] < b[key]) return -direction;
             if (a[key] > b[key]) return direction;
@@ -96,12 +108,15 @@ export default class WalletsTable extends Vue {
                 this.sortDirection = "desc";
             } else {
                 // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
-                this.sortByKey = null;
+                this.sortByKey = "";
             }
         } else {
             this.sortByKey = key;
             this.sortDirection = 'asc';
         }
+
+        localStorage.setItem('walletSortByKey', this.sortByKey);
+        localStorage.setItem('walletSortDirection', this.sortDirection);
     }
 
     // Determine arrow icon

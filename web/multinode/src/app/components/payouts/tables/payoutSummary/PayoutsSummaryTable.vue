@@ -37,14 +37,26 @@ export default class PayoutsSummaryTable extends Vue {
     public nodePayoutsSummary: NodePayoutsSummary[];
 
     // Initialize sorting variables
-    sortByKey: string | null = null;
+    sortByKey: string = "";
     sortDirection: string = 'asc';
+
+    // Cache the sort state in browser to persist between sessions
+    created() {
+        const savedSortByKey = localStorage.getItem('payoutSortByKey');
+        const savedSortDirection = localStorage.getItem('payoutSortDirection');
+        if (savedSortByKey) {
+            this.sortByKey = savedSortByKey;
+        }
+        if (savedSortDirection) {
+            this.sortDirection = savedSortDirection;
+        }
+    }
 
     // Sorted nodePayoutsSummary getter
     public get sortedNodePayoutsSummary(): NodePayoutsSummary[] {
         const key = this.sortByKey;
         const direction = this.sortDirection === 'asc' ? 1 : -1;
-        if (!key) return this.nodePayoutsSummary;
+        if (key === "") return this.nodePayoutsSummary;
         return this.nodePayoutsSummary.slice().sort((a, b) => {
             if (a[key] < b[key]) return -direction;
             if (a[key] > b[key]) return direction;
@@ -59,12 +71,15 @@ export default class PayoutsSummaryTable extends Vue {
                 this.sortDirection = "desc";
             } else {
                 // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
-                this.sortByKey = null;
+                this.sortByKey = "";
             }
         } else {
             this.sortByKey = key;
             this.sortDirection = 'asc';
         }
+
+        localStorage.setItem('payoutSortByKey', this.sortByKey);
+        localStorage.setItem('payoutSortDirection', this.sortDirection);
     }
 
     // Determine arrow icon

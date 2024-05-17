@@ -53,14 +53,26 @@ export default class NodesTable extends Vue {
     }
 
     // Initialize sorting variables
-    sortByKey: string | null = null;
+    sortByKey: string = "";
     sortDirection: string = 'asc';
+
+    // Cache the sort state in browser to persist between sessions
+    created() {
+        const savedSortByKey = localStorage.getItem('nodesSortByKey');
+        const savedSortDirection = localStorage.getItem('nodesSortDirection');
+        if (savedSortByKey) {
+            this.sortByKey = savedSortByKey;
+        }
+        if (savedSortDirection) {
+            this.sortDirection = savedSortDirection;
+        }
+    }
 
     // Sorted nodes getter
     public get sortedNodes(): Node[] {
         const key = this.sortByKey;
         const direction = this.sortDirection === 'asc' ? 1 : -1;
-        if (!key) return this.nodes;
+        if (key === "") return this.nodes;
         return this.nodes.slice().sort((a, b) => {
             if (a[key] < b[key]) return -direction;
             if (a[key] > b[key]) return direction;
@@ -75,12 +87,15 @@ export default class NodesTable extends Vue {
                 this.sortDirection = "desc";
             } else {
                 // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
-                this.sortByKey = null;
+                this.sortByKey = "";
             }
         } else {
             this.sortByKey = key;
             this.sortDirection = 'asc';
         }
+
+        localStorage.setItem('nodesSortByKey', this.sortByKey);
+        localStorage.setItem('nodesSortDirection', this.sortDirection);
     }
 
     // Determine arrow icon
