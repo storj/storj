@@ -5,13 +5,13 @@
     <base-table>
         <thead slot="head">
             <tr>
-                <th class="align-left">WALLET ADDRESS</th>
-                <th>UNDISTRIBUTED</th>
+                <th @click="sortBy('wallet')" class="align-left">WALLET ADDRESS{{sortByKey === 'wallet' ? sortArrow : ''}}</th>
+                <th @click="sortBy('undistributed')">UNDISTRIBUTED{{sortByKey === 'undistributed' ? sortArrow : ''}}</th>
                 <th class="align-left">VIEW</th>
             </tr>
         </thead>
         <tbody slot="body">
-            <tr v-for="operator in operators" :key="operator.nodeId" class="table-item">
+            <tr v-for="operator in sortedOperators" :key="operator.nodeId" class="table-item">
                 <th class="align-left">
                     <div class="column">
                         <p class="table-item__wallet" @click.prevent="() => redirectToWalletDetailsPage(operator.wallet)">
@@ -71,6 +71,42 @@ export default class WalletsTable extends Vue {
         //     name: RouterConfig.Wallets.with(RouterConfig.WalletDetails).name,
         //     params: { address: walletAddress },
         // });
+    }
+
+    // Initialize sorting variables
+    sortByKey: string | null = null;
+    sortDirection: string = 'asc';
+
+    // Sorted operators getter
+    public get sortedOperators(): Operator[] {
+        const key = this.sortByKey;
+        const direction = this.sortDirection === 'asc' ? 1 : -1;
+        if (!key) return this.operators;
+        return this.operators.slice().sort((a, b) => {
+            if (a[key] < b[key]) return -direction;
+            if (a[key] > b[key]) return direction;
+            return 0;
+        });
+    }
+
+    // Update sorting key and direction
+    public sortBy(key: string) {
+        if (this.sortByKey === key) {
+            if (this.sortDirection === "asc") {
+                this.sortDirection = "desc";
+            } else {
+                // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
+                this.sortByKey = null;
+            }
+        } else {
+            this.sortByKey = key;
+            this.sortDirection = 'asc';
+        }
+    }
+
+    // Determine arrow icon
+    public get sortArrow(): string {
+        return this.sortDirection === 'asc' ? ' ↑' : ' ↓';
     }
 }
 </script>
@@ -135,5 +171,9 @@ export default class WalletsTable extends Vue {
                 }
             }
         }
+    }
+
+    th {
+        user-select: none; /* Diable user selecting the headers for sort selection */
     }
 </style>

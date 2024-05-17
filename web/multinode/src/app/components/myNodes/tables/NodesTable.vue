@@ -5,25 +5,25 @@
     <base-table v-if="nodes.length">
         <thead slot="head">
             <tr>
-                <th class="align-left">NODE</th>
+                <th class="align-left" @click="sortBy('name')">NODE{{sortByKey === 'name' ? sortArrow : ''}}</th>
                 <template v-if="isSatelliteSelected">
-                    <th>SUSPENSION</th>
-                    <th>AUDIT</th>
-                    <th>UPTIME</th>
+                    <th @click="sortBy('suspensionScore')">SUSPENSION{{sortByKey === 'suspensionScore' ? sortArrow : ''}}</th>
+                    <th @click="sortBy('auditScore')">AUDIT{{sortByKey === 'auditScore' ? sortArrow : ''}}</th>
+                    <th @click="sortBy('onlineScore')">UPTIME{{sortByKey === 'onlineScore' ? sortArrow : ''}}</th>
                 </template>
                 <template v-else>
-                    <th>DISK SPACE USED</th>
-                    <th>DISK SPACE LEFT</th>
-                    <th>BANDWIDTH USED</th>
+                    <th @click="sortBy('diskSpaceUsed')">DISK SPACE USED{{sortByKey === 'diskSpaceUsed' ? sortArrow : ''}}</th>
+                    <th @click="sortBy('diskSpaceLeft')">DISK SPACE LEFT{{sortByKey === 'diskSpaceLeft' ? sortArrow : ''}}</th>
+                    <th @click="sortBy('bandwidthUsed')">BANDWIDTH USED{{sortByKey === 'bandwidthUsed' ? sortArrow : ''}}</th>
                 </template>
-                <th>EARNED</th>
-                <th>VERSION</th>
-                <th>STATUS</th>
+                <th @click="sortBy('earned')">EARNED{{sortByKey === 'earned' ? sortArrow : ''}}</th>
+                <th @click="sortBy('version')">VERSION{{sortByKey === 'version' ? sortArrow : ''}}</th>
+                <th @click="sortBy('status')">STATUS{{sortByKey === 'status' ? sortArrow : ''}}</th>
                 <th />
             </tr>
         </thead>
         <tbody slot="body">
-            <node-item v-for="node in nodes" :key="node.id" :node="node" />
+            <node-item v-for="node in sortedNodes" :key="node.id" :node="node" />
         </tbody>
     </base-table>
 </template>
@@ -51,5 +51,47 @@ export default class NodesTable extends Vue {
     public get isSatelliteSelected(): boolean {
         return !!this.$store.state.nodes.selectedSatellite;
     }
+
+    // Initialize sorting variables
+    sortByKey: string | null = null;
+    sortDirection: string = 'asc';
+
+    // Sorted nodes getter
+    public get sortedNodes(): Node[] {
+        const key = this.sortByKey;
+        const direction = this.sortDirection === 'asc' ? 1 : -1;
+        if (!key) return this.nodes;
+        return this.nodes.slice().sort((a, b) => {
+            if (a[key] < b[key]) return -direction;
+            if (a[key] > b[key]) return direction;
+            return 0;
+        });
+    }
+
+    // Update sorting key and direction
+    public sortBy(key: string) {
+        if (this.sortByKey === key) {
+            if (this.sortDirection === "asc") {
+                this.sortDirection = "desc";
+            } else {
+                // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
+                this.sortByKey = null;
+            }
+        } else {
+            this.sortByKey = key;
+            this.sortDirection = 'asc';
+        }
+    }
+
+    // Determine arrow icon
+    public get sortArrow(): string {
+        return this.sortDirection === 'asc' ? ' ↑' : ' ↓';
+    }
 }
 </script>
+
+<style scoped>
+    th {
+        user-select: none; /* Diable user selecting the headers for sort selection */
+    }
+</style>

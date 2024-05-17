@@ -5,14 +5,14 @@
     <base-table v-if="nodePayoutsSummary.length">
         <thead slot="head">
             <tr>
-                <th class="align-left">NODE</th>
-                <th>HELD</th>
-                <th>PAID</th>
+                <th @click="sortBy('nodeName')" class="align-left">NODE{{sortByKey === 'nodeName' ? sortArrow : ''}}</th>
+                <th @click="sortBy('held')">HELD{{sortByKey === 'held' ? sortArrow : ''}}</th>
+                <th @click="sortBy('paid')">PAID{{sortByKey === 'paid' ? sortArrow : ''}}</th>
                 <th class="options" />
             </tr>
         </thead>
         <tbody slot="body">
-            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary" />
+            <payouts-summary-item v-for="payoutSummary in sortedNodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary" />
         </tbody>
     </base-table>
 </template>
@@ -35,5 +35,47 @@ import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/Pa
 export default class PayoutsSummaryTable extends Vue {
     @Prop({ default: () => [] })
     public nodePayoutsSummary: NodePayoutsSummary[];
+
+    // Initialize sorting variables
+    sortByKey: string | null = null;
+    sortDirection: string = 'asc';
+
+    // Sorted nodePayoutsSummary getter
+    public get sortedNodePayoutsSummary(): NodePayoutsSummary[] {
+        const key = this.sortByKey;
+        const direction = this.sortDirection === 'asc' ? 1 : -1;
+        if (!key) return this.nodePayoutsSummary;
+        return this.nodePayoutsSummary.slice().sort((a, b) => {
+            if (a[key] < b[key]) return -direction;
+            if (a[key] > b[key]) return direction;
+            return 0;
+        });
+    }
+
+    // Update sorting key and direction
+    public sortBy(key: string) {
+        if (this.sortByKey === key) {
+            if (this.sortDirection === "asc") {
+                this.sortDirection = "desc";
+            } else {
+                // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
+                this.sortByKey = null;
+            }
+        } else {
+            this.sortByKey = key;
+            this.sortDirection = 'asc';
+        }
+    }
+
+    // Determine arrow icon
+    public get sortArrow(): string {
+        return this.sortDirection === 'asc' ? ' ↑' : ' ↓';
+    }
 }
 </script>
+
+<style scoped>
+    th {
+        user-select: none; /* Diable user selecting the headers for sort selection */
+    }
+</style>
