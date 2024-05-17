@@ -291,6 +291,29 @@ func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid
 	return memory.Size(*segmentLimit), nil
 }
 
+// GetProjectLimits returns all project limits including user specified usage and bandwidth limits.
+func (usage *Service) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectLimits, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	limits, err := usage.projectAccountingDB.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return nil, ErrProjectUsage.Wrap(err)
+	}
+
+	if limits.Segments == nil {
+		limits.Segments = &usage.defaultMaxSegments
+	}
+	if limits.Bandwidth == nil {
+		bandwidth := usage.defaultMaxBandwidth.Int64()
+		limits.Bandwidth = &bandwidth
+	}
+	if limits.Usage == nil {
+		storage := usage.defaultMaxStorage.Int64()
+		limits.Usage = &storage
+	}
+
+	return &limits, nil
+}
+
 // GetProjectBandwidthUsage get the current bandwidth usage from cache.
 //
 // It can return one of the following errors returned by

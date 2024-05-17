@@ -5,18 +5,20 @@ package console
 
 // ProjectUsageLimits holds project usage limits and current usage.
 type ProjectUsageLimits struct {
-	StorageLimit   int64 `json:"storageLimit"`
-	BandwidthLimit int64 `json:"bandwidthLimit"`
-	StorageUsed    int64 `json:"storageUsed"`
-	BandwidthUsed  int64 `json:"bandwidthUsed"`
-	ObjectCount    int64 `json:"objectCount"`
-	SegmentCount   int64 `json:"segmentCount"`
-	RateLimit      int64 `json:"rateLimit"`
-	SegmentLimit   int64 `json:"segmentLimit"`
-	RateUsed       int64 `json:"rateUsed"`
-	SegmentUsed    int64 `json:"segmentUsed"`
-	BucketsUsed    int64 `json:"bucketsUsed"`
-	BucketsLimit   int64 `json:"bucketsLimit"`
+	StorageLimit          int64  `json:"storageLimit"`
+	UserSetStorageLimit   *int64 `json:"userSetStorageLimit"`
+	BandwidthLimit        int64  `json:"bandwidthLimit"`
+	UserSetBandwidthLimit *int64 `json:"userSetBandwidthLimit"`
+	StorageUsed           int64  `json:"storageUsed"`
+	BandwidthUsed         int64  `json:"bandwidthUsed"`
+	ObjectCount           int64  `json:"objectCount"`
+	SegmentCount          int64  `json:"segmentCount"`
+	RateLimit             int64  `json:"rateLimit"`
+	SegmentLimit          int64  `json:"segmentLimit"`
+	RateUsed              int64  `json:"rateUsed"`
+	SegmentUsed           int64  `json:"segmentUsed"`
+	BucketsUsed           int64  `json:"bucketsUsed"`
+	BucketsLimit          int64  `json:"bucketsLimit"`
 }
 
 // UsageLimits represents storage, bandwidth, and segment limits imposed on an entity.

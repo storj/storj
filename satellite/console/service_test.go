@@ -355,10 +355,8 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedName, updatedProject.Name)
 				require.NotEqual(t, up1Proj.Description, updatedProject.Description)
 				require.Equal(t, updatedDescription, updatedProject.Description)
-				require.NotEqual(t, *up1Proj.StorageLimit, *updatedProject.StorageLimit)
-				require.Equal(t, updatedStorageLimit, *updatedProject.StorageLimit)
-				require.NotEqual(t, *up1Proj.BandwidthLimit, *updatedProject.BandwidthLimit)
-				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, *up1Proj.StorageLimit, *updatedProject.StorageLimit)
+				require.Equal(t, *up1Proj.BandwidthLimit, *updatedProject.BandwidthLimit)
 				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 
@@ -431,13 +429,13 @@ func TestService(t *testing.T) {
 				require.Equal(t, updateInfo.Description, updatedProject.Description)
 				require.NotNil(t, updatedProject.StorageLimit)
 				require.NotNil(t, updatedProject.BandwidthLimit)
-				require.Equal(t, updateInfo.StorageLimit, *updatedProject.StorageLimit)
-				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, updateInfo.StorageLimit, *updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 
 				project, err := service.GetProject(userCtx1, up1Proj.ID)
 				require.NoError(t, err)
-				require.Equal(t, updateInfo.StorageLimit, *project.StorageLimit)
-				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
+				require.Equal(t, updateInfo.StorageLimit, *project.UserSpecifiedStorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, *project.UserSpecifiedBandwidthLimit)
 
 				// attempting to update a project with a previously used name should fail
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
@@ -745,21 +743,27 @@ func TestService(t *testing.T) {
 
 				// limits gotten by ID and publicID should be the same
 				require.Equal(t, storageLimit.Int64(), limits1.StorageLimit)
+				require.Nil(t, limits1.UserSetStorageLimit)
 				require.Equal(t, bandwidthLimit.Int64(), limits1.BandwidthLimit)
+				require.Nil(t, limits1.UserSetBandwidthLimit)
 				require.Equal(t, int64(1), limits1.BucketsUsed)
 				require.Equal(t, bucketsLimit, limits1.BucketsLimit)
 				require.Equal(t, storageLimit.Int64(), limits2.StorageLimit)
+				require.Nil(t, limits2.UserSetStorageLimit)
 				require.Equal(t, bandwidthLimit.Int64(), limits2.BandwidthLimit)
+				require.Nil(t, limits2.UserSetBandwidthLimit)
 				require.Equal(t, int64(1), limits2.BucketsUsed)
 				require.Equal(t, bucketsLimit, limits2.BucketsLimit)
 
 				// update project's limits
 				updatedStorageLimit := memory.Size(100) + memory.TB
+				userSpecifiedStorage := updatedStorageLimit / 2
 				updatedBandwidthLimit := memory.Size(100) + memory.TB
-				up2Proj.StorageLimit = new(memory.Size)
-				*up2Proj.StorageLimit = updatedStorageLimit
-				up2Proj.BandwidthLimit = new(memory.Size)
-				*up2Proj.BandwidthLimit = updatedBandwidthLimit
+				userSpecifiedBandwidth := updatedBandwidthLimit / 2
+				up2Proj.StorageLimit = &updatedStorageLimit
+				up2Proj.UserSpecifiedStorageLimit = &userSpecifiedStorage
+				up2Proj.BandwidthLimit = &updatedBandwidthLimit
+				up2Proj.UserSpecifiedBandwidthLimit = &userSpecifiedBandwidth
 				err = sat.DB.Console().Projects().Update(ctx, up2Proj)
 				require.NoError(t, err)
 
@@ -778,10 +782,14 @@ func TestService(t *testing.T) {
 
 				// limits gotten by ID and publicID should be the same
 				require.Equal(t, updatedStorageLimit.Int64(), limits1.StorageLimit)
+				require.Equal(t, userSpecifiedStorage.Int64(), *limits1.UserSetStorageLimit)
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits1.BandwidthLimit)
+				require.Equal(t, userSpecifiedBandwidth.Int64(), *limits1.UserSetBandwidthLimit)
 				require.Equal(t, int64(updatedBucketsLimit), limits1.BucketsLimit)
 				require.Equal(t, updatedStorageLimit.Int64(), limits2.StorageLimit)
+				require.Equal(t, userSpecifiedStorage.Int64(), *limits2.UserSetStorageLimit)
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits2.BandwidthLimit)
+				require.Equal(t, userSpecifiedBandwidth.Int64(), *limits2.UserSetBandwidthLimit)
 				require.Equal(t, int64(updatedBucketsLimit), limits2.BucketsLimit)
 
 				bucket := "testbucket1"
@@ -3005,6 +3013,17 @@ func TestServiceGenMethods(t *testing.T) {
 		require.NoError(t, err)
 		p1PublicID := p.PublicID
 
+		// add a credit card to put the user in the paid tier
+		_, err = sat.API.Console.Service.Payments().AddCreditCard(user0Ctx, "test-cc-token")
+		require.NoError(t, err)
+		user0Ctx, err = sat.UserContext(ctx, u0.Projects[0].Owner.ID)
+		require.NoError(t, err)
+
+		_, err = sat.API.Console.Service.Payments().AddCreditCard(user1Ctx, "test-cc-token")
+		require.NoError(t, err)
+		user1Ctx, err = sat.UserContext(ctx, u1.Projects[0].Owner.ID)
+		require.NoError(t, err)
+
 		for _, tt := range []struct {
 			name   string
 			ID     uuid.UUID
@@ -3036,6 +3055,8 @@ func TestServiceGenMethods(t *testing.T) {
 				}
 				require.Equal(t, info.Name, updatedProject.Name)
 				require.Equal(t, info.Description, updatedProject.Description)
+				require.Equal(t, &info.StorageLimit, updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, &info.BandwidthLimit, updatedProject.UserSpecifiedBandwidthLimit)
 			})
 			t.Run("GenCreateAPIKey with "+tt.name, func(t *testing.T) {
 				request := console.CreateAPIKeyRequest{

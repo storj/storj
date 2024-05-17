@@ -2382,24 +2382,9 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
 			return nil, ErrInvalidProjectLimit.New("Cannot set bandwidth limit below current usage")
 		}
-		/*
-			The purpose of userSpecifiedBandwidthLimit and userSpecifiedStorageLimit is to know if a user has set a bandwidth
-			or storage limit in the UI (to ensure their limits are not unintentionally modified by the satellite admin),
-			the BandwidthLimit and StorageLimit is still used for verifying limits during uploads and downloads.
-		*/
-		if project.StorageLimit != nil && updatedProject.StorageLimit != *project.StorageLimit {
-			project.UserSpecifiedStorageLimit = new(memory.Size)
-			*project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
-		}
-		if project.BandwidthLimit != nil && updatedProject.BandwidthLimit != *project.BandwidthLimit {
-			project.UserSpecifiedBandwidthLimit = new(memory.Size)
-			*project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
-		}
 
-		project.StorageLimit = new(memory.Size)
-		*project.StorageLimit = updatedProject.StorageLimit
-		project.BandwidthLimit = new(memory.Size)
-		*project.BandwidthLimit = updatedProject.BandwidthLimit
+		project.UserSpecifiedStorageLimit = &updatedProject.StorageLimit
+		project.UserSpecifiedBandwidthLimit = &updatedProject.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -2590,10 +2575,8 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			}
 		}
 
-		project.StorageLimit = new(memory.Size)
-		*project.StorageLimit = projectInfo.StorageLimit
-		project.BandwidthLimit = new(memory.Size)
-		*project.BandwidthLimit = projectInfo.BandwidthLimit
+		project.UserSpecifiedStorageLimit = &projectInfo.StorageLimit
+		project.UserSpecifiedBandwidthLimit = &projectInfo.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -3523,18 +3506,10 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	return &ProjectUsageLimits{
-		StorageLimit:   prUsageLimits.StorageLimit,
-		BandwidthLimit: prUsageLimits.BandwidthLimit,
-		StorageUsed:    prUsageLimits.StorageUsed,
-		BandwidthUsed:  prUsageLimits.BandwidthUsed,
-		ObjectCount:    prObjectsSegments.ObjectCount,
-		SegmentCount:   prObjectsSegments.SegmentCount,
-		SegmentLimit:   prUsageLimits.SegmentLimit,
-		SegmentUsed:    prUsageLimits.SegmentUsed,
-		BucketsUsed:    prUsageLimits.BucketsUsed,
-		BucketsLimit:   prUsageLimits.BucketsLimit,
-	}, nil
+	prUsageLimits.ObjectCount = prObjectsSegments.ObjectCount
+	prUsageLimits.SegmentCount = prObjectsSegments.SegmentCount
+
+	return prUsageLimits, nil
 }
 
 // GetTotalUsageLimits returns total limits and current usage for all the projects.
@@ -3596,15 +3571,7 @@ func (s *Service) getStorageAndBandwidthUse(ctx context.Context, projectID uuid.
 func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, getBandwidthTotals bool) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	segmentLimit, err := s.projectUsage.GetProjectSegmentLimit(ctx, projectID)
+	limits, err := s.projectUsage.GetProjectLimits(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -3645,14 +3612,16 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	}
 
 	return &ProjectUsageLimits{
-		StorageLimit:   storageLimit.Int64(),
-		BandwidthLimit: bandwidthLimit.Int64(),
-		StorageUsed:    storageUsed,
-		BandwidthUsed:  bandwidthUsed,
-		SegmentLimit:   segmentLimit.Int64(),
-		SegmentUsed:    segmentUsed,
-		BucketsUsed:    int64(bucketsUsed),
-		BucketsLimit:   int64(*bucketsLimit),
+		StorageLimit:          *limits.Usage,
+		UserSetStorageLimit:   limits.UserSetUsage,
+		BandwidthLimit:        *limits.Bandwidth,
+		UserSetBandwidthLimit: limits.UserSetBandwidth,
+		StorageUsed:           storageUsed,
+		BandwidthUsed:         bandwidthUsed,
+		SegmentLimit:          *limits.Segments,
+		SegmentUsed:           segmentUsed,
+		BucketsUsed:           int64(bucketsUsed),
+		BucketsLimit:          int64(*bucketsLimit),
 	}, nil
 }
 

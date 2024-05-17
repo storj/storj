@@ -90,9 +90,11 @@ type ProjectObjectsSegments struct {
 
 // ProjectLimits contains the project limits.
 type ProjectLimits struct {
-	Usage     *int64
-	Bandwidth *int64
-	Segments  *int64
+	Usage            *int64
+	UserSetUsage     *int64
+	Bandwidth        *int64
+	UserSetBandwidth *int64
+	Segments         *int64
 
 	RateLimit  *int
 	BurstLimit *int
@@ -277,7 +279,7 @@ type ProjectAccounting interface {
 	GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (*int64, error)
 	// GetProjectSegmentLimit returns the segment limit for a project ID.
 	GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error)
-	// GetProjectLimits returns current project limit for both storage and bandwidth.
+	// GetProjectLimits returns all project limits including user specified usage and bandwidth limits.
 	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)

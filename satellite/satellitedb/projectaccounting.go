@@ -1154,11 +1154,11 @@ func timeTruncateDown(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
 
-// GetProjectLimits returns current project limit for both storage and bandwidth.
+// GetProjectLimits returns all project limits including user specified usage and bandwidth limits.
 func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx,
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLimit_Project_UsageLimit_Project_UserSpecifiedUsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
@@ -1166,9 +1166,11 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 	}
 
 	return accounting.ProjectLimits{
-		Usage:     row.UsageLimit,
-		Bandwidth: row.BandwidthLimit,
-		Segments:  row.SegmentLimit,
+		Usage:            row.UsageLimit,
+		UserSetUsage:     row.UserSpecifiedUsageLimit,
+		Bandwidth:        row.BandwidthLimit,
+		UserSetBandwidth: row.UserSpecifiedBandwidthLimit,
+		Segments:         row.SegmentLimit,
 
 		RateLimit:  row.RateLimit,
 		BurstLimit: row.BurstLimit,

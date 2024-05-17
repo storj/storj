@@ -12518,12 +12518,14 @@ type BandwidthLimit_Row struct {
 	BandwidthLimit *int64
 }
 
-type BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row struct {
-	BandwidthLimit *int64
-	UsageLimit     *int64
-	SegmentLimit   *int64
-	RateLimit      *int
-	BurstLimit     *int
+type BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row struct {
+	BandwidthLimit              *int64
+	UserSpecifiedBandwidthLimit *int64
+	UsageLimit                  *int64
+	UserSpecifiedUsageLimit     *int64
+	SegmentLimit                *int64
+	RateLimit                   *int
+	BurstLimit                  *int
 }
 
 type BlockNumber_Row struct {
@@ -16605,12 +16607,12 @@ func (obj *pgxImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx context.Context,
+func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLimit_Project_UsageLimit_Project_UserSpecifiedUsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row, err error) {
+	row *BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.user_specified_bandwidth_limit, projects.usage_limit, projects.user_specified_usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -16618,10 +16620,10 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_Project_Segmen
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit, &row.SegmentLimit, &row.RateLimit, &row.BurstLimit)
+	row = &BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UserSpecifiedBandwidthLimit, &row.UsageLimit, &row.UserSpecifiedUsageLimit, &row.SegmentLimit, &row.RateLimit, &row.BurstLimit)
 	if err != nil {
-		return (*BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row)(nil), obj.makeErr(err)
+		return (*BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -25333,12 +25335,12 @@ func (obj *pgxcockroachImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLimit_Project_UsageLimit_Project_UserSpecifiedUsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row, err error) {
+	row *BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.user_specified_bandwidth_limit, projects.usage_limit, projects.user_specified_usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -25346,10 +25348,10 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_Proje
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit, &row.SegmentLimit, &row.RateLimit, &row.BurstLimit)
+	row = &BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UserSpecifiedBandwidthLimit, &row.UsageLimit, &row.UserSpecifiedUsageLimit, &row.SegmentLimit, &row.RateLimit, &row.BurstLimit)
 	if err != nil {
-		return (*BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row)(nil), obj.makeErr(err)
+		return (*BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -30723,9 +30725,9 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		row *BandwidthLimit_Row, err error)
 
-	Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx context.Context,
+	Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLimit_Project_UsageLimit_Project_UserSpecifiedUsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
-		row *BandwidthLimit_UsageLimit_SegmentLimit_RateLimit_BurstLimit_Row, err error)
+		row *BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_Row, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
