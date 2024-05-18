@@ -151,8 +151,8 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 	var curPrefix string
 	if fw.gcProgressDB != nil {
-		progress, err := fw.gcProgressDB.Get(ctx, satelliteID)
-		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+		progress, progressErr := fw.gcProgressDB.Get(ctx, satelliteID)
+		if progressErr != nil && !errs.Is(progressErr, sql.ErrNoRows) {
 			fw.log.Error("failed to get progress from database", zap.Error(err))
 		}
 		curPrefix = progress.Prefix
@@ -168,9 +168,12 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		}
 
 		defer func() {
-			err = fw.gcProgressDB.Reset(ctx, satelliteID)
-			if err != nil {
-				fw.log.Error("failed to reset progress in database", zap.Error(err))
+			if err == nil { // reset progress if completed successfully
+				fw.log.Debug("resetting progress in database")
+				err = fw.gcProgressDB.Reset(ctx, satelliteID)
+				if err != nil {
+					fw.log.Error("failed to reset progress in database", zap.Error(err))
+				}
 			}
 		}()
 	}
