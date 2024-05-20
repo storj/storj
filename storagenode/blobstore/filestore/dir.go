@@ -740,12 +740,15 @@ func (dir *Dir) Delete(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	return dir.iterateStorageFormatVersions(ctx, ref, dir.DeleteWithStorageFormat)
 }
 
+var monDeleteWithStorageFormat = mon.Task()
+
 // DeleteWithStorageFormat deletes the blob with the specified ref for one
 // specific format version.
 //
 // It doesn't return an error if the blob isn't found for any reason.
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monDeleteWithStorageFormat(&ctx)(&err)
+
 	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)
 }
 
@@ -755,8 +758,10 @@ func (dir *Dir) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
 	return dir.deleteNamespace(ctx, dir.blobsdir(), ref)
 }
 
+var monDeleteWithStorageFormatInPath = mon.Task()
+
 func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monDeleteWithStorageFormatInPath(&ctx)(&err)
 
 	pathBase, err := dir.refToDirPath(ref, path)
 	if err != nil {

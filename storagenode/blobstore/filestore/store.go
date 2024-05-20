@@ -138,9 +138,11 @@ func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err 
 	return Error.Wrap(err)
 }
 
+var monBlobStoreDeleteWithStorageFormat = mon.Task()
+
 // DeleteWithStorageFormat deletes blobs with the specified ref and storage format version.
 func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreDeleteWithStorageFormat(&ctx)(&err)
 	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)
 	return Error.Wrap(err)
 }

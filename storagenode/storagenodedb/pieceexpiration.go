@@ -28,9 +28,11 @@ type pieceExpirationDB struct {
 	buf map[pieces.ExpiredInfo]time.Time
 }
 
+var monGetExpired = mon.Task()
+
 // GetExpired gets piece IDs that expire or have expired before the given time.
 func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, cb func(context.Context, pieces.ExpiredInfo) bool) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monGetExpired(&ctx)(&err)
 
 	db.mu.Lock()
 	buf := map[pieces.ExpiredInfo]struct{}{}
@@ -73,9 +75,11 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, cb f
 	return nil
 }
 
+var monSetExpiration = mon.Task()
+
 // SetExpiration sets an expiration time for the given piece ID on the given satellite.
 func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monSetExpiration(&ctx)(&err)
 
 	ei := pieces.ExpiredInfo{
 		SatelliteID: satellite,
