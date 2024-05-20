@@ -848,34 +848,14 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path,
 }
 
 func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, nsDir, startPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
-	openDir, err := os.Open(nsDir)
+	subdirNames, err := readAllDirNames(nsDir)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			dir.log.Debug("directory not found", zap.String("dir", nsDir))
 			// job accomplished: there are no blobs in this namespace!
 			return nil
 		}
 		return err
-	}
-	defer func() { err = errs.Combine(err, openDir.Close()) }()
-
-	var subdirNames []string
-	for {
-		names, err := openDir.Readdirnames(nameBatchSize)
-		if err != nil {
-			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
-				break
-			}
-			return err
-		}
-		if len(names) == 0 {
-			return nil
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		subdirNames = append(subdirNames, names...)
 	}
 
 	dir.log.Debug("number of subdirs", zap.Int("count", len(subdirNames)))
@@ -906,6 +886,34 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 	}
 
 	return nil
+}
+
+func readAllDirNames(dir string) (subDirNames []string, err error) {
+	openDir, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err = errs.Combine(err, openDir.Close())
+	}()
+
+	for {
+		names, err := openDir.Readdirnames(nameBatchSize)
+		if err != nil {
+			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
+				break
+			}
+			return subDirNames, err
+		}
+		if len(names) == 0 {
+			return subDirNames, nil
+		}
+
+		subDirNames = append(subDirNames, names...)
+	}
+
+	return subDirNames, nil
 }
 
 // migrateTrashToPerDayDirs migrates a trash directory that is _not_ using per-day directories
