@@ -34,6 +34,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { RouteConfig } from '@/types/router';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -43,6 +44,7 @@ import TrialExpirationDialog from '@/components/dialogs/TrialExpirationDialog.vu
 const appStore = useAppStore();
 const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
+const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
@@ -163,6 +165,32 @@ usersStore.$onAction(({ name, after }) => {
                     appStore.toggleExpirationDialog(true);
                 }
             });
+        });
+    }
+});
+
+bucketsStore.$onAction(({ name, after, args }) => {
+    if (name === 'handleDeleteBucketRequest') {
+        after(async (_) => {
+            const bucketName = args[0];
+            const request = args[1];
+            try {
+                await request;
+                analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
+                notify.success(`Successfully deleted ${bucketName}.`, 'Bucket Deleted');
+            } catch (error) {
+                let message = `Failed to delete ${bucketName}.`;
+                if (error && error.message) {
+                    message += ` ${error.message}`;
+                }
+                notify.error(message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
+
+            try {
+                await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
+            } catch (error) {
+                notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
         });
     }
 });

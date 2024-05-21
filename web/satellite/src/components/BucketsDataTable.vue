@@ -39,6 +39,7 @@
                     variant="text"
                     height="40"
                     color="default"
+                    :disabled="bucketsBeingDeleted.has(item.name)"
                     @click="openBucket(item.name)"
                 >
                     <template #default>
@@ -92,7 +93,12 @@
                 </v-chip>
             </template>
             <template #item.actions="{ item }">
-                <v-menu location="bottom end" transition="scale-transition">
+                <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
+                    <template #activator="{ props }">
+                        <v-progress-circular width="2" size="22" color="error" indeterminate v-bind="props" />
+                    </template>
+                </v-tooltip>
+                <v-menu v-else location="bottom end" transition="scale-transition">
                     <template #activator="{ props: activatorProps }">
                         <v-btn
                             title="Bucket Actions"
@@ -186,6 +192,7 @@ import {
     VListItem,
     VListItemTitle,
     VMenu,
+    VProgressCircular,
     VTextField,
     VTooltip,
 } from 'vuetify/components';
@@ -345,6 +352,11 @@ const selectedBucketName = computed((): string => {
 const edgeCredentials = computed((): EdgeCredentials => {
     return bucketsStore.state.edgeCredentials;
 });
+
+/**
+ * Returns buckets being deleted from store.
+ */
+const bucketsBeingDeleted = computed((): Set<string> => bucketsStore.state.bucketsBeingDeleted);
 
 /**
  * Fetches bucket using api.
