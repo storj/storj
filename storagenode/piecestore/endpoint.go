@@ -21,6 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
@@ -32,6 +33,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -103,6 +105,7 @@ type Endpoint struct {
 
 	store        *pieces.Store
 	trashChore   *pieces.TrashChore
+	usage        bandwidth.DB
 	ordersStore  *orders.FileStore
 	usedSerials  *usedserials.Table
 	pieceDeleter *pieces.Deleter
@@ -111,7 +114,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -125,6 +128,7 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Poo
 		store:        store,
 		trashChore:   trashChore,
 		ordersStore:  ordersStore,
+		usage:        usage,
 		usedSerials:  usedSerials,
 		pieceDeleter: pieceDeleter,
 
@@ -903,6 +907,16 @@ func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLim
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
+		} else {
+			amount := order.Amount
+			if amountFunc != nil {
+				amount = amountFunc()
+			}
+			// We always want to save order to the database to be able to settle.
+			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
+			if err != nil {
+				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
+			}
 		}
 	}, nil
 }

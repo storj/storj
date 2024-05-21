@@ -65,8 +65,6 @@ func TestInspectorStats(t *testing.T) {
 
 		var downloaded int
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
-
 			response, err := storageNode.Storage2.Inspector.Stats(ctx, &internalpb.StatsRequest{})
 			require.NoError(t, err)
 

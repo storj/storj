@@ -609,6 +609,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.TrashChore,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
+			peer.Bandwidth.Cache,
 			peer.UsedSerials,
 			config.Storage2,
 		)
@@ -639,7 +640,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			dialer,
 			peer.OrdersStore,
 			peer.DB.Orders(),
-			peer.DB.Bandwidth(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
 		)
