@@ -44,26 +44,28 @@ func (t *successTrackers) GetTracker(uplink storj.NodeID) *successTracker {
 
 const nodeSuccessGenerations = 4
 
+type nodeCounterArray [nodeSuccessGenerations]atomic.Uint64
+
 type successTracker struct {
 	mu   sync.Mutex
-	gen  uint64
-	data sync.Map
+	gen  atomic.Uint64
+	data sync.Map // storj.NodeID -> *nodeCounterArray
 }
 
 func (t *successTracker) Increment(node storj.NodeID, success bool) {
 	ctrsI, ok := t.data.Load(node)
 	if !ok {
-		ctrsI, _ = t.data.LoadOrStore(node, new([nodeSuccessGenerations]uint64))
+		ctrsI, _ = t.data.LoadOrStore(node, new(nodeCounterArray))
 	}
-	ctrs, _ := ctrsI.(*[nodeSuccessGenerations]uint64)
+	ctrs, _ := ctrsI.(*nodeCounterArray)
 
 	v := uint64(1)
 	if success {
 		v |= 1 << 32
 	}
 
-	gen := atomic.LoadUint64(&t.gen) % nodeSuccessGenerations
-	atomic.AddUint64(&ctrs[gen], v)
+	gen := t.gen.Load() % nodeSuccessGenerations
+	ctrs[gen].Add(v)
 }
 
 func (t *successTracker) Get(node storj.NodeID) (success, total uint32) {
@@ -71,11 +73,11 @@ func (t *successTracker) Get(node storj.NodeID) (success, total uint32) {
 	if !ok {
 		return 0, 0
 	}
-	ctrs, _ := ctrsI.(*[nodeSuccessGenerations]uint64)
+	ctrs, _ := ctrsI.(*nodeCounterArray)
 
 	var sum uint64
 	for i := range ctrs {
-		sum += atomic.LoadUint64(&ctrs[i])
+		sum += ctrs[i].Load()
 	}
 
 	return uint32(sum >> 32), uint32(sum)
@@ -92,10 +94,10 @@ func (t *successTracker) BumpGeneration() {
 	// counters to sum from would be b, d and a, and so we have to
 	// clear c, which is 2 ahead from a. so we add 2. the atomic
 	// call returns the new value, so it adds 1 already.
-	gen := (atomic.AddUint64(&t.gen, 1) + 1) % nodeSuccessGenerations
+	gen := (t.gen.Add(1) + 1) % nodeSuccessGenerations
 	t.data.Range(func(_, ctrsI any) bool {
-		ctrs, _ := ctrsI.(*[nodeSuccessGenerations]uint64)
-		atomic.StoreUint64(&ctrs[gen], 0)
+		ctrs, _ := ctrsI.(*nodeCounterArray)
+		ctrs[gen].Store(0)
 		return true
 	})
 }
