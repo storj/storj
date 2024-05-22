@@ -35,6 +35,7 @@ import { RouteConfig } from '@/types/router';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { PricingPlanInfo } from '@/types/common';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -70,6 +71,44 @@ const isErrorPageShown = computed<boolean>((): boolean => {
 const user = computed<User>(() => usersStore.state.user);
 
 /**
+ * Determine whether the current user is eligible for pricing plans.
+ */
+async function getPricingPlansAvailable() {
+    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)
+        || !configStore.state.config.pricingPackagesEnabled) {
+        return;
+    }
+    const user: User = usersStore.state.user;
+    if (user.paidTier || !user.partner) {
+        return;
+    }
+
+    try {
+        const hasPkg = await billingStore.getPricingPackageAvailable();
+        if (!hasPkg) {
+            return;
+        }
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        return;
+    }
+
+    let config;
+    try {
+        config = (await import('@/configs/pricingPlanConfig.json')).default;
+    } catch {
+        return;
+    }
+
+    const info = (config[user.partner] as PricingPlanInfo);
+    if (!info) {
+        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
+        return;
+    }
+    billingStore.setPricingPlansAvailable(true, info);
+}
+
+/**
  * Sets up the app by fetching all necessary data.
  */
 async function setup() {
@@ -85,6 +124,7 @@ async function setup() {
         ];
         if (configStore.state.config.billingFeaturesEnabled) {
             promises.push(billingStore.setupAccount());
+            promises.push(getPricingPlansAvailable());
         }
         await Promise.all(promises);
 
@@ -192,6 +232,15 @@ bucketsStore.$onAction(({ name, after, args }) => {
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
         });
+    }
+});
+
+/**
+ * reset pricing plans available when user upgrades to paid tier.
+ */
+watch(() => user.value.paidTier, (paidTier) => {
+    if (paidTier) {
+        billingStore.setPricingPlansAvailable(false, null);
     }
 });
 

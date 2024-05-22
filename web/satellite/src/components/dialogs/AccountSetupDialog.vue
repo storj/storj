@@ -72,10 +72,8 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { PaymentsHttpApi } from '@/api/payments';
 import { useAppStore } from '@/store/modules/appStore';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { APIError } from '@/utils/error';
 
 import ChoiceStep from '@/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -99,7 +97,7 @@ const innerContent = ref<Component | null>(null);
 const step = ref<OnboardingStep>(OnboardingStep.AccountTypeSelection);
 const plan = ref<PricingPlanInfo>();
 
-const pkgAvailable = ref(false);
+const pkgAvailable = computed(() => billingStore.state.pricingPlansAvailable);
 
 const shouldShowSetupDialog = computed(() => {
     // settings are fetched on the projects page.
@@ -184,18 +182,6 @@ onBeforeMount(() => {
             step.value = OnboardingStep.SetupComplete;
             appStore.toggleAccountSetup(true);
             return;
-        }
-
-        if (configStore.getBillingEnabled(userStore.state.user.hasVarPartner)) {
-            const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
-            if (pricingPkgsEnabled && userStore.state.user.partner) {
-                try {
-                    pkgAvailable.value = await payments.pricingPackageAvailable();
-                } catch (error) {
-                    notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-                    return;
-                }
-            }
         }
 
         if (ACCOUNT_SETUP_STEPS.find(s => s === userSettings.value.onboardingStep)) {

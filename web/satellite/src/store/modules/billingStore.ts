@@ -25,6 +25,7 @@ import {
     TaxID,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
+import { PricingPlanInfo } from '@/types/common';
 
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
@@ -41,6 +42,8 @@ export class PaymentsState {
     public billingInformation: BillingInformation | null = null;
     public taxCountries: TaxCountry[] = [];
     public taxes: Tax[] = [];
+    public pricingPlansAvailable: boolean = false;
+    public pricingPlanInfo: PricingPlanInfo | null = null;
 }
 
 export const useBillingStore = defineStore('billing', () => {
@@ -213,8 +216,17 @@ export const useBillingStore = defineStore('billing', () => {
         state.coupon = await api.getCoupon();
     }
 
+    async function getPricingPackageAvailable(): Promise<boolean> {
+        return await api.pricingPackageAvailable();
+    }
+
     async function purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
         await api.purchasePricingPackage(dataStr, isPMID);
+    }
+
+    function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {
+        state.pricingPlansAvailable = available;
+        state.pricingPlanInfo = info;
     }
 
     function clear(): void {
@@ -230,6 +242,8 @@ export const useBillingStore = defineStore('billing', () => {
         state.coupon = null;
         state.wallet = new Wallet();
         state.billingInformation = null;
+        state.pricingPlansAvailable = false;
+        state.pricingPlanInfo = null;
     }
 
     return {
@@ -260,7 +274,9 @@ export const useBillingStore = defineStore('billing', () => {
         getProjectUsagePriceModel,
         applyCouponCode,
         getCoupon,
+        getPricingPackageAvailable,
         purchasePricingPackage,
+        setPricingPlansAvailable,
         clear,
     };
 });

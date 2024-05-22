@@ -89,14 +89,9 @@
 import { computed, ref, watch } from 'vue';
 import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
 
-import { useConfigStore } from '@/store/modules/configStore';
-import { useAppStore } from '@/store/modules/appStore';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/utils/hooks';
-import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { User } from '@/types/users';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { PricingPlanInfo } from '@/types/common';
 
@@ -119,19 +114,15 @@ enum UpgradeAccountStep {
 }
 
 const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
-const appStore = useAppStore();
-const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
-const payments: PaymentsHttpApi = new PaymentsHttpApi();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
 const loading = ref<boolean>(false);
 const plan = ref<PricingPlanInfo>();
 const content = ref<HTMLElement | null>(null);
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     scrim?: boolean,
 }>(), {
     scrim: true,
@@ -201,36 +192,8 @@ function onSelectPricingPlan(p: PricingPlanInfo) {
  * pricing plan (and pricing plans are enabled), they will be sent to the PricingPlan step.
  */
 async function setSecondStep() {
-    if (loading.value) return;
-
-    loading.value = true;
-
-    const user: User = usersStore.state.user;
-    const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
-    if (!pricingPkgsEnabled || !user.partner) {
-        setStep(UpgradeAccountStep.Options);
-        loading.value = false;
-        return;
-    }
-
-    let pkgAvailable = false;
-    try {
-        pkgAvailable = await payments.pricingPackageAvailable();
-    } catch (error) {
-        notify.notifyError(error);
-        setStep(UpgradeAccountStep.Options);
-        loading.value = false;
-        return;
-    }
-    if (!pkgAvailable) {
-        setStep(UpgradeAccountStep.Options);
-        loading.value = false;
-        return;
-    }
-
-    setStep(UpgradeAccountStep.PricingPlanSelection);
-
-    loading.value = false;
+    const newStep = billingStore.state.pricingPlansAvailable ? UpgradeAccountStep.PricingPlanSelection : UpgradeAccountStep.Options;
+    setStep(newStep);
 }
 
 watch(content, (value) => {
