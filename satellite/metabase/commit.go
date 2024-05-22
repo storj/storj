@@ -41,6 +41,7 @@ var (
 type commitObjectTransactionAdapter interface {
 	updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error)
 	finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error
+	finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error)
 
 	precommitTransactionAdapter
 }
@@ -628,17 +629,8 @@ type CommitInlineSegment struct {
 	mode string
 }
 
-// CommitInlineSegment commits inline segment to the database.
-func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.ObjectStream.Verify(); err != nil {
-		return err
-	}
-
-	// TODO: do we have a lower limit for inline data?
-	// TODO should we move check for max inline segment from metainfo here
-
+// Verify verifies commit inline segment reqest fields.
+func (opts CommitInlineSegment) Verify() error {
 	switch {
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
@@ -649,6 +641,23 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	case opts.PlainOffset < 0:
 		return ErrInvalidRequest.New("PlainOffset negative")
 	}
+	return nil
+}
+
+// CommitInlineSegment commits inline segment to the database.
+func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.ObjectStream.Verify(); err != nil {
+		return err
+	}
+
+	if err := opts.Verify(); err != nil {
+		return err
+	}
+
+	// TODO: do we have a lower limit for inline data?
+	// TODO should we move check for max inline segment from metainfo here
 
 	opts.mode = db.config.TestingCommitSegmentMode
 	err = db.ChooseAdapter(opts.ProjectID).CommitInlineSegment(ctx, opts)
@@ -1050,6 +1059,164 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 		if size < db.config.MinPartSize {
 			return ErrFailedPrecondition.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
 		}
+	}
+
+	return nil
+}
+
+// CommitInlineObject contains arguments necessary for committing an inline object.
+type CommitInlineObject struct {
+	ObjectStream
+	CommitInlineSegment
+
+	ExpiresAt  *time.Time
+	Encryption storj.EncryptionParameters
+
+	EncryptedMetadata             []byte // optional
+	EncryptedMetadataNonce        []byte // optional
+	EncryptedMetadataEncryptedKey []byte // optional
+
+	DisallowDelete bool
+
+	// Versioned indicates whether an object is allowed to have multiple versions.
+	Versioned bool
+}
+
+// Verify verifies reqest fields.
+func (c *CommitInlineObject) Verify() error {
+	if err := c.ObjectStream.Verify(); err != nil {
+		return err
+	}
+
+	if err := c.CommitInlineSegment.Verify(); err != nil {
+		return err
+	}
+
+	if c.Encryption.CipherSuite != storj.EncUnspecified && c.Encryption.BlockSize <= 0 {
+		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
+	}
+
+	if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
+	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	}
+	return nil
+}
+
+// CommitInlineObject adds full inline object to the database. If another committed object is under target location
+// it will be deleted.
+func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Object{}, err
+	}
+
+	var precommit precommitConstraintResult
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+			Location:       opts.Location(),
+			Versioned:      opts.Versioned,
+			DisallowDelete: opts.DisallowDelete,
+		}, adapter)
+		if err != nil {
+			return err
+		}
+
+		nextVersion := precommit.HighestVersion + 1
+		nextStatus := committedWhereVersioned(opts.Versioned)
+
+		object.StreamID = opts.StreamID
+		object.ProjectID = opts.ProjectID
+		object.BucketName = opts.BucketName
+		object.ObjectKey = opts.ObjectKey
+		object.Version = nextVersion
+		object.Status = nextStatus
+		object.SegmentCount = 1
+		object.TotalPlainSize = int64(opts.PlainSize)
+		object.TotalEncryptedSize = int64(int32(len(opts.InlineData)))
+		object.ExpiresAt = opts.ExpiresAt
+		object.Encryption = opts.Encryption
+		object.EncryptedMetadata = opts.EncryptedMetadata
+		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
+		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
+
+		segment := &Segment{
+			StreamID:          opts.StreamID,
+			Position:          opts.Position,
+			ExpiresAt:         opts.ExpiresAt,
+			EncryptedKey:      opts.EncryptedKey,
+			EncryptedKeyNonce: opts.EncryptedKeyNonce,
+			EncryptedETag:     opts.EncryptedETag,
+			PlainSize:         opts.PlainSize,
+			EncryptedSize:     int32(len(opts.InlineData)),
+			InlineData:        opts.InlineData,
+		}
+
+		return adapter.finalizeInlineObjectCommit(ctx, &object, segment)
+	})
+	if err != nil {
+		return Object{}, err
+	}
+
+	precommit.submitMetrics()
+
+	mon.Meter("object_commit").Mark(1)
+	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
+	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
+
+	return object, nil
+}
+
+func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO should we put this into single query
+	err = ptx.tx.QueryRowContext(ctx, `
+		INSERT INTO objects (
+			project_id, bucket_name, object_key, version, stream_id,
+			status, segment_count, expires_at, encryption,
+			total_plain_size, total_encrypted_size,
+			zombie_deletion_deadline,
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+		) VALUES (
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9,
+			$10, $11,
+			$12,
+			$13, $14, $15
+		)
+		RETURNING created_at`,
+		object.ProjectID, []byte(object.BucketName), object.ObjectKey, object.Version, object.StreamID,
+		object.Status, object.SegmentCount, object.ExpiresAt, encryptionParameters{&object.Encryption},
+		object.TotalPlainSize, object.TotalEncryptedSize,
+		nil,
+		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
+	).Scan(&object.CreatedAt)
+	if err != nil {
+		return Error.New("failed to create object: %w", err)
+	}
+
+	_, err = ptx.tx.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position, expires_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, encrypted_etag, plain_size, plain_offset,
+			inline_data
+		) VALUES (
+			$1, $2, $3,
+			$4, $5, $6,
+			$7, $8, $9, 0, -- plain_offset is 0
+			$10
+		)
+		`, segment.StreamID, segment.Position, segment.ExpiresAt,
+		storj.PieceID{}, segment.EncryptedKeyNonce, segment.EncryptedKey,
+		segment.EncryptedSize, segment.EncryptedETag, segment.PlainSize,
+		segment.InlineData,
+	)
+	if err != nil {
+		return Error.New("failed to create segment: %w", err)
 	}
 
 	return nil
