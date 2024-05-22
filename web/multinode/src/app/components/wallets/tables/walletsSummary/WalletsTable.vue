@@ -5,8 +5,8 @@
     <base-table>
         <thead slot="head">
             <tr>
-                <th @click="sortBy('wallet')" class="align-left">WALLET ADDRESS{{sortByKey === 'wallet' ? sortArrow : ''}}</th>
-                <th @click="sortBy('undistributed')">UNDISTRIBUTED{{sortByKey === 'undistributed' ? sortArrow : ''}}</th>
+                <th class="align-left" @click="sortBy('wallet')">WALLET ADDRESS{{ sortByKey === 'wallet' ? sortArrow : '' }}</th>
+                <th @click="sortBy('undistributed')">UNDISTRIBUTED{{ sortByKey === 'undistributed' ? sortArrow : '' }}</th>
                 <th class="align-left">VIEW</th>
             </tr>
         </thead>

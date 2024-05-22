@@ -5,9 +5,9 @@
     <base-table v-if="nodePayoutsSummary.length">
         <thead slot="head">
             <tr>
-                <th @click="sortBy('nodeName')" class="align-left">NODE{{sortByKey === 'nodeName' ? sortArrow : ''}}</th>
-                <th @click="sortBy('held')">HELD{{sortByKey === 'held' ? sortArrow : ''}}</th>
-                <th @click="sortBy('paid')">PAID{{sortByKey === 'paid' ? sortArrow : ''}}</th>
+                <th class="align-left" @click="sortBy('nodeName')">NODE{{ sortByKey === 'nodeName' ? sortArrow : '' }}</th>
+                <th @click="sortBy('held')">HELD{{ sortByKey === 'held' ? sortArrow : '' }}</th>
+                <th @click="sortBy('paid')">PAID{{ sortByKey === 'paid' ? sortArrow : '' }}</th>
                 <th class="options" />
             </tr>
         </thead>
