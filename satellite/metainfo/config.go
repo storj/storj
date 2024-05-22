@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -130,17 +131,20 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`
 	// we have such default value because max value for ObjectKey is 1024(1 Kib) but EncryptedObjectKey
 	// has encryption overhead 16 bytes. So overall size is 1024 + 16 * 16.
-	MaxEncryptedObjectKeyLength int                 `default:"4000" help:"maximum encrypted object key length"`
-	MaxSegmentSize              memory.Size         `default:"64MiB" help:"maximum segment size"`
-	MaxMetadataSize             memory.Size         `default:"2KiB" help:"maximum segment metadata size"`
-	MaxCommitInterval           time.Duration       `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
-	MinPartSize                 memory.Size         `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
-	MaxNumberOfParts            int                 `default:"10000" help:"maximum number of parts object can contain"`
-	Overlay                     bool                `default:"true" help:"toggle flag if overlay is enabled"`
-	RS                          RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	RateLimiter                 RateLimiterConfig   `help:"rate limiter configuration"`
-	UploadLimiter               UploadLimiterConfig `help:"object upload limiter configuration"`
-	ProjectLimits               ProjectLimitConfig  `help:"project limit configuration"`
+	MaxEncryptedObjectKeyLength  int                 `default:"4000" help:"maximum encrypted object key length"`
+	MaxSegmentSize               memory.Size         `default:"64MiB" help:"maximum segment size"`
+	MaxMetadataSize              memory.Size         `default:"2KiB" help:"maximum segment metadata size"`
+	MaxCommitInterval            time.Duration       `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
+	MinPartSize                  memory.Size         `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
+	MaxNumberOfParts             int                 `default:"10000" help:"maximum number of parts object can contain"`
+	Overlay                      bool                `default:"true" help:"toggle flag if overlay is enabled"`
+	RS                           RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
+	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
+	UploadLimiter                UploadLimiterConfig `help:"object upload limiter configuration"`
+	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
+	SuccessTrackerEnabled        bool                `default:"false" devDefault:"true" help:"enable success tracker based node selection"`
+	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
+	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
@@ -152,8 +156,9 @@ type Config struct {
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery      bool   `default:"false" help:"test the new query for non-recursive listing"`
-	TestCommitSegmentMode string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
+	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestOptimizedInlineObjectUpload bool   `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -172,6 +177,7 @@ type ExtendedConfig struct {
 	Config
 
 	useBucketLevelObjectVersioningProjects []uuid.UUID
+	successTrackerTrustedUplinks           []storj.NodeID
 }
 
 // NewExtendedConfig creates new instance of extended config.
@@ -183,6 +189,13 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 			return ExtendedConfig{}, err
 		}
 		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
+	}
+	for _, uplinkIDString := range config.SuccessTrackerTrustedUplinks {
+		uplinkID, err := storj.NodeIDFromString(uplinkIDString)
+		if err != nil {
+			return ExtendedConfig{}, err
+		}
+		extendedConfig.successTrackerTrustedUplinks = append(extendedConfig.successTrackerTrustedUplinks, uplinkID)
 	}
 
 	return extendedConfig, nil
