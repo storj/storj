@@ -131,6 +131,27 @@ func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t testing.T
 	return object
 }
 
+// CommitInlineObject is for testing metabase.CommitInlineObject.
+type CommitInlineObject struct {
+	Opts          metabase.CommitInlineObject
+	ExpectVersion metabase.Version
+	ErrClass      *errs.Class
+	ErrText       string
+}
+
+// Check runs the test.
+func (step CommitInlineObject) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) metabase.Object {
+	object, err := db.CommitInlineObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	if err == nil {
+		if step.ExpectVersion != 0 {
+			step.Opts.ObjectStream.Version = step.ExpectVersion
+		}
+		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
+	}
+	return object
+}
+
 // BeginSegment is for testing metabase.BeginSegment.
 type BeginSegment struct {
 	Opts     metabase.BeginSegment
