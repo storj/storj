@@ -62,7 +62,7 @@
                         <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" :to="ROUTES.Billing.path">
                             View Billing
                         </v-btn>
-                        <v-btn v-else color="success" size="small" @click="appStore.toggleUpgradeFlow(true)">
+                        <v-btn v-else color="primary" size="small" :append-icon="mdiArrowRight" @click="appStore.toggleUpgradeFlow(true)">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -120,14 +120,12 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-        </v-row>
 
-        <v-row>
             <v-col cols="12" lg="4">
-                <v-card title="Passphrase Prompt Preference">
-                    <v-card-text>
-                        {{ userSettings.passphrasePrompt ? 'Ask for encryption passphrase when opening a project' : 'Only ask for encryption passphrase when necessary' }}
-                    </v-card-text>
+                <v-card title="Passphrase Preference">
+                    <v-card-subtitle>
+                        {{ userSettings.passphrasePrompt ? 'Ask for passphrase when opening a project' : 'Only ask for passphrase when necessary' }}
+                    </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
                         <v-btn variant="outlined" color="default" size="small" @click="isSetPassphrasePromptDialogShown = true">
@@ -182,6 +180,7 @@ import {
     VTooltip,
     VChip,
 } from 'vuetify/components';
+import { mdiArrowRight } from '@mdi/js';
 
 import { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';

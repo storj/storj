@@ -25,7 +25,7 @@
                         <v-form ref="form" v-model="formValid" class="pt-3" @submit.prevent="onSignupClick">
                             <v-select
                                 v-model="satellite"
-                                label="Satellite"
+                                label="Satellite (Metadata Region)"
                                 :items="satellites"
                                 item-title="satellite"
                                 :hint="satellite.hint"
