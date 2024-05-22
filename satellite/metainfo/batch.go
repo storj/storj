@@ -85,7 +85,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	var lastSegmentID storj.SegmentID
 	var prevSegmentReq *pb.BatchRequestItem
 
-	for i, request := range req.Requests {
+	for i := 0; i < len(req.Requests); i++ {
+		request := req.Requests[i]
+
 		mon.IntVal("batch_request_sizes",
 			monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", request.Request)),
 		).Observe(int64(proto.Size(request)))
@@ -173,6 +175,37 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		// OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
 			singleRequest.ObjectBegin.Header = req.Header
+
+			if makeInlineSeg, commitObj, should := shouldDoInlineObject(i, req.Requests); should && endpoint.config.TestOptimizedInlineObjectUpload {
+				makeInlineSeg.Header = req.Header
+				commitObj.Header = req.Header
+				beginObjResp, makeInlineSegResp, commitObjResp, err := endpoint.commitInlineObject(ctx, singleRequest.ObjectBegin, makeInlineSeg, commitObj)
+				if err != nil {
+					return resp, err
+				}
+
+				resp.Responses = append(resp.Responses,
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_ObjectBegin{
+							ObjectBegin: beginObjResp,
+						},
+					},
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_SegmentMakeInline{
+							SegmentMakeInline: makeInlineSegResp,
+						},
+					},
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_ObjectCommit{
+							ObjectCommit: commitObjResp,
+						},
+					},
+				)
+
+				i += 2
+				continue
+			}
+
 			response, err := endpoint.BeginObject(ctx, singleRequest.ObjectBegin)
 			if err != nil {
 				return resp, err
@@ -479,4 +512,24 @@ func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, reques
 		return int64(segmentIndex) != streamMeta.NumberOfSegments-2
 	}
 	return false
+}
+
+func shouldDoInlineObject(index int, requests []*pb.BatchRequestItem) (_ *pb.SegmentMakeInlineRequest, _ *pb.ObjectCommitRequest, should bool) {
+	if index+2 >= len(requests) {
+		return nil, nil, false
+	}
+
+	request := requests[index+1]
+	makeInlineSegReq, ok := request.Request.(*pb.BatchRequestItem_SegmentMakeInline)
+	if !ok {
+		return nil, nil, false
+	}
+
+	request = requests[index+2]
+	commitObjReq, ok := request.Request.(*pb.BatchRequestItem_ObjectCommit)
+	if !ok {
+		return nil, nil, false
+	}
+
+	return makeInlineSegReq.SegmentMakeInline, commitObjReq.ObjectCommit, true
 }

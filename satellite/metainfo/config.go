@@ -152,8 +152,9 @@ type Config struct {
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery      bool   `default:"false" help:"test the new query for non-recursive listing"`
-	TestCommitSegmentMode string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
+	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestOptimizedInlineObjectUpload bool   `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.

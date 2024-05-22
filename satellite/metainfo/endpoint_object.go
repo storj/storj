@@ -330,6 +330,210 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}, nil
 }
 
+func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq *pb.ObjectBeginRequest, makeInlineSegReq *pb.SegmentMakeInlineRequest, commitObjectReq *pb.ObjectCommitRequest) (
+	_ *pb.ObjectBeginResponse,
+	_ *pb.SegmentMakeInlineResponse,
+	_ *pb.ObjectCommitResponse, err error,
+) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now()
+	var allowDelete bool
+	keyInfo, err := endpoint.validateAuthN(ctx, beginObjectReq.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+			actionPermitted: &allowDelete,
+			optional:        true,
+		},
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// TODO does it make sense to track each request separately
+	//
+	endpoint.usageTracking(keyInfo, beginObjectReq.Header, fmt.Sprintf("%T", beginObjectReq))
+	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
+	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
+
+	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// TODO unify validation part between other methods to avoid duplication
+
+	if !beginObjectReq.ExpiresAt.IsZero() {
+		if beginObjectReq.ExpiresAt.Before(now) {
+			return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid expiration time, cannot be in the past")
+		}
+		if maxObjectTTL != nil && beginObjectReq.ExpiresAt.After(now.Add(*maxObjectTTL)) {
+			return nil, nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid expiration time, cannot be longer than %v", maxObjectTTL)
+		}
+	}
+
+	var expiresAt *time.Time
+	if !beginObjectReq.ExpiresAt.IsZero() {
+		expiresAt = &beginObjectReq.ExpiresAt
+	} else if maxObjectTTL != nil {
+		ttl := now.Add(*maxObjectTTL)
+		expiresAt = &ttl
+	}
+
+	// we can do just basic name validation because later we are checking bucket in DB
+	err = endpoint.validateBucketNameLength(beginObjectReq.Bucket)
+	if err != nil {
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	objectKeyLength := len(beginObjectReq.EncryptedObjectKey)
+	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
+		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
+	}
+
+	err = endpoint.checkUploadLimits(ctx, keyInfo)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if err := endpoint.checkObjectUploadRate(ctx, keyInfo.ProjectID, beginObjectReq.Bucket, beginObjectReq.EncryptedObjectKey); err != nil {
+		return nil, nil, nil, err
+	}
+
+	// TODO this needs to be optimized to avoid DB call on each request
+	bucket, err := endpoint.buckets.GetBucket(ctx, beginObjectReq.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, nil, nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", beginObjectReq.Bucket)
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
+	}
+
+	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, false); err != nil {
+		return nil, nil, nil, err
+	}
+
+	if makeInlineSegReq.Position.Index < 0 {
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
+	}
+
+	inlineUsed := int64(len(makeInlineSegReq.EncryptedInlineData))
+	if inlineUsed > endpoint.encInlineSegmentSize {
+		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize)
+	}
+
+	var committedObject *metabase.Object
+	defer func() {
+		var tags []eventkit.Tag
+		if committedObject != nil {
+			tags = []eventkit.Tag{
+				eventkit.Bool("expires", committedObject.ExpiresAt != nil),
+				eventkit.Int64("segment_count", int64(committedObject.SegmentCount)),
+				eventkit.Int64("total_plain_size", committedObject.TotalPlainSize),
+				eventkit.Int64("total_encrypted_size", committedObject.TotalEncryptedSize),
+			}
+		}
+		endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq), tags...)
+	}()
+
+	streamID, err := uuid.New()
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
+	}
+
+	encryptionParameters := storj.EncryptionParameters{
+		CipherSuite: storj.CipherSuite(beginObjectReq.EncryptionParameters.CipherSuite),
+		BlockSize:   int32(beginObjectReq.EncryptionParameters.BlockSize), // TODO check conversion
+	}
+
+	var metadataNonce []byte
+	if !commitObjectReq.EncryptedMetadataNonce.IsZero() {
+		metadataNonce = commitObjectReq.EncryptedMetadataNonce[:]
+	}
+
+	objectStream := metabase.ObjectStream{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: bucket.Name,
+		ObjectKey:  metabase.ObjectKey(beginObjectReq.EncryptedObjectKey),
+		StreamID:   streamID,
+	}
+
+	object, err := endpoint.metabase.CommitInlineObject(ctx, metabase.CommitInlineObject{
+		ObjectStream: objectStream,
+		CommitInlineSegment: metabase.CommitInlineSegment{
+			ObjectStream: objectStream,
+
+			ExpiresAt:         expiresAt,
+			EncryptedKey:      makeInlineSegReq.EncryptedKey,
+			EncryptedKeyNonce: makeInlineSegReq.EncryptedKeyNonce.Bytes(),
+			Position: metabase.SegmentPosition{
+				Part:  uint32(makeInlineSegReq.Position.PartNumber),
+				Index: uint32(makeInlineSegReq.Position.Index),
+			},
+			PlainSize:  int32(makeInlineSegReq.PlainSize), // TODO incompatible types int32 vs int64
+			InlineData: makeInlineSegReq.EncryptedInlineData,
+
+			// don't set EncryptedETag as this method won't be used with multipart upload
+		},
+
+		ExpiresAt:  expiresAt,
+		Encryption: encryptionParameters,
+
+		EncryptedMetadata:             commitObjectReq.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
+		EncryptedMetadataNonce:        metadataNonce,
+
+		DisallowDelete: !allowDelete,
+
+		Versioned: bucket.Versioning == buckets.VersioningEnabled,
+	})
+	if err != nil {
+		return nil, nil, nil, endpoint.convertMetabaseErr(err)
+	}
+
+	err = endpoint.orders.UpdatePutInlineOrder(ctx, metabase.BucketLocation{
+		ProjectID: keyInfo.ProjectID, BucketName: string(beginObjectReq.Bucket),
+	}, inlineUsed)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to update PUT inline order")
+	}
+
+	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
+		return nil, nil, nil, err
+	}
+
+	pbObject, err := endpoint.objectToProto(ctx, object, nil)
+	if err != nil {
+		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+
+	endpoint.log.Debug("Object Inline Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
+	mon.Meter("req_put_inline_object").Mark(1)
+
+	return &pb.ObjectBeginResponse{
+			StreamId: storj.StreamID{1}, // return dummy stream id as it won't be really used later
+		}, &pb.SegmentMakeInlineResponse{}, &pb.ObjectCommitResponse{
+			Object: pbObject,
+		}, nil
+}
+
 // GetObject gets single object metadata.
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
