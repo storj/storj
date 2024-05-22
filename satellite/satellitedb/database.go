@@ -347,7 +347,7 @@ func (db *satelliteDBTesting) RawDB() tagsql.DB {
 }
 
 // Schema returns the full schema for the database.
-func (db *satelliteDBTesting) Schema() string {
+func (db *satelliteDBTesting) Schema() []string {
 	return db.satelliteDB.Schema()
 }
 
@@ -374,7 +374,7 @@ func (dbc *satelliteDBCollectionTesting) RawDB() tagsql.DB {
 }
 
 // Schema returns the full schema for the database.
-func (dbc *satelliteDBCollectionTesting) Schema() string {
+func (dbc *satelliteDBCollectionTesting) Schema() []string {
 	return dbc.getByName("").Schema()
 }
 

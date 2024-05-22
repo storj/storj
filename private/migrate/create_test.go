@@ -78,7 +78,10 @@ type sqliteDB struct {
 }
 
 func (db *sqliteDB) Rebind(s string) string { return s }
-func (db *sqliteDB) Schema() string         { return db.schema }
+
+func (db *sqliteDB) Schema() []string {
+	return []string{db.schema}
+}
 
 type postgresDB struct {
 	tagsql.DB
@@ -103,4 +106,7 @@ func (db *postgresDB) Rebind(sql string) string {
 
 	return string(out)
 }
-func (db *postgresDB) Schema() string { return db.schema }
+
+func (db *postgresDB) Schema() []string {
+	return []string{db.schema}
+}

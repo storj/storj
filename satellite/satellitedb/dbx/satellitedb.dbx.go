@@ -312,8 +312,10 @@ func newpgx(db *DB) *pgxDB {
 	}
 }
 
-func (obj *pgxDB) Schema() string {
-	return `CREATE TABLE account_freeze_events (
+func (obj *pgxDB) Schema() []string {
+	return []string{
+
+		`CREATE TABLE account_freeze_events (
 	user_id bytea NOT NULL,
 	event integer NOT NULL,
 	limits jsonb,
@@ -321,8 +323,9 @@ func (obj *pgxDB) Schema() string {
 	notifications_count integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	PRIMARY KEY ( user_id, event )
-);
-CREATE TABLE accounting_rollups (
+)`,
+
+		`CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -333,19 +336,22 @@ CREATE TABLE accounting_rollups (
 	at_rest_total double precision NOT NULL,
 	interval_end_time timestamp with time zone,
 	PRIMARY KEY ( node_id, start_time )
-);
-CREATE TABLE accounting_timestamps (
+)`,
+
+		`CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
-);
-CREATE TABLE billing_balances (
+)`,
+
+		`CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id )
-);
-CREATE TABLE billing_transactions (
+)`,
+
+		`CREATE TABLE billing_transactions (
 	id bigserial NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
@@ -358,8 +364,9 @@ CREATE TABLE billing_transactions (
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE bucket_bandwidth_rollups (
+)`,
+
+		`CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -369,8 +376,9 @@ CREATE TABLE bucket_bandwidth_rollups (
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
-);
-CREATE TABLE bucket_bandwidth_rollup_archives (
+)`,
+
+		`CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -380,8 +388,9 @@ CREATE TABLE bucket_bandwidth_rollup_archives (
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
-);
-CREATE TABLE bucket_storage_tallies (
+)`,
+
+		`CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -394,8 +403,9 @@ CREATE TABLE bucket_storage_tallies (
 	object_count integer NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
-);
-CREATE TABLE coinpayments_transactions (
+)`,
+
+		`CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
 	address text NOT NULL,
@@ -406,16 +416,18 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE graceful_exit_progress (
+)`,
+
+		`CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
-);
-CREATE TABLE graceful_exit_segment_transfer_queue (
+)`,
+
+		`CREATE TABLE graceful_exit_segment_transfer_queue (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -430,8 +442,9 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-);
-CREATE TABLE nodes (
+)`,
+
+		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
@@ -472,15 +485,17 @@ CREATE TABLE nodes (
 	debounce_limit integer NOT NULL DEFAULT 0,
 	features integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE node_api_versions (
+)`,
+
+		`CREATE TABLE node_api_versions (
 	id bytea NOT NULL,
 	api_version integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE node_events (
+)`,
+
+		`CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
 	last_ip_port text,
@@ -490,16 +505,18 @@ CREATE TABLE node_events (
 	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE node_tags (
+)`,
+
+		`CREATE TABLE node_tags (
 	node_id bytea NOT NULL,
 	name text NOT NULL,
 	value bytea NOT NULL,
 	signed_at timestamp with time zone NOT NULL,
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
-);
-CREATE TABLE oauth_clients (
+)`,
+
+		`CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
 	redirect_url text NOT NULL,
@@ -507,8 +524,9 @@ CREATE TABLE oauth_clients (
 	app_name text NOT NULL,
 	app_logo_url text NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE oauth_codes (
+)`,
+
+		`CREATE TABLE oauth_codes (
 	client_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	scope text NOT NULL,
@@ -520,8 +538,9 @@ CREATE TABLE oauth_codes (
 	expires_at timestamp with time zone NOT NULL,
 	claimed_at timestamp with time zone,
 	PRIMARY KEY ( code )
-);
-CREATE TABLE oauth_tokens (
+)`,
+
+		`CREATE TABLE oauth_tokens (
 	client_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	scope text NOT NULL,
@@ -530,15 +549,17 @@ CREATE TABLE oauth_tokens (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
-);
-CREATE TABLE peer_identities (
+)`,
+
+		`CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	leaf_serial_number bytea NOT NULL,
 	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
-);
-CREATE TABLE projects (
+)`,
+
+		`CREATE TABLE projects (
 	id bytea NOT NULL,
 	public_id bytea,
 	name text NOT NULL,
@@ -572,24 +593,27 @@ CREATE TABLE projects (
 	passphrase_enc_key_id integer,
 	path_encryption boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE project_bandwidth_daily_rollups (
+)`,
+
+		`CREATE TABLE project_bandwidth_daily_rollups (
 	project_id bytea NOT NULL,
 	interval_day date NOT NULL,
 	egress_allocated bigint NOT NULL,
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
-);
-CREATE TABLE registration_tokens (
+)`,
+
+		`CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
 	project_limit integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
-CREATE TABLE repair_queue (
+)`,
+
+		`CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
 	attempted_at timestamp with time zone,
@@ -598,8 +622,9 @@ CREATE TABLE repair_queue (
 	segment_health double precision NOT NULL DEFAULT 1,
 	placement integer,
 	PRIMARY KEY ( stream_id, position )
-);
-CREATE TABLE reputations (
+)`,
+
+		`CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
 	total_audit_count bigint NOT NULL DEFAULT 0,
@@ -618,15 +643,17 @@ CREATE TABLE reputations (
 	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE reset_password_tokens (
+)`,
+
+		`CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
-CREATE TABLE reverification_audits (
+)`,
+
+		`CREATE TABLE reverification_audits (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -635,13 +662,15 @@ CREATE TABLE reverification_audits (
 	last_attempt timestamp with time zone,
 	reverify_count bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position )
-);
-CREATE TABLE revocations (
+)`,
+
+		`CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
-);
-CREATE TABLE segment_pending_audits (
+)`,
+
+		`CREATE TABLE segment_pending_audits (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -651,8 +680,9 @@ CREATE TABLE segment_pending_audits (
 	expected_share_hash bytea NOT NULL,
 	reverify_count bigint NOT NULL,
 	PRIMARY KEY ( node_id )
-);
-CREATE TABLE storagenode_bandwidth_rollups (
+)`,
+
+		`CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -660,8 +690,9 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_bandwidth_rollup_archives (
+)`,
+
+		`CREATE TABLE storagenode_bandwidth_rollup_archives (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -669,8 +700,9 @@ CREATE TABLE storagenode_bandwidth_rollup_archives (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_bandwidth_rollups_phase2 (
+)`,
+
+		`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -678,8 +710,9 @@ CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_payments (
+)`,
+
+		`CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
@@ -688,8 +721,9 @@ CREATE TABLE storagenode_payments (
 	receipt text,
 	notes text,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE storagenode_paystubs (
+)`,
+
+		`CREATE TABLE storagenode_paystubs (
 	period text NOT NULL,
 	node_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -713,14 +747,16 @@ CREATE TABLE storagenode_paystubs (
 	paid bigint NOT NULL,
 	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
-);
-CREATE TABLE storagenode_storage_tallies (
+)`,
+
+		`CREATE TABLE storagenode_storage_tallies (
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
-);
-CREATE TABLE storjscan_payments (
+)`,
+
+		`CREATE TABLE storjscan_payments (
 	chain_id bigint NOT NULL DEFAULT 0,
 	block_hash bytea NOT NULL,
 	block_number bigint NOT NULL,
@@ -734,14 +770,16 @@ CREATE TABLE storjscan_payments (
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( block_hash, log_index )
-);
-CREATE TABLE storjscan_wallets (
+)`,
+
+		`CREATE TABLE storjscan_wallets (
 	user_id bytea NOT NULL,
 	wallet_address bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id, wallet_address )
-);
-CREATE TABLE stripe_customers (
+)`,
+
+		`CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
 	billing_customer_id text,
@@ -750,8 +788,9 @@ CREATE TABLE stripe_customers (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
-);
-CREATE TABLE stripecoinpayments_invoice_project_records (
+)`,
+
+		`CREATE TABLE stripecoinpayments_invoice_project_records (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
 	storage double precision NOT NULL,
@@ -764,14 +803,16 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, period_start, period_end )
-);
-CREATE TABLE stripecoinpayments_tx_conversion_rates (
+)`,
+
+		`CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
 	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
-);
-CREATE TABLE users (
+)`,
+
+		`CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
 	normalized_email text NOT NULL,
@@ -812,8 +853,9 @@ CREATE TABLE users (
 	trial_expiration timestamp with time zone,
 	upgrade_time timestamp with time zone,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE user_settings (
+)`,
+
+		`CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
 	passphrase_prompt boolean,
@@ -822,23 +864,26 @@ CREATE TABLE user_settings (
 	onboarding_step text,
 	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
-);
-CREATE TABLE value_attributions (
+)`,
+
+		`CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
-);
-CREATE TABLE verification_audits (
+)`,
+
+		`CREATE TABLE verification_audits (
 	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
 	expires_at timestamp with time zone,
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
-);
-CREATE TABLE webapp_sessions (
+)`,
+
+		`CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	ip_address text NOT NULL,
@@ -846,8 +891,9 @@ CREATE TABLE webapp_sessions (
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE api_keys (
+)`,
+
+		`CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	head bytea NOT NULL,
@@ -860,8 +906,9 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_metainfos (
+)`,
+
+		`CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
@@ -882,67 +929,214 @@ CREATE TABLE bucket_metainfos (
 	placement integer,
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
-);
-CREATE TABLE project_invitations (
+)`,
+
+		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, email )
-);
-CREATE TABLE project_members (
+)`,
+
+		`CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
-);
-CREATE TABLE stripecoinpayments_apply_balance_intents (
+)`,
+
+		`CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 	state integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
-);
-CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
-CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
-CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
-CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
-CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
-CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
-CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
-CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
-CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX node_last_ip ON nodes ( last_net ) ;
-CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
-CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
-CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
-CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
-CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
-CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
-CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
-CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
-CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
-CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
-CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
-CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
-CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
-CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
-CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
-CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
-CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
-CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
-CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
-CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
-CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
-CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
-CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE stripecoinpayments_invoice_project_records.state = 0 ;
-CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
-CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
-CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
-CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
-CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
-CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;`
+)`,
+
+		`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
+
+		`CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id )`,
+
+		`CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start )`,
+
+		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
+
+		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
+
+		`CREATE INDEX node_last_ip ON nodes ( last_net )`,
+
+		`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
+
+		`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != ''`,
+
+		`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true`,
+
+		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
+
+		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
+
+		`CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id )`,
+
+		`CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id )`,
+
+		`CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id )`,
+
+		`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
+
+		`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
+
+		`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
+
+		`CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day )`,
+
+		`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+
+		`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
+
+		`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+
+		`CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at )`,
+
+		`CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start )`,
+
+		`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start )`,
+
+		`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period )`,
+
+		`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id )`,
+
+		`CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id )`,
+
+		`CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index )`,
+
+		`CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address )`,
+
+		`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE stripecoinpayments_invoice_project_records.state = 0`,
+
+		`CREATE INDEX users_email_status_index ON users ( normalized_email, status )`,
+
+		`CREATE INDEX trial_expiration_index ON users ( trial_expiration )`,
+
+		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
+
+		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
+
+		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
+
+		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+	}
+}
+
+func (obj *pgxDB) DropSchema() []string {
+	return []string{
+
+		`DROP TABLE IF EXISTS stripecoinpayments_apply_balance_intents`,
+
+		`DROP TABLE IF EXISTS project_members`,
+
+		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS bucket_metainfos`,
+
+		`DROP TABLE IF EXISTS api_keys`,
+
+		`DROP TABLE IF EXISTS webapp_sessions`,
+
+		`DROP TABLE IF EXISTS verification_audits`,
+
+		`DROP TABLE IF EXISTS value_attributions`,
+
+		`DROP TABLE IF EXISTS user_settings`,
+
+		`DROP TABLE IF EXISTS users`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_invoice_project_records`,
+
+		`DROP TABLE IF EXISTS stripe_customers`,
+
+		`DROP TABLE IF EXISTS storjscan_wallets`,
+
+		`DROP TABLE IF EXISTS storjscan_payments`,
+
+		`DROP TABLE IF EXISTS storagenode_storage_tallies`,
+
+		`DROP TABLE IF EXISTS storagenode_paystubs`,
+
+		`DROP TABLE IF EXISTS storagenode_payments`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollup_archives`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups`,
+
+		`DROP TABLE IF EXISTS segment_pending_audits`,
+
+		`DROP TABLE IF EXISTS revocations`,
+
+		`DROP TABLE IF EXISTS reverification_audits`,
+
+		`DROP TABLE IF EXISTS reset_password_tokens`,
+
+		`DROP TABLE IF EXISTS reputations`,
+
+		`DROP TABLE IF EXISTS repair_queue`,
+
+		`DROP TABLE IF EXISTS registration_tokens`,
+
+		`DROP TABLE IF EXISTS project_bandwidth_daily_rollups`,
+
+		`DROP TABLE IF EXISTS projects`,
+
+		`DROP TABLE IF EXISTS peer_identities`,
+
+		`DROP TABLE IF EXISTS oauth_tokens`,
+
+		`DROP TABLE IF EXISTS oauth_codes`,
+
+		`DROP TABLE IF EXISTS oauth_clients`,
+
+		`DROP TABLE IF EXISTS node_tags`,
+
+		`DROP TABLE IF EXISTS node_events`,
+
+		`DROP TABLE IF EXISTS node_api_versions`,
+
+		`DROP TABLE IF EXISTS nodes`,
+
+		`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+
+		`DROP TABLE IF EXISTS graceful_exit_progress`,
+
+		`DROP TABLE IF EXISTS coinpayments_transactions`,
+
+		`DROP TABLE IF EXISTS bucket_storage_tallies`,
+
+		`DROP TABLE IF EXISTS bucket_bandwidth_rollup_archives`,
+
+		`DROP TABLE IF EXISTS bucket_bandwidth_rollups`,
+
+		`DROP TABLE IF EXISTS billing_transactions`,
+
+		`DROP TABLE IF EXISTS billing_balances`,
+
+		`DROP TABLE IF EXISTS accounting_timestamps`,
+
+		`DROP TABLE IF EXISTS accounting_rollups`,
+
+		`DROP TABLE IF EXISTS account_freeze_events`,
+	}
 }
 
 func (obj *pgxDB) wrapTx(tx tagsql.Tx) txMethods {
@@ -1041,8 +1235,10 @@ func newpgxcockroach(db *DB) *pgxcockroachDB {
 	}
 }
 
-func (obj *pgxcockroachDB) Schema() string {
-	return `CREATE TABLE account_freeze_events (
+func (obj *pgxcockroachDB) Schema() []string {
+	return []string{
+
+		`CREATE TABLE account_freeze_events (
 	user_id bytea NOT NULL,
 	event integer NOT NULL,
 	limits jsonb,
@@ -1050,8 +1246,9 @@ func (obj *pgxcockroachDB) Schema() string {
 	notifications_count integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	PRIMARY KEY ( user_id, event )
-);
-CREATE TABLE accounting_rollups (
+)`,
+
+		`CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -1062,19 +1259,22 @@ CREATE TABLE accounting_rollups (
 	at_rest_total double precision NOT NULL,
 	interval_end_time timestamp with time zone,
 	PRIMARY KEY ( node_id, start_time )
-);
-CREATE TABLE accounting_timestamps (
+)`,
+
+		`CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
-);
-CREATE TABLE billing_balances (
+)`,
+
+		`CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id )
-);
-CREATE TABLE billing_transactions (
+)`,
+
+		`CREATE TABLE billing_transactions (
 	id bigserial NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
@@ -1087,8 +1287,9 @@ CREATE TABLE billing_transactions (
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE bucket_bandwidth_rollups (
+)`,
+
+		`CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1098,8 +1299,9 @@ CREATE TABLE bucket_bandwidth_rollups (
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
-);
-CREATE TABLE bucket_bandwidth_rollup_archives (
+)`,
+
+		`CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1109,8 +1311,9 @@ CREATE TABLE bucket_bandwidth_rollup_archives (
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
-);
-CREATE TABLE bucket_storage_tallies (
+)`,
+
+		`CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1123,8 +1326,9 @@ CREATE TABLE bucket_storage_tallies (
 	object_count integer NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
-);
-CREATE TABLE coinpayments_transactions (
+)`,
+
+		`CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
 	address text NOT NULL,
@@ -1135,16 +1339,18 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE graceful_exit_progress (
+)`,
+
+		`CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
-);
-CREATE TABLE graceful_exit_segment_transfer_queue (
+)`,
+
+		`CREATE TABLE graceful_exit_segment_transfer_queue (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -1159,8 +1365,9 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-);
-CREATE TABLE nodes (
+)`,
+
+		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
@@ -1201,15 +1408,17 @@ CREATE TABLE nodes (
 	debounce_limit integer NOT NULL DEFAULT 0,
 	features integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE node_api_versions (
+)`,
+
+		`CREATE TABLE node_api_versions (
 	id bytea NOT NULL,
 	api_version integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE node_events (
+)`,
+
+		`CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
 	last_ip_port text,
@@ -1219,16 +1428,18 @@ CREATE TABLE node_events (
 	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE node_tags (
+)`,
+
+		`CREATE TABLE node_tags (
 	node_id bytea NOT NULL,
 	name text NOT NULL,
 	value bytea NOT NULL,
 	signed_at timestamp with time zone NOT NULL,
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
-);
-CREATE TABLE oauth_clients (
+)`,
+
+		`CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
 	redirect_url text NOT NULL,
@@ -1236,8 +1447,9 @@ CREATE TABLE oauth_clients (
 	app_name text NOT NULL,
 	app_logo_url text NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE oauth_codes (
+)`,
+
+		`CREATE TABLE oauth_codes (
 	client_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	scope text NOT NULL,
@@ -1249,8 +1461,9 @@ CREATE TABLE oauth_codes (
 	expires_at timestamp with time zone NOT NULL,
 	claimed_at timestamp with time zone,
 	PRIMARY KEY ( code )
-);
-CREATE TABLE oauth_tokens (
+)`,
+
+		`CREATE TABLE oauth_tokens (
 	client_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	scope text NOT NULL,
@@ -1259,15 +1472,17 @@ CREATE TABLE oauth_tokens (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
-);
-CREATE TABLE peer_identities (
+)`,
+
+		`CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	leaf_serial_number bytea NOT NULL,
 	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
-);
-CREATE TABLE projects (
+)`,
+
+		`CREATE TABLE projects (
 	id bytea NOT NULL,
 	public_id bytea,
 	name text NOT NULL,
@@ -1301,24 +1516,27 @@ CREATE TABLE projects (
 	passphrase_enc_key_id integer,
 	path_encryption boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE project_bandwidth_daily_rollups (
+)`,
+
+		`CREATE TABLE project_bandwidth_daily_rollups (
 	project_id bytea NOT NULL,
 	interval_day date NOT NULL,
 	egress_allocated bigint NOT NULL,
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
-);
-CREATE TABLE registration_tokens (
+)`,
+
+		`CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
 	project_limit integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
-CREATE TABLE repair_queue (
+)`,
+
+		`CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
 	attempted_at timestamp with time zone,
@@ -1327,8 +1545,9 @@ CREATE TABLE repair_queue (
 	segment_health double precision NOT NULL DEFAULT 1,
 	placement integer,
 	PRIMARY KEY ( stream_id, position )
-);
-CREATE TABLE reputations (
+)`,
+
+		`CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
 	total_audit_count bigint NOT NULL DEFAULT 0,
@@ -1347,15 +1566,17 @@ CREATE TABLE reputations (
 	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE reset_password_tokens (
+)`,
+
+		`CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
-CREATE TABLE reverification_audits (
+)`,
+
+		`CREATE TABLE reverification_audits (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -1364,13 +1585,15 @@ CREATE TABLE reverification_audits (
 	last_attempt timestamp with time zone,
 	reverify_count bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position )
-);
-CREATE TABLE revocations (
+)`,
+
+		`CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
-);
-CREATE TABLE segment_pending_audits (
+)`,
+
+		`CREATE TABLE segment_pending_audits (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -1380,8 +1603,9 @@ CREATE TABLE segment_pending_audits (
 	expected_share_hash bytea NOT NULL,
 	reverify_count bigint NOT NULL,
 	PRIMARY KEY ( node_id )
-);
-CREATE TABLE storagenode_bandwidth_rollups (
+)`,
+
+		`CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -1389,8 +1613,9 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_bandwidth_rollup_archives (
+)`,
+
+		`CREATE TABLE storagenode_bandwidth_rollup_archives (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -1398,8 +1623,9 @@ CREATE TABLE storagenode_bandwidth_rollup_archives (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_bandwidth_rollups_phase2 (
+)`,
+
+		`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -1407,8 +1633,9 @@ CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_payments (
+)`,
+
+		`CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
@@ -1417,8 +1644,9 @@ CREATE TABLE storagenode_payments (
 	receipt text,
 	notes text,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE storagenode_paystubs (
+)`,
+
+		`CREATE TABLE storagenode_paystubs (
 	period text NOT NULL,
 	node_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1442,14 +1670,16 @@ CREATE TABLE storagenode_paystubs (
 	paid bigint NOT NULL,
 	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
-);
-CREATE TABLE storagenode_storage_tallies (
+)`,
+
+		`CREATE TABLE storagenode_storage_tallies (
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
-);
-CREATE TABLE storjscan_payments (
+)`,
+
+		`CREATE TABLE storjscan_payments (
 	chain_id bigint NOT NULL DEFAULT 0,
 	block_hash bytea NOT NULL,
 	block_number bigint NOT NULL,
@@ -1463,14 +1693,16 @@ CREATE TABLE storjscan_payments (
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( block_hash, log_index )
-);
-CREATE TABLE storjscan_wallets (
+)`,
+
+		`CREATE TABLE storjscan_wallets (
 	user_id bytea NOT NULL,
 	wallet_address bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id, wallet_address )
-);
-CREATE TABLE stripe_customers (
+)`,
+
+		`CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
 	billing_customer_id text,
@@ -1479,8 +1711,9 @@ CREATE TABLE stripe_customers (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
-);
-CREATE TABLE stripecoinpayments_invoice_project_records (
+)`,
+
+		`CREATE TABLE stripecoinpayments_invoice_project_records (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
 	storage double precision NOT NULL,
@@ -1493,14 +1726,16 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, period_start, period_end )
-);
-CREATE TABLE stripecoinpayments_tx_conversion_rates (
+)`,
+
+		`CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
 	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
-);
-CREATE TABLE users (
+)`,
+
+		`CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
 	normalized_email text NOT NULL,
@@ -1541,8 +1776,9 @@ CREATE TABLE users (
 	trial_expiration timestamp with time zone,
 	upgrade_time timestamp with time zone,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE user_settings (
+)`,
+
+		`CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
 	passphrase_prompt boolean,
@@ -1551,23 +1787,26 @@ CREATE TABLE user_settings (
 	onboarding_step text,
 	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
-);
-CREATE TABLE value_attributions (
+)`,
+
+		`CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
-);
-CREATE TABLE verification_audits (
+)`,
+
+		`CREATE TABLE verification_audits (
 	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
 	expires_at timestamp with time zone,
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
-);
-CREATE TABLE webapp_sessions (
+)`,
+
+		`CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	ip_address text NOT NULL,
@@ -1575,8 +1814,9 @@ CREATE TABLE webapp_sessions (
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE api_keys (
+)`,
+
+		`CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	head bytea NOT NULL,
@@ -1589,8 +1829,9 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_metainfos (
+)`,
+
+		`CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
@@ -1611,67 +1852,214 @@ CREATE TABLE bucket_metainfos (
 	placement integer,
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
-);
-CREATE TABLE project_invitations (
+)`,
+
+		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, email )
-);
-CREATE TABLE project_members (
+)`,
+
+		`CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
-);
-CREATE TABLE stripecoinpayments_apply_balance_intents (
+)`,
+
+		`CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 	state integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
-);
-CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
-CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
-CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
-CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
-CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
-CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
-CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
-CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
-CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX node_last_ip ON nodes ( last_net ) ;
-CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
-CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
-CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
-CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
-CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
-CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
-CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
-CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
-CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
-CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
-CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
-CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
-CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
-CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
-CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
-CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
-CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
-CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
-CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
-CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
-CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index ) ;
-CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
-CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE stripecoinpayments_invoice_project_records.state = 0 ;
-CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
-CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
-CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
-CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
-CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
-CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;`
+)`,
+
+		`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
+
+		`CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id )`,
+
+		`CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start )`,
+
+		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
+
+		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
+
+		`CREATE INDEX node_last_ip ON nodes ( last_net )`,
+
+		`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
+
+		`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != ''`,
+
+		`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true`,
+
+		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
+
+		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
+
+		`CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id )`,
+
+		`CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id )`,
+
+		`CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id )`,
+
+		`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
+
+		`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
+
+		`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
+
+		`CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day )`,
+
+		`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+
+		`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
+
+		`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+
+		`CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at )`,
+
+		`CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start )`,
+
+		`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start )`,
+
+		`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period )`,
+
+		`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id )`,
+
+		`CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id )`,
+
+		`CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index )`,
+
+		`CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address )`,
+
+		`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE stripecoinpayments_invoice_project_records.state = 0`,
+
+		`CREATE INDEX users_email_status_index ON users ( normalized_email, status )`,
+
+		`CREATE INDEX trial_expiration_index ON users ( trial_expiration )`,
+
+		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
+
+		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
+
+		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
+
+		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+	}
+}
+
+func (obj *pgxcockroachDB) DropSchema() []string {
+	return []string{
+
+		`DROP TABLE IF EXISTS stripecoinpayments_apply_balance_intents`,
+
+		`DROP TABLE IF EXISTS project_members`,
+
+		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS bucket_metainfos`,
+
+		`DROP TABLE IF EXISTS api_keys`,
+
+		`DROP TABLE IF EXISTS webapp_sessions`,
+
+		`DROP TABLE IF EXISTS verification_audits`,
+
+		`DROP TABLE IF EXISTS value_attributions`,
+
+		`DROP TABLE IF EXISTS user_settings`,
+
+		`DROP TABLE IF EXISTS users`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_invoice_project_records`,
+
+		`DROP TABLE IF EXISTS stripe_customers`,
+
+		`DROP TABLE IF EXISTS storjscan_wallets`,
+
+		`DROP TABLE IF EXISTS storjscan_payments`,
+
+		`DROP TABLE IF EXISTS storagenode_storage_tallies`,
+
+		`DROP TABLE IF EXISTS storagenode_paystubs`,
+
+		`DROP TABLE IF EXISTS storagenode_payments`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollup_archives`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups`,
+
+		`DROP TABLE IF EXISTS segment_pending_audits`,
+
+		`DROP TABLE IF EXISTS revocations`,
+
+		`DROP TABLE IF EXISTS reverification_audits`,
+
+		`DROP TABLE IF EXISTS reset_password_tokens`,
+
+		`DROP TABLE IF EXISTS reputations`,
+
+		`DROP TABLE IF EXISTS repair_queue`,
+
+		`DROP TABLE IF EXISTS registration_tokens`,
+
+		`DROP TABLE IF EXISTS project_bandwidth_daily_rollups`,
+
+		`DROP TABLE IF EXISTS projects`,
+
+		`DROP TABLE IF EXISTS peer_identities`,
+
+		`DROP TABLE IF EXISTS oauth_tokens`,
+
+		`DROP TABLE IF EXISTS oauth_codes`,
+
+		`DROP TABLE IF EXISTS oauth_clients`,
+
+		`DROP TABLE IF EXISTS node_tags`,
+
+		`DROP TABLE IF EXISTS node_events`,
+
+		`DROP TABLE IF EXISTS node_api_versions`,
+
+		`DROP TABLE IF EXISTS nodes`,
+
+		`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+
+		`DROP TABLE IF EXISTS graceful_exit_progress`,
+
+		`DROP TABLE IF EXISTS coinpayments_transactions`,
+
+		`DROP TABLE IF EXISTS bucket_storage_tallies`,
+
+		`DROP TABLE IF EXISTS bucket_bandwidth_rollup_archives`,
+
+		`DROP TABLE IF EXISTS bucket_bandwidth_rollups`,
+
+		`DROP TABLE IF EXISTS billing_transactions`,
+
+		`DROP TABLE IF EXISTS billing_balances`,
+
+		`DROP TABLE IF EXISTS accounting_timestamps`,
+
+		`DROP TABLE IF EXISTS accounting_rollups`,
+
+		`DROP TABLE IF EXISTS account_freeze_events`,
+	}
 }
 
 func (obj *pgxcockroachDB) wrapTx(tx tagsql.Tx) txMethods {
@@ -12803,6 +13191,14 @@ const (
 	__sqlbundle_NoTerminate
 )
 
+func __sqlbundle_RenderAll(dialect __sqlbundle_Dialect, sqls []__sqlbundle_SQL, ops ...__sqlbundle_RenderOp) []string {
+	var rs []string
+	for _, sql := range sqls {
+		rs = append(rs, __sqlbundle_Render(dialect, sql, ops...))
+	}
+	return rs
+}
+
 func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ...__sqlbundle_RenderOp) string {
 	out := sql.Render()
 
@@ -12955,6 +13351,14 @@ func (p __sqlbundle_postgres) Rebind(sql string) string {
 	}
 
 	return string(out)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_spanner struct{}
+
+func (p __sqlbundle_spanner) Rebind(sql string) string {
+	return sql
 }
 
 // this type is specially named to match up with the name returned by the
@@ -31977,7 +32381,9 @@ type txMethods interface {
 type DBMethods interface {
 	Methods
 
-	Schema() string
+	Schema() []string
+	DropSchema() []string
+
 	Rebind(sql string) string
 }
 

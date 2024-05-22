@@ -6,4 +6,4 @@ CREATE TABLE nodes (
 	public_address text NOT NULL,
 	api_secret bytea NOT NULL,
 	PRIMARY KEY ( id )
-);
+)

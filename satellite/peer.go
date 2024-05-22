@@ -149,7 +149,7 @@ type TestingDB interface {
 	// RawDB returns the underlying database connection to the primary database.
 	RawDB() tagsql.DB
 	// Schema returns the full schema for the database.
-	Schema() string
+	Schema() []string
 	// TestMigrateToLatest initializes the database for testplanet.
 	TestMigrateToLatest(ctx context.Context) error
 	// ProductionMigration returns the primary migration.

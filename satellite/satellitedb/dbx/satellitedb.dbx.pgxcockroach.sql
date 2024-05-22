@@ -8,7 +8,7 @@ CREATE TABLE account_freeze_events (
 	notifications_count integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	PRIMARY KEY ( user_id, event )
-);
+) ;
 CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
@@ -20,18 +20,18 @@ CREATE TABLE accounting_rollups (
 	at_rest_total double precision NOT NULL,
 	interval_end_time timestamp with time zone,
 	PRIMARY KEY ( node_id, start_time )
-);
+) ;
 CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
-);
+) ;
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id )
-);
+) ;
 CREATE TABLE billing_transactions (
 	id bigserial NOT NULL,
 	user_id bytea NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE billing_transactions (
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
-);
+) ;
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE bucket_bandwidth_rollup_archives (
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
-);
+) ;
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE bucket_storage_tallies (
 	object_count integer NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
-);
+) ;
 CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE graceful_exit_progress (
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
-);
+) ;
 CREATE TABLE graceful_exit_segment_transfer_queue (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
@@ -117,7 +117,7 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-);
+) ;
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -159,14 +159,14 @@ CREATE TABLE nodes (
 	debounce_limit integer NOT NULL DEFAULT 0,
 	features integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE node_api_versions (
 	id bytea NOT NULL,
 	api_version integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE node_events (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -177,7 +177,7 @@ CREATE TABLE node_events (
 	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE node_tags (
 	node_id bytea NOT NULL,
 	name text NOT NULL,
@@ -185,7 +185,7 @@ CREATE TABLE node_tags (
 	signed_at timestamp with time zone NOT NULL,
 	signer bytea NOT NULL,
 	PRIMARY KEY ( node_id, name, signer )
-);
+) ;
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -194,7 +194,7 @@ CREATE TABLE oauth_clients (
 	app_name text NOT NULL,
 	app_logo_url text NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE oauth_codes (
 	client_id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -207,7 +207,7 @@ CREATE TABLE oauth_codes (
 	expires_at timestamp with time zone NOT NULL,
 	claimed_at timestamp with time zone,
 	PRIMARY KEY ( code )
-);
+) ;
 CREATE TABLE oauth_tokens (
 	client_id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -217,14 +217,14 @@ CREATE TABLE oauth_tokens (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
-);
+) ;
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	leaf_serial_number bytea NOT NULL,
 	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
-);
+) ;
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	public_id bytea,
@@ -259,7 +259,7 @@ CREATE TABLE projects (
 	passphrase_enc_key_id integer,
 	path_encryption boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id bytea NOT NULL,
 	interval_day date NOT NULL,
@@ -267,7 +267,7 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
-);
+) ;
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -275,7 +275,7 @@ CREATE TABLE registration_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
+) ;
 CREATE TABLE repair_queue (
 	stream_id bytea NOT NULL,
 	position bigint NOT NULL,
@@ -285,7 +285,7 @@ CREATE TABLE repair_queue (
 	segment_health double precision NOT NULL DEFAULT 1,
 	placement integer,
 	PRIMARY KEY ( stream_id, position )
-);
+) ;
 CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
@@ -305,14 +305,14 @@ CREATE TABLE reputations (
 	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
-);
+) ;
 CREATE TABLE reverification_audits (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
@@ -322,12 +322,12 @@ CREATE TABLE reverification_audits (
 	last_attempt timestamp with time zone,
 	reverify_count bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position )
-);
+) ;
 CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
-);
+) ;
 CREATE TABLE segment_pending_audits (
 	node_id bytea NOT NULL,
 	stream_id bytea NOT NULL,
@@ -338,7 +338,7 @@ CREATE TABLE segment_pending_audits (
 	expected_share_hash bytea NOT NULL,
 	reverify_count bigint NOT NULL,
 	PRIMARY KEY ( node_id )
-);
+) ;
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -347,7 +347,7 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
+) ;
 CREATE TABLE storagenode_bandwidth_rollup_archives (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -356,7 +356,7 @@ CREATE TABLE storagenode_bandwidth_rollup_archives (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
+) ;
 CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -365,7 +365,7 @@ CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	allocated bigint DEFAULT 0,
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
+) ;
 CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -375,7 +375,7 @@ CREATE TABLE storagenode_payments (
 	receipt text,
 	notes text,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE storagenode_paystubs (
 	period text NOT NULL,
 	node_id bytea NOT NULL,
@@ -400,13 +400,13 @@ CREATE TABLE storagenode_paystubs (
 	paid bigint NOT NULL,
 	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
-);
+) ;
 CREATE TABLE storagenode_storage_tallies (
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
-);
+) ;
 CREATE TABLE storjscan_payments (
 	chain_id bigint NOT NULL DEFAULT 0,
 	block_hash bytea NOT NULL,
@@ -421,13 +421,13 @@ CREATE TABLE storjscan_payments (
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( block_hash, log_index )
-);
+) ;
 CREATE TABLE storjscan_wallets (
 	user_id bytea NOT NULL,
 	wallet_address bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id, wallet_address )
-);
+) ;
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
@@ -437,7 +437,7 @@ CREATE TABLE stripe_customers (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
-);
+) ;
 CREATE TABLE stripecoinpayments_invoice_project_records (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -451,13 +451,13 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, period_start, period_end )
-);
+) ;
 CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
 	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
-);
+) ;
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -499,7 +499,7 @@ CREATE TABLE users (
 	trial_expiration timestamp with time zone,
 	upgrade_time timestamp with time zone,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
@@ -509,14 +509,14 @@ CREATE TABLE user_settings (
 	onboarding_step text,
 	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	PRIMARY KEY ( user_id )
-);
+) ;
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
-);
+) ;
 CREATE TABLE verification_audits (
 	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	stream_id bytea NOT NULL,
@@ -524,7 +524,7 @@ CREATE TABLE verification_audits (
 	expires_at timestamp with time zone,
 	encrypted_size integer NOT NULL,
 	PRIMARY KEY ( inserted_at, stream_id, position )
-);
+) ;
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -533,7 +533,7 @@ CREATE TABLE webapp_sessions (
 	status integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
+) ;
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -547,7 +547,7 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
-);
+) ;
 CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -569,27 +569,27 @@ CREATE TABLE bucket_metainfos (
 	placement integer,
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
-);
+) ;
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
 	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, email )
-);
+) ;
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	role integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
-);
+) ;
 CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 	state integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
-);
+) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
@@ -629,4 +629,4 @@ CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
-CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;
+CREATE INDEX project_members_project_id_index ON project_members ( project_id )

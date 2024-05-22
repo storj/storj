@@ -37,9 +37,10 @@ import (
 const maxMigrationsToTest = 10
 
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
-func loadSnapshots(ctx context.Context, connstr, dbxscript string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
+func loadSnapshots(ctx context.Context, connstr string, schema []string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
+	dbxscript := strings.Join(schema, ";\n")
 	// find all postgres sql files
 	matches, err := filepath.Glob("testdata/postgres.*")
 	if err != nil {

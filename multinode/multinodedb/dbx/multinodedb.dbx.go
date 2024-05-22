@@ -274,14 +274,24 @@ func newpgx(db *DB) *pgxDB {
 	}
 }
 
-func (obj *pgxDB) Schema() string {
-	return `CREATE TABLE nodes (
+func (obj *pgxDB) Schema() []string {
+	return []string{
+
+		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	public_address text NOT NULL,
 	api_secret bytea NOT NULL,
 	PRIMARY KEY ( id )
-);`
+)`,
+	}
+}
+
+func (obj *pgxDB) DropSchema() []string {
+	return []string{
+
+		`DROP TABLE IF EXISTS nodes`,
+	}
 }
 
 func (obj *pgxDB) wrapTx(tx tagsql.Tx) txMethods {
@@ -344,14 +354,24 @@ func newsqlite3(db *DB) *sqlite3DB {
 	}
 }
 
-func (obj *sqlite3DB) Schema() string {
-	return `CREATE TABLE nodes (
+func (obj *sqlite3DB) Schema() []string {
+	return []string{
+
+		`CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	public_address TEXT NOT NULL,
 	api_secret BLOB NOT NULL,
 	PRIMARY KEY ( id )
-);`
+)`,
+	}
+}
+
+func (obj *sqlite3DB) DropSchema() []string {
+	return []string{
+
+		`DROP TABLE IF EXISTS nodes`,
+	}
 }
 
 func (obj *sqlite3DB) wrapTx(tx tagsql.Tx) txMethods {
@@ -535,6 +555,14 @@ const (
 	__sqlbundle_NoTerminate
 )
 
+func __sqlbundle_RenderAll(dialect __sqlbundle_Dialect, sqls []__sqlbundle_SQL, ops ...__sqlbundle_RenderOp) []string {
+	var rs []string
+	for _, sql := range sqls {
+		rs = append(rs, __sqlbundle_Render(dialect, sql, ops...))
+	}
+	return rs
+}
+
 func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ...__sqlbundle_RenderOp) string {
 	out := sql.Render()
 
@@ -687,6 +715,14 @@ func (p __sqlbundle_postgres) Rebind(sql string) string {
 	}
 
 	return string(out)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_spanner struct{}
+
+func (p __sqlbundle_spanner) Rebind(sql string) string {
+	return sql
 }
 
 // this type is specially named to match up with the name returned by the
@@ -1416,7 +1452,9 @@ type txMethods interface {
 type DBMethods interface {
 	Methods
 
-	Schema() string
+	Schema() []string
+	DropSchema() []string
+
 	Rebind(sql string) string
 }
 
