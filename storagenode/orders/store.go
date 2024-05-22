@@ -148,7 +148,7 @@ func (store *FileStore) getWritableUnsent(unsentDir string, satelliteID storj.No
 		if store.unsentOrdersFile != nil {
 			err := store.unsentOrdersFile.Close()
 			if err != nil {
-				return nil, OrderError.Wrap(err)
+				store.log.Warn("Unable to close unsent orders file", zap.Error(err))
 			}
 		}
 		filePath := filepath.Join(unsentDir, fileName)
