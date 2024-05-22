@@ -2,21 +2,21 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-app-bar :elevation="0">
+    <v-app-bar :elevation="0" class="app-bar-border">
         <v-progress-linear indeterminate absolute location="bottom" color="primary" :active="appStore.state.isNavigating" height="3" />
 
         <v-app-bar-nav-icon
             v-if="showNavDrawerButton"
             variant="text"
             color="default"
-            class="ml-2 ml-sm-3 mr-0 mr-sm-2"
+            class="ml-3 ml-sm-5 mr-0 mr-sm-1"
             size="small"
             density="comfortable"
             title="Toggle sidebar navigation"
             @click.stop="appStore.toggleNavigationDrawer()"
         />
 
-        <v-app-bar-title class="mt-n1 mx-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
+        <v-app-bar-title class="mt-n1 ml-0 mr-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
             <router-link :to="ROUTES.Projects.path">
                 <v-img
                     v-if="theme.global.current.value.dark"
@@ -92,31 +92,39 @@
                 <v-list class="px-2 rounded-lg">
                     <v-list-item class="py-2 rounded-lg">
                         <v-list-item-title class="text-body-2">
-                            <v-chip
-                                class="font-weight-bold"
-                                color="default"
-                                variant="outlined"
-                                size="small"
-                                rounded
-                            >
-                                {{ user.email }}
-                                <v-tooltip activator="parent" location="bottom">
-                                    {{ user.email }}
-                                </v-tooltip>
-                            </v-chip>
+                            Account
                         </v-list-item-title>
+                        <v-list-item-subtitle>
+                            {{ user.email }}
+                            <v-tooltip activator="parent" location="top">
+                                {{ user.email }}
+                            </v-tooltip>
+                        </v-list-item-subtitle>
                     </v-list-item>
+
                     <v-list-item v-if="billingEnabled" class="py-2 rounded-lg">
                         <v-list-item-title class="text-body-2">
                             <v-chip
                                 class="font-weight-bold"
                                 :color="isPaidTier ? 'success' : 'info'"
-                                variant="outlined"
+                                variant="tonal"
                                 size="small"
                                 rounded
                             >
                                 {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                             </v-chip>
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item class="py-2 rounded-lg text-medium-emphasis">
+                        <template #prepend>
+                            <icon-satellite size="18" />
+                            <v-tooltip activator="parent" location="top">
+                                Satellite (Metadata Region) <a href="https://docs.storj.io/learn/concepts/satellite" target="_blank" class="link">Learn More</a>
+                            </v-tooltip>
+                        </template>
+                        <v-list-item-title class="text-body-2 ml-3">
+                            {{ satelliteName }}
                         </v-list-item-title>
                     </v-list-item>
 
@@ -129,21 +137,7 @@
                                 Upgrade
                             </v-list-item-title>
                         </v-list-item>
-
-                        <v-divider class="my-2" />
                     </template>
-
-                    <v-list-item class="py-2 rounded-lg">
-                        <template #prepend>
-                            <icon-satellite size="18" />
-                        </template>
-                        <v-list-item-title class="text-body-2 ml-3">Satellite</v-list-item-title>
-                        <v-list-item-subtitle class="ml-3">
-                            {{ satelliteName }}
-                        </v-list-item-subtitle>
-                    </v-list-item>
-
-                    <v-divider class="my-2" />
 
                     <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link :to="billingPath" @click="closeSideNav">
                         <template #prepend>
@@ -196,7 +190,6 @@ import {
     VListItem,
     VListItemTitle,
     VListItemSubtitle,
-    VDivider,
     VChip,
     VProgressLinear,
 } from 'vuetify/components';

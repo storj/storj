@@ -48,7 +48,7 @@ import { mdiLockOutline } from '@mdi/js';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
-const props = defineProps<{
+defineProps<{
     label: string;
     value: string;
     centerText?: boolean;

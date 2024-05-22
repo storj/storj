@@ -318,6 +318,7 @@ func (obj *pgxDB) Schema() string {
 	event integer NOT NULL,
 	limits jsonb,
 	days_till_escalation integer,
+	notifications_count integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	PRIMARY KEY ( user_id, event )
 );
@@ -1030,6 +1031,7 @@ func (obj *pgxcockroachDB) Schema() string {
 	event integer NOT NULL,
 	limits jsonb,
 	days_till_escalation integer,
+	notifications_count integer NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	PRIMARY KEY ( user_id, event )
 );
@@ -1706,6 +1708,7 @@ type AccountFreezeEvent struct {
 	Event              int
 	Limits             []byte
 	DaysTillEscalation *int
+	NotificationsCount int
 	CreatedAt          time.Time
 }
 
@@ -1714,12 +1717,14 @@ func (AccountFreezeEvent) _Table() string { return "account_freeze_events" }
 type AccountFreezeEvent_Create_Fields struct {
 	Limits             AccountFreezeEvent_Limits_Field
 	DaysTillEscalation AccountFreezeEvent_DaysTillEscalation_Field
+	NotificationsCount AccountFreezeEvent_NotificationsCount_Field
 	CreatedAt          AccountFreezeEvent_CreatedAt_Field
 }
 
 type AccountFreezeEvent_Update_Fields struct {
 	Limits             AccountFreezeEvent_Limits_Field
 	DaysTillEscalation AccountFreezeEvent_DaysTillEscalation_Field
+	NotificationsCount AccountFreezeEvent_NotificationsCount_Field
 }
 
 type AccountFreezeEvent_UserId_Field struct {
@@ -1825,6 +1830,25 @@ func (f AccountFreezeEvent_DaysTillEscalation_Field) value() interface{} {
 }
 
 func (AccountFreezeEvent_DaysTillEscalation_Field) _Column() string { return "days_till_escalation" }
+
+type AccountFreezeEvent_NotificationsCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func AccountFreezeEvent_NotificationsCount(v int) AccountFreezeEvent_NotificationsCount_Field {
+	return AccountFreezeEvent_NotificationsCount_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_NotificationsCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_NotificationsCount_Field) _Column() string { return "notifications_count" }
 
 type AccountFreezeEvent_CreatedAt_Field struct {
 	_set   bool
@@ -14131,13 +14155,19 @@ func (obj *pgxImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" ON CONFLICT ( user_id, event ) DO UPDATE SET user_id = EXCLUDED.user_id, event = EXCLUDED.event, limits = EXCLUDED.limits, days_till_escalation = EXCLUDED.days_till_escalation, created_at = EXCLUDED.created_at RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" ON CONFLICT ( user_id, event ) DO UPDATE SET user_id = EXCLUDED.user_id, event = EXCLUDED.event, limits = EXCLUDED.limits, days_till_escalation = EXCLUDED.days_till_escalation, notifications_count = EXCLUDED.notifications_count, created_at = EXCLUDED.created_at RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __user_id_val, __event_val, __limits_val, __days_till_escalation_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.NotificationsCount._set {
+		__values = append(__values, optional.NotificationsCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notifications_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
 
 	if optional.CreatedAt._set {
 		__values = append(__values, optional.CreatedAt.value())
@@ -14157,7 +14187,7 @@ func (obj *pgxImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -17879,7 +17909,7 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 	account_freeze_event *AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
 	var __values []interface{}
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
@@ -17888,7 +17918,7 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err != nil {
 		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
 	}
@@ -17901,7 +17931,7 @@ func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 	rows []*AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, account_freeze_event_user_id.value())
@@ -17919,7 +17949,7 @@ func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				account_freeze_event := &AccountFreezeEvent{}
-				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -20235,7 +20265,7 @@ func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -20251,6 +20281,11 @@ func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("days_till_escalation = ?"))
 	}
 
+	if update.NotificationsCount._set {
+		__values = append(__values, update.NotificationsCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notifications_count = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -20264,7 +20299,7 @@ func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -22826,13 +22861,19 @@ func (obj *pgxcockroachImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __user_id_val, __event_val, __limits_val, __days_till_escalation_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.NotificationsCount._set {
+		__values = append(__values, optional.NotificationsCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notifications_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
 
 	if optional.CreatedAt._set {
 		__values = append(__values, optional.CreatedAt.value())
@@ -22852,7 +22893,7 @@ func (obj *pgxcockroachImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -26574,7 +26615,7 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 	account_freeze_event *AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
 	var __values []interface{}
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
@@ -26583,7 +26624,7 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err != nil {
 		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
 	}
@@ -26596,7 +26637,7 @@ func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Contex
 	rows []*AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, account_freeze_event_user_id.value())
@@ -26614,7 +26655,7 @@ func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Contex
 
 			for __rows.Next() {
 				account_freeze_event := &AccountFreezeEvent{}
-				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -28930,7 +28971,7 @@ func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx c
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -28946,6 +28987,11 @@ func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx c
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("days_till_escalation = ?"))
 	}
 
+	if update.NotificationsCount._set {
+		__values = append(__values, update.NotificationsCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notifications_count = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -28959,7 +29005,7 @@ func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx c
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

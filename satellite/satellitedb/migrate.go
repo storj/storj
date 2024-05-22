@@ -2727,6 +2727,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE state = 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to account freeze event for number of event notifications sent",
+				Version:     271,
+				Action: migrate.SQL{
+					`ALTER TABLE account_freeze_events ADD COLUMN notifications_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

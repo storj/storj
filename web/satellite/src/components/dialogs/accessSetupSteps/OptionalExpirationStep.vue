@@ -5,11 +5,7 @@
     <v-form class="pa-6" @submit.prevent>
         <v-row>
             <v-col cols="12">
-                <p class="font-weight-bold mb-2">
-                    Optional Expiration
-                </p>
                 <p>You can choose if you want the access to expire.</p>
-
                 <v-chip-group
                     v-model="expiration"
                     column
@@ -91,6 +87,7 @@
         <v-overlay v-model="isDatePicker" persistent class="align-center justify-center">
             <v-date-picker
                 v-model="datePickerModel"
+                show-adjacent-months
                 @update:model-value="onDatePickerSubmit"
             >
                 <template #header />

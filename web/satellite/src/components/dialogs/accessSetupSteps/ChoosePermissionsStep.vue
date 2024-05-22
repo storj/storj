@@ -5,10 +5,7 @@
     <v-form class="pa-6" @submit.prevent>
         <v-row>
             <v-col cols="12">
-                <p class="font-weight-bold mb-2">
-                    Choose Permissions
-                </p>
-                <p>Select which permissions to give this application.</p>
+                <p>Select which permissions to give.</p>
                 <v-btn
                     :color="permissions.length === 4 ? 'success' : 'default'"
                     density="compact"

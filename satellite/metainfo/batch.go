@@ -69,6 +69,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	resp = &pb.BatchResponse{
 		Responses: make([]*pb.BatchResponseItem, 0, len(req.Requests)),
 	}
+	mon.IntVal("batch_request_length").Observe(int64(len(req.Requests)))
 
 	defer func() {
 		if resp == nil {

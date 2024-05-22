@@ -209,3 +209,39 @@ func (*ActivationLockAccountEmail) Template() string { return "ActivationLockAcc
 
 // Subject gets email subject.
 func (*ActivationLockAccountEmail) Subject() string { return "Account Lock" }
+
+// BillingWarningEmail is an email sent to notify users of billing warning event.
+type BillingWarningEmail struct {
+	EmailNumber int
+	Days        int
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*BillingWarningEmail) Template() string { return "BillingWarning" }
+
+// Subject gets email subject.
+func (*BillingWarningEmail) Subject() string {
+	return "Your payment is outstanding - Act now to continue!"
+}
+
+// BillingFreezeNotificationEmail is an email sent to notify users of account freeze event.
+type BillingFreezeNotificationEmail struct {
+	EmailNumber int
+	Days        int
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*BillingFreezeNotificationEmail) Template() string { return "BillingFreezeNotification" }
+
+// Subject gets email subject.
+func (b *BillingFreezeNotificationEmail) Subject() string {
+	title := "Your account has been suspended"
+	if b.Days <= 0 {
+		title = "Your data is marked for deletion"
+	}
+	return title + " - Act now to continue!"
+}

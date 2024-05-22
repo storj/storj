@@ -244,9 +244,14 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 					amountsByActions[order.Limit.Action] += order.Order.Amount
 				}
 				for action, amount := range amountsByActions {
-					// TODO liori: better time.
-					// TODO liori: might be imprecise, see b6026b9ff3b41d0d80e1cd1bae13f567856385ca
-					err := service.bandwidth.Add(context2.WithoutCancellation(ctx), satelliteID, action, amount, time.Now())
+					// NOTE: storing bandwidth usage during order settlement might be imprecise because
+					// the order amount might be larger due to larger signed orders during upload.
+					// See https://github.com/storj/storj/commit/b6026b9ff3b41d0d80e1cd1bae13f567856385ca
+
+					// The bandwidth usage now stores aggregated usage per day for each satellite
+					// so doesn't matter if we don't get the exact time of the order, we can just
+					// use the time the order file was created.
+					err := service.bandwidth.Add(context2.WithoutCancellation(ctx), satelliteID, action, amount, unsentInfo.CreatedAtHour)
 					if err != nil {
 						service.log.Error("failed to add bandwidth usage", zap.String("satellite ID", satelliteID.String()), zap.String("action", action.String()), zap.Int64("amount", amount), zap.Error(err))
 					}

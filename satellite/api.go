@@ -443,6 +443,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:endpoint",
+			Run:   peer.Metainfo.Endpoint.Run,
 			Close: peer.Metainfo.Endpoint.Close,
 		})
 	}

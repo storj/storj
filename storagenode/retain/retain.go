@@ -255,15 +255,17 @@ func (s *Service) Run(ctx context.Context) (err error) {
 				s.cond.Broadcast()
 
 				// Run retaining process.
+				successful := true
 				err := s.retainPieces(ctx, request)
 				if err != nil {
 					s.log.Error("retain pieces failed", zap.Error(err))
+					successful = false
 				}
 
 				// Mark the request as finished. Relock to maintain that
 				// at the top of the for loop the lock is held.
 				s.cond.L.Lock()
-				s.finish(request)
+				s.finish(request, successful)
 				s.cond.Broadcast()
 			}
 		})
@@ -303,11 +305,13 @@ func (s *Service) next() (Request, bool) {
 }
 
 // finish marks the request as finished and removes the cache, requires mutex to be held.
-func (s *Service) finish(request Request) {
+func (s *Service) finish(request Request, successful bool) {
 	delete(s.working, request.SatelliteID)
-	err := s.queue.DeleteCache(request)
-	if err != nil {
-		s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("Satellite ID", request.SatelliteID))
+	if successful {
+		err := s.queue.DeleteCache(request)
+		if err != nil {
+			s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("Satellite ID", request.SatelliteID))
+		}
 	}
 }
 

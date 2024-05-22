@@ -5,7 +5,6 @@
     <v-form ref="form" class="pa-6" @submit.prevent="emit('submit')">
         <v-row>
             <v-col cols="12">
-                <p class="text-subtitle-2 font-weight-bold mb-5">Enter Access Name</p>
                 <v-text-field
                     v-model="name"
                     label="Access Name"
@@ -19,7 +18,6 @@
                 />
             </v-col>
             <v-col>
-                <p class="text-subtitle-2 font-weight-bold mb-4">Choose Access Type</p>
                 <v-chip-group
                     v-model="accessType"
                     class="mb-3"
