@@ -70,8 +70,8 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="flat" color="primary" size="small" @click="toggleUpgradeFlow">
-                            Upgrade to Pro
+                        <v-btn variant="flat" color="primary" size="small" :append-icon="mdiArrowRight" @click="toggleUpgradeFlow">
+                            Upgrade
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -152,7 +152,7 @@ import {
     VIcon,
     VChip,
 } from 'vuetify/components';
-import { mdiOpenInNew } from '@mdi/js';
+import { mdiOpenInNew, mdiArrowRight } from '@mdi/js';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

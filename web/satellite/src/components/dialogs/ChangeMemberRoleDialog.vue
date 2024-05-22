@@ -46,7 +46,7 @@
                         :items="[ProjectRole.Member, ProjectRole.Admin]"
                         class="mt-8"
                     />
-                    <v-alert color="info" border variant="tonal" class="my-4">
+                    <v-alert color="info" border variant="tonal" class="mb-4">
                         {{ selectedRole === ProjectRole.Member ?
                             'Members can only delete API keys and buckets they personally created; they cannot invite new users or remove existing users from the project.' :
                             'Admins can invite new users, remove existing users (except the project owner), and delete any API keys and buckets, regardless of who created them.' }}
@@ -80,12 +80,14 @@ import {
     VCard,
     VCardActions,
     VCardTitle,
+    VCardItem,
     VChip,
     VCol,
     VDialog,
     VDivider,
     VRow,
     VSelect,
+    VSheet,
 } from 'vuetify/components';
 
 import { ProjectRole } from '@/types/projectMembers';

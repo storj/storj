@@ -102,7 +102,7 @@
                     :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)} per month`"
                     :available="`${usedLimitFormatted(availableEgress)} Available`"
                     :cta="getCTALabel(egressUsedPercent)"
-                    extra-info="The download usage is only for the current billing period of one month."
+                    extra-info="The download bandwidth usage is only for the current billing period of one month."
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
@@ -161,7 +161,9 @@
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
                 <v-card-title class="font-weight-bold pl-0">Daily usage</v-card-title>
-                <v-card-subtitle class="pl-0">Select date range to view daily usage statistics.</v-card-subtitle>
+                <p class="text-medium-emphasis">
+                    Select date range to view daily usage statistics.
+                </p>
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
                 <v-btn prepend-icon="$calendar" variant="outlined" color="default" @click="isDatePicker = true">
@@ -172,7 +174,7 @@
 
         <v-row class="d-flex align-center justify-center mt-2 mb-5">
             <v-col cols="12" md="6">
-                <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true">
+                <v-card ref="chartContainer" class="pb-4">
                     <template #title>
                         <v-card-title class="d-flex align-center">
                             <IconCloud class="mr-2" width="16" height="16" />
@@ -190,7 +192,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
-                <v-card class="pb-4" variant="outlined" :border="true">
+                <v-card class="pb-4">
                     <template #title>
                         <v-card-title class="d-flex align-center justify-space-between">
                             <v-row class="ma-0 align-center">
@@ -231,8 +233,12 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <v-card-title class="font-weight-bold pl-0">Storage buckets</v-card-title>
-                <v-card-subtitle class="pl-0">Buckets are where you upload and organize your data.</v-card-subtitle>
+                <v-card-title class="font-weight-bold pl-0">
+                    Storage buckets
+                </v-card-title>
+                <p class="text-medium-emphasis">
+                    Buckets are where you upload and organize your data.
+                </p>
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
                 <v-btn
@@ -275,7 +281,6 @@ import {
     VBtn,
     VCard,
     VCardTitle,
-    VCardSubtitle,
     VCol,
     VContainer,
     VRow,

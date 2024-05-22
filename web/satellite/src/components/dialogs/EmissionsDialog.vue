@@ -12,7 +12,7 @@
     >
         <v-card>
             <v-sheet>
-                <v-card-item class="py-4 pl-6">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <img src="@/assets/icon-color-globe.svg" alt="Earth" width="40" class="mt-1">
                     </template>
@@ -31,7 +31,7 @@
                 </v-card-item>
             </v-sheet>
 
-            <v-card-text class="mt-n4 px-6">
+            <v-card-text class="pa-6">
                 <p class="text-body-2 mb-4">
                     The carbon emissions displayed are estimated based on the total usage of this project, calculated from the date of project creation up to the present day.
                 </p>
@@ -65,7 +65,7 @@
                 </v-card>
             </v-card-text>
 
-            <v-card-actions class="pa-6 pt-2">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn color="primary" variant="flat" block link href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer">

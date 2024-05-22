@@ -137,8 +137,9 @@ const dialogWidth = computed(() => {
     case OnboardingStep.PricingPlanSelection:
         return '720px';
     case OnboardingStep.PricingPlan:
-    case OnboardingStep.SetupComplete:
         return '460px';
+    case OnboardingStep.SetupComplete:
+        return '540px';
     default:
         return '';
     }
