@@ -266,6 +266,7 @@ export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
     PersonalAccountForm = 'PersonalAccountForm',
     PricingPlanSelection = 'PricingPlanSelection',
+    ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
     PricingPlan = 'PricingPlan',
     BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
@@ -285,6 +286,7 @@ export const ONBOARDING_STEPPER_STEPS = [
 export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountTypeSelection,
     OnboardingStep.PersonalAccountForm,
+    OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.PricingPlanSelection,
     OnboardingStep.PricingPlan,
     OnboardingStep.BusinessAccountForm,

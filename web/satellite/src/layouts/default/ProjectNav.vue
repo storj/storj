@@ -115,17 +115,19 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-divider class="my-2" />
+                    <template v-if="!hasManagedPassphrase">
+                        <v-divider class="my-2" />
 
-                    <!-- Manage Passphrase -->
-                    <v-list-item link class="mt-1" @click="isManagePassphraseDialogShown = true">
-                        <template #prepend>
-                            <IconPassphrase />
-                        </template>
-                        <v-list-item-title class="ml-4">
-                            Manage Passphrase
-                        </v-list-item-title>
-                    </v-list-item>
+                        <!-- Manage Passphrase -->
+                        <v-list-item link class="mt-1" @click="isManagePassphraseDialogShown = true">
+                            <template #prepend>
+                                <IconPassphrase />
+                            </template>
+                            <v-list-item-title class="ml-4">
+                                Manage Passphrase
+                            </v-list-item-title>
+                        </v-list-item>
+                    </template>
                 </v-list>
             </v-menu>
 
@@ -266,6 +268,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconProject from '@/components/icons/IconProject.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -288,6 +291,7 @@ import EnterProjectPassphraseDialog
     from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -341,6 +345,13 @@ const ownProjects = computed((): Project[] => {
 const sharedProjects = computed((): Project[] => {
     const projects = projectsStore.projects.filter((p) => p.ownerId !== usersStore.state.user.id);
     return projects.sort(compareProjects);
+});
+
+/**
+ * Returns whether this project has passphrase managed by the satellite.
+ */
+const hasManagedPassphrase = computed((): boolean => {
+    return configStore.state.config.satelliteManagedEncryptionEnabled && !!projectsStore.state.selectedProjectConfig.passphrase;
 });
 
 /**

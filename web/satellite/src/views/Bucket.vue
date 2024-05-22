@@ -518,19 +518,32 @@ watch(() => bucketsStore.state.passphrase, async newPass => {
  * Initializes file browser.
  */
 onMounted(async () => {
+    function goToBuckets() {
+        router.push({
+            name: ROUTES.Buckets.name,
+            params: { id: projectUrlId.value },
+        });
+    }
+    if (!edgeCredentials.value.accessKeyId) {
+        try {
+            await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+            goToBuckets();
+            return;
+        }
+    }
     try {
         await bucketsStore.getAllBucketsMetadata(projectId.value);
     } catch (error) {
         error.message = `Error fetching bucket names and/or placements. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        goToBuckets();
         return;
     }
 
     if (!bucket.value) {
-        router.push({
-            name: ROUTES.Buckets.name,
-            params: { id: projectUrlId.value },
-        });
+        goToBuckets();
         return;
     }
 

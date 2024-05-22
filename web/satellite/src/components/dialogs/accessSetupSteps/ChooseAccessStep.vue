@@ -49,6 +49,7 @@
                     </v-chip>
 
                     <v-chip
+                        v-if="!hasManagedPassphrase"
                         :key="AccessType.APIKey"
                         :value="AccessType.APIKey"
                         color="info"
@@ -76,20 +77,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VTextField } from 'vuetify/components';
 
 import { AccessType } from '@/types/createAccessGrant';
 import { IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const agStore = useAccessGrantsStore();
+const projectsStore = useProjectsStore();
 
 const emit = defineEmits<{
     'nameChanged': [name: string];
     'typeChanged': [type: AccessType];
     'submit': [];
 }>();
+
+const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
 
 const form = ref<VForm | null>(null);
 const name = ref<string>('');

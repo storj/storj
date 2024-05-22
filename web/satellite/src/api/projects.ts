@@ -35,6 +35,7 @@ export class ProjectsHttpApi implements ProjectsApi {
         const data = {
             name: projectFields.name,
             description: projectFields.description,
+            managePassphrase: projectFields.managePassphrase,
         };
 
         const response = await this.http.post(this.ROOT_PATH, JSON.stringify(data));
@@ -107,6 +108,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             return new ProjectConfig(
                 result.versioningUIEnabled,
                 result.promptForVersioningBeta,
+                result.passphrase ?? '',
             );
         }
 

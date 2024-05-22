@@ -36,6 +36,7 @@ import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { PricingPlanInfo } from '@/types/common';
+import { EdgeCredentials } from '@/types/accessGrants';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -135,10 +136,7 @@ async function setup() {
             analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, { source: source });
         }
 
-        if (appStore.state.hasJustLoggedIn && !invites.length && projects.length <= 1) {
-            if (!projects.length) {
-                await projectsStore.createDefaultProject(usersStore.state.user.id);
-            }
+        if (appStore.state.hasJustLoggedIn && !invites.length && projects.length === 1) {
             projectsStore.selectProject(projects[0].id);
             const project = projectsStore.state.selectedProject;
             await router.push({
@@ -146,13 +144,6 @@ async function setup() {
                 params: { id: project.urlId },
             });
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-
-            if (usersStore.getShouldPromptPassphrase({
-                isProjectOwner: project.ownerId === usersStore.state.user.id,
-                onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
-            }) && !user.value.freezeStatus.trialExpiredFrozen) {
-                appStore.toggleProjectPassphraseDialog(true);
-            }
         }
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -247,10 +238,22 @@ watch(() => user.value.paidTier, (paidTier) => {
 /**
  * conditionally prompt for project passphrase if project changes
  */
-watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
+watch(() => projectsStore.state.selectedProject, async (project, oldProject) => {
     if (project.id === oldProject.id) {
         return;
     }
+    try {
+        const config = await projectsStore.getProjectConfig();
+        if (config.passphrase) {
+            bucketsStore.setEdgeCredentials(new EdgeCredentials());
+            bucketsStore.setPassphrase(config.passphrase);
+            bucketsStore.setPromptForPassphrase(false);
+            return;
+        }
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
     if (usersStore.getShouldPromptPassphrase({
         isProjectOwner: project.ownerId === usersStore.state.user.id,
         onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,

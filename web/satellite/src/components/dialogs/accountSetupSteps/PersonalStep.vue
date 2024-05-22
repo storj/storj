@@ -46,7 +46,7 @@
                         color="default"
                         :disabled="isLoading"
                         block
-                        @click="emit('next', OnboardingStep.AccountTypeSelection)"
+                        @click="emit('back')"
                     >
                         Back
                     </v-btn>
@@ -95,7 +95,8 @@ const name = ref('');
 const useCase = ref<string>();
 
 const emit = defineEmits<{
-    (event: 'next', value: OnboardingStep): void,
+    (event: 'next'): void,
+    (event: 'back'): void,
 }>();
 
 function setupAccount() {
@@ -114,7 +115,7 @@ function setupAccount() {
             });
 
             analyticsStore.eventTriggered(AnalyticsEvent.PERSONAL_INFO_SUBMITTED);
-            emit('next', OnboardingStep.SetupComplete);
+            emit('next');
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
         }

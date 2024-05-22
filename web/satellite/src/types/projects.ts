@@ -167,6 +167,7 @@ export class ProjectConfig {
     public constructor(
         public versioningUIEnabled: boolean = false,
         public promptForVersioningBeta: boolean = false,
+        public passphrase: string = '',
     ) {}
 }
 
@@ -187,6 +188,7 @@ export class ProjectFields {
         public name: string = '',
         public description: string = '',
         public ownerId: string = '',
+        public managePassphrase: boolean = false,
     ) {}
 
     /**
@@ -364,6 +366,8 @@ export enum LimitType {
 }
 
 export type LimitThresholdsReached = Record<LimitThreshold, LimitType[]>;
+
+export type ManagePassphraseMode = 'auto' | 'manual';
 
 /**
  * ProjectItemModel represents the view model for project items in the all projects dashboard.

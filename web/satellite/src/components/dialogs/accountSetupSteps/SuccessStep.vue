@@ -29,20 +29,27 @@
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
 import { mdiChevronRight } from '@mdi/js';
+import { nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ONBOARDING_STEPPER_STEPS } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { ROUTES } from '@/router';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import IconBlueCheckmark from '@/components/icons/IconBlueCheckmark.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
+
+const router = useRouter();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -50,6 +57,13 @@ const { isLoading, withLoading } = useLoading();
 function finishSetup() {
     withLoading(async () => {
         try {
+            const projects = projectsStore.state.projects;
+            if (!projects.length) {
+                await projectsStore.createDefaultProject(userStore.state.user.id);
+            }
+            projectsStore.selectProject(projects[0].id);
+
+            analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
             await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
             await userStore.getUser();
         } catch (error) {
@@ -57,6 +71,12 @@ function finishSetup() {
             return;
         }
         appStore.toggleAccountSetup(false);
+
+        await nextTick();
+        router.push({
+            name: ROUTES.Dashboard.name,
+            params: { id: projectsStore.state.selectedProject.urlId },
+        });
     });
 }
 </script>

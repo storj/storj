@@ -134,7 +134,7 @@
                         color="default"
                         :disabled="isLoading"
                         block
-                        @click="emit('next', OnboardingStep.AccountTypeSelection)"
+                        @click="emit('back')"
                     >
                         Back
                     </v-btn>
@@ -193,7 +193,8 @@ const haveSalesContact = ref(false);
 const interestedInPartnering = ref(false);
 
 const emit = defineEmits<{
-    (event: 'next', value: OnboardingStep): void,
+    (event: 'next'): void,
+    (event: 'back'): void,
 }>();
 
 function setupAccount() {
@@ -218,7 +219,7 @@ function setupAccount() {
             });
 
             analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
-            emit('next', OnboardingStep.SetupComplete);
+            emit('next');
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
         }

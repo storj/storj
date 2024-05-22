@@ -168,7 +168,7 @@ export const useProjectsStore = defineStore('projects', () => {
         return createdProject;
     }
 
-    async function createDefaultProject(userID: string): Promise<void> {
+    async function createDefaultProject(userID: string, managePassphrase = false): Promise<void> {
         const UNTITLED_PROJECT_NAME = 'My Storj Project';
         const UNTITLED_PROJECT_DESCRIPTION = '___';
 
@@ -176,6 +176,7 @@ export const useProjectsStore = defineStore('projects', () => {
             UNTITLED_PROJECT_NAME,
             UNTITLED_PROJECT_DESCRIPTION,
             userID,
+            managePassphrase,
         );
 
         const createdProject = await createProject(project);
@@ -193,8 +194,9 @@ export const useProjectsStore = defineStore('projects', () => {
         state.selectedProject = selected;
     }
 
-    async function getProjectConfig(): Promise<void> {
+    async function getProjectConfig(): Promise<ProjectConfig> {
         state.selectedProjectConfig = await api.getConfig(state.selectedProject.id);
+        return state.selectedProjectConfig;
     }
 
     async function setVersioningOptInStatus(status: 'in' | 'out'): Promise<void> {
