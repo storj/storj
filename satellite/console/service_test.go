@@ -2582,6 +2582,10 @@ func TestSatelliteManagedProject(t *testing.T) {
 		// encryptedPassphrase should be empty because project encryption is not managed by satellite
 		require.Empty(t, encryptedPassphrase)
 
+		config, err := srv.GetProjectConfig(userCtx, project.ID)
+		require.NoError(t, err)
+		require.Empty(t, config.Passphrase)
+
 		project, err = srv.CreateProject(userCtx, console.UpsertProjectInfo{
 			Name:             "Test Project2",
 			ManagePassphrase: true,
@@ -2592,11 +2596,15 @@ func TestSatelliteManagedProject(t *testing.T) {
 
 		encryptedPassphrase, err = projectDB.GetEncryptedPassphrase(userCtx, project.ID)
 		require.NoError(t, err)
-		// encryptedPassphrase not should be empty because project encryption is managed by satellite
+		// encryptedPassphrase should not be empty because project encryption is managed by satellite
 		require.NotEmpty(t, encryptedPassphrase)
 
-		_, err = kmsService.DecryptPassphrase(ctx, encryptedPassphrase)
+		passphrase, err := kmsService.DecryptPassphrase(ctx, encryptedPassphrase)
 		require.NoError(t, err)
+
+		config, err = srv.GetProjectConfig(userCtx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, string(passphrase), config.Passphrase)
 	})
 }
 

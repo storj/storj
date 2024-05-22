@@ -2027,9 +2027,24 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		}
 	}
 
+	var passphrase []byte
+	if s.config.SatelliteManagedEncryptionEnabled {
+		passphraseEnc, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if passphraseEnc != nil {
+			passphrase, err = s.kmsService.DecryptPassphrase(ctx, passphraseEnc)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
+	}
+
 	return &ProjectConfig{
 		VersioningUIEnabled:     versioningUIEnabled,
 		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
+		Passphrase:              string(passphrase),
 	}, nil
 }
 
