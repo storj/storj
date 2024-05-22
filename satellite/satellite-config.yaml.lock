@@ -907,6 +907,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
 
+# enables optimization for uploading objects with single inline segment
+# metainfo.test-optimized-inline-object-upload: false
+
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000
 
