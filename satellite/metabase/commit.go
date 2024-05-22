@@ -1289,6 +1289,8 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 		return Error.New("failed to create object: %w", err)
 	}
 
+	// TODO consider not inserting segment if inline data is empty
+
 	_, err = ptx.tx.ExecContext(ctx, `
 		INSERT INTO segments (
 			stream_id, position, expires_at,
