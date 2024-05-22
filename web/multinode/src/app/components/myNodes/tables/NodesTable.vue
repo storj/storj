@@ -53,8 +53,8 @@ export default class NodesTable extends Vue {
     }
 
     // Initialize sorting variables
-    sortByKey: string = "";
-    sortDirection: string = 'asc';
+    sortByKey = '';
+    sortDirection = 'asc';
 
     // Cache the sort state in browser to persist between sessions
     created() {
@@ -72,7 +72,7 @@ export default class NodesTable extends Vue {
     public get sortedNodes(): Node[] {
         const key = this.sortByKey;
         const direction = this.sortDirection === 'asc' ? 1 : -1;
-        if (key === "") return this.nodes;
+        if (key === '') return this.nodes;
         return this.nodes.slice().sort((a, b) => {
             if (a[key] < b[key]) return -direction;
             if (a[key] > b[key]) return direction;
@@ -83,11 +83,11 @@ export default class NodesTable extends Vue {
     // Update sorting key and direction
     public sortBy(key: string) {
         if (this.sortByKey === key) {
-            if (this.sortDirection === "asc") {
-                this.sortDirection = "desc";
+            if (this.sortDirection === 'asc') {
+                this.sortDirection = 'desc';
             } else {
                 // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
-                this.sortByKey = "";
+                this.sortByKey = '';
             }
         } else {
             this.sortByKey = key;
