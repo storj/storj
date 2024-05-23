@@ -133,7 +133,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 
 			selected := nodes[0]
 			if total0 != 0 && total1 != 0 &&
-				float64(success0)/float64(total0) > float64(success1)/float64(total1) {
+				float64(success1)/float64(total1) > float64(success0)/float64(total0) {
 				selected = nodes[1]
 			}
 
