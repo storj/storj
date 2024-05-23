@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS segments
     redundancy          INT64 NOT NULL,
     inline_data         BYTES( MAX),
     remote_alias_pieces BYTES(MAX),
-    placement           INT64 NOT NULL DEFAULT (1),
+    placement           INT64,
     ) PRIMARY KEY(stream_id, position);
 
 CREATE TABLE IF NOT EXISTS

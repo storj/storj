@@ -498,7 +498,7 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
-			spannerutil.Int(&segment.Placement), // can remove this spannerutil.Int call once gerrit common/13077 is merged
+			&segment.Placement,
 		); err != nil {
 			return nil, Error.Wrap(err)
 		}
