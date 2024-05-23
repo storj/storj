@@ -2647,12 +2647,15 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	var passphrase []byte
-	passphraseEnc, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
+	passphraseEnc, encKeyID, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	if passphraseEnc != nil && s.kmsService != nil {
-		passphrase, err = s.kmsService.DecryptPassphrase(ctx, passphraseEnc)
+		if encKeyID == nil {
+			return nil, Error.New("Failed to retrieve passphrase")
+		}
+		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *encKeyID, passphraseEnc)
 		if err != nil {
 			s.log.Error("failed to decrypt passphrase", zap.Error(err))
 			return nil, Error.New("Failed to retrieve passphrase")
@@ -2800,11 +2803,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			DefaultPlacement: user.DefaultPlacement,
 		}
 		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase && s.kmsService != nil {
-			encPassphrase, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
+			encPassphrase, keyID, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 			newProject.PassphraseEnc = encPassphrase
+			newProject.PassphraseEncKeyID = &keyID
 			newProject.PathEncryption = new(bool)
 		} else if projectInfo.ManagePassphrase {
 			return ErrSatelliteManagedEncryption

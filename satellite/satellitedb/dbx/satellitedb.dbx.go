@@ -14980,8 +14980,9 @@ type PaidTier_Row struct {
 	PaidTier bool
 }
 
-type PassphraseEnc_Row struct {
-	PassphraseEnc []byte
+type PassphraseEnc_PassphraseEncKeyId_Row struct {
+	PassphraseEnc      []byte
+	PassphraseEncKeyId *int
 }
 
 type Placement_Row struct {
@@ -18716,12 +18717,12 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+func (obj *pgxImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *PassphraseEnc_Row, err error) {
+	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc, projects.passphrase_enc_key_id FROM projects WHERE projects.id = ?")
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -18729,10 +18730,10 @@ func (obj *pgxImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &PassphraseEnc_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc)
+	row = &PassphraseEnc_PassphraseEncKeyId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc, &row.PassphraseEncKeyId)
 	if err != nil {
-		return (*PassphraseEnc_Row)(nil), obj.makeErr(err)
+		return (*PassphraseEnc_PassphraseEncKeyId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -27743,12 +27744,12 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *PassphraseEnc_Row, err error) {
+	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc, projects.passphrase_enc_key_id FROM projects WHERE projects.id = ?")
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -27756,10 +27757,10 @@ func (obj *pgxcockroachImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &PassphraseEnc_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc)
+	row = &PassphraseEnc_PassphraseEncKeyId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc, &row.PassphraseEncKeyId)
 	if err != nil {
-		return (*PassphraseEnc_Row)(nil), obj.makeErr(err)
+		return (*PassphraseEnc_PassphraseEncKeyId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -37053,12 +37054,12 @@ func (obj *spannerImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+func (obj *spannerImpl) Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *PassphraseEnc_Row, err error) {
+	row *PassphraseEnc_PassphraseEncKeyId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc, projects.passphrase_enc_key_id FROM projects WHERE projects.id = ?")
 
 	var __values []any
 	__values = append(__values, project_id.value())
@@ -37066,10 +37067,10 @@ func (obj *spannerImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &PassphraseEnc_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc)
+	row = &PassphraseEnc_PassphraseEncKeyId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc, &row.PassphraseEncKeyId)
 	if err != nil {
-		return (*PassphraseEnc_Row)(nil), obj.makeErr(err)
+		return (*PassphraseEnc_PassphraseEncKeyId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -43148,9 +43149,9 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		row *MaxBuckets_Row, err error)
 
-	Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+	Get_Project_PassphraseEnc_Project_PassphraseEncKeyId_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
-		row *PassphraseEnc_Row, err error)
+		row *PassphraseEnc_PassphraseEncKeyId_Row, err error)
 
 	Get_Project_Salt_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (

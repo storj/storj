@@ -9,14 +9,12 @@ import (
 	"storj.io/common/storj"
 )
 
-// SecretsService is a service for retrieving the master key.
+// SecretsService is a service for retrieving keys.
 //
 // architecture: Service
 type SecretsService interface {
-	// Initialize gets and validates the master key.
-	Initialize(ctx context.Context) error
-	// getMasterKey returns the master key.
-	getMasterKey() (*storj.Key, error)
+	// GetKey gets a key from the secret service.
+	GetKey(ctx context.Context, keyInfo KeyInfo) (*storj.Key, error)
 	// Close closes the service.
 	Close() error
 }

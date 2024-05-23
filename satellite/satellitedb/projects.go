@@ -159,15 +159,18 @@ func (projects *projects) GetSalt(ctx context.Context, id uuid.UUID) (salt []byt
 
 // GetEncryptedPassphrase gets the encrypted passphrase of this project.
 // NB: projects that don't have satellite managed encryption will not have this.
-func (projects *projects) GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) (_ []byte, err error) {
+func (projects *projects) GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) (encPassphrase []byte, keyID *int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := projects.db.Get_Project_PassphraseEnc_By_Id(ctx, dbx.Project_Id(id[:]))
-	if err != nil {
-		return nil, err
-	}
+	// TODO: add method to DBX after DB freeze is over.
 
-	return res.PassphraseEnc, nil
+	err = projects.db.QueryRowContext(ctx, `
+		SELECT passphrase_enc, passphrase_enc_key_id
+		FROM projects
+		WHERE id = $1 
+	`, id).Scan(&encPassphrase, &keyID)
+
+	return encPassphrase, keyID, err
 }
 
 // GetByPublicID is a method for querying project from the database by public_id.
@@ -218,6 +221,9 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	}
 	if project.PassphraseEnc != nil {
 		createFields.PassphraseEnc = dbx.Project_PassphraseEnc(project.PassphraseEnc)
+	}
+	if project.PassphraseEncKeyID != nil {
+		createFields.PassphraseEncKeyId = dbx.Project_PassphraseEncKeyId(*project.PassphraseEncKeyID)
 	}
 	if project.PathEncryption != nil {
 		createFields.PathEncryption = dbx.Project_PathEncryption(*project.PathEncryption)

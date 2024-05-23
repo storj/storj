@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
@@ -15,22 +16,21 @@ import (
 	"storj.io/common/sync2"
 )
 
-// Error is the default error class for the package.
-var Error = errs.Class("kms")
+var (
+	// Error is the default error class for the package.
+	Error = errs.Class("kms")
 
-// Config is a configuration struct for secret management Service.
-type Config struct {
-	SecretVersion  string `help:"version name of the master key in Google Secret Manager. E.g.: projects/{projectID}/secrets/{secretName}/versions/{latest}" default:""`
-	SecretChecksum int64  `help:"checksum of the master key in Google Secret Manager" default:"0"`
-	TestMasterKey  string `help:"a fake master key to be used for the purpose of testing" releaseDefault:"" devDefault:"test-master-key" hidden:"true"`
-}
+	mon = monkit.Package()
+)
 
 // Service is a service for encrypting/decrypting project passphrases.
 //
 // architecture: Service
 type Service struct {
-	secretsService SecretsService
-	config         Config
+	config Config
+
+	defaultKey *storj.Key
+	keys       map[int]*storj.Key
 
 	initialized sync2.Fence
 }
@@ -39,37 +39,51 @@ type Service struct {
 func NewService(config Config) *Service {
 	return &Service{
 		config: config,
+		keys:   make(map[int]*storj.Key),
 	}
 }
 
 // Initialize initializes the service.
 func (s *Service) Initialize(ctx context.Context) (err error) {
-	var secretService SecretsService
-	if s.config.SecretVersion != "" {
-		secretService = newGsmService(s.config)
-	} else {
-		secretService = newMockSecretService(s.config)
-	}
+	defer mon.Task()(&ctx)(&err)
 
-	err = secretService.Initialize(ctx)
+	secretsService, err := newGsmService(ctx, s.config)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errs.Combine(err, secretsService.Close())
+	}()
 
-	s.secretsService = secretService
+	for id, k := range s.config.KeyInfos.Values {
+		key, err := secretsService.GetKey(ctx, k)
+		if err != nil {
+			return err
+		}
+
+		s.keys[id] = key
+
+		if id == s.config.DefaultMasterKey {
+			s.defaultKey = key
+		}
+	}
+
+	if s.defaultKey == nil {
+		return Error.New("master key not set")
+	}
 
 	s.initialized.Release()
 
-	return nil
+	return err
 }
 
 // GenerateEncryptedPassphrase generates a cryptographically random passphrase,
-// returning its encrypted form.
-func (s *Service) GenerateEncryptedPassphrase(ctx context.Context) ([]byte, error) {
+// returning its encrypted form and the id of the encryption key.
+func (s *Service) GenerateEncryptedPassphrase(ctx context.Context) (_ []byte, keyID int, err error) {
 	randBytes := make([]byte, storj.KeySize)
-	_, err := rand.Read(randBytes)
+	_, err = rand.Read(randBytes)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, 0, Error.Wrap(err)
 	}
 
 	passphrase := make([]byte, base64.StdEncoding.EncodedLen(storj.KeySize))
@@ -80,25 +94,20 @@ func (s *Service) GenerateEncryptedPassphrase(ctx context.Context) ([]byte, erro
 
 // EncryptPassphrase encrypts the provided passphrase using the masterKey in an
 // XSalsa20 and Poly1305 encryption.
-func (s *Service) EncryptPassphrase(ctx context.Context, passphrase []byte) ([]byte, error) {
+func (s *Service) EncryptPassphrase(ctx context.Context, passphrase []byte) (_ []byte, keyID int, err error) {
 	if !s.initialized.Wait(ctx) {
-		return nil, Error.New("service not initialized")
+		return nil, 0, Error.New("service not initialized")
 	}
 
 	var nonce storj.Nonce
-	_, err := rand.Read(nonce[:])
+	_, err = rand.Read(nonce[:])
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, 0, Error.Wrap(err)
 	}
 
-	masterKey, err := s.secretsService.getMasterKey()
+	cipherText, err := encryption.EncryptSecretBox(passphrase, s.defaultKey, &nonce)
 	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	cipherText, err := encryption.EncryptSecretBox(passphrase, masterKey, &nonce)
-	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, 0, Error.Wrap(err)
 	}
 
 	// Prepend the nonce to the encrypted passphrase.
@@ -106,33 +115,27 @@ func (s *Service) EncryptPassphrase(ctx context.Context, passphrase []byte) ([]b
 	copy(encryptedPassphrase[:storj.NonceSize], nonce[:])
 	copy(encryptedPassphrase[storj.NonceSize:], cipherText)
 
-	return encryptedPassphrase, nil
+	return encryptedPassphrase, s.config.DefaultMasterKey, nil
 }
 
 // DecryptPassphrase decrypts the provided encrypted passphrase using
 // the masterKey.
-func (s *Service) DecryptPassphrase(ctx context.Context, encryptedPassphrase []byte) ([]byte, error) {
+func (s *Service) DecryptPassphrase(ctx context.Context, keyID int, encryptedPassphrase []byte) ([]byte, error) {
 	if !s.initialized.Wait(ctx) {
 		return nil, Error.New("service not initialized")
 	}
 
-	masterKey, err := s.secretsService.getMasterKey()
-	if err != nil {
-		return nil, Error.Wrap(err)
+	key := s.keys[keyID]
+	if key == nil {
+		return nil, Error.New("key with ID %d not found", keyID)
 	}
-
 	var nonce storj.Nonce
 	copy(nonce[:], encryptedPassphrase[:storj.NonceSize])
 
-	plaintext, err := encryption.DecryptSecretBox(encryptedPassphrase[storj.NonceSize:], masterKey, &nonce)
+	plaintext, err := encryption.DecryptSecretBox(encryptedPassphrase[storj.NonceSize:], key, &nonce)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return plaintext, nil
-}
-
-// Close closes the service.
-func (s *Service) Close() error {
-	return s.secretsService.Close()
 }

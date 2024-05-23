@@ -31,7 +31,7 @@ type Projects interface {
 	GetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
 	// GetEncryptedPassphrase gets the encrypted passphrase of this project.
 	// NB: projects that don't have satellite managed encryption will not have this.
-	GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) ([]byte, error)
+	GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) ([]byte, *int, error)
 	// GetByPublicID is a method for querying project from the database by public_id.
 	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
@@ -147,6 +147,7 @@ type Project struct {
 	DefaultVersioning         DefaultVersioning         `json:"defaultVersioning"`
 	PromptedForVersioningBeta bool                      `json:"-"`
 	PassphraseEnc             []byte                    `json:"-"`
+	PassphraseEncKeyID        *int                      `json:"-"`
 	PathEncryption            *bool                     `json:"-"`
 }
 

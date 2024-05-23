@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -3098,7 +3099,16 @@ func TestSatelliteManagedProject(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
-				config.KeyManagement.TestMasterKey = "test-master-key"
+				config.KeyManagement.KeyInfos = kms.KeyInfos{
+					Values: map[int]kms.KeyInfo{
+						1: {
+							SecretVersion: "secretversion1", SecretChecksum: 12345,
+						},
+						2: {
+							SecretVersion: "secretversion2", SecretChecksum: 54321,
+						},
+					},
+				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -3121,34 +3131,83 @@ func TestSatelliteManagedProject(t *testing.T) {
 		require.NotNil(t, project.PathEncryption)
 		require.True(t, *project.PathEncryption)
 
-		encryptedPassphrase, err := projectDB.GetEncryptedPassphrase(userCtx, project.ID)
+		p1EncPass, p1EncKeyID, err := projectDB.GetEncryptedPassphrase(userCtx, project.ID)
 		require.NoError(t, err)
 		// encryptedPassphrase should be empty because project encryption is not managed by satellite
-		require.Empty(t, encryptedPassphrase)
+		require.Empty(t, p1EncPass)
+		require.Nil(t, p1EncKeyID)
 
 		config, err := srv.GetProjectConfig(userCtx, project.ID)
 		require.NoError(t, err)
 		require.Empty(t, config.Passphrase)
 
-		project, err = srv.CreateProject(userCtx, console.UpsertProjectInfo{
+		project2, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
 			Name:             "Test Project2",
 			ManagePassphrase: true,
 		})
 		require.NoError(t, err)
-		require.NotNil(t, project.PathEncryption)
-		require.False(t, *project.PathEncryption)
+		require.NotNil(t, project2.PathEncryption)
+		require.False(t, *project2.PathEncryption)
 
-		encryptedPassphrase, err = projectDB.GetEncryptedPassphrase(userCtx, project.ID)
+		p2EncPass, p2EncKeyID, err := projectDB.GetEncryptedPassphrase(userCtx, project2.ID)
 		require.NoError(t, err)
 		// encryptedPassphrase should not be empty because project encryption is managed by satellite
-		require.NotEmpty(t, encryptedPassphrase)
+		require.NotEmpty(t, p2EncPass)
+		require.NotNil(t, p2EncKeyID)
 
-		passphrase, err := kmsService.DecryptPassphrase(ctx, encryptedPassphrase)
+		p2Pass, err := kmsService.DecryptPassphrase(ctx, *p2EncKeyID, p2EncPass)
 		require.NoError(t, err)
 
-		config, err = srv.GetProjectConfig(userCtx, project.ID)
+		config, err = srv.GetProjectConfig(userCtx, project2.ID)
 		require.NoError(t, err)
-		require.Equal(t, string(passphrase), config.Passphrase)
+		require.Equal(t, string(p2Pass), config.Passphrase)
+
+		key1 := *p2EncKeyID
+		require.Equal(t, sat.Config.KeyManagement.DefaultMasterKey, key1)
+
+		// change default key
+		key2 := 2
+		sat.Config.KeyManagement.DefaultMasterKey = key2
+		require.NotEqual(t, key1, key2)
+
+		*kmsService = *kms.NewService(sat.Config.KeyManagement)
+		require.NoError(t, kmsService.Initialize(ctx))
+
+		// create new project
+		project3, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project3",
+			ManagePassphrase: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project3.PathEncryption)
+		require.False(t, *project3.PathEncryption)
+
+		// verify new default key is used for passphrase encryption
+		p3EncPass, p3EncKeyID, err := projectDB.GetEncryptedPassphrase(userCtx, project3.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, p3EncPass)
+		require.NotNil(t, p3EncKeyID)
+		require.Equal(t, key2, *p3EncKeyID)
+
+		p3Pass, err := kmsService.DecryptPassphrase(ctx, *p3EncKeyID, p3EncPass)
+		require.NoError(t, err)
+
+		config, err = srv.GetProjectConfig(userCtx, project3.ID)
+		require.NoError(t, err)
+		require.Equal(t, string(p3Pass), config.Passphrase)
+
+		// verify previous project still returns previous default key and passphrase can be decrypted by it
+		p2EncPass, p2EncKeyID, err = projectDB.GetEncryptedPassphrase(userCtx, project2.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, p2EncPass)
+		require.NotNil(t, p2EncKeyID)
+		require.Equal(t, key1, *p2EncKeyID)
+
+		// double check decrypted project2 passphrase is the same as before
+		pass, err := kmsService.DecryptPassphrase(ctx, *p2EncKeyID, p2EncPass)
+		require.NoError(t, err)
+
+		require.Equal(t, p2Pass, pass)
 	})
 }
 
@@ -3158,7 +3217,6 @@ func TestSatelliteManagedProjectWithDisabled(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
-				config.KeyManagement.TestMasterKey = ""
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -3211,7 +3269,16 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
-				config.KeyManagement.TestMasterKey = "test-master-key"
+				config.KeyManagement.KeyInfos = kms.KeyInfos{
+					Values: map[int]kms.KeyInfo{
+						1: {
+							SecretVersion: "secretversion1", SecretChecksum: 12345,
+						},
+						2: {
+							SecretVersion: "secretversion2", SecretChecksum: 54321,
+						},
+					},
+				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -3247,7 +3314,7 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 
 		srv.TestToggleSatelliteManagedEncryption(false)
 
-		encryptedPassphrase, err := projectDB.GetEncryptedPassphrase(userCtx, project.ID)
+		encryptedPassphrase, _, err := projectDB.GetEncryptedPassphrase(userCtx, project.ID)
 		require.NoError(t, err)
 		// encryptedPassphrase should not be empty because project encryption is managed by satellite
 		require.NotEmpty(t, encryptedPassphrase)

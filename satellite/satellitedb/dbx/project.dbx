@@ -102,7 +102,7 @@ update project ( where project.id = ? )
 delete project ( where project.id = ? )
 
 read one (
-	select project.passphrase_enc
+	select project.passphrase_enc project.passphrase_enc_key_id
 	where project.id = ?
 )
 

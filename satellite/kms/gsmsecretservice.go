@@ -15,59 +15,49 @@ import (
 // gsmService is a service for encrypting/decrypting project passphrases.
 // it uses Google Secret Manager as the master key provider.
 type gsmService struct {
-	client *secretmanager.Client
-
-	config Config
-
-	masterKey *storj.Key
+	client client
 }
 
 // newGsmService creates new gsmService for encrypting/decrypting project passphrases.
-// this will get the master key from Google Secret Manager and validate it.
-func newGsmService(config Config) *gsmService {
+// this will get the master keys from Google Secret Manager and validate them.
+func newGsmService(ctx context.Context, config Config) (*gsmService, error) {
+	var client client
+	if config.MockClient {
+		client = &mockGsmClient{
+			keyInfos: config.KeyInfos,
+		}
+	} else {
+		internalClient, err := secretmanager.NewClient(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		client = &gsmClient{internalClient}
+	}
+
 	return &gsmService{
-		config: config,
-	}
+		client: client,
+	}, nil
 }
 
-// Initialize gets and validates the master key.
-func (s *gsmService) Initialize(ctx context.Context) error {
-	client, err := secretmanager.NewClient(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	s.client = client
-
+// GetKey gets and validates a key.
+func (s *gsmService) GetKey(ctx context.Context, k KeyInfo) (*storj.Key, error) {
 	keyRequest := &secretmanagerpb.AccessSecretVersionRequest{
-		Name: s.config.SecretVersion,
+		Name: k.SecretVersion,
 	}
-	masterKey, err := s.client.AccessSecretVersion(ctx, keyRequest)
+	keyResp, err := s.client.AccessSecretVersion(ctx, keyRequest)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	if s.config.SecretChecksum != masterKey.Payload.GetDataCrc32C() {
-		return Error.New("checksum mismatch")
+	if keyResp.Payload.Data == nil || len(keyResp.Payload.Data) == 0 {
+		return nil, Error.New("no key found in secret manager")
 	}
 
-	if masterKey.Payload.Data == nil || len(masterKey.Payload.Data) == 0 {
-		return Error.New("no master key found in secret manager")
+	if k.SecretChecksum != keyResp.Payload.GetDataCrc32C() {
+		return nil, Error.New("checksum mismatch")
 	}
 
-	s.masterKey, err = storj.NewKey(masterKey.Payload.Data)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-// getMasterKey returns the master key.
-func (s *gsmService) getMasterKey() (*storj.Key, error) {
-	if s.masterKey == nil || len(s.masterKey) == 0 {
-		return nil, Error.New("master key not initialized")
-	}
-	return s.masterKey, nil
+	return storj.NewKey(keyResp.Payload.Data)
 }
 
 // Close closes the service.

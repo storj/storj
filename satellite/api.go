@@ -481,13 +481,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup kms
-		if config.KeyManagement != (kms.Config{}) {
+		if len(config.KeyManagement.KeyInfos.Values) > 0 {
 			peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
 
 			peer.Services.Add(lifecycle.Item{
-				Name:  "kms:service",
-				Run:   peer.KeyManagement.Service.Initialize,
-				Close: peer.KeyManagement.Service.Close,
+				Name: "kms:service",
+				Run:  peer.KeyManagement.Service.Initialize,
 			})
 		}
 	}
