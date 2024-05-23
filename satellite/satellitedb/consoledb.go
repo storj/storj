@@ -9,10 +9,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/lrucache"
 )
 
 // ensures that ConsoleDB implements console.DB.

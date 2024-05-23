@@ -17,7 +17,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
-	"storj.io/common/lrucache"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -34,6 +33,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
+	"storj.io/storj/shared/lrucache"
 )
 
 const (
