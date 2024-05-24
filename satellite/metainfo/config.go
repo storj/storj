@@ -141,7 +141,7 @@ type Config struct {
 	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
 	UploadLimiter                UploadLimiterConfig `help:"object upload limiter configuration"`
 	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
-	SuccessTrackerEnabled        bool                `default:"false" devDefault:"true" help:"enable success tracker based node selection"`
+	SuccessTrackerEnabled        bool                `default:"true" devDefault:"true" help:"enable success tracker based node selection"`
 	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
 	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
 
