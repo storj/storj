@@ -884,7 +884,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.server-side-copy-disabled: false
 
 # enable success tracker based node selection
-# metainfo.success-tracker-enabled: false
+# metainfo.success-tracker-enabled: true
 
 # how often to bump the generation in the node success tracker
 # metainfo.success-tracker-tick-duration: 10m0s
