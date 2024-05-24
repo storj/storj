@@ -96,9 +96,10 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
 			config := metabase.Config{
-				ApplicationName:  "satellite-bench",
-				MinPartSize:      5 * memory.MiB,
-				MaxNumberOfParts: 10000,
+				ApplicationName:            "satellite-bench",
+				MinPartSize:                5 * memory.MiB,
+				MaxNumberOfParts:           10000,
+				TestingPrecommitDeleteMode: metabase.PrecommitDeleteModes[0],
 			}
 
 			mudtest.Run[*metabase.DB](b, mudtest.WithTestLogger(b, func(ball *mud.Ball) {

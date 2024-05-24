@@ -116,3 +116,65 @@ func BenchmarkPrecommitConstraint(b *testing.B) {
 		})
 	})
 }
+
+func BenchmarkPrecommitConstraintUnversioned(b *testing.B) {
+	for _, precommitDeleteMode := range metabase.PrecommitDeleteModes {
+		metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
+			baseObj := metabasetest.RandObjectStream()
+
+			adapter := db.ChooseAdapter(baseObj.ProjectID)
+
+			var objects []metabase.RawObject
+			for i := 0; i < b.N; i++ {
+				baseObj.ObjectKey = metabase.ObjectKey(fmt.Sprintf("overwrite/%d", i))
+				object := metabase.RawObject{
+					ObjectStream: baseObj,
+				}
+				objects = append(objects, object)
+			}
+			err := db.TestingBatchInsertObjects(ctx, objects)
+			require.NoError(b, err)
+			b.ResetTimer()
+
+			b.Run(fmt.Sprintf("nooverwrite_%d", precommitDeleteMode), func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					objectKey := metabase.ObjectKey(fmt.Sprintf("nooverwrite/%d", i))
+					err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+						_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+							Location: metabase.ObjectLocation{
+								ProjectID:  baseObj.ProjectID,
+								BucketName: baseObj.BucketName,
+								ObjectKey:  objectKey,
+							},
+							Versioned:           false,
+							DisallowDelete:      false,
+							PrecommitDeleteMode: precommitDeleteMode,
+						}, adapter)
+						return err
+					})
+					require.NoError(b, err)
+				}
+			})
+
+			b.Run(fmt.Sprintf("overwrite_%d", precommitDeleteMode), func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					objectKey := metabase.ObjectKey(fmt.Sprintf("overwrite/%d", i))
+					err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+						_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+							Location: metabase.ObjectLocation{
+								ProjectID:  baseObj.ProjectID,
+								BucketName: baseObj.BucketName,
+								ObjectKey:  objectKey,
+							},
+							Versioned:           false,
+							DisallowDelete:      false,
+							PrecommitDeleteMode: precommitDeleteMode,
+						}, adapter)
+						return err
+					})
+					require.NoError(b, err)
+				}
+			})
+		})
+	}
+}

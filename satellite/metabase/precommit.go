@@ -49,6 +49,11 @@ type PrecommitConstraintResult struct {
 
 const defaultUnversionedPrecommitMode = 1
 
+// PrecommitDeleteModes is a list of all possible precommit delete modes.
+var PrecommitDeleteModes = []int{
+	defaultUnversionedPrecommitMode,
+}
+
 func (r *PrecommitConstraintResult) submitMetrics() {
 	mon.Meter("object_delete").Mark(r.DeletedObjectCount)
 	mon.Meter("segment_delete").Mark(r.DeletedSegmentCount)
