@@ -539,6 +539,7 @@ CREATE TABLE bucket_metainfos (
 	name bytea NOT NULL,
 	user_agent bytea,
 	versioning integer NOT NULL DEFAULT 0,
+	object_lock_enabled boolean NOT NULL DEFAULT false,
 	path_cipher integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	default_segment_size integer NOT NULL,

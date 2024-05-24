@@ -21,6 +21,9 @@ model bucket_metainfo (
 	//    3 - suspended (represents a bucket where versioning is currently suspended)
 	field versioning    int (updatable, default 0)
 
+	// object_lock_enabled indicates whether the bucket has Object Lock enabled.
+	field object_lock_enabled bool (updatable, default false)
+
 	// path_cipher is denotes how the paths have been encoded.
 	// The corresponding type storj.CipherSuite contains the relevant values.
 	// deprecated: in favor of a storing it in an access grant.

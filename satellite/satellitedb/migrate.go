@@ -2735,6 +2735,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE account_freeze_events ADD COLUMN notifications_count integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add object_lock_enabled column to bucket_metainfos table",
+				Version:     272,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN object_lock_enabled boolean NOT NULL DEFAULT false;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
