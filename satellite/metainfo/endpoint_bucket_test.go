@@ -788,3 +788,128 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 		})
 	})
 }
+
+func TestGetBucketObjectLockConfiguration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
+
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningEnabled))
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		createBucket := func(t *testing.T, name []byte, lockEnabled bool) {
+			_, err := endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              name,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+		}
+
+		t.Run("Success", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			require.NoError(t, err)
+			require.True(t, resp.Configuration.Enabled)
+
+			bucketName = []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			resp, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			require.NoError(t, err)
+			require.False(t, resp.Configuration.Enabled)
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			endpoint.SetUseBucketLevelObjectLock(false)
+			defer endpoint.SetUseBucketLevelObjectLock(true)
+
+			req := &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			}
+			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+
+			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+
+			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
+			require.NoError(t, err)
+			require.False(t, resp.Configuration.Enabled)
+		})
+
+		t.Run("Nonexistent bucket", func(t *testing.T) {
+			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: []byte(testrand.BucketName()),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			bucketName = []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: noLockApiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
+	})
+}

@@ -509,6 +509,42 @@ func (endpoint *Endpoint) CountBuckets(ctx context.Context, projectID uuid.UUID)
 	return count, nil
 }
 
+// GetBucketObjectLockConfiguration returns a bucket's Object Lock configuration.
+func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, req *pb.GetBucketObjectLockConfigurationRequest) (resp *pb.GetBucketObjectLockConfigurationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionLock,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitHead)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	}
+
+	enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
+	}
+
+	return &pb.GetBucketObjectLockConfigurationResponse{
+		Configuration: &pb.ObjectLockConfiguration{
+			Enabled: enabled,
+		},
+	}, nil
+}
+
 func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	key, err := getAPIKey(ctx, header)
 	if err != nil {

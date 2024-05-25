@@ -150,6 +150,17 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketSetVersioning: response,
 				},
 			})
+		case *pb.BatchRequestItem_BucketGetObjectLockConfiguration:
+			singleRequest.BucketGetObjectLockConfiguration.Header = req.Header
+			response, err := endpoint.GetBucketObjectLockConfiguration(ctx, singleRequest.BucketGetObjectLockConfiguration)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketGetObjectLockConfiguration{
+					BucketGetObjectLockConfiguration: response,
+				},
+			})
 		case *pb.BatchRequestItem_BucketDelete:
 			singleRequest.BucketDelete.Header = req.Header
 			response, err := endpoint.DeleteBucket(ctx, singleRequest.BucketDelete)
