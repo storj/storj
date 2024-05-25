@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS segments
     encrypted_etag      BYTES( MAX),
     plain_offset        INT64 NOT NULL,
     plain_size          INT64 NOT NULL,
-    redundancy          INT64 NOT NULL,
+    redundancy          INT64 NOT NULL DEFAULT (0),
     inline_data         BYTES( MAX),
     remote_alias_pieces BYTES(MAX),
     placement           INT64,
