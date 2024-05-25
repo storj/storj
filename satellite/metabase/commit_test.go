@@ -4303,5 +4303,5 @@ func TestCommitInlineObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-	})
+	}, metabasetest.WithSpanner())
 }
