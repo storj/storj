@@ -42,6 +42,7 @@ type Adapter interface {
 	ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error)
 
 	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)
+	UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (affected int64, err error)
 
 	DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
 	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
