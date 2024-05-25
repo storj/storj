@@ -1554,6 +1554,86 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 }
 
 func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO(spanner) should we perform these two inserts as a Migration
+	objectRows := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				status, segment_count, expires_at, encryption,
+				total_plain_size, total_encrypted_size,
+				zombie_deletion_deadline,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+			) VALUES (
+				@project_id, @bucket_name, @object_key, @version, @stream_id,
+				@status, @segment_count, @expires_at, @encryption_parameters,
+				@total_plain_size, @total_encrypted_size,
+				@zombie_deletion_deadline,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key
+			)
+			THEN RETURN created_at
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       object.ProjectID,
+			"bucket_name":                      object.BucketName,
+			"object_key":                       []byte(object.ObjectKey),
+			"version":                          object.Version,
+			"stream_id":                        object.StreamID,
+			"status":                           object.Status,
+			"segment_count":                    int64(object.SegmentCount),
+			"expires_at":                       object.ExpiresAt,
+			"encryption_parameters":            encryptionParameters{&object.Encryption},
+			"total_plain_size":                 object.TotalPlainSize,
+			"total_encrypted_size":             object.TotalEncryptedSize,
+			"zombie_deletion_deadline":         nil,
+			"encrypted_metadata":               object.EncryptedMetadata,
+			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
+			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
+		},
+	})
+	defer objectRows.Stop()
+	row, err := objectRows.Next()
+	if err != nil {
+		return Error.New("failed to create object: %w", err)
+	}
+	err = row.Columns(&object.CreatedAt)
+	if err != nil {
+		return Error.New("failed to read object created_at: %w", err)
+	}
+
+	// TODO consider not inserting segment if inline data is empty
+
+	_, err = stx.tx.Update(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, encrypted_etag, plain_size, plain_offset,
+				inline_data
+			) VALUES (
+				@stream_id, @position, @expires_at,
+				@root_piece_id, @encrypted_key_nonce, @encrypted_key,
+				@encrypted_size, @encrypted_etag, @plain_size, 0, -- plain_offset is 0
+				@inline_data
+			)
+		`,
+		Params: map[string]interface{}{
+			"stream_id":           segment.StreamID,
+			"position":            segment.Position,
+			"expires_at":          segment.ExpiresAt,
+			"root_piece_id":       storj.PieceID{},
+			"encrypted_key_nonce": segment.EncryptedKeyNonce,
+			"encrypted_key":       segment.EncryptedKey,
+			"encrypted_size":      int64(segment.EncryptedSize),
+			"encrypted_etag":      segment.EncryptedETag,
+			"plain_size":          int64(segment.PlainSize),
+			"inline_data":         segment.InlineData,
+		},
+	})
+	if err != nil {
+		return Error.New("failed to create segment: %w", err)
+	}
+
+	return nil
 }
