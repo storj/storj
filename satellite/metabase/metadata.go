@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 
+	"github.com/storj/exp-spanner"
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
@@ -100,6 +101,50 @@ func (p *PostgresAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context,
 
 // UpdateObjectLastCommittedMetadata updates an object metadata.
 func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (affected int64, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO So the issue is that during a multipart upload of an object,
+	// uplink can update object metadata. If we add the arguments EncryptedMetadata
+	// to CommitObject, they will need to account for them being optional.
+	// Leading to scenarios where uplink calls update metadata, but wants to clear them
+	// during commit object.
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		affected, err = tx.Update(ctx, spanner.Statement{
+			SQL: `
+				UPDATE objects SET
+					encrypted_metadata_nonce         = @encrypted_metadata_nonce,
+					encrypted_metadata               = @encrypted_metadata,
+					encrypted_metadata_encrypted_key = @encrypted_metadata_encrypted_key
+				WHERE
+					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
+					version IN (SELECT version FROM objects WHERE
+						(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
+						status <> ` + statusPending + ` AND
+						(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+						ORDER BY version desc
+						LIMIT 1
+					) AND
+					stream_id    = @stream_id AND
+					status       IN ` + statusesCommitted + `
+			`,
+			Params: map[string]interface{}{
+				"project_id":                       opts.ProjectID,
+				"bucket_name":                      opts.BucketName,
+				"object_key":                       []byte(opts.ObjectKey),
+				"stream_id":                        opts.StreamID,
+				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
+				"encrypted_metadata":               opts.EncryptedMetadata,
+				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			},
+		})
+		if err != nil {
+			return Error.New("unable to update object metadata: %w", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	return affected, nil
 }

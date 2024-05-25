@@ -389,5 +389,5 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
