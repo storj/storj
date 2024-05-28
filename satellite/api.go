@@ -320,7 +320,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup contact service
-		authority, err := loadAuthorities(full.PeerIdentity(), config.TagAuthorities)
+		authority, err := LoadAuthorities(full.PeerIdentity(), config.TagAuthorities)
 		if err != nil {
 			return nil, err
 		}
@@ -699,7 +699,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	return peer, nil
 }
 
-func loadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
+// LoadAuthorities loads the authorities from the specified locations.
+func LoadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
 	var authority nodetag.Authority
 	authority = append(authority, signing.SigneeFromPeerIdentity(peerIdentity))
 	for _, cert := range strings.Split(authorityLocations, ",") {
