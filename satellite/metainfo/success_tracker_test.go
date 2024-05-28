@@ -14,7 +14,7 @@ import (
 
 func TestSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
-		var tr successTracker
+		var tr SuccessTracker
 
 		check := func(id storj.NodeID, success, total uint32) {
 			gotsuccess, gottotal := tr.Get(id)

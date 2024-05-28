@@ -86,14 +86,14 @@ type Endpoint struct {
 	versionCollector       *versionCollector
 	zstdDecoder            *zstd.Decoder
 	zstdEncoder            *zstd.Encoder
-	successTrackers        *successTrackers
+	successTrackers        *SuccessTrackers
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers,
-	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
+	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
 
 	extendedConfig, err := NewExtendedConfig(config)
@@ -159,7 +159,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		versionCollector:     newVersionCollector(log),
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
-		successTrackers:      newSuccessTrackers(extendedConfig.successTrackerTrustedUplinks),
+		successTrackers:      successTrackers,
 	}, nil
 }
 

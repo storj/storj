@@ -8,51 +8,68 @@ import (
 	"sync/atomic"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/nodeselection"
 )
 
-type successTrackers struct {
-	trackers map[storj.NodeID]*successTracker
-	global   *successTracker
+// SuccessTrackers manages global and uplink level trackers.
+type SuccessTrackers struct {
+	trackers map[storj.NodeID]*SuccessTracker
+	global   *SuccessTracker
 }
 
-func newSuccessTrackers(approvedUplinks []storj.NodeID) *successTrackers {
-	global := new(successTracker)
-	trackers := make(map[storj.NodeID]*successTracker, len(approvedUplinks))
+// NewSuccessTrackers creates a new success tracker.
+func NewSuccessTrackers(approvedUplinks []storj.NodeID) *SuccessTrackers {
+	global := new(SuccessTracker)
+	trackers := make(map[storj.NodeID]*SuccessTracker, len(approvedUplinks))
 	for _, uplink := range approvedUplinks {
-		trackers[uplink] = new(successTracker)
+		trackers[uplink] = new(SuccessTracker)
 	}
 
-	return &successTrackers{
+	return &SuccessTrackers{
 		trackers: trackers,
 		global:   global,
 	}
 }
 
-func (t *successTrackers) BumpGeneration() {
+// BumpGeneration will bump all the managed trackers.
+func (t *SuccessTrackers) BumpGeneration() {
 	for _, tracker := range t.trackers {
 		tracker.BumpGeneration()
 	}
 	t.global.BumpGeneration()
 }
 
-func (t *successTrackers) GetTracker(uplink storj.NodeID) *successTracker {
+// GetTracker returns the tracker for the specific uplink. Returns with the global tracker, if uplink is not whitelisted.
+func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) *SuccessTracker {
 	if tracker, ok := t.trackers[uplink]; ok {
 		return tracker
 	}
 	return t.global
 }
 
+// Get implements nodeselection.UploadSuccessTracker.
+func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node storj.NodeID) (success, total uint32) {
+	tracker := t.GetTracker(uplink)
+	return func(node storj.NodeID) (success, total uint32) {
+		return tracker.Get(node)
+	}
+}
+
 const nodeSuccessGenerations = 4
 
 type nodeCounterArray [nodeSuccessGenerations]atomic.Uint64
 
-type successTracker struct {
+// SuccessTracker tracks the success / total uploads per node.
+type SuccessTracker struct {
 	mu   sync.Mutex
 	gen  atomic.Uint64
 	data sync.Map // storj.NodeID -> *nodeCounterArray
 }
 
-func (t *successTracker) Increment(node storj.NodeID, success bool) {
+var _ nodeselection.UploadSuccessTracker = &SuccessTrackers{}
+
+// Increment will increment success/total counters.
+func (t *SuccessTracker) Increment(node storj.NodeID, success bool) {
 	ctrsI, ok := t.data.Load(node)
 	if !ok {
 		ctrsI, _ = t.data.LoadOrStore(node, new(nodeCounterArray))
@@ -68,7 +85,8 @@ func (t *successTracker) Increment(node storj.NodeID, success bool) {
 	ctrs[gen].Add(v)
 }
 
-func (t *successTracker) Get(node storj.NodeID) (success, total uint32) {
+// Get implements UploadSuccessTracker.
+func (t *SuccessTracker) Get(node storj.NodeID) (success, total uint32) {
 	ctrsI, ok := t.data.Load(node)
 	if !ok {
 		return 0, 0
@@ -83,7 +101,8 @@ func (t *successTracker) Get(node storj.NodeID) (success, total uint32) {
 	return uint32(sum >> 32), uint32(sum)
 }
 
-func (t *successTracker) BumpGeneration() {
+// BumpGeneration bumps the generation. Predefined generation / buckets are used to create sliding-window from the generations / buckets.
+func (t *SuccessTracker) BumpGeneration() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
