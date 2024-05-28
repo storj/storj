@@ -230,25 +230,15 @@ func (s *Service) getProjectUsage(
 		}
 	}
 
-	// GetProjectStorageTotals uses the live accounting, so we need to check if
+	// GetProjectStorageAndSegmentUsage uses the live accounting, so we need to check if
 	// there is an error connecting to it.
-	storageUsage, err := s.accounting.GetProjectStorageTotals(ctx, id)
+	storageUsage, segmentUsage, err := s.accounting.GetProjectStorageAndSegmentUsage(ctx, id)
 	if err != nil {
 		if aerr := handleLiveAccountingErr(err); aerr != nil {
 			return 0, nil, nil, *aerr
 		}
 	} else {
 		storage = &storageUsage
-	}
-
-	// GetProjectSegmentTotals uses the live accounting, so we need to check if
-	// there is an error connecting to it.
-	segmentUsage, err := s.accounting.GetProjectSegmentTotals(ctx, id)
-	if err != nil {
-		if aerr := handleLiveAccountingErr(err); aerr != nil {
-			return 0, nil, nil, *aerr
-		}
-	} else {
 		segment = &segmentUsage
 	}
 

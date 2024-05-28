@@ -3592,7 +3592,7 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, err
 	}
 
-	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+	storageUsed, segmentUsed, err := s.projectUsage.GetProjectStorageAndSegmentUsage(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -3604,11 +3604,6 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		now := s.nowFn()
 		bandwidthUsed, err = s.projectUsage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	segmentUsed, err := s.projectUsage.GetProjectSegmentTotals(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
