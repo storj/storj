@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo
+package metainfo_test
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/metainfo"
 )
 
 type mockAPIKeys struct {
@@ -27,7 +28,7 @@ func (m *mockAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.APIK
 	return &console.APIKeyInfo{Secret: m.secret}, nil
 }
 
-var _ APIKeys = (*mockAPIKeys)(nil)
+var _ metainfo.APIKeys = (*mockAPIKeys)(nil)
 
 func TestEndpoint_validateAuthN(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -45,83 +46,80 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 	keyNoListsNoDeletes, err := keyNoLists.Restrict(macaroon.Caveat{DisallowDeletes: true})
 	require.NoError(t, err)
 
-	endpoint := Endpoint{
-		log:     zaptest.NewLogger(t),
-		apiKeys: &mockAPIKeys{secret: secret},
-	}
+	endpoint := metainfo.TestingNewAPIKeysEndpoint(zaptest.NewLogger(t), &mockAPIKeys{secret: secret})
 
 	now := time.Now()
 
 	var canRead, canList, canDelete bool
 
-	set1 := []verifyPermission{
+	set1 := []metainfo.VerifyPermission{
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionDelete,
 				Time: now,
 			},
 		},
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionRead,
 				Time: now,
 			},
-			actionPermitted: &canRead,
-			optional:        true,
+			ActionPermitted: &canRead,
+			Optional:        true,
 		},
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionList,
 				Time: now,
 			},
-			actionPermitted: &canList,
-			optional:        true,
+			ActionPermitted: &canList,
+			Optional:        true,
 		},
 	}
-	set2 := []verifyPermission{
+	set2 := []metainfo.VerifyPermission{
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionWrite,
 				Time: now,
 			},
 		},
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionDelete,
 				Time: now,
 			},
-			actionPermitted: &canDelete,
-			optional:        true,
+			ActionPermitted: &canDelete,
+			Optional:        true,
 		},
 	}
-	set3 := []verifyPermission{
+	set3 := []metainfo.VerifyPermission{
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionDelete,
 				Time: now,
 			},
 		},
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionRead,
 				Time: now,
 			},
-			actionPermitted: &canRead,
-			optional:        true,
+			ActionPermitted: &canRead,
+			Optional:        true,
 		},
 		{
-			action: macaroon.Action{
+			Action: macaroon.Action{
 				Op:   macaroon.ActionList,
 				Time: now,
 			},
-			actionPermitted: &canList,
-			optional:        true,
+			ActionPermitted: &canList,
+			Optional:        true,
 		},
 	}
 
 	for i, tt := range [...]struct {
 		key                                     *macaroon.APIKey
-		permissions                             []verifyPermission
+		permissions                             []metainfo.VerifyPermission
 		wantCanRead, wantCanList, wantCanDelete bool
 		wantErr                                 bool
 	}{
@@ -132,26 +130,26 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 
 		{
 			key:         key,
-			permissions: make([]verifyPermission, 2),
+			permissions: make([]metainfo.VerifyPermission, 2),
 			wantErr:     true,
 		},
 
 		{
 			key: key,
-			permissions: []verifyPermission{
+			permissions: []metainfo.VerifyPermission{
 				{
-					action: macaroon.Action{
+					Action: macaroon.Action{
 						Op:   macaroon.ActionWrite,
 						Time: now,
 					},
-					optional: true,
+					Optional: true,
 				},
 				{
-					action: macaroon.Action{
+					Action: macaroon.Action{
 						Op:   macaroon.ActionDelete,
 						Time: now,
 					},
-					optional: true,
+					Optional: true,
 				},
 			},
 			wantErr: true,
@@ -159,9 +157,9 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 
 		{
 			key: key,
-			permissions: []verifyPermission{
+			permissions: []metainfo.VerifyPermission{
 				{
-					action: macaroon.Action{
+					Action: macaroon.Action{
 						Op:   macaroon.ActionProjectInfo,
 						Time: now,
 					},
@@ -223,7 +221,7 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 		rawKey := tt.key.SerializeRaw()
 		ctxWithKey := consoleauth.WithAPIKey(ctx, rawKey)
 
-		_, err := endpoint.validateAuthN(ctxWithKey, &pb.RequestHeader{ApiKey: rawKey}, tt.permissions...)
+		_, err := endpoint.ValidateAuthN(ctxWithKey, &pb.RequestHeader{ApiKey: rawKey}, tt.permissions...)
 
 		assert.Equal(t, err != nil, tt.wantErr, i)
 		assert.Equal(t, tt.wantCanRead, canRead, i)

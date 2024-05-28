@@ -180,7 +180,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		ObjectExistsChecked: objectJustCreated,
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
@@ -468,7 +468,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.metabase.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
@@ -570,7 +570,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		InlineData: req.EncryptedInlineData,
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -634,7 +634,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Limit: int(req.Limit),
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	response, err := convertStreamListResults(result)
@@ -738,7 +738,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		})
 	}
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.

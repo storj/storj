@@ -163,6 +163,14 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	}, nil
 }
 
+// TestingNewAPIKeysEndpoint returns an endpoint suitable for testing api keys behaviour.
+func TestingNewAPIKeysEndpoint(log *zap.Logger, apiKeys APIKeys) *Endpoint {
+	return &Endpoint{
+		log:     log,
+		apiKeys: apiKeys,
+	}
+}
+
 // Run manages the internal dependencies of the endpoint such as the
 // success tracker.
 func (endpoint *Endpoint) Run(ctx context.Context) error {
@@ -332,8 +340,8 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	return satSegmentID, nil
 }
 
-// convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
-func (endpoint *Endpoint) convertMetabaseErr(err error) error {
+// ConvertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
+func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 	switch {
 	case err == nil:
 		return nil

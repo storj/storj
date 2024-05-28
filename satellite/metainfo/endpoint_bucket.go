@@ -268,31 +268,31 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 	var canRead, canList bool
 
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:     macaroon.ActionDelete,
 				Bucket: req.Name,
 				Time:   now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:     macaroon.ActionRead,
 				Bucket: req.Name,
 				Time:   now,
 			},
-			actionPermitted: &canRead,
-			optional:        true,
+			ActionPermitted: &canRead,
+			Optional:        true,
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:     macaroon.ActionList,
 				Bucket: req.Name,
 				Time:   now,
 			},
-			actionPermitted: &canList,
-			optional:        true,
+			ActionPermitted: &canList,
+			Optional:        true,
 		},
 	)
 	if err != nil {

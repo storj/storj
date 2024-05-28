@@ -38,24 +38,24 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	var canDelete bool
 
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			actionPermitted: &canDelete,
-			optional:        true,
+			ActionPermitted: &canDelete,
+			Optional:        true,
 		},
 	)
 	if err != nil {
@@ -157,7 +157,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, opts)
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
@@ -220,24 +220,24 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	now := time.Now()
 	var allowDelete bool
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        streamID.Bucket,
 				EncryptedPath: streamID.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        streamID.Bucket,
 				EncryptedPath: streamID.EncryptedObjectKey,
 				Time:          now,
 			},
-			actionPermitted: &allowDelete,
-			optional:        true,
+			ActionPermitted: &allowDelete,
+			Optional:        true,
 		},
 	)
 	if err != nil {
@@ -313,7 +313,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	object, err := endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 	committedObject = &object
 
@@ -339,24 +339,24 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 
 	now := time.Now()
 	var allowDelete bool
-	keyInfo, err := endpoint.validateAuthN(ctx, beginObjectReq.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, beginObjectReq.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
 				Time:          now,
 			},
-			actionPermitted: &allowDelete,
-			optional:        true,
+			ActionPermitted: &allowDelete,
+			Optional:        true,
 		},
 	)
 	if err != nil {
@@ -503,7 +503,7 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 		Versioned: bucket.Versioning == buckets.VersioningEnabled,
 	})
 	if err != nil {
-		return nil, nil, nil, endpoint.convertMetabaseErr(err)
+		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, metabase.BucketLocation{
@@ -584,7 +584,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		var sv metabase.StreamVersionID
 		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 		mbObject, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: objectLocation,
@@ -592,7 +592,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		})
 	}
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	if mbObject.Status.IsDeleteMarker() {
@@ -708,7 +708,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		var sv metabase.StreamVersionID
 		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 		object, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: metabase.ObjectLocation{
@@ -720,7 +720,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		})
 	}
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	if object.Status.IsDeleteMarker() {
@@ -755,7 +755,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		Limit:    int(req.Limit),
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	// get the download response for the first segment
@@ -1139,7 +1139,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if len(req.VersionCursor) != 0 {
 		sv, err := metabase.StreamVersionIDFromBytes(req.VersionCursor)
 		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 		cursorVersion = sv.Version()
 	}
@@ -1196,7 +1196,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			},
 		)
 		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 	} else if !req.IncludeAllVersions {
 		if bucket.Versioning.IsUnversioned() {
@@ -1230,7 +1230,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				},
 			)
 			if err != nil {
-				return nil, endpoint.convertMetabaseErr(err)
+				return nil, endpoint.ConvertMetabaseErr(err)
 			}
 		} else {
 			result, err := endpoint.metabase.ListObjects(ctx,
@@ -1251,13 +1251,13 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					IncludeSystemMetadata: includeSystemMetadata,
 				})
 			if err != nil {
-				return nil, endpoint.convertMetabaseErr(err)
+				return nil, endpoint.ConvertMetabaseErr(err)
 			}
 
 			for _, entry := range result.Objects {
 				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 				if err != nil {
-					return nil, endpoint.convertMetabaseErr(err)
+					return nil, endpoint.ConvertMetabaseErr(err)
 				}
 				resp.Items = append(resp.Items, item)
 			}
@@ -1294,7 +1294,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			},
 		)
 		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 	}
 	endpoint.log.Debug("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1378,7 +1378,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		},
 	)
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	resp = &pb.ObjectListPendingStreamsResponse{}
@@ -1411,34 +1411,34 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	var canRead, canList bool
 
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			actionPermitted: &canRead,
-			optional:        true,
+			ActionPermitted: &canRead,
+			Optional:        true,
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionList,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			actionPermitted: &canList,
-			optional:        true,
+			ActionPermitted: &canList,
+			Optional:        true,
 		},
 	)
 	if err != nil {
@@ -1485,7 +1485,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			// No error info is returned if neither Read, nor List permission is granted
 			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	var object *pb.Object
@@ -1553,7 +1553,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		},
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	var pieceCountByNodeID map[storj.NodeID]int64
@@ -1575,7 +1575,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	})
 	err = group.Wait()
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
@@ -1667,7 +1667,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	mon.Meter("req_update_object_metadata").Mark(1)
@@ -1980,25 +1980,25 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedObjectKey,
@@ -2050,7 +2050,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		},
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	response, err := convertBeginMoveObjectResults(result)
@@ -2194,7 +2194,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewDisallowDelete: true,
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	endpoint.log.Debug("Object Move Finished", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "move"), zap.String("type", "object"))
@@ -2216,17 +2216,17 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedObjectKey,
@@ -2279,7 +2279,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		var sv metabase.StreamVersionID
 		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 		version = sv.Version()
 	}
@@ -2296,7 +2296,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		},
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	response, err := convertBeginCopyObjectResults(result)
@@ -2422,7 +2422,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		},
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	// we can return nil redundancy because this request won't be used for downloading

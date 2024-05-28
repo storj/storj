@@ -72,24 +72,25 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
-type verifyPermission struct {
-	action          macaroon.Action
-	actionPermitted *bool
-	optional        bool
+// VerifyPermission specifies one permission that is required by an endpoint.
+type VerifyPermission struct {
+	Action          macaroon.Action
+	ActionPermitted *bool
+	Optional        bool
 }
 
-// validateAuthN validates things like API keys, rate limit and user permissions
+// ValidateAuthN validates things like API keys, rate limit and user permissions
 // for each permission from permissions. It returns an error for the first
 // required (not optional) permission that the check fails for. There must be at
 // least one required (not optional) permission. In case all permissions are
 // optional, it will return an error. It always returns valid RPC errors.
-func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestHeader, permissions ...verifyPermission) (_ *console.APIKeyInfo, err error) {
+func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestHeader, permissions ...VerifyPermission) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	allOptional := true
 
 	for _, p := range permissions {
-		if !p.optional {
+		if !p.Optional {
 			allOptional = false
 			break
 		}
@@ -105,11 +106,11 @@ func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestH
 	}
 
 	for _, p := range permissions {
-		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.action, endpoint.revocations)
-		if p.actionPermitted != nil {
-			*p.actionPermitted = err == nil
+		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.Action, endpoint.revocations)
+		if p.ActionPermitted != nil {
+			*p.ActionPermitted = err == nil
 		}
-		if err != nil && !p.optional {
+		if err != nil && !p.Optional {
 			endpoint.log.Debug("unauthorized request", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 		}
@@ -119,7 +120,7 @@ func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestH
 }
 
 // validateAuthAny validates things like API keys, rate limit and user permissions.
-// At least one of the action from actions must be permitted to return successfully.
+// At least one of the Action from actions must be permitted to return successfully.
 // It always returns valid RPC errors.
 func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.RequestHeader, actions ...macaroon.Action) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -130,7 +131,7 @@ func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.Reques
 	}
 
 	if len(actions) == 0 {
-		return nil, rpcstatus.Error(rpcstatus.Internal, "No action to validate")
+		return nil, rpcstatus.Error(rpcstatus.Internal, "No Action to validate")
 	}
 
 	var combinedErrs error
