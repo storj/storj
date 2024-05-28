@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -16,7 +17,7 @@ func TestProjectFromDbx(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		project, err := projectFromDBX(ctx, nil)
+		project, err := satellitedb.ProjectFromDBX(ctx, nil)
 
 		assert.Nil(t, project)
 		assert.NotNil(t, err)
@@ -28,7 +29,7 @@ func TestProjectFromDbx(t *testing.T) {
 			Id: []byte("qweqwe"),
 		}
 
-		project, err := projectFromDBX(ctx, &dbxProject)
+		project, err := satellitedb.ProjectFromDBX(ctx, &dbxProject)
 
 		assert.Nil(t, project)
 		assert.NotNil(t, err)
