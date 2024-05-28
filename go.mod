@@ -20,7 +20,7 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jackc/pgtype v1.14.1
-	github.com/jackc/pgx/v5 v5.5.2
+	github.com/jackc/pgx/v5 v5.6.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
