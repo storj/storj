@@ -13,7 +13,7 @@ import (
 	"storj.io/common/version"
 )
 
-func update(ctx context.Context, serviceName, binaryLocation string, ver version.Process) error {
+func update(ctx context.Context, restartMethod, serviceName, binaryLocation string, ver version.Process) error {
 	currentVersion, err := binaryVersion(binaryLocation)
 	if err != nil {
 		return errs.Wrap(err)
@@ -65,7 +65,7 @@ func update(ctx context.Context, serviceName, binaryLocation string, ver version
 
 	zap.L().Info("Restarting service.", zap.String("Service", serviceName))
 
-	if err = restartService(ctx, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
+	if err = restartService(ctx, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
 		return errs.Wrap(err)
 	}
 
