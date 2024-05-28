@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
@@ -174,6 +175,8 @@ type API struct {
 	Buckets struct {
 		Service *buckets.Service
 	}
+
+	SuccessTrackers *metainfo.SuccessTrackers
 }
 
 // NewAPI creates a new satellite API process.
@@ -278,7 +281,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	{
+		var trustedUplinks []storj.NodeID
+		for _, uplinkIDString := range config.Metainfo.SuccessTrackerTrustedUplinks {
+			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
+			if err != nil {
+				log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.String("uplink", uplinkIDString), zap.Error(err))
+			}
+			trustedUplinks = append(trustedUplinks, uplinkID)
+		}
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks)
+	}
+
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +368,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
 	if err != nil {
 		return nil, err
 	}
@@ -431,6 +446,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().ProjectMembers(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
+			peer.SuccessTrackers,
 			config.Metainfo,
 		)
 		if err != nil {
@@ -541,9 +557,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.StorjscanClient,
 			pc.Storjscan.Confirmations,
 			pc.BonusRate)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
 		peer.Payments.DepositWallets = peer.Payments.StorjscanService
 	}

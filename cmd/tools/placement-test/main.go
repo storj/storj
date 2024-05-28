@@ -89,7 +89,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	}
 
-	placement, err := config.Placement.Parse(nil)
+	placement, err := config.Placement.Parse(nil, nil)
 	if err != nil {
 		return errs.Wrap(err)
 	}

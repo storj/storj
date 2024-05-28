@@ -33,8 +33,48 @@ type placementDefinition struct {
 	Selector  string
 }
 
+// UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
+type UploadSuccessTracker interface {
+	Get(uplink storj.NodeID) func(node storj.NodeID) (success, total uint32)
+}
+
+// NoopTracker doesn't tracker uploads at all. Always returns with zero.
+type NoopTracker struct {
+}
+
+// Get implements UploadSuccessTracker.
+func (n NoopTracker) Get(uplink storj.NodeID) func(node storj.NodeID) (success, total uint32) {
+	return func(node storj.NodeID) (success, total uint32) {
+		return 0, 0
+	}
+}
+
+var _ UploadSuccessTracker = NoopTracker{}
+
+// PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
+type PlacementConfigEnvironment struct {
+	tracker UploadSuccessTracker
+}
+
+// NewPlacementConfigEnvironment creates PlacementConfigEnvironment.
+func NewPlacementConfigEnvironment(tracker UploadSuccessTracker) *PlacementConfigEnvironment {
+	if tracker == nil {
+		tracker = NoopTracker{}
+	}
+	return &PlacementConfigEnvironment{
+		tracker: tracker,
+	}
+}
+
+func (e *PlacementConfigEnvironment) apply(env map[any]any) {
+	if e == nil {
+		return
+	}
+	env["tracker"] = e.tracker
+}
+
 // LoadConfig loads the placement yaml file and creates the Placement definitions.
-func LoadConfig(configFile string) (PlacementDefinitions, error) {
+func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	placements := make(PlacementDefinitions)
 
 	cfg := &placementConfig{}
@@ -83,7 +123,7 @@ func LoadConfig(configFile string) (PlacementDefinitions, error) {
 		}
 
 		selector := resolveTemplates(def.Selector)
-		p.Selector, err = SelectorFromString(selector)
+		p.Selector, err = SelectorFromString(selector, environment)
 		if err != nil {
 			return placements, errs.New("Selector definition '%s' of placement %d is invalid: %v", selector, def.ID, err)
 		}
@@ -173,7 +213,7 @@ func FilterFromString(expr string) (NodeFilter, error) {
 }
 
 // SelectorFromString parses complex node selection rules from config lines.
-func SelectorFromString(expr string) (NodeSelectorInit, error) {
+func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (NodeSelectorInit, error) {
 	if expr == "" {
 		expr = "random()"
 	}
@@ -193,6 +233,7 @@ func SelectorFromString(expr string) (NodeSelectorInit, error) {
 		},
 		"nodelist": AllowedNodesFromFile,
 		"filter":   FilterSelector,
+		"pow2":     Pow2Selector,
 		"balanced": func(attribute string) (NodeSelectorInit, error) {
 			attr, err := CreateNodeAttribute(attribute)
 			if err != nil {
@@ -204,6 +245,7 @@ func SelectorFromString(expr string) (NodeSelectorInit, error) {
 	for k, v := range supportedFilters {
 		env[k] = v
 	}
+	environment.apply(env)
 	selector, err := mito.Eval(expr, env)
 	if err != nil {
 		return nil, errs.New("Invalid selector definition '%s', %v", expr, err)

@@ -144,7 +144,7 @@ func TestObserverForkProcess(t *testing.T) {
 
 		placements := nodeselection.ConfigurablePlacementRule{}
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
-		parsed, err := placements.Parse(nil)
+		parsed, err := placements.Parse(nil, nil)
 		require.NoError(t, err)
 		o.placements = parsed
 

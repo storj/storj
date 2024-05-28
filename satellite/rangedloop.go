@@ -149,7 +149,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup overlay
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +166,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}

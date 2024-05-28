@@ -245,7 +245,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
