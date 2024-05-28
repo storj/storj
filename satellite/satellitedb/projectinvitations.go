@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -126,7 +127,7 @@ func projectInvitationFromDBX(dbxInvite *dbx.ProjectInvitation) (_ *console.Proj
 // projectInvitationSliceFromDBX converts a project member invitation slice from the database to a
 // slice of console.ProjectInvitation.
 func projectInvitationSliceFromDBX(dbxInvites []*dbx.ProjectInvitation) (invites []console.ProjectInvitation, err error) {
-	return convertSlice(dbxInvites,
+	return slices2.Convert(dbxInvites,
 		func(i *dbx.ProjectInvitation) (console.ProjectInvitation, error) {
 			r, err := projectInvitationFromDBX(i)
 			return *r, err

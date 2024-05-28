@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
@@ -271,7 +272,7 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 		return nil, Error.Wrap(err)
 	}
 
-	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	txs, err = slices2.Convert(dbxTXs, fromDBXBillingTransaction)
 	return txs, Error.Wrap(err)
 }
 
@@ -284,7 +285,7 @@ func (db billingDB) ListSource(ctx context.Context, userID uuid.UUID, txSource s
 		return nil, Error.Wrap(err)
 	}
 
-	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	txs, err = slices2.Convert(dbxTXs, fromDBXBillingTransaction)
 	return txs, Error.Wrap(err)
 }
 

@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -653,7 +654,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 func projectsFromDbxSlice(ctx context.Context, projectsDbx []*dbx.Project) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projects, errors := convertSliceWithErrors(projectsDbx,
+	projects, errors := slices2.ConvertErrs(projectsDbx,
 		func(v *dbx.Project) (r console.Project, _ error) {
 			p, err := projectFromDBX(ctx, v)
 			if err != nil {

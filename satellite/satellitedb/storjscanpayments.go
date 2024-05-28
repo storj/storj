@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -132,7 +133,7 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 		return nil, Error.Wrap(err)
 	}
 
-	return convertSliceNoError(dbxPmnts, fromDBXPayment), nil
+	return slices2.Map(dbxPmnts, fromDBXPayment), nil
 }
 
 // LastBlocks returns the highest blocks known to DB per chain.
