@@ -24,8 +24,8 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-// we need to disable PlainSize validation for old uplinks.
-const validatePlainSize = false
+// ValidatePlainSize determines whether we disable PlainSize validation for old uplinks.
+const ValidatePlainSize = false
 
 const defaultZombieDeletionPeriod = 24 * time.Hour
 
@@ -504,7 +504,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
 	case opts.EncryptedSize <= 0:
 		return ErrInvalidRequest.New("EncryptedSize negative or zero")
-	case opts.PlainSize <= 0 && validatePlainSize:
+	case opts.PlainSize <= 0 && ValidatePlainSize:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
 	case opts.PlainOffset < 0:
 		return ErrInvalidRequest.New("PlainOffset negative")
@@ -791,7 +791,7 @@ func (opts CommitInlineSegment) Verify() error {
 		return ErrInvalidRequest.New("EncryptedKey missing")
 	case len(opts.EncryptedKeyNonce) == 0:
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
-	case opts.PlainSize <= 0 && validatePlainSize:
+	case opts.PlainSize <= 0 && ValidatePlainSize:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
 	case opts.PlainOffset < 0:
 		return ErrInvalidRequest.New("PlainOffset negative")
@@ -1036,7 +1036,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		return Object{}, err
 	}
 
-	var precommit precommitConstraintResult
+	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		segments, err := adapter.fetchSegmentsForCommit(ctx, opts.StreamID)
 		if err != nil {
@@ -1076,7 +1076,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
 
-		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,
@@ -1267,9 +1267,9 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		return Object{}, err
 	}
 
-	var precommit precommitConstraintResult
+	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
-		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,

@@ -16,17 +16,20 @@ import (
 type precommitTransactionAdapter interface {
 	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
 	precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error)
-	precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result precommitConstraintResult, err error)
+	precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
 }
 
-type precommitConstraint struct {
+// PrecommitConstraint is arguments to ensure that a single unversioned object or delete marker exists in the
+// table per object location.
+type PrecommitConstraint struct {
 	Location ObjectLocation
 
 	Versioned      bool
 	DisallowDelete bool
 }
 
-type precommitConstraintResult struct {
+// PrecommitConstraintResult returns the result of enforcing precommit constraint.
+type PrecommitConstraintResult struct {
 	Deleted []Object
 
 	// DeletedObjectCount returns how many objects were deleted.
@@ -39,7 +42,7 @@ type precommitConstraintResult struct {
 	HighestVersion Version
 }
 
-func (r *precommitConstraintResult) submitMetrics() {
+func (r *PrecommitConstraintResult) submitMetrics() {
 	mon.Meter("object_delete").Mark(r.DeletedObjectCount)
 	mon.Meter("segment_delete").Mark(r.DeletedSegmentCount)
 }
@@ -48,8 +51,8 @@ type stmtRow interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-// precommitConstraint ensures that only a single uncommitted object exists at the specified location.
-func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint, adapter precommitTransactionAdapter) (result precommitConstraintResult, err error) {
+// PrecommitConstraint ensures that only a single uncommitted object exists at the specified location.
+func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint, adapter precommitTransactionAdapter) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Location.Verify(); err != nil {
@@ -59,7 +62,7 @@ func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint,
 	if opts.Versioned {
 		highest, err := adapter.precommitQueryHighest(ctx, opts.Location)
 		if err != nil {
-			return precommitConstraintResult{}, Error.Wrap(err)
+			return PrecommitConstraintResult{}, Error.Wrap(err)
 		}
 		result.HighestVersion = highest
 		return result, nil
@@ -68,11 +71,11 @@ func (db *DB) precommitConstraint(ctx context.Context, opts precommitConstraint,
 	if opts.DisallowDelete {
 		highest, unversionedExists, err := adapter.precommitQueryHighestAndUnversioned(ctx, opts.Location)
 		if err != nil {
-			return precommitConstraintResult{}, Error.Wrap(err)
+			return PrecommitConstraintResult{}, Error.Wrap(err)
 		}
 		result.HighestVersion = highest
 		if unversionedExists {
-			return precommitConstraintResult{}, ErrPermissionDenied.New("no permissions to delete existing object")
+			return PrecommitConstraintResult{}, ErrPermissionDenied.New("no permissions to delete existing object")
 		}
 		return result, nil
 	}
@@ -143,11 +146,11 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx c
 }
 
 // precommitDeleteUnversioned deletes the unversioned object at loc and also returns the highest version.
-func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result precommitConstraintResult, err error) {
+func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := loc.Verify(); err != nil {
-		return precommitConstraintResult{}, Error.Wrap(err)
+		return PrecommitConstraintResult{}, Error.Wrap(err)
 	}
 
 	var deleted Object
@@ -225,7 +228,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 		)
 
 	if err != nil {
-		return precommitConstraintResult{}, Error.Wrap(err)
+		return PrecommitConstraintResult{}, Error.Wrap(err)
 	}
 
 	deleted.ProjectID = loc.ProjectID
@@ -259,7 +262,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	return result, nil
 }
 
-type precommitConstraintWithNonPendingResult struct {
+// PrecommitConstraintWithNonPendingResult contains the result for enforcing precommit constraint.
+type PrecommitConstraintWithNonPendingResult struct {
 	Deleted []Object
 
 	// DeletedObjectCount returns how many objects were deleted.
@@ -276,17 +280,17 @@ type precommitConstraintWithNonPendingResult struct {
 	HighestNonPendingVersion Version
 }
 
-func (r *precommitConstraintWithNonPendingResult) submitMetrics() {
+func (r *PrecommitConstraintWithNonPendingResult) submitMetrics() {
 	mon.Meter("object_delete").Mark(r.DeletedObjectCount)
 	mon.Meter("segment_delete").Mark(r.DeletedSegmentCount)
 }
 
-// precommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
-func (db *DB) precommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation, tx stmtRow) (result precommitConstraintWithNonPendingResult, err error) {
+// PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
+func (db *DB) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation, tx stmtRow) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := loc.Verify(); err != nil {
-		return precommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
 	var deleted Object
@@ -373,7 +377,7 @@ func (db *DB) precommitDeleteUnversionedWithNonPending(ctx context.Context, loc 
 		)
 
 	if err != nil {
-		return precommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
 	deleted.ProjectID = loc.ProjectID

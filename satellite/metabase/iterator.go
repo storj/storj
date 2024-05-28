@@ -30,7 +30,7 @@ type objectsIterator struct {
 
 	curIndex int
 	curRows  tagsql.Rows
-	cursor   iterateCursor // not relative to prefix
+	cursor   ObjectsIteratorCursor // not relative to prefix
 
 	skipPrefix  ObjectKey // relative to prefix
 	doNextQuery func(context.Context, *objectsIterator) (_ tagsql.Rows, err error)
@@ -39,7 +39,8 @@ type objectsIterator struct {
 	failErr error
 }
 
-type iterateCursor struct {
+// ObjectsIteratorCursor is the current location in an objects iterator.
+type ObjectsIteratorCursor struct {
 	Key       ObjectKey
 	Version   Version
 	StreamID  uuid.UUID
@@ -56,20 +57,20 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts It
 		bucketName:            []byte(opts.BucketName),
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit(opts.Prefix),
+		prefixLimit:           PrefixLimit(opts.Prefix),
 		batchSize:             opts.BatchSize,
 		recursive:             opts.Recursive,
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
-		cursor:   firstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
 
 		doNextQuery: doNextQueryAllVersionsWithStatus,
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
+	if LessObjectKey(it.cursor.Key, opts.Prefix) {
 		it.cursor.Key = opts.Prefix
 		it.cursor.Version = MaxVersion
 		it.cursor.Inclusive = true // TODO: we probably won't need this `Inclusive` handling, if we specify MaxVersion already
@@ -88,20 +89,20 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts Ite
 		bucketName:            []byte(opts.BucketName),
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit(opts.Prefix),
+		prefixLimit:           PrefixLimit(opts.Prefix),
 		batchSize:             opts.BatchSize,
 		recursive:             opts.Recursive,
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
-		cursor:   firstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
 
 		doNextQuery: doNextQueryAllVersionsWithStatusAscending,
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
+	if LessObjectKey(it.cursor.Key, opts.Prefix) {
 		it.cursor.Key = opts.Prefix
 		it.cursor.Version = -1
 		it.cursor.Inclusive = true
@@ -127,7 +128,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		pending:               true,
 
 		curIndex: 0,
-		cursor: iterateCursor{
+		cursor: ObjectsIteratorCursor{
 			Key:      opts.ObjectKey,
 			Version:  MaxVersion, // TODO: this needs to come as an argument
 			StreamID: opts.Cursor.StreamID,
@@ -211,7 +212,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 			afterPrefix := it.cursor.Key[len(it.prefix):]
 			p := bytes.IndexByte([]byte(afterPrefix), Delimiter)
 			if p >= 0 {
-				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
+				it.cursor.Key = it.prefix + PrefixLimit(afterPrefix[:p+1])
 				it.cursor.StreamID = uuid.UUID{}
 				it.cursor.Version = MaxVersion
 			}
@@ -475,7 +476,8 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	return nil
 }
 
-func prefixLimit(a ObjectKey) ObjectKey {
+// PrefixLimit returns the object key that can be used in where clause for querying objects matching a prefix.
+func PrefixLimit(a ObjectKey) ObjectKey {
 	if a == "" {
 		return ""
 	}
@@ -488,17 +490,17 @@ func prefixLimit(a ObjectKey) ObjectKey {
 	return ObjectKey(key)
 }
 
-// lessKey returns whether a < b.
-func lessKey(a, b ObjectKey) bool {
+// LessObjectKey returns whether a < b.
+func LessObjectKey(a, b ObjectKey) bool {
 	return bytes.Compare([]byte(a), []byte(b)) < 0
 }
 
-// firstIterateCursor adjust the cursor for a non-recursive iteration.
+// FirstIterateCursor adjust the cursor for a non-recursive iteration.
 // The cursor is non-inclusive and we need to adjust to handle prefix as cursor properly.
 // We return the next possible key from the prefix.
-func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) iterateCursor {
+func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) ObjectsIteratorCursor {
 	if recursive {
-		return iterateCursor{
+		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
 		}
@@ -506,7 +508,7 @@ func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 
 	// when the cursor does not match the prefix, we'll return the original cursor.
 	if !strings.HasPrefix(string(cursor.Key), string(prefix)) {
-		return iterateCursor{
+		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
 		}
@@ -522,14 +524,14 @@ func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 	if p < 0 {
 		// The cursor is not a prefix, but instead a path inside the prefix,
 		// so we can use it directly.
-		return iterateCursor{
+		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
 		}
 	}
 
 	// return the next prefix given a scoped path
-	return iterateCursor{
+	return ObjectsIteratorCursor{
 		Key:       cursor.Key[:len(prefix)+p] + ObjectKey(Delimiter+1),
 		Version:   MaxVersion,
 		Inclusive: true,

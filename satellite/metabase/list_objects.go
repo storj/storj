@@ -111,7 +111,7 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 	}
 	var skipCount skipCounter
 
-	cursor := opts.startCursor()
+	cursor := opts.StartCursor()
 
 	for repeat := 0; repeat < requeryLimit; repeat++ {
 		args := []any{
@@ -237,7 +237,7 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 		case lastEntry.IsPrefix: // can only be true if recursive listing
 			// skip over the prefix
 			cursor.Key = opts.Prefix + lastEntry.ObjectKey[:len(lastEntry.ObjectKey)-1] + DelimiterNext
-			cursor.Version = opts.firstVersion()
+			cursor.Version = opts.FirstVersion()
 
 		case opts.AllVersions:
 			// continue where-ever we left off
@@ -262,7 +262,7 @@ func entryKeyMatchesCursor(prefix, entryKey, cursorKey ObjectKey) bool {
 
 func (opts *ListObjects) stopKey() []byte {
 	if opts.Prefix != "" {
-		return []byte(prefixLimit(opts.Prefix))
+		return []byte(PrefixLimit(opts.Prefix))
 	}
 	return nil
 }
@@ -285,7 +285,8 @@ func (opts *ListObjects) boundary() string {
 	}
 }
 
-func (opts *ListObjects) firstVersion() Version {
+// FirstVersion returns the first object version we need to iterate given the list objects logic.
+func (opts *ListObjects) FirstVersion() Version {
 	if opts.VersionAscending() {
 		return 0
 	} else {
@@ -340,12 +341,13 @@ func (opts ListObjects) selectedFields() (selectedFields string) {
 	return selectedFields
 }
 
-func (opts *ListObjects) startCursor() ListObjectsCursor {
+// StartCursor returns the starting object cursor for this listing.
+func (opts *ListObjects) StartCursor() ListObjectsCursor {
 	if !strings.HasPrefix(string(opts.Cursor.Key), string(opts.Prefix)) {
 		// if the starting position is outside of the prefix
-		if lessKey(opts.Cursor.Key, opts.Prefix) {
+		if LessObjectKey(opts.Cursor.Key, opts.Prefix) {
 			// If we are before the prefix, then let's start from the prefix.
-			return ListObjectsCursor{Key: opts.Prefix, Version: opts.firstVersion()}
+			return ListObjectsCursor{Key: opts.Prefix, Version: opts.FirstVersion()}
 		}
 
 		// Otherwise, we must be after the prefix, and let's leave the cursor as is.
@@ -355,7 +357,7 @@ func (opts *ListObjects) startCursor() ListObjectsCursor {
 			// We'll do the same behavior of double checking the "versions",
 			// however, since the cursor is past prefix, we can entirely skip
 			// this logic.
-			return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.firstVersion()}
+			return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
 		}
 
 		return opts.Cursor
@@ -369,7 +371,7 @@ func (opts *ListObjects) startCursor() ListObjectsCursor {
 			firstDelimiter += len(opts.Prefix)
 			return ListObjectsCursor{
 				Key:     opts.Cursor.Key[:firstDelimiter] + DelimiterNext,
-				Version: opts.firstVersion(),
+				Version: opts.FirstVersion(),
 			}
 		}
 	}
@@ -377,7 +379,7 @@ func (opts *ListObjects) startCursor() ListObjectsCursor {
 	if !opts.AllVersions {
 		// We need to double check whether the latest entry has been already
 		// produced, because we may need to skip it.
-		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.firstVersion()}
+		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
 	}
 
 	return opts.Cursor

@@ -364,9 +364,9 @@ func (db *DB) DeleteObjectLastCommitted(
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
 
-		var precommit precommitConstraintWithNonPendingResult
+		var precommit PrecommitConstraintWithNonPendingResult
 		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-			precommit, err = db.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation, tx)
+			precommit, err = db.PrecommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation, tx)
 			if err != nil {
 				return Error.Wrap(err)
 			}

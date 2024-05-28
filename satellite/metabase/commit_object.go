@@ -58,12 +58,12 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, nil, err
 	}
 
-	var precommit precommitConstraintResult
+	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
-		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,

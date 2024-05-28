@@ -869,10 +869,11 @@ func (db *DB) Now(ctx context.Context) (time.Time, error) {
 }
 
 func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
-	return limitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
+	return LimitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
 }
 
-func limitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
+// LimitedAsOfSystemTime returns a SQL squery for AS OF SYSTEM TIME.
+func LimitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
 	if baseline.IsZero() || now.IsZero() {
 		return impl.AsOfSystemInterval(maxInterval)
 	}

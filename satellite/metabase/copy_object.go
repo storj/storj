@@ -152,7 +152,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject := Object{}
 	var copyMetadata []byte
 
-	var precommit precommitConstraintResult
+	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		sourceObject, err := adapter.getObjectNonPendingExactVersion(ctx, opts)
 		if err != nil {
@@ -200,7 +200,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			copyMetadata = sourceObject.EncryptedMetadata
 		}
 
-		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
