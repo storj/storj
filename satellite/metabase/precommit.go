@@ -26,6 +26,8 @@ type PrecommitConstraint struct {
 
 	Versioned      bool
 	DisallowDelete bool
+
+	PrecommitDeleteMode int
 }
 
 // PrecommitConstraintResult returns the result of enforcing precommit constraint.
@@ -41,6 +43,8 @@ type PrecommitConstraintResult struct {
 	// It returns 0 if there was none.
 	HighestVersion Version
 }
+
+const defaultUnversionedPrecommitMode = 1
 
 func (r *PrecommitConstraintResult) submitMetrics() {
 	mon.Meter("object_delete").Mark(r.DeletedObjectCount)
@@ -76,7 +80,12 @@ func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint,
 		return result, nil
 	}
 
-	return adapter.precommitDeleteUnversioned(ctx, opts.Location)
+	switch opts.PrecommitDeleteMode {
+	case defaultUnversionedPrecommitMode:
+		return adapter.precommitDeleteUnversioned(ctx, opts.Location)
+	default:
+		return adapter.precommitDeleteUnversioned(ctx, opts.Location)
+	}
 }
 
 // precommitQueryHighest queries the highest version for a given object.

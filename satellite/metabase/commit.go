@@ -1127,9 +1127,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		nextStatus := committedWhereVersioned(opts.Versioned)
 
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:       opts.Location(),
-			Versioned:      opts.Versioned,
-			DisallowDelete: opts.DisallowDelete,
+			Location:            opts.Location(),
+			Versioned:           opts.Versioned,
+			DisallowDelete:      opts.DisallowDelete,
+			PrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
 		}, adapter)
 		if err != nil {
 			return err

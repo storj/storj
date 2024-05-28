@@ -44,8 +44,9 @@ type Config struct {
 	ServerSideCopyDisabled bool
 	UseListObjectsIterator bool
 
-	TestingUniqueUnversioned bool
-	TestingCommitSegmentMode string
+	TestingUniqueUnversioned   bool
+	TestingCommitSegmentMode   string
+	TestingPrecommitDeleteMode int
 }
 
 const commitSegmentModeTransaction = "transaction"

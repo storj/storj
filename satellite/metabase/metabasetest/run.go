@@ -85,7 +85,8 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 		UseListObjectsIterator: config.UseListObjectsIterator,
 
-		TestingUniqueUnversioned: true,
+		TestingUniqueUnversioned:   true,
+		TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 	}, fn, flags...)
 }
 
@@ -139,8 +140,9 @@ func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, confi
 			ServerSideCopy:         config.ServerSideCopy,
 			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 
-			TestingUniqueUnversioned: true,
-			TestingCommitSegmentMode: config.TestingCommitSegmentMode,
+			TestingUniqueUnversioned:   true,
+			TestingCommitSegmentMode:   config.TestingCommitSegmentMode,
+			TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 		}
 		return cfg
 	})
