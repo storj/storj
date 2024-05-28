@@ -4,6 +4,9 @@
 package nodeselection
 
 import (
+	"math/rand"
+	"time"
+
 	"storj.io/common/storj"
 )
 
@@ -22,16 +25,16 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 
 		newSelector := init(newNodes, filter)
 		oldSelector := init(oldNodes, filter)
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
 			newNodeCount := int(float64(n) * newNodeFraction)
 
-			selectedNewNodes, err := newSelector(newNodeCount, excluded, alreadySelected)
+			selectedNewNodes, err := newSelector(requester, newNodeCount, excluded, alreadySelected)
 			if err != nil {
 				return selectedNewNodes, err
 			}
 
 			remaining := n - len(selectedNewNodes)
-			selectedOldNodes, err := oldSelector(remaining, excluded, alreadySelected)
+			selectedOldNodes, err := oldSelector(requester, remaining, excluded, alreadySelected)
 			if err != nil {
 				return selectedNewNodes, err
 			}
@@ -73,7 +76,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			attributes = append(attributes, k)
 		}
 
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -137,7 +140,7 @@ func RandomSelector() NodeSelectorInit {
 			filteredNodes = append(filteredNodes, node)
 		}
 
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -197,7 +200,7 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 			count += len(nodeList)
 		}
 		mon.IntVal("selector_balanced_filtered_nodes").Observe(int64(count))
-		return func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 			if n == 0 {
 				return selected, nil
 			}
@@ -249,6 +252,47 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 					return selected, nil
 				}
 			}
+		}
+	}
+}
+
+// Pow2Selector will repeat the selection and choose the better node pair-wise.
+// NOTE: it may break other pre-conditions, like the results of the balanced selector...
+func Pow2Selector(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSelectorInit {
+	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		selector := delegate(allNodes, filter)
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+
+			getSuccessAndTotal := tracker.Get(requester)
+			nodes, err := selector(requester, n*2, excluded, alreadySelected)
+			if err != nil {
+				return nil, err
+			}
+
+			// shuffle the nodes to ensure the pairwise matching is fair and unbiased
+			// when the totals for either node are 0 (we just pick the first node in
+			// the pair in that case)
+			rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
+				nodes[i], nodes[j] = nodes[j], nodes[i]
+			})
+
+			// do pairwise selection while we have more than the total redundancy and
+			// at least 2 nodes to select on.
+			for len(nodes) > n && len(nodes) >= 2 {
+				success0, total0 := getSuccessAndTotal(nodes[0].ID)
+				success1, total1 := getSuccessAndTotal(nodes[1].ID)
+
+				selected := nodes[0]
+				if total0 != 0 && total1 != 0 &&
+					float64(success1)/float64(total1) > float64(success0)/float64(total0) {
+					selected = nodes[1]
+				}
+
+				// pop the 2 nodes that we compared from the front and append the selected
+				// node to the back.
+				nodes = append(nodes[2:], selected)
+			}
+			return nodes, nil
 		}
 	}
 }

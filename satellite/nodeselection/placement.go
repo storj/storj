@@ -60,7 +60,7 @@ type NodeSelectorInit func([]*SelectedNode, NodeFilter) NodeSelector
 // NodeSelector pick random nodes based on a specific algorithm.
 // Nodes from excluded should never be used. Same is true for alreadySelected, but it may also trigger other restrictions
 // (for example, when a last_net is already selected, all the nodes from the same net should be excluded as well.
-type NodeSelector func(n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
+type NodeSelector func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
 
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")
@@ -94,7 +94,12 @@ func (c *ConfigurablePlacementRule) Type() string {
 
 // Parse creates the PlacementDefinitions from the string rules.
 // defaultPlacement is used to create the placement if no placement has been set.
-func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, error)) (PlacementDefinitions, error) {
+func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, error), environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+	if environment == nil {
+		environment = &PlacementConfigEnvironment{
+			tracker: NoopTracker{},
+		}
+	}
 	if c.PlacementRules == "" {
 		dp, err := defaultPlacement()
 		if err != nil {
@@ -108,7 +113,7 @@ func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, err
 	if _, err := os.Stat(rules); err == nil {
 		if strings.HasSuffix(rules, ".yaml") {
 			// new style of config, all others are deprecated
-			return LoadConfig(rules)
+			return LoadConfig(rules, environment)
 
 		}
 		ruleBytes, err := os.ReadFile(rules)

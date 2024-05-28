@@ -205,7 +205,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement)
+	placements, err := satelliteCfg.Placement.Parse(satelliteCfg.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}

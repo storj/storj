@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -177,7 +176,6 @@ type ExtendedConfig struct {
 	Config
 
 	useBucketLevelObjectVersioningProjects []uuid.UUID
-	successTrackerTrustedUplinks           []storj.NodeID
 }
 
 // NewExtendedConfig creates new instance of extended config.
@@ -189,13 +187,6 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 			return ExtendedConfig{}, err
 		}
 		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
-	}
-	for _, uplinkIDString := range config.SuccessTrackerTrustedUplinks {
-		uplinkID, err := storj.NodeIDFromString(uplinkIDString)
-		if err != nil {
-			return ExtendedConfig{}, err
-		}
-		extendedConfig.successTrackerTrustedUplinks = append(extendedConfig.successTrackerTrustedUplinks, uplinkID)
 	}
 
 	return extendedConfig, nil

@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"go.uber.org/zap"
@@ -89,58 +88,18 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
-	requestedCount := redundancy.TotalCount()
-	if endpoint.config.SuccessTrackerEnabled {
-		// times 2 to do power-of-2 choice filtering
-		requestedCount *= 2
-	}
-
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-		RequestedCount: requestedCount,
+		RequestedCount: redundancy.TotalCount(),
 		Placement:      storj.PlacementConstraint(streamID.Placement),
+		Requester:      peer.ID,
 	})
 
-	// we requested redundancy.TotalCount() * 2 nodes but we only really need
-	// redundancy.TotalCount() nodes, as we're going to toss nodes out until
-	// we get to that amount soon, anyway. so explicitly ignore the NotEnoughNodes
-	// error if we got at least the amount we really need.
-	if len(nodes) >= redundancy.TotalCount() && overlay.ErrNotEnoughNodes.Has(err) {
-		err = nil
-	}
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
-	}
-
-	if endpoint.config.SuccessTrackerEnabled {
-		tracker := endpoint.successTrackers.GetTracker(peer.ID)
-
-		// shuffle the nodes to ensure the pairwise matching is fair and unbiased
-		// when the totals for either node are 0 (we just pick the first node in
-		// the pair in that case)
-		rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
-			nodes[i], nodes[j] = nodes[j], nodes[i]
-		})
-
-		// do pairwise selection while we have more than the total redundancy and
-		// at least 2 nodes to select on.
-		for len(nodes) > redundancy.TotalCount() && len(nodes) >= 2 {
-			success0, total0 := tracker.Get(nodes[0].ID)
-			success1, total1 := tracker.Get(nodes[1].ID)
-
-			selected := nodes[0]
-			if total0 != 0 && total1 != 0 &&
-				float64(success1)/float64(total1) > float64(success0)/float64(total0) {
-				selected = nodes[1]
-			}
-
-			// pop the 2 nodes that we compared from the front and append the selected
-			// node to the back.
-			nodes = append(nodes[2:], selected)
-		}
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
