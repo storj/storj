@@ -419,32 +419,21 @@ func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, keyInfo *consol
 func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	ctx context.Context, keyInfo *console.APIKeyInfo, newObjectSize int64, newObjectSegmentCount int64,
 ) error {
-	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, keyInfo.ProjectID, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo)); err != nil {
-		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
-
-		endpoint.log.Error(
-			"Retrieving project upload limit failed; limit won't be enforced",
+	limit := endpoint.projectUsage.ExceedsUploadLimits(ctx, keyInfo.ProjectID, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo))
+	if limit.ExceedsSegments {
+		endpoint.log.Warn("Segment limit exceeded",
+			zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
 		)
-	} else {
-		if limit.ExceedsSegments {
-			endpoint.log.Warn("Segment limit exceeded",
-				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-			)
-			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
-		}
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
+	}
 
-		if limit.ExceedsStorage {
-			endpoint.log.Warn("Storage limit exceeded",
-				zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-			)
-			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
-		}
+	if limit.ExceedsStorage {
+		endpoint.log.Warn("Storage limit exceeded",
+			zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+		)
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
 	}
 
 	return nil

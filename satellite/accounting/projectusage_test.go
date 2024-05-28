@@ -500,10 +500,9 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
+		limit := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
 			Usage: &expectedLimit,
 		})
-		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
 		require.Equal(t, expectedLimit, limit.StorageLimit.Int64())
 
@@ -1061,7 +1060,7 @@ func TestProjectUsage_BandwidthCache(t *testing.T) {
 	})
 }
 
-func TestProjectUsage_SegmentCache(t *testing.T) {
+func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1070,11 +1069,16 @@ func TestProjectUsage_SegmentCache(t *testing.T) {
 
 		segmentsUsed := int64(42)
 
-		err := projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, segmentsUsed)
+		storage, segments, err := projectUsage.GetProjectStorageAndSegmentUsage(ctx, testrand.UUID())
+		require.NoError(t, err)
+		require.Zero(t, storage)
+		require.Zero(t, segments)
+
+		err = projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, segmentsUsed)
 		require.NoError(t, err)
 
 		// verify cache key creation.
-		fromCache, err := projectUsage.GetProjectSegmentUsage(ctx, project.ID)
+		_, fromCache, err := projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, segmentsUsed, fromCache)
 
@@ -1082,7 +1086,7 @@ func TestProjectUsage_SegmentCache(t *testing.T) {
 		increment := int64(10)
 		err = projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, increment)
 		require.NoError(t, err)
-		fromCache, err = projectUsage.GetProjectSegmentUsage(ctx, project.ID)
+		_, fromCache, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, segmentsUsed+increment, fromCache)
 	})

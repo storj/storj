@@ -40,7 +40,7 @@ func TestSignupCouponCodes(t *testing.T) {
 		cache, err := live.OpenCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, *sat.API.Metainfo.Metabase, 5*time.Minute, 0, 0, 0, -10*time.Second)
+		projectUsage := accounting.NewService(log, db.ProjectAccounting(), cache, *sat.API.Metainfo.Metabase, 5*time.Minute, 0, 0, 0, -10*time.Second)
 
 		pc := paymentsconfig.Config{
 			UsagePrice: paymentsconfig.ProjectUsagePrice{

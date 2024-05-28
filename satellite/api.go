@@ -358,6 +358,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
+			log.Named("accounting:projectusage-service"),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			*metabaseDB,
