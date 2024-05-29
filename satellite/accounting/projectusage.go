@@ -331,6 +331,12 @@ func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid
 	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
 }
 
+// UpdateProjectStorageAndSegmentUsage increments the storage and segment cache keys for a specific project.
+func (usage *Service) UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncr, segmentIncr int64) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, projectID, storageIncr, segmentIncr)
+}
+
 // SetNow allows tests to have the Service act as if the current time is whatever they want.
 func (usage *Service) SetNow(now func() time.Time) {
 	usage.nowFn = now

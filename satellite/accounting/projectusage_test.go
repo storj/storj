@@ -1092,6 +1092,41 @@ func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 	})
 }
 
+func TestProjectUsage_UpdateStorageAndSegmentCache(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project := planet.Uplinks[0].Projects[0]
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+
+		storage, segments, err := projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Zero(t, storage)
+		require.Zero(t, segments)
+
+		storageUsed := int64(100)
+		segmentsUsed := int64(2)
+
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, storageUsed, segmentsUsed)
+		require.NoError(t, err)
+
+		storage, segments, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, storageUsed, storage)
+		require.Equal(t, segmentsUsed, segments)
+
+		increment := int64(10)
+
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, increment, increment)
+		require.NoError(t, err)
+
+		storage, segments, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, storageUsed+increment, storage)
+		require.Equal(t, segmentsUsed+increment, segments)
+	})
+}
+
 func TestProjectUsage_BandwidthDownloadLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

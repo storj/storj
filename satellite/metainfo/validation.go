@@ -443,8 +443,8 @@ func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, projectI
 	return endpoint.addToUploadLimits(ctx, projectID, segmentSize, 1)
 }
 
-func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size int64, segmentCount int64) error {
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, size); err != nil {
+func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size, segmentCount int64) error {
+	if err := endpoint.projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, projectID, size, segmentCount); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
@@ -452,23 +452,7 @@ func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.
 		// log it and continue. it's most likely our own fault that we couldn't
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth and storage limits.
-		endpoint.log.Error("Could not track new project's storage usage",
-			zap.Stringer("Project ID", projectID),
-			zap.Error(err),
-		)
-	}
-
-	err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, segmentCount)
-	if err != nil {
-		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
-
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// segment limits.
-		endpoint.log.Error(
-			"Could not track the new project's segment usage when committing",
+		endpoint.log.Error("Could not track new project's storage and segment usage",
 			zap.Stringer("Project ID", projectID),
 			zap.Error(err),
 		)

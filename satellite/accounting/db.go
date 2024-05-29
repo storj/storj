@@ -350,6 +350,8 @@ type Cache interface {
 	// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
 	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
 	AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) error
+	// UpdateProjectStorageAndSegmentUsage updates the project's storage and segment usage by increasing it.
+	UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncrement, segmentIncrement int64) (err error)
 	// GetAllProjectTotals return the total projects' storage and segments used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
 	// Close the client, releasing any open resources. Once it's called any other

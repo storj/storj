@@ -243,6 +243,39 @@ func (cache *redisLiveAccounting) AddProjectStorageUsageUpToLimit(ctx context.Co
 	return nil
 }
 
+// UpdateProjectStorageAndSegmentUsage increment the storage and segment cache key values.
+func (cache *redisLiveAccounting) UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncrement, segmentIncrement int64) (err error) {
+	mon.Task()(&ctx, projectID, storageIncrement, segmentIncrement)(&err)
+
+	pipe := cache.client.Pipeline()
+
+	storageKey := createStorageProjectIDKey(projectID)
+	segmentKey := createSegmentProjectIDKey(projectID)
+	storageIncr := pipe.IncrBy(ctx, storageKey, storageIncrement)
+	segmentIncr := pipe.IncrBy(ctx, segmentKey, segmentIncrement)
+
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis pipeline exec failed: %w", err)
+	}
+
+	var errsList errs.Group
+
+	_, err = storageIncr.Result()
+	if err != nil {
+		errsList.Add(accounting.ErrSystemOrNetError.New("Redis storage incrby failed: %w", err))
+	}
+	_, err = segmentIncr.Result()
+	if err != nil {
+		errsList.Add(accounting.ErrSystemOrNetError.New("Redis segment incrby failed: %w", err))
+	}
+	if errsList.Err() != nil {
+		return errsList.Err()
+	}
+
+	return nil
+}
+
 // GetAllProjectTotals iterates through the live accounting DB and returns a map of project IDs and totals, amount of segments.
 //
 // TODO (https://storjlabs.atlassian.net/browse/IN-173): see if it possible to

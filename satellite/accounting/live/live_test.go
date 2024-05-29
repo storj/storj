@@ -131,9 +131,8 @@ func TestGetAllProjectTotals(t *testing.T) {
 			projectIDs := make([]uuid.UUID, 1000)
 			for i := range projectIDs {
 				projectIDs[i] = testrand.UUID()
-				err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
-				require.NoError(t, err)
-				err = cache.UpdateProjectSegmentUsage(ctx, projectIDs[i], int64(i))
+				increment := int64(i)
+				err := cache.UpdateProjectStorageAndSegmentUsage(ctx, projectIDs[i], increment, increment)
 				require.NoError(t, err)
 			}
 
