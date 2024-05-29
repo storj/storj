@@ -849,7 +849,7 @@ func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duratio
 	return LimitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
 }
 
-// LimitedAsOfSystemTime returns a SQL squery for AS OF SYSTEM TIME.
+// LimitedAsOfSystemTime returns a SQL query clause for AS OF SYSTEM TIME.
 func LimitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
 	if baseline.IsZero() || now.IsZero() {
 		return impl.AsOfSystemInterval(maxInterval)

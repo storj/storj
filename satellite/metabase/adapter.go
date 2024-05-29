@@ -32,6 +32,8 @@ type Adapter interface {
 
 	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
 
+	CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error)
+
 	GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error)
 	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
