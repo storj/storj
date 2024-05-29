@@ -31,12 +31,39 @@ model project (
     field user_specified_bandwidth_limit    int64     ( nullable, updatable )
     // segment_limit specifies how many segments can be stored in the project.
     field segment_limit                     int64     ( nullable, updatable, default 1000000)
+
     // rate_limit defines maximum requests per second the project can use.
     // See golang.org/x/time/rate#Limiter for details.
     field rate_limit                        int       ( nullable, updatable )
     // burst_limit defines number of requests that are not throttled by rate_limit.
     // See golang.org/x/time/rate#Limiter for details.
     field burst_limit                       int       ( nullable, updatable )
+
+    // rate_limit_head defines maximum "head" requests per second the project can use.
+    field rate_limit_head                   int       ( nullable, updatable )
+    // burst_limit_head defines number of "head" requests that are not throttled by rate_limit_head.
+    field burst_limit_head                  int       ( nullable, updatable )
+
+    // rate_limit_get defines maximum "get" requests per second the project can use.
+    field rate_limit_get                    int       ( nullable, updatable )
+    // burst_limit_get defines number of "get" requests that are not throttled by rate_limit_get.
+    field burst_limit_get                   int       ( nullable, updatable )
+
+    // rate_limit_put defines maximum "put" requests per second the project can use.
+    field rate_limit_put                    int       ( nullable, updatable )
+    // burst_limit_put defines number of "put" requests that are not throttled by rate_limit_put.
+    field burst_limit_put                   int       ( nullable, updatable )
+
+    // rate_limit_list defines maximum "list" requests per second the project can use.
+    field rate_limit_list                   int       ( nullable, updatable )
+    // burst_limit_put defines number of "list" requests that are not throttled by rate_limit_list.
+    field burst_limit_list                  int       ( nullable, updatable )
+
+    // rate_limit_del defines maximum "delete" requests per second the project can use.
+    field rate_limit_del                    int       ( nullable, updatable )
+    // burst_limit_del defines number of "delete" requests that are not throttled by rate_limit_del.
+    field burst_limit_del                   int       ( nullable, updatable )
+
     // max_buckets is the maximum number of buckets that can be created for the project.
     field max_buckets                       int       ( nullable, updatable )
     // user_agent is the referred partner who created the project.

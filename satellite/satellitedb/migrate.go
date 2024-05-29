@@ -2743,6 +2743,36 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN object_lock_enabled boolean NOT NULL DEFAULT false;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add per-operation rate limits to projects table",
+				Version:     273,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN rate_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_del integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_del integer DEFAULT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "populate per-operation rate limits from existing values",
+				Version:     274,
+				Action: migrate.SQL{
+					`UPDATE projects SET rate_limit_head=rate_limit, burst_limit_head=burst_limit,
+						rate_limit_get=rate_limit, burst_limit_get=burst_limit,
+						rate_limit_put=rate_limit, burst_limit_put=burst_limit,
+						rate_limit_list=rate_limit, burst_limit_list=burst_limit,
+						rate_limit_del=rate_limit, burst_limit_del=burst_limit
+						WHERE rate_limit IS NOT NULL OR burst_limit IS NOT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
