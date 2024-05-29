@@ -1,5 +1,5 @@
 ARG DOCKER_ARCH
-ARG GO_VERSION=1.21
+ARG GO_VERSION=1.22
 # Storagenode UI static asset generation
 FROM node:18.17.0 as ui
 WORKDIR /app
