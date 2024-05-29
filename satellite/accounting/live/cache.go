@@ -51,6 +51,8 @@ func OpenCache(ctx context.Context, log *zap.Logger, config Config) (accounting.
 	switch backendType {
 	case "redis":
 		return openRedisLiveAccounting(ctx, config.StorageBackend, config.BatchSize)
+	case "noop":
+		return &noopCache{}, nil
 	default:
 		return nil, Error.New("unrecognized live accounting backend specifier %q. Currently only redis is supported", backendType)
 	}
