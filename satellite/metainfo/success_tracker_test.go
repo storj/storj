@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo
+package metainfo_test
 
 import (
 	"sync"
@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo"
 )
 
 func TestSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
-		var tr SuccessTracker
+		var tr metainfo.SuccessTracker
 
 		check := func(id storj.NodeID, success, total uint32) {
 			gotsuccess, gottotal := tr.Get(id)
