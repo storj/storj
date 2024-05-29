@@ -256,9 +256,9 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 	}
 }
 
-// Pow2Selector will repeat the selection and choose the better node pair-wise.
+// ChoiceOfTwo will repeat the selection and choose the better node pair-wise.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
-func Pow2Selector(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSelectorInit {
+func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		selector := delegate(allNodes, filter)
 		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {

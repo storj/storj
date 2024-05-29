@@ -231,9 +231,11 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		"unvetted": func(newNodeRatio float64, def NodeSelectorInit) (NodeSelectorInit, error) {
 			return UnvettedSelector(newNodeRatio, def), nil
 		},
-		"nodelist": AllowedNodesFromFile,
-		"filter":   FilterSelector,
-		"pow2":     Pow2Selector,
+		"nodelist":    AllowedNodesFromFile,
+		"filter":      FilterSelector,
+		"choiceoftwo": ChoiceOfTwo,
+		// DEPRECATED: use choiceoftwo. It's only here for backward-compatibility.
+		"pow2": ChoiceOfTwo,
 		"balanced": func(attribute string) (NodeSelectorInit, error) {
 			attr, err := CreateNodeAttribute(attribute)
 			if err != nil {

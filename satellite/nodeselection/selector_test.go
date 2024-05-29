@@ -451,7 +451,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 
 }
 
-func TestPow2Selector(t *testing.T) {
+func TestChoiceOfTwo(t *testing.T) {
 	tracker := &mockTracker{
 		trustedUplink: testrand.NodeID(),
 	}
@@ -469,7 +469,7 @@ func TestPow2Selector(t *testing.T) {
 
 	}
 
-	selector := nodeselection.Pow2Selector(tracker, nodeselection.RandomSelector())
+	selector := nodeselection.ChoiceOfTwo(tracker, nodeselection.RandomSelector())
 	initializedSelector := selector(nodes, nil)
 
 	countSlowNodes := func(nodes []*nodeselection.SelectedNode) int {

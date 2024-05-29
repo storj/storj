@@ -88,7 +88,7 @@ func TestParsedConfig(t *testing.T) {
 	}
 
 	{
-		// smoketest for creating pow2 selector
+		// smoketest for creating choice of two selector
 		selected, err := config[2].Selector(
 			[]*SelectedNode{
 				{
@@ -114,7 +114,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, config, 3)
 
-	// smoketest for creating pow2 selector
+	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(
 		[]*SelectedNode{
 			{
