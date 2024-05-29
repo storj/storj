@@ -13,5 +13,5 @@ placements:
     invariant: maxcontrol("last_net",1)
     selector: attribute("last_net")
   - id: 2
-    name: pow2
-    selector: pow2(tracker, random())
+    name: choiceoftwo
+    selector: choiceoftwo(tracker, random())
