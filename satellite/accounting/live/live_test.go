@@ -154,8 +154,9 @@ func TestGetAllProjectTotals(t *testing.T) {
 						require.NoError(t, err)
 						assert.Equal(t, totalStorage, usage[projID].Storage)
 
-						totalSegments, err := testCache.GetProjectSegmentUsage(ctx, projID)
+						totalStorageBis, totalSegments, err := testCache.GetProjectStorageAndSegmentUsage(ctx, projID)
 						require.NoError(t, err)
+						assert.Equal(t, totalStorageBis, usage[projID].Storage)
 						assert.Equal(t, totalSegments, usage[projID].Segments)
 					}
 				})

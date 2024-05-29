@@ -62,6 +62,41 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 	return cache.getInt64(ctx, createStorageProjectIDKey(projectID))
 }
 
+// GetProjectStorageAndSegmentUsage gets storage and segment usage for give project.
+func (cache *redisLiveAccounting) GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segments int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	storageKey := createStorageProjectIDKey(projectID)
+	segmentsKey := createSegmentProjectIDKey(projectID)
+	resultSlice := cache.client.MGet(ctx, storageKey, segmentsKey)
+	results, err := resultSlice.Result()
+	if err != nil {
+		return 0, 0, accounting.ErrSystemOrNetError.New("Redis get failed: %w", err)
+	}
+
+	if len(results) != 2 {
+		return 0, 0, accounting.ErrUnexpectedValue.New("wrong number of results: got %d wants %d", len(results), 2)
+	}
+
+	if results[0] != nil {
+		storageValue := results[0].(string)
+		storage, err = strconv.ParseInt(storageValue, 10, 64)
+		if err != nil {
+			err = accounting.ErrUnexpectedValue.New("cannot parse the value as int64; key=%q val=%q", storageKey, storageValue)
+		}
+	}
+
+	if results[1] != nil {
+		segmentsValue := results[1].(string)
+		segments, err = strconv.ParseInt(segmentsValue, 10, 64)
+		if err != nil {
+			err = errs.Combine(err, accounting.ErrUnexpectedValue.New("cannot parse the value as int64; key=%q val=%q", segmentsKey, segmentsValue))
+		}
+	}
+
+	return storage, segments, err
+}
+
 // GetProjectBandwidthUsage returns the current bandwidth usage
 // from specific project.
 func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error) {
@@ -128,13 +163,6 @@ func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Contex
 	}
 
 	return nil
-}
-
-// GetProjectSegmentUsage returns the current segment usage from specific project.
-func (cache *redisLiveAccounting) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	return cache.getInt64(ctx, createSegmentProjectIDKey(projectID))
 }
 
 // UpdateProjectSegmentUsage increment the segment cache key value.

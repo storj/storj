@@ -9,7 +9,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"golang.org/x/sync/errgroup"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
@@ -28,6 +28,7 @@ var ErrProjectLimitExceeded = errs.Class("project limit")
 //
 // architecture: Service
 type Service struct {
+	log                 *zap.Logger
 	projectAccountingDB ProjectAccounting
 	liveAccounting      Cache
 	metabaseDB          metabase.DB
@@ -41,9 +42,10 @@ type Service struct {
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, metabaseDB metabase.DB, bandwidthCacheTTL time.Duration,
+func NewService(log *zap.Logger, projectAccountingDB ProjectAccounting, liveAccounting Cache, metabaseDB metabase.DB, bandwidthCacheTTL time.Duration,
 	defaultMaxStorage, defaultMaxBandwidth memory.Size, defaultMaxSegments int64, asOfSystemInterval time.Duration) *Service {
 	return &Service{
+		log:                 log,
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
 		metabaseDB:          metabaseDB,
@@ -113,8 +115,8 @@ type UploadLimit struct {
 // ExceedsUploadLimits returns combined checks for storage and segment limits.
 // Supply nonzero headroom parameters to check if there is room for a new object.
 func (usage *Service) ExceedsUploadLimits(
-	ctx context.Context, projectID uuid.UUID, storageSizeHeadroom int64, segmentCountHeadroom int64, limits ProjectLimits) (limit UploadLimit, err error) {
-	defer mon.Task()(&ctx)(&err)
+	ctx context.Context, projectID uuid.UUID, storageSizeHeadroom int64, segmentCountHeadroom int64, limits ProjectLimits) (limit UploadLimit) {
+	defer mon.Task()(&ctx)(nil)
 
 	limit.SegmentsLimit = usage.defaultMaxSegments
 	if limits.Segments != nil {
@@ -126,34 +128,15 @@ func (usage *Service) ExceedsUploadLimits(
 		limit.StorageLimit = memory.Size(*limits.Usage)
 	}
 
-	var group errgroup.Group
-	var segmentUsage, storageUsage int64
-
-	group.Go(func() error {
-		var err error
-		segmentUsage, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
-		// Verify If the cache key was not found
-		if err != nil && ErrKeyNotFound.Has(err) {
-			return nil
-		}
-		return err
-	})
-
-	group.Go(func() error {
-		var err error
-		storageUsage, err = usage.GetProjectStorageTotals(ctx, projectID)
-		return err
-	})
-
-	err = group.Wait()
+	storageUsage, segmentUsage, err := usage.GetProjectStorageAndSegmentUsage(ctx, projectID)
 	if err != nil {
-		return UploadLimit{}, ErrProjectUsage.Wrap(err)
+		usage.log.Error("error while getting storage/segments usage", zap.Error(err))
 	}
 
 	limit.ExceedsSegments = (segmentUsage + segmentCountHeadroom) > limit.SegmentsLimit
 	limit.ExceedsStorage = (storageUsage + storageSizeHeadroom) > limit.StorageLimit.Int64()
 
-	return limit, nil
+	return limit
 }
 
 // AddProjectUsageUpToLimit increases segment and storage usage up to the projects limit.
@@ -223,18 +206,6 @@ func (usage *Service) GetProjectSettledBandwidth(ctx context.Context, projectID 
 	year, month, _ := usage.nowFn().Date()
 
 	total, err := usage.projectAccountingDB.GetProjectSettledBandwidth(ctx, projectID, year, month, usage.asOfSystemInterval)
-	return total, ErrProjectUsage.Wrap(err)
-}
-
-// GetProjectSegmentTotals returns total amount of allocated segments used for past 30 days.
-func (usage *Service) GetProjectSegmentTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	total, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
-	if ErrKeyNotFound.Has(err) {
-		return 0, nil
-	}
-
 	return total, ErrProjectUsage.Wrap(err)
 }
 
@@ -309,12 +280,12 @@ func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID
 	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
 }
 
-// GetProjectSegmentUsage get the current segment usage from cache.
+// GetProjectStorageAndSegmentUsage get the current storage and segment usage from cache.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.GetProjectSegmentUsage.
-func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
-	return usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+// storj.io/storj/satellite/accounting.Cache.GetProjectStorageAndSegmentUsage.
+func (usage *Service) GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segments int64, err error) {
+	return usage.liveAccounting.GetProjectStorageAndSegmentUsage(ctx, projectID)
 }
 
 // UpdateProjectSegmentUsage increments the segment cache key for a specific project.
