@@ -11,13 +11,15 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 )
 
 func TestParsedConfig(t *testing.T) {
-	config, err := LoadConfig("config_test.yaml", nil)
+
+	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}))
 	require.NoError(t, err)
-	require.Len(t, config, 2)
+	require.Len(t, config, 3)
 
 	{
 		// checking filters
@@ -83,8 +85,53 @@ func TestParsedConfig(t *testing.T) {
 		// having: new, requires: 0% unvetted = 100% vetted
 		require.Len(t, selected, 0)
 		require.NoError(t, err)
-
 	}
+
+	{
+		// smoketest for creating pow2 selector
+		selected, err := config[2].Selector(
+			[]*SelectedNode{
+				{
+					ID: testrand.NodeID(),
+				},
+				{
+					ID: testrand.NodeID(),
+				},
+				{
+					ID: testrand.NodeID(),
+				},
+			}, nil,
+		)(storj.NodeID{}, 1, nil, nil)
+
+		require.Len(t, selected, 1)
+		require.NoError(t, err)
+	}
+}
+
+func TestParsedConfigWithoutTracker(t *testing.T) {
+	// tracker is not available for certain microservices (like repair). Still the placement should work.
+	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil))
+	require.NoError(t, err)
+	require.Len(t, config, 3)
+
+	// smoketest for creating pow2 selector
+	selected, err := config[2].Selector(
+		[]*SelectedNode{
+			{
+				ID: testrand.NodeID(),
+			},
+			{
+				ID: testrand.NodeID(),
+			},
+			{
+				ID: testrand.NodeID(),
+			},
+		}, nil,
+	)(storj.NodeID{}, 1, nil, nil)
+
+	require.Len(t, selected, 1)
+	require.NoError(t, err)
+
 }
 
 func TestFilterFromString(t *testing.T) {
@@ -122,4 +169,13 @@ func TestSelectorFromString(t *testing.T) {
 		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
 	}
 
+}
+
+type mockTracker struct {
+}
+
+func (m mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) (success uint32, total uint32) {
+	return func(node storj.NodeID) (success uint32, total uint32) {
+		return 0, 0
+	}
 }
