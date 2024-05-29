@@ -339,14 +339,6 @@ type Cache interface {
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.
 	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
-	// UpdateProjectSegmentUsage updates the project's segment usage increasing
-	// it. The projectID is inserted to the increment when it doesn't exists,
-	// hence this method will never return ErrKeyNotFound error's class.
-	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) error
-	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
-	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
-	// this method will never return ErrKeyNotFound.
-	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
 	// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
 	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
 	AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) error

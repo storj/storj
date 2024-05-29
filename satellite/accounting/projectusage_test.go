@@ -497,7 +497,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		// Setup: add data to live accounting to exceed new limit
-		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, expectedLimit, 0)
 		require.NoError(t, err)
 
 		limit := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
@@ -1074,7 +1074,7 @@ func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 		require.Zero(t, storage)
 		require.Zero(t, segments)
 
-		err = projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, segmentsUsed)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, 0, segmentsUsed)
 		require.NoError(t, err)
 
 		// verify cache key creation.
@@ -1084,7 +1084,7 @@ func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 
 		// verify cache key increment.
 		increment := int64(10)
-		err = projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, increment)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, 0, increment)
 		require.NoError(t, err)
 		_, fromCache, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
 		require.NoError(t, err)

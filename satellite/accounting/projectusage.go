@@ -162,7 +162,7 @@ func (usage *Service) AddProjectUsageUpToLimit(ctx context.Context, projectID uu
 	err = usage.liveAccounting.AddProjectSegmentUsageUpToLimit(ctx, projectID, segments, segmentsLimit)
 	if ErrProjectLimitExceeded.Has(err) {
 		// roll back storage increase
-		err = usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, -1*storage)
+		err = usage.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, projectID, -1*storage, 0)
 		if err != nil {
 			return err
 		}
@@ -309,26 +309,6 @@ func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID
 // storj.io/storj/satellite/accounting.Cache.GetProjectStorageAndSegmentUsage.
 func (usage *Service) GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segments int64, err error) {
 	return usage.liveAccounting.GetProjectStorageAndSegmentUsage(ctx, projectID)
-}
-
-// UpdateProjectSegmentUsage increments the segment cache key for a specific project.
-//
-// It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.UpdatProjectSegmentUsage.
-func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
-	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
-}
-
-// AddProjectStorageUsage lets the live accounting know that the given
-// project has just added spaceUsed bytes of storage (from the user's
-// perspective; i.e. segment size).
-//
-// It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.AddProjectStorageUsage, wrapped by
-// ErrProjectUsage.
-func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
 }
 
 // UpdateProjectStorageAndSegmentUsage increments the storage and segment cache keys for a specific project.
