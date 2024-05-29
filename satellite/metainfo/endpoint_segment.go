@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/eestream"
 )
 
 func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storj.RedundancyScheme) (totalStored int64) {
@@ -68,13 +67,12 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
-	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
-		return nil, err
-	}
-
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(endpoint.defaultRS)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	if !objectJustCreated {
+		// we need check limits only if object wasn't just created,
+		// begin object is checking limits on it' own
+		if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
+			return nil, err
+		}
 	}
 
 	config := endpoint.config
@@ -89,7 +87,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-		RequestedCount: redundancy.TotalCount(),
+		RequestedCount: int(defaultRedundancy.TotalShares),
 		Placement:      storj.PlacementConstraint(streamID.Placement),
 		Requester:      peer.ID,
 	})
