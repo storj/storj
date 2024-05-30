@@ -20,6 +20,7 @@ type precommitTransactionAdapter interface {
 	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
 	precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error)
 	precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
+	precommitDeleteUnversionedWithSQLCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
 }
 
 // PrecommitConstraint is arguments to ensure that a single unversioned object or delete marker exists in the
@@ -47,11 +48,13 @@ type PrecommitConstraintResult struct {
 	HighestVersion Version
 }
 
-const defaultUnversionedPrecommitMode = 1
+const defaultUnversionedPrecommitMode = 0
+const withPrecheckSQLUnversionedPrecommitMode = 1
 
 // PrecommitDeleteModes is a list of all possible precommit delete modes.
 var PrecommitDeleteModes = []int{
 	defaultUnversionedPrecommitMode,
+	withPrecheckSQLUnversionedPrecommitMode,
 }
 
 func (r *PrecommitConstraintResult) submitMetrics() {
@@ -91,8 +94,10 @@ func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint,
 	switch opts.PrecommitDeleteMode {
 	case defaultUnversionedPrecommitMode:
 		return adapter.precommitDeleteUnversioned(ctx, opts.Location)
+	case withPrecheckSQLUnversionedPrecommitMode:
+		return adapter.precommitDeleteUnversionedWithSQLCheck(ctx, opts.Location)
 	default:
-		return adapter.precommitDeleteUnversioned(ctx, opts.Location)
+		return PrecommitConstraintResult{}, Error.New("Invalid precommit delete mode version: %d", opts.PrecommitDeleteMode)
 	}
 }
 
@@ -353,6 +358,125 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	}
 
 	return result, nil
+}
+
+// precommitDeleteUnversionedWithSQLCheck deletes the unversioned object at loc and also returns the highest version. deletes the unversioned object at loc and also returns the highest version.
+// it will skip the delete if no deletable objects are found.
+func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var deleted Object
+
+	var version sql.NullInt64
+	var streamID uuid.NullUUID
+	var createdAt sql.NullTime
+	var segmentCount, fixedSegmentSize sql.NullInt32
+	var totalPlainSize, totalEncryptedSize sql.NullInt64
+	var status sql.NullByte
+	var encryptionParams nullableValue[encryptionParameters]
+	encryptionParams.value.EncryptionParameters = &deleted.Encryption
+
+	err = ptx.tx.QueryRowContext(ctx, `
+		WITH highest_object AS (
+			SELECT version
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+			ORDER BY version DESC
+			LIMIT 1
+		), deleted_objects AS (
+			DELETE FROM objects
+			WHERE
+				EXISTS (SELECT * from highest_object)
+				AND (project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND status IN `+statusesUnversioned+`
+			RETURNING
+				version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT
+			(SELECT version FROM deleted_objects),
+			(SELECT stream_id FROM deleted_objects),
+			(SELECT created_at FROM deleted_objects),
+			(SELECT expires_at FROM deleted_objects),
+			(SELECT status FROM deleted_objects),
+			(SELECT segment_count FROM deleted_objects),
+			(SELECT encrypted_metadata_nonce FROM deleted_objects),
+			(SELECT encrypted_metadata FROM deleted_objects),
+			(SELECT encrypted_metadata_encrypted_key FROM deleted_objects),
+			(SELECT total_plain_size FROM deleted_objects),
+			(SELECT total_encrypted_size FROM deleted_objects),
+			(SELECT fixed_segment_size FROM deleted_objects),
+			(SELECT encryption FROM deleted_objects),
+			(SELECT count(*) FROM deleted_objects),
+			(SELECT count(*) FROM deleted_segments),
+			coalesce((SELECT version FROM highest_object), 0)
+	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).
+		Scan(
+			&version,
+			&streamID,
+			&createdAt,
+			&deleted.ExpiresAt,
+			&status,
+			&segmentCount,
+			&deleted.EncryptedMetadataNonce,
+			&deleted.EncryptedMetadata,
+			&deleted.EncryptedMetadataEncryptedKey,
+			&totalPlainSize,
+			&totalEncryptedSize,
+			&fixedSegmentSize,
+			&encryptionParams,
+			&result.DeletedObjectCount,
+			&result.DeletedSegmentCount,
+			&result.HighestVersion,
+		)
+	if errors.Is(err, sql.ErrNoRows) {
+		return result, nil
+	}
+	if err != nil {
+		return PrecommitConstraintResult{}, Error.Wrap(err)
+	}
+
+	deleted.ProjectID = loc.ProjectID
+	deleted.BucketName = loc.BucketName
+	deleted.ObjectKey = loc.ObjectKey
+	deleted.Version = Version(version.Int64)
+
+	deleted.Status = ObjectStatus(status.Byte)
+	deleted.StreamID = streamID.UUID
+	deleted.CreatedAt = createdAt.Time
+	deleted.SegmentCount = segmentCount.Int32
+
+	deleted.TotalPlainSize = totalPlainSize.Int64
+	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
+	deleted.FixedSegmentSize = fixedSegmentSize.Int32
+
+	if result.DeletedObjectCount > 1 {
+		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
+			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+
+		mon.Meter("multiple_committed_versions").Mark(1)
+
+		return result, Error.New("internal error: multiple committed unversioned objects")
+	}
+
+	if result.DeletedObjectCount > 0 {
+		result.Deleted = append(result.Deleted, deleted)
+	}
+
+	return result, nil
+}
+
+func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
+	return stx.precommitDeleteUnversioned(ctx, loc)
 }
 
 func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
