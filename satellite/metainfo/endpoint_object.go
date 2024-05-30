@@ -1570,7 +1570,8 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	group.Go(func() (err error) {
 		pieceCountByNodeID, err = endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
 			metabase.GetStreamPieceCountByNodeID{
-				StreamID: object.StreamID,
+				ProjectID: keyInfo.ProjectID,
+				StreamID:  object.StreamID,
 			})
 		return err
 	})

@@ -40,7 +40,8 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 
 			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
-					StreamID: obj.StreamID,
+					ProjectID: obj.ProjectID,
+					StreamID:  obj.StreamID,
 				},
 				Result: map[storj.NodeID]int64{},
 			}.Check(ctx, t, db)
@@ -77,7 +78,8 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 
 			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
-					StreamID: obj.StreamID,
+					ProjectID: obj.ProjectID,
+					StreamID:  obj.StreamID,
 				},
 				Result: map[storj.NodeID]int64{},
 			}.Check(ctx, t, db)
@@ -145,7 +147,8 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 
 			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
-					StreamID: obj.StreamID,
+					ProjectID: obj.ProjectID,
+					StreamID:  obj.StreamID,
 				},
 				Result: map[storj.NodeID]int64{
 					n01: 1,
@@ -201,7 +204,8 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 
 			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
-					StreamID: obj.StreamID,
+					ProjectID: obj.ProjectID,
+					StreamID:  obj.StreamID,
 				},
 				Result: map[storj.NodeID]int64{
 					testNodeIDs[0]: 1,
@@ -212,7 +216,8 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 
 			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
-					StreamID: copyStream.StreamID,
+					ProjectID: obj.ProjectID,
+					StreamID:  copyStream.StreamID,
 				},
 				Result: map[storj.NodeID]int64{
 					testNodeIDs[0]: 1,
