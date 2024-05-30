@@ -84,9 +84,8 @@
                 </v-chip>
             </template>
             <template #item.versioning="{ item }">
-                <v-icon size="28" class="mr-1 pa-1 rounded-lg border text-cursor-pointer">
+                <v-icon size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border text-cursor-pointer">
                     <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
-                    <icon-versioning />
                 </v-icon>
                 <v-chip variant="tonal" color="default" size="small">
                     {{ item.versioning }}
@@ -195,7 +194,15 @@ import {
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
+import {
+    mdiCheckCircleOutline,
+    mdiCloseCircleOutline,
+    mdiDotsHorizontal,
+    mdiHelpCircleOutline,
+    mdiMagnify,
+    mdiMinusCircleOutline,
+    mdiPauseCircleOutline,
+} from '@mdi/js';
 
 import { Bucket, BucketCursor, BucketMetadata, BucketPage } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -279,10 +286,6 @@ const showRegionTag = computed<boolean>(() => {
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
-const shouldShowVersioning = computed<boolean>(() => {
-    return versioningUIEnabled.value && displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
-});
-
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
@@ -305,7 +308,7 @@ const headers = computed<DataTableHeader[]>(() => {
         hdrs.push({ title: 'Location', key: 'location', sortable: isTableSortable.value });
     }
 
-    if (shouldShowVersioning.value) {
+    if (versioningUIEnabled.value) {
         hdrs.push({ title: 'Versioning', key: 'versioning', sortable: isTableSortable.value });
     }
 
@@ -423,10 +426,35 @@ async function onToggleVersioning(bucket: Bucket) {
  * Returns helper info based on versioning status.
  */
 function getVersioningInfo(status: Versioning): string {
-    if (status === Versioning.Enabled) {
+    switch (status) {
+    case Versioning.Enabled:
         return 'Version history saved for all files.';
-    } else {
-        return 'Version history is not saved for all files.';
+    case Versioning.Suspended:
+        return 'Versioning is currently suspended.';
+    case Versioning.NotSupported:
+        return 'Versioning is not supported for this bucket.';
+    case Versioning.Unversioned:
+        return 'This bucket does not have versioning enabled.';
+    default:
+        return 'Unknown versioning status.';
+    }
+}
+
+/**
+ * Returns icon based on versioning status.
+ */
+function getVersioningIcon(status: Versioning): string {
+    switch (status) {
+    case Versioning.Enabled:
+        return mdiCheckCircleOutline;
+    case Versioning.Suspended:
+        return mdiPauseCircleOutline;
+    case Versioning.NotSupported:
+        return mdiCloseCircleOutline;
+    case Versioning.Unversioned:
+        return mdiMinusCircleOutline;
+    default:
+        return mdiHelpCircleOutline;
     }
 }
 
