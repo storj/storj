@@ -433,7 +433,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// increment our counters in the success tracker appropriate to the committing uplink
-	if endpoint.config.SuccessTrackerEnabled {
+	{
 		tracker := endpoint.successTrackers.GetTracker(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {

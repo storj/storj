@@ -290,7 +290,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 			trustedUplinks = append(trustedUplinks, uplinkID)
 		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks)
+		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
+		if !ok {
+			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
+		}
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
 	}
 
 	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))

@@ -174,8 +174,6 @@ func TestSelectorFromString(t *testing.T) {
 type mockTracker struct {
 }
 
-func (m mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) (success uint32, total uint32) {
-	return func(node storj.NodeID) (success uint32, total uint32) {
-		return 0, 0
-	}
+func (m mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
+	return func(node storj.NodeID) float64 { return 0 }
 }

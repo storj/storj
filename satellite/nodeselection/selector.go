@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"math"
 	"math/rand"
 	"time"
 
@@ -263,33 +264,44 @@ func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSe
 		selector := delegate(allNodes, filter)
 		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 
-			getSuccessAndTotal := tracker.Get(requester)
+			getSuccessRate := tracker.Get(requester)
 			nodes, err := selector(requester, n*2, excluded, alreadySelected)
 			if err != nil {
 				return nil, err
 			}
 
-			// shuffle the nodes to ensure the pairwise matching is fair and unbiased
-			// when the totals for either node are 0 (we just pick the first node in
-			// the pair in that case)
+			// shuffle the nodes to ensure the pairwise matching is fair and unbiased when the
+			// totals for either node are 0 (we just pick the first node in the pair in that case)
 			rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
 				nodes[i], nodes[j] = nodes[j], nodes[i]
 			})
 
-			// do pairwise selection while we have more than the total redundancy and
-			// at least 2 nodes to select on.
+			// do pairwise selection while we have more than the total redundancy and at least 2
+			// nodes to select on.
 			for len(nodes) > n && len(nodes) >= 2 {
-				success0, total0 := getSuccessAndTotal(nodes[0].ID)
-				success1, total1 := getSuccessAndTotal(nodes[1].ID)
+				success0 := getSuccessRate(nodes[0].ID)
+				success1 := getSuccessRate(nodes[1].ID)
+
+				// success0 and success1 could both potentially be NaN. we want to prefer a node if
+				// it is NaN and if they are both NaN then it does not matter which we prefer (the
+				// input list is randomly shuffled). note that ALL comparisons where one of the
+				// operands is NaN evaluate to false. thus for the following if statement, we have
+				// the following table:
+				//
+				//     success0 | success1 | result
+				//    ----------|----------|-------
+				//          NaN |      NaN | node1
+				//          NaN |   number | node1
+				//       number |      NaN | node0
+				//       number |   number | whoever is larger
 
 				selected := nodes[0]
-				if total0 != 0 && total1 != 0 &&
-					float64(success1)/float64(total1) > float64(success0)/float64(total0) {
+				if math.IsNaN(success1) || success1 > success0 {
 					selected = nodes[1]
 				}
 
-				// pop the 2 nodes that we compared from the front and append the selected
-				// node to the back.
+				// pop the 2 nodes that we compared from the front and append the selected node to
+				// the back.
 				nodes = append(nodes[2:], selected)
 			}
 			return nodes, nil

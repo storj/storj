@@ -4,25 +4,57 @@
 package metainfo
 
 import (
+	"math"
+	"math/bits"
 	"sync"
 	"sync/atomic"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
 )
+
+// SuccessTracker describes a type that is told about successes of nodes and
+// can be queried for an aggregate value that represents how successful a node
+// is expected to be.
+type SuccessTracker interface {
+	// Increment tells the SuccessTracker if a node was recently successful or
+	// not.
+	Increment(node storj.NodeID, success bool)
+
+	// Get returns a value that represents how successful a node is expected to
+	// be. It can return NaN to indicate that it has no information about the
+	// node.
+	Get(node storj.NodeID) float64
+
+	// BumpGeneration should be called periodically to clear out stale
+	// information.
+	BumpGeneration()
+}
+
+// GetNewSuccessTracker returns a function that creates a new SuccessTracker
+// based on the kind. The bool return value is false if the kind is unknown.
+func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
+	switch kind {
+	case "bitshift":
+		return func() SuccessTracker { return new(bitshiftSuccessTracker) }, true
+	case "percent":
+		return func() SuccessTracker { return new(percentSuccessTracker) }, true
+	default:
+		return nil, false
+	}
+}
 
 // SuccessTrackers manages global and uplink level trackers.
 type SuccessTrackers struct {
-	trackers map[storj.NodeID]*SuccessTracker
-	global   *SuccessTracker
+	trackers map[storj.NodeID]SuccessTracker
+	global   SuccessTracker
 }
 
 // NewSuccessTrackers creates a new success tracker.
-func NewSuccessTrackers(approvedUplinks []storj.NodeID) *SuccessTrackers {
-	global := new(SuccessTracker)
-	trackers := make(map[storj.NodeID]*SuccessTracker, len(approvedUplinks))
+func NewSuccessTrackers(approvedUplinks []storj.NodeID, newTracker func() SuccessTracker) *SuccessTrackers {
+	global := newTracker()
+	trackers := make(map[storj.NodeID]SuccessTracker, len(approvedUplinks))
 	for _, uplink := range approvedUplinks {
-		trackers[uplink] = new(SuccessTracker)
+		trackers[uplink] = newTracker()
 	}
 
 	return &SuccessTrackers{
@@ -39,37 +71,36 @@ func (t *SuccessTrackers) BumpGeneration() {
 	t.global.BumpGeneration()
 }
 
-// GetTracker returns the tracker for the specific uplink. Returns with the global tracker, if uplink is not whitelisted.
-func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) *SuccessTracker {
+// GetTracker returns the tracker for the specific uplink. Returns with the
+// global tracker, if uplink is not whitelisted.
+func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
 	if tracker, ok := t.trackers[uplink]; ok {
 		return tracker
 	}
 	return t.global
 }
 
-// Get implements nodeselection.UploadSuccessTracker.
-func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node storj.NodeID) (success, total uint32) {
-	tracker := t.GetTracker(uplink)
-	return func(node storj.NodeID) (success, total uint32) {
-		return tracker.Get(node)
-	}
+// Get returns a function that can be used to get an estimate of how good a node
+// is for a given uplink.
+func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
+	return t.GetTracker(uplink).Get
 }
+
+//
+// percent success tracker
+//
 
 const nodeSuccessGenerations = 4
 
 type nodeCounterArray [nodeSuccessGenerations]atomic.Uint64
 
-// SuccessTracker tracks the success / total uploads per node.
-type SuccessTracker struct {
+type percentSuccessTracker struct {
 	mu   sync.Mutex
 	gen  atomic.Uint64
 	data sync.Map // storj.NodeID -> *nodeCounterArray
 }
 
-var _ nodeselection.UploadSuccessTracker = &SuccessTrackers{}
-
-// Increment will increment success/total counters.
-func (t *SuccessTracker) Increment(node storj.NodeID, success bool) {
+func (t *percentSuccessTracker) Increment(node storj.NodeID, success bool) {
 	ctrsI, ok := t.data.Load(node)
 	if !ok {
 		ctrsI, _ = t.data.LoadOrStore(node, new(nodeCounterArray))
@@ -85,11 +116,10 @@ func (t *SuccessTracker) Increment(node storj.NodeID, success bool) {
 	ctrs[gen].Add(v)
 }
 
-// Get implements UploadSuccessTracker.
-func (t *SuccessTracker) Get(node storj.NodeID) (success, total uint32) {
+func (t *percentSuccessTracker) Get(node storj.NodeID) float64 {
 	ctrsI, ok := t.data.Load(node)
 	if !ok {
-		return 0, 0
+		return math.NaN() // no counter yet means NaN
 	}
 	ctrs, _ := ctrsI.(*nodeCounterArray)
 
@@ -97,12 +127,12 @@ func (t *SuccessTracker) Get(node storj.NodeID) (success, total uint32) {
 	for i := range ctrs {
 		sum += ctrs[i].Load()
 	}
+	success, total := uint32(sum>>32), uint32(sum)
 
-	return uint32(sum >> 32), uint32(sum)
+	return float64(success) / float64(total) // 0/0 == NaN which is ok
 }
 
-// BumpGeneration bumps the generation. Predefined generation / buckets are used to create sliding-window from the generations / buckets.
-func (t *SuccessTracker) BumpGeneration() {
+func (t *percentSuccessTracker) BumpGeneration() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -117,6 +147,61 @@ func (t *SuccessTracker) BumpGeneration() {
 	t.data.Range(func(_, ctrsI any) bool {
 		ctrs, _ := ctrsI.(*nodeCounterArray)
 		ctrs[gen].Store(0)
+		return true
+	})
+}
+
+//
+// bitshift success tracker
+//
+
+// increment does a CAS loop incrementing the value in the counter by sliding
+// the bits in it to the left by 1 and adding 1 if there was a success.
+func increment(ctr *atomic.Uint64, success bool) {
+	for {
+		o := ctr.Load()
+		v := o << 1
+		if success {
+			v++
+		}
+		if ctr.CompareAndSwap(o, v) {
+			return
+		}
+	}
+}
+
+type bitshiftSuccessTracker struct {
+	mu   sync.Mutex
+	data sync.Map // storj.NodeID -> *atomic.Uint64
+}
+
+func (t *bitshiftSuccessTracker) Increment(node storj.NodeID, success bool) {
+	crtI, ok := t.data.Load(node)
+	if !ok {
+		v := new(atomic.Uint64)
+		v.Store(^uint64(0))
+		crtI, _ = t.data.LoadOrStore(node, v)
+	}
+	ctr, _ := crtI.(*atomic.Uint64)
+	increment(ctr, success)
+}
+
+func (t *bitshiftSuccessTracker) Get(node storj.NodeID) float64 {
+	ctrI, ok := t.data.Load(node)
+	if !ok {
+		return math.NaN() // no counter yet means NaN
+	}
+	ctr, _ := ctrI.(*atomic.Uint64)
+	return float64(bits.OnesCount64(ctr.Load()))
+}
+
+func (t *bitshiftSuccessTracker) BumpGeneration() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.data.Range(func(_, ctrI any) bool {
+		ctr, _ := ctrI.(*atomic.Uint64)
+		increment(ctr, true)
 		return true
 	})
 }
