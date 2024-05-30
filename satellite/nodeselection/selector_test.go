@@ -509,7 +509,6 @@ func TestChoiceOfTwo(t *testing.T) {
 
 	// don't know the math, but usually it's ~3200
 	require.Greater(t, suboptimal, 500)
-
 }
 
 // mockSelector returns only 1 success, for slow nodes, but only if trustedUplink does ask it.
@@ -518,15 +517,15 @@ type mockTracker struct {
 	slowNodes     []storj.NodeID
 }
 
-func (m *mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) (success uint32, total uint32) {
-	return func(node storj.NodeID) (success uint32, total uint32) {
+func (m *mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
+	return func(node storj.NodeID) float64 {
 		if uplink == m.trustedUplink {
 			for _, slow := range m.slowNodes {
 				if slow == node {
-					return 1, 10
+					return 1
 				}
 			}
 		}
-		return 10, 10
+		return 10
 	}
 }
