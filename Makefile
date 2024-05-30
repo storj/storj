@@ -445,7 +445,7 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	set +x; for c in multinode satellite uplink versioncontrol ; do \
+	set -x; for c in multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -454,10 +454,10 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 --amend \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 --amend \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 --amend \
-			&& docker manifest push --purge storjlabs/$$c:$$t \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
+			&& docker manifest push --purge --amend storjlabs/$$c:$$t \
 		; done \
 	; done
 	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
