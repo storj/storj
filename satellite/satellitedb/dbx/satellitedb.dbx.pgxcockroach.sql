@@ -42,7 +42,7 @@ CREATE TABLE billing_transactions (
 	status text NOT NULL,
 	type text NOT NULL,
 	metadata jsonb NOT NULL,
-	timestamp timestamp with time zone NOT NULL,
+	tx_timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 ) ;
@@ -133,8 +133,8 @@ CREATE TABLE nodes (
 	major bigint NOT NULL DEFAULT 0,
 	minor bigint NOT NULL DEFAULT 0,
 	patch bigint NOT NULL DEFAULT 0,
-	hash text NOT NULL DEFAULT '',
-	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	commit_hash text NOT NULL DEFAULT '',
+	release_timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
 	release boolean NOT NULL DEFAULT false,
 	latency_90 bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
@@ -418,7 +418,7 @@ CREATE TABLE storjscan_payments (
 	token_value bigint NOT NULL,
 	usd_value bigint NOT NULL,
 	status text NOT NULL,
-	timestamp timestamp with time zone NOT NULL,
+	block_timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( block_hash, log_index )
 ) ;
@@ -591,7 +591,7 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	PRIMARY KEY ( tx_id )
 ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
-CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
+CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;

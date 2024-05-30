@@ -90,12 +90,12 @@ model billing_transaction (
 	// metadata contains extra information about the transaction.
 	field metadata         json      ( updatable )
 	// timestamp is the time this transaction happened.
-	field timestamp        timestamp
+	field tx_timestamp        timestamp
 
 	// created_at is the time the transaction was inserted into the table.
 	field created_at timestamp ( autoinsert )
 
-	index ( fields timestamp)
+	index ( fields tx_timestamp)
 )
 
 create billing_transaction ( )
@@ -119,14 +119,14 @@ read one (
 read all (
 	select billing_transaction
 	where billing_transaction.user_id = ?
-	orderby desc billing_transaction.timestamp
+	orderby desc billing_transaction.tx_timestamp
 )
 
 read all (
 	select billing_transaction
 	where billing_transaction.user_id = ?
 	where billing_transaction.source = ?
-	orderby desc billing_transaction.timestamp
+	orderby desc billing_transaction.tx_timestamp
 )
 
 read first (
@@ -305,7 +305,7 @@ model storjscan_payment (
 	// status refers to payments.Status, which is one of "pending" or "confirmed".
 	field status           text
 	// timestamp refers to when the payment happened.
-	field timestamp        timestamp
+	field block_timestamp        timestamp
 	// created_at refers to when the payment was added to the table.
 	field created_at       timestamp ( autoinsert )
 )

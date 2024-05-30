@@ -698,8 +698,8 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			updateFields.Major = dbx.Node_Major(int64(semVer.Major))
 			updateFields.Minor = dbx.Node_Minor(int64(semVer.Minor))
 			updateFields.Patch = dbx.Node_Patch(int64(semVer.Patch))
-			updateFields.Hash = dbx.Node_Hash(nodeInfo.Version.GetCommitHash())
-			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.Version.Timestamp)
+			updateFields.CommitHash = dbx.Node_CommitHash(nodeInfo.Version.GetCommitHash())
+			updateFields.ReleaseTimestamp = dbx.Node_ReleaseTimestamp(nodeInfo.Version.Timestamp)
 			updateFields.Release = dbx.Node_Release(nodeInfo.Version.GetRelease())
 		}
 	}
@@ -1086,8 +1086,8 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Reputation: *getNodeStats(info),
 		Version: pb.NodeVersion{
 			Version:    ver.String(),
-			CommitHash: info.Hash,
-			Timestamp:  info.Timestamp,
+			CommitHash: info.CommitHash,
+			Timestamp:  info.ReleaseTimestamp,
 			Release:    info.Release,
 		},
 		Disqualified:            info.Disqualified,
@@ -1264,7 +1264,7 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 			email=$5,
 			wallet=$6,
 			free_disk=$7,
-			major=$9, minor=$10, patch=$11, hash=$12, timestamp=$13, release=$14,
+			major=$9, minor=$10, patch=$11, commit_hash=$12, release_timestamp=$13, release=$14,
 			last_contact_success = CASE WHEN $8::bool IS TRUE
 				THEN $15::timestamptz
 				ELSE nodes.last_contact_success
@@ -1365,7 +1365,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				email, wallet, free_disk,
 				last_contact_success,
 				last_contact_failure,
-				major, minor, patch, hash, timestamp, release,
+				major, minor, patch, commit_hash, release_timestamp, release,
 				last_ip_port, wallet_features, country_code,
 				noise_proto, noise_public_key, debounce_limit,
 				features
@@ -1393,7 +1393,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				email=$5,
 				wallet=$6,
 				free_disk=$7,
-				major=$9, minor=$10, patch=$11, hash=$12, timestamp=$13, release=$14,
+				major=$9, minor=$10, patch=$11, commit_hash=$12, release_timestamp=$13, release=$14,
 				last_contact_success = CASE WHEN $8::bool IS TRUE
 					THEN $15::timestamptz
 					ELSE nodes.last_contact_success

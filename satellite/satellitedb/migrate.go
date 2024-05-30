@@ -2815,6 +2815,18 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN email_change_verification_step INTEGER NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "rename columns which are forbidden for spanner",
+				Version:     280,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes RENAME COLUMN hash TO commit_hash;`,
+					`ALTER TABLE nodes RENAME COLUMN timestamp TO release_timestamp;`,
+					`ALTER TABLE storjscan_payments RENAME COLUMN timestamp TO block_timestamp;`,
+					`ALTER TABLE billing_transactions RENAME COLUMN timestamp TO tx_timestamp;`,
+					`ALTER INDEX billing_transactions_timestamp_index RENAME TO billing_transactions_tx_timestamp_index;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

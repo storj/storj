@@ -68,10 +68,10 @@ model node (
 	field minor             int64 ( updatable, default 0 )
 	// patch is the version patch release.
 	field patch             int64 ( updatable, default 0 )
-	// hash is the hash of the release.
-	field hash              text ( updatable, default "" )
-	// timestamp is the timestamp the release was built.
-	field timestamp         timestamp ( updatable, default "0001-01-01 00:00:00+00" )
+	// commit hash is the git commit hash of the release.
+	field commit_hash       text ( updatable, default "" )
+	// release_timestamp is the timestamp the release was built.
+	field release_timestamp         timestamp ( updatable, default "0001-01-01 00:00:00+00" )
 	// release indicates whether the storagenode is running a release version.
 	field release           bool ( updatable, default false )
 
