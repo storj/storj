@@ -212,8 +212,7 @@
                                     :src="partnerConfig.partnerLogoBottomUrl" :srcset="partnerConfig.partnerLogoBottomUrl"
                                     :alt="partnerConfig.name + ' logo'"
                                     height="44"
-                                    class="mt-6 rounded"
-                                    style="background-color: white;"
+                                    class="mt-6 rounded white-background"
                                 >
                             </a>
                         </v-card-text>

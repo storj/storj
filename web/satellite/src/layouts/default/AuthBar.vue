@@ -27,8 +27,7 @@
                             height="23"
                             width="auto"
                             :alt="partnerConfig.name + ' logo'"
-                            class="rounded mt-2"
-                            style="background-color: white;"
+                            class="rounded mt-2 white-background"
                         >
                     </a>
                 </template>

@@ -8,7 +8,7 @@ import { md3 } from 'vuetify/blueprints';
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
 
 import '@/styles/styles.scss';
-import { THEME_OPTIONS } from '@/plugins/theme';
+import { THEME_OPTIONS } from '@/utils/constants/theme';
 
 export default createVuetify({
     blueprint: md3,

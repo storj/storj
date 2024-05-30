@@ -545,6 +545,10 @@ table {
   flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
 }
 
+.white-background {
+  background-color: white;
+}
+
 // No pointer events helper class
 .no-pointer-events {
   pointer-events: none;
