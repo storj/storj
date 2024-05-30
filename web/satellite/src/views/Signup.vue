@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
+    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
