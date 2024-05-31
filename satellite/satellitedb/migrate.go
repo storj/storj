@@ -2797,6 +2797,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN passphrase_enc_key_id INTEGER;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns, status_updated_at and final_invoice_generated, to users",
+				Version:     278,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE users ADD COLUMN final_invoice_generated BOOLEAN NOT NULL DEFAULT FALSE;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

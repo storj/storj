@@ -466,6 +466,8 @@ CREATE TABLE users (
 	short_name text,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
+	status_updated_at timestamp with time zone,
+	final_invoice_generated boolean NOT NULL DEFAULT false,
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
