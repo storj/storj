@@ -233,7 +233,7 @@ model project_invitation (
     // See satellitedb.normalizeEmail for details.
     field email       text
     // inviter_id is the ID of the user who sent the invitation.
-    field inviter_id  user.id     setnull  ( nullable, updatable )
+    field inviter_id  user.id     cascade  ( nullable, updatable )
     // created_at is the time that the invitation was created.
     field created_at  timestamp            ( autoinsert, updatable )
 )

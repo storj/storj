@@ -2773,6 +2773,22 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						WHERE rate_limit IS NOT NULL OR burst_limit IS NOT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     275,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     276,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations ADD CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

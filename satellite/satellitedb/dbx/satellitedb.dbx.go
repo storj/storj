@@ -881,7 +881,7 @@ CREATE TABLE bucket_metainfos (
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
-	inviter_id bytea REFERENCES users( id ) ON DELETE SET NULL,
+	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, email )
 );
@@ -1605,7 +1605,7 @@ CREATE TABLE bucket_metainfos (
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
-	inviter_id bytea REFERENCES users( id ) ON DELETE SET NULL,
+	inviter_id bytea REFERENCES users( id ) ON DELETE CASCADE,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, email )
 );
