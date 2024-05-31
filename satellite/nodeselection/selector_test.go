@@ -550,6 +550,45 @@ func TestFilterBest(t *testing.T) {
 			require.Equal(t, 0, countSlowNodes(selected))
 		}
 	})
+}
+
+func TestFilterBestOfN(t *testing.T) {
+	tracker := &mockTracker{
+		trustedUplink: storj.NodeID{},
+	}
+
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 20; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i < 10 {
+			node.Email = "slow"
+			tracker.slowNodes = append(tracker.slowNodes, node.ID)
+		}
+		nodes = append(nodes, node)
+	}
+
+	t.Run("fastest 10 out of 20", func(t *testing.T) {
+		selectorInit := nodeselection.BestOfN(tracker, 2.0, nodeselection.RandomSelector())
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 10)
+			require.Equal(t, 0, countSlowNodes(selected))
+		}
+	})
+
+	t.Run("fastest 10 out of 5", func(t *testing.T) {
+		selectorInit := nodeselection.BestOfN(tracker, 0.5, nodeselection.RandomSelector())
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 5)
+		}
+	})
 
 }
 

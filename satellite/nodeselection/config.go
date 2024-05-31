@@ -242,6 +242,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			return BalancedGroupBasedSelector(attr), nil
 		},
 		"filterbest": FilterBest,
+		"bestofn":    BestOfN,
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

@@ -377,3 +377,33 @@ func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, d
 		return delegate(nodes, filter)
 	}
 }
+
+// BestOfN selects more nodes than the required one, and choose the fastest from those.
+func BestOfN(tracker UploadSuccessTracker, ratio float64, delegate NodeSelectorInit) NodeSelectorInit {
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		wrappedSelector := delegate(nodes, filter)
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+			getSuccessRate := tracker.Get(requester)
+
+			nodesToSelect := int(ratio * float64(n))
+			selectedNodes, err := wrappedSelector(requester, nodesToSelect, excluded, alreadySelected)
+			if err != nil {
+				return selectedNodes, err
+			}
+
+			if len(selectedNodes) < n {
+				return selectedNodes, nil
+			}
+
+			slices.SortFunc(selectedNodes, func(a, b *SelectedNode) int {
+				successA := getSuccessRate(a.ID)
+				successB := getSuccessRate(b.ID)
+				if math.IsNaN(successB) || successA < successB {
+					return 1
+				}
+				return -1
+			})
+			return selectedNodes[:n], nil
+		}
+	}
+}
