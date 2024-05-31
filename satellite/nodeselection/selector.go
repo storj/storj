@@ -6,7 +6,11 @@ package nodeselection
 import (
 	"math"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 )
@@ -306,5 +310,70 @@ func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSe
 			}
 			return nodes, nil
 		}
+	}
+}
+
+// FilterBest is a selector, which keeps only the best nodes (based on percentage, or fixed number of nodes).
+// this selector will permanently ban the worst nodes for the period of nodeselection cache refresh.
+func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, delegate NodeSelectorInit) NodeSelectorInit {
+	var uplinkID storj.NodeID
+	if uplink != "" {
+		var err error
+		uplinkID, err = storj.NodeIDFromString(uplink)
+		if err != nil {
+			panic(err)
+		}
+	}
+	var percentage bool
+	var limit int
+	if strings.HasSuffix(selection, "%") {
+		percentage = true
+		selection = strings.TrimSuffix(selection, "%")
+	}
+
+	limit, err := strconv.Atoi(selection)
+	if err != nil {
+		panic(err)
+	}
+
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		var filteredNodes []*SelectedNode
+		for _, node := range nodes {
+			if filter != nil && !filter.Match(node) {
+				continue
+			}
+			filteredNodes = append(filteredNodes, node)
+		}
+		nodes = filteredNodes
+		getSuccessRate := tracker.Get(uplinkID)
+
+		slices.SortFunc(nodes, func(a, b *SelectedNode) int {
+			successA := getSuccessRate(a.ID)
+			successB := getSuccessRate(b.ID)
+			if math.IsNaN(successB) || successB > successA {
+				return 1
+			}
+			return -1
+		})
+
+		// if percentage suffix is used, it's the best n% what we need.
+		if percentage {
+			limit = len(nodes) * limit / 100
+		}
+
+		// if  limit is negative, we define the long tail to be cut off.
+		if limit < 0 {
+			limit = len(nodes) + limit
+			if limit < 0 {
+				limit = 0
+			}
+		}
+
+		// if limit is positive, it's the number of nodes to be kept
+		if limit > len(nodes) {
+			limit = len(nodes)
+		}
+		nodes = nodes[:limit]
+		return delegate(nodes, filter)
 	}
 }
