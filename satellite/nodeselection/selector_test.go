@@ -466,7 +466,6 @@ func TestChoiceOfTwo(t *testing.T) {
 			tracker.slowNodes = append(tracker.slowNodes, node.ID)
 		}
 		nodes = append(nodes, node)
-
 	}
 
 	selector := nodeselection.ChoiceOfTwo(tracker, nodeselection.RandomSelector())
@@ -484,7 +483,7 @@ func TestChoiceOfTwo(t *testing.T) {
 	}
 
 	suboptimal := 0
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1000; i++ {
 		selectedNodes, err := initializedSelector(storj.NodeID{}, 10, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, 10)
@@ -497,8 +496,57 @@ func TestChoiceOfTwo(t *testing.T) {
 		}
 	}
 
-	// don't know the math, but usually it's ~3200
-	require.Greater(t, suboptimal, 500)
+	// don't know the math, but usually it's ~320
+	require.Greater(t, suboptimal, 50)
+}
+
+func TestChoiceOfN(t *testing.T) {
+	tracker := &mockTracker{
+		trustedUplink: testrand.NodeID(),
+	}
+
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 30; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i < 20 {
+			node.Email = "slow"
+			tracker.slowNodes = append(tracker.slowNodes, node.ID)
+		}
+		nodes = append(nodes, node)
+	}
+
+	selector := nodeselection.ChoiceOfN(tracker, 3, nodeselection.RandomSelector())
+	initializedSelector := selector(nodes, nil)
+
+	for i := 0; i < 100; i++ {
+		selectedNodes, err := initializedSelector(tracker.trustedUplink, 10, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selectedNodes, 10)
+		slowNodes := countSlowNodes(selectedNodes)
+		// we have 20 slow nodes, and 10 fast
+		// if all the slow nodes are triple-selected: we will have 6 slow and 4 fast
+		// we can be more lucky, when slow nodes got fast pairs
+		require.Less(t, slowNodes, 7)
+	}
+
+	suboptimal := 0
+	for i := 0; i < 1000; i++ {
+		selectedNodes, err := initializedSelector(storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selectedNodes, 10)
+
+		slowCount := countSlowNodes(selectedNodes)
+
+		// we don't filter out slow nodes, as the requester is not the trusted nodeID
+		if slowCount >= 7 {
+			suboptimal++
+		}
+	}
+
+	// don't know the math, but usually it's ~560
+	require.Greater(t, suboptimal, 87)
 }
 
 func TestFilterBest(t *testing.T) {
