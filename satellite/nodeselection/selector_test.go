@@ -472,16 +472,6 @@ func TestChoiceOfTwo(t *testing.T) {
 	selector := nodeselection.ChoiceOfTwo(tracker, nodeselection.RandomSelector())
 	initializedSelector := selector(nodes, nil)
 
-	countSlowNodes := func(nodes []*nodeselection.SelectedNode) int {
-		slowCount := 0
-		for _, node := range nodes {
-			if node.Email == "slow" {
-				slowCount++
-			}
-		}
-		return slowCount
-	}
-
 	for i := 0; i < 100; i++ {
 		selectedNodes, err := initializedSelector(tracker.trustedUplink, 10, nil, nil)
 		require.NoError(t, err)
@@ -511,6 +501,58 @@ func TestChoiceOfTwo(t *testing.T) {
 	require.Greater(t, suboptimal, 500)
 }
 
+func TestFilterBest(t *testing.T) {
+	tracker := &mockTracker{
+		trustedUplink: storj.NodeID{},
+	}
+
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 20; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i < 10 {
+			node.Email = "slow"
+			tracker.slowNodes = append(tracker.slowNodes, node.ID)
+		}
+		nodes = append(nodes, node)
+	}
+
+	t.Run("keep best 40%", func(t *testing.T) {
+		selectorInit := nodeselection.FilterBest(tracker, "40%", "", nodeselection.RandomSelector())
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 8, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 8)
+			require.Equal(t, 0, countSlowNodes(selected))
+		}
+	})
+
+	t.Run("keep best 8", func(t *testing.T) {
+		selectorInit := nodeselection.FilterBest(tracker, "8", "", nodeselection.RandomSelector())
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 10; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 2, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 2)
+			require.Equal(t, 0, countSlowNodes(selected))
+		}
+	})
+
+	t.Run("cut off worst 30", func(t *testing.T) {
+		selectorInit := nodeselection.FilterBest(tracker, "-30", "", nodeselection.RandomSelector())
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 10; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 0)
+			require.Equal(t, 0, countSlowNodes(selected))
+		}
+	})
+
+}
+
 // mockSelector returns only 1 success, for slow nodes, but only if trustedUplink does ask it.
 type mockTracker struct {
 	trustedUplink storj.NodeID
@@ -528,4 +570,14 @@ func (m *mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
 		}
 		return 10
 	}
+}
+
+func countSlowNodes(nodes []*nodeselection.SelectedNode) int {
+	slowCount := 0
+	for _, node := range nodes {
+		if node.Email == "slow" {
+			slowCount++
+		}
+	}
+	return slowCount
 }
