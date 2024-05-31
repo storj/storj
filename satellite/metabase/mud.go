@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
-	database "github.com/storj/exp-spanner/admin/database/apiv1"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 

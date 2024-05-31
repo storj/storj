@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"

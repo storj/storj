@@ -9,7 +9,7 @@ import (
 	"database/sql"
 	"errors"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"google.golang.org/api/iterator"
 
 	"storj.io/storj/shared/dbutil/spannerutil"

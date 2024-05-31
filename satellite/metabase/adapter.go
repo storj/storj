@@ -6,7 +6,7 @@ package metabase
 import (
 	"context"
 
-	"github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"

@@ -6,7 +6,7 @@ package spannerutil
 import (
 	"errors"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 	"google.golang.org/api/iterator"

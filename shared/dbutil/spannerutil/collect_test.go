@@ -6,7 +6,7 @@ package spannerutil_test
 import (
 	"testing"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 

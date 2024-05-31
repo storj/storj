@@ -8,7 +8,7 @@ import (
 	"context"
 	"strings"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"

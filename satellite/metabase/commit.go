@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
-	spanner "github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

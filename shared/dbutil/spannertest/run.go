@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
-	spanner "github.com/storj/exp-spanner"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 

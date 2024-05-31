@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"errors"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 

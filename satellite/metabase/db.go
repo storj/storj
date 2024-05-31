@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
-	database "github.com/storj/exp-spanner/admin/database/apiv1"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 

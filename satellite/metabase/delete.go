@@ -10,7 +10,7 @@ import (
 	"errors"
 	"sort"
 
-	spanner "github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
