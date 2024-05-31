@@ -623,6 +623,7 @@ func TestUserSettings(t *testing.T) {
 				PartnerUpgradeBanner:     false,
 				ProjectMembersPassphrase: false,
 				UploadOverwriteWarning:   false,
+				VersioningBetaBanner:     false,
 			}
 
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
@@ -635,6 +636,7 @@ func TestUserSettings(t *testing.T) {
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
 			noticeDismissal.UploadOverwriteWarning = true
+			noticeDismissal.VersioningBetaBanner = true
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
 				NoticeDismissal: &noticeDismissal,
 			}))

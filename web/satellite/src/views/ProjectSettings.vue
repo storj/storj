@@ -133,6 +133,39 @@
                 </v-card>
             </v-col>
         </v-row>
+
+        <template v-if="promptForVersioningBeta || versioningUIEnabled">
+            <v-row>
+                <v-col>
+                    <h3 class="mt-5">Features</h3>
+                </v-col>
+            </v-row>
+
+            <v-row>
+                <v-col cols="12" lg="4">
+                    <v-card title="Object Versioning">
+                        <v-card-subtitle v-if="versioningUIEnabled">
+                            Versioning (beta) is enabled for this project.
+                        </v-card-subtitle>
+                        <v-card-subtitle v-else>
+                            Enable object versioning (beta) on this project.
+                        </v-card-subtitle>
+
+                        <v-card-text>
+                            <v-divider class="mb-4" />
+                            <v-btn v-if="allowVersioningToggle" color="primary" size="small">
+                                Learn More
+                                <versioning-beta-dialog v-model="isVersioningDialogShown" />
+                            </v-btn>
+                            <v-btn v-else-if="versioningUIEnabled" :prepend-icon="mdiInformationOutline" color="primary" size="small">
+                                Enabled
+                                <versioning-beta-dialog info />
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </v-row>
+        </template>
     </v-container>
 
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
@@ -140,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
     VContainer,
     VCard,
@@ -153,7 +186,7 @@ import {
     VIcon,
     VChip,
 } from 'vuetify/components';
-import { mdiOpenInNew, mdiArrowRight } from '@mdi/js';
+import { mdiOpenInNew, mdiArrowRight, mdiInformationOutline } from '@mdi/js';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';
@@ -171,9 +204,12 @@ import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+import VersioningBetaDialog from '@/components/dialogs/VersioningBetaDialog.vue';
 
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
+const isVersioningDialogShown = ref<boolean>(false);
+const allowVersioningToggle = ref<boolean>(false);
 const fieldToChange = ref<FieldToChange>(FieldToChange.Name);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 
@@ -196,6 +232,13 @@ const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(use
 const project = computed<Project>(() => {
     return projectsStore.state.selectedProject;
 });
+
+const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForVersioningBeta);
+
+/**
+ * Whether versioning has been enabled for current project.
+ */
+const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
 /**
  * Returns user's paid tier status from store.
@@ -310,4 +353,13 @@ onMounted(async () => {
         notify.error(`Error fetching project limits. ${error.message}`, AnalyticsErrorEventSource.PROJECT_SETTINGS_AREA);
     }
 });
+
+watch(() => [projectsStore.promptForVersioningBeta, isVersioningDialogShown.value], (values) => {
+    if (values[0] && !allowVersioningToggle.value) {
+        allowVersioningToggle.value = true;
+    } else if (!values[0] && !values[1] && allowVersioningToggle.value) {
+        // throttle the banner dismissal for the dialog close animation.
+        setTimeout(() => allowVersioningToggle.value = false, 500);
+    }
+}, { immediate: true });
 </script>

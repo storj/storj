@@ -2283,6 +2283,7 @@ func TestUserSettings(t *testing.T) {
 			PartnerUpgradeBanner:     false,
 			ProjectMembersPassphrase: false,
 			UploadOverwriteWarning:   false,
+			VersioningBetaBanner:     false,
 		}
 		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
@@ -2315,6 +2316,7 @@ func TestUserSettings(t *testing.T) {
 		noticeDismissal.PartnerUpgradeBanner = true
 		noticeDismissal.ProjectMembersPassphrase = true
 		noticeDismissal.UploadOverwriteWarning = true
+		noticeDismissal.VersioningBetaBanner = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,

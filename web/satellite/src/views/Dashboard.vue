@@ -13,7 +13,7 @@
             @click="redirectToBilling"
         />
         <limit-warning-banners v-if="billingEnabled" />
-        <versioning-beta-banner />
+        <versioning-beta-banner v-if="!versioningBetaBannerDismissed" />
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
@@ -615,6 +615,11 @@ const emissionImpactViewEnabled = computed<boolean>(() => {
 const emission = computed<Emission>(()  => {
     return projectsStore.state.emission;
 });
+
+/**
+ * Whether the user has dismissed the versioning beta banner.
+ */
+const versioningBetaBannerDismissed = computed(() => !!usersStore.noticeDismissal?.versioningBetaBanner);
 
 /**
  * Returns adjusted value and unit.

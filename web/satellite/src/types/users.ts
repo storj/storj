@@ -254,6 +254,7 @@ export interface NoticeDismissal {
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
     uploadOverwriteWarning?: boolean;
+    versioningBetaBanner?: boolean;
 }
 
 export interface SetUserSettingsData {

@@ -3,7 +3,7 @@
 
 <template>
     <v-alert
-        :model-value="alertVisible"
+        v-if="alertVisible"
         class="my-4 pb-4"
         variant="tonal"
         color="default"
@@ -20,7 +20,7 @@
             :disabled="isLoading"
         >
             Learn More
-            <versioning-beta-dialog />
+            <versioning-beta-dialog v-model="dialogVisible" />
         </v-btn>
         <v-btn
             color="default"
@@ -35,33 +35,48 @@
 
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
-import { computed } from 'vue';
+import { ref, watch } from 'vue';
 import { mdiArrowRight, mdiClose } from '@mdi/js';
 
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VersioningBetaDialog from '@/components/dialogs/VersioningBetaDialog.vue';
 
 const projectsStore = useProjectsStore();
+const usersStore = useUsersStore();
 
 const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
 
-const alertVisible = computed<boolean>(() => projectsStore.promptForVersioningBeta);
+const alertVisible = ref(false);
+const dialogVisible = ref(false);
 
-// dismiss this alert and automatically opt out of versioning.
+/**
+ * Dismiss the versioning beta banner.
+ */
 function closeAlert() {
     withLoading(async () => {
         try {
-            await projectsStore.setVersioningOptInStatus('out');
-            await projectsStore.getProjectConfig();
-            await projectsStore.getProjects();
-        } catch (e) {
-            notify.notifyError(e, AnalyticsErrorEventSource.VERSIONING_BETA_BANNER);
+            const noticeDismissal = { ...usersStore.state.settings.noticeDismissal };
+            noticeDismissal.versioningBetaBanner = true;
+            await usersStore.updateSettings({ noticeDismissal });
+            alertVisible.value = false;
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.VERSIONING_BETA_BANNER);
         }
     });
 }
+
+watch(() => [projectsStore.promptForVersioningBeta, dialogVisible.value], (values) => {
+    if (values[0] && !alertVisible.value) {
+        alertVisible.value = true;
+    } else if (!values[0] && !values[1] && alertVisible.value) {
+        // throttle the banner dismissal for the dialog close animation.
+        setTimeout(() => alertVisible.value = false, 500);
+    }
+}, { immediate: true });
 </script>
