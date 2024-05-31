@@ -46,6 +46,10 @@ func stopProcess(service string) (err error) {
 	if err != nil {
 		return err
 	}
+	// if process shutdown, return
+	if pid == 0 {
+		return nil
+	}
 	p, err := os.FindProcess(pid)
 	if err != nil {
 		return err
