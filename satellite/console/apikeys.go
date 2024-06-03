@@ -68,8 +68,18 @@ type APIKeyInfo struct {
 	Version         macaroon.APIKeyVersion `json:"version"`
 
 	// TODO move this closer to metainfo
-	ProjectRateLimit  *int `json:"-"`
-	ProjectBurstLimit *int `json:"-"`
+	ProjectRateLimit        *int `json:"-"`
+	ProjectBurstLimit       *int `json:"-"`
+	ProjectRateLimitHead    *int `json:"-"`
+	ProjectBurstLimitHead   *int `json:"-"`
+	ProjectRateLimitGet     *int `json:"-"`
+	ProjectBurstLimitGet    *int `json:"-"`
+	ProjectRateLimitPut     *int `json:"-"`
+	ProjectBurstLimitPut    *int `json:"-"`
+	ProjectRateLimitList    *int `json:"-"`
+	ProjectBurstLimitList   *int `json:"-"`
+	ProjectRateLimitDelete  *int `json:"-"`
+	ProjectBurstLimitDelete *int `json:"-"`
 
 	ProjectStorageLimit   *int64 `json:"-"`
 	ProjectSegmentsLimit  *int64 `json:"-"`

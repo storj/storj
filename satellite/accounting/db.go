@@ -96,8 +96,18 @@ type ProjectLimits struct {
 	UserSetBandwidth *int64
 	Segments         *int64
 
-	RateLimit  *int
-	BurstLimit *int
+	RateLimit        *int
+	BurstLimit       *int
+	RateLimitHead    *int
+	BurstLimitHead   *int
+	RateLimitGet     *int
+	BurstLimitGet    *int
+	RateLimitPut     *int
+	BurstLimitPut    *int
+	RateLimitList    *int
+	BurstLimitList   *int
+	RateLimitDelete  *int
+	BurstLimitDelete *int
 }
 
 // ProjectDailyUsage holds project daily usage.

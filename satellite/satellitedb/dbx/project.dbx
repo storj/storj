@@ -142,8 +142,26 @@ read one (
 	select project.max_buckets
 	where project.id = ?
 )
+
 read one (
-	select project.bandwidth_limit project.user_specified_bandwidth_limit project.usage_limit project.user_specified_usage_limit project.segment_limit project.rate_limit project.burst_limit
+	/* multiline comments used as a hack to avoid putting a lot of fields on a single line */
+	select project.bandwidth_limit /*
+		*/ project.user_specified_bandwidth_limit /*
+		*/ project.usage_limit /*
+		*/ project.user_specified_usage_limit /*
+		*/ project.segment_limit /*
+		*/ project.rate_limit /*
+		*/ project.burst_limit /*
+		*/ project.rate_limit_head /*
+		*/ project.burst_limit_head /*
+		*/ project.rate_limit_get /*
+		*/ project.burst_limit_get /*
+		*/ project.rate_limit_put /*
+		*/ project.burst_limit_put /*
+		*/ project.rate_limit_list /*
+		*/ project.burst_limit_list /*
+		*/ project.rate_limit_del /*
+		*/ project.burst_limit_del
 	where  project.id = ?
 )
 read one (
@@ -308,7 +326,26 @@ read one (
 	where api_key.id = ?
 )
 read one (
-	select api_key project.public_id project.rate_limit project.burst_limit project.segment_limit project.usage_limit project.bandwidth_limit project.user_specified_usage_limit project.user_specified_bandwidth_limit
+	/* multiline comments used as a hack to avoid putting a lot of fields on a single line */
+	select api_key /*
+		*/ project.public_id /*
+		*/ project.rate_limit /*
+		*/ project.burst_limit /*
+		*/ project.rate_limit_head /*
+		*/ project.burst_limit_head /*
+		*/ project.rate_limit_get /*
+		*/ project.burst_limit_get /*
+		*/ project.rate_limit_put /*
+		*/ project.burst_limit_put /*
+		*/ project.rate_limit_list /*
+		*/ project.burst_limit_list /*
+		*/ project.rate_limit_del /*
+		*/ project.burst_limit_del /*
+		*/ project.segment_limit /*
+		*/ project.usage_limit /*
+		*/ project.bandwidth_limit /*
+		*/ project.user_specified_usage_limit /*
+		*/ project.user_specified_bandwidth_limit
 	join project.id = api_key.project_id
 	where api_key.head = ?
 )

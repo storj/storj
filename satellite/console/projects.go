@@ -110,27 +110,40 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name                        string                    `json:"name"`
-	Description                 string                    `json:"description"`
-	UserAgent                   []byte                    `json:"userAgent"`
-	OwnerID                     uuid.UUID                 `json:"ownerId"`
-	RateLimit                   *int                      `json:"rateLimit"`
-	BurstLimit                  *int                      `json:"burstLimit"`
-	MaxBuckets                  *int                      `json:"maxBuckets"`
-	CreatedAt                   time.Time                 `json:"createdAt"`
-	MemberCount                 int                       `json:"memberCount"`
-	StorageLimit                *memory.Size              `json:"storageLimit"`
-	StorageUsed                 int64                     `json:"-"`
-	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
-	BandwidthUsed               int64                     `json:"-"`
-	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
-	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
-	SegmentLimit                *int64                    `json:"segmentLimit"`
-	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
-	PromptedForVersioningBeta   bool                      `json:"-"`
-	PassphraseEnc               []byte                    `json:"-"`
-	PathEncryption              *bool                     `json:"-"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	UserAgent   []byte    `json:"userAgent"`
+	OwnerID     uuid.UUID `json:"ownerId"`
+	MaxBuckets  *int      `json:"maxBuckets"`
+	CreatedAt   time.Time `json:"createdAt"`
+	MemberCount int       `json:"memberCount"`
+
+	StorageLimit                *memory.Size `json:"storageLimit"`
+	StorageUsed                 int64        `json:"-"`
+	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
+	BandwidthUsed               int64        `json:"-"`
+	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64       `json:"segmentLimit"`
+
+	RateLimit        *int `json:"rateLimit"`
+	BurstLimit       *int `json:"burstLimit"`
+	RateLimitHead    *int `json:"rateLimitHead,omitempty"`
+	BurstLimitHead   *int `json:"burstLimitHead,omitempty"`
+	RateLimitGet     *int `json:"rateLimitGet,omitempty"`
+	BurstLimitGet    *int `json:"burstLimitGet,omitempty"`
+	RateLimitPut     *int `json:"rateLimitPut,omitempty"`
+	BurstLimitPut    *int `json:"burstLimitPut,omitempty"`
+	RateLimitList    *int `json:"rateLimitList,omitempty"`
+	BurstLimitList   *int `json:"burstLimitList,omitempty"`
+	RateLimitDelete  *int `json:"rateLimitDelete,omitempty"`
+	BurstLimitDelete *int `json:"burstLimitDelete,omitempty"`
+
+	DefaultPlacement          storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning         DefaultVersioning         `json:"defaultVersioning"`
+	PromptedForVersioningBeta bool                      `json:"-"`
+	PassphraseEnc             []byte                    `json:"-"`
+	PathEncryption            *bool                     `json:"-"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.
