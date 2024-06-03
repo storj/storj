@@ -465,6 +465,8 @@ CREATE TABLE users (
 	full_name text NOT NULL,
 	short_name text,
 	password_hash bytea NOT NULL,
+	new_unverified_email text,
+	email_change_verification_step integer NOT NULL DEFAULT 0,
 	status integer NOT NULL,
 	status_updated_at timestamp with time zone,
 	final_invoice_generated boolean NOT NULL DEFAULT false,

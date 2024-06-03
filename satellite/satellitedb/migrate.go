@@ -2806,6 +2806,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN final_invoice_generated BOOLEAN NOT NULL DEFAULT FALSE;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table for handling change email address process",
+				Version:     279,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN new_unverified_email TEXT DEFAULT NULL;`,
+					`ALTER TABLE users ADD COLUMN email_change_verification_step INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
