@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -58,10 +57,11 @@ func TestBandwidthDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testrand.NodeID()
+		satellite1 := testrand.NodeID()
 
-		now := time.Now().Add(-48 * time.Hour)
+		now := time.Now()
+		past := now.Add(-48 * time.Hour)
 
 		expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
 			satellite0: {},
@@ -72,11 +72,11 @@ func TestBandwidthDB(t *testing.T) {
 
 		// add bandwidth usages
 		for _, action := range actions {
-			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), now)
+			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), past)
 			require.NoError(t, err)
 			expectedUsageBySatellite[satellite0].Include(action, int64(action))
 
-			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), now.Add(2*time.Hour))
+			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), past.Add(2*time.Hour))
 			require.NoError(t, err)
 			expectedUsageBySatellite[satellite1].Include(action, int64(action))
 
@@ -85,31 +85,38 @@ func TestBandwidthDB(t *testing.T) {
 
 		// test summarizing
 		{
-			usage, err := bandwidthdb.Summary(ctx, time.Time{}, time.Now())
+			usage, err := bandwidthdb.Summary(ctx, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageTotal, usage)
 		}
 
 		{
-			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
 		}
 
 		{
-			usage, err := bandwidthdb.SatelliteSummary(ctx, satellite0, time.Time{}, time.Now())
+			usage, err := bandwidthdb.SatelliteSummary(ctx, satellite0, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite[satellite0], usage)
 
-			usage, err = bandwidthdb.SatelliteSummary(ctx, satellite1, time.Time{}, time.Now())
+			usage, err = bandwidthdb.SatelliteSummary(ctx, satellite1, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite[satellite1], usage)
 		}
 
 		{
-			cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx, time.Now())
+			totalUsage, err := bandwidthdb.MonthSummary(ctx, past)
 			require.NoError(t, err)
-			require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
+
+			if now.Month() != past.Month() {
+				nowMonth, err := bandwidthdb.MonthSummary(ctx, now)
+				require.NoError(t, err)
+				totalUsage += nowMonth
+			}
+
+			require.Equal(t, expectedUsageTotal.Total(), totalUsage)
 		}
 	})
 }
@@ -118,10 +125,11 @@ func TestEgressSummary(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testrand.NodeID()
+		satellite1 := testrand.NodeID()
 
-		now := time.Now().Add(-48 * time.Hour)
+		now := time.Now()
+		past := now.Add(-48 * time.Hour)
 
 		expectedEgressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
 			satellite0: {},
@@ -132,11 +140,11 @@ func TestEgressSummary(t *testing.T) {
 
 		// add egress usages
 		for _, action := range egressActions {
-			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), now)
+			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), past)
 			require.NoError(t, err)
 			expectedEgressUsageBySatellite[satellite0].Include(action, int64(action))
 
-			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), now.Add(2*time.Hour))
+			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), past.Add(2*time.Hour))
 			require.NoError(t, err)
 			expectedEgressUsageBySatellite[satellite1].Include(action, int64(action))
 
@@ -146,23 +154,23 @@ func TestEgressSummary(t *testing.T) {
 		// test egress summarizing.
 		{
 			// only range capturing second satellite.
-			usage, err := bandwidthdb.EgressSummary(ctx, time.Time{}, time.Now())
+			usage, err := bandwidthdb.EgressSummary(ctx, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageTotal, usage)
 		}
 
 		{
-			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
 		}
 
 		{
-			usage, err := bandwidthdb.SatelliteEgressSummary(ctx, satellite0, time.Time{}, time.Now())
+			usage, err := bandwidthdb.SatelliteEgressSummary(ctx, satellite0, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite[satellite0], usage)
 
-			usage, err = bandwidthdb.SatelliteEgressSummary(ctx, satellite1, time.Time{}, time.Now())
+			usage, err = bandwidthdb.SatelliteEgressSummary(ctx, satellite1, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite[satellite1], usage)
 		}
@@ -173,10 +181,11 @@ func TestIngressSummary(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
-		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
+		satellite0 := testrand.NodeID()
+		satellite1 := testrand.NodeID()
 
-		now := time.Now().Add(-48 * time.Hour)
+		now := time.Now()
+		past := now.Add(-48 * time.Hour)
 
 		expectedIngressUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
 			satellite0: {},
@@ -187,11 +196,11 @@ func TestIngressSummary(t *testing.T) {
 
 		// add ingress usages
 		for _, action := range ingressActions {
-			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), now)
+			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), past)
 			require.NoError(t, err)
 			expectedIngressUsageBySatellite[satellite0].Include(action, int64(action))
 
-			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), now.Add(2*time.Hour))
+			err = bandwidthdb.Add(ctx, satellite1, action, int64(action), past.Add(2*time.Hour))
 			require.NoError(t, err)
 			expectedIngressUsageBySatellite[satellite1].Include(action, int64(action))
 
@@ -201,23 +210,23 @@ func TestIngressSummary(t *testing.T) {
 		// test ingress summarizing.
 		{
 			// only range capturing second satellite.
-			usage, err := bandwidthdb.IngressSummary(ctx, time.Time{}, time.Now())
+			usage, err := bandwidthdb.IngressSummary(ctx, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsage, usage)
 		}
 
 		{
-			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, time.Now())
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite, usageBySatellite)
 		}
 
 		{
-			usage, err := bandwidthdb.SatelliteIngressSummary(ctx, satellite0, time.Time{}, time.Now())
+			usage, err := bandwidthdb.SatelliteIngressSummary(ctx, satellite0, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite[satellite0], usage)
 
-			usage, err = bandwidthdb.SatelliteIngressSummary(ctx, satellite1, time.Time{}, time.Now())
+			usage, err = bandwidthdb.SatelliteIngressSummary(ctx, satellite1, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite[satellite1], usage)
 		}
@@ -267,7 +276,7 @@ func TestBandwidthDBCache(t *testing.T) {
 		bandwidthdb := db.Bandwidth()
 		bandwidthCache := bandwidth.NewCache(bandwidthdb)
 
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
+		satellite0 := testrand.NodeID()
 
 		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
