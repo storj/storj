@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -23,6 +24,18 @@ func TestNow(t *testing.T) {
 		require.NoError(t, err)
 		require.WithinDuration(t, sysnow, now, 5*time.Second)
 	})
+}
+
+func TestFullMigration(t *testing.T) {
+	migration := func(ctx context.Context, db *metabase.DB) error {
+		return db.MigrateToLatest(ctx)
+	}
+	metabasetest.RunWithConfigAndMigration(t, metabase.Config{}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		sysnow := time.Now()
+		now, err := db.Now(ctx)
+		require.NoError(t, err)
+		require.WithinDuration(t, sysnow, now, 5*time.Second)
+	}, migration)
 }
 
 func TestDisallowDoubleUnversioned(t *testing.T) {
