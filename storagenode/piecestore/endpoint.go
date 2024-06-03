@@ -4,6 +4,7 @@
 package piecestore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -979,6 +980,18 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
 	}
+
+	if len(retainReq.Hash) > 0 {
+		hasher := pb.NewHashFromAlgorithm(retainReq.HashAlgorithm)
+		_, err := hasher.Write(retainReq.GetFilter())
+		if err != nil {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+		if !bytes.Equal(retainReq.Hash, hasher.Sum(nil)) {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, errs.New("hash mismatch"))
+		}
+	}
+
 	return endpoint.processRetainReq(peer.ID, retainReq)
 }
 
@@ -993,11 +1006,7 @@ func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.Re
 	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
-	queued := endpoint.retain.Queue(retain.Request{
-		SatelliteID:   peerID,
-		CreatedBefore: retainReq.GetCreationDate(),
-		Filter:        filter,
-	})
+	queued := endpoint.retain.Queue(peerID, retainReq)
 	if queued {
 		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peerID))
 	} else {

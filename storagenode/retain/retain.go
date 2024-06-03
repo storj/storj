@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
@@ -38,14 +39,19 @@ type Config struct {
 
 // Request contains all the info necessary to process a retain request.
 type Request struct {
+	Filename      string
 	SatelliteID   storj.NodeID
 	CreatedBefore time.Time
 	Filter        *bloomfilter.Filter
 }
 
-// Filename returns the filename used to store the request in the cache directory.
-func (req *Request) Filename() string {
-	return fmt.Sprintf("%s-%s",
+// GetFilename returns the filename used to store the request in the cache directory.
+func (req *Request) GetFilename() string {
+	if req.Filename != "" {
+		return req.Filename
+	}
+
+	return fmt.Sprintf("%s-%s.pb",
 		filestore.PathEncoding.EncodeToString(req.SatelliteID.Bytes()),
 		strconv.FormatInt(req.CreatedBefore.UnixNano(), 10),
 	)
@@ -54,7 +60,7 @@ func (req *Request) Filename() string {
 // Queue manages the retain requests queue.
 type Queue interface {
 	// Add adds a request to the queue.
-	Add(request Request) (bool, error)
+	Add(satelliteID storj.NodeID, request *pb.RetainRequest) (bool, error)
 	// Remove removes a request from the queue.
 	// Returns true if there was a request to remove.
 	Remove(request Request) bool
@@ -153,7 +159,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 
 // Queue adds a retain request to the queue.
 // true is returned if the request is added to the queue, false if queue is closed.
-func (s *Service) Queue(req Request) bool {
+func (s *Service) Queue(satelliteID storj.NodeID, req *pb.RetainRequest) bool {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
@@ -163,9 +169,9 @@ func (s *Service) Queue(req Request) bool {
 	default:
 	}
 
-	ok, err := s.queue.Add(req)
+	ok, err := s.queue.Add(satelliteID, req)
 	if err != nil {
-		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("Queued", ok), zap.Stringer("Satellite ID", req.SatelliteID))
+		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("Queued", ok), zap.Stringer("Satellite ID", satelliteID))
 	}
 
 	s.cond.Broadcast()
