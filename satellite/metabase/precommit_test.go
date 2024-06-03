@@ -41,7 +41,13 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 		}
 
 		t.Run("with-non-pending", func(t *testing.T) {
-			result, err := db.PrecommitDeleteUnversionedWithNonPending(ctx, obj.Location(), db.UnderlyingTagSQL())
+			adapter := db.ChooseAdapter(obj.ProjectID)
+			var result metabase.PrecommitConstraintWithNonPendingResult
+			err := adapter.WithTx(ctx, func(ctx context.Context, tx metabase.TransactionAdapter) error {
+				var err error
+				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, obj.Location())
+				return err
+			})
 			require.NoError(t, err)
 			require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{}, result)
 		})

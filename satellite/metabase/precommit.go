@@ -47,10 +47,6 @@ func (r *PrecommitConstraintResult) submitMetrics() {
 	mon.Meter("segment_delete").Mark(r.DeletedSegmentCount)
 }
 
-type stmtRow interface {
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-}
-
 // PrecommitConstraint ensures that only a single uncommitted object exists at the specified location.
 func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint, adapter precommitTransactionAdapter) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -286,7 +282,7 @@ func (r *PrecommitConstraintWithNonPendingResult) submitMetrics() {
 }
 
 // PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
-func (db *DB) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation, tx stmtRow) (result PrecommitConstraintWithNonPendingResult, err error) {
+func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := loc.Verify(); err != nil {
@@ -306,7 +302,7 @@ func (db *DB) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc 
 	var encryptionParams nullableValue[encryptionParameters]
 	encryptionParams.value.EncryptionParameters = &deleted.Encryption
 
-	err = tx.QueryRowContext(ctx, `
+	err = ptx.tx.QueryRowContext(ctx, `
 		WITH highest_object AS (
 			SELECT version
 			FROM objects
@@ -395,7 +391,7 @@ func (db *DB) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc 
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
 	if result.DeletedObjectCount > 1 {
-		db.log.Error("object with multiple committed versions were found!",
+		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 

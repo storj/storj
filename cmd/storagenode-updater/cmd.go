@@ -65,6 +65,8 @@ var (
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
+		RestartMethod  string `help:"Method used to restart services. Default is 'kill'' (good for containers). 'service' is supported on FreeBSD, to use rc.d" default:"kill"`
+
 		// deprecated
 		Log string `help:"deprecated, use --log.output" default:""`
 	}

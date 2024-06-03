@@ -15,7 +15,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -388,53 +387,7 @@ func (db *DB) DeleteObjectLastCommitted(
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
 
-		var precommit PrecommitConstraintWithNonPendingResult
-		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-			precommit, err = db.PrecommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation, tx)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
-				// an object didn't exist in the first place
-				return ErrObjectNotFound.New("unable to delete object")
-			}
-
-			row := tx.QueryRowContext(ctx, `
-				INSERT INTO objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					status,
-					zombie_deletion_deadline
-				)
-				SELECT
-					$1, $2, $3, $4, $5,
-					`+statusDeleteMarkerUnversioned+`,
-					NULL
-				RETURNING
-					version,
-					created_at
-			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, precommit.HighestVersion+1, deleterMarkerStreamID)
-
-			var marker Object
-			marker.ProjectID = opts.ProjectID
-			marker.BucketName = opts.BucketName
-			marker.ObjectKey = opts.ObjectKey
-			marker.Status = DeleteMarkerUnversioned
-			marker.StreamID = deleterMarkerStreamID
-
-			err = row.Scan(&marker.Version, &marker.CreatedAt)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			result.Markers = append(result.Markers, marker)
-			result.Removed = precommit.Deleted
-			return nil
-		})
-		if err != nil {
-			return result, err
-		}
-		precommit.submitMetrics()
-		return result, err
+		return db.ChooseAdapter(opts.ProjectID).DeleteObjectLastCommittedSuspended(ctx, opts, deleterMarkerStreamID)
 	}
 	if opts.Versioned {
 		// Instead of deleting we insert a deletion marker.
@@ -443,48 +396,29 @@ func (db *DB) DeleteObjectLastCommitted(
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
 
-		row := db.db.QueryRowContext(ctx, `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				status,
-				zombie_deletion_deadline
-			)
-			SELECT
-				$1, $2, $3,
-					coalesce((
-						SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-						ORDER BY version DESC
-						LIMIT 1
-					), 1),
-				$4,
-				`+statusDeleteMarkerVersioned+`,
-				NULL
-			RETURNING version, created_at
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleterMarkerStreamID)
-
-		var deleted Object
-		deleted.ProjectID = opts.ProjectID
-		deleted.BucketName = opts.BucketName
-		deleted.ObjectKey = opts.ObjectKey
-		deleted.StreamID = deleterMarkerStreamID
-		deleted.Status = DeleteMarkerVersioned
-
-		err = row.Scan(&deleted.Version, &deleted.CreatedAt)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("object does not exist"))
-			}
-			return DeleteObjectResult{}, Error.Wrap(err)
-		}
-		return DeleteObjectResult{Markers: []Object{deleted}}, nil
+		return db.ChooseAdapter(opts.ProjectID).DeleteObjectLastCommittedVersioned(ctx, opts, deleterMarkerStreamID)
 	}
 
+	result, err = db.ChooseAdapter(opts.ProjectID).DeleteObjectLastCommittedPlain(ctx, opts)
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	mon.Meter("object_delete").Mark(len(result.Removed))
+	for _, object := range result.Removed {
+		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
+	}
+
+	return result, nil
+}
+
+// DeleteObjectLastCommittedPlain deletes an object last committed version when
+// opts.Suspended and opts.Versioned are both false.
+func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
 	// TODO(ver): do we need to pretend here that `expires_at` matters?
 	// TODO(ver): should this report an error when the object doesn't exist?
 	err = withRows(
-		db.db.QueryContext(ctx, `
+		p.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
@@ -513,16 +447,121 @@ func (db *DB) DeleteObjectLastCommitted(
 		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
 	})
+	return result, err
+}
+
+// DeleteObjectLastCommittedPlain deletes an object last committed version when
+// opts.Suspended and opts.Versioned are both false.
+func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	// TODO: implement me
+	panic("implement me")
+}
+
+type deleteTransactionAdapter interface {
+	PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error)
+}
+
+// DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
+func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
+	var precommit PrecommitConstraintWithNonPendingResult
+	err = p.WithTx(ctx, func(ctx context.Context, tx TransactionAdapter) (err error) {
+		precommit, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
+			// an object didn't exist in the first place
+			return ErrObjectNotFound.New("unable to delete object")
+		}
+
+		row := tx.(*postgresTransactionAdapter).tx.QueryRowContext(ctx, `
+				INSERT INTO objects (
+					project_id, bucket_name, object_key, version, stream_id,
+					status,
+					zombie_deletion_deadline
+				)
+				SELECT
+					$1, $2, $3, $4, $5,
+					`+statusDeleteMarkerUnversioned+`,
+					NULL
+				RETURNING
+					version,
+					created_at
+			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, precommit.HighestVersion+1, deleterMarkerStreamID)
+
+		var marker Object
+		marker.ProjectID = opts.ProjectID
+		marker.BucketName = opts.BucketName
+		marker.ObjectKey = opts.ObjectKey
+		marker.Status = DeleteMarkerUnversioned
+		marker.StreamID = deleterMarkerStreamID
+
+		err = row.Scan(&marker.Version, &marker.CreatedAt)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		result.Markers = append(result.Markers, marker)
+		result.Removed = precommit.Deleted
+		return nil
+	})
 	if err != nil {
-		return DeleteObjectResult{}, err
+		return result, err
 	}
+	precommit.submitMetrics()
+	return result, err
+}
 
-	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
+// DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
+func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
+	// TODO: implement me
+	panic("implement me")
+}
+
+// DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
+func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
+	row := p.db.QueryRowContext(ctx, `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				status,
+				zombie_deletion_deadline
+			)
+			SELECT
+				$1, $2, $3,
+					coalesce((
+						SELECT version + 1
+						FROM objects
+						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+						ORDER BY version DESC
+						LIMIT 1
+					), 1),
+				$4,
+				`+statusDeleteMarkerVersioned+`,
+				NULL
+			RETURNING version, created_at
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleterMarkerStreamID)
+
+	var deleted Object
+	deleted.ProjectID = opts.ProjectID
+	deleted.BucketName = opts.BucketName
+	deleted.ObjectKey = opts.ObjectKey
+	deleted.StreamID = deleterMarkerStreamID
+	deleted.Status = DeleteMarkerVersioned
+
+	err = row.Scan(&deleted.Version, &deleted.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("object does not exist"))
+		}
+		return DeleteObjectResult{}, Error.Wrap(err)
 	}
+	return DeleteObjectResult{Markers: []Object{deleted}}, nil
+}
 
-	return result, nil
+// DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
+func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // generateDeleteMarkerStreamID returns a uuid that has the first 6 bytes as 0xff.
