@@ -5,7 +5,7 @@ go 1.21.4
 replace storj.io/storj => ../../
 
 require (
-	github.com/spacemonkeygo/monkit/v3 v3.0.22
+	github.com/spacemonkeygo/monkit/v3 v3.0.23
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/errs v1.3.0
