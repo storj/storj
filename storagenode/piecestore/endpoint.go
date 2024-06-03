@@ -300,6 +300,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	})
 	switch {
 	case err != nil:
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	case message == nil:
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
@@ -319,6 +323,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
@@ -393,6 +398,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
 	if err != nil {
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	defer func() {
@@ -449,6 +455,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return true, rpcstatus.Error(rpcstatus.Internal, "out of space")
 			}
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
+				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 		}
@@ -463,6 +470,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		calculatedHash := pieceWriter.Hash()
 		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 		if message.Done.PieceSize != pieceWriter.Size() {
@@ -480,12 +488,13 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				OrderLimit:    *limit,
 			}
 			if err := pieceWriter.Commit(ctx, info); err != nil {
+				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 			committed = true
 			if !limit.PieceExpiration.IsZero() {
-				err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
-				if err != nil {
+				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration); err != nil {
+					endpoint.log.Error("upload internal error", zap.Error(err))
 					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 				}
 			}
@@ -499,6 +508,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			Timestamp:     time.Now(),
 		})
 		if err != nil {
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
@@ -511,6 +521,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			closeErr = nil
 		}
 		if closeErr != nil {
+			if errs2.IsCanceled(closeErr) {
+				return true, rpcstatus.Wrap(rpcstatus.Canceled, closeErr)
+			}
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, closeErr)
 		}
 		return true, nil
@@ -536,6 +550,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		if errs.Is(err, io.EOF) {
 			return rpcstatus.Error(rpcstatus.InvalidArgument, "unexpected EOF")
 		} else if err != nil {
+			if errs2.IsCanceled(err) {
+				return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 		if message == nil {
