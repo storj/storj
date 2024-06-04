@@ -28,8 +28,18 @@ model user (
     // password_hash is the bcrypt hash.
     field password_hash      blob      ( updatable )
 
+    // new_unverified_email is the user specified email to be verified and used instead of existing email.
+    field new_unverified_email           text ( updatable, nullable )
+    // email_change_verification_step indicates how many email change verifications were completed by the user.
+    field email_change_verification_step int  ( updatable, default 0 )
+
     // status indicates whether the user is inactive=0, active=1, or deleted=2. See console.UserStatus for details.
     field status                   int       ( updatable, autoinsert )
+    // status_updated_at indicates the time at which the status last changed
+    field status_updated_at timestamp ( updatable, nullable )
+    // final_invoice_generated indicates whether the user's final invoice has been generated before account deletion.
+    field final_invoice_generated bool ( updatable, default false )
+
     // user_agent contains the partner parameter from registration.
     field user_agent               blob      ( updatable, nullable )
     // created_at indicates when the user was created.

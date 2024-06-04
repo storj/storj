@@ -91,6 +91,8 @@ model project (
 
     // encrypted passphrase for satellite-managed-encryption projects
     field passphrase_enc blob ( nullable, updatable )
+    // identifies which key was used to encrypt passphrase_enc
+    field passphrase_enc_key_id int ( nullable, updatable )
     // whether path encryption is enabled for the project
     field path_encryption bool ( updatable, default true )
 )

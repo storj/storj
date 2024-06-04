@@ -295,6 +295,11 @@ func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, s
 	return segments, err
 }
 
+func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 	row := ptx.tx.QueryRowContext(ctx, `
@@ -362,6 +367,11 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 	return newObject, nil
 }
 
+func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 // getObjectNonPendingExactVersion returns object information for exact version.
 //
 // Note: this returns both committed objects and delete markers.
@@ -408,4 +418,9 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 	object.Version = opts.Version
 
 	return object, nil
+}
+
+func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
+	// TODO implement me
+	panic("implement me")
 }

@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 
+	"github.com/storj/exp-spanner"
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
@@ -16,6 +17,8 @@ import (
 // Adapter is a low level extension point to use datasource related queries.
 // TODO: we may need separated adapter for segments/objects/etc.
 type Adapter interface {
+	Name() string
+
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
@@ -34,6 +37,13 @@ type Adapter interface {
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
 	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)
 
+	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
+	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)
+	ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error)
+
+	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)
+	UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (affected int64, err error)
+
 	DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
 	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
 	DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error)
@@ -49,10 +59,15 @@ type Adapter interface {
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
 
+	doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+
 	TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error)
 	TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error)
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
+	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.
@@ -62,11 +77,21 @@ type PostgresAdapter struct {
 	impl dbutil.Implementation
 }
 
+// Name returns the name of the adapter.
+func (p *PostgresAdapter) Name() string {
+	return "postgres"
+}
+
 var _ Adapter = &PostgresAdapter{}
 
 // CockroachAdapter uses Cockroach related SQL queries.
 type CockroachAdapter struct {
 	PostgresAdapter
+}
+
+// Name returns the name of the adapter.
+func (c *CockroachAdapter) Name() string {
+	return "cockroach"
 }
 
 var _ Adapter = &CockroachAdapter{}
@@ -86,3 +111,10 @@ type postgresTransactionAdapter struct {
 }
 
 var _ TransactionAdapter = &postgresTransactionAdapter{}
+
+type spannerTransactionAdapter struct {
+	spannerAdapter *SpannerAdapter
+	tx             *spanner.ReadWriteTransaction
+}
+
+var _ TransactionAdapter = &spannerTransactionAdapter{}

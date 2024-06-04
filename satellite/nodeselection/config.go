@@ -231,6 +231,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		},
 		"nodelist":    AllowedNodesFromFile,
 		"filter":      FilterSelector,
+		"choiceofn":   ChoiceOfN,
 		"choiceoftwo": ChoiceOfTwo,
 		// DEPRECATED: use choiceoftwo. It's only here for backward-compatibility.
 		"pow2": ChoiceOfTwo,
@@ -241,6 +242,8 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return BalancedGroupBasedSelector(attr), nil
 		},
+		"filterbest": FilterBest,
+		"bestofn":    BestOfN,
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

@@ -155,6 +155,9 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		// TODO: zombie deletion deadline
 
 		t.Run("older committed version exists", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for Spanner until CommitObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objectStream.Version = metabase.NextVersion
@@ -221,6 +224,9 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		})
 
 		t.Run("newer committed version exists", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for Spanner until CommitObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -321,223 +327,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 							ObjectKey:  obj.ObjectKey,
 							Version:    metabase.DefaultVersion,
 							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-	})
-}
-
-// Test that TestingGetAllObjects works at least nominally.
-// This will probably not be necessary once TestBeginObjectExactVersion
-// includes a spanner adapter.
-func TestTestingGetAllObjects(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		objs, err := db.TestingAllObjects(ctx)
-		if err != nil {
-			t.Fatalf("could not query all objects: %v", err)
-		}
-		if len(objs) != 0 {
-			t.Fatalf("expected no objects, but got %+v", objs)
-		}
-	}, metabasetest.WithSpanner())
-}
-
-// Test that TestBeginObjectExactVersion works at least nominally.
-// This includes all the parts of TestBeginObjectExactVersion which don't
-// involve CommitObject (as that is not yet implemented for Spanner).
-// This will probably not be necessary once TestBeginObjectExactVersion
-// includes a spanner adapter itself.
-func TestTestingBeginObjectExactVersion(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
-
-		for _, test := range metabasetest.InvalidObjectStreams(obj) {
-			test := test
-			t.Run(test.Name, func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-				metabasetest.BeginObjectExactVersion{
-					Opts: metabase.BeginObjectExactVersion{
-						ObjectStream: test.ObjectStream,
-						Encryption:   metabasetest.DefaultEncryption,
-					},
-					ErrClass: test.ErrClass,
-					ErrText:  test.ErrText,
-				}.Check(ctx, t, db)
-				metabasetest.Verify{}.Check(ctx, t, db)
-			})
-		}
-
-		objectStream := metabase.ObjectStream{
-			ProjectID:  obj.ProjectID,
-			BucketName: obj.BucketName,
-			ObjectKey:  obj.ObjectKey,
-			StreamID:   obj.StreamID,
-		}
-
-		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			objectStream.Version = 1
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream:      objectStream,
-					Encryption:        metabasetest.DefaultEncryption,
-					EncryptedMetadata: testrand.BytesInt(32),
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
-			}.Check(ctx, t, db)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream:                  objectStream,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("disallow NextVersion", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			objectStream.Version = metabase.NextVersion
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: objectStream,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Version should not be metabase.NextVersion",
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("Specific version", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now1 := time.Now()
-			zombieDeadline := now1.Add(24 * time.Hour)
-
-			objectStream.Version = 5
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: objectStream,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now1,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("Duplicate pending version", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now1 := time.Now()
-			zombieDeadline := now1.Add(24 * time.Hour)
-
-			objectStream.Version = 5
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: objectStream,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: objectStream,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-				ErrClass: &metabase.ErrObjectAlreadyExists,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now1,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("begin object exact version with metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			objectStream.Version = 100
-
-			encryptedMetadata := testrand.BytesInt(64)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: objectStream,
-					Encryption:   metabasetest.DefaultEncryption,
-
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  objectStream.ProjectID,
-							BucketName: objectStream.BucketName,
-							ObjectKey:  objectStream.ObjectKey,
-							Version:    objectStream.Version,
-							StreamID:   objectStream.StreamID,
 						},
 						CreatedAt: now,
 						Status:    metabase.Pending,
@@ -704,6 +493,9 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		})
 
 		t.Run("Duplicate committed version", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for Spanner until CommitObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -753,6 +545,9 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		// TODO: zombie deletion deadline
 
 		t.Run("Older committed version exists", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for Spanner until CommitObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -808,6 +603,9 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		})
 
 		t.Run("Newer committed version exists", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				t.Skip("not ready for Spanner until CommitObject is implemented")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
@@ -909,7 +707,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithSpanner())
 }
 
 func TestBeginSegment(t *testing.T) {
@@ -2117,6 +1915,9 @@ func TestCommitInlineSegment(t *testing.T) {
 				if mode == "no-pending-object-check" {
 					t.Skip()
 				}
+				if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+					t.Skip("not ready for Spanner until CommitObject is implemented")
+				}
 
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -2333,7 +2134,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
-		})
+		}, metabasetest.WithSpanner())
 	}
 }
 

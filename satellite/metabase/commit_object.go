@@ -197,6 +197,11 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 	return nil
 }
 
+func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) error {
+	// TODO implement me
+	panic("implement me")
+}
+
 func verifySegmentOrder(positions []SegmentPosition) error {
 	if len(positions) == 0 {
 		return nil
@@ -245,6 +250,11 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 		return nil, Error.New("failed to fetch segments: %w", err)
 	}
 	return segments, nil
+}
+
+func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 type segmentToCommit struct {
@@ -353,6 +363,11 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 	return nil
 }
 
+func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
 func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition, aliasCache *NodeAliasCache) (deletedSegments []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -396,6 +411,11 @@ func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Con
 	}
 
 	return deletedSegments, nil
+}
+
+func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition, aliasCache *NodeAliasCache) (deletedSegments []DeletedSegmentInfo, err error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 // diffSegmentsWithDatabase matches up segment positions with their database information.

@@ -256,6 +256,7 @@ CREATE TABLE projects (
 	default_versioning integer NOT NULL DEFAULT 1,
 	prompted_for_versioning_beta boolean NOT NULL DEFAULT false,
 	passphrase_enc bytea,
+	passphrase_enc_key_id integer,
 	path_encryption boolean NOT NULL DEFAULT true,
 	PRIMARY KEY ( id )
 );
@@ -464,7 +465,11 @@ CREATE TABLE users (
 	full_name text NOT NULL,
 	short_name text,
 	password_hash bytea NOT NULL,
+	new_unverified_email text,
+	email_change_verification_step integer NOT NULL DEFAULT 0,
 	status integer NOT NULL,
+	status_updated_at timestamp with time zone,
+	final_invoice_generated boolean NOT NULL DEFAULT false,
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,

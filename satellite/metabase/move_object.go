@@ -307,6 +307,11 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 	return oldStatus, segmentsCount, hasMetadata, streamID, nil
 }
 
+func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
 	updateResult, err := ptx.tx.ExecContext(ctx, `
 			UPDATE segments SET
@@ -325,4 +330,9 @@ func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context,
 	}
 
 	return updateResult.RowsAffected()
+}
+
+func (stx *spannerTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
+	// TODO implement me
+	panic("implement me")
 }

@@ -6,7 +6,11 @@ package nodeselection
 import (
 	"math"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 )
@@ -260,12 +264,19 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 // ChoiceOfTwo will repeat the selection and choose the better node pair-wise.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
 func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSelectorInit {
+	return ChoiceOfN(tracker, 2, delegate)
+}
+
+// ChoiceOfN will perform the selection for n*x nodes and choose the best node
+// from groups of n size.
+// NOTE: it may break other pre-conditions, like the results of the balanced selector...
+func ChoiceOfN(tracker UploadSuccessTracker, n int, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		selector := delegate(allNodes, filter)
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 
 			getSuccessRate := tracker.Get(requester)
-			nodes, err := selector(requester, n*2, excluded, alreadySelected)
+			nodes, err := selector(requester, n*m, excluded, alreadySelected)
 			if err != nil {
 				return nil, err
 			}
@@ -276,35 +287,144 @@ func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSe
 				nodes[i], nodes[j] = nodes[j], nodes[i]
 			})
 
-			// do pairwise selection while we have more than the total redundancy and at least 2
-			// nodes to select on.
-			for len(nodes) > n && len(nodes) >= 2 {
-				success0 := getSuccessRate(nodes[0].ID)
-				success1 := getSuccessRate(nodes[1].ID)
-
-				// success0 and success1 could both potentially be NaN. we want to prefer a node if
-				// it is NaN and if they are both NaN then it does not matter which we prefer (the
-				// input list is randomly shuffled). note that ALL comparisons where one of the
-				// operands is NaN evaluate to false. thus for the following if statement, we have
-				// the following table:
-				//
-				//     success0 | success1 | result
-				//    ----------|----------|-------
-				//          NaN |      NaN | node1
-				//          NaN |   number | node1
-				//       number |      NaN | node0
-				//       number |   number | whoever is larger
-
-				selected := nodes[0]
-				if math.IsNaN(success1) || success1 > success0 {
-					selected = nodes[1]
+			// do choice selection while we have more than the total redundancy
+			for len(nodes) > m {
+				// we're going to choose between up to n nodes
+				toChooseBetween := n
+				excessNodes := len(nodes) - m
+				if toChooseBetween > excessNodes+1 {
+					// we add one because we essentially subtract toChooseBetween nodes
+					// from the list and then add the chosen node.
+					toChooseBetween = excessNodes + 1
 				}
 
-				// pop the 2 nodes that we compared from the front and append the selected node to
-				// the back.
-				nodes = append(nodes[2:], selected)
+				for toChooseBetween > 1 {
+					success0 := getSuccessRate(nodes[0].ID)
+					success1 := getSuccessRate(nodes[1].ID)
+
+					// success0 and success1 could both potentially be NaN. we want to prefer a node if
+					// it is NaN and if they are both NaN then it does not matter which we prefer (the
+					// input list is randomly shuffled). note that ALL comparisons where one of the
+					// operands is NaN evaluate to false. thus for the following if statement, we have
+					// the following table:
+					//
+					//     success0 | success1 | result
+					//    ----------|----------|-------
+					//          NaN |      NaN | node1
+					//          NaN |   number | node1
+					//       number |      NaN | node0
+					//       number |   number | whoever is larger
+
+					if math.IsNaN(success1) || success1 > success0 {
+						// nodes[1] is selected
+						nodes = nodes[1:]
+					} else {
+						// nodes[0] is selected
+						nodes[1] = nodes[0]
+						nodes = nodes[1:]
+					}
+					toChooseBetween--
+				}
+
+				// move the selected node to the back
+				nodes = append(nodes[1:], nodes[0])
 			}
 			return nodes, nil
+		}
+	}
+}
+
+// FilterBest is a selector, which keeps only the best nodes (based on percentage, or fixed number of nodes).
+// this selector will permanently ban the worst nodes for the period of nodeselection cache refresh.
+func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, delegate NodeSelectorInit) NodeSelectorInit {
+	var uplinkID storj.NodeID
+	if uplink != "" {
+		var err error
+		uplinkID, err = storj.NodeIDFromString(uplink)
+		if err != nil {
+			panic(err)
+		}
+	}
+	var percentage bool
+	var limit int
+	if strings.HasSuffix(selection, "%") {
+		percentage = true
+		selection = strings.TrimSuffix(selection, "%")
+	}
+
+	limit, err := strconv.Atoi(selection)
+	if err != nil {
+		panic(err)
+	}
+
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		var filteredNodes []*SelectedNode
+		for _, node := range nodes {
+			if filter != nil && !filter.Match(node) {
+				continue
+			}
+			filteredNodes = append(filteredNodes, node)
+		}
+		nodes = filteredNodes
+		getSuccessRate := tracker.Get(uplinkID)
+
+		slices.SortFunc(nodes, func(a, b *SelectedNode) int {
+			successA := getSuccessRate(a.ID)
+			successB := getSuccessRate(b.ID)
+			if math.IsNaN(successB) || successB > successA {
+				return 1
+			}
+			return -1
+		})
+
+		// if percentage suffix is used, it's the best n% what we need.
+		if percentage {
+			limit = len(nodes) * limit / 100
+		}
+
+		// if  limit is negative, we define the long tail to be cut off.
+		if limit < 0 {
+			limit = len(nodes) + limit
+			if limit < 0 {
+				limit = 0
+			}
+		}
+
+		// if limit is positive, it's the number of nodes to be kept
+		if limit > len(nodes) {
+			limit = len(nodes)
+		}
+		nodes = nodes[:limit]
+		return delegate(nodes, filter)
+	}
+}
+
+// BestOfN selects more nodes than the required one, and choose the fastest from those.
+func BestOfN(tracker UploadSuccessTracker, ratio float64, delegate NodeSelectorInit) NodeSelectorInit {
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		wrappedSelector := delegate(nodes, filter)
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+			getSuccessRate := tracker.Get(requester)
+
+			nodesToSelect := int(ratio * float64(n))
+			selectedNodes, err := wrappedSelector(requester, nodesToSelect, excluded, alreadySelected)
+			if err != nil {
+				return selectedNodes, err
+			}
+
+			if len(selectedNodes) < n {
+				return selectedNodes, nil
+			}
+
+			slices.SortFunc(selectedNodes, func(a, b *SelectedNode) int {
+				successA := getSuccessRate(a.ID)
+				successB := getSuccessRate(b.ID)
+				if math.IsNaN(successB) || successA < successB {
+					return 1
+				}
+				return -1
+			})
+			return selectedNodes[:n], nil
 		}
 	}
 }

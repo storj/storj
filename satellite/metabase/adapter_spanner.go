@@ -43,4 +43,9 @@ func (s *SpannerAdapter) Close() error {
 	return nil
 }
 
+// Name returns the name of the adapter.
+func (s *SpannerAdapter) Name() string {
+	return "spanner"
+}
+
 var _ Adapter = &SpannerAdapter{}

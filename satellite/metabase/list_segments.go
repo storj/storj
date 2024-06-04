@@ -15,9 +15,10 @@ import (
 
 // ListSegments contains arguments necessary for listing stream segments.
 type ListSegments struct {
-	StreamID uuid.UUID
-	Cursor   SegmentPosition
-	Limit    int
+	ProjectID uuid.UUID
+	StreamID  uuid.UUID
+	Cursor    SegmentPosition
+	Limit     int
 
 	Range *StreamRange
 }
@@ -48,10 +49,15 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		}
 	}
 
+	return db.ChooseAdapter(opts.ProjectID).ListSegments(ctx, opts, db.aliasCache)
+}
+
+// ListSegments lists specified stream segments.
+func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
 	var rows tagsql.Rows
 	var rowsErr error
 	if opts.Range == nil {
-		rows, rowsErr = db.db.QueryContext(ctx, `
+		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, created_at, expires_at, root_piece_id,
 				encrypted_key_nonce, encrypted_key, encrypted_size,
@@ -65,7 +71,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			LIMIT $3
 		`, opts.StreamID, opts.Cursor, opts.Limit+1)
 	} else {
-		rows, rowsErr = db.db.QueryContext(ctx, `
+		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, created_at, expires_at, root_piece_id,
 				encrypted_key_nonce, encrypted_key, encrypted_size,
@@ -99,7 +105,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 				return Error.New("failed to scan segments: %w", err)
 			}
 
-			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 			if err != nil {
 				return Error.New("failed to convert aliases to pieces: %w", err)
 			}
@@ -124,11 +130,18 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 	return result, nil
 }
 
+// ListSegments lists specified stream segments.
+func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
+	// TODO: implement me
+	panic("implement me")
+}
+
 // ListStreamPositions contains arguments necessary for listing stream segments.
 type ListStreamPositions struct {
-	StreamID uuid.UUID
-	Cursor   SegmentPosition
-	Limit    int
+	ProjectID uuid.UUID
+	StreamID  uuid.UUID
+	Cursor    SegmentPosition
+	Limit     int
 
 	Range *StreamRange
 }
@@ -178,10 +191,15 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 		}
 	}
 
+	return db.ChooseAdapter(opts.ProjectID).ListStreamPositions(ctx, opts)
+}
+
+// ListStreamPositions lists specified stream segment positions.
+func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error) {
 	var rows tagsql.Rows
 	var rowsErr error
 	if opts.Range == nil {
-		rows, rowsErr = db.db.QueryContext(ctx, `
+		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, plain_size, plain_offset, created_at,
 				encrypted_etag, encrypted_key_nonce, encrypted_key
@@ -193,7 +211,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 			LIMIT $3
 		`, opts.StreamID, opts.Cursor, opts.Limit+1)
 	} else {
-		rows, rowsErr = db.db.QueryContext(ctx, `
+		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, plain_size, plain_offset, created_at,
 				encrypted_etag, encrypted_key_nonce, encrypted_key
@@ -234,4 +252,10 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 	}
 
 	return result, nil
+}
+
+// ListStreamPositions lists specified stream segment positions.
+func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }

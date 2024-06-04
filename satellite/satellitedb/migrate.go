@@ -2789,6 +2789,32 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE project_invitations ADD CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column, passphrase_enc_key_id, to projects",
+				Version:     277,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc_key_id INTEGER;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns, status_updated_at and final_invoice_generated, to users",
+				Version:     278,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE users ADD COLUMN final_invoice_generated BOOLEAN NOT NULL DEFAULT FALSE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table for handling change email address process",
+				Version:     279,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN new_unverified_email TEXT DEFAULT NULL;`,
+					`ALTER TABLE users ADD COLUMN email_change_verification_step INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

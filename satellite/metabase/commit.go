@@ -969,8 +969,54 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 }
 
 // CommitInlineSegment commits inline segment to the database.
-func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error {
-	panic("implement me")
+func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		stmt := spanner.Statement{
+			SQL: `
+				INSERT OR UPDATE INTO segments (
+					stream_id, position, expires_at,
+					root_piece_id, encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					inline_data, redundancy
+				) VALUES (
+					(
+						SELECT stream_id
+						FROM objects
+						WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
+							status = ` + statusPending + `
+					), @position, @expires_at,
+					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
+					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@inline_data, 0
+				)
+			`,
+			Params: map[string]interface{}{
+				"position":            opts.Position,
+				"expires_at":          opts.ExpiresAt,
+				"root_piece_id":       storj.PieceID{},
+				"encrypted_key_nonce": opts.EncryptedKeyNonce,
+				"encrypted_key":       opts.EncryptedKey,
+				"encrypted_size":      len(opts.InlineData),
+				"plain_offset":        opts.PlainOffset,
+				"plain_size":          int64(opts.PlainSize),
+				"encrypted_etag":      opts.EncryptedETag,
+				"inline_data":         opts.InlineData,
+				"project_id":          opts.ProjectID.Bytes(),
+				"bucket_name":         opts.BucketName,
+				"object_key":          opts.ObjectKey,
+				"version":             opts.Version,
+				"stream_id":           opts.StreamID,
+			},
+		}
+		_, err := txn.Update(ctx, stmt)
+		return err
+	})
+	if err != nil {
+		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
+			return ErrPendingObjectMissing.New("")
+		}
+	}
+	return Error.Wrap(err)
 }
 
 // CommitObject contains arguments necessary for committing an object.
@@ -1024,7 +1070,11 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, f func(context.Context, Tr
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
 func (s *SpannerAdapter) WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error {
-	panic("implement me")
+	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		txAdapter := &spannerTransactionAdapter{spannerAdapter: s, tx: tx}
+		return f(ctx, txAdapter)
+	})
+	return err
 }
 
 // CommitObject adds a pending object to the database. If another committed object is under target location
@@ -1187,6 +1237,11 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		return Error.New("failed to update object: %w", err)
 	}
 	return nil
+}
+
+func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error {
+	// TODO implement me
+	panic("implement me")
 }
 
 func (db *DB) validateParts(segments []segmentInfoForCommit) error {
@@ -1376,4 +1431,9 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 	}
 
 	return nil
+}
+
+func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
+	// TODO: implement me
+	panic("implement me")
 }
