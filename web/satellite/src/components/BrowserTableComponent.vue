@@ -53,7 +53,7 @@
                         <v-checkbox-btn :model-value="selectedFiles.includes(file)" hide-details @update:modelValue="(selected) => toggleSelectObjectVersion(selected as boolean, file)" />
                     </td>
                     <td>
-                        <v-list-item class="rounded-lg text-caption pl-1 ml-n1" link @click="() => onFileClick(file)">
+                        <v-list-item class="text-caption pl-1 ml-n1" link @click="() => onFileClick(file)">
                             <template #prepend>
                                 <icon-curve-right />
                                 <icon-versioning-clock class="ml-4 mr-3" size="32" dotted />

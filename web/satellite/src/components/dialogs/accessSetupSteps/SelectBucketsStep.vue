@@ -10,35 +10,32 @@
                     v-model="option"
                     filter
                     mandatory
-                    selected-class="text-primary font-weight-bold"
+                    selected-class="text-info font-weight-bold"
+                    variant="outlined"
                     class="mt-2 mb-3"
                     @update:modelValue="onChangeOption"
                 >
                     <v-chip
-                        variant="outlined"
                         filter
-                        color="default"
                         :value="BucketsOption.All"
                     >
                         All Buckets
                     </v-chip>
 
                     <v-chip
-                        variant="outlined"
                         filter
-                        color="info"
                         :value="BucketsOption.Select"
                     >
                         Select Buckets
                     </v-chip>
                 </v-chip-group>
 
-                <v-alert v-if="option === BucketsOption.All" variant="tonal" color="info">
+                <v-alert v-if="option === BucketsOption.All" variant="tonal">
                     <p class="text-subtitle-2 font-weight-bold">All Buckets</p>
                     <p class="text-subtitle-2">The application can access all of the current and future buckets you create in this project.</p>
                 </v-alert>
 
-                <v-alert v-else variant="tonal" color="info">
+                <v-alert v-else variant="tonal">
                     <p class="text-subtitle-2 font-weight-bold">Select specific buckets</p>
                     <p class="text-subtitle-2">Please select which buckets do you want to share.</p>
                     <v-autocomplete

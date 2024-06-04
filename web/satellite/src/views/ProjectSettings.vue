@@ -16,11 +16,11 @@
             <v-col cols="12" lg="4">
                 <v-card title="Project Name">
                     <v-card-text>
-                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ project.name }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="showEditNameDialog">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showEditNameDialog">
                             Edit Name
                         </v-btn>
                     </v-card-text>
@@ -29,11 +29,11 @@
             <v-col cols="12" lg="4">
                 <v-card title="Project Description">
                     <v-card-text>
-                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ project.description }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="showEditDescriptionDialog">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showEditDescriptionDialog">
                             Edit Description
                         </v-btn>
                     </v-card-text>
@@ -42,11 +42,11 @@
             <v-col cols="12" lg="4">
                 <v-card title="Delete Project">
                     <v-card-text>
-                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
                             Not Available
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
                             Learn More
                             <v-icon end :icon="mdiOpenInNew" />
                         </v-btn>
@@ -70,7 +70,7 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="flat" color="primary" size="small" :append-icon="mdiArrowRight" @click="toggleUpgradeFlow">
+                        <v-btn variant="flat" color="primary" size="small" rounded="md" :append-icon="mdiArrowRight" @click="toggleUpgradeFlow">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -87,7 +87,7 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="showStorageLimitDialog">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showStorageLimitDialog">
                             Edit Storage Limit
                         </v-btn>
                     </v-card-text>
@@ -102,7 +102,7 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="showBandwidthLimitDialog">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showBandwidthLimitDialog">
                             Edit Download Limit
                         </v-btn>
                     </v-card-text>
@@ -124,6 +124,7 @@
                             :href="projectLimitsIncreaseRequestURL"
                             target="_blank"
                             rel="noopener noreferrer"
+                            rounded="md"
                         >
                             Request Limits Increase
                             <v-icon end :icon="mdiOpenInNew" />

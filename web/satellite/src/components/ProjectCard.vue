@@ -6,7 +6,7 @@
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">
-                    <v-chip rounded :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold my-2" size="small">
+                    <v-chip :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold my-2" size="small">
                         <icon-project width="12px" class="mr-1" />
                         {{ item?.role || 'Project' }}
                     </v-chip>
@@ -43,8 +43,8 @@
                         Decline
                     </v-btn>
                 </template>
-                <v-btn v-else color="primary" size="small" class="mr-2" @click="openProject">Open Project</v-btn>
-                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" density="comfortable" icon>
+                <v-btn v-else color="primary" size="small" rounded="md" class="mr-2" @click="openProject">Open Project</v-btn>
+                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" rounded="md" density="comfortable" icon>
                     <v-icon :icon="mdiDotsHorizontal" />
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">

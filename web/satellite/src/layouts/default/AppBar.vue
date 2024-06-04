@@ -9,14 +9,14 @@
             v-if="showNavDrawerButton"
             variant="text"
             color="default"
-            class="ml-3 ml-sm-5 mr-0 mr-sm-1"
+            class="ml-4 ml-sm-5 mr-0 mr-sm-1"
             size="small"
             density="comfortable"
             title="Toggle sidebar navigation"
             @click.stop="appStore.toggleNavigationDrawer()"
         />
 
-        <v-app-bar-title class="mt-n1 ml-0 mr-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
+        <v-app-bar-title class="mt-n1 ml-1 mr-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
             <router-link :to="ROUTES.Projects.path">
                 <v-img
                     v-if="theme.global.current.value.dark"
@@ -90,7 +90,7 @@
 
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg">
-                    <v-list-item class="py-2 rounded-lg">
+                    <v-list-item class="py-2">
                         <v-list-item-title class="text-body-2">
                             Account
                         </v-list-item-title>
@@ -102,65 +102,64 @@
                         </v-list-item-subtitle>
                     </v-list-item>
 
-                    <v-list-item v-if="billingEnabled" class="py-2 rounded-lg">
+                    <v-list-item v-if="billingEnabled" class="py-2">
                         <v-list-item-title class="text-body-2">
                             <v-chip
                                 class="font-weight-bold"
                                 :color="isPaidTier ? 'success' : 'info'"
                                 variant="tonal"
                                 size="small"
-                                rounded
                             >
                                 {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                             </v-chip>
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item class="py-2 rounded-lg text-medium-emphasis">
+                    <v-list-item class="py-2 text-medium-emphasis">
                         <template #prepend>
                             <icon-satellite size="18" />
                             <v-tooltip activator="parent" location="top">
                                 Satellite (Metadata Region) <a href="https://docs.storj.io/learn/concepts/satellite" target="_blank" class="link">Learn More</a>
                             </v-tooltip>
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">
+                        <v-list-item-title class="text-body-2 ml-4">
                             {{ satelliteName }}
                         </v-list-item-title>
                     </v-list-item>
 
                     <template v-if="billingEnabled">
-                        <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
+                        <v-list-item v-if="!isPaidTier" link class="my-1" @click="toggleUpgradeFlow">
                             <template #prepend>
                                 <icon-upgrade size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-2 ml-4">
                                 Upgrade
                             </v-list-item-title>
                         </v-list-item>
                     </template>
 
-                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link :to="billingPath" @click="closeSideNav">
+                    <v-list-item v-if="billingEnabled" link class="my-1" router-link :to="billingPath" @click="closeSideNav">
                         <template #prepend>
                             <icon-card size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">
+                        <v-list-item-title class="text-body-2 ml-4">
                             Billing
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link :to="settingsPath" @click="closeSideNav">
+                    <v-list-item link class="my-1" router-link :to="settingsPath" @click="closeSideNav">
                         <template #prepend>
                             <icon-settings size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">
+                        <v-list-item-title class="text-body-2 ml-4">
                             Settings
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item class="rounded-lg" link @click="onLogout">
+                    <v-list-item link @click="onLogout">
                         <template #prepend>
                             <icon-logout size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">
+                        <v-list-item-title class="text-body-2 ml-4">
                             Sign Out
                         </v-list-item-title>
                     </v-list-item>

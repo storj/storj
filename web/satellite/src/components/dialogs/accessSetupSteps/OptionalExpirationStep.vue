@@ -10,15 +10,14 @@
                     v-model="expiration"
                     column
                     mandatory
-                    selected-class="text-primary font-weight-bold"
+                    selected-class="text-info font-weight-bold"
+                    variant="outlined"
                     class="mt-2"
                 >
                     <v-chip
                         :key="Expiration.No"
                         :value="Expiration.No"
-                        variant="outlined"
                         filter
-                        color="default"
                     >
                         {{ Expiration.No }}
                     </v-chip>
@@ -28,9 +27,7 @@
                     <v-chip
                         :key="Expiration.Day"
                         :value="Expiration.Day"
-                        variant="outlined"
                         filter
-                        color="secondary"
                     >
                         {{ Expiration.Day }}
                     </v-chip>
@@ -38,9 +35,7 @@
                     <v-chip
                         :key="Expiration.Week"
                         :value="Expiration.Week"
-                        variant="outlined"
                         filter
-                        color="green"
                     >
                         {{ Expiration.Week }}
                     </v-chip>
@@ -48,9 +43,7 @@
                     <v-chip
                         :key="Expiration.Month"
                         :value="Expiration.Month"
-                        variant="outlined"
                         filter
-                        color="help"
                     >
                         {{ Expiration.Month }}
                     </v-chip>
@@ -58,9 +51,7 @@
                     <v-chip
                         :key="Expiration.Year"
                         :value="Expiration.Year"
-                        variant="outlined"
                         filter
-                        color="warning"
                     >
                         {{ Expiration.Year }}
                     </v-chip>
@@ -70,15 +61,13 @@
                     <v-chip
                         :key="Expiration.Custom"
                         :value="Expiration.Custom"
-                        variant="outlined"
                         filter
-                        color="warning"
                         @click="isDatePicker = true"
                     >
                         {{ Expiration.Custom }}
                     </v-chip>
                 </v-chip-group>
-                <v-alert class="mt-4" variant="tonal" color="info" width="auto">
+                <v-alert class="mt-4" variant="tonal" width="auto">
                     <p class="text-subtitle-2">{{ endDate ? endDate.toLocaleString() : 'No end date' }}</p>
                 </v-alert>
             </v-col>

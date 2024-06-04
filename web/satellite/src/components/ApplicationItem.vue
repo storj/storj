@@ -5,11 +5,11 @@
     <v-col cols="12" md="6" lg="6" xl="3">
         <v-card class="px-2 py-4 h-100 align-content-space-between">
             <v-card-item class="pb-0">
-                <img :src="app.src" :alt="app.name" width="42" height="42" class="rounded">
+                <img :src="app.src" :alt="app.name" width="48" height="48" class="rounded">
             </v-card-item>
 
             <v-card-item>
-                <v-chip size="small" variant="tonal" color="default" class="mb-2" rounded>
+                <v-chip size="small" variant="tonal" color="default" class="mb-2">
                     {{ app.category }}
                 </v-chip>
                 <h3 class="mb-1">

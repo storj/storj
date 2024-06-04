@@ -129,7 +129,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-btn
                         size="large"
-                        variant="tonal"
+                        variant="outlined"
                         :prepend-icon="mdiChevronLeft"
                         color="default"
                         :disabled="isLoading"

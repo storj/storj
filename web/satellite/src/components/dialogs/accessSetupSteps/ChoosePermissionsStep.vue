@@ -7,64 +7,58 @@
             <v-col cols="12">
                 <p>Select which permissions to give.</p>
                 <v-btn
-                    :color="permissions.length === 4 ? 'success' : 'default'"
-                    density="compact"
+                    :color="permissions.length === 4 ? 'info' : 'secondary'"
                     variant="outlined"
+                    density="compact"
                     size="default"
-                    :prepend-icon="permissions.length === 4 ? mdiCheckCircle : undefined"
-                    class="mt-3"
+                    :prepend-icon="permissions.length === 4 ? mdiCheckBold : undefined"
+                    class="mt-3 text-body-2"
+                    rounded="md"
                     @click="onAllClick"
                 >
-                    All
+                    All Permissions
                 </v-btn>
                 <v-chip-group
                     v-model="permissions"
+                    variant="outlined"
                     filter
                     multiple
-                    selected-class="text-primary font-weight-bold"
+                    selected-class="text-info font-weight-bold"
                     class="my-2"
                 >
                     <v-chip
                         :key="Permission.Read"
-                        variant="outlined"
                         filter
                         :value="Permission.Read"
-                        color="secondary"
                     >
                         Read
                     </v-chip>
 
                     <v-chip
                         :key="Permission.Write"
-                        variant="outlined"
                         filter
                         :value="Permission.Write"
-                        color="secondary"
                     >
                         Write
                     </v-chip>
 
                     <v-chip
                         :key="Permission.List"
-                        variant="outlined"
                         filter
                         :value="Permission.List"
-                        color="secondary"
                     >
                         List
                     </v-chip>
 
                     <v-chip
                         :key="Permission.Delete"
-                        variant="outlined"
                         filter
                         :value="Permission.Delete"
-                        color="secondary"
                     >
                         Delete
                     </v-chip>
                 </v-chip-group>
-                <v-alert variant="tonal" color="info" width="auto">
+                <v-alert variant="tonal" width="auto">
                     <p class="text-subtitle-2 font-weight-bold">
                         Important
                     </p>
@@ -80,7 +74,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VBtn } from 'vuetify/components';
-import { mdiCheckCircle } from '@mdi/js';
+import { mdiCheckBold } from '@mdi/js';
 
 import { Permission } from '@/types/createAccessGrant';
 
