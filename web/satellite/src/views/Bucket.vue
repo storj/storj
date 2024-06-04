@@ -87,7 +87,7 @@
                             v-bind="props"
                         >
                             <template #append>
-                                <IconDropdown class="ml-1"/>
+                                <IconDropdown class="ml-1" />
                             </template>
                             <IconSettings size="16" />
                         </v-btn>

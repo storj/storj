@@ -203,10 +203,9 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { useRoute } from 'vue-router';
 
 import IconAccess from '../icons/IconAccess.vue';
-
-import { useRoute } from 'vue-router';
 
 import {
     AccessType,

@@ -52,7 +52,7 @@
             <v-menu activator="parent">
                 <v-list class="pa-1">
                     <template v-if="file.type !== 'folder'">
-                        <v-list-item density="comfortable" link  @click="emit('previewClick')">
+                        <v-list-item density="comfortable" link @click="emit('previewClick')">
                             <template #prepend>
                                 <icon-preview />
                             </template>

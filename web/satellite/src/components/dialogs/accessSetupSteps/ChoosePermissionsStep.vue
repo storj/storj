@@ -20,7 +20,7 @@
                 </v-btn>
                 <v-chip-group
                     v-model="permissions"
-                    variant="outlined" 
+                    variant="outlined"
                     filter
                     multiple
                     selected-class="text-info font-weight-bold"

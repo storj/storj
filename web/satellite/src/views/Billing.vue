@@ -115,7 +115,7 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
-                                    rounded="md" 
+                                    rounded="md"
                                     :prepend-icon="mdiPlus"
                                     @click="isAddCouponDialogShown = true"
                                 >
@@ -142,7 +142,7 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
-                                    rounded="md" 
+                                    rounded="md"
                                     :prepend-icon="mdiPlus"
                                     @click="isAddCouponDialogShown = true"
                                 >
