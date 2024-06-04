@@ -1040,7 +1040,7 @@ type CommitObject struct {
 	Versioned bool
 }
 
-// Verify verifies reqest fields.
+// Verify verifies request fields.
 func (c *CommitObject) Verify() error {
 	if err := c.ObjectStream.Verify(); err != nil {
 		return err
@@ -1127,9 +1127,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		nextStatus := committedWhereVersioned(opts.Versioned)
 
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:       opts.Location(),
-			Versioned:      opts.Versioned,
-			DisallowDelete: opts.DisallowDelete,
+			Location:            opts.Location(),
+			Versioned:           opts.Versioned,
+			DisallowDelete:      opts.DisallowDelete,
+			PrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
 		}, adapter)
 		if err != nil {
 			return err
@@ -1239,9 +1240,128 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error {
-	// TODO implement me
-	panic("implement me")
+func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	requestedEncryptionParameters := opts.Encryption
+	var (
+		oldEncryptedMetadata             []byte
+		oldEncryptedMetadataEncryptedKey []byte
+		oldEncryptedMetadataNonce        []byte
+		oldEncryptionParameters          storj.EncryptionParameters
+	)
+
+	// We can not simply UPDATE the row, because we are changing the 'version' column,
+	// which is part of the primary key. Spanner does not allow changing a primary key
+	// column on an existing row. We must DELETE then INSERT a new row.
+	err = func() error {
+		result := stx.tx.Query(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					project_id      = @project_id
+					AND bucket_name = @bucket_name
+					AND object_key  = @object_key
+					AND version     = @version
+					AND stream_id   = @stream_id
+					AND status      = ` + statusPending + `
+				THEN RETURN
+					created_at, expires_at,
+					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+					encryption
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+				"version":     opts.Version,
+				"stream_id":   opts.StreamID,
+			},
+		})
+		defer result.Stop()
+
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			}
+			return Error.New("failed to delete old object row: %w", err)
+		}
+		err = row.Columns(
+			&object.CreatedAt, &object.ExpiresAt,
+			&oldEncryptedMetadata, &oldEncryptedMetadataEncryptedKey, &oldEncryptedMetadataNonce,
+			encryptionParameters{&oldEncryptionParameters},
+		)
+		return Error.Wrap(err)
+	}()
+	if err != nil {
+		return err
+	}
+
+	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
+	var encryptionArg *storj.EncryptionParameters
+	if oldEncryptionParameters.IsZero() && !requestedEncryptionParameters.IsZero() {
+		encryptionArg = &requestedEncryptionParameters
+	} else if oldEncryptionParameters.IsZero() && requestedEncryptionParameters.IsZero() {
+		return ErrInvalidRequest.New("Encryption is missing")
+	} else {
+		encryptionArg = &oldEncryptionParameters
+	}
+	if opts.OverrideEncryptedMetadata {
+		oldEncryptedMetadataNonce = opts.EncryptedMetadataNonce
+		oldEncryptedMetadata = opts.EncryptedMetadata
+		oldEncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
+	}
+	args := map[string]interface{}{
+		"project_id":                       opts.ProjectID,
+		"bucket_name":                      opts.BucketName,
+		"object_key":                       opts.ObjectKey,
+		"version":                          nextVersion,
+		"stream_id":                        opts.StreamID,
+		"created_at":                       object.CreatedAt,
+		"expires_at":                       object.ExpiresAt,
+		"status":                           nextStatus,
+		"segment_count":                    len(finalSegments),
+		"encrypted_metadata_nonce":         oldEncryptedMetadataNonce,
+		"encrypted_metadata":               oldEncryptedMetadata,
+		"encrypted_metadata_encrypted_key": oldEncryptedMetadataEncryptedKey,
+		"total_plain_size":                 totalPlainSize,
+		"total_encrypted_size":             totalEncryptedSize,
+		"fixed_segment_size":               int64(fixedSegmentSize),
+		"encryption":                       encryptionParameters{encryptionArg},
+		"next_version":                     nextVersion,
+	}
+
+	_, err = stx.tx.Update(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+			    project_id, bucket_name, object_key, version,
+				stream_id, created_at, expires_at, status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			    total_plain_size, total_encrypted_size, fixed_segment_size,
+			    encryption, zombie_deletion_deadline
+			) VALUES (
+			    @project_id, @bucket_name, @object_key, @version,
+				@stream_id, @created_at, @expires_at, @status, @segment_count,
+				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				@encryption, NULL
+			)
+		`,
+		Params: args,
+	})
+	if err != nil {
+		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
+			// TODO maybe we should check message if 'encryption' label is there
+			return ErrInvalidRequest.New("Encryption is missing (%w)", err)
+		}
+		return Error.New("failed to update object: %w", err)
+	}
+	object.Encryption = *encryptionArg
+	object.EncryptedMetadataNonce = oldEncryptedMetadataNonce
+	object.EncryptedMetadata = oldEncryptedMetadata
+	object.EncryptedMetadataEncryptedKey = oldEncryptedMetadataEncryptedKey
+	return nil
 }
 
 func (db *DB) validateParts(segments []segmentInfoForCommit) error {

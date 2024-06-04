@@ -132,8 +132,54 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 
 // GetObjectExactVersion returns object information for exact version.
 func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
-	// TODO: implement me
-	panic("implement me")
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				stream_id, status,
+				created_at, expires_at,
+				segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
+				status <> ` + statusPending + ` AND
+				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+		}
+		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+	err = row.Columns(
+		&object.StreamID, &object.Status,
+		&object.CreatedAt, &object.ExpiresAt,
+		spannerutil.Int(&object.SegmentCount),
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+		&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+		encryptionParameters{&object.Encryption},
+	)
+	if err != nil {
+		return Object{}, Error.New("unable to read object status: %w", err)
+	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
+	object.Version = opts.Version
+
+	return object, nil
 }
 
 // GetObjectLastCommitted contains arguments necessary for fetching

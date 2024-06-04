@@ -44,8 +44,9 @@ type Config struct {
 	ServerSideCopyDisabled bool
 	UseListObjectsIterator bool
 
-	TestingUniqueUnversioned bool
-	TestingCommitSegmentMode string
+	TestingUniqueUnversioned   bool
+	TestingCommitSegmentMode   string
+	TestingPrecommitDeleteMode int
 }
 
 const commitSegmentModeTransaction = "transaction"
@@ -127,7 +128,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	case dbutil.Spanner:
 		adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
 			Database: source,
-		})
+		}, log)
 		if err != nil {
 			return nil, err
 		}

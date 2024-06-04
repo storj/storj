@@ -9,10 +9,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -64,9 +67,10 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:       opts.Location(),
-			Versioned:      opts.Versioned,
-			DisallowDelete: opts.DisallowDelete,
+			Location:            opts.Location(),
+			Versioned:           opts.Versioned,
+			DisallowDelete:      opts.DisallowDelete,
+			PrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
 		}, adapter)
 		if err != nil {
 			return err
@@ -197,9 +201,88 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) error {
-	// TODO implement me
-	panic("implement me")
+func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// We cannot do an UPDATE here because we want to change the version column,
+	// and that column is part of the primary key. We must delete the row and
+	// insert a new one.
+
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM objects
+			WHERE project_id    = @project_id
+				AND bucket_name = @bucket_name
+				AND object_key  = @object_key
+				AND version     = @previous_version
+				AND stream_id   = @stream_id
+				AND status      = ` + statusPending + `
+			THEN RETURN
+				created_at, expires_at, encryption
+		`,
+		Params: map[string]interface{}{
+			"project_id":       opts.ProjectID,
+			"bucket_name":      opts.BucketName,
+			"object_key":       opts.ObjectKey,
+			"previous_version": opts.Version,
+			"stream_id":        opts.StreamID,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		}
+		return Error.New("failed to update object: %w", err)
+	}
+	err = row.Columns(&object.CreatedAt, &object.ExpiresAt, encryptionParameters{&object.Encryption})
+	if err != nil {
+		return Error.New("failed to read old object details: %w", err)
+	}
+
+	_, err = stx.tx.Update(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version,
+				stream_id,
+				created_at, expires_at, status,
+			    segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			    total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption, zombie_deletion_deadline
+			) VALUES (
+				@project_id, @bucket_name, @object_key, @version,
+				@stream_id,
+				@created_at, @expires_at, @status,
+			    @segment_count,
+				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+			    @total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				@encryption, NULL
+			)
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.BucketName,
+			"object_key":                       opts.ObjectKey,
+			"version":                          nextVersion,
+			"stream_id":                        opts.StreamID,
+			"created_at":                       object.CreatedAt,
+			"expires_at":                       object.ExpiresAt,
+			"status":                           int64(nextStatus),
+			"segment_count":                    len(finalSegments),
+			"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
+			"encrypted_metadata":               opts.EncryptedMetadata,
+			"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			"total_plain_size":                 totalPlainSize,
+			"total_encrypted_size":             totalEncryptedSize,
+			"fixed_segment_size":               int64(fixedSegmentSize),
+			"encryption":                       encryptionParameters{&object.Encryption},
+		},
+	})
+
+	return Error.Wrap(err)
 }
 
 func verifySegmentOrder(positions []SegmentPosition) error {
@@ -253,8 +336,36 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 }
 
 func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT position, encrypted_size, plain_offset, plain_size
+			FROM segments
+			WHERE stream_id = @stream_id
+			ORDER BY position
+		`,
+		Params: map[string]interface{}{
+			"stream_id": streamID,
+		},
+	})
+	defer result.Stop()
+
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("failed to fetch segments: %w", err)
+		}
+		var segment segmentInfoForCommit
+		if err := row.Columns(&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize)); err != nil {
+			return nil, Error.New("failed to scan segments: %w", err)
+		}
+		segments = append(segments, segment)
+	}
+	return segments, nil
 }
 
 type segmentToCommit struct {
@@ -322,8 +433,7 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 		return nil
 	}
 
-	// We may be able to skip this, if the database state have been already submitted
-	// and the plain offsets haven't changed.
+	// When none of the segments have changed, then the update will be skipped.
 
 	// Update plain offsets of the segments.
 	var batch struct {
@@ -364,8 +474,50 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 }
 
 func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// When none of the segments have changed, then the update will be skipped.
+
+	// Update plain offsets of the segments.
+	var batch []spanner.Statement
+	expectedOffset := int64(0)
+	for _, u := range updates {
+		if u.OldPlainOffset != expectedOffset {
+			batch = append(batch, spanner.Statement{
+				SQL: `
+					UPDATE segments SET plain_offset = @plain_offset
+					WHERE stream_id = @stream_id and position = @position
+				`,
+				Params: map[string]interface{}{
+					"position":     u.Position,
+					"plain_offset": expectedOffset,
+					"stream_id":    streamID,
+				},
+			})
+		}
+		expectedOffset += int64(u.PlainSize)
+	}
+	if len(batch) == 0 {
+		return nil
+	}
+
+	affecteds, err := stx.tx.BatchUpdate(ctx, batch)
+	if err != nil {
+		return Error.New("unable to update segments offsets: %w", err)
+	}
+	sumAffected := int64(0)
+	for _, affected := range affecteds {
+		sumAffected += affected
+	}
+	if sumAffected != int64(len(batch)) {
+		return Error.New("not all segments were updated, expected %d got %d", len(batch), sumAffected)
+	}
+
+	return nil
 }
 
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
@@ -414,8 +566,57 @@ func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Con
 }
 
 func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition, aliasCache *NodeAliasCache) (deletedSegments []DeletedSegmentInfo, err error) {
-	// TODO implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+	if len(segments) == 0 {
+		return nil, nil
+	}
+
+	positions := make([]int64, 0, len(segments))
+	for _, p := range segments {
+		positions = append(positions, int64(p.Encode()))
+	}
+
+	// This potentially could be done together with the previous database call.
+	result := stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM segments
+			WHERE stream_id = @stream_id AND ARRAY_INCLUDES(@positions, position)
+			THEN RETURN root_piece_id, remote_alias_pieces
+		`,
+		Params: map[string]interface{}{
+			"stream_id": streamID,
+			"positions": positions,
+		},
+	})
+	defer result.Stop()
+
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("unable to delete segments: %w", err)
+		}
+		var deleted DeletedSegmentInfo
+		var aliasPieces AliasPieces
+		err = row.Columns(&deleted.RootPieceID, &aliasPieces)
+		if err != nil {
+			return nil, Error.New("failed to scan segments: %w", err)
+		}
+		// we don't need to report info about inline segments
+		if deleted.RootPieceID.IsZero() {
+			continue
+		}
+
+		deleted.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return nil, Error.New("failed to convert aliases: %w", err)
+		}
+		deletedSegments = append(deletedSegments, deleted)
+	}
+
+	return deletedSegments, nil
 }
 
 // diffSegmentsWithDatabase matches up segment positions with their database information.
