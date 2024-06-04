@@ -25,7 +25,7 @@
                         </v-btn>
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item rounded="lg" :disabled="!isInitialized" @click.stop="buttonFileUpload">
+                        <v-list-item :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
                                 <IconFile size="16" />
                             </template>
@@ -36,7 +36,7 @@
 
                         <v-divider class="my-1" />
 
-                        <v-list-item class="mt-1" rounded="lg" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
+                        <v-list-item class="mt-1" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
                             <template #prepend>
                                 <icon-folder size="16" bold />
                             </template>
@@ -87,17 +87,16 @@
                             v-bind="props"
                         >
                             <template #append>
-                                <IconDropdown />
+                                <IconDropdown class="ml-1"/>
                             </template>
                             <IconSettings size="16" />
                         </v-btn>
                     </template>
-                    <v-list class="pa-2">
+                    <v-list class="pa-1">
                         <v-list-item
                             v-if="versioningUIEnabled"
                             density="comfortable"
                             link
-                            rounded="lg"
                             @click="onToggleVersioning"
                         >
                             <template #prepend>
@@ -105,7 +104,7 @@
                                 <IconPause v-else />
                             </template>
                             <v-list-item-title
-                                class="pl-2 text-body-2 font-weight-medium"
+                                class="ml-3 text-body-2 font-weight-medium"
                             >
                                 {{
                                     bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
@@ -117,14 +116,13 @@
                             v-if="versioningUIEnabled"
                             density="comfortable"
                             link
-                            rounded="lg"
                             @click="obStore.toggleShowObjectVersions()"
                         >
                             <template #prepend>
                                 <icon-finger-print />
                             </template>
                             <v-list-item-title
-                                class="pl-2 text-body-2 font-weight-medium"
+                                class="ml-3 text-body-2 font-weight-medium"
                             >
                                 {{ showObjectVersions ? "Hide" : "Show" }} Versions
                             </v-list-item-title>
@@ -133,22 +131,21 @@
                         <v-list-item
                             density="comfortable"
                             link
-                            rounded="lg"
                             @click="isShareBucketDialogShown = true"
                         >
                             <template #prepend>
                                 <icon-share bold />
                             </template>
                             <v-list-item-title
-                                class="pl-2 text-body-2 font-weight-medium"
+                                class="ml-3 text-body-2 font-weight-medium"
                             >
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
-                        <v-divider class="my-2" />
+                        <v-divider class="my-1" />
                         <v-list-item
                             density="comfortable"
-                            link rounded="lg"
+                            link
                             base-color="error"
                             @click="isDeleteBucketDialogShown = true"
                         >
@@ -156,7 +153,7 @@
                                 <icon-trash bold />
                             </template>
                             <v-list-item-title
-                                class="pl-2 text-body-2 font-weight-medium"
+                                class="ml-3 text-body-2 font-weight-medium"
                             >
                                 Delete Bucket
                             </v-list-item-title>

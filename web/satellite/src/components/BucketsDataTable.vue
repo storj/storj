@@ -79,7 +79,7 @@
                 <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                     <icon-location />
                 </v-icon>
-                <v-chip variant="tonal" color="default" size="small" class="text-capitalize" rounded>
+                <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
                     {{ item.location || `unknown(${item.defaultPlacement})` }}
                 </v-chip>
             </template>
@@ -88,7 +88,7 @@
                     <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
                     <icon-versioning />
                 </v-icon>
-                <v-chip variant="tonal" color="default" size="small" rounded>
+                <v-chip variant="tonal" color="default" size="small">
                     {{ item.versioning }}
                 </v-chip>
             </template>
@@ -106,6 +106,7 @@
                             color="default"
                             variant="outlined"
                             size="small"
+                            rounded="md"
                             density="comfortable"
                             v-bind="activatorProps"
                         />
@@ -113,7 +114,6 @@
                     <v-list class="pa-1">
                         <v-list-item
                             density="comfortable"
-                            rounded="lg"
                             link
                             @click="openBucket(item.name)"
                         >
@@ -130,7 +130,6 @@
                             v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
                             density="comfortable"
                             link
-                            rounded="lg"
                             @click="() => onToggleVersioning(item)"
                         >
                             <template #prepend>
@@ -141,7 +140,7 @@
                                 {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.name)">
+                        <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <icon-share size="18" />
                             </template>
@@ -149,7 +148,7 @@
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.name)">
+                        <v-list-item link @click="() => showBucketDetailsModal(item.name)">
                             <template #prepend>
                                 <icon-bucket size="18" />
                             </template>
@@ -158,7 +157,7 @@
                             </v-list-item-title>
                         </v-list-item>
                         <v-divider class="my-1" />
-                        <v-list-item rounded-lg class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
+                        <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
                             <template #prepend>
                                 <icon-trash />
                             </template>

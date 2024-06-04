@@ -8,6 +8,7 @@
             :variant="isVersion ? 'outlined' : 'text'"
             color="default"
             size="small"
+            rounded="md"
             class="mr-1 text-caption"
             density="comfortable"
             title="Download"
@@ -51,11 +52,11 @@
             <v-menu activator="parent">
                 <v-list class="pa-1">
                     <template v-if="file.type !== 'folder'">
-                        <v-list-item density="comfortable" link rounded="lg" @click="emit('previewClick')">
+                        <v-list-item density="comfortable" link  @click="emit('previewClick')">
                             <template #prepend>
                                 <icon-preview />
                             </template>
-                            <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                 Preview
                             </v-list-item-title>
                         </v-list-item>
@@ -63,14 +64,13 @@
                         <v-list-item
                             density="comfortable"
                             :link="!isDownloading"
-                            rounded="lg"
                             @click="onDownloadClick"
                         >
                             <template #prepend>
                                 <icon-download />
                             </template>
                             <v-fade-transition>
-                                <v-list-item-title v-show="!isDownloading" class="pl-2 ml-2 text-body-2 font-weight-medium">
+                                <v-list-item-title v-show="!isDownloading" class="ml-3 text-body-2 font-weight-medium">
                                     Download
                                 </v-list-item-title>
                             </v-fade-transition>
@@ -80,22 +80,22 @@
                         </v-list-item>
                     </template>
 
-                    <v-list-item v-if="!isVersion" density="comfortable" link rounded="lg" @click="emit('shareClick')">
+                    <v-list-item v-if="!isVersion" density="comfortable" link @click="emit('shareClick')">
                         <template #prepend>
                             <icon-share />
                         </template>
-                        <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
+                        <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                             Share
                         </v-list-item-title>
                     </v-list-item>
 
                     <v-divider class="my-1" />
 
-                    <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="emit('deleteFileClick')">
+                    <v-list-item density="comfortable" link base-color="error" @click="emit('deleteFileClick')">
                         <template #prepend>
                             <icon-trash />
                         </template>
-                        <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
+                        <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                             Delete
                         </v-list-item-title>
                     </v-list-item>

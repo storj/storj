@@ -54,11 +54,11 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="success" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="success" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="tab = TABS['billing-history']">View Billing History</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" @click="tab = TABS['billing-history']">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -69,11 +69,11 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="success" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="success" variant="tonal" class="font-weight-bold mb-2">
                                     {{ formattedAccountBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" :prepend-icon="mdiPlus" @click="onAddTokensClicked">
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :prepend-icon="mdiPlus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -103,7 +103,6 @@
                                     :color="isCouponActive ? 'success' : 'error'"
                                     variant="tonal"
                                     class="font-weight-bold mb-2"
-                                    rounded
                                 >
                                     {{ couponDiscount }}
                                 </v-chip>
@@ -116,6 +115,7 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
+                                    rounded="md" 
                                     :prepend-icon="mdiPlus"
                                     @click="isAddCouponDialogShown = true"
                                 >
@@ -131,7 +131,7 @@
                             variant="flat"
                         >
                             <v-card-text>
-                                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="default" variant="tonal" class="font-weight-bold mb-2">
                                     No Coupon
                                 </v-chip>
 
@@ -142,6 +142,7 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
+                                    rounded="md" 
                                     :prepend-icon="mdiPlus"
                                     @click="isAddCouponDialogShown = true"
                                 >
@@ -156,9 +157,9 @@
                     <v-col>
                         <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." variant="flat">
                             <v-card-text>
-                                <v-btn variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" :prepend-icon="mdiCalendar">
                                     <detailed-usage-report-dialog />
-                                    Download Report
+                                    Detailed Account Report
                                 </v-btn>
                             </v-card-text>
                         </v-card>

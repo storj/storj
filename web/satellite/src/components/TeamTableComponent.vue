@@ -43,7 +43,7 @@
                 </span>
             </template>
             <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" variant="tonal" size="small" class="font-weight-bold">
                     {{ item.role }}
                 </v-chip>
             </template>
@@ -53,6 +53,7 @@
                     variant="outlined"
                     color="default"
                     size="small"
+                    rounded="md"
                     class="mr-1 text-caption"
                     density="comfortable"
                     icon
@@ -64,13 +65,12 @@
                                 v-if="hasChangeRoleActionItem(item)"
                                 density="comfortable"
                                 link
-                                rounded="lg"
                                 @click="() => showChangeRoleDialog(item)"
                             >
                                 <template #prepend>
                                     <icon-member />
                                 </template>
-                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Change Role
                                 </v-list-item-title>
                             </v-list-item>
@@ -78,14 +78,13 @@
                                 v-if="hasInviteActionItem(item)"
                                 density="comfortable"
                                 link
-                                rounded="lg"
                                 @click="() => onResendOrCopyClick(item.expired, item.email)"
                             >
                                 <template #prepend>
                                     <icon-upload v-if="item.expired" :size="18" />
                                     <icon-copy v-else />
                                 </template>
-                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
                                 </v-list-item-title>
                             </v-list-item>
@@ -96,13 +95,13 @@
                             <v-list-item
                                 class="text-error"
                                 density="comfortable"
-                                link rounded="lg"
+                                link
                                 @click="() => onSingleDelete(item.email)"
                             >
                                 <template #prepend>
                                     <icon-remove size="16" bold />
                                 </template>
-                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Remove Member
                                 </v-list-item-title>
                             </v-list-item>

@@ -12,7 +12,7 @@
                             <IconProject />
                         </template>
                         <template #append>
-                            <img src="@/assets/icon-right.svg" class="ml-3" alt="Project" width="10">
+                            <img src="@/assets/icon-right.svg" class="ml-4" alt="Project" width="10">
                         </template>
                     </navigation-item>
                 </template>
@@ -25,8 +25,8 @@
                             <template #prepend>
                                 <IconProject />
                             </template>
-                            <v-list-item-title class="ml-3">
-                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="closeDrawer">
+                            <v-list-item-title class="ml-4">
+                                <v-chip color="secondary" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
                                     My Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -40,9 +40,9 @@
                             @click="() => onProjectSelected(project)"
                         >
                             <template v-if="project.isSelected" #prepend>
-                                <img src="@/assets/icon-check-color.svg" alt="Selected Project">
+                                <img src="@/assets/icon-check-color.svg" alt="Selected Project" width="18" height="18">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-7'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -56,8 +56,8 @@
                             <template #prepend>
                                 <IconProject />
                             </template>
-                            <v-list-item-title class="ml-3">
-                                <v-chip color="success" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="closeDrawer">
+                            <v-list-item-title class="ml-4">
+                                <v-chip color="success" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
                                     Shared Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -73,7 +73,7 @@
                             <template v-if="project.isSelected" #prepend>
                                 <img src="@/assets/icon-check-color.svg" alt="Selected Project">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-7'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -86,7 +86,7 @@
                         <template #prepend>
                             <IconSettings />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             Project Settings
                         </v-list-item-title>
                     </v-list-item>
@@ -98,7 +98,7 @@
                         <template #prepend>
                             <IconAllProjects />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             View All Projects
                         </v-list-item-title>
                     </v-list-item>
@@ -110,7 +110,7 @@
                         <template #prepend>
                             <IconNew size="18" />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             Create New Project
                         </v-list-item-title>
                     </v-list-item>
@@ -122,7 +122,7 @@
                         <template #prepend>
                             <IconPassphrase />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             Manage Passphrase
                         </v-list-item-title>
                     </v-list-item>

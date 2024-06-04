@@ -15,11 +15,11 @@
             <v-col cols="12" lg="4">
                 <v-card title="Name">
                     <v-card-text>
-                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
                             {{ user.getFullName() }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="isChangeNameDialogShown = true">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isChangeNameDialogShown = true">
                             Edit Name
                         </v-btn>
                     </v-card-text>
@@ -28,7 +28,7 @@
             <v-col cols="12" lg="4">
                 <v-card title="Email Address">
                     <v-card-text>
-                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="default" variant="tonal" size="small" rounded="md" class="font-weight-bold">
                             {{ user.email }}
                         </v-chip>
                         <v-divider class="my-4" />
@@ -39,7 +39,7 @@
                             >
                                 To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
                             </v-tooltip>
-                            <v-btn variant="outlined" color="default" size="small" disabled>
+                            <v-btn variant="outlined" color="default" size="small" rounded="md" disabled>
                                 Change Email
                             </v-btn>
                         </div>
@@ -54,15 +54,14 @@
                             :color="isPaidTier ? 'success' : 'info'"
                             variant="tonal"
                             size="small"
-                            rounded
                         >
                             {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" :to="ROUTES.Billing.path">
+                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" rounded="md" :to="ROUTES.Billing.path">
                             View Billing
                         </v-btn>
-                        <v-btn v-else color="primary" size="small" :append-icon="mdiArrowRight" @click="appStore.toggleUpgradeFlow(true)">
+                        <v-btn v-else color="primary" size="small" rounded="md" :append-icon="mdiArrowRight" @click="appStore.toggleUpgradeFlow(true)">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -84,7 +83,7 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="isChangePasswordDialogShown = true">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isChangePasswordDialogShown = true">
                             Change Password
                         </v-btn>
                     </v-card-text>
@@ -98,10 +97,10 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn v-if="!user.isMFAEnabled" size="small" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
+                        <v-btn v-if="!user.isMFAEnabled" size="small" rounded="md" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
                         <template v-else>
-                            <v-btn class="mr-1" variant="outlined" color="default" size="small" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
-                            <v-btn variant="outlined" color="default" size="small" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
+                            <v-btn class="mr-1" variant="outlined" color="default" size="small" rounded="md" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
+                            <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
                         </template>
                     </v-card-text>
                 </v-card>
@@ -114,7 +113,7 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="isSetSessionTimeoutDialogShown = true">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isSetSessionTimeoutDialogShown = true">
                             Change Timeout
                         </v-btn>
                     </v-card-text>
@@ -124,11 +123,11 @@
             <v-col cols="12" lg="4">
                 <v-card title="Passphrase Preference">
                     <v-card-subtitle>
-                        {{ userSettings.passphrasePrompt ? 'Ask for passphrase when opening a project' : 'Only ask for passphrase when necessary' }}
+                        {{ userSettings.passphrasePrompt ? 'Ask for passphrase when opening a project.' : 'Only ask for passphrase when necessary.' }}
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="isSetPassphrasePromptDialogShown = true">
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isSetPassphrasePromptDialogShown = true">
                             {{ userSettings.passphrasePrompt ? 'Disable' : 'Enable' }}
                         </v-btn>
                     </v-card-text>

@@ -33,7 +33,7 @@
                     <template #prepend>
                         <icon-upgrade size="18" />
                     </template>
-                    <v-list-item-title class="ml-3">Upgrade</v-list-item-title>
+                    <v-list-item-title class="ml-4">Upgrade</v-list-item-title>
                 </v-list-item>
 
                 <!-- Account Billing -->
@@ -75,10 +75,10 @@
                             <template #prepend>
                                 <IconDocs />
                             </template>
-                            <v-list-item-title class="mx-3">
+                            <v-list-item-title class="mx-4">
                                 Documentation
                             </v-list-item-title>
-                            <v-list-item-subtitle class="mx-3">
+                            <v-list-item-subtitle class="mx-4">
                                 <small>Go to the Storj docs.</small>
                             </v-list-item-subtitle>
                         </v-list-item>
@@ -93,10 +93,10 @@
                             <template #prepend>
                                 <IconForum />
                             </template>
-                            <v-list-item-title class="mx-3">
+                            <v-list-item-title class="mx-4">
                                 Community Forum
                             </v-list-item-title>
-                            <v-list-item-subtitle class="mx-3">
+                            <v-list-item-subtitle class="mx-4">
                                 <small>Join our global community.</small>
                             </v-list-item-subtitle>
                         </v-list-item>
@@ -111,10 +111,10 @@
                             <template #prepend>
                                 <IconSupport />
                             </template>
-                            <v-list-item-title class="mx-3">
+                            <v-list-item-title class="mx-4">
                                 Storj Support
                             </v-list-item-title>
-                            <v-list-item-subtitle class="mx-3">
+                            <v-list-item-subtitle class="mx-4">
                                 <small>Need help? Get support.</small>
                             </v-list-item-subtitle>
                         </v-list-item>

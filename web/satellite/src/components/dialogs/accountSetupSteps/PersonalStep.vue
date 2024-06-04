@@ -41,7 +41,7 @@
                 <v-col cols="6" sm="4" md="3" lg="2">
                     <v-btn
                         size="large"
-                        variant="tonal"
+                        variant="outlined"
                         :prepend-icon="mdiChevronLeft"
                         color="default"
                         :disabled="isLoading"

@@ -70,7 +70,7 @@
             <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
-                        <v-btn color="primary" variant="flat" block @click="model = false">Close</v-btn>
+                        <v-btn color="default" variant="outlined" block @click="model = false">Close</v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>

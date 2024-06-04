@@ -61,7 +61,7 @@
             </template>
 
             <v-col>
-                <v-alert variant="tonal" color="info">
+                <v-alert variant="tonal">
                     <p class="text-subtitle-2 font-weight-bold">Next steps</p>
                     <p class="text-subtitle-2">Please read the documentation to find where to enter the access you created.</p>
                 </v-alert>

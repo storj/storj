@@ -11,7 +11,7 @@
     >
         <v-card ref="innerContent">
             <v-sheet>
-                <v-card-item class="py-4 pl-6">
+                <v-card-item class="pa-6">
                     <v-card-title class="font-weight-bold">
                         New {{ app ? app.name : '' }} Access
                     </v-card-title>
@@ -26,7 +26,17 @@
                         />
                     </template>
                     <template v-if="app" #prepend>
-                        <img :src="app.src" :alt="app.name" width="auto" height="40" class="rounded">
+                        <img :src="app.src" :alt="app.name" width="40" height="40" class="rounded">
+                    </template>
+                    <template v-else #prepend>
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <IconAccess />
+                        </v-sheet>
                     </template>
                     <v-progress-linear height="2px" indeterminate absolute location="bottom" :active="isFetching || isCreating" />
                 </v-card-item>
@@ -193,6 +203,9 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+
+import IconAccess from '../icons/IconAccess.vue';
+
 import { useRoute } from 'vue-router';
 
 import {
@@ -302,7 +315,7 @@ const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptFor
 
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseAccessStep]: new StepInfo(
-        'Next',
+        'Next ->',
         'Cancel',
         undefined,
         () => (accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption)
@@ -310,7 +323,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
             : SetupStep.ChooseFlowStep,
     ),
     [SetupStep.EncryptionInfo]: new StepInfo(
-        'Next',
+        'Next ->',
         'Back',
         SetupStep.ChooseAccessStep,
         SetupStep.ChooseFlowStep,
@@ -318,10 +331,10 @@ const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseFlowStep]: new StepInfo(
         () => {
             if (accessType.value === AccessType.APIKey) {
-                return flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next';
+                return flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->';
             }
 
-            return promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next' : 'Create Access';
+            return promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next ->' : 'Create Access';
         },
         () => props.defaultAccessType ? 'Cancel' : 'Back',
         () => {
@@ -347,7 +360,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
     ),
     [SetupStep.AccessEncryption]: new StepInfo(
-        () => flowType.value === FlowType.FullAccess && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next',
+        () => flowType.value === FlowType.FullAccess && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next ->',
         'Back',
         SetupStep.ChooseFlowStep,
         () => {
@@ -367,7 +380,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
     ),
     [SetupStep.PassphraseGenerated]: new StepInfo(
-        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next',
+        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->',
         'Back',
         SetupStep.AccessEncryption,
         () => flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
@@ -376,7 +389,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
     ),
     [SetupStep.EnterNewPassphrase]: new StepInfo(
-        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next',
+        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->',
         'Back',
         SetupStep.AccessEncryption,
         () => flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
@@ -385,7 +398,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
     ),
     [SetupStep.ChoosePermissionsStep]: new StepInfo(
-        'Next',
+        'Next ->',
         'Back',
         () => {
             if (bucketsStore.state.promptForPassphrase && accessType.value !== AccessType.APIKey) {
@@ -400,13 +413,13 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         SetupStep.SelectBucketsStep,
     ),
     [SetupStep.SelectBucketsStep]: new StepInfo(
-        'Next',
+        'Next ->',
         'Back',
         SetupStep.ChoosePermissionsStep,
         SetupStep.OptionalExpirationStep,
     ),
     [SetupStep.OptionalExpirationStep]: new StepInfo(
-        'Next',
+        'Next ->',
         'Back',
         SetupStep.SelectBucketsStep,
         SetupStep.ConfirmDetailsStep,

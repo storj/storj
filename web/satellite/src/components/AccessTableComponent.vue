@@ -48,6 +48,7 @@
                     variant="outlined"
                     color="default"
                     size="small"
+                    rounded="md"
                     class="mr-1 text-caption"
                     density="comfortable"
                     icon
@@ -55,11 +56,11 @@
                     <v-icon :icon="mdiDotsHorizontal" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
-                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item)">
+                            <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
                                 <template #prepend>
                                     <icon-trash />
                                 </template>
-                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Delete Access
                                 </v-list-item-title>
                             </v-list-item>

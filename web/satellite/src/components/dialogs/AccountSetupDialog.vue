@@ -132,6 +132,11 @@ const dialogHeight = computed(() => {
 const dialogWidth = computed(() => {
     switch (step.value) {
 
+    case OnboardingStep.AccountTypeSelection:
+    case OnboardingStep.BusinessAccountForm:
+    case OnboardingStep.PersonalAccountForm:
+        return '87%';
+
     case OnboardingStep.PricingPlanSelection:
         return '720px';
     case OnboardingStep.PricingPlan:

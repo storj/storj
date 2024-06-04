@@ -86,9 +86,9 @@
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4" variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
+                    <v-btn class="mt-4" variant="outlined" color="default" size="small" rounded="md" :prepend-icon="mdiCalendar">
                         <detailed-usage-report-dialog :project-i-d="projectId" />
-                        Download Report
+                        Detailed Project Report
                     </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
