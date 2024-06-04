@@ -8,6 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/storj/exp-spanner"
+	"google.golang.org/api/iterator"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -141,8 +144,37 @@ func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, stream
 // GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
 // segments in the db for the given stream ID, ordered by position.
 func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
-	// TODO: implement me
-	panic("implement me")
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				position, encrypted_key_nonce, encrypted_key
+			FROM segments
+			WHERE stream_id = @stream_id
+			ORDER BY stream_id, position ASC
+		`,
+		Params: map[string]interface{}{
+			"stream_id": streamID,
+		},
+	})
+	defer result.Stop()
+
+	for {
+		row, err := result.Next()
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return nil, Error.New("unable to fetch object segments: %w", err)
+		}
+
+		var keys EncryptedKeyAndNonce
+		err = row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+		if err != nil {
+			return nil, Error.New("failed to scan segments: %w", err)
+		}
+		keysNonces = append(keysNonces, keys)
+	}
+	return keysNonces, nil
 }
 
 // FinishMoveObject holds all data needed to finish object move.

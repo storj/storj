@@ -369,8 +369,47 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	// TODO: implement me
-	panic("implement me")
+	result := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				created_at, expires_at, repaired_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag,
+				redundancy,
+				inline_data, remote_alias_pieces,
+				placement
+			FROM segments
+			WHERE (stream_id, position) = (@stream_id, @position)
+		`,
+		Params: map[string]interface{}{
+			"stream_id": opts.StreamID,
+			"position":  opts.Position,
+		},
+	})
+	defer result.Stop()
+
+	row, err := result.Next()
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return Segment{}, aliasPieces, Error.New("unable to query segment: %w", err)
+	}
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		&segment.EncryptedETag,
+		redundancyScheme{&segment.Redundancy},
+		&segment.InlineData, &aliasPieces,
+		spannerutil.Int(&segment.Placement), // this spannerutil.Int call can be removed if gerrit common/13077 has been merged
+	)
+	if err != nil {
+		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, nil
 }
 
 // GetLatestObjectLastSegment contains arguments necessary for fetching a last segment information.

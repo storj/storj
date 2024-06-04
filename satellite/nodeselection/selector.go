@@ -268,15 +268,16 @@ func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSe
 }
 
 // ChoiceOfN will perform the selection for n*x nodes and choose the best node
-// from groups of n size.
+// from groups of n size. n is an int64 type due to a mito scripting shortcoming
+// but really an int16 should be fine.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
-func ChoiceOfN(tracker UploadSuccessTracker, n int, delegate NodeSelectorInit) NodeSelectorInit {
+func ChoiceOfN(tracker UploadSuccessTracker, n int64, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		selector := delegate(allNodes, filter)
 		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
 
 			getSuccessRate := tracker.Get(requester)
-			nodes, err := selector(requester, n*m, excluded, alreadySelected)
+			nodes, err := selector(requester, int(n)*m, excluded, alreadySelected)
 			if err != nil {
 				return nil, err
 			}
@@ -290,7 +291,7 @@ func ChoiceOfN(tracker UploadSuccessTracker, n int, delegate NodeSelectorInit) N
 			// do choice selection while we have more than the total redundancy
 			for len(nodes) > m {
 				// we're going to choose between up to n nodes
-				toChooseBetween := n
+				toChooseBetween := int(n)
 				excessNodes := len(nodes) - m
 				if toChooseBetween > excessNodes+1 {
 					// we add one because we essentially subtract toChooseBetween nodes
