@@ -525,7 +525,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if errs2.IsCanceled(closeErr) {
 				return true, rpcstatus.Wrap(rpcstatus.Canceled, closeErr)
 			}
-			endpoint.log.Error("upload internal error", zap.Error(err))
+			endpoint.log.Error("upload internal error", zap.Error(closeErr))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, closeErr)
 		}
 		return true, nil
