@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -87,7 +88,8 @@ func TestLoginRecaptcha(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].API.Console.Service
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
 		require.NotNil(t, service)
 		service.TestSwapCaptchaHandler(mockRecaptcha{})
 
@@ -129,6 +131,50 @@ func TestLoginRecaptcha(t *testing.T) {
 		})
 
 		require.Empty(t, token)
+		require.True(t, console.ErrCaptcha.Has(err))
+
+		// testing that captcha should not be checked when verifying MFA
+		// enable MFA
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		key, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		now := time.Now()
+		passcode, err := console.NewMFAPasscode(key, now)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(userCtx, passcode, now)
+		require.NoError(t, err)
+
+		// bypassing captcha check should work for accounts with MFA.
+		_, err = service.Token(ctx, console.AuthUser{
+			Email:           email,
+			Password:        password,
+			CaptchaResponse: "wrong-should-be-ignored",
+			MFAPasscode:     passcode,
+		})
+		require.NoError(t, err)
+
+		// disable MFA
+		passcode, err = console.NewMFAPasscode(key, now)
+		require.NoError(t, err)
+
+		err = service.DisableUserMFA(userCtx, passcode, now, "")
+		require.NoError(t, err)
+
+		// bypassing captcha check should not work for
+		// accounts without MFA.
+		_, err = service.Token(ctx, console.AuthUser{
+			Email:           email,
+			Password:        password,
+			CaptchaResponse: "wrong-should-not-be-ignored",
+			MFAPasscode:     passcode,
+		})
 		require.True(t, console.ErrCaptcha.Has(err))
 	})
 }

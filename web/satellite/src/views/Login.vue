@@ -303,7 +303,7 @@ async function onLoginClick(): Promise<void> {
     }
 
     isLoading.value = true;
-    if (hcaptcha.value && !captchaResponseToken.value) {
+    if (!isMFARequired.value && hcaptcha.value && !captchaResponseToken.value) {
         hcaptcha.value?.execute();
         return;
     }
