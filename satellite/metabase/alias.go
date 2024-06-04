@@ -5,20 +5,19 @@ package metabase
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/storj/exp-spanner"
+	spanner "github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
-	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.
@@ -162,32 +161,14 @@ func (p *PostgresAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEnt
 func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAliasEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := spanner.Statement{SQL: `
-		SELECT node_id, node_alias FROM node_aliases
-	`}
-	iter := s.client.Single().Query(ctx, stmt)
-	defer iter.Stop()
-
-	for {
-		row, err := iter.Next()
-		if errors.Is(err, iterator.Done) {
-			return aliases, nil
-		}
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		var nodeID storj.NodeID
-		var nodeAlias int64
-		if err := row.Columns(&nodeID, &nodeAlias); err != nil {
-			return nil, Error.New("ListNodeAliases scan failed: %w", err)
-		}
-
-		aliases = append(aliases, NodeAliasEntry{
-			ID:    nodeID,
-			Alias: NodeAlias(nodeAlias),
+	return spannerutil.CollectRows(
+		s.client.Single().Query(ctx,
+			spanner.Statement{SQL: `
+				SELECT node_id, node_alias FROM node_aliases
+			`}),
+		func(row *spanner.Row, item *NodeAliasEntry) error {
+			return Error.Wrap(row.Columns(&item.ID, spannerutil.Int(&item.Alias)))
 		})
-	}
 }
 
 // LatestNodesAliasMap returns the latest mapping between storj.NodeID and NodeAlias.
