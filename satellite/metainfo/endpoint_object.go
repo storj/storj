@@ -23,6 +23,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -38,7 +39,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	var canDelete bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
@@ -220,7 +221,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	now := time.Now()
 	var allowDelete bool
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
@@ -339,7 +340,7 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 
 	now := time.Now()
 	var allowDelete bool
-	keyInfo, err := endpoint.ValidateAuthN(ctx, beginObjectReq.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, beginObjectReq.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
@@ -541,7 +542,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header,
+	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header, console.RateLimitHead,
 		macaroon.Action{
 			Op:            macaroon.ActionRead,
 			Bucket:        req.Bucket,
@@ -677,7 +678,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitGet)
 	if err != nil {
 		return nil, err
 	}
@@ -1081,7 +1082,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPrefix,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitList)
 	if err != nil {
 		return nil, err
 	}
@@ -1315,7 +1316,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitList)
 	if err != nil {
 		return nil, err
 	}
@@ -1412,7 +1413,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	var canRead, canList bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
@@ -1521,7 +1522,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header,
+	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header, console.RateLimitHead,
 		macaroon.Action{
 			Op:            macaroon.ActionRead,
 			Bucket:        req.Bucket,
@@ -1626,7 +1627,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -1982,7 +1983,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
@@ -2154,7 +2155,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		Time:          time.Now(),
 		Bucket:        req.NewBucket,
 		EncryptedPath: req.NewEncryptedObjectKey,
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -2218,7 +2219,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
@@ -2363,7 +2364,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		Time:          time.Now(),
 		Bucket:        req.NewBucket,
 		EncryptedPath: req.NewEncryptedMetadataKey,
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}

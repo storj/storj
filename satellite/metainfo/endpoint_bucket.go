@@ -30,7 +30,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBu
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		Op:     macaroon.ActionWrite,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		Op:     macaroon.ActionWrite,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 	var canRead, canList bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:     macaroon.ActionDelete,
@@ -441,7 +441,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Op:   macaroon.ActionRead,
 		Time: time.Now(),
 	}
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action)
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action, console.RateLimitList)
 	if err != nil {
 		return nil, err
 	}

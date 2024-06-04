@@ -199,7 +199,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
 		Time: time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
