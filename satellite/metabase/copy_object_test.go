@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestBeginCopyObject(t *testing.T) {
@@ -111,6 +112,10 @@ func TestBeginCopyObject(t *testing.T) {
 		})
 
 		t.Run("begin copy object with delete marker as source", func(t *testing.T) {
+			if db.Implementation() == dbutil.Spanner {
+				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
+			}
+
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			object := metabasetest.CreateObjectVersioned(ctx, t, db, metabasetest.RandObjectStream(), 0)
@@ -922,6 +927,10 @@ func TestFinishCopyObject(t *testing.T) {
 		})
 
 		t.Run("copied segments has same expires_at as original", func(t *testing.T) {
+			if db.Implementation() == dbutil.Spanner {
+				t.Skip("TODO(spanner): ListSegments not yet implemented for Spanner")
+			}
+
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			expiresAt := time.Now().Add(2 * time.Hour)
@@ -1382,6 +1391,10 @@ func TestFinishCopyObject(t *testing.T) {
 		})
 
 		t.Run("unversioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			if db.Implementation() == dbutil.Spanner {
+				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
+			}
+
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
@@ -1441,6 +1454,10 @@ func TestFinishCopyObject(t *testing.T) {
 		})
 
 		t.Run("versioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			if db.Implementation() == dbutil.Spanner {
+				t.Skip("TODO(spanner): DeleteObjectLastCommitted not yet implemented for Spanner")
+			}
+
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()

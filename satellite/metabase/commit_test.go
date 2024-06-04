@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestBeginObjectNextVersion(t *testing.T) {
@@ -3552,6 +3553,12 @@ func TestCommitObjectVersioned(t *testing.T) {
 
 			// half the commits are versioned half are unversioned
 			numCommits := 1000
+
+			if db.Implementation() == dbutil.Spanner {
+				t.Log("TODO(spanner): spanner emulator is too slow for this test, reducing the number to 50")
+				numCommits = 50
+			}
+
 			objs := make([]*metabase.ObjectStream, numCommits)
 			for i := 0; i < numCommits; i++ {
 				v := obj

@@ -393,7 +393,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
 		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		encryptionParameters{&sourceObject.Encryption},
-		copyMetadata, &opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 	)
 
@@ -471,7 +471,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"segment_count":                    int64(sourceObject.SegmentCount),
 			"encryption":                       encryptionParameters{&sourceObject.Encryption},
 			"encrypted_metadata":               copyMetadata,
-			"encrypted_metadata_nonce":         &opts.NewEncryptedMetadataKeyNonce,
+			"encrypted_metadata_nonce":         opts.NewEncryptedMetadataKeyNonce,
 			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataKey,
 			"total_plain_size":                 sourceObject.TotalPlainSize,
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
