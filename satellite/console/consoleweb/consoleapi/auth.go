@@ -653,6 +653,38 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ChangeEmail handles change email flow requests.
+func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Step console.ChangeEmailStep `json:"step"`
+		Data string                  `json:"data"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if data.Step < console.ChangeEmailPasswordStep || data.Step > console.ChangeEmailVerifyNewStep {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
+		return
+	}
+
+	if data.Data == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
+		return
+	}
+
+	if err = a.service.ChangeEmail(ctx, data.Step, data.Data); err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}
+
 // UpdateAccount updates user's full name and short name.
 func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1374,7 +1406,7 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
 		return http.StatusConflict
-	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err):
+	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err):
 		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
@@ -1417,7 +1449,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "Your login credentials are incorrect, please try again"
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
-	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err):
+	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err), console.ErrForbidden.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

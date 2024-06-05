@@ -183,6 +183,9 @@ const (
 
 	// MfaAccountLock stands for "2fa check" and represents an account lock activity type triggered by multiple failed two-factor authentication attempts.
 	MfaAccountLock LockAccountActivityType = "2fa check"
+
+	// ChangeEmailLock stands for "change email" and represents an account lock activity type triggered by multiple failed change email actions.
+	ChangeEmailLock LockAccountActivityType = "change email"
 )
 
 // LoginLockAccountEmail is mailservice template with login lock account data.

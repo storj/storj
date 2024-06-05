@@ -1278,6 +1278,114 @@ func TestService(t *testing.T) {
 		})
 }
 
+func TestChangeEmail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.EmailChangeFlowEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		service := sat.API.Console.Service
+		usrLogin := planet.Uplinks[0].User[sat.ID()]
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		updateContext := func() (context.Context, *console.User) {
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			user, err := console.GetUser(userCtx)
+			require.NoError(t, err)
+			return userCtx, user
+		}
+		userCtx, user := updateContext()
+
+		// 2fa is disabled.
+		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, "test")
+		require.NoError(t, err)
+
+		mfaSecret, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+
+		now := time.Now()
+		goodCode, err := console.NewMFAPasscode(mfaSecret, now)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(userCtx, goodCode, now)
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.NotEmpty(t, user.MFASecretKey)
+
+		// starting from second step must fail.
+		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, "test")
+		require.True(t, console.ErrValidation.Has(err))
+
+		userCtx, _ = updateContext()
+
+		for i := 0; i < 2; i++ {
+			err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, "wrong password")
+			require.True(t, console.ErrValidation.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		// account gets locked after 3 failed attempts.
+		err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, usrLogin.Password)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		resetAccountLock := func() error {
+			failedLoginCount := 0
+			loginLockoutExpirationPtr := &time.Time{}
+
+			return db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				FailedLoginCount:       &failedLoginCount,
+				LoginLockoutExpiration: &loginLockoutExpirationPtr,
+			})
+		}
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, usrLogin.Password)
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		wrongCode, err := console.NewMFAPasscode(mfaSecret, now.Add(time.Hour))
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, wrongCode)
+			require.True(t, console.ErrMFAPasscode.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		goodCode, err = console.NewMFAPasscode(mfaSecret, now)
+		require.NoError(t, err)
+
+		// account gets locked after 3 failed attempts.
+		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, goodCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, goodCode)
+		require.NoError(t, err)
+	})
+}
+
 func TestPaidTier(t *testing.T) {
 	usageConfig := console.UsageLimitsConfig{
 		Storage: console.StorageLimitConfig{

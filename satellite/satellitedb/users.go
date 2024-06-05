@@ -758,6 +758,17 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.UpgradeTime = dbx.User_UpgradeTime(*request.UpgradeTime)
 	}
 
+	if request.NewUnverifiedEmail != nil {
+		if *request.NewUnverifiedEmail == nil {
+			update.NewUnverifiedEmail = dbx.User_NewUnverifiedEmail_Null()
+		} else {
+			update.NewUnverifiedEmail = dbx.User_NewUnverifiedEmail(**request.NewUnverifiedEmail)
+		}
+	}
+	if request.EmailChangeVerificationStep != nil {
+		update.EmailChangeVerificationStep = dbx.User_EmailChangeVerificationStep(*request.EmailChangeVerificationStep)
+	}
+
 	return &update, nil
 }
 
@@ -782,25 +793,27 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	result := console.User{
-		ID:                    id,
-		FullName:              user.FullName,
-		Email:                 user.Email,
-		PasswordHash:          user.PasswordHash,
-		Status:                console.UserStatus(user.Status),
-		CreatedAt:             user.CreatedAt,
-		ProjectLimit:          user.ProjectLimit,
-		ProjectBandwidthLimit: user.ProjectBandwidthLimit,
-		ProjectStorageLimit:   user.ProjectStorageLimit,
-		ProjectSegmentLimit:   user.ProjectSegmentLimit,
-		PaidTier:              user.PaidTier,
-		IsProfessional:        user.IsProfessional,
-		HaveSalesContact:      user.HaveSalesContact,
-		MFAEnabled:            user.MfaEnabled,
-		VerificationReminders: user.VerificationReminders,
-		TrialNotifications:    user.TrialNotifications,
-		SignupCaptcha:         user.SignupCaptcha,
-		TrialExpiration:       user.TrialExpiration,
-		UpgradeTime:           user.UpgradeTime,
+		ID:                          id,
+		FullName:                    user.FullName,
+		Email:                       user.Email,
+		PasswordHash:                user.PasswordHash,
+		Status:                      console.UserStatus(user.Status),
+		CreatedAt:                   user.CreatedAt,
+		ProjectLimit:                user.ProjectLimit,
+		ProjectBandwidthLimit:       user.ProjectBandwidthLimit,
+		ProjectStorageLimit:         user.ProjectStorageLimit,
+		ProjectSegmentLimit:         user.ProjectSegmentLimit,
+		PaidTier:                    user.PaidTier,
+		IsProfessional:              user.IsProfessional,
+		HaveSalesContact:            user.HaveSalesContact,
+		MFAEnabled:                  user.MfaEnabled,
+		VerificationReminders:       user.VerificationReminders,
+		TrialNotifications:          user.TrialNotifications,
+		SignupCaptcha:               user.SignupCaptcha,
+		TrialExpiration:             user.TrialExpiration,
+		UpgradeTime:                 user.UpgradeTime,
+		NewUnverifiedEmail:          user.NewUnverifiedEmail,
+		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
 	}
 
 	if user.DefaultPlacement != nil {

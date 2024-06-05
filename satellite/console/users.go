@@ -260,6 +260,9 @@ type User struct {
 
 	TrialExpiration *time.Time `json:"trialExpiration"`
 	UpgradeTime     *time.Time `json:"upgradeTime"`
+
+	NewUnverifiedEmail          *string `json:"-"`
+	EmailChangeVerificationStep int     `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -341,6 +344,9 @@ type UpdateUserRequest struct {
 	TrialExpiration    **time.Time
 	TrialNotifications *TrialNotificationStatus
 	UpgradeTime        *time.Time
+
+	NewUnverifiedEmail          **string
+	EmailChangeVerificationStep *int
 }
 
 // UserSettings contains configurations for a user.

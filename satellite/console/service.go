@@ -87,6 +87,7 @@ const (
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
 	contactSupportErrMsg                 = "Please contact support"
+	changeEmailWrongStepOrderErrMsg      = "Wrong step order. Please restart the flow"
 )
 
 // VersioningOptInStatus is a type for versioning beta opt in status.
@@ -1692,6 +1693,190 @@ func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error
 		return has, nil
 	}
 	return false, nil
+}
+
+// ChangeEmailStep stands for each explicit change email flow step.
+type ChangeEmailStep = int
+
+const (
+	// ChangeEmailPasswordStep stands for the first step of the change email flow
+	// where user has to provide an account password.
+	ChangeEmailPasswordStep ChangeEmailStep = 1
+	// ChangeEmailMfaStep stands for the second step of the change email flow
+	// where user has to provide a 2fa passcode.
+	ChangeEmailMfaStep ChangeEmailStep = 2
+	// ChangeEmailVerifyOldStep stands for the third step of the change email flow
+	// where user has to provide an OTP code sent to their old email address.
+	ChangeEmailVerifyOldStep ChangeEmailStep = 3
+	// ChangeEmailNewEmailStep stands for the fourth step of the change email flow
+	// where user has to provide a new email address.
+	ChangeEmailNewEmailStep ChangeEmailStep = 4
+	// ChangeEmailVerifyNewStep stands for the fifth step of the change email flow
+	// where user has to provide an OTP code sent to their new email address.
+	ChangeEmailVerifyNewStep ChangeEmailStep = 5
+)
+
+// ChangeEmail handles change user's email actions.
+func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.EmailChangeFlowEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "change email")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("change_email_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "change email: failed account locked out", &user.ID, user.Email)
+		return ErrUnauthorized.New("please try again later")
+	}
+
+	switch step {
+	case ChangeEmailPasswordStep:
+		err = s.handlePasswordStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case ChangeEmailMfaStep:
+		err = s.handleMfaStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case ChangeEmailVerifyOldStep:
+		// TODO(vitali): implement me
+	case ChangeEmailNewEmailStep:
+		// TODO(vitali): implement me
+	case ChangeEmailVerifyNewStep:
+		// TODO(vitali): implement me
+	default:
+		return ErrValidation.New("step value is out of range")
+	}
+
+	return nil
+}
+
+func (s *Service) handlePasswordStep(ctx context.Context, user *User, data string) (err error) {
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(data))
+	if err != nil {
+		err = s.handleLockAccount(ctx, user, ChangeEmailPasswordStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New("password is incorrect")
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeEmailPasswordStep)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (err error) {
+	if !user.MFAEnabled {
+		return nil
+	}
+
+	if user.EmailChangeVerificationStep < ChangeEmailPasswordStep {
+		err = s.handleLockAccount(ctx, user, ChangeEmailMfaStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+	}
+
+	valid, err := ValidateMFAPasscode(data, user.MFASecretKey, s.nowFn())
+	if err != nil {
+		err = s.handleLockAccount(ctx, user, ChangeEmailMfaStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrMFAPasscode.Wrap(err)
+	}
+	if !valid {
+		err = s.handleLockAccount(ctx, user, ChangeEmailMfaStep)
+		if err != nil {
+			return err
+		}
+		mon.Counter("change_email_2fa_passcode_failure").Inc(1) //mon:locked
+		s.auditLog(ctx, "change email: failed 2fa passcode invalid", &user.ID, user.Email)
+		return ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeEmailMfaStep)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *Service) handleLockAccount(ctx context.Context, user *User, step ChangeEmailStep) error {
+	lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	if lockoutDuration > 0 {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&LoginLockAccountEmail{
+				LockoutDuration: lockoutDuration,
+				ActivityType:    ChangeEmailLock,
+			},
+		)
+	}
+
+	var reason string
+	switch step {
+	case ChangeEmailPasswordStep:
+		reason = "password"
+	case ChangeEmailMfaStep:
+		reason = "2fa"
+	case ChangeEmailVerifyOldStep:
+		reason = "verify_old_email"
+	case ChangeEmailVerifyNewStep:
+		reason = "verify_new_email"
+	}
+
+	mon.Counter(fmt.Sprintf("change_email_%s_failed", reason)).Inc(1)                                     //mon:locked
+	mon.IntVal(fmt.Sprintf("change_email_%s_failed_count", reason)).Observe(int64(user.FailedLoginCount)) //mon:locked
+
+	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+		mon.Counter(fmt.Sprintf("change_email_%s_lockout_initiated", reason)).Inc(1) //mon:locked
+		s.auditLog(ctx, fmt.Sprintf("change email: failed %s count reached maximum attempts", reason), &user.ID, user.Email)
+	}
+
+	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+		mon.Counter(fmt.Sprintf("change_email_%s_lockout_reinitiated", reason)).Inc(1) //mon:locked
+		s.auditLog(ctx, fmt.Sprintf("change email: %s failed locked account", reason), &user.ID, user.Email)
+	}
+
+	return nil
+}
+
+func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeEmailStep) error {
+	failedLoginCount := 0
+	loginLockoutExpirationPtr := &time.Time{}
+
+	return s.store.Users().Update(ctx, userID, UpdateUserRequest{
+		EmailChangeVerificationStep: &step,
+		FailedLoginCount:            &failedLoginCount,
+		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
+	})
 }
 
 // UpdateAccount updates User.
