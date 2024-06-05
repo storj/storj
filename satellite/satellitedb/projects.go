@@ -405,6 +405,76 @@ func (projects *projects) UpdateAllLimits(
 	return err
 }
 
+// UpdateLimitsGeneric is a method for updating any or all types of limits on a project.
+// ALL limits passed in to the request will be updated i.e. if a limit type is passed in with a null value, that limit will be updated to null.
+func (projects *projects) UpdateLimitsGeneric(ctx context.Context, id uuid.UUID, toUpdate []console.Limit) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(toUpdate) == 0 {
+		return nil
+	}
+
+	updateFields := dbx.Project_Update_Fields{}
+
+	for _, limit := range toUpdate {
+		val64 := limit.Value
+		var val32 *int
+		if val64 != nil {
+			newVal := int(*val64)
+			val32 = &newVal
+		}
+
+		switch limit.Kind {
+		case console.StorageLimit:
+			updateFields.UsageLimit = dbx.Project_UsageLimit_Raw(val64)
+		case console.BandwidthLimit:
+			updateFields.BandwidthLimit = dbx.Project_BandwidthLimit_Raw(val64)
+		case console.UserSetStorageLimit:
+			updateFields.UserSpecifiedUsageLimit = dbx.Project_UserSpecifiedUsageLimit_Raw(val64)
+		case console.UserSetBandwidthLimit:
+			updateFields.UserSpecifiedBandwidthLimit = dbx.Project_UserSpecifiedBandwidthLimit_Raw(val64)
+		case console.SegmentLimit:
+			updateFields.SegmentLimit = dbx.Project_SegmentLimit_Raw(val64)
+		case console.BucketsLimit:
+			updateFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(val32)
+		case console.RateLimit:
+			updateFields.RateLimit = dbx.Project_RateLimit_Raw(val32)
+		case console.BurstLimit:
+			updateFields.BurstLimit = dbx.Project_BurstLimit_Raw(val32)
+		case console.RateLimitHead:
+			updateFields.RateLimitHead = dbx.Project_RateLimitHead_Raw(val32)
+		case console.BurstLimitHead:
+			updateFields.BurstLimitHead = dbx.Project_BurstLimitHead_Raw(val32)
+		case console.RateLimitGet:
+			updateFields.RateLimitGet = dbx.Project_RateLimitGet_Raw(val32)
+		case console.BurstLimitGet:
+			updateFields.BurstLimitGet = dbx.Project_BurstLimitGet_Raw(val32)
+		case console.RateLimitPut:
+			updateFields.RateLimitPut = dbx.Project_RateLimitPut_Raw(val32)
+		case console.BurstLimitPut:
+			updateFields.BurstLimitPut = dbx.Project_BurstLimitPut_Raw(val32)
+		case console.RateLimitList:
+			updateFields.RateLimitList = dbx.Project_RateLimitList_Raw(val32)
+		case console.BurstLimitList:
+			updateFields.BurstLimitList = dbx.Project_BurstLimitList_Raw(val32)
+		case console.RateLimitDelete:
+			updateFields.RateLimitDel = dbx.Project_RateLimitDel_Raw(val32)
+		case console.BurstLimitDelete:
+			updateFields.BurstLimitDel = dbx.Project_BurstLimitDel_Raw(val32)
+		default:
+			return errs.New("Limit kind not supported in update. No limits updated. Limit kind: %d", limit.Kind)
+		}
+
+	}
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		updateFields,
+	)
+
+	return err
+
+}
+
 // UpdateUserAgent is a method for updating projects user agent.
 func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -66,6 +66,10 @@ type Projects interface {
 	// UpdateAllLimits is a method for updating max buckets, storage, bandwidth, segment, rate, and burst limits.
 	UpdateAllLimits(ctx context.Context, id uuid.UUID, storage, bandwidth, segment *int64, buckets, rate, burst *int) error
 
+	// UpdateLimitsGeneric is a method for updating any or all types of limits on a project.
+	// ALL limits passed in to the request will be updated i.e. if a limit type is passed in with a null value, that limit will be updated to null.
+	UpdateLimitsGeneric(ctx context.Context, id uuid.UUID, toUpdate []Limit) error
+
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 

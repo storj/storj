@@ -4,11 +4,13 @@
 package satellitedb_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -191,5 +193,178 @@ func TestUpdateAllProjectLimits(t *testing.T) {
 		require.Nil(t, p.MaxBuckets)
 		require.Nil(t, p.RateLimit)
 		require.Nil(t, p.BurstLimit)
+	})
+}
+
+func TestUpdateLimitsGeneric(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
+		users := db.Console().Users()
+
+		user, err := users.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "user@mail.test",
+			PasswordHash: []byte("password"),
+		})
+		require.NoError(t, err)
+
+		proj, err := projects.Insert(ctx, &console.Project{
+			Name:    "Project",
+			OwnerID: user.ID,
+		})
+		require.NoError(t, err)
+
+		equalValues := func(a, b *int64) bool {
+			if a == nil && b == nil {
+				return true
+			}
+			if (a == nil && b != nil) || (a != nil && b == nil) {
+				return false
+			}
+			return *a == *b
+		}
+		equalValuesMemory := func(a *memory.Size, b *int64) bool {
+			var val *int64
+			if a != nil {
+				newVal := a.Int64()
+				val = &newVal
+			}
+			return equalValues(val, b)
+
+		}
+		equalValuesInt := func(a *int, b *int64) bool {
+			var val *int64
+			if a != nil {
+				newVal := int64(*a)
+				val = &newVal
+			}
+			return equalValues(val, b)
+
+		}
+		equalLimits := func(p *console.Project, kind console.LimitKind, expected *int64) bool {
+			switch kind {
+			case console.StorageLimit:
+				return equalValuesMemory(p.StorageLimit, expected)
+			case console.BandwidthLimit:
+				return equalValuesMemory(p.BandwidthLimit, expected)
+			case console.UserSetStorageLimit:
+				return equalValuesMemory(p.UserSpecifiedStorageLimit, expected)
+			case console.UserSetBandwidthLimit:
+				return equalValuesMemory(p.UserSpecifiedBandwidthLimit, expected)
+			case console.SegmentLimit:
+				return equalValues(p.SegmentLimit, expected)
+			case console.BucketsLimit:
+				return equalValuesInt(p.MaxBuckets, expected)
+			case console.RateLimit:
+				return equalValuesInt(p.RateLimit, expected)
+			case console.BurstLimit:
+				return equalValuesInt(p.BurstLimit, expected)
+			case console.RateLimitHead:
+				return equalValuesInt(p.RateLimitHead, expected)
+			case console.BurstLimitHead:
+				return equalValuesInt(p.BurstLimitHead, expected)
+			case console.RateLimitGet:
+				return equalValuesInt(p.RateLimitGet, expected)
+			case console.BurstLimitGet:
+				return equalValuesInt(p.BurstLimitGet, expected)
+			case console.RateLimitPut:
+				return equalValuesInt(p.RateLimitPut, expected)
+			case console.BurstLimitPut:
+				return equalValuesInt(p.BurstLimitPut, expected)
+			case console.RateLimitList:
+				return equalValuesInt(p.RateLimitList, expected)
+			case console.BurstLimitList:
+				return equalValuesInt(p.BurstLimitList, expected)
+			case console.RateLimitDelete:
+				return equalValuesInt(p.RateLimitDelete, expected)
+			case console.BurstLimitDelete:
+				return equalValuesInt(p.BurstLimitDelete, expected)
+			default:
+				return false
+			}
+		}
+
+		allLimitKinds := []console.LimitKind{
+			console.StorageLimit,
+			console.BandwidthLimit,
+			console.UserSetStorageLimit,
+			console.UserSetBandwidthLimit,
+			console.SegmentLimit,
+			console.BucketsLimit,
+			console.RateLimit,
+			console.BurstLimit,
+			console.RateLimitHead,
+			console.BurstLimitHead,
+			console.RateLimitGet,
+			console.BurstLimitGet,
+			console.RateLimitPut,
+			console.BurstLimitPut,
+			console.RateLimitList,
+			console.BurstLimitList,
+			console.RateLimitDelete,
+			console.BurstLimitDelete,
+		}
+		// test updating all limits to different values, individually
+		for i, kind := range allLimitKinds {
+			value := int64(i + 1)
+			err := projects.UpdateLimitsGeneric(ctx, proj.ID, []console.Limit{
+				{Kind: kind, Value: &value},
+			})
+			require.NoError(t, err)
+		}
+		proj, err = projects.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		for i, kind := range allLimitKinds {
+			value := int64(i + 1)
+			require.True(t, equalLimits(proj, kind, &value), fmt.Sprintf("limit kind %d", kind))
+		}
+
+		// test updating all limits to different values, at the same time
+		toUpdate := []console.Limit{}
+		for i, kind := range allLimitKinds {
+			value := int64(100 * (i + 1))
+			toUpdate = append(toUpdate, console.Limit{
+				Kind:  kind,
+				Value: &value,
+			})
+		}
+		err = projects.UpdateLimitsGeneric(ctx, proj.ID, toUpdate)
+		require.NoError(t, err)
+
+		proj, err = projects.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		for i, kind := range allLimitKinds {
+			value := int64(100 * (i + 1))
+			require.True(t, equalLimits(proj, kind, &value), fmt.Sprintf("limit kind %d", kind))
+		}
+
+		// test updating all limits to nil
+		toUpdate = []console.Limit{}
+		for _, kind := range allLimitKinds {
+			toUpdate = append(toUpdate, console.Limit{
+				Kind:  kind,
+				Value: nil,
+			})
+		}
+		err = projects.UpdateLimitsGeneric(ctx, proj.ID, toUpdate)
+		require.NoError(t, err)
+
+		proj, err = projects.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		for _, kind := range allLimitKinds {
+			require.True(t, equalLimits(proj, kind, nil), fmt.Sprintf("limit kind %d", kind))
+		}
+
+		// test updating invalid limit type
+		value := int64(5000)
+		err = projects.UpdateLimitsGeneric(ctx, proj.ID, []console.Limit{
+			{Kind: console.SegmentLimit, Value: &value},
+			{Kind: console.LimitKind(-1), Value: &value}, // invalid kind
+		})
+		require.Error(t, err)
+		proj, err = projects.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		// valid limitkind should not have been updated
+		require.Nil(t, proj.SegmentLimit)
 	})
 }
