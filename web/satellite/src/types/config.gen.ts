@@ -64,6 +64,7 @@ export class FrontendConfig {
     maxNameCharacters: number;
     billingInformationTabEnabled: boolean;
     satelliteManagedEncryptionEnabled: boolean;
+    emailChangeFlowEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

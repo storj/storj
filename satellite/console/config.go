@@ -37,6 +37,7 @@ type Config struct {
 	MaxNameCharacters                 int                       `help:"defines the maximum number of characters allowed for names, e.g. user first/last names and company names" default:"100"`
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
+	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	UsageLimits                       UsageLimitsConfig
 	Captcha                           CaptchaConfig
 	Session                           SessionConfig

@@ -882,6 +882,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxNameCharacters:                 server.config.MaxNameCharacters,
 		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
+		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

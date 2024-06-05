@@ -340,6 +340,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
+# whether change user email flow is enabled
+# console.email-change-flow-enabled: false
+
 # whether emission impact view should be shown
 # console.emission-impact-view-enabled: false
 
