@@ -451,6 +451,55 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 
 }
 
+func TestUnvettedSelector(t *testing.T) {
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 20; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i < 10 {
+			node.Vetted = true
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	t.Run("0 new nodes", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(1.0, nodeselection.RandomSelector())
+		selector := selectorInit(nodes[:10], nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 10)
+			require.Equal(t, 0, countUnvetted(selected))
+		}
+	})
+
+	t.Run("25% of 5", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(0.25, nodeselection.RandomSelector())
+		selector := selectorInit(nodes, nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 5, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 5)
+			require.Equal(t, 1, countUnvetted(selected))
+		}
+	})
+
+	t.Run("15% of 5", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(0.15, nodeselection.RandomSelector())
+		selector := selectorInit(nodes, nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 5, nil, nil)
+			require.NoError(t, err)
+			require.Equal(t, 0, countUnvetted(selected))
+		}
+	})
+}
+
 func TestChoiceOfTwo(t *testing.T) {
 	tracker := &mockTracker{
 		trustedUplink: testrand.NodeID(),
@@ -639,7 +688,6 @@ func TestFilterBestOfN(t *testing.T) {
 			require.Len(t, selected, 5)
 		}
 	})
-
 }
 
 // mockSelector returns only 1 success, for slow nodes, but only if trustedUplink does ask it.
@@ -669,4 +717,15 @@ func countSlowNodes(nodes []*nodeselection.SelectedNode) int {
 		}
 	}
 	return slowCount
+}
+
+func countUnvetted(nodes []*nodeselection.SelectedNode) int {
+	unvetted := 0
+	for _, node := range nodes {
+		if !node.Vetted {
+			unvetted++
+		}
+	}
+
+	return unvetted
 }
