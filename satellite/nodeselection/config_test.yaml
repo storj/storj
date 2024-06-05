@@ -15,3 +15,6 @@ placements:
   - id: 2
     name: choiceoftwo
     selector: choiceoftwo(tracker, random())
+  - id: 3
+    name: ifeqselector
+    selector: attribute(if(eq("tag:surge","true"),"last_ip_port","last_net"))

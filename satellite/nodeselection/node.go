@@ -122,6 +122,10 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 		return func(node SelectedNode) string {
 			return node.LastNet
 		}, nil
+	case "last_ip_port":
+		return func(node SelectedNode) string {
+			return node.LastIPPort
+		}, nil
 	case "wallet":
 		return func(node SelectedNode) string {
 			return node.Wallet

@@ -130,6 +130,23 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 	}
 }
 
+// IfSelector selects the first node attribute if the condition is true, otherwise the second node attribute.
+func IfSelector(condition func(SelectedNode) bool, conditionTrue, conditionFalse NodeAttribute) NodeAttribute {
+	return func(node SelectedNode) string {
+		if condition(node) {
+			return conditionTrue(node)
+		}
+		return conditionFalse(node)
+	}
+}
+
+// EqualSelector returns a function that compares the node attribute with the given attribute.
+func EqualSelector(nodeAttribute NodeAttribute, attribute string) func(SelectedNode) bool {
+	return func(node SelectedNode) bool {
+		return nodeAttribute(node) == attribute
+	}
+}
+
 func included(alreadySelected []storj.NodeID, nodes ...*SelectedNode) bool {
 	for _, node := range nodes {
 		for _, id := range alreadySelected {

@@ -216,12 +216,19 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		expr = "random()"
 	}
 	env := map[any]any{
-		"attribute": func(attribute string) (NodeSelectorInit, error) {
-			attr, err := CreateNodeAttribute(attribute)
-			if err != nil {
-				return nil, err
+		"attribute": func(attribute interface{}) (NodeSelectorInit, error) {
+			switch value := attribute.(type) {
+			case NodeAttribute:
+				return AttributeGroupSelector(value), nil
+			case string:
+				attr, err := CreateNodeAttribute(value)
+				if err != nil {
+					return nil, err
+				}
+				return AttributeGroupSelector(attr), nil
+			default:
+				return nil, Error.New("unable to create attribute selector from %s", expr)
 			}
-			return AttributeGroupSelector(attr), nil
 		},
 		"random": func() (NodeSelectorInit, error) {
 			return RandomSelector(), nil
@@ -244,6 +251,24 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		},
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
+		"eq": func(a, b string) func(SelectedNode) bool {
+			attr, err := CreateNodeAttribute(a)
+			if err != nil {
+				return func(SelectedNode) bool { return false }
+			}
+			return EqualSelector(attr, b)
+		},
+		"if": func(condition func(SelectedNode) bool, trueAttribute, falseAttribute string) (NodeAttribute, error) {
+			trueAttr, err := CreateNodeAttribute(trueAttribute)
+			if err != nil {
+				return nil, err
+			}
+			falseAttr, err := CreateNodeAttribute(falseAttribute)
+			if err != nil {
+				return nil, err
+			}
+			return IfSelector(condition, trueAttr, falseAttr), nil
+		},
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

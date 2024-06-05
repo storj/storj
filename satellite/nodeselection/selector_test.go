@@ -739,6 +739,172 @@ func TestFilterBestOfN(t *testing.T) {
 	})
 }
 
+func TestEqSelector(t *testing.T) {
+	surgeTag, err := nodeselection.CreateNodeAttribute("tag:surge")
+	require.NoError(t, err)
+	selected := nodeselection.EqualSelector(surgeTag, "true")
+
+	require.True(t, selected(nodeselection.SelectedNode{
+		ID: testrand.NodeID(),
+		Tags: nodeselection.NodeTags{
+			{
+				Name:  "surge",
+				Value: []byte("true"),
+			},
+		},
+	}))
+
+	require.False(t, selected(nodeselection.SelectedNode{
+		ID: testrand.NodeID(),
+		Tags: nodeselection.NodeTags{
+			{
+				Name:  "surge",
+				Value: []byte("false"),
+			},
+		},
+	}))
+}
+
+func TestIfSelector(t *testing.T) {
+	lastNetAttibute, err := nodeselection.CreateNodeAttribute("last_net")
+	require.NoError(t, err)
+	lastIpPortAttribute, err := nodeselection.CreateNodeAttribute("last_ip_port")
+	require.NoError(t, err)
+
+	selectedTrue := nodeselection.IfSelector(
+		func(node nodeselection.SelectedNode) bool { return true }, lastNetAttibute, lastIpPortAttribute)
+	selectedFalse := nodeselection.IfSelector(
+		func(node nodeselection.SelectedNode) bool { return false }, lastNetAttibute, lastIpPortAttribute)
+
+	selectedNode := nodeselection.SelectedNode{
+		ID:         testrand.NodeID(),
+		LastNet:    "1.0.1",
+		LastIPPort: "1.0.1.5:8080",
+	}
+
+	require.Equal(t, lastNetAttibute(selectedNode), selectedTrue(selectedNode))
+	require.Equal(t, lastIpPortAttribute(selectedNode), selectedFalse(selectedNode))
+}
+
+func TestIfWithEqSelector(t *testing.T) {
+	// create 4 nodes, 2 per subnet
+	// perform many node selections that selects 1 node
+	// use if selector such that one set of nodes use last_ip_port and the other use last_net
+	// expect that the nodes selected based on last_ip_port are selected as often as the sum
+	// of the other two nodes sharing a subnet
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// create 3 nodes, 2 with same subnet
+	lastNetA := "1.0.1"
+	subnetA1 := &nodeselection.SelectedNode{
+		ID:         testrand.NodeID(),
+		LastNet:    lastNetA,
+		LastIPPort: lastNetA + ".4:8080",
+		Tags: nodeselection.NodeTags{
+			{
+				Name:  "owner",
+				Value: []byte("public"),
+			},
+		},
+	}
+	subnetA2 := &nodeselection.SelectedNode{
+		ID:         testrand.NodeID(),
+		LastNet:    lastNetA,
+		LastIPPort: lastNetA + ".5:8080",
+		Tags: nodeselection.NodeTags{
+			{
+				Name:  "owner",
+				Value: []byte("public"),
+			},
+		},
+	}
+
+	lastNetB := "1.0.2"
+	subnetB1 := &nodeselection.SelectedNode{
+		ID:         testrand.NodeID(),
+		LastNet:    lastNetB,
+		LastIPPort: lastNetB + ".4:8080",
+		Tags: nodeselection.NodeTags{
+			{
+				Name:  "owner",
+				Value: []byte("storj"),
+			},
+			{
+				Name:  "surge",
+				Value: []byte("true"),
+			},
+		},
+	}
+	subnetB2 := &nodeselection.SelectedNode{
+		ID:         testrand.NodeID(),
+		LastNet:    lastNetB,
+		LastIPPort: lastNetB + ".5:8080",
+		Tags: nodeselection.NodeTags{
+			{
+				Name:  "owner",
+				Value: []byte("storj"),
+			},
+			{
+				Name:  "surge",
+				Value: []byte("true"),
+			},
+		},
+	}
+
+	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1, subnetB2}
+
+	surgeTag, err := nodeselection.CreateNodeAttribute("tag:surge")
+	require.NoError(t, err)
+	lastNetAttribute, err := nodeselection.CreateNodeAttribute("last_net")
+	require.NoError(t, err)
+	lastIpPortAttribute, err := nodeselection.CreateNodeAttribute("last_ip_port")
+	require.NoError(t, err)
+
+	selector := nodeselection.BalancedGroupBasedSelector(nodeselection.IfSelector(
+		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute))(nodes, nil)
+
+	const (
+		reqCount       = 3
+		executionCount = 1000
+	)
+
+	var selectedNodeCount = map[storj.NodeID]int{}
+
+	// perform many node selections that selects 3 nodes
+	for i := 0; i < executionCount; i++ {
+		selectedNodes, err := selector(storj.NodeID{}, reqCount, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selectedNodes, reqCount)
+		for _, node := range selectedNodes {
+			selectedNodeCount[node.ID]++
+		}
+	}
+
+	subnetA1Count := float64(selectedNodeCount[subnetA1.ID])
+	subnetA2Count := float64(selectedNodeCount[subnetA2.ID])
+	subnetB1Count := float64(selectedNodeCount[subnetB1.ID])
+	subnetB2Count := float64(selectedNodeCount[subnetB1.ID])
+	total := subnetA1Count + subnetA2Count + subnetB1Count + subnetB2Count
+	assert.Equal(t, total, float64(reqCount*executionCount))
+
+	nodeID1total := subnetA1Count / total
+	nodeID2total := subnetA2Count / total
+	nodeID3total := subnetB1Count / total
+	nodeID4total := subnetB2Count / total
+
+	const selectionEpsilon = 0.02
+
+	// we expect that 2 nodes from the same subnet should be
+	// selected roughly the same percent of the time
+	assert.InDelta(t, nodeID1total, nodeID2total, selectionEpsilon)
+	assert.InDelta(t, nodeID3total, nodeID4total, selectionEpsilon)
+
+	// when their totals are combined, the 2 nodes in the subnet with "public" owner
+	// should be selected about as often as one of the nodes in the subnet with "storj" owner
+	assert.InDelta(t, nodeID1total+nodeID2total, nodeID3total, selectionEpsilon)
+}
+
 // mockSelector returns only 1 success, for slow nodes, but only if trustedUplink does ask it.
 type mockTracker struct {
 	trustedUplink storj.NodeID
