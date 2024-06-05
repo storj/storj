@@ -378,24 +378,25 @@ func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, d
 			return -1
 		})
 
+		targetNumber := limit
 		// if percentage suffix is used, it's the best n% what we need.
 		if percentage {
-			limit = len(nodes) * limit / 100
+			targetNumber = len(nodes) * targetNumber / 100
 		}
 
 		// if  limit is negative, we define the long tail to be cut off.
-		if limit < 0 {
-			limit = len(nodes) + limit
-			if limit < 0 {
-				limit = 0
+		if targetNumber < 0 {
+			targetNumber = len(nodes) + targetNumber
+			if targetNumber < 0 {
+				targetNumber = 0
 			}
 		}
 
 		// if limit is positive, it's the number of nodes to be kept
-		if limit > len(nodes) {
-			limit = len(nodes)
+		if targetNumber > len(nodes) {
+			targetNumber = len(nodes)
 		}
-		nodes = nodes[:limit]
+		nodes = nodes[:targetNumber]
 		return delegate(nodes, filter)
 	}
 }

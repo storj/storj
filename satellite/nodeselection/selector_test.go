@@ -568,12 +568,14 @@ func TestFilterBest(t *testing.T) {
 
 	t.Run("keep best 40%", func(t *testing.T) {
 		selectorInit := nodeselection.FilterBest(tracker, "40%", "", nodeselection.RandomSelector())
-		nodeSelector := selectorInit(nodes, nil)
-		for i := 0; i < 100; i++ {
-			selected, err := nodeSelector(storj.NodeID{}, 8, nil, nil)
-			require.NoError(t, err)
-			require.Len(t, selected, 8)
-			require.Equal(t, 0, countSlowNodes(selected))
+		for i := 0; i < 2; i++ {
+			nodeSelector := selectorInit(nodes, nil)
+			for i := 0; i < 100; i++ {
+				selected, err := nodeSelector(storj.NodeID{}, 8, nil, nil)
+				require.NoError(t, err)
+				require.Len(t, selected, 8)
+				require.Equal(t, 0, countSlowNodes(selected))
+			}
 		}
 	})
 
