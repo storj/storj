@@ -14,18 +14,11 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
-
-// DeletedSegmentInfo info about deleted segment.
-type DeletedSegmentInfo struct {
-	RootPieceID storj.PieceID
-	Pieces      Pieces
-}
 
 // DeleteObjectExactVersion contains arguments necessary for deleting an exact version of object.
 type DeleteObjectExactVersion struct {

@@ -110,7 +110,6 @@ func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db 
 // CommitObjectWithSegments is for testing metabase.CommitObjectWithSegments.
 type CommitObjectWithSegments struct {
 	Opts          metabase.CommitObjectWithSegments
-	Deleted       []metabase.DeletedSegmentInfo
 	ExpectVersion metabase.Version
 
 	ErrClass *errs.Class
@@ -119,7 +118,7 @@ type CommitObjectWithSegments struct {
 
 // Check runs the test.
 func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
-	object, deleted, err := db.CommitObjectWithSegments(ctx, step.Opts)
+	object, err := db.CommitObjectWithSegments(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
 		if step.ExpectVersion != 0 {
@@ -127,7 +126,6 @@ func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t testing.T
 		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
 	}
-	require.Equal(t, step.Deleted, deleted)
 	return object
 }
 
