@@ -1,6 +1,6 @@
 {{- define "decl" }}
 func (obj *{{ .ReceiverBase }}Impl) {{ .Signature }} {
-    defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 {{ .Body }}
 }
 {{ end -}}

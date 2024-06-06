@@ -1,12 +1,12 @@
 // dbx.v1 golang multinodedb.dbx .
 
 model node (
-    key id
+	key id
 
-    field id              blob
-    field name            text    ( updatable )
-    field public_address  text
-    field api_secret      blob
+	field id              blob
+	field name            text    ( updatable )
+	field public_address  text
+	field api_secret      blob
 )
 
 create node ( )
@@ -14,17 +14,17 @@ delete node ( where node.id = ? )
 update node ( where node.id = ? )
 
 read one (
-    select node
-    where node.id = ?
+	select node
+	where node.id = ?
 )
 read count (
-    select node
+	select node
 )
 read all(
-    select node
+	select node
 )
 read limitoffset (
-    select node
+	select node
 )
 update node (
 	where node.id = ?
