@@ -91,10 +91,10 @@ func makeErr(err error) error {
 }
 
 func shouldRetry(driver string, err error) bool {
-  if ShouldRetry == nil {
-    return false
-  }
-  return ShouldRetry(driver, err)
+	if ShouldRetry == nil {
+		return false
+	}
+	return ShouldRetry(driver, err)
 }
 
 func unsupportedDriver(driver string) error {
@@ -272,37 +272,37 @@ func (obj *{{ $impltype }}) makeErr(err error) error {
 }
 
 func (obj *{{ $impltype }}) shouldRetry(err error) bool {
-  return !obj.txn && shouldRetry(obj.db.driver, err)
+	return !obj.txn && shouldRetry(obj.db.driver, err)
 }
 
 type {{ $impltype }}_retryingRow struct {
-  obj *{{ $impltype }}
-  ctx context.Context
-  query string
-  args []interface{}
+	obj *{{ $impltype }}
+	ctx context.Context
+	query string
+	args []interface{}
 }
 
 func (obj *{{ $impltype }}) queryRowContext(ctx context.Context, query string, args ...interface{}) *{{ $impltype }}_retryingRow {
-  return &{{ $impltype }}_retryingRow{
-    obj: obj,
-    ctx: ctx,
-    query: query,
-    args: args,
-  }
+	return &{{ $impltype }}_retryingRow{
+	obj: obj,
+	ctx: ctx,
+	query: query,
+	args: args,
+	}
 }
 
 func (rows *{{ $impltype }}_retryingRow) Scan(dest ...interface{}) error {
-  for {
-    err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
-    if err != nil {
-      if rows.obj.shouldRetry(err) {
-        continue
-      }
-      // caller will wrap this error
-      return err
-    }
-    return nil
-  }
+	for {
+		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
+		if err != nil {
+			if rows.obj.shouldRetry(err) {
+				continue
+			}
+			// caller will wrap this error
+			return err
+		}
+		return nil
+	}
 }
 
 type {{ $dbtype }} struct {
@@ -329,11 +329,11 @@ func (obj *{{ $dbtype }}) Schema() []string {
 }
 
 func (obj *{{ $dbtype }}) DropSchema() []string {
-     return []string{
-     {{ range $val := .DropSchemaSQL }}
-         `{{ $val }}`,
-     {{ end }}
-     }
+	return []string{
+	{{ range $val := .DropSchemaSQL }}
+		`{{ $val }}`,
+	{{ end }}
+	}
 }
 
 func (obj *{{ $dbtype }}) wrapTx(tx *sql.Tx) txMethods {
