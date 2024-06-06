@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -1756,7 +1757,12 @@ func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data st
 
 		return nil
 	case ChangeEmailNewEmailStep:
-		// TODO(vitali): implement me
+		err = s.handleNewEmailStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	case ChangeEmailVerifyNewStep:
 		// TODO(vitali): implement me
 	default:
@@ -1785,7 +1791,7 @@ func (s *Service) handlePasswordStep(ctx context.Context, user *User, data strin
 		}
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailPasswordStep, verificationCode)
+	err = s.updateStep(ctx, user.ID, ChangeEmailPasswordStep, verificationCode, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1841,7 +1847,7 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (e
 		return Error.Wrap(err)
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailMfaStep, verificationCode)
+	err = s.updateStep(ctx, user.ID, ChangeEmailMfaStep, verificationCode, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1881,10 +1887,56 @@ func (s *Service) handleVerifyOldStep(ctx context.Context, user *User, data stri
 		return ErrValidation.New("verification code is incorrect")
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailVerifyOldStep, "")
+	err = s.updateStep(ctx, user.ID, ChangeEmailVerifyOldStep, "", nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	return nil
+}
+
+func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data string) (err error) {
+	if user.EmailChangeVerificationStep < ChangeEmailVerifyOldStep {
+		err = s.handleLockAccount(ctx, user, ChangeEmailNewEmailStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+	}
+
+	isValidEmail := utils.ValidateEmail(data)
+	if !isValidEmail {
+		return ErrValidation.New("invalid email")
+	}
+
+	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, data)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if verified != nil || len(unverified) > 0 {
+		// we throw validation error just not to compromise existing user emails.
+		return ErrValidation.New("invalid email")
+	}
+
+	verificationCode, err := generateVerificationCode()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeEmailNewEmailStep, verificationCode, &data)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: data, Name: user.FullName}},
+		&EmailAddressVerificationEmail{
+			VerificationCode: verificationCode,
+		},
+	)
 
 	return nil
 }
@@ -1934,7 +1986,7 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Change
 	return nil
 }
 
-func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeEmailStep, verificationCode string) error {
+func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeEmailStep, verificationCode string, newUnverifiedEmail *string) error {
 	failedLoginCount := 0
 	loginLockoutExpirationPtr := &time.Time{}
 
@@ -1943,6 +1995,7 @@ func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeE
 		FailedLoginCount:            &failedLoginCount,
 		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
 		ActivationCode:              &verificationCode,
+		NewUnverifiedEmail:          &newUnverifiedEmail,
 	})
 }
 

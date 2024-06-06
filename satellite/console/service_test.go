@@ -1360,7 +1360,7 @@ func TestChangeEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, 1, user.EmailChangeVerificationStep)
+		require.Equal(t, console.ChangeEmailPasswordStep, user.EmailChangeVerificationStep)
 
 		wrongCode, err := console.NewMFAPasscode(mfaSecret, now.Add(time.Hour))
 		require.NoError(t, err)
@@ -1383,13 +1383,13 @@ func TestChangeEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, 1, user.EmailChangeVerificationStep)
+		require.Equal(t, console.ChangeEmailPasswordStep, user.EmailChangeVerificationStep)
 
 		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, goodCode)
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, 2, user.EmailChangeVerificationStep)
+		require.Equal(t, console.ChangeEmailMfaStep, user.EmailChangeVerificationStep)
 
 		for i := 0; i < 3; i++ {
 			err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, "random verification code")
@@ -1406,13 +1406,33 @@ func TestChangeEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, 2, user.EmailChangeVerificationStep)
+		require.Equal(t, console.ChangeEmailMfaStep, user.EmailChangeVerificationStep)
 
 		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, user.ActivationCode)
 		require.NoError(t, err)
 
+		userCtx, user = updateContext()
+		require.Equal(t, console.ChangeEmailVerifyOldStep, user.EmailChangeVerificationStep)
+
+		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, "random string")
+		require.True(t, console.ErrValidation.Has(err))
+
+		anotherUsr, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test Change Email",
+			Email:    "amother.usr@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, anotherUsr.Email)
+		require.True(t, console.ErrValidation.Has(err))
+
+		validEmail := "valid.email@mail.test"
+		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, validEmail)
+		require.NoError(t, err)
+
 		_, user = updateContext()
-		require.Equal(t, 3, user.EmailChangeVerificationStep)
+		require.Equal(t, console.ChangeEmailNewEmailStep, user.EmailChangeVerificationStep)
+		require.Equal(t, validEmail, *user.NewUnverifiedEmail)
 	})
 }
 
