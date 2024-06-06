@@ -401,18 +401,12 @@ func Schema() map[string]*dbschema.Schema {
 							Type:       "BLOB",
 							IsNullable: false,
 						},
-						{
-							Name:       "trash",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
 					},
 				},
 			},
 			Indexes: []*dbschema.Index{
 				{Name: "idx_piece_expirations_deletion_failed_at", Table: "piece_expirations", Columns: []string{"deletion_failed_at"}, Unique: false, Partial: ""},
 				{Name: "idx_piece_expirations_piece_expiration", Table: "piece_expirations", Columns: []string{"piece_expiration"}, Unique: false, Partial: ""},
-				{Name: "idx_piece_expirations_trashed", Table: "piece_expirations", Columns: []string{"satellite_id", "trash"}, Unique: false, Partial: "trash = 1"},
 			},
 		},
 		"piece_spaced_used": {

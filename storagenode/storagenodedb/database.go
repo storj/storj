@@ -2223,6 +2223,15 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`,
 				},
 			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Remove unused trash column",
+				Version:     58,
+				Action: migrate.SQL{
+					`DROP INDEX idx_piece_expirations_trashed;`,
+					`ALTER TABLE piece_expirations DROP COLUMN trash;`,
+				},
+			},
 		},
 	}
 }
