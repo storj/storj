@@ -116,10 +116,22 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 	ListVerifyLimit.Ensure(&opts.Limit)
 	result.Segments = make([]VerifySegment, 0, opts.Limit)
 
-	asOfString := db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)
+	for _, adapter := range db.adapters {
+		theseSegments, err := adapter.ListVerifySegments(ctx, opts)
+		if err != nil {
+			return ListVerifySegmentsResult{}, Error.Wrap(err)
+		}
+		result.Segments = append(result.Segments, theseSegments...)
+	}
+	return result, Error.Wrap(err)
+}
+
+// ListVerifySegments lists the segments in a specified stream.
+func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
+	asOfString := LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)
 	query, parameters := opts.getQueryAndParameters(asOfString)
 
-	err = withRows(db.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
+	err = withRows(p.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var seg VerifySegment
 			err := rows.Scan(
@@ -137,12 +149,20 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 				return Error.Wrap(err)
 			}
 
-			result.Segments = append(result.Segments, seg)
+			segments = append(segments, seg)
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return segments, nil
+}
 
-	return result, Error.Wrap(err)
+// ListVerifySegments lists the segments in a specified stream.
+func (s *SpannerAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // ListVerifyBucketList represents a list of buckets.
