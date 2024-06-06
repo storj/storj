@@ -21,7 +21,8 @@ var mon = monkit.Package()
 
 // Config defines parameters for storage node Collector.
 type Config struct {
-	Interval time.Duration `help:"how frequently expired pieces are collected" default:"1h0m0s"`
+	Interval              time.Duration `help:"how frequently expired pieces are collected" default:"1h0m0s"`
+	ExpirationGracePeriod time.Duration `help:"how long should the collector wait before deleting expired pieces. Should not be less than 30 min since nodes are allowed to be 30 mins out of sync with the satellite." default:"1h0m0s"`
 }
 
 // Service implements collecting expired pieces on the storage node.
@@ -33,15 +34,23 @@ type Service struct {
 	usedSerials *usedserials.Table
 
 	Loop *sync2.Cycle
+
+	expirationGracePeriod time.Duration
 }
 
 // NewService creates a new collector service.
 func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials *usedserials.Table, config Config) *Service {
+	if config.ExpirationGracePeriod.Minutes() < 30 {
+		log.Warn("ExpirationGracePeriod cannot not be less than 30 minutes. Using default")
+		config.ExpirationGracePeriod = 1 * time.Hour
+	}
+
 	return &Service{
-		log:         log,
-		pieces:      pieces,
-		usedSerials: usedSerials,
-		Loop:        sync2.NewCycle(config.Interval),
+		log:                   log,
+		pieces:                pieces,
+		usedSerials:           usedSerials,
+		expirationGracePeriod: config.ExpirationGracePeriod,
+		Loop:                  sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -50,10 +59,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		// V3-3143 Pieces should be collected at least 24 hours after expiration
+		// V3-3143 Collection of expired pieces should be delayed after expiration
 		// to avoid premature deletion due to timezone issues, which may lead to
 		// storage node disqualification.
-		err := service.Collect(ctx, time.Now().Add(-24*time.Hour))
+		err := service.Collect(ctx, time.Now().Add(-service.expirationGracePeriod))
 		if err != nil {
 			service.log.Error("error during collecting pieces: ", zap.Error(err))
 		}
