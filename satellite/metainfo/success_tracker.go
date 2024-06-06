@@ -6,6 +6,8 @@ package metainfo
 import (
 	"math"
 	"math/bits"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -33,10 +35,23 @@ type SuccessTracker interface {
 // GetNewSuccessTracker returns a function that creates a new SuccessTracker
 // based on the kind. The bool return value is false if the kind is unknown.
 func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
-	switch kind {
-	case "bitshift":
+
+	switch {
+	case kind == "bitshift":
 		return func() SuccessTracker { return new(bitshiftSuccessTracker) }, true
-	case "percent":
+	case strings.HasPrefix(kind, "bitshift"):
+		lengthDef := strings.TrimPrefix(kind, "bitshift")
+		length, err := strconv.Atoi(lengthDef)
+		if err != nil {
+			panic("bitshift size should be an integer, not " + lengthDef)
+		}
+
+		return func() SuccessTracker {
+			return &bigBitshiftSuccessTracker{
+				length: length,
+			}
+		}, true
+	case kind == "percent":
 		return func() SuccessTracker { return new(percentSuccessTracker) }, true
 	default:
 		return nil, false
@@ -202,6 +217,88 @@ func (t *bitshiftSuccessTracker) BumpGeneration() {
 	t.data.Range(func(_, ctrI any) bool {
 		ctr, _ := ctrI.(*atomic.Uint64)
 		increment(ctr, true)
+		return true
+	})
+}
+
+type bigBitList struct {
+	mu           sync.Mutex
+	position     int
+	numberOfOnes int
+	data         []uint64
+	length       int
+}
+
+func (l *bigBitList) Increment(success bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	byteIndex := l.position / 64
+	bitIndex := l.position % 64
+	oldValue := (l.data[byteIndex] >> bitIndex) & 1
+	if success {
+		l.data[byteIndex] |= 1 << bitIndex
+		if oldValue == 0 {
+			l.numberOfOnes++
+		}
+	} else {
+		l.data[byteIndex] &^= 1 << bitIndex
+		if oldValue == 1 {
+			l.numberOfOnes--
+		}
+	}
+	l.position++
+	if l.position >= l.length {
+		l.position = 0
+	}
+}
+
+func (l *bigBitList) get() float64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return float64(l.numberOfOnes)
+}
+
+type bigBitshiftSuccessTracker struct {
+	data   sync.Map // storj.NodeID -> bigBitList
+	length int
+}
+
+// NewBigBitshiftSuccessTracker creates a new BigBitshiftSuccessTracker.
+func NewBigBitshiftSuccessTracker(length int) SuccessTracker {
+	return &bigBitshiftSuccessTracker{
+		length: length,
+	}
+}
+
+// Increment implements SuccessTracker.
+func (t *bigBitshiftSuccessTracker) Increment(node storj.NodeID, success bool) {
+	crtI, ok := t.data.Load(node)
+	if !ok {
+		v := &bigBitList{
+			data:   make([]uint64, int(math.Ceil(float64(t.length)/64))),
+			length: t.length,
+		}
+		crtI, _ = t.data.LoadOrStore(node, v)
+	}
+	ctr, _ := crtI.(*bigBitList)
+	ctr.Increment(success)
+}
+
+// Get implements SuccessTracker.
+func (t *bigBitshiftSuccessTracker) Get(node storj.NodeID) float64 {
+	ctrI, ok := t.data.Load(node)
+	if !ok {
+		return math.NaN() // no counter yet means NaN
+	}
+	ctr, _ := ctrI.(*bigBitList)
+	return ctr.get()
+}
+
+// BumpGeneration implements SuccessTracker.
+func (t *bigBitshiftSuccessTracker) BumpGeneration() {
+	t.data.Range(func(_, ctrI any) bool {
+		ctr, _ := ctrI.(*bigBitList)
+		ctr.Increment(true)
 		return true
 	})
 }
