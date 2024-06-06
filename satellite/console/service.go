@@ -1200,12 +1200,10 @@ func (s *Service) SetActivationCodeAndSignupID(ctx context.Context, user User) (
 		return User{}, ErrActivationCode.New("user already active")
 	}
 
-	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+	code, err := generateVerificationCode()
 	if err != nil {
 		return User{}, Error.Wrap(err)
 	}
-	randNum = randNum.Add(randNum, big.NewInt(100000))
-	code := randNum.String()
 
 	requestID := requestid.FromContext(ctx)
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
@@ -1751,7 +1749,12 @@ func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data st
 
 		return nil
 	case ChangeEmailVerifyOldStep:
-		// TODO(vitali): implement me
+		err = s.handleVerifyOldStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	case ChangeEmailNewEmailStep:
 		// TODO(vitali): implement me
 	case ChangeEmailVerifyNewStep:
@@ -1774,9 +1777,27 @@ func (s *Service) handlePasswordStep(ctx context.Context, user *User, data strin
 		return ErrValidation.New("password is incorrect")
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailPasswordStep)
+	var verificationCode string
+	if !user.MFAEnabled {
+		verificationCode, err = generateVerificationCode()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeEmailPasswordStep, verificationCode)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	if !user.MFAEnabled {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&EmailAddressVerificationEmail{
+				VerificationCode: verificationCode,
+			},
+		)
 	}
 
 	return nil
@@ -1815,7 +1836,52 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (e
 		return ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailMfaStep)
+	verificationCode, err := generateVerificationCode()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeEmailMfaStep, verificationCode)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&EmailAddressVerificationEmail{
+			VerificationCode: verificationCode,
+		},
+	)
+
+	return nil
+}
+
+func (s *Service) handleVerifyOldStep(ctx context.Context, user *User, data string) (err error) {
+	previousStep := ChangeEmailPasswordStep
+	if user.MFAEnabled {
+		previousStep = ChangeEmailMfaStep
+	}
+
+	if user.EmailChangeVerificationStep < previousStep {
+		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyOldStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+	}
+
+	if user.ActivationCode != data {
+		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyOldStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New("verification code is incorrect")
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeEmailVerifyOldStep, "")
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1868,7 +1934,7 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Change
 	return nil
 }
 
-func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeEmailStep) error {
+func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeEmailStep, verificationCode string) error {
 	failedLoginCount := 0
 	loginLockoutExpirationPtr := &time.Time{}
 
@@ -1876,7 +1942,18 @@ func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeE
 		EmailChangeVerificationStep: &step,
 		FailedLoginCount:            &failedLoginCount,
 		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
+		ActivationCode:              &verificationCode,
 	})
+}
+
+func generateVerificationCode() (string, error) {
+	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return "", err
+	}
+	randNum = randNum.Add(randNum, big.NewInt(100000))
+
+	return randNum.String(), nil
 }
 
 // UpdateAccount updates User.

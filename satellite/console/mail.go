@@ -60,6 +60,17 @@ func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" 
 // Subject gets email subject.
 func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
 
+// EmailAddressVerificationEmail is mailservice template with a verification code.
+type EmailAddressVerificationEmail struct {
+	VerificationCode string
+}
+
+// Template returns email template name.
+func (*EmailAddressVerificationEmail) Template() string { return "EmailAddressVerification" }
+
+// Subject gets email subject.
+func (*EmailAddressVerificationEmail) Subject() string { return "Verify your email" }
+
 // ForgotPasswordEmail is mailservice template with reset password data.
 type ForgotPasswordEmail struct {
 	Origin                     string

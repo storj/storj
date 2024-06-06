@@ -1321,12 +1321,14 @@ func TestChangeEmail(t *testing.T) {
 
 		userCtx, user = updateContext()
 		require.NotEmpty(t, user.MFASecretKey)
+		require.Zero(t, user.EmailChangeVerificationStep)
 
 		// starting from second step must fail.
 		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, "test")
 		require.True(t, console.ErrValidation.Has(err))
 
-		userCtx, _ = updateContext()
+		userCtx, user = updateContext()
+		require.Zero(t, user.EmailChangeVerificationStep)
 
 		for i := 0; i < 2; i++ {
 			err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, "wrong password")
@@ -1357,7 +1359,8 @@ func TestChangeEmail(t *testing.T) {
 		err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, usrLogin.Password)
 		require.NoError(t, err)
 
-		userCtx, _ = updateContext()
+		userCtx, user = updateContext()
+		require.Equal(t, 1, user.EmailChangeVerificationStep)
 
 		wrongCode, err := console.NewMFAPasscode(mfaSecret, now.Add(time.Hour))
 		require.NoError(t, err)
@@ -1379,10 +1382,37 @@ func TestChangeEmail(t *testing.T) {
 		err = resetAccountLock()
 		require.NoError(t, err)
 
-		userCtx, _ = updateContext()
+		userCtx, user = updateContext()
+		require.Equal(t, 1, user.EmailChangeVerificationStep)
 
 		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, goodCode)
 		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, 2, user.EmailChangeVerificationStep)
+
+		for i := 0; i < 3; i++ {
+			err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, "random verification code")
+			require.True(t, console.ErrValidation.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		// account gets locked after 3 failed attempts.
+		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, user.ActivationCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, 2, user.EmailChangeVerificationStep)
+
+		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, user.ActivationCode)
+		require.NoError(t, err)
+
+		_, user = updateContext()
+		require.Equal(t, 3, user.EmailChangeVerificationStep)
 	})
 }
 
