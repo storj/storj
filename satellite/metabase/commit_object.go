@@ -11,7 +11,6 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -208,7 +207,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 	// and that column is part of the primary key. We must delete the row and
 	// insert a new one.
 
-	result := stx.tx.Query(ctx, spanner.Statement{
+	deleted := false
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM objects
 			WHERE project_id    = @project_id
@@ -227,19 +227,19 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 			"previous_version": opts.Version,
 			"stream_id":        opts.StreamID,
 		},
-	})
-	defer result.Stop()
-
-	row, err := result.Next()
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+	}).Do(func(row *spanner.Row) error {
+		deleted = true
+		err := row.Columns(&object.CreatedAt, &object.ExpiresAt, encryptionParameters{&object.Encryption})
+		if err != nil {
+			return Error.New("failed to read old object details: %w", err)
 		}
+		return nil
+	})
+	if err != nil {
 		return Error.New("failed to update object: %w", err)
 	}
-	err = row.Columns(&object.CreatedAt, &object.ExpiresAt, encryptionParameters{&object.Encryption})
-	if err != nil {
-		return Error.New("failed to read old object details: %w", err)
+	if !deleted {
+		return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 	}
 
 	_, err = stx.tx.Update(ctx, spanner.Statement{
@@ -338,7 +338,7 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result := stx.tx.Query(ctx, spanner.Statement{
+	segments, err = spannerutil.CollectRows(stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT position, encrypted_size, plain_offset, plain_size
 			FROM segments
@@ -348,24 +348,13 @@ func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context
 		Params: map[string]interface{}{
 			"stream_id": streamID,
 		},
+	}), func(row *spanner.Row, segment *segmentInfoForCommit) error {
+		return Error.Wrap(row.Columns(
+			&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		))
 	})
-	defer result.Stop()
 
-	for {
-		row, err := result.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.New("failed to fetch segments: %w", err)
-		}
-		var segment segmentInfoForCommit
-		if err := row.Columns(&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize)); err != nil {
-			return nil, Error.New("failed to scan segments: %w", err)
-		}
-		segments = append(segments, segment)
-	}
-	return segments, nil
+	return segments, Error.Wrap(err)
 }
 
 type segmentToCommit struct {
@@ -577,7 +566,7 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 	}
 
 	// This potentially could be done together with the previous database call.
-	result := stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM segments
 			WHERE stream_id = @stream_id AND ARRAY_INCLUDES(@positions, position)
@@ -587,33 +576,28 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 			"stream_id": streamID,
 			"positions": positions,
 		},
-	})
-	defer result.Stop()
-
-	for {
-		row, err := result.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.New("unable to delete segments: %w", err)
-		}
+	}).Do(func(row *spanner.Row) error {
 		var deleted DeletedSegmentInfo
 		var aliasPieces AliasPieces
 		err = row.Columns(&deleted.RootPieceID, &aliasPieces)
 		if err != nil {
-			return nil, Error.New("failed to scan segments: %w", err)
+			return Error.New("failed to scan segments: %w", err)
 		}
 		// we don't need to report info about inline segments
 		if deleted.RootPieceID.IsZero() {
-			continue
+			return nil
 		}
 
 		deleted.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
-			return nil, Error.New("failed to convert aliases: %w", err)
+			return Error.New("failed to convert aliases: %w", err)
 		}
 		deletedSegments = append(deletedSegments, deleted)
+
+		return nil
+	})
+	if err != nil {
+		return nil, Error.New("unable to delete segments: %w", err)
 	}
 
 	return deletedSegments, nil
