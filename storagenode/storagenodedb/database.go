@@ -2232,6 +2232,15 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE piece_expirations DROP COLUMN trash;`,
 				},
 			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Remove unused deletion_failed_at column",
+				Version:     59,
+				Action: migrate.SQL{
+					`DROP INDEX idx_piece_expirations_deletion_failed_at;`,
+					`ALTER TABLE piece_expirations DROP COLUMN deletion_failed_at;`,
+				},
+			},
 		},
 	}
 }

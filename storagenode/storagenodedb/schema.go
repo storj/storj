@@ -382,11 +382,6 @@ func Schema() map[string]*dbschema.Schema {
 					PrimaryKey: []string{"piece_id", "satellite_id"},
 					Columns: []*dbschema.Column{
 						{
-							Name:       "deletion_failed_at",
-							Type:       "TIMESTAMP",
-							IsNullable: true,
-						},
-						{
 							Name:       "piece_expiration",
 							Type:       "TIMESTAMP",
 							IsNullable: false,
@@ -405,7 +400,6 @@ func Schema() map[string]*dbschema.Schema {
 				},
 			},
 			Indexes: []*dbschema.Index{
-				{Name: "idx_piece_expirations_deletion_failed_at", Table: "piece_expirations", Columns: []string{"deletion_failed_at"}, Unique: false, Partial: ""},
 				{Name: "idx_piece_expirations_piece_expiration", Table: "piece_expirations", Columns: []string{"piece_expiration"}, Unique: false, Partial: ""},
 			},
 		},
