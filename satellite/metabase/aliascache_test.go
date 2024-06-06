@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestNodeAliasCache(t *testing.T) {
@@ -138,9 +139,13 @@ func TestNodeAliasCache(t *testing.T) {
 	})
 }
 
-// TODO(spanner) enable this test for spanner.
 func TestNodeAliasCache_DB(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement EnsureAliases for spanner.
+			t.Skip("not implemented for spanner")
+		}
+
 		t.Run("missing aliases", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

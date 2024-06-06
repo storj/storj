@@ -17,6 +17,11 @@ import (
 
 func TestGetTableStats(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement for spanner.
+			t.Skip("not correct implementation for spanner")
+		}
+
 		t.Run("no data", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

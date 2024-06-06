@@ -73,6 +73,7 @@ func TestNodeAliases(t *testing.T) {
 
 			for _, entry := range aliases {
 				require.True(t, nodesContains(nodes, entry.ID))
+				// TODO(spanner): fix this check to be same for both implementations
 				nonSpannerCheck(db, func() {
 					require.LessOrEqual(t, int(entry.Alias), len(nodes))
 				})
@@ -111,6 +112,7 @@ func TestNodeAliases(t *testing.T) {
 			seen := map[metabase.NodeAlias]bool{}
 			require.Len(t, aliases, len(nodes))
 			for _, entry := range aliases {
+				// TODO(spanner): fix this check to be same for both implementations
 				require.True(t, nodesContains(nodes, entry.ID))
 				nonSpannerCheck(db, func() {
 					require.LessOrEqual(t, int(entry.Alias), len(nodes))
@@ -231,7 +233,7 @@ func TestNodeAliases(t *testing.T) {
 			}
 			require.NoError(t, group.Wait())
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func nonSpannerCheck(db *metabase.DB, check func()) {

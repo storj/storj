@@ -605,7 +605,7 @@ func TestListObjects(t *testing.T) {
 			}
 		})
 
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestListObjectsSkipCursor(t *testing.T) {
@@ -862,7 +862,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 const benchmarkBatchSize = 100
@@ -2401,7 +2401,7 @@ func TestListObjectsVersioned(t *testing.T) {
 			}.Check(ctx, t, db)
 
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestListObjects_Stress(t *testing.T) {
@@ -2488,5 +2488,5 @@ func TestListObjects_Stress(t *testing.T) {
 			Limit:       4,
 		})
 		require.NoError(t, err)
-	}, metabasetest.WithSpanner())
+	})
 }

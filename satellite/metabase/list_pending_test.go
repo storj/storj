@@ -562,7 +562,7 @@ func TestListPendingObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestListPendingObjectsSkipCursor(t *testing.T) {
@@ -814,7 +814,7 @@ func TestListPendingObjectsSkipCursor(t *testing.T) {
 					}},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestListPendingObjectsVersions(t *testing.T) {
@@ -1411,7 +1411,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 					)},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestListPendingObjects_Limit(t *testing.T) {
@@ -1488,7 +1488,7 @@ func TestListPendingObjects_Limit(t *testing.T) {
 				}
 			})
 		}
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName string) []metabase.RawObject {

@@ -262,6 +262,7 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 
 	loopIteratorBatchSizeLimit.Ensure(&opts.BatchSize)
 
+	// TODO(spanner): this needs to iterate across multiple backends.
 	return db.ChooseAdapter(uuid.UUID{}).IterateLoopSegments(ctx, db.aliasCache, opts, fn)
 }
 

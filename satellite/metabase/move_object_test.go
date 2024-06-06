@@ -81,7 +81,7 @@ func TestBeginMoveObject(t *testing.T) {
 				Segments: expectedRawSegments,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestFinishMoveObject(t *testing.T) {
@@ -834,5 +834,5 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }

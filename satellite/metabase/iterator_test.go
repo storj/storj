@@ -595,6 +595,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("boundaries", func(t *testing.T) {
 			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				// TODO(spanner): find a fix for this
 				t.Skip("test runs too slow for spanner")
 			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -1942,7 +1943,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Result: expected,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 // TODO this test was copied (and renamed) from v1.95.1 (TestIterateObjectsWithStatus)
@@ -2520,6 +2521,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("boundaries", func(t *testing.T) {
 			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				// TODO(spanner): find a fix for this
 				t.Skip("test runs too slow for spanner")
 			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -3863,7 +3865,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Result: expected,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestIterateObjectsSkipCursor(t *testing.T) {
@@ -4098,7 +4100,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func createObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName string) []metabase.RawObject {
@@ -4337,7 +4339,7 @@ func TestTupleGreaterThanSQLEvaluate(t *testing.T) {
 		expectEqual([]string{"0", "1", "0"}, []string{"0", "1", "0"})
 		expectEqual([]string{"0"}, []string{"0"})
 
-	}, metabasetest.WithSpanner())
+	})
 }
 func concat[E any](slices ...[]E) (concatenated []E) {
 	for _, s := range slices {

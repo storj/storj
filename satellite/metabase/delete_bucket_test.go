@@ -18,10 +18,16 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestDeleteBucketObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement DeleteBucketObjects for spanner.
+			t.Skip("not implemented for spanner")
+		}
+
 		obj1 := metabasetest.RandObjectStream()
 		obj2 := metabasetest.RandObjectStream()
 		obj3 := metabasetest.RandObjectStream()
@@ -243,6 +249,11 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 func TestDeleteBucketObjectsParallel(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement DeleteBucketObjects for spanner.
+			t.Skip("not implemented for spanner")
+		}
+
 		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 		root := metabasetest.RandObjectStream()
@@ -275,6 +286,11 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 
 func TestDeleteBucketObjectsCancel(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement DeleteBucketObjects for spanner.
+			t.Skip("not implemented for spanner")
+		}
+
 		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 		object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
@@ -298,6 +314,11 @@ func TestDeleteBucketObjectsCancel(t *testing.T) {
 
 func TestDeleteBucketWithCopies(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement DeleteBucketObjects for spanner.
+			t.Skip("not implemented for spanner")
+		}
+
 		for _, numberOfSegments := range []int{0, 1, 3} {
 			t.Run(fmt.Sprintf("%d segments", numberOfSegments), func(t *testing.T) {
 				t.Run("delete bucket with copy", func(t *testing.T) {

@@ -129,7 +129,7 @@ func TestBeginCopyObject(t *testing.T) {
 				ErrClass: &metabase.ErrObjectNotFound,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestFinishCopyObject(t *testing.T) {
@@ -1558,5 +1558,5 @@ func TestFinishCopyObject(t *testing.T) {
 				Segments: metabasetest.SegmentsToRaw(append(sourceSegments, expectedTargetSegment)),
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }

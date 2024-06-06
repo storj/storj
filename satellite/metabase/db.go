@@ -451,7 +451,7 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 
 // CheckVersion checks the database is the correct version.
 func (db *DB) CheckVersion(ctx context.Context) error {
-	// TODO: migration version is not yet supported
+	// TODO(spanner): migration version is not yet supported
 	if db.impl == dbutil.Spanner {
 		return nil
 	}

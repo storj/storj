@@ -335,7 +335,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestBeginObjectExactVersion(t *testing.T) {
@@ -692,7 +692,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestBeginSegment(t *testing.T) {
@@ -942,7 +942,7 @@ func TestBeginSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestCommitSegment(t *testing.T) {
@@ -1615,7 +1615,7 @@ func TestCommitSegment(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
-		}, metabasetest.WithSpanner())
+		})
 	}
 }
 
@@ -2110,7 +2110,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
-		}, metabasetest.WithSpanner())
+		})
 	}
 }
 
@@ -2856,7 +2856,7 @@ func TestCommitObject(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
-		}, metabasetest.WithSpanner())
+		})
 	}
 }
 
@@ -3617,7 +3617,7 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Objects: rawObjects,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
@@ -3947,7 +3947,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
@@ -4034,7 +4034,7 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestCommitInlineObject(t *testing.T) {
@@ -4303,5 +4303,5 @@ func TestCommitInlineObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-	}, metabasetest.WithSpanner())
+	})
 }

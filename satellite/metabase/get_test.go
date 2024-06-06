@@ -247,7 +247,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				metabase.RawObject(versioned),
 			}}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestGetObjectLastCommitted(t *testing.T) {
@@ -513,7 +513,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				},
 			}}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestGetSegmentByPosition(t *testing.T) {
@@ -1108,7 +1108,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestGetLatestObjectLastSegment(t *testing.T) {
@@ -1763,7 +1763,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Segments: metabasetest.SegmentsToRaw(segments),
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestBucketEmpty(t *testing.T) {
@@ -1863,5 +1863,5 @@ func TestBucketEmpty(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }

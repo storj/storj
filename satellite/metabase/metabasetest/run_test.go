@@ -11,15 +11,19 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 	_ "storj.io/storj/shared/dbutil/cockroachutil" // register cockroach driver
 )
 
 func TestSetup(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		err := db.Ping(ctx)
-		require.NoError(t, err)
+		if db.Implementation() != dbutil.Spanner {
+			// TODO(spanner): Ping not yet implemented for spanner.
+			err := db.Ping(ctx)
+			require.NoError(t, err)
+		}
 
-		_, err = db.TestingGetState(ctx)
+		_, err := db.TestingGetState(ctx)
 		require.NoError(t, err)
 	})
 }
