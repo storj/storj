@@ -579,7 +579,7 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 	}).Do(func(row *spanner.Row) error {
 		var deleted DeletedSegmentInfo
 		var aliasPieces AliasPieces
-		err = row.Columns(&deleted.RootPieceID, &aliasPieces)
+		err := row.Columns(&deleted.RootPieceID, &aliasPieces)
 		if err != nil {
 			return Error.New("failed to scan segments: %w", err)
 		}

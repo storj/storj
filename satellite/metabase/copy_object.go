@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -314,7 +313,8 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 
 	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
 
-	result := stx.tx.Query(ctx, spanner.Statement{
+	index := 0
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				position,
@@ -334,19 +334,8 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 			"stream_id":     sourceObject.StreamID,
 			"segment_count": int64(sourceObject.SegmentCount),
 		},
-	})
-	defer result.Stop()
-
-	index := 0
-	for {
-		row, err := result.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return transposedSegmentList{}, Error.New("could not load segments for copy: %w", err)
-		}
-		err = row.Columns(
+	}).Do(func(row *spanner.Row) error {
+		err := row.Columns(
 			&segments.Positions[index],
 			&segments.ExpiresAts[index],
 			&segments.RootPieceIDs[index],
@@ -357,9 +346,14 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 			&segments.InlineDatas[index],
 		)
 		if err != nil {
-			return transposedSegmentList{}, Error.New("could not read segments for copy: %w", err)
+			return Error.New("could not read segments for copy: %w", err)
 		}
 		index++
+		return nil
+	})
+
+	if err != nil {
+		return transposedSegmentList{}, Error.New("could not load segments for copy: %w", err)
 	}
 
 	if index != int(sourceObject.SegmentCount) {
@@ -438,7 +432,10 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 
 func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
-	result := stx.tx.Query(ctx, spanner.Statement{
+
+	newObject = sourceObject
+
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
@@ -475,22 +472,19 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
 			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
 		},
+	}).Do(func(row *spanner.Row) error {
+		err := row.Columns(&newObject.CreatedAt)
+		if err != nil {
+			return Error.New("unable to scan created_at: %w", err)
+		}
+		return nil
 	})
-	defer result.Stop()
-
-	row, err := result.Next()
 	if err != nil {
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 
-	newObject = sourceObject
 	newObject.Version = nextVersion
 	newObject.Status = newStatus
-
-	err = row.Columns(&newObject.CreatedAt)
-	if err != nil {
-		return Object{}, Error.New("unable to copy object: %w", err)
-	}
 
 	// Warning: these mutations will not be visible inside the transaction! Mutations only take
 	// effect when the transaction is closed. As the code is now, this is not a problem, but in
@@ -572,8 +566,9 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	found := false
 	object := Object{}
-	result := stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, status,
@@ -593,26 +588,26 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	})
-	defer result.Stop()
-
-	row, err := result.Next()
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
+	}).Do(func(row *spanner.Row) error {
+		found = true
+		err := row.Columns(
+			&object.StreamID, &object.Status,
+			&object.CreatedAt, &object.ExpiresAt,
+			spannerutil.Int(&object.SegmentCount),
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+			encryptionParameters{&object.Encryption},
+		)
+		if err != nil {
+			return Error.New("unable to scan object: %w", err)
 		}
+		return nil
+	})
+	if err != nil {
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}
-	err = row.Columns(
-		&object.StreamID, &object.Status,
-		&object.CreatedAt, &object.ExpiresAt,
-		spannerutil.Int(&object.SegmentCount),
-		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-		&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-		encryptionParameters{&object.Encryption},
-	)
-	if err != nil {
-		return Object{}, Error.New("unable to read object status: %w", err)
+	if !found {
+		return Object{}, ErrObjectNotFound.Wrap(Error.New("object does not exist"))
 	}
 
 	object.ProjectID = opts.ProjectID

@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -145,7 +145,7 @@ func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, stream
 // GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
 // segments in the db for the given stream ID, ordered by position.
 func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
-	result := s.client.Single().Query(ctx, spanner.Statement{
+	keysNonces, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				position, encrypted_key_nonce, encrypted_key
@@ -156,26 +156,14 @@ func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamI
 		Params: map[string]interface{}{
 			"stream_id": streamID,
 		},
+	}), func(row *spanner.Row, keys *EncryptedKeyAndNonce) error {
+		err := row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+		if err != nil {
+			return Error.New("failed to scan segments: %w", err)
+		}
+		return nil
 	})
-	defer result.Stop()
-
-	for {
-		row, err := result.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.New("unable to fetch object segments: %w", err)
-		}
-
-		var keys EncryptedKeyAndNonce
-		err = row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
-		if err != nil {
-			return nil, Error.New("failed to scan segments: %w", err)
-		}
-		keysNonces = append(keysNonces, keys)
-	}
-	return keysNonces, nil
+	return keysNonces, Error.Wrap(err)
 }
 
 // FinishMoveObject holds all data needed to finish object move.
@@ -346,7 +334,23 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 
 	// TODO(spanner): check whether INSERT FROM and then DELETE would be more performant, because
 	// it will use a single round trip, instead of two.
-	result := stx.tx.Query(ctx, spanner.Statement{
+
+	var (
+		found                         bool
+		createdAt                     time.Time
+		expiresAt                     *time.Time
+		segmentCount                  int64
+		encryptedMetadataNonce        []byte
+		encryptedMetadata             []byte
+		encryptedMetadataEncryptedKey []byte
+		totalPlainSize                int64
+		totalEncryptedSize            int64
+		fixedSegmentSize              int64
+		encryption                    storj.EncryptionParameters
+		zombieDeletionDeadline        *time.Time
+	)
+
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM objects
 			WHERE
@@ -364,40 +368,27 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	})
-	defer result.Stop()
-
-	row, err := result.Next()
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
+	}).Do(func(row *spanner.Row) error {
+		found = true
+		err := row.Columns(
+			&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
+			&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey,
+			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
+			encryptionParameters{&encryption},
+			&zombieDeletionDeadline,
+		)
+		if err != nil {
+			return Error.New("unable to read old object record: %w", err)
 		}
+		return nil
+	})
+	if err != nil {
 		return 0, 0, false, uuid.UUID{}, Error.New("unable to remove old object record: %w", err)
 	}
-
-	var (
-		createdAt                     time.Time
-		expiresAt                     *time.Time
-		segmentCount                  int64
-		encryptedMetadataNonce        []byte
-		encryptedMetadata             []byte
-		encryptedMetadataEncryptedKey []byte
-		totalPlainSize                int64
-		totalEncryptedSize            int64
-		fixedSegmentSize              int64
-		encryption                    storj.EncryptionParameters
-		zombieDeletionDeadline        *time.Time
-	)
-	err = row.Columns(
-		&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
-		&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey,
-		&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
-		encryptionParameters{&encryption},
-		&zombieDeletionDeadline,
-	)
-	if err != nil {
-		return 0, 0, false, uuid.UUID{}, Error.New("unable to read old object record: %w", err)
+	if !found {
+		return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
 	}
+
 	segmentsCount = int(segmentCount)
 
 	if encryptedMetadata != nil {
