@@ -1764,12 +1764,15 @@ func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data st
 
 		return nil
 	case ChangeEmailVerifyNewStep:
-		// TODO(vitali): implement me
+		err = s.handleVerifyNewStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	default:
 		return ErrValidation.New("step value is out of range")
 	}
-
-	return nil
 }
 
 func (s *Service) handlePasswordStep(ctx context.Context, user *User, data string) (err error) {
@@ -1937,6 +1940,51 @@ func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data strin
 			VerificationCode: verificationCode,
 		},
 	)
+
+	return nil
+}
+
+func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data string) (err error) {
+	if user.EmailChangeVerificationStep < ChangeEmailNewEmailStep {
+		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyNewStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+	}
+
+	if user.ActivationCode != data {
+		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyNewStep)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New("verification code is incorrect")
+	}
+
+	// unlikely to happen but still.
+	if user.NewUnverifiedEmail == nil {
+		return Error.New("new email is not set")
+	}
+
+	// TODO(vitalii): update Stripe, Hubspot and Segment emails.
+
+	unsetInt := 0
+	unsetStr := ""
+	unsetStrPtr := &unsetStr
+	loginLockoutExpirationPtr := &time.Time{}
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		Email:                       user.NewUnverifiedEmail,
+		EmailChangeVerificationStep: &unsetInt,
+		FailedLoginCount:            &unsetInt,
+		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
+		ActivationCode:              &unsetStr,
+		NewUnverifiedEmail:          &unsetStrPtr,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }

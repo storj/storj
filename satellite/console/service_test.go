@@ -1413,6 +1413,7 @@ func TestChangeEmail(t *testing.T) {
 
 		userCtx, user = updateContext()
 		require.Equal(t, console.ChangeEmailVerifyOldStep, user.EmailChangeVerificationStep)
+		require.Empty(t, user.ActivationCode)
 
 		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, "random string")
 		require.True(t, console.ErrValidation.Has(err))
@@ -1430,9 +1431,35 @@ func TestChangeEmail(t *testing.T) {
 		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, validEmail)
 		require.NoError(t, err)
 
-		_, user = updateContext()
+		userCtx, user = updateContext()
 		require.Equal(t, console.ChangeEmailNewEmailStep, user.EmailChangeVerificationStep)
 		require.Equal(t, validEmail, *user.NewUnverifiedEmail)
+		require.NotEmpty(t, user.ActivationCode)
+
+		for i := 0; i < 3; i++ {
+			err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyNewStep, "random verification code")
+			require.True(t, console.ErrValidation.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		// account gets locked after 3 failed attempts.
+		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyNewStep, user.ActivationCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyNewStep, user.ActivationCode)
+		require.NoError(t, err)
+
+		_, user = updateContext()
+		require.Equal(t, 0, user.EmailChangeVerificationStep)
+		require.Equal(t, "", *user.NewUnverifiedEmail)
+		require.Equal(t, validEmail, user.Email)
+		require.Empty(t, user.ActivationCode)
 	})
 }
 
