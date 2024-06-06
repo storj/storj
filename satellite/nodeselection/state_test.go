@@ -96,7 +96,7 @@ func TestState_SelectDistinct(t *testing.T) {
 	lastNet, err := nodeselection.CreateNodeAttribute("last_net")
 	require.NoError(t, err)
 
-	{ // select 2 distinct subnet reputable nodes
+	t.Run("select 2 distinct subnet reputaable nodes", func(t *testing.T) {
 		const selectCount = 2
 		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
@@ -108,9 +108,9 @@ func TestState_SelectDistinct(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
-	}
+	})
 
-	{ // try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state
+	t.Run("try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state", func(t *testing.T) {
 		const selectCount = 5
 		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
@@ -121,9 +121,9 @@ func TestState_SelectDistinct(t *testing.T) {
 		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
 		require.Error(t, err)
 		require.Len(t, selected, 2)
-	}
-	//
-	{ // select 4 distinct subnet reputable and new nodes (50%)
+	})
+
+	t.Run("select 4 distinct subnet reputable and new nodes (50%)", func(t *testing.T) {
 		const selectCount = 4
 		const newFraction = 0.5
 		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
@@ -137,7 +137,7 @@ func TestState_SelectDistinct(t *testing.T) {
 		require.Len(t, selected, selectCount, nil)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
 		require.Len(t, intersectLists(selected, newNodes), selectCount*newFraction)
-	}
+	})
 }
 
 func TestState_Select_Concurrent(t *testing.T) {

@@ -327,14 +327,24 @@ func TestSelectNodes(t *testing.T) {
 					Placement:      0,
 				})
 				require.NoError(t, err)
+				require.Len(t, selectedNodes, 3)
 
-				subnets := map[string]struct{}{}
+				// Becaus in how is setup the overlay cache for this test, there should be 0 or 1 unvetted
+				// node and in that case it may be in the same subnet of a vetted node or in a new one.
+
+				subnets := map[string]*nodeselection.SelectedNode{}
 				for _, node := range selectedNodes {
-					subnets[node.LastNet] = struct{}{}
+					if prev, ok := subnets[node.LastNet]; ok {
+						// xor between the already tracked and the one in this iteration.
+						require.True(t, (prev.Vetted || node.Vetted) && !(prev.Vetted && node.Vetted))
+					} else {
+						subnets[node.LastNet] = node
+					}
 				}
 
-				require.Len(t, selectedNodes, 3)
-				require.Len(t, subnets, 3)
+				// 2 or 3 depending if an unvetted node was selected and it's the same subnet of any of the
+				// other 2 vetted nodes.
+				require.GreaterOrEqual(t, len(subnets), 2)
 			}
 		})
 

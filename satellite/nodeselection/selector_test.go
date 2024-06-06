@@ -5,6 +5,7 @@ package nodeselection_test
 
 import (
 	"fmt"
+	"math"
 	"sync/atomic"
 	"testing"
 
@@ -495,7 +496,55 @@ func TestUnvettedSelector(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			selected, err := selector(storj.NodeID{}, 5, nil, nil)
 			require.NoError(t, err)
-			require.Equal(t, 0, countUnvetted(selected))
+			// The faction result in less than 1 node, so it randonly decide if 0 or 1 vetted node is
+			// selected.
+			require.InDelta(t, 0, countUnvetted(selected), 1)
+		}
+	})
+
+	t.Run("0.01% of 5", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(0.0001, nodeselection.RandomSelector())
+		selector := selectorInit(nodes, nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 5, nil, nil)
+			require.NoError(t, err)
+			// The faction result in less than 1 node, so it randonly decide if 0 or 1 vetted node is
+			// selected.
+			require.InDelta(t, 0, countUnvetted(selected), 1)
+		}
+	})
+
+	t.Run("0% of 5", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(0, nodeselection.RandomSelector())
+		selector := selectorInit(nodes, nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 5, nil, nil)
+			require.NoError(t, err)
+			require.Zero(t, countUnvetted(selected))
+		}
+	})
+
+	t.Run("negative % of 5", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(-1, nodeselection.RandomSelector())
+		selector := selectorInit(nodes, nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 5, nil, nil)
+			require.NoError(t, err)
+			require.Zero(t, countUnvetted(selected))
+		}
+	})
+
+	t.Run("NaN % of 5", func(t *testing.T) {
+		selectorInit := nodeselection.UnvettedSelector(math.NaN(), nodeselection.RandomSelector())
+		selector := selectorInit(nodes, nil)
+
+		for i := 0; i < 100; i++ {
+			selected, err := selector(storj.NodeID{}, 5, nil, nil)
+			require.NoError(t, err)
+			require.Zero(t, countUnvetted(selected))
 		}
 	})
 }

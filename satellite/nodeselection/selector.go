@@ -31,7 +31,26 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 		newSelector := init(newNodes, filter)
 		oldSelector := init(oldNodes, filter)
 		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
-			newNodeCount := int(float64(n) * newNodeFraction)
+			if math.IsNaN(newNodeFraction) || newNodeFraction <= 0 {
+				return oldSelector(requester, n, excluded, alreadySelected)
+			}
+
+			var newNodeCount int
+			if r := float64(n) * newNodeFraction; r < 1 {
+				// Don't select any unvetted node.
+				// Add 1 to random result to return 100 if the random function returns 99 and avoid to
+				// always fail this condition if r is greater or equal than 0.99.
+				if int(r*100) > (rand.Intn(100) + 1) {
+					return oldSelector(requester, n, excluded, alreadySelected)
+				}
+
+				// Select one unvetted node.
+				newNodeCount = 1
+
+			} else {
+				// Truncate to select the whole number part of unvetted nodes.
+				newNodeCount = int(r)
+			}
 
 			selectedNewNodes, err := newSelector(requester, newNodeCount, excluded, alreadySelected)
 			if err != nil {
