@@ -38,6 +38,9 @@ type Accounts interface {
 	// UpdatePackage updates a customer's package plan information.
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) error
 
+	// ChangeEmail changes a customer's email address.
+	ChangeEmail(ctx context.Context, userID uuid.UUID, email string) error
+
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
 

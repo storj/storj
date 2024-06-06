@@ -399,6 +399,13 @@ func (payment Payments) SetupAccount(ctx context.Context) (_ payments.CouponType
 	return payment.service.accounts.Setup(ctx, user.ID, user.Email, user.SignupPromoCode)
 }
 
+// ChangeEmail changes payment account's email address.
+func (payment Payments) ChangeEmail(ctx context.Context, userID uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return payment.service.accounts.ChangeEmail(ctx, userID, email)
+}
+
 // SaveBillingAddress saves billing address for a user and returns the updated billing information.
 func (payment Payments) SaveBillingAddress(ctx context.Context, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1968,7 +1975,14 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 		return Error.New("new email is not set")
 	}
 
-	// TODO(vitalii): update Stripe, Hubspot and Segment emails.
+	if s.config.BillingFeaturesEnabled {
+		err = s.Payments().ChangeEmail(ctx, user.ID, *user.NewUnverifiedEmail)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	// TODO(vitalii): update Hubspot and Segment emails.
 
 	unsetInt := 0
 	unsetStr := ""
