@@ -217,11 +217,29 @@ func (db *DB) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamID
 		bucketNamesBytes = append(bucketNamesBytes, []byte(bucket.BucketName))
 		projectIDs = append(projectIDs, bucket.ProjectID)
 	}
+
+	for _, adapter := range db.adapters {
+		adapterResult, err := adapter.ListBucketsStreamIDs(ctx, opts, bucketNamesBytes, projectIDs)
+		if err != nil {
+			return ListBucketsStreamIDsResult{}, Error.Wrap(err)
+		}
+		result.StreamIDs = append(result.StreamIDs, adapterResult.StreamIDs...)
+		result.Counts = append(result.Counts, adapterResult.Counts...)
+		if adapterResult.LastBucket.Compare(result.LastBucket) > 0 {
+			result.LastBucket = adapterResult.LastBucket
+		}
+	}
+
+	return result, nil
+}
+
+// ListBucketsStreamIDs lists the streamIDs of a list of buckets.
+func (p *PostgresAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error) {
 	// get the list of stream_ids and segment counts from the objects table
-	err := withRows(db.db.QueryContext(ctx, `
+	err = withRows(p.db.QueryContext(ctx, `
 		SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
 		FROM objects
-		`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
+		`+LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 		WHERE
 			 (project_id, bucket_name, stream_id) > ($4::BYTEA, $5::BYTEA, $6::BYTEA) AND
 		(project_id, bucket_name) IN (SELECT UNNEST($1::BYTEA[]),UNNEST($2::BYTEA[]))
@@ -251,4 +269,10 @@ func (db *DB) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamID
 		return ListBucketsStreamIDsResult{}, err
 	}
 	return result, nil
+}
+
+// ListBucketsStreamIDs lists the streamIDs of a list of buckets.
+func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error) {
+	// TODO: implement me
+	panic("implement me")
 }
