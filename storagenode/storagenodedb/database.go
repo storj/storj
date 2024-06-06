@@ -2241,6 +2241,22 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE piece_expirations DROP COLUMN deletion_failed_at;`,
 				},
 			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Overhaul piece_expirations",
+				Version:     60,
+				Action: migrate.SQL{
+					`CREATE TABLE piece_expirations_new (
+						satellite_id     BLOB      NOT NULL,
+						piece_id         BLOB      NOT NULL,
+						piece_expiration TIMESTAMP NOT NULL  -- date when it can be deleted
+					);`,
+					`INSERT INTO piece_expirations_new (satellite_id, piece_id, piece_expiration) SELECT satellite_id, piece_id, piece_expiration FROM piece_expirations;`,
+					`DROP TABLE piece_expirations;`,
+					`ALTER TABLE piece_expirations_new RENAME TO piece_expirations;`,
+					`CREATE INDEX idx_piece_expirations_piece_expiration ON piece_expirations(piece_expiration);`,
+				},
+			},
 		},
 	}
 }

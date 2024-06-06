@@ -378,8 +378,7 @@ func Schema() map[string]*dbschema.Schema {
 		"piece_expiration": {
 			Tables: []*dbschema.Table{
 				{
-					Name:       "piece_expirations",
-					PrimaryKey: []string{"piece_id", "satellite_id"},
+					Name: "piece_expirations",
 					Columns: []*dbschema.Column{
 						{
 							Name:       "piece_expiration",
