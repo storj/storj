@@ -217,6 +217,30 @@ func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFiel
 	}
 }
 
+// EnqueueUserChangeEmail is for sending post-creation information to Hubspot, that the user changed their email.
+func (q *HubSpotEvents) EnqueueUserChangeEmail(oldEmail, newEmail string) {
+	properties := map[string]interface{}{
+		"email": newEmail,
+	}
+
+	updateContactEndpoint := fmt.Sprintf("https://api.hubapi.com/crm/v3/objects/contacts/%s?idProperty=email", url.QueryEscape(oldEmail))
+	method := http.MethodPatch
+
+	changeEmailEvent := HubSpotEvent{
+		Endpoint: updateContactEndpoint,
+		Method:   &method,
+		Data: map[string]interface{}{
+			"properties": properties,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{changeEmailEvent}:
+	default:
+		q.log.Error("update user email hubspot event failed, event channel is full")
+	}
+}
+
 // handleSingleEvent for handle the single HubSpot API request.
 func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) (err error) {
 	payloadBytes, err := json.Marshal(ev.Data)

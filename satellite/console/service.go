@@ -1975,15 +1975,6 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 		return Error.New("new email is not set")
 	}
 
-	if s.config.BillingFeaturesEnabled {
-		err = s.Payments().ChangeEmail(ctx, user.ID, *user.NewUnverifiedEmail)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	// TODO(vitalii): update Hubspot and Segment emails.
-
 	unsetInt := 0
 	unsetStr := ""
 	unsetStrPtr := &unsetStr
@@ -1999,6 +1990,15 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	if s.config.BillingFeaturesEnabled {
+		err = s.Payments().ChangeEmail(ctx, user.ID, *user.NewUnverifiedEmail)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	s.analytics.ChangeContactEmail(user.ID, user.Email, *user.NewUnverifiedEmail)
 
 	return nil
 }
