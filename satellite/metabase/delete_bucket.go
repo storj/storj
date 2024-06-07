@@ -5,6 +5,10 @@ package metabase
 
 import (
 	"context"
+
+	"cloud.google.com/go/spanner"
+
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 const (
@@ -115,6 +119,54 @@ func (c *CockroachAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteB
 // this method will return the number of objects deleted to the moment
 // when an error occurs.
 func (s *SpannerAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
-	// TODO: implement me
-	panic("implement me")
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO(spanner): see if it would be better to avoid batching altogether here.
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		streamIDs, err := spannerutil.CollectRows(tx.Query(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE stream_id IN (
+					SELECT stream_id FROM objects
+					WHERE project_id = @project_id AND bucket_name = @bucket_name
+					ORDER BY project_id, bucket_name
+					LIMIT @delete_limit
+				)
+				THEN RETURN stream_id
+			`,
+			Params: map[string]interface{}{
+				"project_id":   opts.Bucket.ProjectID,
+				"bucket_name":  opts.Bucket.BucketName,
+				"delete_limit": opts.BatchSize,
+			},
+		}), func(row *spanner.Row, streamID *[]byte) error {
+			return row.Columns(streamID)
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		deletedObjectCount = int64(len(streamIDs))
+		if len(streamIDs) == 0 {
+			return nil
+		}
+
+		deletedSegmentCount, err = tx.Update(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM segments
+				WHERE stream_id IN UNNEST(@stream_ids)
+			`,
+			Params: map[string]interface{}{
+				"stream_ids": streamIDs,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return deletedObjectCount, deletedSegmentCount, nil
 }
