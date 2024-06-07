@@ -8,8 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"golang.org/x/exp/slices"
 
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -118,6 +120,40 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.
 func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
-	// TODO: implement me
-	panic("implement me")
+	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			WITH counts AS (
+				SELECT project_id, bucket_name, segment_count, total_encrypted_size, length(encrypted_metadata) AS encrypted_bytes, status
+				FROM objects
+				WHERE
+					` + TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_bucket_name"}, true) + `
+					AND ` + TupleGreaterThanSQL([]string{"@to_project_id", "@to_bucket_name"}, []string{"project_id", "bucket_name"}, true) + `
+					AND (expires_at IS NULL OR expires_at > @when)
+			)
+			SELECT
+				project_id, bucket_name,
+				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(encrypted_bytes), 0),
+				count(*), (
+					SELECT count(*) FROM counts c2 WHERE status = ` + statusPending + `
+						AND c2.project_id = c.project_id AND c2.bucket_name = c.bucket_name
+				)
+			FROM counts c
+			GROUP BY project_id, bucket_name
+			ORDER BY project_id ASC, bucket_name ASC
+		`,
+		Params: map[string]any{
+			"from_project_id":  opts.From.ProjectID,
+			"from_bucket_name": opts.From.BucketName,
+			"to_project_id":    opts.To.ProjectID,
+			"to_bucket_name":   opts.To.BucketName,
+			"when":             opts.Now,
+		},
+	}), func(row *spanner.Row, bucketTally *BucketTally) error {
+		return row.Columns(
+			&bucketTally.ProjectID, &bucketTally.BucketName,
+			&bucketTally.TotalBytes, &bucketTally.TotalSegments,
+			&bucketTally.MetadataSize, &bucketTally.ObjectCount,
+			&bucketTally.PendingObjectCount,
+		)
+	})
 }

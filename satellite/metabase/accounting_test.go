@@ -14,16 +14,10 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestCollectBucketTallies(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): implement CollectBucketTallies for spanner.
-			t.Skip("not implemented for spanner")
-		}
-
 		t.Run("empty from", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
