@@ -66,6 +66,15 @@ type EmailAddressVerificationEmail struct {
 }
 
 // Template returns email template name.
+func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" }
+
+// Subject gets email subject.
+func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
+
+// ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
+type ChangeEmailSuccessEmail struct{}
+
+// Template returns email template name.
 func (*EmailAddressVerificationEmail) Template() string { return "EmailAddressVerification" }
 
 // Subject gets email subject.

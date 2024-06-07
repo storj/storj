@@ -1991,6 +1991,12 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 		return Error.Wrap(err)
 	}
 
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: *user.NewUnverifiedEmail, Name: user.FullName}},
+		&ChangeEmailSuccessEmail{},
+	)
+
 	if s.config.BillingFeaturesEnabled {
 		err = s.Payments().ChangeEmail(ctx, user.ID, *user.NewUnverifiedEmail)
 		if err != nil {
