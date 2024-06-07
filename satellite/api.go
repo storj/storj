@@ -727,7 +727,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
-			srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener)
+			srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener, peer.Payments.StripeService)
 			peer.HealthCheck.Server = srv
 
 			peer.Servers.Add(lifecycle.Item{

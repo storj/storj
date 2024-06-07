@@ -26,6 +26,7 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
@@ -40,6 +41,8 @@ var (
 	Error = errs.Class("stripecoinpayments service")
 
 	mon = monkit.Package()
+
+	_ healthcheck.HealthCheck = (*Service)(nil)
 )
 
 const (
@@ -1962,4 +1965,20 @@ func applyEgressDiscount(usage accounting.ProjectUsage, model payments.ProjectUs
 		egress = 0
 	}
 	return egress
+}
+
+// Healthy returns true if this service can contact stripe.
+func (service *Service) Healthy(ctx context.Context) bool {
+	listParam := stripe.CustomerListParams{
+		ListParams: stripe.ListParams{
+			Context: ctx, Limit: stripe.Int64(1),
+		},
+	}
+
+	return service.stripeClient.Customers().List(&listParam).Err() == nil
+}
+
+// Name returns the name of this service.
+func (service *Service) Name() string {
+	return "stripeService"
 }
