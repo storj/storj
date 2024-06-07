@@ -32,7 +32,17 @@
                             {{ user.email }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <div>
+                        <v-btn
+                            v-if="changeEmailEnabled"
+                            variant="outlined"
+                            color="default"
+                            size="small"
+                            rounded="md"
+                            @click="isChangeEmailDialogShown = true"
+                        >
+                            Change Email
+                        </v-btn>
+                        <div v-else>
                             <v-tooltip
                                 activator="parent"
                                 location="top"
@@ -136,6 +146,11 @@
         </v-row>
     </v-container>
 
+    <AccountEmailChangeDialog
+        v-if="changeEmailEnabled"
+        v-model="isChangeEmailDialogShown"
+    />
+
     <ChangePasswordDialog
         v-model="isChangePasswordDialogShown"
     />
@@ -200,6 +215,7 @@ import MFACodesDialog from '@/components/dialogs/MFACodesDialog.vue';
 import SetSessionTimeoutDialog from '@/components/dialogs/SetSessionTimeoutDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import SetPassphrasePromptDialog from '@/components/dialogs/SetPassphrasePromptDialog.vue';
+import AccountEmailChangeDialog from '@/components/dialogs/AccountEmailChangeDialog.vue';
 
 const appStore = useAppStore();
 const configStore = useConfigStore();
@@ -215,6 +231,7 @@ const isDisableMFADialogShown = ref<boolean>(false);
 const isRecoveryCodesDialogShown = ref<boolean>(false);
 const isSetSessionTimeoutDialogShown = ref<boolean>(false);
 const isSetPassphrasePromptDialogShown = ref<boolean>(false);
+const isChangeEmailDialogShown = ref<boolean>(false);
 
 /**
  * Returns user entity from store.
@@ -227,6 +244,11 @@ const user = computed((): User => {
  * Whether billing features should be enabled
  */
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(user.value.hasVarPartner));
+
+/**
+ * Whether change email feature should be enabled
+ */
+const changeEmailEnabled = computed<boolean>(() => configStore.state.config.emailChangeFlowEnabled);
 
 /**
  * Returns user settings from store.
