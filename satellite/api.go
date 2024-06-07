@@ -27,6 +27,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/version"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
@@ -179,6 +180,10 @@ type API struct {
 
 	KeyManagement struct {
 		Service *kms.Service
+	}
+
+	HealthCheck struct {
+		Server *healthcheck.Server
 	}
 
 	SuccessTrackers *metainfo.SuccessTrackers
@@ -712,6 +717,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		} else {
 			peer.Log.Named("gracefulexit").Info("disabled")
+		}
+	}
+
+	{ // setup health check
+		if config.HealthCheck.Enabled {
+			listener, err := net.Listen("tcp", config.HealthCheck.Address)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener)
+			peer.HealthCheck.Server = srv
+
+			peer.Servers.Add(lifecycle.Item{
+				Name:  "healthcheck",
+				Run:   srv.Run,
+				Close: srv.Close,
+			})
 		}
 	}
 

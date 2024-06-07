@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/common/identity"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
@@ -228,6 +229,8 @@ type Config struct {
 	DurabilityReport durability.ReportConfig
 
 	KeyManagement kms.Config
+
+	HealthCheck healthcheck.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 }

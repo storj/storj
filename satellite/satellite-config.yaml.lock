@@ -778,6 +778,12 @@ contact.external-address: ""
 # how frequently to check uptime ratio of gracefully-exiting nodes
 # graceful-exit.offline-check-interval: 30m0s
 
+# The address to listen on for health check server
+# health-check.address: :10500
+
+# Whether the health check server is enabled
+# health-check.enabled: false
+
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
