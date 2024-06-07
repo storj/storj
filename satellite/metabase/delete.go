@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"sort"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
@@ -49,42 +48,6 @@ type DeleteObjectResult struct {
 	Removed []Object
 	// Markers contains the delete markers that were added.
 	Markers []Object
-}
-
-// DeleteObjectsAllVersions contains arguments necessary for deleting all versions of multiple objects from the same bucket.
-type DeleteObjectsAllVersions struct {
-	Locations []ObjectLocation
-}
-
-// Verify delete objects fields.
-func (delete *DeleteObjectsAllVersions) Verify() error {
-	if len(delete.Locations) == 0 {
-		return nil
-	}
-
-	if len(delete.Locations) > 1000 {
-		return ErrInvalidRequest.New("cannot delete more than 1000 objects in a single request")
-	}
-
-	var errGroup errs.Group
-	for _, location := range delete.Locations {
-		errGroup.Add(location.Verify())
-	}
-
-	err := errGroup.Err()
-	if err != nil {
-		return err
-	}
-
-	// Verify if all locations are in the same bucket
-	first := delete.Locations[0]
-	for _, item := range delete.Locations[1:] {
-		if first.ProjectID != item.ProjectID || first.BucketName != item.BucketName {
-			return ErrInvalidRequest.New("all objects must be in the same bucket")
-		}
-	}
-
-	return nil
 }
 
 // DeleteObjectExactVersion deletes an exact object version.
@@ -288,140 +251,6 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 	return result, err
 }
 
-// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
-func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAllVersions) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if db.config.ServerSideCopy {
-		return DeleteObjectResult{}, errs.New("method cannot be used when server-side copy is enabled")
-	}
-
-	if len(opts.Locations) == 0 {
-		// nothing to delete, no error
-		return DeleteObjectResult{}, nil
-	}
-
-	if err := opts.Verify(); err != nil {
-		return DeleteObjectResult{}, err
-	}
-
-	// It is already verified that all object locations are in the same bucket
-	projectID := opts.Locations[0].ProjectID
-	bucketName := opts.Locations[0].BucketName
-
-	objectKeys := make([]ObjectKey, len(opts.Locations))
-	for i := range opts.Locations {
-		objectKeys[i] = opts.Locations[i].ObjectKey
-	}
-
-	result, err = db.ChooseAdapter(projectID).DeleteObjectsAllVersions(ctx, projectID, bucketName, objectKeys)
-	if err != nil {
-		return DeleteObjectResult{}, err
-	}
-
-	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
-	}
-
-	return result, nil
-}
-
-// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
-func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName BucketName, objectKeys []ObjectKey) (result DeleteObjectResult, err error) {
-	sort.Slice(objectKeys, func(i, j int) bool {
-		return objectKeys[i] < objectKeys[j]
-	})
-
-	err = withRows(p.db.QueryContext(ctx, `
-		WITH deleted_objects AS (
-			DELETE FROM objects
-			WHERE
-				(project_id, bucket_name) = ($1, $2) AND
-				object_key = ANY ($3) AND
-				status <> `+statusPending+`
-			RETURNING
-				project_id, bucket_name, object_key, version, stream_id, created_at, expires_at,
-				status, segment_count, encrypted_metadata_nonce, encrypted_metadata,
-				encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-				fixed_segment_size, encryption
-		), deleted_segments AS (
-			DELETE FROM segments
-			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-			RETURNING segments.stream_id
-		)
-		SELECT
-			project_id, bucket_name, object_key, version, stream_id, created_at, expires_at,
-			status, segment_count, encrypted_metadata_nonce, encrypted_metadata,
-			encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-			fixed_segment_size, encryption
-		FROM deleted_objects
-	`, projectID, bucketName, pgtype_ObjectKeyArray(objectKeys)))(func(rows tagsql.Rows) error {
-		result.Removed, err = scanMultipleObjectsDeletionPostgres(ctx, rows)
-		return err
-	})
-
-	return result, nil
-}
-
-// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
-func (s *SpannerAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName BucketName, objectKeys []ObjectKey) (result DeleteObjectResult, err error) {
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result.Removed, err = spannerutil.CollectRows(tx.Query(ctx, spanner.Statement{
-			SQL: `
-				DELETE FROM objects
-				WHERE
-					(project_id, bucket_name) = (@project_id, @bucket_name) AND
-					ARRAY_INCLUDES(@keys, object_key) AND
-					status <> ` + statusPending + `
-				THEN RETURN
-					project_id, bucket_name, object_key, version, stream_id, created_at, expires_at,
-					status, segment_count, encrypted_metadata_nonce, encrypted_metadata,
-					encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-					fixed_segment_size, encryption
-			`,
-			Params: map[string]interface{}{
-				"project_id":  projectID,
-				"bucket_name": bucketName,
-				"keys":        spanner_ObjectKeyArray(objectKeys),
-			},
-		}), func(row *spanner.Row, object *Object) error {
-			err := row.Columns(&object.ProjectID, &object.BucketName,
-				&object.ObjectKey, &object.Version, &object.StreamID,
-				&object.CreatedAt, &object.ExpiresAt,
-				&object.Status, spannerutil.Int(&object.SegmentCount),
-				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				encryptionParameters{&object.Encryption})
-			if err != nil {
-				return Error.New("unable to scan deleted object: %w", err)
-			}
-			return nil
-		})
-
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		streamIDs := make([][]byte, 0, len(result.Removed))
-		for _, object := range result.Removed {
-			streamIDs = append(streamIDs, object.StreamID.Bytes())
-		}
-		segmentDeletion := spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-			`,
-			Params: map[string]interface{}{
-				"stream_ids": streamIDs,
-			},
-		}
-		_, err = tx.Update(ctx, segmentDeletion)
-		return Error.Wrap(err)
-	})
-	return result, nil
-}
-
 // scanObjectDeletionPostgres reads in the results of an object deletion from the database.
 func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -485,35 +314,6 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 		object.ProjectID = location.ProjectID
 		object.BucketName = location.BucketName
 		object.ObjectKey = location.ObjectKey
-	}
-
-	return objects, nil
-}
-
-// scanMultipleObjectsDeletionPostgres reads in the results of multiple object deletions from the database.
-func scanMultipleObjectsDeletionPostgres(ctx context.Context, rows tagsql.Rows) (objects []Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	objects = make([]Object, 0, 10)
-
-	var object Object
-	for rows.Next() {
-		err = rows.Scan(&object.ProjectID, &object.BucketName,
-			&object.ObjectKey, &object.Version, &object.StreamID,
-			&object.CreatedAt, &object.ExpiresAt,
-			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption})
-		if err != nil {
-			return nil, Error.New("unable to delete object: %w", err)
-		}
-
-		objects = append(objects, object)
-	}
-
-	if len(objects) == 0 {
-		objects = nil
 	}
 
 	return objects, nil

@@ -489,21 +489,6 @@ func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db
 	compareDeleteObjectResult(t, result, step.Result)
 }
 
-// DeleteObjectsAllVersions is for testing metabase.DeleteObjectsAllVersions.
-type DeleteObjectsAllVersions struct {
-	Opts     metabase.DeleteObjectsAllVersions
-	Result   metabase.DeleteObjectResult
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-	compareDeleteObjectResult(t, result, step.Result)
-}
-
 // DeleteExpiredObjects is for testing metabase.DeleteExpiredObjects.
 type DeleteExpiredObjects struct {
 	Opts metabase.DeleteExpiredObjects
