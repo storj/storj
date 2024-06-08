@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -108,6 +109,70 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 		}
 }
 
+func (opts *ListVerifySegments) getSpannerQueryAndParameters() spanner.Statement {
+
+	if len(opts.StreamIDs) == 0 {
+		return spanner.Statement{
+			SQL: `
+				SELECT
+					stream_id, position,
+					created_at, repaired_at,
+					root_piece_id, redundancy,
+					remote_alias_pieces
+				FROM segments
+				WHERE
+					` + TupleGreaterThanSQL([]string{"stream_id", "position"}, []string{"@stream_id", "@position"}, false) + `
+					AND inline_data IS NULL
+					AND remote_alias_pieces IS NOT NULL
+					AND (segments.expires_at IS NULL OR segments.expires_at > CURRENT_TIMESTAMP)
+					AND (@created_after IS NULL OR segments.created_at > @created_after)
+					AND (@created_before IS NULL OR segments.created_at < @created_before)
+				ORDER BY stream_id ASC, position ASC
+				LIMIT @limit
+			`, Params: map[string]any{
+				"stream_id":      opts.CursorStreamID,
+				"position":       opts.CursorPosition,
+				"created_after":  opts.CreatedAfter,
+				"created_before": opts.CreatedBefore,
+				"limit":          opts.Limit,
+			},
+		}
+	}
+
+	streamIDsBytes := make([][]byte, len(opts.StreamIDs))
+	for i, streamID := range opts.StreamIDs {
+		streamIDsBytes[i] = streamID.Bytes()
+	}
+
+	return spanner.Statement{
+		SQL: `
+			SELECT
+				segments.stream_id, segments.position,
+				segments.created_at, segments.repaired_at,
+				segments.root_piece_id, segments.redundancy,
+				segments.remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id IN UNNEST(@stream_ids)
+				AND ` + TupleGreaterThanSQL([]string{"segments.stream_id", "segments.position"}, []string{"@stream_id", "@position"}, false) + `
+				AND segments.inline_data IS NULL
+				AND segments.remote_alias_pieces IS NOT NULL
+				AND (segments.expires_at IS NULL OR segments.expires_at > CURRENT_TIMESTAMP)
+				AND (@created_after IS NULL OR segments.created_at > @created_after)
+				AND (@created_before IS NULL OR segments.created_at < @created_before)
+			ORDER BY segments.stream_id ASC, segments.position ASC
+			LIMIT @limit`,
+		Params: map[string]any{
+			"stream_ids":     streamIDsBytes,
+			"stream_id":      opts.CursorStreamID,
+			"position":       opts.CursorPosition,
+			"created_after":  opts.CreatedAfter,
+			"created_before": opts.CreatedBefore,
+			"limit":          opts.Limit,
+		},
+	}
+}
+
 // ListVerifySegments lists specified stream segments.
 func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (result ListVerifySegmentsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -163,8 +228,21 @@ func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerif
 
 // ListVerifySegments lists the segments in a specified stream.
 func (s *SpannerAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
-	// TODO: implement me
-	panic("implement me")
+	queryStatement := opts.getSpannerQueryAndParameters()
+
+	return spannerutil.CollectRows(s.client.Single().Query(ctx, queryStatement), func(row *spanner.Row, seg *VerifySegment) error {
+		return row.Columns(
+			&seg.StreamID,
+			&seg.Position,
+
+			&seg.CreatedAt,
+			&seg.RepairedAt,
+
+			&seg.RootPieceID,
+			redundancyScheme{&seg.Redundancy},
+			&seg.AliasPieces,
+		)
+	})
 }
 
 // ListVerifyBucketList represents a list of buckets.
