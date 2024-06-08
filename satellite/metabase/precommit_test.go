@@ -14,16 +14,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestPrecommitConstraint_Empty(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): seems to be flaky
-			t.Skip("not correct for spanner")
-		}
-
 		obj := metabasetest.RandObjectStream()
 
 		for _, versioned := range []bool{false, true} {

@@ -913,5 +913,9 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 		return result, Error.New("internal error: multiple committed unversioned objects")
 	}
 
+	// match behavior of postgresTransactionAdapter, to appease a test
+	if len(result.Deleted) == 0 {
+		result.Deleted = nil
+	}
 	return result, nil
 }
