@@ -14,16 +14,10 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestDeleteExpiredObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): seems to be flaky
-			t.Skip("not correct for spanner")
-		}
-
 		obj1 := metabasetest.RandObjectStream()
 		obj2 := metabasetest.RandObjectStream()
 		obj3 := metabasetest.RandObjectStream()
@@ -175,11 +169,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 
 func TestDeleteZombieObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): seems to be flaky
-			t.Skip("not correct for spanner")
-		}
-
 		obj1 := metabasetest.RandObjectStream()
 		obj2 := metabasetest.RandObjectStream()
 		obj3 := metabasetest.RandObjectStream()
