@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"cloud.google.com/go/spanner"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -273,6 +275,50 @@ func (p *PostgresAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBuc
 
 // ListBucketsStreamIDs lists the streamIDs of a list of buckets.
 func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error) {
-	// TODO: implement me
-	panic("implement me")
+	projectsAndBuckets := make([]struct {
+		ProjectID  uuid.UUID
+		BucketName string
+	}, len(projectIDs))
+	for i, projectID := range projectIDs {
+		projectsAndBuckets[i].ProjectID = projectID
+		projectsAndBuckets[i].BucketName = string(bucketNamesBytes[i])
+	}
+
+	// get the list of stream_ids and segment counts from the objects table
+	// TODO(spanner): check if there is a performance penalty to using a STRUCT in this way.
+	err = s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
+			FROM objects
+			WHERE ` + TupleGreaterThanSQL([]string{"project_id", "bucket_name", "stream_id"}, []string{"@cursor_project_id", "@cursor_bucket_name", "@cursor_stream_id"}, false) + `
+				AND STRUCT<ProjectID BYTES, BucketName STRING>(project_id, bucket_name) IN UNNEST(@projects_and_buckets)
+			ORDER BY project_id, bucket_name, stream_id
+			LIMIT @limit
+		`,
+		Params: map[string]any{
+			"projects_and_buckets": projectsAndBuckets,
+			"cursor_project_id":    opts.CursorBucket.ProjectID,
+			"cursor_bucket_name":   opts.CursorBucket.BucketName,
+			"cursor_stream_id":     opts.CursorStreamID,
+			"limit":                int64(opts.Limit),
+		},
+	}).Do(func(row *spanner.Row) error {
+		var streamID uuid.UUID
+		var count int64
+		err := row.Columns(
+			&result.LastBucket.ProjectID,
+			&result.LastBucket.BucketName,
+			&streamID,
+			&count,
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		result.addStreamID(streamID, int(count))
+		return nil
+	})
+	if err != nil {
+		return ListBucketsStreamIDsResult{}, err
+	}
+	return result, nil
 }
