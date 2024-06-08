@@ -176,7 +176,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 				"update_repaired_at": updateRepairAt,
 			},
 		}), func(row *spanner.Row, item *AliasPieces) error {
-			err = row.Columns(&resultPieces)
+			err = row.Columns(item)
 			if err != nil {
 				return Error.New("unable to decode result pieces: %w", err)
 			}
