@@ -170,7 +170,7 @@ func Setup(ctx context.Context, log *zap.Logger, db *metabase.DB) error {
 		}
 	}
 
-	_, err4 := db.UnderlyingTagSQL().Exec(ctx, `ANALYZE objects`)
+	err4 := db.UpdateTableStats(ctx)
 	if err4 != nil {
 		return errs.Wrap(err4)
 	}
