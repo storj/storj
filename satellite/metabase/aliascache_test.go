@@ -306,6 +306,47 @@ func TestNodeAliasMap(t *testing.T) {
 	}
 }
 
+func BenchmarkNodeAliasMap(b *testing.B) {
+	var entries []metabase.NodeAliasEntry
+	for i := 0; i < 20000; i++ {
+		entries = append(entries, metabase.NodeAliasEntry{
+			ID:    testrand.NodeID(),
+			Alias: metabase.NodeAlias(i * 3 / 2),
+		})
+	}
+
+	m := metabase.NewNodeAliasMap(entries)
+
+	testindexes := []int{}
+	for i := 0; i < 100; i++ {
+		testindexes = append(testindexes, testrand.Intn(len(entries)))
+	}
+
+	b.Run("Alias", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, ix := range testindexes {
+				entry := &entries[ix]
+				alias, ok := m.Alias(entry.ID)
+				if !ok || alias != entry.Alias {
+					b.Fatal("wrong result")
+				}
+			}
+		}
+	})
+
+	b.Run("ID", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, ix := range testindexes {
+				entry := &entries[ix]
+				id, ok := m.Node(entry.Alias)
+				if !ok || id != entry.ID {
+					b.Fatal("wrong result")
+				}
+			}
+		}
+	})
+}
+
 func BenchmarkNodeAliasCache_ConvertAliasesToPieces(b *testing.B) {
 	ctx := context.Background()
 
