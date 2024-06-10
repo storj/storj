@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"sort"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -224,9 +222,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 // TestingGetAllObjects returns the state of the database.
 func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	objs := []RawObject{}
-
-	result := s.client.Single().Query(ctx, spanner.Statement{
+	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id,
@@ -239,19 +235,8 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 			FROM objects
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		`,
-	})
-	defer result.Stop()
-
-	for {
-		row, err := result.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.New("testingGetAllObjects query: %w", err)
-		}
-		var obj RawObject
-		err = row.Columns(
+	}), func(row *spanner.Row, obj *RawObject) error {
+		return Error.Wrap(row.Columns(
 			&obj.ProjectID,
 			&obj.BucketName,
 			&obj.ObjectKey,
@@ -274,17 +259,8 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-		)
-		if err != nil {
-			return nil, Error.New("testingGetAllObjects scan failed: %w", err)
-		}
-		objs = append(objs, obj)
-	}
-
-	if len(objs) == 0 {
-		return nil, nil
-	}
-	return objs, nil
+		))
+	})
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.
@@ -532,7 +508,7 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 
 // TestingGetAllSegments implements Adapter.
 func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (segments []RawSegment, err error) {
-	iter := s.client.Single().Query(ctx, spanner.Statement{SQL: `
+	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{SQL: `
 		SELECT
 			stream_id, position,
 			created_at, repaired_at, expires_at,
@@ -544,22 +520,10 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			placement
 		FROM segments
 		ORDER BY stream_id ASC, position ASC
-	`})
-	defer iter.Stop()
-
-	for {
-		row, err := iter.Next()
-		if errors.Is(err, iterator.Done) {
-			return segments, nil
-		}
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		var segment RawSegment
+	`}), func(row *spanner.Row, segment *RawSegment) error {
 		var aliasPieces AliasPieces
-		// TODO(spanner) potentially we could use row.ToStruct but we would need to add AliasPieces to RawSegment
-		if err := row.Columns(
+
+		err := row.Columns(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
@@ -568,17 +532,18 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
-		); err != nil {
-			return nil, Error.Wrap(err)
+		)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
-			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
+			return Error.New("convert aliases to pieces failed: %w", err)
 		}
 
-		segments = append(segments, segment)
-	}
+		return nil
+	})
 }
 
 // TestingBatchInsertSegments batch inserts segments for testing.
