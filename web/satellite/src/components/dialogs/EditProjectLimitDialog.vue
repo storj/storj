@@ -122,6 +122,13 @@
                         </v-card>
                     </v-col>
                 </v-row>
+
+                <v-alert
+                    class="mt-3"
+                    density="compact"
+                    type="warning"
+                    text="Limit updates may take several minutes to be reflected."
+                />
             </v-form>
 
             <v-divider />
@@ -163,6 +170,7 @@ import {
     VMenu,
     VList,
     VListItem,
+    VAlert,
 } from 'vuetify/components';
 import { mdiMenuDown, mdiMenuUp } from '@mdi/js';
 
