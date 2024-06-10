@@ -914,30 +914,21 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.New("could not read existing object versions: %w", err)
 	}
 
-	objectDeletion := spanner.Statement{
-		SQL: `
-			DELETE FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-				AND status IN ` + statusesUnversioned + `
-			THEN RETURN
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
-		`,
-		Params: map[string]interface{}{
-			"project_id":  loc.ProjectID,
-			"bucket_name": loc.BucketName,
-			"object_key":  loc.ObjectKey,
-		},
-	}
-	objectsDeleted := stx.tx.Query(ctx, objectDeletion)
-	defer objectsDeleted.Stop()
-
-	result.Deleted, err = scanObjectDeletionSpanner(ctx, loc, objectsDeleted)
+	// TODO(spanner): is there a better way to combine these deletes from different tables?
+	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc,
+		stx.tx.Query(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+					AND status IN ` + statusesUnversioned + `
+				THEN RETURN` + collectDeletedObjectsSpannerFields,
+			Params: map[string]interface{}{
+				"project_id":  loc.ProjectID,
+				"bucket_name": loc.BucketName,
+				"object_key":  loc.ObjectKey,
+			},
+		}))
 	if err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
@@ -946,6 +937,8 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 	for _, object := range result.Deleted {
 		streamIDs = append(streamIDs, object.StreamID.Bytes())
 	}
+
+	// TODO(spanner): make sure this is an efficient query
 	segmentDeletion := spanner.Statement{
 		SQL: `
 			DELETE FROM segments
