@@ -20,6 +20,7 @@ import (
 type Adapter interface {
 	Name() string
 	Now(ctx context.Context) (time.Time, error)
+	Ping(ctx context.Context) error
 
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)

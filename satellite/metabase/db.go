@@ -161,9 +161,26 @@ func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
 // TODO: remove.
 func (db *DB) UnderlyingTagSQL() tagsql.DB { return db.db }
 
-// Ping checks whether connection has been established.
+// Ping checks whether connection has been established to all adapters.
 func (db *DB) Ping(ctx context.Context) error {
-	return Error.Wrap(db.db.PingContext(ctx))
+	for _, adapter := range db.adapters {
+		err := adapter.Ping(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// Ping checks whether connection has been established.
+func (p *PostgresAdapter) Ping(ctx context.Context) error {
+	return p.db.PingContext(ctx)
+}
+
+// Ping checks whether connection has been established.
+func (s *SpannerAdapter) Ping(ctx context.Context) error {
+	// TODO: implement me
+	panic("implement me")
 }
 
 // TestingSetCleanup is used to set the callback for cleaning up test database.
