@@ -179,8 +179,17 @@ func (p *PostgresAdapter) Ping(ctx context.Context) error {
 
 // Ping checks whether connection has been established.
 func (s *SpannerAdapter) Ping(ctx context.Context) error {
-	// TODO: implement me
-	panic("implement me")
+	ok, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{SQL: `SELECT true`}),
+		func(row *spanner.Row, item *bool) error {
+			return row.Columns(item)
+		})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if !ok {
+		return Error.New("up is down, left is right, true is false, and forwards is backwards")
+	}
+	return nil
 }
 
 // TestingSetCleanup is used to set the callback for cleaning up test database.
