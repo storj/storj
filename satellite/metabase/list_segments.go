@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
@@ -184,40 +183,35 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 		}
 	}
 
-	rowIterator := s.client.Single().Query(ctx, stmt)
-	defer rowIterator.Stop()
+	result.Segments, err = spannerutil.CollectRows(s.client.Single().Query(ctx, stmt),
+		func(row *spanner.Row, segment *Segment) error {
+			segment.StreamID = opts.StreamID
 
-	for {
-		row, err := rowIterator.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
+			var aliasPieces AliasPieces
+			err = row.Columns(
+				&segment.Position,
+				&segment.CreatedAt, &segment.ExpiresAt,
+				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+				&segment.EncryptedETag,
+				redundancyScheme{&segment.Redundancy},
+				&segment.InlineData, &aliasPieces,
+				spannerutil.Int(&segment.Placement),
+			)
+			if err != nil {
+				return Error.New("failed to read segments: %w", err)
 			}
-			return ListSegmentsResult{}, Error.New("failed to scan segments: %w", err)
-		}
-		var segment Segment
-		var aliasPieces AliasPieces
-		err = row.Columns(
-			&segment.Position,
-			&segment.CreatedAt, &segment.ExpiresAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &aliasPieces,
-			spannerutil.Int(&segment.Placement),
-		)
-		if err != nil {
-			return ListSegmentsResult{}, Error.New("failed to read segments: %w", err)
-		}
 
-		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return ListSegmentsResult{}, Error.New("failed to convert aliases to pieces: %w", err)
-		}
+			segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return Error.New("failed to convert aliases to pieces: %w", err)
+			}
 
-		segment.StreamID = opts.StreamID
-		result.Segments = append(result.Segments, segment)
+			return nil
+		})
+
+	if err != nil {
+		return ListSegmentsResult{}, Error.New("failed to list segments: %w", err)
 	}
 
 	if len(result.Segments) > opts.Limit {
@@ -391,25 +385,21 @@ func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStrea
 			},
 		}
 	}
-	rowIterator := s.client.Single().Query(ctx, stmt)
 
-	for {
-		row, err := rowIterator.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
+	result.Segments, err = spannerutil.CollectRows(s.client.Single().Query(ctx, stmt),
+		func(row *spanner.Row, segment *SegmentPositionInfo) error {
+			err = row.Columns(
+				&segment.Position, spannerutil.Int(&segment.PlainSize), &segment.PlainOffset, &segment.CreatedAt,
+				&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
 			}
-			return ListStreamPositionsResult{}, Error.New("unable to fetch object segments: %w", err)
-		}
-		var segment SegmentPositionInfo
-		err = row.Columns(
-			&segment.Position, spannerutil.Int(&segment.PlainSize), &segment.PlainOffset, &segment.CreatedAt,
-			&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-		)
-		if err != nil {
-			return ListStreamPositionsResult{}, Error.New("failed to scan segments: %w", err)
-		}
-		result.Segments = append(result.Segments, segment)
+			return nil
+		})
+
+	if err != nil {
+		return ListStreamPositionsResult{}, Error.New("unable to fetch object segments: %w", err)
 	}
 
 	if len(result.Segments) > opts.Limit {
