@@ -6,7 +6,6 @@ package metabase
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -114,64 +113,52 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 // FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
 func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
 	// TODO(spanner): check whether this query is executed efficiently
-	query := `
-		SELECT
-			project_id, bucket_name, object_key, version, stream_id,
-			expires_at
-		FROM objects
-		WHERE
-			expires_at < @expires_at
-			AND (
-				project_id > @project_id
-				OR (project_id = @project_id AND bucket_name > @bucket_name)
-				OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key > @object_key)
-				OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND version > @version)
-			)
-			ORDER BY project_id, bucket_name, object_key, version
-		LIMIT @batch_size;
-	`
-
-	expiredObjects = make([]ObjectStream, 0, batchSize)
-
-	rowIterator := s.client.Single().Query(ctx, spanner.Statement{SQL: query, Params: map[string]interface{}{
-		"project_id":  startAfter.ProjectID,
-		"bucket_name": startAfter.BucketName,
-		"object_key":  startAfter.ObjectKey,
-		"version":     startAfter.Version,
-		"expires_at":  opts.ExpiredBefore,
-		"batch_size":  batchSize,
-	}})
-	defer rowIterator.Stop()
-
-	for {
-		row, err := rowIterator.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.Wrap(err)
-		}
-
-		var last ObjectStream
+	expiredObjects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				project_id, bucket_name, object_key, version, stream_id,
+				expires_at
+			FROM objects
+			WHERE
+				expires_at < @expires_at
+				AND (
+					project_id > @project_id
+					OR (project_id = @project_id AND bucket_name > @bucket_name)
+					OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key > @object_key)
+					OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND version > @version)
+				)
+				ORDER BY project_id, bucket_name, object_key, version
+			LIMIT @batch_size;
+		`, Params: map[string]interface{}{
+			"project_id":  startAfter.ProjectID,
+			"bucket_name": startAfter.BucketName,
+			"object_key":  startAfter.ObjectKey,
+			"version":     startAfter.Version,
+			"expires_at":  opts.ExpiredBefore,
+			"batch_size":  batchSize,
+		},
+	}), func(row *spanner.Row, object *ObjectStream) error {
 		var expiresAt time.Time
-		err = row.Columns(
-			&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID,
+		err := row.Columns(
+			&object.ProjectID, &object.BucketName, &object.ObjectKey, &object.Version, &object.StreamID,
 			&expiresAt)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		s.log.Info("Deleting expired object",
-			zap.Stringer("Project", last.ProjectID),
-			zap.String("Bucket", last.BucketName),
-			zap.String("Object Key", string(last.ObjectKey)),
-			zap.Int64("Version", int64(last.Version)),
-			zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
+			zap.Stringer("Project", object.ProjectID),
+			zap.String("Bucket", object.BucketName),
+			zap.String("Object Key", string(object.ObjectKey)),
+			zap.Int64("Version", int64(object.Version)),
+			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
 			zap.Time("Expired At", expiresAt),
 		)
-		expiredObjects = append(expiredObjects, last)
-	}
-	return expiredObjects, nil
+
+		return nil
+	})
+
+	return expiredObjects, Error.Wrap(err)
 }
 
 // DeleteZombieObjects contains all the information necessary to delete zombie objects and segments.
@@ -268,59 +255,49 @@ func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZomb
 func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
 	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
 	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
-	query := `
-		SELECT
-			project_id, bucket_name, object_key, version, stream_id
-		FROM objects
-		WHERE
-			status = ` + statusPending + `
-			AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
-			AND (
-				project_id > @project_id
-				OR (project_id = @project_id AND bucket_name > @bucket_name)
-				OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key > @object_key)
-				OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND version > @version)
-			)
-		ORDER BY project_id, bucket_name, object_key, version
-		LIMIT @batch_size;
-	`
-
-	objects = make([]ObjectStream, 0, batchSize)
-
-	rowIterator := s.client.Single().Query(ctx, spanner.Statement{SQL: query, Params: map[string]interface{}{
-		"project_id":  startAfter.ProjectID,
-		"bucket_name": startAfter.BucketName,
-		"object_key":  startAfter.ObjectKey,
-		"version":     startAfter.Version,
-		"deadline":    opts.DeadlineBefore,
-		"batch_size":  batchSize,
-	}})
-	defer rowIterator.Stop()
-
-	for {
-		row, err := rowIterator.Next()
+	objects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				project_id, bucket_name, object_key, version, stream_id
+			FROM objects
+			WHERE
+				status = ` + statusPending + `
+				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
+				AND ` +
+			TupleGreaterThanSQL(
+				[]string{"project_id", "bucket_name", "object_key", "version"},
+				[]string{"@project_id", "@bucket_name", "@object_key", "@version"}, false) + `
+			ORDER BY project_id, bucket_name, object_key, version
+			LIMIT @batch_size
+		`,
+		Params: map[string]interface{}{
+			"project_id":  startAfter.ProjectID,
+			"bucket_name": startAfter.BucketName,
+			"object_key":  startAfter.ObjectKey,
+			"version":     startAfter.Version,
+			"deadline":    opts.DeadlineBefore,
+			"batch_size":  batchSize,
+		},
+	}), func(row *spanner.Row, object *ObjectStream) error {
+		err := row.Columns(&object.ProjectID, &object.BucketName, &object.ObjectKey, &object.Version, &object.StreamID)
 		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.Wrap(err)
-		}
-
-		var last ObjectStream
-		err = row.Columns(&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
-		if err != nil {
-			return nil, Error.Wrap(err)
+			return Error.Wrap(err)
 		}
 
 		s.log.Debug("selected zombie object for deleting it",
-			zap.Stringer("Project", last.ProjectID),
-			zap.String("Bucket", last.BucketName),
-			zap.String("Object Key", string(last.ObjectKey)),
-			zap.Int64("Version", int64(last.Version)),
-			zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
+			zap.Stringer("Project", object.ProjectID),
+			zap.String("Bucket", object.BucketName),
+			zap.String("Object Key", string(object.ObjectKey)),
+			zap.Int64("Version", int64(object.Version)),
+			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
 		)
-		objects = append(objects, last)
+
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
+
 	return objects, nil
 }
 
