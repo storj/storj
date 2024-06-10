@@ -64,8 +64,17 @@
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
 
+# the prefix for the event name
+# analytics.hub-spot.event-prefix: ""
+
+# the hubspot lifecycle stage for new accounts
+# analytics.hub-spot.life-cycle-stage: ""
+
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
+
+# the hubspot form ID for signup
+# analytics.hub-spot.signup-form-id: ""
 
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token

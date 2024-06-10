@@ -21,14 +21,9 @@ import (
 )
 
 const (
-	eventPrefix      = "pe44965639"
 	expiryBufferTime = 5 * time.Minute
 	// string template for hubspot submission form. %s is a placeholder for the form(ID) being submitted.
 	hubspotFormTemplate = "https://api.hsforms.com/submissions/v3/integration/submit/44965639/%s"
-	// this form  ID  is the minimal  account form.
-	minimalFormID = "ad4cd7b6-1c9c-44b9-b41f-b48611739620"
-	// The hubspot lifecycle stage of all new accounts (Product Qualified Lead).
-	lifecycleStage = "170987588"
 )
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
@@ -40,6 +35,9 @@ type HubSpotConfig struct {
 	ChannelSize     int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
 	ConcurrentSends int           `help:"the number of concurrent api requests that can be made" default:"4"`
 	DefaultTimeout  time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
+	EventPrefix     string        `help:"the prefix for the event name" default:""`
+	SignupFormId    string        `help:"the hubspot form ID for signup" default:""`
+	LifeCycleStage  string        `help:"the hubspot lifecycle stage for new accounts" default:""`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.
@@ -125,7 +123,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		newField("signup_referrer", fields.Referrer),
 		newField("account_created", "true"),
 		newField("signup_partner", fields.UserAgent),
-		newField("lifecyclestage", lifecycleStage),
+		newField("lifecyclestage", q.config.LifeCycleStage),
 	}
 	if fields.SignupCaptcha != nil {
 		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
@@ -137,7 +135,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		"satellite_selected": q.satelliteName,
 	}
 
-	formURL := fmt.Sprintf(hubspotFormTemplate, minimalFormID)
+	formURL := fmt.Sprintf(hubspotFormTemplate, q.config.SignupFormId)
 
 	data := map[string]interface{}{
 		"fields": formFields,
@@ -158,7 +156,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		Endpoint: "https://api.hubapi.com/events/v3/send",
 		Data: map[string]interface{}{
 			"email":      fields.Email,
-			"eventName":  eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
+			"eventName":  q.config.EventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
 			"properties": properties,
 		},
 	}
