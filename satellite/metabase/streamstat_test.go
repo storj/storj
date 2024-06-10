@@ -11,16 +11,10 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestGetStreamPieceCountByNodeID(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): implement GetStreamPieceCountByNodeID for spanner.
-			t.Skip("not implemented for spanner")
-		}
-
 		obj := metabasetest.RandObjectStream()
 
 		t.Run("StreamID missing", func(t *testing.T) {
