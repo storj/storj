@@ -20,11 +20,6 @@ import (
 
 func TestNow(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): implement Now for spanner.
-			t.Skip("not implemented for spanner")
-		}
-
 		sysnow := time.Now()
 		now, err := db.Now(ctx)
 		require.NoError(t, err)

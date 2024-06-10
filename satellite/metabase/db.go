@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -853,8 +855,12 @@ func (p *PostgresAdapter) Now(ctx context.Context) (time.Time, error) {
 
 // Now returns the current time according to the database.
 func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
-	// TODO: implement me
-	panic("implement me")
+	return spannerutil.CollectRow(
+		s.client.Single().Query(ctx, spanner.Statement{SQL: `SELECT CURRENT_TIMESTAMP`}),
+		func(row *spanner.Row, now *time.Time) error {
+			return row.Columns(now)
+		},
+	)
 }
 
 func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
