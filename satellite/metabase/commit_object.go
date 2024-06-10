@@ -21,7 +21,7 @@ import (
 type commitObjectWithSegmentsTransactionAdapter interface {
 	fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error)
 	finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) error
-	deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int, err error)
+	deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error)
 
 	precommitTransactionAdapter
 }
@@ -60,7 +60,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, err
 	}
 
-	var deletedSegmentCount int
+	var deletedSegmentCount int64
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		// TODO: should we prevent this from executing when the object has been committed
@@ -153,7 +153,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	mon.Meter("object_commit").Mark(1)
 	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
 	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
-	mon.Meter("segment_delete").Mark(deletedSegmentCount)
+	mon.Meter("segment_delete").Mark64(deletedSegmentCount)
 
 	return object, nil
 }
@@ -511,7 +511,7 @@ func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, 
 }
 
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
-func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int, err error) {
+func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(segments) == 0 {
 		return 0, nil
@@ -536,10 +536,10 @@ func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Con
 		return 0, Error.New("unable to count deleted segments: %w", err)
 	}
 
-	return int(deletedCount), nil
+	return deletedCount, nil
 }
 
-func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int, err error) {
+func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(segments) == 0 {
 		return 0, nil
@@ -550,21 +550,15 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 		positions = append(positions, int64(p.Encode()))
 	}
 
-	// This potentially could be done together with the previous database call.
-	err = stx.tx.Query(ctx, spanner.Statement{
+	deletedSegmentCount, err = stx.tx.Update(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM segments
 			WHERE stream_id = @stream_id AND ARRAY_INCLUDES(@positions, position)
-			THEN RETURN 1
 		`,
 		Params: map[string]interface{}{
 			"stream_id": streamID,
 			"positions": positions,
 		},
-	}).Do(func(row *spanner.Row) error {
-		// TODO(spanner): this return and looping probably can be avoided with something similar to RowsAffected().
-		deletedSegmentCount++
-		return nil
 	})
 	if err != nil {
 		return 0, Error.New("unable to delete segments: %w", err)
