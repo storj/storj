@@ -132,7 +132,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 
 // GetObjectExactVersion returns object information for exact version.
 func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
-	result := s.client.Single().Query(ctx, spanner.Statement{
+	object, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, status,
@@ -152,32 +152,28 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	})
-	defer result.Stop()
+	}), func(row *spanner.Row, object *Object) error {
+		object.ProjectID = opts.ProjectID
+		object.BucketName = opts.BucketName
+		object.ObjectKey = opts.ObjectKey
+		object.Version = opts.Version
 
-	row, err := result.Next()
+		return Error.Wrap(row.Columns(
+			&object.StreamID, &object.Status,
+			&object.CreatedAt, &object.ExpiresAt,
+			spannerutil.Int(&object.SegmentCount),
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+			encryptionParameters{&object.Encryption},
+		))
+	})
+
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
 			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}
-	err = row.Columns(
-		&object.StreamID, &object.Status,
-		&object.CreatedAt, &object.ExpiresAt,
-		spannerutil.Int(&object.SegmentCount),
-		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-		&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-		encryptionParameters{&object.Encryption},
-	)
-	if err != nil {
-		return Object{}, Error.New("unable to read object status: %w", err)
-	}
-
-	object.ProjectID = opts.ProjectID
-	object.BucketName = opts.BucketName
-	object.ObjectKey = opts.ObjectKey
-	object.Version = opts.Version
 
 	return object, nil
 }
@@ -196,22 +192,16 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 		return Object{}, err
 	}
 
-	var object Object
+	return db.ChooseAdapter(opts.ProjectID).GetObjectLastCommitted(ctx, opts)
+}
+
+// GetObjectLastCommitted implements Adapter.
+func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
 	object.ProjectID = opts.ProjectID
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
 
-	err = db.ChooseAdapter(opts.ProjectID).GetObjectLastCommitted(ctx, opts, &object)
-	if err != nil {
-		return Object{}, err
-	}
-
-	return object, nil
-}
-
-// GetObjectLastCommitted implements Adapter.
-func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error {
-	row := p.db.QueryRowContext(ctx, `
+	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, version, status,
 			created_at, expires_at,
@@ -226,9 +216,8 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 			(expires_at IS NULL OR expires_at > now())
 		ORDER BY version DESC
 		LIMIT 1`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey)
-
-	err := row.Scan(
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey,
+	).Scan(
 		&object.StreamID, &object.Version, &object.Status,
 		&object.CreatedAt, &object.ExpiresAt,
 		&object.SegmentCount,
@@ -238,14 +227,18 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 	)
 
 	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
-		return ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 	}
-	return Error.Wrap(err)
+	if err != nil {
+		return Object{}, Error.Wrap(err)
+	}
+
+	return object, nil
 }
 
 // GetObjectLastCommitted implements Adapter.
-func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error {
-	result := s.client.Single().Query(ctx, spanner.Statement{
+func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
+	object, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, version, status,
@@ -268,31 +261,31 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	})
-	defer result.Stop()
+	}), func(row *spanner.Row, object *Object) error {
+		object.ProjectID = opts.ProjectID
+		object.BucketName = opts.BucketName
+		object.ObjectKey = opts.ObjectKey
 
-	row, err := result.Next()
+		return Error.Wrap(row.Columns(
+			&object.StreamID, &object.Version, &object.Status,
+			&object.CreatedAt, &object.ExpiresAt,
+			spannerutil.Int(&object.SegmentCount),
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+			encryptionParameters{&object.Encryption},
+		))
+	})
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
-			return ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 		}
-		return Error.Wrap(err)
+		return Object{}, Error.Wrap(err)
 	}
-	if err := row.Columns(
-		&object.StreamID, &object.Version, &object.Status,
-		&object.CreatedAt, &object.ExpiresAt,
-		spannerutil.Int(&object.SegmentCount),
-		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-		&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-		encryptionParameters{&object.Encryption},
-	); err != nil {
-		return Error.Wrap(err)
+	if object.Status.IsDeleteMarker() {
+		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 	}
 
-	if object.Status.IsDeleteMarker() {
-		return ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
-	}
-	return nil
+	return object, nil
 }
 
 // GetSegmentByPosition contains arguments necessary for fetching a segment on specific position.
@@ -369,7 +362,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	result := s.client.Single().Query(ctx, spanner.Statement{
+	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				created_at, expires_at, repaired_at,
@@ -386,26 +379,21 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 			"stream_id": opts.StreamID,
 			"position":  opts.Position,
 		},
+	}), func(row *spanner.Row, segment *Segment) error {
+		return Error.Wrap(row.Columns(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+			&segment.EncryptedETag,
+			redundancyScheme{&segment.Redundancy},
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		))
 	})
-	defer result.Stop()
-
-	row, err := result.Next()
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
 			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
-		return Segment{}, aliasPieces, Error.New("unable to query segment: %w", err)
-	}
-	err = row.Columns(
-		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-		&segment.EncryptedETag,
-		redundancyScheme{&segment.Redundancy},
-		&segment.InlineData, &aliasPieces,
-		&segment.Placement,
-	)
-	if err != nil {
 		return Segment{}, nil, Error.New("unable to query segment: %w", err)
 	}
 
@@ -487,7 +475,7 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 
 // GetLatestObjectLastSegment returns an object last segment information.
 func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
-	result := s.client.Single().Query(ctx, spanner.Statement{
+	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, position,
@@ -517,30 +505,26 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
+	}), func(row *spanner.Row, segment *Segment) error {
+		return Error.Wrap(row.Columns(
+			&segment.StreamID, &segment.Position,
+			&segment.CreatedAt, &segment.RepairedAt,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+			&segment.EncryptedETag,
+			redundancyScheme{&segment.Redundancy},
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		))
 	})
-	defer result.Stop()
 
-	row, err := result.Next()
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
 			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
-		return Segment{}, nil, Error.New("unable to query segment: %w", err)
-	}
-
-	err = row.Columns(
-		&segment.StreamID, &segment.Position,
-		&segment.CreatedAt, &segment.RepairedAt,
-		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-		&segment.EncryptedETag,
-		redundancyScheme{&segment.Redundancy},
-		&segment.InlineData, &aliasPieces,
-		&segment.Placement,
-	)
-	if err != nil {
 		return Segment{}, nil, Error.New("unable to read segment from query: %w", err)
 	}
+
 	return segment, aliasPieces, nil
 }
 
@@ -582,28 +566,17 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
-	var value bool
-	result := s.client.Single().Query(ctx, spanner.Statement{
-		SQL: `
-		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name))
-		`,
+	return spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `SELECT NOT EXISTS (
+			SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
+		)`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 		},
+	}), func(row *spanner.Row, noitems *bool) error {
+		return Error.Wrap(row.Columns(noitems))
 	})
-	defer result.Stop()
-
-	row, err := result.Next()
-	if err != nil {
-		return false, Error.New("unable to query objects: %w", err)
-	}
-	err = row.Columns(&value)
-	if err != nil {
-		return false, Error.New("unable to read objects query: %w", err)
-	}
-
-	return !value, nil
 }
 
 // TestingAllObjects gets all objects.

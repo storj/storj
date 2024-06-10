@@ -20,7 +20,7 @@ type Adapter interface {
 	Name() string
 
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
-	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
+	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error
