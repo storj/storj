@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
@@ -18,6 +19,7 @@ import (
 // TODO: we may need separated adapter for segments/objects/etc.
 type Adapter interface {
 	Name() string
+	Now(ctx context.Context) (time.Time, error)
 
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)

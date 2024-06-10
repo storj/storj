@@ -838,11 +838,23 @@ func (pq postgresRebind) Rebind(sql string) string {
 	return string(out)
 }
 
-// Now returns time on the database.
+// Now returns the current time according to the first database adapter.
+// TODO(spanner): require callers to specify a projectID or adapter name to select which adapter they care about.
 func (db *DB) Now(ctx context.Context) (time.Time, error) {
+	return db.adapters[0].Now(ctx)
+}
+
+// Now returns the current time according to the database.
+func (p *PostgresAdapter) Now(ctx context.Context) (time.Time, error) {
 	var t time.Time
-	err := db.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
+	err := p.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
 	return t, Error.Wrap(err)
+}
+
+// Now returns the current time according to the database.
+func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
+	// TODO: implement me
+	panic("implement me")
 }
 
 func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
