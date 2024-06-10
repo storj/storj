@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // ErrValueChanged is returned when the current value of the key does not match the oldValue in UpdateSegmentPieces.
@@ -145,7 +146,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		rowIterator := tx.Query(ctx, spanner.Statement{
+		resultPieces, err = spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				UPDATE segments SET
 					remote_alias_pieces = CASE
@@ -174,18 +175,22 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 				"new_repaired_at":    opts.NewRepairedAt,
 				"update_repaired_at": updateRepairAt,
 			},
+		}), func(row *spanner.Row, item *AliasPieces) error {
+			err = row.Columns(&resultPieces)
+			if err != nil {
+				return Error.New("unable to decode result pieces: %w", err)
+			}
+			return nil
 		})
-		defer rowIterator.Stop()
 
-		row, err := rowIterator.Next()
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return ErrSegmentNotFound.New("segment missing")
 			}
 			return Error.New("unable to update segment pieces: %w", err)
 		}
-		err = row.Columns(&resultPieces)
-		return Error.New("unable to decode result pieces: %w", err)
+
+		return nil
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
