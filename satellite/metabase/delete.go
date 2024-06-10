@@ -719,49 +719,44 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 			return ErrObjectNotFound.New("unable to delete object")
 		}
 
-		resultIterator := stx.tx.Query(ctx, spanner.Statement{
-			SQL: `
-				INSERT INTO objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					status,
-					zombie_deletion_deadline
-				) VALUES (
-					@project_id, @bucket_name, @object_key, @version, @marker,
-					` + statusDeleteMarkerUnversioned + `,
-					NULL
-				)
-				THEN RETURN
-					version,
-					created_at
-			`,
-			Params: map[string]interface{}{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     precommit.HighestVersion + 1,
-				"marker":      deleterMarkerStreamID,
-			},
-		})
-		defer resultIterator.Stop()
-
-		row, err := resultIterator.Next()
+		marker, err := spannerutil.CollectRow(
+			stx.tx.Query(ctx, spanner.Statement{
+				SQL: `
+					INSERT INTO objects (
+						project_id, bucket_name, object_key, version, stream_id,
+						status,
+						zombie_deletion_deadline
+					) VALUES (
+						@project_id, @bucket_name, @object_key, @version, @marker,
+						` + statusDeleteMarkerUnversioned + `,
+						NULL
+					)
+					THEN RETURN
+						version,
+						created_at
+				`,
+				Params: map[string]interface{}{
+					"project_id":  opts.ProjectID,
+					"bucket_name": opts.BucketName,
+					"object_key":  opts.ObjectKey,
+					"version":     precommit.HighestVersion + 1,
+					"marker":      deleterMarkerStreamID,
+				},
+			}), func(row *spanner.Row, item *Object) error {
+				return Error.Wrap(row.Columns(&item.Version, &item.CreatedAt))
+			})
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return Error.New("could not insert deletion marker: %w", err)
 			}
 			return Error.Wrap(err)
 		}
-		var marker Object
+
 		marker.ProjectID = opts.ProjectID
 		marker.BucketName = opts.BucketName
 		marker.ObjectKey = opts.ObjectKey
 		marker.Status = DeleteMarkerUnversioned
 		marker.StreamID = deleterMarkerStreamID
-
-		err = row.Columns(&marker.Version, &marker.CreatedAt)
-		if err != nil {
-			return Error.Wrap(err)
-		}
 
 		result.Markers = append(result.Markers, marker)
 		result.Removed = precommit.Deleted
@@ -818,37 +813,38 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
 func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		rowIterator := tx.Query(ctx, spanner.Statement{
-			SQL: `
-				INSERT INTO objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					status,
-					zombie_deletion_deadline
-				)
-				SELECT
-					@project_id, @bucket_name, @object_key,
-						coalesce((
-							SELECT version + 1
-							FROM objects
-							WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-							ORDER BY version DESC
-							LIMIT 1
-						), 1),
-					@marker,
-					` + statusDeleteMarkerVersioned + `,
-					NULL
-				THEN RETURN version, created_at
-			`,
-			Params: map[string]interface{}{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"marker":      deleterMarkerStreamID,
-			},
-		})
-		defer rowIterator.Stop()
 
-		row, err := rowIterator.Next()
+		deleted, err := spannerutil.CollectRow(
+			tx.Query(ctx, spanner.Statement{
+				SQL: `
+					INSERT INTO objects (
+						project_id, bucket_name, object_key, version, stream_id,
+						status,
+						zombie_deletion_deadline
+					)
+					SELECT
+						@project_id, @bucket_name, @object_key,
+							coalesce((
+								SELECT version + 1
+								FROM objects
+								WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+								ORDER BY version DESC
+								LIMIT 1
+							), 1),
+						@marker,
+						` + statusDeleteMarkerVersioned + `,
+						NULL
+					THEN RETURN version, created_at
+				`,
+				Params: map[string]interface{}{
+					"project_id":  opts.ProjectID,
+					"bucket_name": opts.BucketName,
+					"object_key":  opts.ObjectKey,
+					"marker":      deleterMarkerStreamID,
+				},
+			}), func(row *spanner.Row, item *Object) error {
+				return Error.Wrap(row.Columns(&item.Version, &item.CreatedAt))
+			})
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return ErrObjectNotFound.Wrap(Error.New("object does not exist"))
@@ -856,18 +852,14 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 			return Error.Wrap(err)
 		}
 
-		var deleted Object
 		deleted.ProjectID = opts.ProjectID
 		deleted.BucketName = opts.BucketName
 		deleted.ObjectKey = opts.ObjectKey
 		deleted.StreamID = deleterMarkerStreamID
 		deleted.Status = DeleteMarkerVersioned
 
-		err = row.Columns(&deleted.Version, &deleted.CreatedAt)
-		if err != nil {
-			return Error.Wrap(err)
-		}
 		result.Markers = []Object{deleted}
+
 		return nil
 	})
 	if err != nil {
