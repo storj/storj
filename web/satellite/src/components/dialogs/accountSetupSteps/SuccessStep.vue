@@ -16,7 +16,7 @@
                     class="mt-7"
                     size="large"
                     :append-icon="mdiChevronRight"
-                    :loading="isLoading"
+                    :loading="loading"
                     @click="finishSetup()"
                 >
                     Continue
@@ -33,9 +33,7 @@ import { nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
-import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ONBOARDING_STEPPER_STEPS } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -51,32 +49,31 @@ const userStore = useUsersStore();
 
 const router = useRouter();
 
-const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
+defineProps<{
+    loading: boolean,
+}>();
 
-function finishSetup() {
-    withLoading(async () => {
-        try {
-            const projects = projectsStore.state.projects;
-            if (!projects.length) {
-                await projectsStore.createDefaultProject(userStore.state.user.id);
-            }
-            projectsStore.selectProject(projects[0].id);
+async function finishSetup() {
+    const projects = projectsStore.state.projects;
+    if (!projects.length) {
+        await projectsStore.createDefaultProject(userStore.state.user.id);
+    }
+    projectsStore.selectProject(projects[0].id);
 
-            analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-            await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
-            await userStore.getUser();
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-            return;
-        }
-        appStore.toggleAccountSetup(false);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
+    await userStore.getUser();
 
-        await nextTick();
-        router.push({
-            name: ROUTES.Dashboard.name,
-            params: { id: projectsStore.state.selectedProject.urlId },
-        });
+    appStore.toggleAccountSetup(false);
+
+    await nextTick();
+    router.push({
+        name: ROUTES.Dashboard.name,
+        params: { id: projectsStore.state.selectedProject.urlId },
     });
 }
+
+defineExpose({
+    setup: finishSetup,
+});
 </script>

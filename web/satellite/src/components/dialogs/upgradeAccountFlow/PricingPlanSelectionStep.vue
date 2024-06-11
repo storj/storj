@@ -18,7 +18,6 @@ import { VCol, VRow } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { User } from '@/types/users';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -80,7 +79,7 @@ onBeforeMount(async () => {
 
     const plan = billingStore.state.pricingPlanInfo;
     if (!plan) {
-        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
+        notify.error(`No pricing plan configuration for partner '${usersStore.state.user.partner}'.`, null);
         return;
     }
     plan.type = PricingPlanType.PARTNER;

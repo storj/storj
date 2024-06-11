@@ -75,11 +75,11 @@ import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 const analyticsStore = useAnalyticsStore();
 
 const emit = defineEmits<{
-    next: [OnboardingStep];
+    select: [OnboardingStep];
 }>();
 
 function typeSelected(type: OnboardingStep) {
-    emit('next', type);
+    emit('select', type);
 
     let event: AnalyticsEvent;
     switch (type) {

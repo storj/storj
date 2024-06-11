@@ -5,7 +5,7 @@
     <v-container>
         <managed-passphrase-opt-in-selector
             :selected-mode="selectedMode"
-            :loading="isLoading"
+            :loading="loading"
             @back="emit('back')"
             @mode-chosen="onModeChosen"
         />
@@ -17,10 +17,7 @@ import { VContainer } from 'vuetify/components';
 import { ref } from 'vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ManagePassphraseMode } from '@/types/projects';
 
 import ManagedPassphraseOptInSelector from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInSelector.vue';
@@ -28,8 +25,9 @@ import ManagedPassphraseOptInSelector from '@/components/dialogs/accountSetupSte
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 
-const notify = useNotify();
-const { withLoading, isLoading } = useLoading();
+defineProps<{
+    loading: boolean,
+}>();
 
 const emit = defineEmits<{
     next: [];
@@ -40,13 +38,15 @@ const selectedMode = ref<ManagePassphraseMode>();
 
 function onModeChosen(mode: ManagePassphraseMode) {
     selectedMode.value = mode;
-    withLoading(async () => {
-        try {
-            await projectsStore.createDefaultProject(userStore.state.user.id, mode === 'auto');
-            emit('next');
-        } catch (e) {
-            notify.notifyError(e, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-        }
-    });
+    emit('next');
 }
+
+async function setup() {
+    await projectsStore.createDefaultProject(userStore.state.user.id, selectedMode.value === 'auto');
+}
+
+defineExpose({
+    validate: () => !!selectedMode.value,
+    setup,
+});
 </script>
