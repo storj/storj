@@ -151,7 +151,7 @@ func TestProjectLimitGet(t *testing.T) {
 				ctx,
 				t,
 				linkLimit,
-				`{"usage":{"amount":"25.00 GB","bytes":25000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+				`{"usage":{"amount":"25.00 GB","bytes":25000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"maxBuckets":null,"maxSegments":10000,"rate":null,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 				planet.Satellites[0].Config.Console.AuthToken,
 			)
 		})
@@ -251,7 +251,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"35.00 GB","bytes":35000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"35.00 GB","bytes":35000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"maxBuckets":null,"maxSegments":10000,"rate":null,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -270,7 +270,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"maxBuckets":null,"maxSegments":10000,"rate":null,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -291,7 +291,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"99.00 MB","bytes":99000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"99.00 MB","bytes":99000000},"maxBuckets":null,"maxSegments":10000,"rate":null,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -310,7 +310,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":null,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -331,7 +331,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":100,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -350,7 +350,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":null},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":null,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -369,7 +369,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":0,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -390,7 +390,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":50,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":0,"burst":50,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -409,7 +409,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":null,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":0,"burst":null,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -428,7 +428,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":0,"burst":0,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -449,7 +449,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":2000,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":2000,"maxSegments":10000,"rate":0,"burst":0,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -468,7 +468,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":null,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":null,"maxSegments":10000,"rate":0,"burst":0,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -487,7 +487,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 					ctx,
 					t,
 					linkLimit,
-					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":0,"maxSegments":10000,"rate":0,"burst":0,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 					planet.Satellites[0].Config.Console.AuthToken,
 				)
 			})
@@ -507,19 +507,87 @@ func TestProjectLimitUpdate(t *testing.T) {
 				ctx,
 				t,
 				linkLimit,
-				`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":500}`,
+				`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":0,"maxSegments":500,"rate":0,"burst":0,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
 				planet.Satellites[0].Config.Console.AuthToken,
 			)
 		})
 
+		t.Run("Update Op-Specific Rates", func(t *testing.T) {
+			t.Run("set not zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rateHead=1&burstHead=2&rateGet=3&burstGet=4&ratePut=5&burstPut=6&rateList=7&burstList=8&rateDelete=9&burstDelete=10", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":0,"maxSegments":500,"rate":0,"burst":0,"rateHead":1,"burstHead":2,"rateGet":3,"burstGet":4,"ratePut":5,"burstPut":6,"rateList":7,"burstList":8,"rateDelete":9,"burstDelete":10}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set default", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rateHead=-1&burstHead=-2&rateGet=-3&burstGet=-4&ratePut=-5&burstPut=-6&rateList=-7&burstList=-8&rateDelete=-9&burstDelete=-10", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":0,"maxSegments":500,"rate":0,"burst":0,"rateHead":null,"burstHead":null,"rateGet":null,"burstGet":null,"ratePut":null,"burstPut":null,"rateList":null,"burstList":null,"rateDelete":null,"burstDelete":null}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+
+			t.Run("set zero", func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?rateHead=0&burstHead=0&rateGet=0&burstGet=0&ratePut=0&burstPut=0&rateList=0&burstList=0&rateDelete=0&burstDelete=0", nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.NoError(t, response.Body.Close())
+
+				assertGet(
+					ctx,
+					t,
+					linkLimit,
+					`{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"maxBuckets":0,"maxSegments":500,"rate":0,"burst":0,"rateHead":0,"burstHead":0,"rateGet":0,"burstGet":0,"ratePut":0,"burstPut":0,"rateList":0,"burstList":0,"rateDelete":0,"burstDelete":0}`,
+					planet.Satellites[0].Config.Console.AuthToken,
+				)
+			})
+		})
 		t.Run("Update via body", func(t *testing.T) {
 			data := url.Values{
-				"usage":     []string{"1TiB"},
-				"bandwidth": []string{"2000000000"},
-				"rate":      []string{"25"},
-				"burst":     []string{"7"},
-				"buckets":   []string{"-1"},
-				"segments":  []string{"999"},
+				"usage":       []string{"1TiB"},
+				"bandwidth":   []string{"2000000000"},
+				"buckets":     []string{"-1"},
+				"segments":    []string{"999"},
+				"rate":        []string{"1"},
+				"burst":       []string{"2"},
+				"rateHead":    []string{"3"},
+				"burstHead":   []string{"4"},
+				"rateGet":     []string{"5"},
+				"burstGet":    []string{"6"},
+				"ratePut":     []string{"7"},
+				"burstPut":    []string{"8"},
+				"rateList":    []string{"9"},
+				"burstList":   []string{"10"},
+				"rateDelete":  []string{"11"},
+				"burstDelete": []string{"12"},
 			}
 			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit, strings.NewReader(data.Encode()))
 			require.NoError(t, err)
@@ -535,7 +603,7 @@ func TestProjectLimitUpdate(t *testing.T) {
 				ctx,
 				t,
 				linkLimit,
-				`{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"2.00 GB","bytes":2000000000},"rate":{"rps":25},"burst":7,"maxBuckets":null,"maxSegments":999}`,
+				`{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"2.00 GB","bytes":2000000000},"maxBuckets":null,"maxSegments":999,"rate":1,"burst":2,"rateHead":3,"burstHead":4,"rateGet":5,"burstGet":6,"ratePut":7,"burstPut":8,"rateList":9,"burstList":10,"rateDelete":11,"burstDelete":12}`,
 				planet.Satellites[0].Config.Console.AuthToken,
 			)
 		})
