@@ -16,7 +16,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -73,10 +72,7 @@ func TestNodeAliases(t *testing.T) {
 
 			for _, entry := range aliases {
 				require.True(t, nodesContains(nodes, entry.ID))
-				// TODO(spanner): fix this check to be same for both implementations
-				nonSpannerCheck(db, func() {
-					require.LessOrEqual(t, int(entry.Alias), len(nodes))
-				})
+				require.LessOrEqual(t, int(entry.Alias), len(nodes))
 			}
 
 			metabasetest.EnsureNodeAliases{
@@ -112,11 +108,8 @@ func TestNodeAliases(t *testing.T) {
 			seen := map[metabase.NodeAlias]bool{}
 			require.Len(t, aliases, len(nodes))
 			for _, entry := range aliases {
-				// TODO(spanner): fix this check to be same for both implementations
 				require.True(t, nodesContains(nodes, entry.ID))
-				nonSpannerCheck(db, func() {
-					require.LessOrEqual(t, int(entry.Alias), len(nodes))
-				})
+				require.LessOrEqual(t, int(entry.Alias), len(nodes))
 
 				require.False(t, seen[entry.Alias])
 				seen[entry.Alias] = true
@@ -234,13 +227,6 @@ func TestNodeAliases(t *testing.T) {
 			require.NoError(t, group.Wait())
 		})
 	})
-}
-
-func nonSpannerCheck(db *metabase.DB, check func()) {
-	adapter := db.ChooseAdapter(uuid.UUID{})
-	if _, ok := adapter.(*metabase.SpannerAdapter); !ok {
-		check()
-	}
 }
 
 func nodesContains(nodes []storj.NodeID, v storj.NodeID) bool {
