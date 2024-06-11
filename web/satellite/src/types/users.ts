@@ -292,6 +292,7 @@ export class FreezeStatus {
 export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
     PersonalAccountForm = 'PersonalAccountForm',
+    PlanTypeSelection = 'PlanTypeSelection',
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
     PricingPlan = 'PricingPlan',
@@ -314,6 +315,7 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountTypeSelection,
     OnboardingStep.PersonalAccountForm,
     OnboardingStep.ManagedPassphraseOptIn,
+    OnboardingStep.PlanTypeSelection,
     OnboardingStep.PricingPlanSelection,
     OnboardingStep.PricingPlan,
     OnboardingStep.BusinessAccountForm,

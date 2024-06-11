@@ -41,12 +41,17 @@ export class LoginPage {
         await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).click();
     }
 
+    async selectFreeTrial() {
+        await this.page.locator(LoginPageObjects.FREE_PLAN_XPATH).click();
+        await this.page.locator(LoginPageObjects.ACTIVATE_XPATH).click();
+    }
+
     async ensureSetupSuccess(): Promise<void> {
         const label = this.page.locator(LoginPageObjects.SETUP_SUCCESS_LABEL_XPATH);
         await expect(label).toBeVisible();
     }
 
     async finishSetup(): Promise<void> {
-        await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).nth(1).click();
+        await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).nth(2).click();
     }
 }

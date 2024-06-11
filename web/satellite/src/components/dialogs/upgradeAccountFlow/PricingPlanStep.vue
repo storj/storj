@@ -45,6 +45,7 @@
 
         <div class="py-4">
             <v-btn
+                id="activate"
                 block
                 :color="plan.type === 'partner' ? 'success' : 'primary'"
                 :loading="loading"

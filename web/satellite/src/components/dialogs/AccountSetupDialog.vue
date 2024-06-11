@@ -2,12 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog :model-value="shouldShowSetupDialog" :height="dialogHeight" :width="dialogWidth" persistent transition="fade-transition" scrollable>
+    <v-dialog :model-value="shouldShowSetupDialog" height="87%" width="87%" persistent transition="fade-transition" scrollable>
         <v-card
             ref="innerContent"
-            :title="step === OnboardingStep.PricingPlanSelection ? 'Select a pricing plan' : ''"
         >
-            <v-card-item class="py-4">
+            <v-card-item class="py-4" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
                 <v-window v-model="step">
                     <!-- Choice step -->
                     <v-window-item :value="OnboardingStep.AccountTypeSelection">
@@ -56,20 +55,55 @@
                         />
                     </v-window-item>
 
-                    <!-- Pricing plan steps -->
-                    <v-window-item :value="OnboardingStep.PricingPlanSelection">
-                        <pricing-plan-selection-step
-                            show-free-plan
+                    <v-window-item :value="OnboardingStep.PlanTypeSelection">
+                        <account-type-step
                             @select="onSelectPricingPlan"
+                            @back="toPrevStep"
                         />
                     </v-window-item>
 
+                    <!-- Pricing plan steps -->
+                    <v-window-item :value="OnboardingStep.PricingPlanSelection">
+                        <v-container>
+                            <v-row justify="center">
+                                <v-col class="text-center pt-10 pb-4">
+                                    <icon-storj-logo />
+                                    <div class="text-overline mt-2 mb-1">
+                                        Pricing Plan
+                                    </div>
+                                    <h2>Select a pricing plan</h2>
+                                </v-col>
+                            </v-row>
+                            <v-row justify="center" align="center">
+                                <pricing-plan-selection-step
+                                    show-free-plan
+                                    @select="onSelectPricingPlan"
+                                />
+                            </v-row>
+                        </v-container>
+                    </v-window-item>
+
                     <v-window-item :value="OnboardingStep.PricingPlan">
-                        <PricingPlanStep
-                            :plan="plan"
-                            @back="toPrevStep"
-                            @success="toNextStep"
-                        />
+                        <v-container>
+                            <v-row justify="center">
+                                <v-col class="text-center pt-10 pb-4">
+                                    <icon-storj-logo />
+                                    <div class="text-overline mt-2 mb-1">
+                                        Account Type
+                                    </div>
+                                    <h2>Activate your account.</h2>
+                                </v-col>
+                            </v-row>
+                            <v-row justify="center" align="center">
+                                <v-col cols="12" sm="8" md="6" lg="4">
+                                    <PricingPlanStep
+                                        :plan="plan"
+                                        @back="toPrevStep"
+                                        @success="toNextStep"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-container>
                     </v-window-item>
 
                     <!-- Final step -->
@@ -87,13 +121,14 @@
 
 <script setup lang="ts">
 import { Component, computed, onBeforeMount, Ref, ref, watch } from 'vue';
-import { VCard, VCardItem, VDialog, VWindow, VWindowItem } from 'vuetify/components';
+import { VCard, VCardItem, VCol, VContainer, VDialog, VRow, VWindow, VWindowItem } from 'vuetify/components';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
     ACCOUNT_SETUP_STEPS,
     ONBOARDING_STEPPER_STEPS,
-    OnboardingStep, SetUserSettingsData,
+    OnboardingStep,
+    SetUserSettingsData,
     UserSettings,
 } from '@/types/users';
 import { PricingPlanInfo } from '@/types/common';
@@ -113,6 +148,8 @@ import SuccessStep from '@/components/dialogs/accountSetupSteps/SuccessStep.vue'
 import PricingPlanSelectionStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanSelectionStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';
 import ManagedPassphraseOptInStep from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInStep.vue';
+import AccountTypeStep from '@/components/dialogs/accountSetupSteps/AccountTypeStep.vue';
+import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 type SetupLocation = OnboardingStep | undefined | (() => (OnboardingStep | undefined));
 interface SetupStep {
@@ -162,7 +199,7 @@ const stepInfos = {
             () => {
                 if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-                return OnboardingStep.SetupComplete;
+                return OnboardingStep.PlanTypeSelection;
             },
         );
         info.beforeNext =  async () => {
@@ -177,7 +214,7 @@ const stepInfos = {
             () => {
                 if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-                return OnboardingStep.SetupComplete;
+                return OnboardingStep.PlanTypeSelection;
             },
         );
         info.beforeNext =  async () => {
@@ -191,7 +228,7 @@ const stepInfos = {
             () => accountType.value || OnboardingStep.AccountTypeSelection,
             () => {
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-                return OnboardingStep.SetupComplete;
+                return OnboardingStep.PlanTypeSelection;
             },
         );
         info.beforeNext =  async () => {
@@ -207,9 +244,19 @@ const stepInfos = {
         },
         OnboardingStep.PricingPlan,
     ),
+    [OnboardingStep.PlanTypeSelection]: new StepInfo(
+        () => {
+            if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+            return accountType.value || OnboardingStep.AccountTypeSelection;
+        },
+        OnboardingStep.PricingPlan,
+    ),
     [OnboardingStep.PricingPlan]: (() => {
         const info = new StepInfo(
-            OnboardingStep.PricingPlanSelection,
+            () => {
+                if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
+                return OnboardingStep.PlanTypeSelection;
+            },
             OnboardingStep.SetupComplete,
         );
         info.beforeNext =  async () => {
@@ -266,44 +313,6 @@ const shouldShowSetupDialog = computed(() => {
 });
 
 const userSettings = computed(() => userStore.state.settings as UserSettings);
-
-/**
- * step-dynamic dialog height
- */
-const dialogHeight = computed(() => {
-    switch (step.value) {
-
-    case OnboardingStep.AccountTypeSelection:
-    case OnboardingStep.BusinessAccountForm:
-    case OnboardingStep.PersonalAccountForm:
-    case OnboardingStep.ManagedPassphraseOptIn:
-        return '87%';
-    default:
-        return 'auto';
-    }
-});
-
-/**
- * step-dynamic dialog width
- */
-const dialogWidth = computed(() => {
-    switch (step.value) {
-
-    case OnboardingStep.AccountTypeSelection:
-    case OnboardingStep.BusinessAccountForm:
-    case OnboardingStep.PersonalAccountForm:
-        return '87%';
-
-    case OnboardingStep.PricingPlanSelection:
-        return '720px';
-    case OnboardingStep.PricingPlan:
-        return '460px';
-    case OnboardingStep.SetupComplete:
-        return '540px';
-    default:
-        return '';
-    }
-});
 
 function onChoiceSelect(s: OnboardingStep) {
     accountType.value = s;
