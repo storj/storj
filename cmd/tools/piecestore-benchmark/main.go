@@ -54,6 +54,7 @@ var (
 	ttl             = flag.Duration("ttl", time.Hour, "")
 	forceSync       = flag.Bool("force-sync", false, "")
 	disablePrealloc = flag.Bool("disable-prealloc", false, "")
+	dbsLocation     = flag.String("dbs-location", "", "")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
 	memprofile = flag.String("memprofile", "", "write a memory profile")
@@ -81,6 +82,10 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	})
 
 	try.E(cfg.Storage2.Trust.Sources.Set(fmt.Sprintf("%s@localhost:0", satIdent.ID)))
+
+	if *dbsLocation != "" {
+		cfg.Storage2.DatabaseDir = *dbsLocation
+	}
 
 	snDB := try.E1(storagenodedb.OpenNew(ctx, log, cfg.DatabaseConfig()))
 	try.E(snDB.MigrateToLatest(ctx))
