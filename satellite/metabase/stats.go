@@ -67,7 +67,23 @@ func (c *CockroachAdapter) GetTableStats(ctx context.Context, opts GetTableStats
 
 // GetTableStats (will) implement Adapter.
 func (s *SpannerAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
-	//TODO:spanner use https://cloud.google.com/spanner/docs/introspection/table-sizes-statistics
+	// TODO:spanner gather a total number of bytes stored instead of rows
+	//
+	// Unfortunately, https://cloud.google.com/spanner/docs/introspection/table-sizes-statistics
+	// won't quite be able to get us a number of rows here. It can only tell us how many total
+	// bytes are used to store a table, and not the number of rows. We could theoretically use
+	// the average number of bytes per row to get a decent estimate of the number of rows, but
+	// the sizes in TABLE_SIZES_STATS_1HOUR include all past versions of rows and deleted rows
+	// for whatever the version_retention_period is.
+	//
+	// Some other problems are (1) the Spanner emulator does not support TABLE_SIZES_STATS_1HOUR
+	// at all, and (2) there is no way to request or force an update to the statistics other than
+	// waiting until the top of the next hour.
+	//
+	// Instead of trying to force spanner into a cockroach-shaped hole, we should probably just
+	// report the table sizes in bytes. This will require storing some different metrics in
+	// rangedloop/observerlivecount.go, but that shouldn't be too bad.
+
 	return TableStats{
 		SegmentCount: 0,
 	}, nil
