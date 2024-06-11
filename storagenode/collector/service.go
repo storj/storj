@@ -83,11 +83,6 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	service.usedSerials.DeleteExpired(now)
 
 	var count int64
-	defer func() {
-		if count > 0 {
-			service.log.Info("collect", zap.Int64("count", count))
-		}
-	}()
 
 	err = service.pieces.GetExpired(ctx, now, func(ctx context.Context, ei pieces.ExpiredInfo) bool {
 		err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID)
@@ -99,6 +94,14 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		}
 		return true
 	})
-	_ = service.pieces.DeleteExpired(ctx, now)
+
+	if count > 0 {
+		service.log.Info("collect", zap.Int64("count", count))
+
+		if deleteErr := service.pieces.DeleteExpired(ctx, now); deleteErr != nil {
+			service.log.Error("error during deleting expired pieces: ", zap.Error(err))
+			err = errs.Combine(err, deleteErr)
+		}
+	}
 	return errs.Wrap(err)
 }
