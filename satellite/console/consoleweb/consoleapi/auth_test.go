@@ -160,13 +160,8 @@ func TestAuth_ChangeEmail(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, user)
 
-		type reqBody struct {
-			Step console.ChangeEmailStep `json:"step"`
-			Data string                  `json:"data"`
-		}
-
-		doRequest := func(step console.ChangeEmailStep, data string) (responseBody []byte, status int) {
-			body := &reqBody{
+		doRequest := func(step console.AccountActionStep, data string) (responseBody []byte, status int) {
+			body := &consoleapi.AccountActionData{
 				Step: step,
 				Data: data,
 			}
@@ -184,7 +179,7 @@ func TestAuth_ChangeEmail(t *testing.T) {
 		_, status := doRequest(0, usrLogin.Password)
 		require.Equal(t, http.StatusBadRequest, status)
 
-		_, status = doRequest(console.ChangeEmailPasswordStep, "")
+		_, status = doRequest(console.VerifyAccountPasswordStep, "")
 		require.Equal(t, http.StatusBadRequest, status)
 	})
 }

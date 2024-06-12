@@ -60,10 +60,8 @@ func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" 
 // Subject gets email subject.
 func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
 
-// EmailAddressVerificationEmail is mailservice template with a verification code.
-type EmailAddressVerificationEmail struct {
-	VerificationCode string
-}
+// ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
+type ChangeEmailSuccessEmail struct{}
 
 // Template returns email template name.
 func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" }
@@ -71,8 +69,11 @@ func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" 
 // Subject gets email subject.
 func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
 
-// ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
-type ChangeEmailSuccessEmail struct{}
+// EmailAddressVerificationEmail is mailservice template with a verification code.
+type EmailAddressVerificationEmail struct {
+	Action           string
+	VerificationCode string
+}
 
 // Template returns email template name.
 func (*EmailAddressVerificationEmail) Template() string { return "EmailAddressVerification" }

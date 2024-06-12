@@ -653,24 +653,26 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AccountActionData holds data needed to perform change email or account delete actions.
+type AccountActionData struct {
+	Step console.AccountActionStep `json:"step"`
+	Data string                    `json:"data"`
+}
+
 // ChangeEmail handles change email flow requests.
 func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var data struct {
-		Step console.ChangeEmailStep `json:"step"`
-		Data string                  `json:"data"`
-	}
-
+	var data AccountActionData
 	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	if data.Step < console.ChangeEmailPasswordStep || data.Step > console.ChangeEmailVerifyNewStep {
+	if data.Step < console.VerifyAccountPasswordStep || data.Step > console.VerifyNewAccountEmailStep {
 		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
 		return
 	}
@@ -681,6 +683,34 @@ func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = a.service.ChangeEmail(ctx, data.Step, data.Data); err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}
+
+// DeleteAccount handles self-serve delete account flow requests.
+func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data AccountActionData
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if data.Step < console.VerifyAccountPasswordStep || data.Step > console.DeleteAccountStep {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
+		return
+	}
+
+	if data.Step != console.DeleteAccountStep && data.Data == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
+		return
+	}
+
+	if err = a.service.DeleteAccount(ctx, data.Step, data.Data); err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }

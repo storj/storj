@@ -673,6 +673,9 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.Status != nil {
 		update.Status = dbx.User_Status(int(*request.Status))
 	}
+	if request.StatusUpdatedAt != nil {
+		update.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*request.StatusUpdatedAt)
+	}
 	if request.ProjectLimit != nil {
 		update.ProjectLimit = dbx.User_ProjectLimit(*request.ProjectLimit)
 	}
@@ -798,6 +801,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		Email:                       user.Email,
 		PasswordHash:                user.PasswordHash,
 		Status:                      console.UserStatus(user.Status),
+		StatusUpdatedAt:             user.StatusUpdatedAt,
 		CreatedAt:                   user.CreatedAt,
 		ProjectLimit:                user.ProjectLimit,
 		ProjectBandwidthLimit:       user.ProjectBandwidthLimit,

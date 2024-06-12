@@ -88,7 +88,7 @@ const (
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
 	contactSupportErrMsg                 = "Please contact support"
-	changeEmailWrongStepOrderErrMsg      = "Wrong step order. Please restart the flow"
+	accountActionWrongStepOrderErrMsg    = "Wrong step order. Please restart the flow"
 )
 
 // VersioningOptInStatus is a type for versioning beta opt in status.
@@ -1738,29 +1738,95 @@ func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error
 	return false, nil
 }
 
-// ChangeEmailStep stands for each explicit change email flow step.
-type ChangeEmailStep = int
+// accountAction stands for account action to be tracked.
+type accountAction = string
+
+// AccountActionStep stands for each explicit change email flow step.
+type AccountActionStep = int
 
 const (
-	// ChangeEmailPasswordStep stands for the first step of the change email flow
+	// VerifyAccountPasswordStep stands for the first step of the change email/account delete flow
 	// where user has to provide an account password.
-	ChangeEmailPasswordStep ChangeEmailStep = 1
-	// ChangeEmailMfaStep stands for the second step of the change email flow
+	VerifyAccountPasswordStep AccountActionStep = 1
+	// VerifyAccountMfaStep stands for the second step of the change email/account delete flow
 	// where user has to provide a 2fa passcode.
-	ChangeEmailMfaStep ChangeEmailStep = 2
-	// ChangeEmailVerifyOldStep stands for the third step of the change email flow
-	// where user has to provide an OTP code sent to their old email address.
-	ChangeEmailVerifyOldStep ChangeEmailStep = 3
-	// ChangeEmailNewEmailStep stands for the fourth step of the change email flow
+	VerifyAccountMfaStep AccountActionStep = 2
+	// VerifyAccountEmailStep stands for the third step of the change email/account delete flow
+	// where user has to provide an OTP code sent to their current email address.
+	VerifyAccountEmailStep AccountActionStep = 3
+	// DeleteAccountStep stands for the last step of the delete account flow
+	// where user has to approve the intention to delete account.
+	DeleteAccountStep AccountActionStep = 4
+	// ChangeAccountEmailStep stands for the fourth step of the change email flow
 	// where user has to provide a new email address.
-	ChangeEmailNewEmailStep ChangeEmailStep = 4
-	// ChangeEmailVerifyNewStep stands for the fifth step of the change email flow
+	ChangeAccountEmailStep AccountActionStep = 4
+	// VerifyNewAccountEmailStep stands for the fifth step of the change email flow
 	// where user has to provide an OTP code sent to their new email address.
-	ChangeEmailVerifyNewStep ChangeEmailStep = 5
+	VerifyNewAccountEmailStep AccountActionStep = 5
+
+	changeEmailAction   accountAction = "change_email"
+	deleteAccountAction accountAction = "delete_account"
 )
 
+// DeleteAccount handles self-serve account delete actions.
+func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.SelfServeAccountDeleteEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "delete account")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if user.Status == LegalHold {
+		return ErrForbidden.New("account can't be deleted")
+	}
+
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("delete_account_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
+		return ErrUnauthorized.New("please try again later")
+	}
+
+	switch step {
+	case VerifyAccountPasswordStep:
+		err = s.handlePasswordStep(ctx, user, data, deleteAccountAction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case VerifyAccountMfaStep:
+		err = s.handleMfaStep(ctx, user, data, deleteAccountAction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case VerifyAccountEmailStep:
+		err = s.handleVerifyCurrentEmailStep(ctx, user, data, deleteAccountAction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case DeleteAccountStep:
+		err = s.handleDeleteAccountStep(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	default:
+		return ErrValidation.New("step value is out of range")
+	}
+}
+
 // ChangeEmail handles change user's email actions.
-func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data string) (err error) {
+func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !s.config.EmailChangeFlowEnabled {
@@ -1779,35 +1845,35 @@ func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data st
 	}
 
 	switch step {
-	case ChangeEmailPasswordStep:
-		err = s.handlePasswordStep(ctx, user, data)
+	case VerifyAccountPasswordStep:
+		err = s.handlePasswordStep(ctx, user, data, changeEmailAction)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	case ChangeEmailMfaStep:
-		err = s.handleMfaStep(ctx, user, data)
+	case VerifyAccountMfaStep:
+		err = s.handleMfaStep(ctx, user, data, changeEmailAction)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	case ChangeEmailVerifyOldStep:
-		err = s.handleVerifyOldStep(ctx, user, data)
+	case VerifyAccountEmailStep:
+		err = s.handleVerifyCurrentEmailStep(ctx, user, data, changeEmailAction)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	case ChangeEmailNewEmailStep:
+	case ChangeAccountEmailStep:
 		err = s.handleNewEmailStep(ctx, user, data)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	case ChangeEmailVerifyNewStep:
+	case VerifyNewAccountEmailStep:
 		err = s.handleVerifyNewStep(ctx, user, data)
 		if err != nil {
 			return err
@@ -1819,10 +1885,10 @@ func (s *Service) ChangeEmail(ctx context.Context, step ChangeEmailStep, data st
 	}
 }
 
-func (s *Service) handlePasswordStep(ctx context.Context, user *User, data string) (err error) {
+func (s *Service) handlePasswordStep(ctx context.Context, user *User, data string, action accountAction) (err error) {
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(data))
 	if err != nil {
-		err = s.handleLockAccount(ctx, user, ChangeEmailPasswordStep)
+		err = s.handleLockAccount(ctx, user, VerifyAccountPasswordStep, action)
 		if err != nil {
 			return err
 		}
@@ -1838,17 +1904,23 @@ func (s *Service) handlePasswordStep(ctx context.Context, user *User, data strin
 		}
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailPasswordStep, verificationCode, nil)
+	err = s.updateStep(ctx, user.ID, VerifyAccountPasswordStep, verificationCode, nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	if !user.MFAEnabled {
+		emailAction := "account email address change"
+		if action == deleteAccountAction {
+			emailAction = "account delete"
+		}
+
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email, Name: user.FullName}},
 			&EmailAddressVerificationEmail{
 				VerificationCode: verificationCode,
+				Action:           emailAction,
 			},
 		)
 	}
@@ -1856,23 +1928,23 @@ func (s *Service) handlePasswordStep(ctx context.Context, user *User, data strin
 	return nil
 }
 
-func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (err error) {
+func (s *Service) handleMfaStep(ctx context.Context, user *User, data string, action accountAction) (err error) {
 	if !user.MFAEnabled {
 		return nil
 	}
 
-	if user.EmailChangeVerificationStep < ChangeEmailPasswordStep {
-		err = s.handleLockAccount(ctx, user, ChangeEmailMfaStep)
+	if user.EmailChangeVerificationStep < VerifyAccountPasswordStep {
+		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
 		if err != nil {
 			return err
 		}
 
-		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
 	valid, err := ValidateMFAPasscode(data, user.MFASecretKey, s.nowFn())
 	if err != nil {
-		err = s.handleLockAccount(ctx, user, ChangeEmailMfaStep)
+		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
 		if err != nil {
 			return err
 		}
@@ -1880,7 +1952,7 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (e
 		return ErrMFAPasscode.Wrap(err)
 	}
 	if !valid {
-		err = s.handleLockAccount(ctx, user, ChangeEmailMfaStep)
+		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
 		if err != nil {
 			return err
 		}
@@ -1894,9 +1966,14 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (e
 		return Error.Wrap(err)
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailMfaStep, verificationCode, nil)
+	err = s.updateStep(ctx, user.ID, VerifyAccountMfaStep, verificationCode, nil)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	emailAction := "account email address change"
+	if action == deleteAccountAction {
+		emailAction = "account delete"
 	}
 
 	s.mailService.SendRenderedAsync(
@@ -1904,29 +1981,30 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string) (e
 		[]post.Address{{Address: user.Email, Name: user.FullName}},
 		&EmailAddressVerificationEmail{
 			VerificationCode: verificationCode,
+			Action:           emailAction,
 		},
 	)
 
 	return nil
 }
 
-func (s *Service) handleVerifyOldStep(ctx context.Context, user *User, data string) (err error) {
-	previousStep := ChangeEmailPasswordStep
+func (s *Service) handleVerifyCurrentEmailStep(ctx context.Context, user *User, data string, action accountAction) (err error) {
+	previousStep := VerifyAccountPasswordStep
 	if user.MFAEnabled {
-		previousStep = ChangeEmailMfaStep
+		previousStep = VerifyAccountMfaStep
 	}
 
 	if user.EmailChangeVerificationStep < previousStep {
-		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyOldStep)
+		err = s.handleLockAccount(ctx, user, VerifyAccountEmailStep, action)
 		if err != nil {
 			return err
 		}
 
-		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
 	if user.ActivationCode != data {
-		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyOldStep)
+		err = s.handleLockAccount(ctx, user, VerifyAccountEmailStep, action)
 		if err != nil {
 			return err
 		}
@@ -1934,7 +2012,37 @@ func (s *Service) handleVerifyOldStep(ctx context.Context, user *User, data stri
 		return ErrValidation.New("verification code is incorrect")
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailVerifyOldStep, "", nil)
+	err = s.updateStep(ctx, user.ID, VerifyAccountEmailStep, "", nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
+	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, DeleteAccountStep, deleteAccountAction)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+
+	unsetInt := 0
+	unsetStr := ""
+	loginLockoutExpirationPtr := &time.Time{}
+	status := UserRequestedDeletion
+	now := s.nowFn()
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		Status:                      &status,
+		StatusUpdatedAt:             &now,
+		EmailChangeVerificationStep: &unsetInt,
+		FailedLoginCount:            &unsetInt,
+		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
+		ActivationCode:              &unsetStr,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1943,13 +2051,13 @@ func (s *Service) handleVerifyOldStep(ctx context.Context, user *User, data stri
 }
 
 func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data string) (err error) {
-	if user.EmailChangeVerificationStep < ChangeEmailVerifyOldStep {
-		err = s.handleLockAccount(ctx, user, ChangeEmailNewEmailStep)
+	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, ChangeAccountEmailStep, changeEmailAction)
 		if err != nil {
 			return err
 		}
 
-		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
 	isValidEmail := utils.ValidateEmail(data)
@@ -1972,16 +2080,19 @@ func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data strin
 		return Error.Wrap(err)
 	}
 
-	err = s.updateStep(ctx, user.ID, ChangeEmailNewEmailStep, verificationCode, &data)
+	err = s.updateStep(ctx, user.ID, ChangeAccountEmailStep, verificationCode, &data)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	emailAction := "account email address change"
 
 	s.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: data, Name: user.FullName}},
 		&EmailAddressVerificationEmail{
 			VerificationCode: verificationCode,
+			Action:           emailAction,
 		},
 	)
 
@@ -1989,17 +2100,17 @@ func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data strin
 }
 
 func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data string) (err error) {
-	if user.EmailChangeVerificationStep < ChangeEmailNewEmailStep {
-		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyNewStep)
+	if user.EmailChangeVerificationStep < ChangeAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, VerifyNewAccountEmailStep, changeEmailAction)
 		if err != nil {
 			return err
 		}
 
-		return ErrValidation.New(changeEmailWrongStepOrderErrMsg)
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
 	if user.ActivationCode != data {
-		err = s.handleLockAccount(ctx, user, ChangeEmailVerifyNewStep)
+		err = s.handleLockAccount(ctx, user, VerifyNewAccountEmailStep, changeEmailAction)
 		if err != nil {
 			return err
 		}
@@ -2046,7 +2157,7 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 	return nil
 }
 
-func (s *Service) handleLockAccount(ctx context.Context, user *User, step ChangeEmailStep) error {
+func (s *Service) handleLockAccount(ctx context.Context, user *User, step AccountActionStep, action accountAction) error {
 	lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
 	if err != nil {
 		return err
@@ -2063,35 +2174,34 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Change
 		)
 	}
 
-	var reason string
 	switch step {
-	case ChangeEmailPasswordStep:
-		reason = "password"
-	case ChangeEmailMfaStep:
-		reason = "2fa"
-	case ChangeEmailVerifyOldStep:
-		reason = "verify_old_email"
-	case ChangeEmailVerifyNewStep:
-		reason = "verify_new_email"
+	case VerifyAccountPasswordStep:
+		action += "_password"
+	case VerifyAccountMfaStep:
+		action += "_2fa"
+	case VerifyAccountEmailStep:
+		action += "_verify_current_email"
+	case VerifyNewAccountEmailStep:
+		action += "_verify_new_email"
 	}
 
-	mon.Counter(fmt.Sprintf("change_email_%s_failed", reason)).Inc(1)                                     //mon:locked
-	mon.IntVal(fmt.Sprintf("change_email_%s_failed_count", reason)).Observe(int64(user.FailedLoginCount)) //mon:locked
+	mon.Counter(fmt.Sprintf("%s_failed", action)).Inc(1)                                     //mon:locked
+	mon.IntVal(fmt.Sprintf("%s_failed_count", action)).Observe(int64(user.FailedLoginCount)) //mon:locked
 
 	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter(fmt.Sprintf("change_email_%s_lockout_initiated", reason)).Inc(1) //mon:locked
-		s.auditLog(ctx, fmt.Sprintf("change email: failed %s count reached maximum attempts", reason), &user.ID, user.Email)
+		mon.Counter(fmt.Sprintf("%s_lockout_initiated", action)).Inc(1) //mon:locked
+		s.auditLog(ctx, fmt.Sprintf("account action: failed %s count reached maximum attempts", action), &user.ID, user.Email)
 	}
 
 	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter(fmt.Sprintf("change_email_%s_lockout_reinitiated", reason)).Inc(1) //mon:locked
-		s.auditLog(ctx, fmt.Sprintf("change email: %s failed locked account", reason), &user.ID, user.Email)
+		mon.Counter(fmt.Sprintf("%s_lockout_reinitiated", action)).Inc(1) //mon:locked
+		s.auditLog(ctx, fmt.Sprintf("account action: %s failed locked account", action), &user.ID, user.Email)
 	}
 
 	return nil
 }
 
-func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step ChangeEmailStep, verificationCode string, newUnverifiedEmail *string) error {
+func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step AccountActionStep, verificationCode string, newUnverifiedEmail *string) error {
 	failedLoginCount := 0
 	loginLockoutExpirationPtr := &time.Time{}
 

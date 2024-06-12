@@ -1306,7 +1306,7 @@ func TestChangeEmail(t *testing.T) {
 		userCtx, user := updateContext()
 
 		// 2fa is disabled.
-		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, "test")
+		err = service.ChangeEmail(userCtx, console.VerifyAccountMfaStep, "test")
 		require.NoError(t, err)
 
 		mfaSecret, err := service.ResetMFASecretKey(userCtx)
@@ -1324,21 +1324,21 @@ func TestChangeEmail(t *testing.T) {
 		require.Zero(t, user.EmailChangeVerificationStep)
 
 		// starting from second step must fail.
-		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, "test")
+		err = service.ChangeEmail(userCtx, console.VerifyAccountMfaStep, "test")
 		require.True(t, console.ErrValidation.Has(err))
 
 		userCtx, user = updateContext()
 		require.Zero(t, user.EmailChangeVerificationStep)
 
 		for i := 0; i < 2; i++ {
-			err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, "wrong password")
+			err = service.ChangeEmail(userCtx, console.VerifyAccountPasswordStep, "wrong password")
 			require.True(t, console.ErrValidation.Has(err))
 
 			userCtx, _ = updateContext()
 		}
 
 		// account gets locked after 3 failed attempts.
-		err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, usrLogin.Password)
+		err = service.ChangeEmail(userCtx, console.VerifyAccountPasswordStep, usrLogin.Password)
 		require.True(t, console.ErrUnauthorized.Has(err))
 
 		resetAccountLock := func() error {
@@ -1356,17 +1356,17 @@ func TestChangeEmail(t *testing.T) {
 
 		userCtx, _ = updateContext()
 
-		err = service.ChangeEmail(userCtx, console.ChangeEmailPasswordStep, usrLogin.Password)
+		err = service.ChangeEmail(userCtx, console.VerifyAccountPasswordStep, usrLogin.Password)
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, console.ChangeEmailPasswordStep, user.EmailChangeVerificationStep)
+		require.Equal(t, console.VerifyAccountPasswordStep, user.EmailChangeVerificationStep)
 
 		wrongCode, err := console.NewMFAPasscode(mfaSecret, now.Add(time.Hour))
 		require.NoError(t, err)
 
 		for i := 0; i < 3; i++ {
-			err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, wrongCode)
+			err = service.ChangeEmail(userCtx, console.VerifyAccountMfaStep, wrongCode)
 			require.True(t, console.ErrMFAPasscode.Has(err))
 
 			userCtx, _ = updateContext()
@@ -1376,46 +1376,46 @@ func TestChangeEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		// account gets locked after 3 failed attempts.
-		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, goodCode)
+		err = service.ChangeEmail(userCtx, console.VerifyAccountMfaStep, goodCode)
 		require.True(t, console.ErrUnauthorized.Has(err))
 
 		err = resetAccountLock()
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, console.ChangeEmailPasswordStep, user.EmailChangeVerificationStep)
+		require.Equal(t, console.VerifyAccountPasswordStep, user.EmailChangeVerificationStep)
 
-		err = service.ChangeEmail(userCtx, console.ChangeEmailMfaStep, goodCode)
+		err = service.ChangeEmail(userCtx, console.VerifyAccountMfaStep, goodCode)
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, console.ChangeEmailMfaStep, user.EmailChangeVerificationStep)
+		require.Equal(t, console.VerifyAccountMfaStep, user.EmailChangeVerificationStep)
 
 		for i := 0; i < 3; i++ {
-			err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, "random verification code")
+			err = service.ChangeEmail(userCtx, console.VerifyAccountEmailStep, "random verification code")
 			require.True(t, console.ErrValidation.Has(err))
 
 			userCtx, _ = updateContext()
 		}
 
 		// account gets locked after 3 failed attempts.
-		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, user.ActivationCode)
+		err = service.ChangeEmail(userCtx, console.VerifyAccountEmailStep, user.ActivationCode)
 		require.True(t, console.ErrUnauthorized.Has(err))
 
 		err = resetAccountLock()
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, console.ChangeEmailMfaStep, user.EmailChangeVerificationStep)
+		require.Equal(t, console.VerifyAccountMfaStep, user.EmailChangeVerificationStep)
 
-		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyOldStep, user.ActivationCode)
+		err = service.ChangeEmail(userCtx, console.VerifyAccountEmailStep, user.ActivationCode)
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, console.ChangeEmailVerifyOldStep, user.EmailChangeVerificationStep)
+		require.Equal(t, console.VerifyAccountEmailStep, user.EmailChangeVerificationStep)
 		require.Empty(t, user.ActivationCode)
 
-		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, "random string")
+		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, "random string")
 		require.True(t, console.ErrValidation.Has(err))
 
 		anotherUsr, err := sat.AddUser(ctx, console.CreateUser{
@@ -1424,27 +1424,27 @@ func TestChangeEmail(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, anotherUsr.Email)
+		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, anotherUsr.Email)
 		require.True(t, console.ErrValidation.Has(err))
 
 		validEmail := "valid.email@mail.test"
-		err = service.ChangeEmail(userCtx, console.ChangeEmailNewEmailStep, validEmail)
+		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, validEmail)
 		require.NoError(t, err)
 
 		userCtx, user = updateContext()
-		require.Equal(t, console.ChangeEmailNewEmailStep, user.EmailChangeVerificationStep)
+		require.Equal(t, console.ChangeAccountEmailStep, user.EmailChangeVerificationStep)
 		require.Equal(t, validEmail, *user.NewUnverifiedEmail)
 		require.NotEmpty(t, user.ActivationCode)
 
 		for i := 0; i < 3; i++ {
-			err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyNewStep, "random verification code")
+			err = service.ChangeEmail(userCtx, console.VerifyNewAccountEmailStep, "random verification code")
 			require.True(t, console.ErrValidation.Has(err))
 
 			userCtx, _ = updateContext()
 		}
 
 		// account gets locked after 3 failed attempts.
-		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyNewStep, user.ActivationCode)
+		err = service.ChangeEmail(userCtx, console.VerifyNewAccountEmailStep, user.ActivationCode)
 		require.True(t, console.ErrUnauthorized.Has(err))
 
 		err = resetAccountLock()
@@ -1452,13 +1452,178 @@ func TestChangeEmail(t *testing.T) {
 
 		userCtx, _ = updateContext()
 
-		err = service.ChangeEmail(userCtx, console.ChangeEmailVerifyNewStep, user.ActivationCode)
+		err = service.ChangeEmail(userCtx, console.VerifyNewAccountEmailStep, user.ActivationCode)
 		require.NoError(t, err)
 
 		_, user = updateContext()
 		require.Equal(t, 0, user.EmailChangeVerificationStep)
 		require.Equal(t, "", *user.NewUnverifiedEmail)
 		require.Equal(t, validEmail, user.Email)
+		require.Empty(t, user.ActivationCode)
+	})
+}
+
+func TestDeleteAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SelfServeAccountDeleteEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		service := sat.API.Console.Service
+		usrLogin := planet.Uplinks[0].User[sat.ID()]
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		status := console.LegalHold
+		err = db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		updateContext := func() (context.Context, *console.User) {
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			user, err := console.GetUser(userCtx)
+			require.NoError(t, err)
+			return userCtx, user
+		}
+		userCtx, user := updateContext()
+
+		err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+		require.True(t, console.ErrForbidden.Has(err))
+
+		status = console.Active
+		err = db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &status})
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		// 2fa is disabled.
+		err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+		require.NoError(t, err)
+
+		mfaSecret, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+
+		now := time.Now()
+		goodCode, err := console.NewMFAPasscode(mfaSecret, now)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(userCtx, goodCode, now)
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.NotEmpty(t, user.MFASecretKey)
+		require.Zero(t, user.EmailChangeVerificationStep)
+
+		// starting from second step must fail.
+		err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+		require.True(t, console.ErrValidation.Has(err))
+
+		userCtx, user = updateContext()
+		require.Zero(t, user.EmailChangeVerificationStep)
+
+		for i := 0; i < 2; i++ {
+			err = service.DeleteAccount(userCtx, console.VerifyAccountPasswordStep, "wrong password")
+			require.True(t, console.ErrValidation.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		// account gets locked after 3 failed attempts.
+		err = service.DeleteAccount(userCtx, console.VerifyAccountPasswordStep, usrLogin.Password)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		resetAccountLock := func() error {
+			failedLoginCount := 0
+			loginLockoutExpirationPtr := &time.Time{}
+
+			return db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				FailedLoginCount:       &failedLoginCount,
+				LoginLockoutExpiration: &loginLockoutExpirationPtr,
+			})
+		}
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		err = service.DeleteAccount(userCtx, console.VerifyAccountPasswordStep, usrLogin.Password)
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountPasswordStep, user.EmailChangeVerificationStep)
+
+		wrongCode, err := console.NewMFAPasscode(mfaSecret, now.Add(time.Hour))
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, wrongCode)
+			require.True(t, console.ErrMFAPasscode.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		goodCode, err = console.NewMFAPasscode(mfaSecret, now)
+		require.NoError(t, err)
+
+		// account gets locked after 3 failed attempts.
+		err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, goodCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountPasswordStep, user.EmailChangeVerificationStep)
+
+		err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, goodCode)
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountMfaStep, user.EmailChangeVerificationStep)
+
+		for i := 0; i < 3; i++ {
+			err = service.DeleteAccount(userCtx, console.VerifyAccountEmailStep, "random verification code")
+			require.True(t, console.ErrValidation.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		// account gets locked after 3 failed attempts.
+		err = service.DeleteAccount(userCtx, console.VerifyAccountEmailStep, user.ActivationCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountMfaStep, user.EmailChangeVerificationStep)
+
+		err = service.DeleteAccount(userCtx, console.VerifyAccountEmailStep, user.ActivationCode)
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountEmailStep, user.EmailChangeVerificationStep)
+		require.Empty(t, user.ActivationCode)
+
+		service.TestSetNow(func() time.Time {
+			return now
+		})
+
+		err = service.DeleteAccount(userCtx, console.DeleteAccountStep, "")
+		require.NoError(t, err)
+
+		_, user = updateContext()
+		require.Equal(t, 0, user.EmailChangeVerificationStep)
+		require.Equal(t, console.UserRequestedDeletion, user.Status)
+		require.WithinDuration(t, now, *user.StatusUpdatedAt, time.Minute)
 		require.Empty(t, user.ActivationCode)
 	})
 }

@@ -188,6 +188,8 @@ const (
 	LegalHold UserStatus = 4
 	// PendingBotVerification is a status that user receives after account activation but with high captcha score.
 	PendingBotVerification UserStatus = 5
+	// UserRequestedDeletion is a status that user receives after account owner completed delete account flow.
+	UserRequestedDeletion UserStatus = 6
 )
 
 // String returns a string representation of the user status.
@@ -220,8 +222,9 @@ type User struct {
 	Email        string `json:"email"`
 	PasswordHash []byte `json:"-"`
 
-	Status    UserStatus `json:"status"`
-	UserAgent []byte     `json:"userAgent"`
+	Status          UserStatus `json:"status"`
+	StatusUpdatedAt *time.Time `json:"-"`
+	UserAgent       []byte     `json:"userAgent"`
 
 	CreatedAt time.Time `json:"createdAt"`
 
@@ -318,7 +321,8 @@ type UpdateUserRequest struct {
 	Email        *string
 	PasswordHash []byte
 
-	Status *UserStatus
+	Status          *UserStatus
+	StatusUpdatedAt *time.Time
 
 	ProjectLimit          *int
 	ProjectStorageLimit   *int64
