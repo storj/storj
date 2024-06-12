@@ -347,8 +347,8 @@ func TestService(t *testing.T) {
 				updatedProject, err := service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
 					Name:           updatedName,
 					Description:    updatedDescription,
-					StorageLimit:   updatedStorageLimit,
-					BandwidthLimit: updatedBandwidthLimit,
+					StorageLimit:   &updatedStorageLimit,
+					BandwidthLimit: &updatedBandwidthLimit,
 				})
 				require.NoError(t, err)
 				require.NotEqual(t, up1Proj.Name, updatedProject.Name)
@@ -364,8 +364,8 @@ func TestService(t *testing.T) {
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
 					Name:           "newName",
 					Description:    "TestUpdate",
-					StorageLimit:   memory.Size(100),
-					BandwidthLimit: memory.Size(100),
+					StorageLimit:   &updatedStorageLimit,
+					BandwidthLimit: &updatedBandwidthLimit,
 				})
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
@@ -383,8 +383,8 @@ func TestService(t *testing.T) {
 				updateInfo := console.UpsertProjectInfo{
 					Name:           "a b c",
 					Description:    "1 2 3",
-					StorageLimit:   memory.Size(123),
-					BandwidthLimit: memory.Size(123),
+					StorageLimit:   size100,
+					BandwidthLimit: size100,
 				}
 				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, updateInfo)
 				require.Error(t, err)
@@ -405,20 +405,23 @@ func TestService(t *testing.T) {
 				err = sat.DB.Console().Projects().Update(ctx, up1Proj)
 				require.NoError(t, err)
 
+				limit := memory.Size(0)
 				// should not be able to set limit to zero.
 				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
 					Name:           up1Proj.Name,
-					StorageLimit:   memory.Size(0),
-					BandwidthLimit: memory.Size(0),
+					StorageLimit:   &limit,
+					BandwidthLimit: &limit,
 				})
 				require.True(t, console.ErrInvalidProjectLimit.Has(err))
 				require.Nil(t, updatedProject)
 
 				// should not be able to set limit more than tier limit.
+				biggerStorage := sat.Config.Console.UsageLimits.Storage.Paid + memory.MB
+				biggerBandwidth := sat.Config.Console.UsageLimits.Bandwidth.Paid + memory.MB
 				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
 					Name:           up1Proj.Name,
-					StorageLimit:   sat.Config.Console.UsageLimits.Storage.Paid + memory.MB,
-					BandwidthLimit: sat.Config.Console.UsageLimits.Bandwidth.Paid + memory.MB,
+					StorageLimit:   &biggerStorage,
+					BandwidthLimit: &biggerBandwidth,
 				})
 				require.True(t, console.ErrInvalidProjectLimit.Has(err))
 				require.Nil(t, updatedProject)
@@ -429,13 +432,23 @@ func TestService(t *testing.T) {
 				require.Equal(t, updateInfo.Description, updatedProject.Description)
 				require.NotNil(t, updatedProject.StorageLimit)
 				require.NotNil(t, updatedProject.BandwidthLimit)
-				require.Equal(t, updateInfo.StorageLimit, *updatedProject.UserSpecifiedStorageLimit)
-				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
+				require.Equal(t, updateInfo.StorageLimit, updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, updatedProject.UserSpecifiedBandwidthLimit)
+
+				// updating project with nil limits should skip updating the limits.
+				updatedProject, err = service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
+					Name:           updateInfo.Name,
+					StorageLimit:   nil,
+					BandwidthLimit: nil,
+				})
+				require.NoError(t, err)
+				require.Equal(t, updateInfo.StorageLimit, updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, updatedProject.UserSpecifiedBandwidthLimit)
 
 				project, err := service.GetProject(userCtx1, up1Proj.ID)
 				require.NoError(t, err)
-				require.Equal(t, updateInfo.StorageLimit, *project.UserSpecifiedStorageLimit)
-				require.Equal(t, updateInfo.BandwidthLimit, *project.UserSpecifiedBandwidthLimit)
+				require.Equal(t, updateInfo.StorageLimit, project.UserSpecifiedStorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, project.UserSpecifiedBandwidthLimit)
 
 				// attempting to update a project with a previously used name should fail
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
@@ -456,6 +469,56 @@ func TestService(t *testing.T) {
 				// remove user2.
 				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, []string{user2.Email})
 				require.NoError(t, err)
+			})
+
+			t.Run("UpdateUserSpecifiedProjectLimits", func(t *testing.T) {
+				updatedStorageLimit := memory.Size(100)
+				updatedBandwidthLimit := memory.Size(100)
+
+				_, userCtx1 := getOwnerAndCtx(ctx, up1Proj)
+
+				// Updating own limits should work
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit:   &updatedStorageLimit,
+					BandwidthLimit: &updatedBandwidthLimit,
+				})
+				require.NoError(t, err)
+
+				project, err := service.GetProject(userCtx1, up1Proj.ID)
+				require.NoError(t, err)
+				require.Equal(t, updatedStorageLimit, *project.UserSpecifiedStorageLimit)
+				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
+
+				// Updating someone else project limits should not work
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up2Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit:   &updatedStorageLimit,
+					BandwidthLimit: &updatedBandwidthLimit,
+				})
+				require.Error(t, err)
+
+				limit100 := memory.Size(100)
+				// updating only storage limit should work
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit: &limit100,
+				})
+				require.NoError(t, err)
+
+				project, err = service.GetProject(userCtx1, up1Proj.ID)
+				require.NoError(t, err)
+				require.Equal(t, limit100, *project.UserSpecifiedStorageLimit)
+				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
+
+				limit0 := memory.Size(0)
+				// passing 0 should remove the limit.
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit: &limit0,
+				})
+				require.NoError(t, err)
+
+				project, err = service.GetProject(userCtx1, up1Proj.ID)
+				require.NoError(t, err)
+				require.Nil(t, project.UserSpecifiedStorageLimit)
+				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {
@@ -3403,8 +3466,8 @@ func TestServiceGenMethods(t *testing.T) {
 				info := console.UpsertProjectInfo{
 					Name:           updatedName,
 					Description:    updatedDescription,
-					StorageLimit:   updatedStorageLimit,
-					BandwidthLimit: updatedBandwidthLimit,
+					StorageLimit:   &updatedStorageLimit,
+					BandwidthLimit: &updatedBandwidthLimit,
 				}
 				updatedProject, err := s.GenUpdateProject(tt.ctx, tt.ID, info)
 				require.NoError(t, err.Err)
@@ -3415,8 +3478,8 @@ func TestServiceGenMethods(t *testing.T) {
 				}
 				require.Equal(t, info.Name, updatedProject.Name)
 				require.Equal(t, info.Description, updatedProject.Description)
-				require.Equal(t, &info.StorageLimit, updatedProject.UserSpecifiedStorageLimit)
-				require.Equal(t, &info.BandwidthLimit, updatedProject.UserSpecifiedBandwidthLimit)
+				require.Equal(t, info.StorageLimit, updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, info.BandwidthLimit, updatedProject.UserSpecifiedBandwidthLimit)
 			})
 			t.Run("GenCreateAPIKey with "+tt.name, func(t *testing.T) {
 				request := console.CreateAPIKeyRequest{

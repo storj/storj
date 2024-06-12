@@ -152,14 +152,20 @@ type Project struct {
 
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {
-	Name           string      `json:"name"`
-	Description    string      `json:"description"`
-	StorageLimit   memory.Size `json:"storageLimit"`
-	BandwidthLimit memory.Size `json:"bandwidthLimit"`
+	Name           string       `json:"name"`
+	Description    string       `json:"description"`
+	StorageLimit   *memory.Size `json:"storageLimit"`
+	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
 
 	// these fields are only used for inserts and ignored for updates
 	CreatedAt        time.Time `json:"createdAt"`
 	ManagePassphrase bool      `json:"managePassphrase"`
+}
+
+// UpdateLimitsInfo holds data needed to update project limits.
+type UpdateLimitsInfo struct {
+	StorageLimit   *memory.Size `json:"storageLimit"`
+	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
 }
 
 // ProjectInfo holds data sent via user facing http endpoints.

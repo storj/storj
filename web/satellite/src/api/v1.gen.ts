@@ -102,8 +102,8 @@ export class ResponseUser {
 export class UpsertProjectInfo {
     name: string;
     description: string;
-    storageLimit: MemorySize;
-    bandwidthLimit: MemorySize;
+    storageLimit: MemorySize | null;
+    bandwidthLimit: MemorySize | null;
     createdAt: Time;
     managePassphrase: boolean;
 }
