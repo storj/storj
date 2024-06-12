@@ -120,32 +120,53 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 	return keyInfo, nil
 }
 
-// validateAuthAny validates things like API keys, rate limit and user permissions.
-// At least one of the Action from actions must be permitted to return successfully.
+// ValidateAuthAny validates things like API keys, rate limit and user permissions.
+// At least one required (not optional) permission must be permitted.
+// If not, an error is returned, and optional actions aren't checked.
 // It always returns valid RPC errors.
-func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.RequestHeader, rateLimitKind console.LimitKind, actions ...macaroon.Action) (_ *console.APIKeyInfo, err error) {
+func (endpoint *Endpoint) ValidateAuthAny(ctx context.Context, header *pb.RequestHeader, rateLimitKind console.LimitKind, permissions ...VerifyPermission) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if len(permissions) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "No permissions to check")
+	}
+
+	var optional, required []VerifyPermission
+	for _, p := range permissions {
+		if p.Optional {
+			optional = append(optional, p)
+			continue
+		}
+		required = append(required, p)
+	}
+	if len(required) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "All permissions are optional")
+	}
 
 	key, keyInfo, err := endpoint.validateBasic(ctx, header, rateLimitKind)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(actions) == 0 {
-		return nil, rpcstatus.Error(rpcstatus.Internal, "No Action to validate")
-	}
-
 	var combinedErrs error
-	for _, action := range actions {
-		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
+	for _, p := range required {
+		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.Action, endpoint.revocations)
 		if err == nil {
-			return keyInfo, nil
+			combinedErrs = nil
+			break
 		}
 		combinedErrs = errs.Combine(combinedErrs, err)
 	}
+	if combinedErrs != nil {
+		endpoint.log.Debug("unauthorized request", zap.Error(combinedErrs))
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+	}
 
-	endpoint.log.Debug("unauthorized request", zap.Error(combinedErrs))
-	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+	for _, p := range optional {
+		*p.ActionPermitted = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.Action, endpoint.revocations) == nil
+	}
+
+	return keyInfo, nil
 }
 
 func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestHeader, rateKind console.LimitKind) (_ *macaroon.APIKey, _ *console.APIKeyInfo, err error) {

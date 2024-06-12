@@ -629,18 +629,22 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header, console.RateLimitHead,
-		macaroon.Action{
-			Op:            macaroon.ActionRead,
-			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedObjectKey,
-			Time:          now,
+	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
 		},
-		macaroon.Action{
-			Op:            macaroon.ActionList,
-			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedObjectKey,
-			Time:          now,
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionList,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
 		},
 	)
 	if err != nil {
@@ -1627,18 +1631,22 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header, console.RateLimitHead,
-		macaroon.Action{
-			Op:            macaroon.ActionRead,
-			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedObjectKey,
-			Time:          now,
+	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
 		},
-		macaroon.Action{
-			Op:            macaroon.ActionList,
-			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedObjectKey,
-			Time:          now,
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionList,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
 		},
 	)
 	if err != nil {

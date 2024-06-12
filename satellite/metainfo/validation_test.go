@@ -21,6 +21,7 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
@@ -485,4 +486,115 @@ func TestEndpoint_checkUserStatus(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		})
+}
+
+func TestEndpoint_ValidateAuthAny(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	secret, err := macaroon.NewSecret()
+	require.NoError(t, err)
+
+	endpoint := metainfo.TestingNewAPIKeysEndpoint(zaptest.NewLogger(t), &mockAPIKeys{secret: secret})
+
+	now := time.Now()
+
+	var canList, canDelete bool
+	path := testrand.Bytes(16)
+	optionalPerms := []metainfo.VerifyPermission{
+		{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionList,
+				Time:          now,
+				EncryptedPath: path,
+			},
+			Optional:        true,
+			ActionPermitted: &canList,
+		}, {
+			Action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Time:          now,
+				EncryptedPath: path,
+			},
+			Optional:        true,
+			ActionPermitted: &canDelete,
+		},
+	}
+
+	perms := []metainfo.VerifyPermission{
+		{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Time:          now,
+				EncryptedPath: path,
+			},
+		}, {
+			Action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Time:          now,
+				EncryptedPath: path,
+			},
+		},
+	}
+	perms = append(perms, optionalPerms...)
+
+	// expect error if no required actions are provided
+	key, err := macaroon.NewAPIKey(secret)
+	require.NoError(t, err)
+
+	_, err = endpoint.ValidateAuthAny(ctx, &pb.RequestHeader{ApiKey: key.SerializeRaw()}, console.RateLimit)
+	require.Error(t, err)
+
+	_, err = endpoint.ValidateAuthAny(ctx, &pb.RequestHeader{ApiKey: key.SerializeRaw()}, console.RateLimit, optionalPerms...)
+	require.Error(t, err)
+	require.False(t, canList)
+	require.False(t, canDelete)
+
+	// expect error if no required actions are permitted
+	keyNone, err := key.Restrict(macaroon.Caveat{
+		DisallowWrites: true,
+		DisallowLists:  true,
+		DisallowReads:  true,
+	})
+	require.NoError(t, err)
+
+	_, err = endpoint.ValidateAuthAny(ctx, &pb.RequestHeader{ApiKey: keyNone.SerializeRaw()}, console.RateLimit, perms...)
+	require.Error(t, err)
+	require.False(t, canList)
+	require.False(t, canDelete)
+
+	keyOnlyOptional, err := key.Restrict(macaroon.Caveat{
+		DisallowReads:  true,
+		DisallowWrites: true,
+	})
+	require.NoError(t, err)
+
+	_, err = endpoint.ValidateAuthAny(ctx, &pb.RequestHeader{ApiKey: keyOnlyOptional.SerializeRaw()}, console.RateLimit, perms...)
+	require.Error(t, err)
+	require.False(t, canList)
+	require.False(t, canDelete)
+
+	// expect success if any required action is permitted even if no optional action is permitted
+	keyNoOptional, err := key.Restrict(macaroon.Caveat{
+		DisallowLists:   true,
+		DisallowDeletes: true,
+	})
+	require.NoError(t, err)
+
+	_, err = endpoint.ValidateAuthAny(ctx, &pb.RequestHeader{ApiKey: keyNoOptional.SerializeRaw()}, console.RateLimit, perms...)
+	require.NoError(t, err)
+	require.False(t, canList)
+	require.False(t, canDelete)
+
+	// expect success if at least one required action is permitted
+	keyPartial, err := key.Restrict(macaroon.Caveat{
+		DisallowReads: true,
+		DisallowLists: true,
+	})
+	require.NoError(t, err)
+
+	_, err = endpoint.ValidateAuthAny(ctx, &pb.RequestHeader{ApiKey: keyPartial.SerializeRaw()}, console.RateLimit, perms...)
+	require.NoError(t, err)
+	require.False(t, canList)
+	require.True(t, canDelete)
 }
