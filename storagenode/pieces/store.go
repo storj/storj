@@ -702,11 +702,15 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 		var satPiecesTotal int64
 		var satPiecesContentSize int64
 
+		log := store.log.With(zap.Stringer("Satellite ID", satelliteID))
+
+		log.Info("used-space-filewalker started")
+
 		failover := true
 		if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
 			satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 			if err != nil {
-				store.log.Error("failed to lazywalk space used by satellite", zap.Error(err), zap.Stringer("Satellite ID", satelliteID))
+				log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", true), zap.Error(err))
 			} else {
 				failover = false
 			}
@@ -714,10 +718,18 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 
 		if failover {
 			satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+			if err != nil {
+				log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", false), zap.Error(err))
+			}
 		}
 
 		if err != nil {
 			group.Add(err)
+		} else {
+			log.Info("used-space-filewalker completed",
+				zap.Bool("Lazy File Walker", !failover),
+				zap.Int64("Total Pieces Size", satPiecesTotal),
+				zap.Int64("Total Pieces Content Size", satPiecesContentSize))
 		}
 
 		piecesTotal += satPiecesTotal
