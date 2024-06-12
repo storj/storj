@@ -69,6 +69,7 @@ type FrontendConfig struct {
 	BillingInformationTabEnabled      bool                  `json:"billingInformationTabEnabled"`
 	SatelliteManagedEncryptionEnabled bool                  `json:"satelliteManagedEncryptionEnabled"`
 	EmailChangeFlowEnabled            bool                  `json:"emailChangeFlowEnabled"`
+	SelfServeAccountDeleteEnabled     bool                  `json:"selfServeAccountDeleteEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

@@ -884,6 +884,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
+		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

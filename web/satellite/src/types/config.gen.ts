@@ -65,6 +65,7 @@ export class FrontendConfig {
     billingInformationTabEnabled: boolean;
     satelliteManagedEncryptionEnabled: boolean;
     emailChangeFlowEnabled: boolean;
+    selfServeAccountDeleteEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
