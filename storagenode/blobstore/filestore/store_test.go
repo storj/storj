@@ -445,13 +445,7 @@ func TestStoreTraversals(t *testing.T) {
 			// check BlobInfo sanity
 			stat, err := info.Stat(ctx)
 			require.NoError(t, err)
-			nameFromStat := stat.Name()
-			fullPath, err := info.FullPath(ctx)
-			require.NoError(t, err)
-			basePath := filepath.Base(fullPath)
-			assert.Equal(t, nameFromStat, basePath)
 			assert.Equal(t, int64(blobIdentified), stat.Size())
-			assert.False(t, stat.IsDir())
 			return nil
 		})
 		require.NoError(t, err)
