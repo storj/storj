@@ -13,6 +13,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -44,6 +45,32 @@ func (rs *RSConfig) String() string {
 		rs.Success,
 		rs.Total,
 		rs.ErasureShareSize.String())
+}
+
+// Override creates a new RSConfig instance, all non-zero parameters of o will be used to override current values.
+func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
+	ro := &RSConfig{
+		ErasureShareSize: rs.ErasureShareSize,
+		Min:              rs.Min,
+		Repair:           rs.Repair,
+		Success:          rs.Success,
+		Total:            rs.Total,
+	}
+	if o.Minimum > 0 {
+		ro.Min = o.Minimum
+	}
+	if o.Success > 0 {
+		ro.Success = o.Success
+	}
+	if o.Total > 0 {
+		ro.Total = o.Total
+		// we don't use override for repair (yet)
+		// we need to adjust to avoid validation error
+		if ro.Repair > ro.Total {
+			ro.Repair = ro.Total
+		}
+	}
+	return ro
 }
 
 // Set sets the value from a string in the format k/m/o/n-size (min/repair/optimal/total-erasuresharesize).

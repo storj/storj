@@ -29,6 +29,16 @@ type Placement struct {
 	Selector NodeSelectorInit
 	// checked by repair job, applied to the full selection. Out of placement items will be replaced by new, selected by the Selector.
 	Invariant Invariant
+
+	// EC defines erasure coding parameter overrides.
+	EC ECParameters `yaml:"ec"`
+}
+
+// ECParameters can be used to override certain part of the RS parameters.
+type ECParameters struct {
+	Minimum int
+	Success int
+	Total   int
 }
 
 // Match implements NodeFilter.

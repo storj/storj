@@ -46,7 +46,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+	convBucket, err := convertMinimalBucketToProto(bucket, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 	if err != nil {
 		return resp, err
 	}
@@ -247,7 +247,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	convBucket, err := convertMinimalBucketToProto(buckets.MinimalBucket{
 		Name:      []byte(bucket.Name),
 		CreatedAt: bucket.Created,
-	}, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+	}, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -327,7 +327,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	var convBucket *pb.Bucket
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 		if err != nil {
 			return nil, err
 		}

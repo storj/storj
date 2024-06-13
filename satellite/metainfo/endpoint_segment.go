@@ -76,15 +76,18 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		}
 	}
 
+	placement := endpoint.placement[storj.PlacementConstraint(streamID.Placement)]
 	config := endpoint.config
+	rsParams := config.RS.Override(placement.EC)
 	defaultRedundancy := storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
-		RequiredShares: int16(config.RS.Min),
-		RepairShares:   int16(config.RS.Repair),
-		OptimalShares:  int16(config.RS.Success),
-		TotalShares:    int16(config.RS.Total),
-		ShareSize:      config.RS.ErasureShareSize.Int32(),
+		RequiredShares: int16(rsParams.Min),
+		RepairShares:   int16(rsParams.Repair),
+		OptimalShares:  int16(rsParams.Success),
+		TotalShares:    int16(rsParams.Total),
+		ShareSize:      rsParams.ErasureShareSize.Int32(),
 	}
+
 	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
@@ -161,7 +164,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		SegmentId:        segmentID,
 		AddressedLimits:  addressedLimits,
 		PrivateKey:       piecePrivateKey,
-		RedundancyScheme: endpoint.defaultRS,
+		RedundancyScheme: endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement)),
 	}, nil
 }
 
@@ -288,25 +291,26 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	// cheap basic verification
-	if numResults := len(req.UploadResult); numResults < int(endpoint.defaultRS.GetSuccessThreshold()) {
+	rsParam := endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+	if numResults := len(req.UploadResult); numResults < int(rsParam.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
-			zap.Int32("redundancy optimal threshold", endpoint.defaultRS.GetSuccessThreshold()),
+			zap.Int32("redundancy optimal threshold", rsParam.GetSuccessThreshold()),
 			zap.Stringer("Segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
-			numResults, endpoint.defaultRS.GetSuccessThreshold(),
+			numResults, rsParam.GetSuccessThreshold(),
 		)
 	}
 
 	rs := storj.RedundancyScheme{
-		Algorithm:      storj.RedundancyAlgorithm(endpoint.defaultRS.Type),
-		RequiredShares: int16(endpoint.defaultRS.MinReq),
-		RepairShares:   int16(endpoint.defaultRS.RepairThreshold),
-		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
-		TotalShares:    int16(endpoint.defaultRS.Total),
-		ShareSize:      endpoint.defaultRS.ErasureShareSize,
+		Algorithm:      storj.RedundancyAlgorithm(rsParam.Type),
+		RequiredShares: int16(rsParam.MinReq),
+		RepairShares:   int16(rsParam.RepairThreshold),
+		OptimalShares:  int16(rsParam.SuccessThreshold),
+		TotalShares:    int16(rsParam.Total),
+		ShareSize:      rsParam.ErasureShareSize,
 	}
 
 	err = endpoint.pointerVerification.VerifySizes(ctx, rs, req.SizeEncryptedData, req.UploadResult)

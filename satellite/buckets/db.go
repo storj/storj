@@ -80,6 +80,7 @@ type MinimalBucket struct {
 	Name      []byte
 	CreatedBy uuid.UUID
 	CreatedAt time.Time
+	Placement storj.PlacementConstraint
 }
 
 // ListOptions lists objects.

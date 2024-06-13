@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/pointerverification"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
@@ -81,19 +82,20 @@ type Endpoint struct {
 	singleObjectLimitCache *lrucache.ExpiringLRUOf[struct{}]
 	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
 	revocations            revocation.DB
-	defaultRS              *pb.RedundancyScheme
 	config                 ExtendedConfig
 	versionCollector       *versionCollector
 	zstdDecoder            *zstd.Decoder
 	zstdEncoder            *zstd.Encoder
 	successTrackers        *SuccessTrackers
+	placement              nodeselection.PlacementDefinitions
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers,
-	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, config Config) (*Endpoint, error) {
+	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
+
 	// TODO do something with too many params
 
 	extendedConfig, err := NewExtendedConfig(config)
@@ -107,15 +109,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	defaultRSScheme := &pb.RedundancyScheme{
-		Type:             pb.RedundancyScheme_RS,
-		MinReq:           int32(config.RS.Min),
-		RepairThreshold:  int32(config.RS.Repair),
-		SuccessThreshold: int32(config.RS.Success),
-		Total:            int32(config.RS.Total),
-		ErasureShareSize: config.RS.ErasureShareSize.Int32(),
 	}
 
 	decoder, err := zstd.NewReader(nil,
@@ -154,12 +147,12 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
-		defaultRS:            defaultRSScheme,
 		config:               extendedConfig,
 		versionCollector:     newVersionCollector(log),
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
 		successTrackers:      successTrackers,
+		placement:            placement,
 	}, nil
 }
 
@@ -385,4 +378,16 @@ func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.
 		eventkit.String("user-agent", string(header.UserAgent)),
 		eventkit.String("request", name),
 	}, tags...)...)
+}
+
+func (endpoint *Endpoint) getRSProto(placementID storj.PlacementConstraint) *pb.RedundancyScheme {
+	rs := endpoint.config.RS.Override(endpoint.placement[placementID].EC)
+	return &pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_RS,
+		MinReq:           int32(rs.Min),
+		RepairThreshold:  int32(rs.Repair),
+		SuccessThreshold: int32(rs.Success),
+		Total:            int32(rs.Total),
+		ErasureShareSize: rs.ErasureShareSize.Int32(),
+	}
 }

@@ -13511,9 +13511,10 @@ type BlockNumber_Row struct {
 	BlockNumber int64
 }
 
-type CreatedBy_CreatedAt_Row struct {
+type CreatedBy_CreatedAt_Placement_Row struct {
 	CreatedBy []byte
 	CreatedAt time.Time
+	Placement *int
 }
 
 type CustomerId_BillingCustomerId_Row struct {
@@ -18181,13 +18182,13 @@ func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 
 }
 
-func (obj *pgxImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+func (obj *pgxImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *CreatedBy_CreatedAt_Row, err error) {
+	row *CreatedBy_CreatedAt_Placement_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
@@ -18195,10 +18196,10 @@ func (obj *pgxImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_Pro
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &CreatedBy_CreatedAt_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt)
+	row = &CreatedBy_CreatedAt_Placement_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt, &row.Placement)
 	if err != nil {
-		return (*CreatedBy_CreatedAt_Row)(nil), obj.makeErr(err)
+		return (*CreatedBy_CreatedAt_Placement_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -27025,13 +27026,13 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 
 }
 
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *CreatedBy_CreatedAt_Row, err error) {
+	row *CreatedBy_CreatedAt_Placement_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
@@ -27039,10 +27040,10 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_Created
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &CreatedBy_CreatedAt_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt)
+	row = &CreatedBy_CreatedAt_Placement_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt, &row.Placement)
 	if err != nil {
-		return (*CreatedBy_CreatedAt_Row)(nil), obj.makeErr(err)
+		return (*CreatedBy_CreatedAt_Placement_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -31862,10 +31863,10 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		bucket_metainfo *BucketMetainfo, err error)
 
-	Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+	Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
-		row *CreatedBy_CreatedAt_Row, err error)
+		row *CreatedBy_CreatedAt_Placement_Row, err error)
 
 	Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,

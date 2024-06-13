@@ -185,7 +185,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
 		StreamId:           satStreamID,
-		RedundancyScheme:   endpoint.defaultRS,
+		RedundancyScheme:   endpoint.getRSProto(bucket.Placement),
 	}, nil
 }
 

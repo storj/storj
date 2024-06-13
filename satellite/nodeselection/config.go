@@ -31,6 +31,7 @@ type placementDefinition struct {
 	Filter    string
 	Invariant string
 	Selector  string
+	EC        ECParameters
 }
 
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
@@ -106,6 +107,7 @@ func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (Pla
 		p := Placement{
 			ID:   def.ID,
 			Name: def.Name,
+			EC:   def.EC,
 		}
 
 		filter := resolveTemplates(def.Filter)

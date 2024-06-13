@@ -458,6 +458,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
 			config.Metainfo,
+			placement,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
