@@ -10,3 +10,12 @@ export enum ChangeEmailStep {
     VerifyNewEmailStep,
     SuccessStep,
 }
+
+export enum DeleteAccountStep {
+    InitStep = 0,
+    VerifyPasswordStep,
+    Verify2faStep,
+    VerifyEmailStep,
+    ConfirmDeleteStep,
+    FinalConfirmDeleteStep,
+}

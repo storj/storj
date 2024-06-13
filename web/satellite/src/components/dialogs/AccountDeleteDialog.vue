@@ -15,16 +15,16 @@
                 <v-card-item class="pa-6">
                     <template #prepend>
                         <v-sheet
-                            class="border-sm d-flex justify-center align-center"
+                            class="border-sm d-flex justify-center align-center text-error"
                             width="40"
                             height="40"
                             rounded="lg"
                         >
-                            <IconEmail />
+                            <IconDelete />
                         </v-sheet>
                     </template>
-                    <v-card-title class="font-weight-bold">
-                        Change Email
+                    <v-card-title class="font-weight-bold text-error">
+                        Delete Account
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -41,16 +41,16 @@
             <v-divider />
 
             <v-window v-model="step">
-                <v-window-item :value="ChangeEmailStep.InitStep">
+                <v-window-item :value="DeleteAccountStep.InitStep">
                     <v-form class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
-                                <p class="mb-4">You are about to change your email address associated with your Storj account.</p>
+                                <p class="font-weight-bold mb-4">
+                                    You are about to permanently delete your Storj account, all of your projects and
+                                    all associated data. This action cannot be undone.
+                                </p>
                                 <p>Account:</p>
-                                <v-chip
-                                    variant="tonal"
-                                    class="font-weight-bold"
-                                >
+                                <v-chip variant="tonal">
                                     {{ user.email }}
                                 </v-chip>
                             </v-col>
@@ -58,7 +58,7 @@
                     </v-form>
                 </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.VerifyPasswordStep">
+                <v-window-item :value="DeleteAccountStep.VerifyPasswordStep">
                     <v-form ref="passwordForm" class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
@@ -69,7 +69,6 @@
                                     label="Password"
                                     class="mt-6"
                                     :rules="[RequiredRule]"
-                                    autofocus
                                     required
                                 />
                             </v-col>
@@ -77,7 +76,7 @@
                     </v-form>
                 </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.Verify2faStep">
+                <v-window-item v-if="user.isMFAEnabled" :value="DeleteAccountStep.Verify2faStep">
                     <v-form class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
@@ -96,14 +95,14 @@
                     </v-form>
                 </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.VerifyOldEmailStep">
+                <v-window-item :value="DeleteAccountStep.VerifyEmailStep">
                     <v-form class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
-                                <p>Enter the code you received on your old email.</p>
+                                <p>Enter the 6-digit code you received on email.</p>
                                 <v-otp-input
-                                    ref="otpInputVerifyOld"
-                                    :model-value="codeVerifyOld"
+                                    ref="otpInputVerify"
+                                    :model-value="verifyEmailCode"
                                     class="mt-6"
                                     type="number"
                                     maxlength="6"
@@ -115,49 +114,28 @@
                     </v-form>
                 </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.SetNewEmailStep">
-                    <v-form ref="newEmailForm" class="pa-6" @submit.prevent>
+                <v-window-item :value="DeleteAccountStep.ConfirmDeleteStep">
+                    <v-form class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
-                                <p>Enter your new email address.</p>
-                                <v-text-field
-                                    v-model="newEmail"
-                                    type="email"
-                                    label="Email"
-                                    class="mt-6"
-                                    :rules="[RequiredRule, EmailRule]"
-                                    autofocus
-                                    required
-                                />
+                                <p>Please confirm that you want to permanently delete your account and all associated data.</p>
+                                <v-chip
+                                    variant="tonal"
+                                    class="my-4 font-weight-bold"
+                                >
+                                    {{ user.email }}
+                                </v-chip>
+                                <v-checkbox-btn v-model="isDeleteConfirmed" label="I confirm to delete this account." density="compact" />
                             </v-col>
                         </v-row>
                     </v-form>
                 </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.VerifyNewEmailStep">
+                <v-window-item :value="DeleteAccountStep.FinalConfirmDeleteStep">
                     <v-form class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
-                                <p>Enter the code you received on your new email.</p>
-                                <v-otp-input
-                                    ref="otpInputVerifyNew"
-                                    class="mt-6"
-                                    :model-value="codeVerifyNew"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
-
-                <v-window-item :value="ChangeEmailStep.SuccessStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Your email has been successfully updated.</p>
+                                <p class="font-weight-bold">This action will delete all of your data and projects within 30 days. You will be logged out immediatelly and receive a confirmation email.</p>
                             </v-col>
                         </v-row>
                     </v-form>
@@ -168,7 +146,7 @@
 
             <v-card-actions class="pa-6">
                 <v-row>
-                    <v-col v-if="step === ChangeEmailStep.InitStep">
+                    <v-col v-if="step === DeleteAccountStep.InitStep">
                         <v-btn
                             variant="outlined"
                             color="default"
@@ -181,10 +159,11 @@
 
                     <v-col>
                         <v-btn
-                            v-if="step < ChangeEmailStep.SuccessStep"
+                            v-if="step < DeleteAccountStep.FinalConfirmDeleteStep"
                             color="primary"
                             variant="flat"
                             :loading="isLoading"
+                            :disabled="step === DeleteAccountStep.ConfirmDeleteStep && !isDeleteConfirmed"
                             block
                             @click="proceed"
                         >
@@ -192,13 +171,13 @@
                         </v-btn>
 
                         <v-btn
-                            v-if="step === ChangeEmailStep.SuccessStep"
-                            color="primary"
+                            v-if="step === DeleteAccountStep.FinalConfirmDeleteStep"
+                            color="error"
                             variant="flat"
                             block
-                            @click="model = false"
+                            @click="proceed"
                         >
-                            Finish
+                            Delete Account
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -215,6 +194,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCheckboxBtn,
     VChip,
     VCol,
     VDialog,
@@ -228,14 +208,14 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 
-import { ChangeEmailStep } from '@/types/accountActions';
+import { DeleteAccountStep } from '@/types/accountActions';
 import { User } from '@/types/users';
-import { EmailRule, RequiredRule } from '@/types/common';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { RequiredRule } from '@/types/common';
 
-import IconEmail from '@/components/icons/IconEmail.vue';
+import IconDelete from '@/components/icons/IconDelete.vue';
 
 const userStore = useUsersStore();
 
@@ -243,18 +223,15 @@ const model = defineModel<boolean>({ required: true });
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const step = ref<ChangeEmailStep>(ChangeEmailStep.InitStep);
+const step = ref<DeleteAccountStep>(DeleteAccountStep.InitStep);
 const password = ref<string>('');
 const code2fa = ref<string>('');
-const newEmail = ref<string>('');
-const codeVerifyOld = ref<string>('');
-const codeVerifyNew = ref<string>('');
+const verifyEmailCode = ref<string>('');
 
 const passwordForm = ref<VForm>();
-const newEmailForm = ref<VForm>();
 const otpInput2fa = ref<VOtpInput>();
-const otpInputVerifyOld = ref<VOtpInput>();
-const otpInputVerifyNew = ref<VOtpInput>();
+const otpInputVerify = ref<VOtpInput>();
+const isDeleteConfirmed = ref<boolean>(false);
 const isOTPInputError = ref<boolean>(false);
 
 const user = computed<User>(() => userStore.state.user);
@@ -263,64 +240,55 @@ async function proceed(): Promise<void> {
     await withLoading(async () => {
         try {
             switch (step.value) {
-            case ChangeEmailStep.InitStep:
-                step.value = ChangeEmailStep.VerifyPasswordStep;
+            case DeleteAccountStep.InitStep:
+                step.value = DeleteAccountStep.VerifyPasswordStep;
                 break;
-            case ChangeEmailStep.VerifyPasswordStep:
+            case DeleteAccountStep.VerifyPasswordStep:
                 passwordForm.value?.validate();
                 if (!passwordForm.value?.isValid) return;
 
-                await userStore.changeEmail(ChangeEmailStep.VerifyPasswordStep, password.value);
+                await userStore.deleteAccount(DeleteAccountStep.VerifyPasswordStep, password.value);
 
                 if (user.value.isMFAEnabled) {
-                    step.value = ChangeEmailStep.Verify2faStep;
+                    step.value = DeleteAccountStep.Verify2faStep;
                 } else {
-                    step.value = ChangeEmailStep.VerifyOldEmailStep;
+                    step.value = DeleteAccountStep.VerifyEmailStep;
                 }
                 break;
-            case ChangeEmailStep.Verify2faStep:
+            case DeleteAccountStep.Verify2faStep:
                 if (code2fa.value.length !== 6) {
                     isOTPInputError.value = true;
                     return;
                 }
 
-                await userStore.changeEmail(ChangeEmailStep.Verify2faStep, code2fa.value.trim());
+                await userStore.deleteAccount(DeleteAccountStep.Verify2faStep, code2fa.value.trim());
 
-                step.value = ChangeEmailStep.VerifyOldEmailStep;
+                step.value = DeleteAccountStep.VerifyEmailStep;
                 break;
-            case ChangeEmailStep.VerifyOldEmailStep:
-                if (codeVerifyOld.value.length !== 6) {
+            case DeleteAccountStep.VerifyEmailStep:
+                if (verifyEmailCode.value.length !== 6) {
                     isOTPInputError.value = true;
                     return;
                 }
 
-                await userStore.changeEmail(ChangeEmailStep.VerifyOldEmailStep, codeVerifyOld.value.trim());
+                await userStore.deleteAccount(DeleteAccountStep.VerifyEmailStep, verifyEmailCode.value.trim());
 
-                step.value = ChangeEmailStep.SetNewEmailStep;
+                step.value = DeleteAccountStep.ConfirmDeleteStep;
                 break;
-            case ChangeEmailStep.SetNewEmailStep:
-                newEmailForm.value?.validate();
-                if (!newEmailForm.value?.isValid) return;
+            case DeleteAccountStep.ConfirmDeleteStep:
+                if (!isDeleteConfirmed.value) return;
 
-                await userStore.changeEmail(ChangeEmailStep.SetNewEmailStep, newEmail.value.trim());
-
-                step.value = ChangeEmailStep.VerifyNewEmailStep;
+                step.value = DeleteAccountStep.FinalConfirmDeleteStep;
                 break;
-            case ChangeEmailStep.VerifyNewEmailStep:
-                if (codeVerifyNew.value.length !== 6) {
-                    isOTPInputError.value = true;
-                    return;
-                }
+            case DeleteAccountStep.FinalConfirmDeleteStep:
+                await userStore.deleteAccount(DeleteAccountStep.ConfirmDeleteStep, '');
 
-                await userStore.changeEmail(ChangeEmailStep.VerifyNewEmailStep, codeVerifyNew.value.trim());
-                await userStore.getUser();
-
-                step.value = ChangeEmailStep.SuccessStep;
-
-                notify.success('Your email has been successfully updated!');
-                break;
-            case ChangeEmailStep.SuccessStep:
+                notify.success('Your account has been marked for deletion!');
                 model.value = false;
+
+                setTimeout(() => {
+                    window.location.href = `${window.location.origin}/login`;
+                }, 2000);
             }
         } catch (error) {
             notify.error(error.message);
@@ -331,14 +299,11 @@ async function proceed(): Promise<void> {
 function initialiseOTPInput() {
     setTimeout(() => {
         switch (step.value) {
-        case ChangeEmailStep.Verify2faStep:
+        case DeleteAccountStep.Verify2faStep:
             otpInput2fa.value?.focus();
             break;
-        case ChangeEmailStep.VerifyOldEmailStep:
-            otpInputVerifyOld.value?.focus();
-            break;
-        case ChangeEmailStep.VerifyNewEmailStep:
-            otpInputVerifyNew.value?.focus();
+        case DeleteAccountStep.VerifyEmailStep:
+            otpInputVerify.value?.focus();
         }
     }, 0);
 }
@@ -354,14 +319,11 @@ function onOTPValueChange(value: string): void {
     }
 
     switch (step.value) {
-    case ChangeEmailStep.Verify2faStep:
+    case DeleteAccountStep.Verify2faStep:
         code2fa.value = val;
         break;
-    case ChangeEmailStep.VerifyOldEmailStep:
-        codeVerifyOld.value = val;
-        break;
-    case ChangeEmailStep.VerifyNewEmailStep:
-        codeVerifyNew.value = val;
+    case DeleteAccountStep.VerifyEmailStep:
+        verifyEmailCode.value = val;
     }
 
     isOTPInputError.value = false;
@@ -369,9 +331,8 @@ function onOTPValueChange(value: string): void {
 
 watch(step, val => {
     if (
-        val === ChangeEmailStep.Verify2faStep ||
-        val === ChangeEmailStep.VerifyOldEmailStep ||
-        val === ChangeEmailStep.VerifyNewEmailStep
+        val === DeleteAccountStep.Verify2faStep ||
+        val === DeleteAccountStep.VerifyEmailStep
     ) {
         initialiseOTPInput();
     }
@@ -379,11 +340,11 @@ watch(step, val => {
 
 watch(model, val => {
     if (!val) {
-        step.value = ChangeEmailStep.InitStep;
+        step.value = DeleteAccountStep.InitStep;
         password.value = '';
         code2fa.value = '';
-        codeVerifyOld.value = '';
-        codeVerifyNew.value = '';
+        verifyEmailCode.value = '';
+        isDeleteConfirmed.value = false;
         isOTPInputError.value = false;
 
         document.removeEventListener('keyup', onKeyUp);

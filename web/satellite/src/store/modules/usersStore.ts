@@ -16,7 +16,7 @@ import {
 } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ChangeEmailStep } from '@/types/changeEmail';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 
 export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
 
@@ -51,6 +51,10 @@ export const useUsersStore = defineStore('users', () => {
 
     async function changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
         await api.changeEmail(step, data);
+    }
+
+    async function deleteAccount(step: DeleteAccountStep, data: string): Promise<void> {
+        await api.deleteAccount(step, data);
     }
 
     async function getUser(): Promise<void> {
@@ -141,6 +145,7 @@ export const useUsersStore = defineStore('users', () => {
         noticeDismissal,
         updateUser,
         changeEmail,
+        deleteAccount,
         getUser,
         disableUserMFA,
         enableUserMFA,

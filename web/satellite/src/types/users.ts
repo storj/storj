@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { Duration } from '@/utils/time';
-import { ChangeEmailStep } from '@/types/changeEmail';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 
 /**
  * Exposes all user-related functionality.
@@ -57,6 +57,15 @@ export interface UsersApi {
      * @throws Error
      */
     changeEmail(step: ChangeEmailStep, data: string): Promise<void>;
+
+    /**
+     * Marks user's account for deletion.
+     *
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    deleteAccount(step: DeleteAccountStep, data: string): Promise<void>;
 
     /**
      * Enable user's MFA.
