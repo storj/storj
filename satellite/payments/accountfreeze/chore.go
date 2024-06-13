@@ -278,6 +278,16 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 				infoLog("Ignoring invoice; payment already made")
 				continue
 			}
+
+			// try to pay the invoice before warning.
+			err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, userID)
+			if err == nil {
+				infoLog("Ignoring invoice; Payment attempt successful")
+				continue
+			} else {
+				errorLog("Could not attempt payment", err)
+			}
+
 			err = chore.freezeService.BillingWarnUser(ctx, userID)
 			if err != nil {
 				errorLog("Could not add billing warning event", err)
