@@ -493,6 +493,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.BonusRate,
 			peer.Analytics.Service,
 			emission.NewService(config.Emission),
+			config.Console.SelfServeAccountDeleteEnabled,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

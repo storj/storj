@@ -211,6 +211,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			pc.BonusRate,
 			peer.Analytics.Service,
 			emission.NewService(config.Emission),
+			config.Console.SelfServeAccountDeleteEnabled,
 		)
 
 		if err != nil {

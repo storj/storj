@@ -565,6 +565,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.BonusRate,
 			peer.Analytics.Service,
 			emissionService,
+			config.Console.SelfServeAccountDeleteEnabled,
 		)
 
 		if err != nil {

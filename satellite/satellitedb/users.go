@@ -677,6 +677,9 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.StatusUpdatedAt != nil {
 		update.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*request.StatusUpdatedAt)
 	}
+	if request.FinalInvoiceGenerated != nil {
+		update.FinalInvoiceGenerated = dbx.User_FinalInvoiceGenerated(*request.FinalInvoiceGenerated)
+	}
 	if request.ProjectLimit != nil {
 		update.ProjectLimit = dbx.User_ProjectLimit(*request.ProjectLimit)
 	}
@@ -819,6 +822,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		UpgradeTime:                 user.UpgradeTime,
 		NewUnverifiedEmail:          user.NewUnverifiedEmail,
 		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
+		FinalInvoiceGenerated:       user.FinalInvoiceGenerated,
 	}
 
 	if user.DefaultPlacement != nil {
