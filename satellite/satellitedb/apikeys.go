@@ -261,6 +261,13 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	return err
 }
 
+// DeleteAllByProjectID deletes all APIKeyInfos from store by given projectID.
+func (keys *apikeys) DeleteAllByProjectID(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = keys.methods.Delete_ApiKey_By_ProjectId(ctx, dbx.ApiKey_ProjectId(id[:]))
+	return err
+}
+
 // DeleteExpiredByNamePrefix deletes expired APIKeyInfo from store by key name prefix.
 func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime time.Duration, prefix string, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -2031,6 +2031,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 	}
 
 	unsetInt := 0
+	unsetInt64 := int64(unsetInt)
 	unsetStr := ""
 	loginLockoutExpirationPtr := &time.Time{}
 	status := UserRequestedDeletion
@@ -2042,7 +2043,62 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		FailedLoginCount:            &unsetInt,
 		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
 		ActivationCode:              &unsetStr,
+		ProjectLimit:                &unsetInt,
+		ProjectStorageLimit:         &unsetInt64,
+		ProjectBandwidthLimit:       &unsetInt64,
+		ProjectSegmentLimit:         &unsetInt64,
 	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&RequestAccountDeletionSuccessEmail{},
+	)
+
+	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var errsList errs.Group
+	for _, p := range projects {
+		err = s.store.APIKeys().DeleteAllByProjectID(ctx, p.ID)
+		if err != nil {
+			errsList.Add(err)
+		}
+
+		err = s.store.Projects().UpdateLimitsGeneric(ctx, p.ID, []Limit{
+			{Kind: UserSetBandwidthLimit, Value: &unsetInt64},
+			{Kind: UserSetStorageLimit, Value: &unsetInt64},
+			{Kind: StorageLimit, Value: &unsetInt64},
+			{Kind: BandwidthLimit, Value: &unsetInt64},
+			{Kind: SegmentLimit, Value: &unsetInt64},
+			{Kind: BucketsLimit, Value: &unsetInt64},
+			{Kind: RateLimit, Value: &unsetInt64},
+			{Kind: BurstLimit, Value: &unsetInt64},
+			{Kind: RateLimitHead, Value: &unsetInt64},
+			{Kind: BurstLimitHead, Value: &unsetInt64},
+			{Kind: RateLimitGet, Value: &unsetInt64},
+			{Kind: BurstLimitGet, Value: &unsetInt64},
+			{Kind: RateLimitPut, Value: &unsetInt64},
+			{Kind: BurstLimitPut, Value: &unsetInt64},
+			{Kind: RateLimitList, Value: &unsetInt64},
+			{Kind: BurstLimitList, Value: &unsetInt64},
+			{Kind: RateLimitDelete, Value: &unsetInt64},
+			{Kind: BurstLimitDelete, Value: &unsetInt64},
+		})
+		if err != nil {
+			errsList.Add(err)
+		}
+	}
+	if errsList.Err() != nil {
+		return Error.Wrap(errsList.Err())
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}

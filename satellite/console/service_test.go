@@ -1539,6 +1539,7 @@ func TestDeleteAccount(t *testing.T) {
 		db := sat.DB
 		service := sat.API.Console.Service
 		usrLogin := planet.Uplinks[0].User[sat.ID()]
+		usrProject := planet.Uplinks[0].Projects[0]
 
 		user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
 		require.NoError(t, err)
@@ -1680,6 +1681,19 @@ func TestDeleteAccount(t *testing.T) {
 			return now
 		})
 
+		key, err := macaroon.NewAPIKey([]byte("testSecret"))
+		require.NoError(t, err)
+
+		keyInfo := console.APIKeyInfo{
+			Name:      "key",
+			ProjectID: usrProject.ID,
+			Secret:    []byte("testSecret"),
+		}
+
+		createdKey, err := db.Console().APIKeys().Create(ctx, key.Head(), keyInfo)
+		require.NotNil(t, createdKey)
+		require.NoError(t, err)
+
 		err = service.DeleteAccount(userCtx, console.DeleteAccountStep, "")
 		require.NoError(t, err)
 
@@ -1688,6 +1702,36 @@ func TestDeleteAccount(t *testing.T) {
 		require.Equal(t, console.UserRequestedDeletion, user.Status)
 		require.WithinDuration(t, now, *user.StatusUpdatedAt, time.Minute)
 		require.Empty(t, user.ActivationCode)
+		require.Zero(t, user.ProjectLimit)
+		require.Zero(t, user.ProjectStorageLimit)
+		require.Zero(t, user.ProjectBandwidthLimit)
+		require.Zero(t, user.ProjectSegmentLimit)
+
+		projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotZero(t, len(projects))
+
+		for _, p := range projects {
+			require.Zero(t, *p.StorageLimit)
+			require.Zero(t, *p.BandwidthLimit)
+			require.Zero(t, *p.SegmentLimit)
+			require.Zero(t, *p.RateLimit)
+			require.Zero(t, *p.BurstLimit)
+			require.Zero(t, *p.RateLimitHead)
+			require.Zero(t, *p.BurstLimitHead)
+			require.Zero(t, *p.RateLimitGet)
+			require.Zero(t, *p.BurstLimitGet)
+			require.Zero(t, *p.RateLimitList)
+			require.Zero(t, *p.BurstLimitList)
+			require.Zero(t, *p.RateLimitPut)
+			require.Zero(t, *p.BurstLimitPut)
+			require.Zero(t, *p.RateLimitDelete)
+			require.Zero(t, *p.BurstLimitDelete)
+
+			keys, err := db.Console().APIKeys().GetAllNamesByProjectID(ctx, p.ID)
+			require.NoError(t, err)
+			require.Zero(t, len(keys))
+		}
 	})
 }
 

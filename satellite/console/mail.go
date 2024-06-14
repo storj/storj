@@ -69,6 +69,15 @@ func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" 
 // Subject gets email subject.
 func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
 
+// RequestAccountDeletionSuccessEmail is mailservice template to notify user about successful account delete request.
+type RequestAccountDeletionSuccessEmail struct{}
+
+// Template returns email template name.
+func (*RequestAccountDeletionSuccessEmail) Template() string { return "RequestAccountDeletionSuccess" }
+
+// Subject gets email subject.
+func (*RequestAccountDeletionSuccessEmail) Subject() string { return "Account deletion" }
+
 // EmailAddressVerificationEmail is mailservice template with a verification code.
 type EmailAddressVerificationEmail struct {
 	Action           string
