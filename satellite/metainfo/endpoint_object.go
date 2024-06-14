@@ -318,7 +318,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 	committedObject = &object
 
-	pbObject, err := endpoint.objectToProto(ctx, object, nil)
+	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
@@ -519,7 +519,7 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, err
 	}
 
-	pbObject, err := endpoint.objectToProto(ctx, object, nil)
+	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
@@ -611,10 +611,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
 	}
 
-	var segmentRS *pb.RedundancyScheme
-	// TODO this code is triggered only by very old uplink library and we will remove it eventually.
+	object, err := endpoint.objectToProto(ctx, mbObject)
+	// TODO this code is triggered only by very old uplink library (<1.4.2) and we will remove it eventually.
+	// note: for non-default RS schema it
 	if !req.RedundancySchemePerSegment && mbObject.SegmentCount > 0 {
-		segmentRS = endpoint.defaultRS
 		segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: mbObject.StreamID,
 			Position: metabase.SegmentPosition{
@@ -636,7 +636,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 				zap.Error(err),
 			)
 		} else {
-			segmentRS = &pb.RedundancyScheme{
+			object.RedundancyScheme = &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
 				ErasureShareSize: segment.Redundancy.ShareSize,
 
@@ -651,7 +651,6 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		mon.Meter("req_get_object_rs_per_object").Mark(1)
 	}
 
-	object, err := endpoint.objectToProto(ctx, mbObject, segmentRS)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
@@ -884,7 +883,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	// convert to response
-	protoObject, err := endpoint.objectToProto(ctx, object, nil)
+	protoObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		endpoint.log.Error("unable to convert object to proto", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
@@ -1678,7 +1677,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
 
-func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object, rs *pb.RedundancyScheme) (*pb.Object, error) {
+func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object) (*pb.Object, error) {
 	expires := time.Time{}
 	if object.ExpiresAt != nil {
 		expires = *object.ExpiresAt
@@ -1764,8 +1763,6 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
 		},
-
-		RedundancyScheme: rs,
 	}
 
 	return result, nil
@@ -1957,14 +1954,14 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 func (endpoint *Endpoint) deleteObjectResultToProto(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
 	deletedObjects = make([]*pb.Object, 0, len(result.Removed)+len(result.Markers))
 	for _, object := range result.Removed {
-		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
+		deletedObject, err := endpoint.objectToProto(ctx, object)
 		if err != nil {
 			return nil, err
 		}
 		deletedObjects = append(deletedObjects, deletedObject)
 	}
 	for _, object := range result.Markers {
-		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
+		deletedObject, err := endpoint.objectToProto(ctx, object)
 		if err != nil {
 			return nil, err
 		}
@@ -2429,7 +2426,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 
 	// we can return nil redundancy because this request won't be used for downloading
-	protoObject, err := endpoint.objectToProto(ctx, object, nil)
+	protoObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
