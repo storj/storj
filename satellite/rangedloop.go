@@ -214,7 +214,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 				sequenceObservers = append(sequenceObservers, observer)
 			}
 
-			// suffle observers list to be sure that each observer will be executed first from time to time
+			// shuffle observers list to be sure that each observer will be executed first from time to time
 			rand.Shuffle(len(sequenceObservers), func(i, j int) {
 				sequenceObservers[i], sequenceObservers[j] = sequenceObservers[j], sequenceObservers[i]
 			})
