@@ -272,6 +272,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return IfSelector(condition, trueAttr, falseAttr), nil
 		},
+		"dual": DualSelector,
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

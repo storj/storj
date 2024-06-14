@@ -905,6 +905,112 @@ func TestIfWithEqSelector(t *testing.T) {
 	assert.InDelta(t, nodeID1total+nodeID2total, nodeID3total, selectionEpsilon)
 }
 
+func TestDualSelector(t *testing.T) {
+
+	slowFilter, err := nodeselection.NewAttributeFilter("email", "slow")
+	require.NoError(t, err)
+	fastFilter, err := nodeselection.NewAttributeFilter("email", "fast")
+	require.NoError(t, err)
+
+	t.Run("3 from slow, 7 from remaining", func(t *testing.T) {
+		nodes, _ := generateNodes(10, 10)
+
+		selectorInit := nodeselection.DualSelector(
+			0.3,
+			nodeselection.FilteredSelector(slowFilter, nodeselection.RandomSelector()),
+			nodeselection.FilteredSelector(fastFilter, nodeselection.RandomSelector()),
+		)
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 10)
+			require.Equal(t, 3, countSlowNodes(selected))
+		}
+	})
+
+	t.Run("3 from slow, 7 from remaining, fast only", func(t *testing.T) {
+		nodes, _ := generateNodes(0, 20)
+
+		selectorInit := nodeselection.DualSelector(
+			0.3,
+			nodeselection.FilteredSelector(slowFilter, nodeselection.RandomSelector()),
+			nodeselection.FilteredSelector(fastFilter, nodeselection.RandomSelector()),
+		)
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 10)
+			require.Equal(t, 0, countSlowNodes(selected))
+		}
+	})
+
+	t.Run("3 from slow, 7 from fast, slow only", func(t *testing.T) {
+		nodes, _ := generateNodes(20, 0)
+
+		selectorInit := nodeselection.DualSelector(
+			0.3,
+			nodeselection.FilteredSelector(slowFilter, nodeselection.RandomSelector()),
+			nodeselection.FilteredSelector(fastFilter, nodeselection.RandomSelector()),
+		)
+		nodeSelector := selectorInit(nodes, nil)
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 3)
+			require.Equal(t, 3, countSlowNodes(selected))
+		}
+	})
+
+	t.Run("using fraction", func(t *testing.T) {
+		nodes, _ := generateNodes(10, 10)
+
+		selectorInit := nodeselection.DualSelector(
+			0.25,
+			nodeselection.FilteredSelector(slowFilter, nodeselection.RandomSelector()),
+			nodeselection.FilteredSelector(fastFilter, nodeselection.RandomSelector()),
+		)
+		nodeSelector := selectorInit(nodes, nil)
+		slowCounts := 0
+		allCounts := 0
+		for i := 0; i < 1000; i++ {
+			selected, err := nodeSelector(storj.NodeID{}, 10, nil, nil)
+			require.NoError(t, err)
+			slowNodeCount := countSlowNodes(selected)
+			slowCounts += slowNodeCount
+			allCounts += len(selected)
+			require.Len(t, selected, 10)
+			require.Contains(t, []int{2, 3}, slowNodeCount)
+		}
+
+		// this should be very close to 2.5
+		ratio := float64(slowCounts) / float64(allCounts)
+		require.InDelta(t, 0.25, ratio, 0.05)
+
+	})
+}
+
+func generateNodes(slow int, fast int) ([]*nodeselection.SelectedNode, *mockTracker) {
+	tracker := &mockTracker{
+		trustedUplink: storj.NodeID{},
+	}
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < slow+fast; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i < slow {
+			node.Email = "slow"
+			tracker.slowNodes = append(tracker.slowNodes, node.ID)
+		} else {
+			node.Email = "fast"
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes, tracker
+}
+
 // mockSelector returns only 1 success, for slow nodes, but only if trustedUplink does ask it.
 type mockTracker struct {
 	trustedUplink storj.NodeID
@@ -943,4 +1049,21 @@ func countUnvetted(nodes []*nodeselection.SelectedNode) int {
 	}
 
 	return unvetted
+}
+
+func TestRoundWithProbability(t *testing.T) {
+	for _, n := range []float64{0, 0.1, 0.5, 0.9, 1, 0.999, 12.8} {
+		t.Run(fmt.Sprintf("%f", n), func(t *testing.T) {
+			count := 10000
+			sum := 0
+			ceil := int(math.Ceil(n))
+			floor := int(math.Floor(n))
+			for i := 0; i < count; i++ {
+				rounded := nodeselection.RoundWithProbability(n)
+				require.Contains(t, []int{ceil, floor}, rounded)
+				sum += rounded
+			}
+			require.InDelta(t, n, float64(sum)/float64(count), 0.1)
+		})
+	}
 }

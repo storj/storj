@@ -466,3 +466,91 @@ func BestOfN(tracker UploadSuccessTracker, ratio float64, delegate NodeSelectorI
 		}
 	}
 }
+
+// EnoughFast will select `ratio` times more nodes. The fastest nodes (under splitLine) will be used the selectionRation nodes, remaining wil be chosen from the second part.
+func EnoughFast(tracker UploadSuccessTracker, ratio float64, splitLine float64, selectionRatio float64, delegate NodeSelectorInit) NodeSelectorInit {
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		wrappedSelector := delegate(nodes, filter)
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+			getSuccessRate := tracker.Get(requester)
+
+			nodesToSelect := int(ratio * float64(n))
+			selectedNodes, err := wrappedSelector(requester, nodesToSelect, excluded, alreadySelected)
+			if err != nil {
+				return selectedNodes, err
+			}
+
+			if len(selectedNodes) < n {
+				return selectedNodes, nil
+			}
+
+			slices.SortFunc(selectedNodes, func(a, b *SelectedNode) int {
+				successA := getSuccessRate(a.ID)
+				successB := getSuccessRate(b.ID)
+				if math.IsNaN(successB) || successA < successB {
+					return 1
+				}
+				return -1
+			})
+			splitIndex := int(math.Round(splitLine * float64(len(selectedNodes))))
+			slowNodes := selectedNodes[splitIndex:]
+			fastNodes := selectedNodes[:splitIndex]
+			requiredFast := int(math.Round(float64(n) * selectionRatio))
+			selectedFast := pickRandom(fastNodes, requiredFast)
+			requiredSlow := n - len(selectedFast)
+			return append(selectedFast, pickRandom(slowNodes, requiredSlow)...), nil
+		}
+	}
+}
+
+func pickRandom(nodes []*SelectedNode, required int) (res []*SelectedNode) {
+	r := NewRandomOrder(len(nodes))
+	for r.Next() {
+		res = append(res, nodes[r.At()])
+		if len(res) >= required {
+			break
+		}
+	}
+	return res
+}
+
+// DualSelector selects fraction of nodes with first, and remaining with the second selector.
+func DualSelector(fraction float64, first NodeSelectorInit, second NodeSelectorInit) NodeSelectorInit {
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		if math.IsNaN(fraction) || fraction < 0 || fraction > 1 {
+			panic("fraction is of the dual selector is invalid")
+		}
+		firstSelector := first(nodes, filter)
+		secondSelector := second(nodes, filter)
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+
+			firstSelectionCount := RoundWithProbability(float64(n) * fraction)
+
+			var err error
+			var selectedFirstNodes []*SelectedNode
+			if firstSelectionCount > 0 {
+				selectedFirstNodes, err = firstSelector(requester, firstSelectionCount, excluded, alreadySelected)
+				if err != nil {
+					mon.Counter("dual_selector_failure").Inc(1)
+				}
+			}
+
+			remaining := n - len(selectedFirstNodes)
+			selectedSecondNodes, err := secondSelector(requester, remaining, excluded, append(alreadySelected, selectedFirstNodes...))
+			if err != nil {
+				return selectedSecondNodes, err
+			}
+			return append(selectedSecondNodes, selectedFirstNodes...), nil
+		}
+	}
+}
+
+// RoundWithProbability is like math.Round, but instead of rounding 2.6 to 3 all the time, it will
+// round up to 3 with 60% chance, and to 2 with 40% chance.
+func RoundWithProbability(r float64) int {
+	if int(r*100)%100 > (rand.Intn(100) + 1) {
+		return int(math.Ceil(r))
+	} else {
+		return int(math.Floor(r))
+	}
+}
