@@ -77,6 +77,25 @@ type FetchResultReport struct {
 	Unknown    []PieceFetchResult
 }
 
+type redundancySchemePrinter storj.RedundancyScheme
+
+// TODO: this should be a method on storj.RedundancyScheme.
+func (r redundancySchemePrinter) String() string {
+	var algorithm string
+	switch r.Algorithm {
+	case storj.InvalidRedundancyAlgorithm:
+		algorithm = "XX"
+	case storj.ReedSolomon:
+		algorithm = "RS"
+	}
+	return fmt.Sprintf("%s:%d/%d/%d/%d", algorithm, r.RequiredShares, r.RepairShares, r.OptimalShares, r.TotalShares)
+}
+
+// zapRS creates a zap.Field containing a storj.RedundancyScheme.
+func zapRS(fieldName string, redundancy storj.RedundancyScheme) zap.Field {
+	return zap.Stringer(fieldName, redundancySchemePrinter(redundancy))
+}
+
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
 	log            *zap.Logger
@@ -364,8 +383,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
 
+	log.Debug("fetching pieces for segment",
+		zap.Int("numOrderLimits", len(getOrderLimits)),
+		zapRS("RS", segment.Redundancy))
+
 	// Download the segment using just the retrievable pieces
-	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedNodesInfo, getPrivateKey, oldRedundancyStrategy, int64(segment.EncryptedSize))
+	segmentReader, piecesReport, err := repairer.ec.Get(ctx, log, getOrderLimits, cachedNodesInfo, getPrivateKey, oldRedundancyStrategy, int64(segment.EncryptedSize))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Meter("repair_too_many_nodes_failed").Mark(0)     //mon:locked
@@ -533,8 +556,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
 
+	log.Debug("putting pieces for segment",
+		zap.Int("numOrderLimits", len(putLimits)),
+		zap.Int("minSuccessfulNeeded", minSuccessfulNeeded),
+		zapRS("RS", newRedundancy))
+
 	// Upload the repaired pieces
-	successfulNodes, _, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, newRedundancyStrategy, segmentReader, repairer.timeout, minSuccessfulNeeded)
+	successfulNodes, _, err := repairer.ec.Repair(ctx, log, putLimits, putPrivateKey, newRedundancyStrategy, segmentReader, repairer.timeout, minSuccessfulNeeded)
 	if err != nil {
 		return false, repairPutError.Wrap(err)
 	}

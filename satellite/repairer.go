@@ -217,7 +217,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 
 		peer.EcRepairer = repairer.NewECRepairer(
-			log.Named("ec-repair"),
 			peer.Dialer,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 			config.Repairer.DialTimeout,
