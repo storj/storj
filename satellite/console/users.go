@@ -123,6 +123,7 @@ type CreateUser struct {
 	ActivationCode   string `json:"-"`
 	SignupId         string `json:"-"`
 	AllowNoName      bool   `json:"-"`
+	PaidTier         bool   `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.

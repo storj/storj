@@ -65,7 +65,6 @@ type Config struct {
 	MaxParallelCalls       int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
 	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
 	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"false"`
-	EnableFreeTrialLogic   bool   `help:"whether to use users upgrade time and skip free tier status in billing process" default:"false"`
 	Retries                RetryConfig
 }
 
@@ -99,13 +98,12 @@ type Service struct {
 	// Stripe Extended Features
 	AutoAdvance bool
 
-	listingLimit         int
-	skipEmptyInvoices    bool
-	maxParallelCalls     int
-	removeExpiredCredit  bool
-	useIdempotency       bool
-	enableFreeTrialLogic bool
-	nowFn                func() time.Time
+	listingLimit        int
+	skipEmptyInvoices   bool
+	maxParallelCalls    int
+	removeExpiredCredit bool
+	useIdempotency      bool
+	nowFn               func() time.Time
 }
 
 // NewService creates a Service instance.
@@ -138,7 +136,6 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
-		enableFreeTrialLogic:   config.EnableFreeTrialLogic,
 		nowFn:                  time.Now,
 	}, nil
 }
@@ -256,12 +253,9 @@ func (service *Service) createProjectRecords(ctx context.Context, customer *Cust
 			return nil, err
 		}
 
-		from := start
-		if service.enableFreeTrialLogic {
-			from, err = service.getFromDate(ctx, customer.UserID, start, end)
-			if err != nil {
-				return nil, err
-			}
+		from, err := service.getFromDate(ctx, customer.UserID, start, end)
+		if err != nil {
+			return nil, err
 		}
 
 		usage, err := service.usageDB.GetProjectTotal(ctx, project.ID, from, end)
@@ -736,12 +730,9 @@ func (service *Service) createInvoiceItems(ctx context.Context, billingID *strin
 		return true, nil
 	}
 
-	from := record.PeriodStart
-	if service.enableFreeTrialLogic {
-		from, err = service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
-		if err != nil {
-			return false, err
-		}
+	from, err := service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
+	if err != nil {
+		return false, err
 	}
 
 	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, record.PeriodEnd)
@@ -815,12 +806,9 @@ func (service *Service) processProjectRecord(ctx context.Context, cusID, projNam
 		return true, nil
 	}
 
-	from := record.PeriodStart
-	if service.enableFreeTrialLogic {
-		from, err = service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
-		if err != nil {
-			return false, err
-		}
+	from, err := service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
+	if err != nil {
+		return false, err
 	}
 
 	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, record.PeriodEnd)
@@ -1874,10 +1862,7 @@ func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (boo
 		return false, Error.New("unable to look up user %s: %w", userID, err)
 	}
 
-	if service.enableFreeTrialLogic {
-		return user.Status != console.Active || !user.PaidTier, nil
-	}
-	return user.Status != console.Active, nil
+	return user.Status != console.Active || !user.PaidTier, nil
 }
 
 // projectUsagePrice represents pricing for project usage.

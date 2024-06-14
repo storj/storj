@@ -1051,9 +1051,14 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		projectID := planet.Uplinks[0].Projects[0].ID
+		project := planet.Uplinks[0].Projects[0]
+		db := planet.Satellites[0].DB
 
-		apiKeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+		paidTierStatus := true
+		err := db.Console().Users().Update(ctx, project.Owner.ID, console.UpdateUserRequest{PaidTier: &paidTierStatus})
+		require.NoError(t, err)
+
+		apiKeys, err := db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{
 			Page:   1,
 			Limit:  2,
 			Search: "",
@@ -1061,7 +1066,7 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
-		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
+		err = db.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
 		now := time.Date(2030, time.Month(9), 1, 0, 0, 0, 0, time.UTC)
@@ -1074,25 +1079,25 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		// use fixed intervals to avoid issues at the beginning of the month
 		tally := accounting.BucketStorageTally{
 			BucketName:        "test",
-			ProjectID:         projectID,
+			ProjectID:         project.ID,
 			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
 			ObjectCount:       1,
 			TotalSegmentCount: 2,
 			TotalBytes:        640000,
 			MetadataSize:      2,
 		}
-		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		err = db.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 		tally = accounting.BucketStorageTally{
 			BucketName:        "test",
-			ProjectID:         projectID,
+			ProjectID:         project.ID,
 			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
 			ObjectCount:       1,
 			TotalSegmentCount: 2,
 			TotalBytes:        640000,
 			MetadataSize:      2,
 		}
-		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		err = db.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 
 		planet.Satellites[0].API.Payments.StripeService.SetNow(func() time.Time {
@@ -1104,7 +1109,7 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodGet,
-			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID),
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", project.ID),
 			nil,
 		)
 		require.NoError(t, err)
