@@ -151,6 +151,7 @@ type SatelliteUsage struct {
 
 // Config is configuration for Store.
 type Config struct {
+	FileStatCache        string      `help:"optional type of file stat cache. Might be useful for slow disk and limited memory. Available options: badger (EXPERIMENTAL)"`
 	WritePreallocSize    memory.Size `help:"deprecated" default:"4MiB"`
 	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
 	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`

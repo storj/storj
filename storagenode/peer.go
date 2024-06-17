@@ -151,6 +151,7 @@ func (config *Config) DatabaseConfig() storagenodedb.Config {
 	}
 	return storagenodedb.Config{
 		Storage:   config.Storage.Path,
+		Cache:     config.Pieces.FileStatCache,
 		Info:      filepath.Join(dbdir, "piecestore.db"),
 		Info2:     filepath.Join(dbdir, "info.db"),
 		Pieces:    config.Storage.Path,

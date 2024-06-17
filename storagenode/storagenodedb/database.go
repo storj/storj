@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/blobstore/statcache"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
@@ -80,6 +81,7 @@ func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) erro
 type Config struct {
 	// TODO: figure out better names
 	Storage   string
+	Cache     string
 	Info      string
 	Info2     string
 	Driver    string // if unset, uses sqlite3
@@ -100,6 +102,7 @@ func (config Config) LazyFilewalkerConfig() lazyfilewalker.Config {
 		Driver:          config.Driver,
 		Pieces:          config.Pieces,
 		Filestore:       config.Filestore,
+		Cache:           config.Cache,
 		LowerIOPriority: true,
 	}
 }
@@ -131,6 +134,8 @@ type DB struct {
 	usedSpacePerPrefixDB   *usedSpacePerPrefixDB
 
 	SQLDBs map[string]DBContainer
+
+	cache statcache.Cache
 }
 
 // OpenNew creates a new master database for storage node.
@@ -141,6 +146,12 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	}
 
 	pieces := filestore.New(log, piecesDir, config.Filestore)
+
+	var cache statcache.Cache
+	pieces, cache, err = cachedBlobstore(log, pieces, config)
+	if err != nil {
+		return nil, err
+	}
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
@@ -164,6 +175,8 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 		config: config,
 
 		pieces: pieces,
+
+		cache: cache,
 
 		dbDirectory: filepath.Dir(config.Info2),
 
@@ -207,6 +220,23 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	return db, nil
 }
 
+func cachedBlobstore(log *zap.Logger, blobs blobstore.Blobs, config Config) (blobstore.Blobs, statcache.Cache, error) {
+	switch config.Cache {
+	case "":
+		return blobs, nil, nil
+	case "badger":
+		flog := process.NamedLog(log, "filestatcache")
+		cache, err := statcache.NewBadgerCache(flog, filepath.Join(config.Storage, "filestatcache"))
+		if err != nil {
+			return nil, nil, errs.Wrap(err)
+		}
+		return statcache.NewCachedStatBlobStore(flog, cache, blobs), cache, nil
+
+	default:
+		return nil, nil, errs.New("Unknown file stat cache: %s", config.Cache)
+	}
+}
+
 // OpenExisting opens an existing master database for storage node.
 func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	piecesDir, err := filestore.OpenDir(log, config.Pieces, time.Now())
@@ -215,6 +245,12 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 	}
 
 	pieces := filestore.New(log, piecesDir, config.Filestore)
+
+	var cache statcache.Cache
+	pieces, cache, err = cachedBlobstore(log, pieces, config)
+	if err != nil {
+		return nil, err
+	}
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
@@ -238,6 +274,8 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 		config: config,
 
 		pieces: pieces,
+
+		cache: cache,
 
 		dbDirectory: filepath.Dir(config.Info2),
 
@@ -497,6 +535,9 @@ func (db *DB) preflight(ctx context.Context, dbName string, dbContainer DBContai
 
 // Close closes any resources.
 func (db *DB) Close() error {
+	if db.cache != nil {
+		_ = db.cache.Close()
+	}
 	return db.closeDatabases()
 }
 
