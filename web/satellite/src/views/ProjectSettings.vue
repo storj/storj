@@ -83,7 +83,7 @@
                 <v-card title="Storage Limit">
                     <v-card-subtitle>
                         Storage Limit: {{ storageLimitFormatted }} <br>
-                        Available Storage: {{ paidStorageLimitFormatted }}
+                        <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
@@ -97,8 +97,8 @@
             <v-col cols="12" lg="4">
                 <v-card title="Download Limit">
                     <v-card-subtitle>
-                        Download Limit: {{ bandwidthLimitFormatted }} per month<br>
-                        Available Download: {{ paidBandwidthLimitFormatted }} per month
+                        Download Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'Unlimited' ? '' : 'per month' }}<br>
+                        <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
@@ -109,7 +109,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" lg="4">
+            <v-col v-if="!noLimitsUiEnabled" cols="12" lg="4">
                 <v-card title="Account Limits">
                     <v-card-subtitle>
                         Storage limit: {{ paidStorageLimitFormatted }} <br>
@@ -222,6 +222,13 @@ const notify = useNotify();
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
 
 /**
+ * Whether the new no-limits UI is enabled.
+ */
+const noLimitsUiEnabled = computed((): boolean => {
+    return configStore.state.config.noLimitsUiEnabled;
+});
+
+/**
  * Indicates if billing features are enabled.
  */
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
@@ -248,17 +255,28 @@ const isPaidTier = computed<boolean>(() => {
 });
 
 /**
+ * Returns the current project limits from store.
+ */
+const currentLimits = computed(() => projectsStore.state.currentLimits);
+
+/**
  * Returns formatted storage limit.
  */
 const storageLimitFormatted = computed<string>(() => {
-    return formatLimit(projectsStore.state.currentLimits.storageLimit);
+    if (noLimitsUiEnabled.value && !currentLimits.value.userSetStorageLimit) {
+        return 'Unlimited';
+    }
+    return formatLimit(currentLimits.value.userSetStorageLimit || currentLimits.value.storageLimit);
 });
 
 /**
  * Returns formatted bandwidth limit.
  */
 const bandwidthLimitFormatted = computed<string>(() => {
-    return formatLimit(projectsStore.state.currentLimits.bandwidthLimit);
+    if (noLimitsUiEnabled.value && !currentLimits.value.userSetBandwidthLimit) {
+        return 'Unlimited';
+    }
+    return formatLimit(currentLimits.value.userSetBandwidthLimit || currentLimits.value.bandwidthLimit);
 });
 
 /**

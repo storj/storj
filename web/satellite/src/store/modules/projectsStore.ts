@@ -204,57 +204,42 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function updateProjectName(fieldsToUpdate: ProjectFields): Promise<void> {
-        const project = new ProjectFields(
-            fieldsToUpdate.name,
-            state.selectedProject.description,
-            state.selectedProject.id,
-        );
-        const limit = new ProjectLimits(
-            state.currentLimits.bandwidthLimit,
-            state.currentLimits.bandwidthUsed,
-            state.currentLimits.storageLimit,
-            state.currentLimits.storageUsed,
-        );
-
-        await api.update(state.selectedProject.id, project, limit);
+        await api.update(state.selectedProject.id, {
+            name: fieldsToUpdate.name,
+            description: state.selectedProject.description,
+        });
 
         state.selectedProject.name = fieldsToUpdate.name;
     }
 
     async function updateProjectDescription(fieldsToUpdate: ProjectFields): Promise<void> {
-        const project = new ProjectFields(
-            state.selectedProject.name,
-            fieldsToUpdate.description,
-            state.selectedProject.id,
-        );
-        const limit = new ProjectLimits(
-            state.currentLimits.bandwidthLimit,
-            state.currentLimits.bandwidthUsed,
-            state.currentLimits.storageLimit,
-            state.currentLimits.storageUsed,
-        );
-        await api.update(state.selectedProject.id, project, limit);
+        await api.update(state.selectedProject.id, {
+            name: state.selectedProject.name,
+            description: fieldsToUpdate.description,
+        });
 
         state.selectedProject.description = fieldsToUpdate.description;
     }
 
-    async function updateProjectStorageLimit(limitsToUpdate: ProjectLimits): Promise<void> {
-        const project = new ProjectFields(
-            state.selectedProject.name,
-            state.selectedProject.description,
-            state.selectedProject.id,
-        );
-        const limit = new ProjectLimits(
-            state.currentLimits.bandwidthLimit,
-            state.currentLimits.bandwidthUsed,
-            limitsToUpdate.storageLimit,
-            state.currentLimits.storageUsed,
-        );
-        await api.update(state.selectedProject.id, project, limit);
+    async function updateProjectStorageLimit(newLimit: number): Promise<void> {
+        await api.updateLimits(state.selectedProject.id, {
+            storageLimit: newLimit.toString(),
+        });
 
         state.currentLimits = readonly({
             ...state.currentLimits,
-            storageLimit: limitsToUpdate.storageLimit,
+            userSetStorageLimit: newLimit,
+        });
+    }
+
+    async function updateProjectBandwidthLimit(newLimit: number): Promise<void> {
+        await api.updateLimits(state.selectedProject.id, {
+            bandwidthLimit: newLimit.toString(),
+        });
+
+        state.currentLimits = readonly({
+            ...state.currentLimits,
+            userSetBandwidthLimit: newLimit,
         });
     }
 
@@ -267,26 +252,6 @@ export const useProjectsStore = defineStore('projects', () => {
             limitType: limitToRequest,
             currentLimit: curLimit,
             desiredLimit: limit.toString(),
-        });
-    }
-
-    async function updateProjectBandwidthLimit(limitsToUpdate: ProjectLimits): Promise<void> {
-        const project = new ProjectFields(
-            state.selectedProject.name,
-            state.selectedProject.description,
-            state.selectedProject.id,
-        );
-        const limit = new ProjectLimits(
-            limitsToUpdate.bandwidthLimit,
-            state.currentLimits.bandwidthUsed,
-            state.currentLimits.storageLimit,
-            state.currentLimits.storageUsed,
-        );
-        await api.update(state.selectedProject.id, project, limit);
-
-        state.currentLimits = readonly({
-            ...state.currentLimits,
-            bandwidthLimit: limitsToUpdate.bandwidthLimit,
         });
     }
 

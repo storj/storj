@@ -15,6 +15,8 @@ import {
     ProjectInvitationResponse,
     Emission,
     ProjectConfig,
+    UpdateProjectFields,
+    UpdateProjectLimitsFields,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -146,20 +148,11 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @param projectId - project ID
      * @param projectFields - project fields
-     * @param projectLimits - project limits
-     * @returns Project[]
      * @throws Error
      */
-    public async update(projectId: string, projectFields: ProjectFields, projectLimits: ProjectLimits): Promise<void> {
-        const data = {
-            name: projectFields.name,
-            description: projectFields.description,
-            storageLimit: projectLimits.storageLimit.toString(),
-            bandwidthLimit: projectLimits.bandwidthLimit.toString(),
-        };
-
+    public async update(projectId: string, projectFields: UpdateProjectFields): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectId}`;
-        const response = await this.http.patch(path, JSON.stringify(data));
+        const response = await this.http.patch(path, JSON.stringify(projectFields));
         if (response.ok) {
             return;
         }
@@ -168,6 +161,28 @@ export class ProjectsHttpApi implements ProjectsApi {
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not update project',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Update project user specified limits.
+     *
+     * @param projectId - project ID
+     * @param fields - project limits to update
+     * @throws Error
+     */
+    public async updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/limits`;
+        const response = await this.http.patch(path, JSON.stringify(fields));
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not update limits',
             requestID: response.headers.get('x-request-id'),
         });
     }
@@ -193,6 +208,8 @@ export class ProjectsHttpApi implements ProjectsApi {
         const limits = await response.json();
 
         return new ProjectLimits(
+            limits.userSetBandwidthLimit,
+            limits.userSetStorageLimit,
             limits.bandwidthLimit,
             limits.bandwidthUsed,
             limits.storageLimit,
@@ -249,6 +266,8 @@ export class ProjectsHttpApi implements ProjectsApi {
         const limits = await response.json();
 
         return new ProjectLimits(
+            null,
+            null,
             limits.bandwidthLimit,
             limits.bandwidthUsed,
             limits.storageLimit,

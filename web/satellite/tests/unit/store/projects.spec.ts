@@ -9,7 +9,7 @@ import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { randomUUID } from '@/utils/idGenerator';
 
-const limits = new ProjectLimits(15, 12, 14, 13);
+const limits = new ProjectLimits(null, null, 15, 12, 14, 13);
 const project = new Project(randomUUID(), 'name', 'descr', '23', 'testOwnerId');
 const projects = [
     new Project(

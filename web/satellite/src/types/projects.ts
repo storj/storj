@@ -46,11 +46,18 @@ export interface ProjectsApi {
      *
      * @param projectId - project ID
      * @param updateProjectFields - project fields to update
-     * @param updateProjectLimits - project limits to update
-     * @returns Project[]
      * @throws Error
      */
-    update(projectId: string, updateProjectFields: ProjectFields, updateProjectLimits: ProjectLimits): Promise<void>;
+    update(projectId: string, updateProjectFields: UpdateProjectFields): Promise<void>;
+
+    /**
+     * Update project user specified limits.
+     *
+     * @param projectId - project ID
+     * @param fields - project limits to update
+     * @throws Error
+     */
+    updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void>;
 
     /**
      * Get project limits.
@@ -219,6 +226,8 @@ export class ProjectFields {
  */
 export class ProjectLimits {
     public constructor(
+        public userSetBandwidthLimit: number | null = null,
+        public userSetStorageLimit: number | null = null,
         public bandwidthLimit: number = 0,
         public bandwidthUsed: number = 0,
         public storageLimit: number = 0,
@@ -230,6 +239,16 @@ export class ProjectLimits {
         public bucketsLimit: number = 0,
         public bucketsUsed: number = 0,
     ) {}
+}
+
+export interface UpdateProjectFields {
+    name: string;
+    description: string;
+}
+
+export interface UpdateProjectLimitsFields {
+    storageLimit?: string;
+    bandwidthLimit?: string;
 }
 
 /**

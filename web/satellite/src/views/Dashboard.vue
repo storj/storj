@@ -87,9 +87,10 @@
                     title="Storage"
                     :progress="storageUsedPercent"
                     :used="`${usedLimitFormatted(limits.storageUsed)} Used`"
-                    :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`"
-                    :available="`${usedLimitFormatted(availableStorage)} Available`"
-                    :cta="getCTALabel(storageUsedPercent)"
+                    :limit="storageLimitTxt"
+                    :available="storageAvailableTxt"
+                    :cta="storageCTA"
+                    :no-limit="noLimitsUiEnabled && isPaidTier && !limits.userSetStorageLimit"
                     @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
                 />
             </v-col>
@@ -99,9 +100,10 @@
                     title="Download"
                     :progress="egressUsedPercent"
                     :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`"
-                    :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)} per month`"
-                    :available="`${usedLimitFormatted(availableEgress)} Available`"
-                    :cta="getCTALabel(egressUsedPercent)"
+                    :limit="bandwidthLimitTxt"
+                    :available="bandwidthAvailableTxt"
+                    :cta="bandwidthCTA"
+                    :no-limit="noLimitsUiEnabled && isPaidTier && !limits.userSetBandwidthLimit"
                     extra-info="The download bandwidth usage is only for the current billing period of one month."
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
@@ -455,6 +457,13 @@ const couponRemainingPercent = computed((): number => {
 });
 
 /**
+ * Whether the new no-limits UI is enabled.
+ */
+const noLimitsUiEnabled = computed((): boolean => {
+    return configStore.state.config.noLimitsUiEnabled;
+});
+
+/**
  * Whether the user is in paid tier.
  */
 const isPaidTier = computed((): boolean => {
@@ -501,7 +510,10 @@ const segmentUsedPercent = computed((): number => {
  * Returns remaining egress available.
  */
 const availableEgress = computed((): number => {
-    const diff = limits.value.bandwidthLimit - limits.value.bandwidthUsed;
+    let diff = (limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit) - limits.value.bandwidthUsed;
+    if (noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
+        diff = Number.MAX_SAFE_INTEGER;
+    }
     return diff < 0 ? 0 : diff;
 });
 
@@ -509,14 +521,51 @@ const availableEgress = computed((): number => {
  * Returns percentage of egress limit used.
  */
 const egressUsedPercent = computed((): number => {
-    return limits.value.bandwidthUsed / limits.value.bandwidthLimit * 100;
+    return limits.value.bandwidthUsed / (limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit) * 100;
+});
+
+/**
+ * Returns the CTA text on the bandwidth usage card.
+ */
+const bandwidthCTA = computed((): string => {
+    if (!isPaidTier.value) {
+        return getCTALabel(egressUsedPercent.value);
+    }
+    if (limits.value.userSetBandwidthLimit) {
+        return 'Edit / Remove Limit';
+    } else {
+        return 'Set Custom Limit';
+    }
+});
+
+/**
+ * Returns the used bandwidth text for the storage usage card.
+ */
+const bandwidthLimitTxt = computed((): string => {
+    if (noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
+        return 'Total';
+    }
+    return `Limit: ${usedLimitFormatted(limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit)}`;
+});
+
+/**
+ * Returns the available bandwidth text for the storage usage card.
+ */
+const bandwidthAvailableTxt = computed((): string => {
+    if (availableEgress.value === Number.MAX_SAFE_INTEGER) {
+        return `No Limit`;
+    }
+    return `${usedLimitFormatted(availableEgress.value)} Available`;
 });
 
 /**
  * Returns remaining storage available.
  */
 const availableStorage = computed((): number => {
-    const diff = limits.value.storageLimit - limits.value.storageUsed;
+    let diff = (limits.value.userSetStorageLimit || limits.value.storageLimit) - limits.value.storageUsed;
+    if (noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
+        diff = Number.MAX_SAFE_INTEGER;
+    }
     return diff < 0 ? 0 : diff;
 });
 
@@ -524,7 +573,41 @@ const availableStorage = computed((): number => {
  * Returns percentage of storage limit used.
  */
 const storageUsedPercent = computed((): number => {
-    return limits.value.storageUsed / limits.value.storageLimit * 100;
+    return limits.value.storageUsed / (limits.value.userSetStorageLimit || limits.value.storageLimit) * 100;
+});
+
+/**
+ * Returns the CTA text on the storage usage card.
+ */
+const storageCTA = computed((): string => {
+    if (!isPaidTier.value) {
+        return getCTALabel(storageUsedPercent.value);
+    }
+    if (limits.value.userSetStorageLimit) {
+        return 'Edit / Remove Limit';
+    } else {
+        return 'Set Custom Limit';
+    }
+});
+
+/**
+ * Returns the used storage text for the storage usage card.
+ */
+const storageLimitTxt = computed((): string => {
+    if (noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
+        return 'Total';
+    }
+    return `Limit: ${usedLimitFormatted(limits.value.userSetStorageLimit || limits.value.storageLimit)}`;
+});
+
+/**
+ * Returns the available storage text for the storage usage card.
+ */
+const storageAvailableTxt = computed((): string => {
+    if (availableStorage.value === Number.MAX_SAFE_INTEGER) {
+        return `No Limit`;
+    }
+    return `${usedLimitFormatted(availableStorage.value)} Available`;
 });
 
 /**
