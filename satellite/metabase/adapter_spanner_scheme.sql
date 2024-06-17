@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS objects
     fixed_segment_size               INT64     NOT NULL DEFAULT (0),
     encryption                       INT64     NOT NULL DEFAULT (0),
     zombie_deletion_deadline         TIMESTAMP,
-    retention_mode                   INT64     NOT NULL DEFAULT (0),
+    retention_mode                   INT64,
     retain_until                     TIMESTAMP,
 ) PRIMARY KEY (project_id, bucket_name, object_key, version);
 

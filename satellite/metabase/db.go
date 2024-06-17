@@ -297,7 +297,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 
 						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
 
-						retention_mode INT2 NOT NULL default 0,
+						retention_mode INT2,
 						retain_until   TIMESTAMPTZ,
 
 						PRIMARY KEY (project_id, bucket_name, object_key, version)
@@ -328,7 +328,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 
 					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
 
-					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: 0=none, and 1=compliance.';
+					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: NULL/0=none, and 1=compliance.';
 					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 
 					CREATE TABLE segments (
@@ -790,10 +790,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "add retention_mode and retain_until columns to objects table",
 				Version:     19,
 				Action: migrate.SQL{
-					`ALTER TABLE objects ADD COLUMN retention_mode INT2 NOT NULL default 0`,
+					`ALTER TABLE objects ADD COLUMN retention_mode INT2`,
 					`ALTER TABLE objects ADD COLUMN retain_until TIMESTAMPTZ`,
 					`
-					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: 0=none, and 1=compliance.';
+					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: NULL/0=none, and 1=compliance.';
 					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 				`},
 			},
