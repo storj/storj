@@ -386,6 +386,89 @@ func TestGetUsersByStatus(t *testing.T) {
 	})
 }
 
+func TestGetEmailsForDeletion(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+		now := time.Now()
+		nowPlusMinute := now.Add(time.Minute)
+
+		activeUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Active User",
+			Email:        email,
+			Status:       console.Active,
+			PasswordHash: []byte("password"),
+		}
+
+		_, err := usersRepo.Insert(ctx, &activeUser)
+		require.NoError(t, err)
+
+		emails, err := usersRepo.GetEmailsForDeletion(ctx, now)
+		require.NoError(t, err)
+		require.Len(t, emails, 0)
+
+		freeTrialUser := console.User{
+			ID:              testrand.UUID(),
+			FullName:        "Free Trial User",
+			Email:           email + "1",
+			Status:          console.UserRequestedDeletion,
+			PaidTier:        false,
+			PasswordHash:    []byte("password"),
+			StatusUpdatedAt: &now,
+		}
+
+		_, err = usersRepo.Insert(ctx, &freeTrialUser)
+		require.NoError(t, err)
+
+		// Required to set the marked for deletion status.
+		err = usersRepo.Update(ctx, freeTrialUser.ID, console.UpdateUserRequest{
+			Status: &freeTrialUser.Status,
+		})
+		require.NoError(t, err)
+
+		emails, err = usersRepo.GetEmailsForDeletion(ctx, now)
+		require.NoError(t, err)
+		require.Zero(t, len(emails))
+
+		emails, err = usersRepo.GetEmailsForDeletion(ctx, nowPlusMinute)
+		require.NoError(t, err)
+		require.Len(t, emails, 1)
+
+		proUserWithoutLastInvoice := console.User{
+			ID:              testrand.UUID(),
+			FullName:        "Pro User",
+			Email:           email + "2",
+			Status:          console.UserRequestedDeletion,
+			PaidTier:        true,
+			PasswordHash:    []byte("password"),
+			StatusUpdatedAt: &now,
+		}
+
+		_, err = usersRepo.Insert(ctx, &proUserWithoutLastInvoice)
+		require.NoError(t, err)
+
+		// Required to set the marked for deletion status.
+		err = usersRepo.Update(ctx, proUserWithoutLastInvoice.ID, console.UpdateUserRequest{
+			Status: &proUserWithoutLastInvoice.Status,
+		})
+		require.NoError(t, err)
+
+		emails, err = usersRepo.GetEmailsForDeletion(ctx, nowPlusMinute)
+		require.NoError(t, err)
+		require.Len(t, emails, 1)
+
+		invoiceGenerated := true
+		err = usersRepo.Update(ctx, proUserWithoutLastInvoice.ID, console.UpdateUserRequest{
+			FinalInvoiceGenerated: &invoiceGenerated,
+		})
+		require.NoError(t, err)
+
+		emails, err = usersRepo.GetEmailsForDeletion(ctx, nowPlusMinute)
+		require.NoError(t, err)
+		require.Len(t, emails, 2)
+	})
+}
+
 func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		usersRepo := db.Console().Users()

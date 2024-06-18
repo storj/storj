@@ -419,7 +419,20 @@ export class Admin {
 					['Page', new InputText('number', true)]
 				],
 				func: async (limit: number, page: number): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `users-pending-deletion?limit=${limit}&page=${page}`);
+					return this.fetch('GET', `users/deletion/pending?limit=${limit}&page=${page}`);
+				}
+			},
+			{
+				name: 'get users requested for deletion',
+				desc: 'Get a CSV of user account emails which were requested for deletion by users themselves',
+				params: [
+					['status updated before (date string i.e. YYYY/MM/DD)', new InputText('text', true)]
+				],
+				func: async (date: string): Promise<void> => {
+					return this.download(
+						`users/deletion/requested-by-user?before=${this.toISOStringWithLocalTimezone(date)}`,
+						'users-requested-for-deletion.csv'
+					);
 				}
 			},
 			{
@@ -728,6 +741,39 @@ Blank fields will not be updated.`,
 		}
 
 		return null;
+	}
+
+	protected async download(path: string, fileName: string): Promise<void> {
+		const url = this.apiURL(path, '');
+		const headers = new window.Headers();
+
+		if (this.authToken) {
+			headers.set('Authorization', this.authToken);
+		}
+
+		const response = await window.fetch(url, { method: 'GET', headers });
+		if (!response.ok) {
+			let body: Record<string, unknown>;
+			if (response.headers.get('Content-Type') === 'application/json') {
+				body = await response.json();
+			}
+
+			throw new APIError('server response error', response.status, body);
+		}
+
+		const blob = await response.blob();
+
+		this.downloadBlob(blob, fileName);
+	}
+
+	protected downloadBlob(blob: Blob, fileName: string): void {
+		const elem = window.document.createElement('a');
+		const link = window.URL.createObjectURL(blob);
+
+		elem.href = link;
+		elem.download = fileName;
+		elem.click();
+		window.URL.revokeObjectURL(link);
 	}
 
 	protected toISOStringWithLocalTimezone(dateInput: string): string {

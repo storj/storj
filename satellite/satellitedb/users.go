@@ -232,6 +232,37 @@ func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notification
 	return needNotification, rows.Err()
 }
 
+// GetEmailsForDeletion is a method for querying user emails which were requested for deletion by the user and can be deleted.
+func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefore time.Time) (emails []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := users.db.Query(ctx, `
+		SELECT email
+		FROM users
+		WHERE status = $1
+		  	AND status_updated_at < $2
+			AND (paid_tier = false OR final_invoice_generated = true)
+	`, console.UserRequestedDeletion, statusUpdatedBefore)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var email string
+
+		err = rows.Scan(&email)
+		if err != nil {
+			return nil, err
+		}
+
+		emails = append(emails, email)
+	}
+
+	return emails, rows.Err()
+}
+
 // GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.
 func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -327,6 +358,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 
 	if user.TrialExpiration != nil {
 		optional.TrialExpiration = dbx.User_TrialExpiration(*user.TrialExpiration)
+	}
+
+	if user.StatusUpdatedAt != nil {
+		optional.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*user.StatusUpdatedAt)
 	}
 
 	createdUser, err := users.db.Create_User(ctx,

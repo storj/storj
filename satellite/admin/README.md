@@ -28,7 +28,8 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}/trial-expiration-freeze](#put-apiusersuser-emailtrial-expiration-freeze)
             * [DELETE /api/users/{user-email}/trial-expiration-freeze](#delete-apiusersuser-emailtrial-expiration-freeze)
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
-            * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
+            * [GET /api/users/deletion/pending](#get-apiusersdeletionpending)
+            * [GET /api/users/deletion/requested-by-user](#get-apiusersdeletionrequested-by-user)
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
             * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
@@ -230,11 +231,19 @@ Removes the trial expiration freeze on a user account, reinstating account limit
 
 Removes the billing warning status from a user's account.
 
-#### GET /api/users/pending-deletion
+#### GET /api/users/deletion/pending
 
 Returns a limited list of users pending deletion and have no unpaid invoices.
 Required parameters: `limit` and `page`.
-Example: `/api/users/pending-deletion?limit=10&page=1`
+
+Example: `/api/users/deletion/pending?limit=10&page=1`
+
+#### GET /api/users/deletion/requested-by-user
+
+Returns a CSV of user account emails which were requested for deletion by users themselves.
+Required parameters: `before`.
+
+Example: `/api/users/deletion/requested-by-user?before=2021-01-01T00:00:00.000Z`
 
 #### PATCH /api/users/{user-email}/geofence
 

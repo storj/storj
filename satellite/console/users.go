@@ -29,6 +29,8 @@ type Users interface {
 	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
 	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
+	// GetEmailsForDeletion is a method for querying user account emails which were requested for deletion by the user and can be deleted.
+	GetEmailsForDeletion(ctx context.Context, statusUpdatedBefore time.Time) ([]string, error)
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
