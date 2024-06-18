@@ -24,6 +24,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -687,16 +689,34 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := server.db.Console().Users().Get(ctx, project.OwnerID)
+	if err != nil {
+		sendJSONError(w, "error getting project owner",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (!user.PaidTier || user.FinalInvoiceGenerated) {
+		err = server.forceDeleteProject(ctx, project.ID)
+		if err != nil {
+			sendJSONError(w, "unable to delete project",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		return
+	}
+
 	options := buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}
-	buckets, err := server.buckets.ListBuckets(ctx, project.ID, options, macaroon.AllowedBuckets{All: true})
+	bucketsList, err := server.buckets.ListBuckets(ctx, project.ID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		sendJSONError(w, "unable to list buckets",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if len(buckets.Items) > 0 {
+	if len(bucketsList.Items) > 0 {
 		sendJSONError(w, "buckets still exist",
-			fmt.Sprintf("%v", bucketNames(buckets.Items)), http.StatusConflict)
+			fmt.Sprintf("%v", bucketNames(bucketsList.Items)), http.StatusConflict)
 		return
 	}
 
@@ -711,6 +731,53 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	listOptions := buckets.ListOptions{Direction: buckets.DirectionForward}
+	allowedBuckets := macaroon.AllowedBuckets{All: true}
+
+	bucketsList, err := server.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	if err != nil {
+		return err
+	}
+
+	if len(bucketsList.Items) > 0 {
+		var errList errs.Group
+		for _, bucket := range bucketsList.Items {
+			bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: bucket.Name}
+			_, err = server.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+				Bucket: bucketLocation,
+			})
+			if err != nil {
+				errList.Add(err)
+				continue
+			}
+
+			empty, err := server.metabaseDB.BucketEmpty(ctx, metabase.BucketEmpty{
+				ProjectID:  projectID,
+				BucketName: bucket.Name,
+			})
+			if err != nil {
+				errList.Add(err)
+				continue
+			}
+			if !empty {
+				errList.Add(metainfo.ErrBucketNotEmpty.New(""))
+				continue
+			}
+
+			err = server.buckets.DeleteBucket(ctx, []byte(bucket.Name), projectID)
+			if err != nil {
+				errList.Add(err)
+			}
+		}
+		if errList.Err() != nil {
+			return errList.Err()
+		}
+	}
+
+	return server.db.Console().Projects().Delete(ctx, projectID)
 }
 
 func (server *Server) _updateProjectsUserAgent(ctx context.Context, projectID uuid.UUID, newUserAgent []byte) (err error) {

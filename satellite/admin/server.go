@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -87,6 +88,7 @@ type Server struct {
 	server   http.Server
 
 	db             DB
+	metabaseDB     *metabase.DB
 	payments       payments.Accounts
 	buckets        *buckets.Service
 	restKeys       *restkeys.Service
@@ -104,6 +106,7 @@ func NewServer(
 	log *zap.Logger,
 	listener net.Listener,
 	db DB,
+	metabaseDB *metabase.DB,
 	buckets *buckets.Service,
 	restKeys *restkeys.Service,
 	freezeAccounts *console.AccountFreezeService,
@@ -119,6 +122,7 @@ func NewServer(
 		listener: listener,
 
 		db:             db,
+		metabaseDB:     metabaseDB,
 		payments:       accounts,
 		buckets:        buckets,
 		restKeys:       restKeys,
