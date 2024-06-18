@@ -393,7 +393,19 @@ async function buttonFolderUpload(): Promise<void> {
 /**
  * Initializes object browser store.
  */
-function initObjectStore(): void {
+async function initObjectStore() {
+    if (!edgeCredentials.value.accessKeyId) {
+        try {
+            await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+            router.push({
+                name: ROUTES.Buckets.name,
+                params: { id: projectUrlId.value },
+            });
+            return;
+        }
+    }
     obStore.init({
         endpoint: edgeCredentials.value.endpoint,
         accessKey: edgeCredentials.value.accessKeyId,
@@ -524,15 +536,6 @@ onMounted(async () => {
             params: { id: projectUrlId.value },
         });
     }
-    if (!edgeCredentials.value.accessKeyId) {
-        try {
-            await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
-            goToBuckets();
-            return;
-        }
-    }
     try {
         await bucketsStore.getAllBucketsMetadata(projectId.value);
     } catch (error) {
@@ -550,7 +553,7 @@ onMounted(async () => {
     if (isPromptForPassphrase.value) {
         isBucketPassphraseDialogOpen.value = true;
     } else {
-        initObjectStore();
+        await initObjectStore();
     }
 
     isFetching.value = false;
