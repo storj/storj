@@ -17,6 +17,8 @@ import (
 	"time"
 	"unicode"
 
+	_ "cloud.google.com/go/spanner"
+	_ "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
 )
@@ -155,6 +157,8 @@ func Open(driver, source string) (db *DB, err error) {
 		sql_db, err = openpgx(source)
 	case "pgxcockroach":
 		sql_db, err = openpgxcockroach(source)
+	case "spanner":
+		sql_db, err = openspanner(source)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -183,6 +187,8 @@ func Open(driver, source string) (db *DB, err error) {
 		db.dbMethods = newpgx(db)
 	case "pgxcockroach":
 		db.dbMethods = newpgxcockroach(db)
+	case "spanner":
+		db.dbMethods = newspanner(db)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -2079,6 +2085,1345 @@ type pgxcockroachTx struct {
 }
 
 func pgxcockroachLogStmt(stmt string, args ...interface{}) {
+	// TODO: render placeholders
+	if Logger != nil {
+		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
+		Logger(out)
+	}
+}
+
+type spannerImpl struct {
+	db      *DB
+	dialect __sqlbundle_spanner
+	driver  driver
+	txn     bool
+}
+
+func (obj *spannerImpl) Rebind(s string) string {
+	return obj.dialect.Rebind(s)
+}
+
+func (obj *spannerImpl) logStmt(stmt string, args ...interface{}) {
+	spannerLogStmt(stmt, args...)
+}
+
+func (obj *spannerImpl) makeErr(err error) error {
+	constraint, ok := obj.isConstraintError(err)
+	if ok {
+		return constraintViolation(err, constraint)
+	}
+	return makeErr(err)
+}
+
+func (obj *spannerImpl) shouldRetry(err error) bool {
+	return !obj.txn && shouldRetry(obj.db.driver, err)
+}
+
+type spannerImpl_retryingRow struct {
+	obj   *spannerImpl
+	ctx   context.Context
+	query string
+	args  []interface{}
+}
+
+func (obj *spannerImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *spannerImpl_retryingRow {
+	return &spannerImpl_retryingRow{
+		obj:   obj,
+		ctx:   ctx,
+		query: query,
+		args:  args,
+	}
+}
+
+func (rows *spannerImpl_retryingRow) Scan(dest ...interface{}) error {
+	for {
+		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
+		if err != nil {
+			if rows.obj.shouldRetry(err) {
+				continue
+			}
+			// caller will wrap this error
+			return err
+		}
+		return nil
+	}
+}
+
+type spannerDB struct {
+	db *DB
+	*spannerImpl
+}
+
+func newspanner(db *DB) *spannerDB {
+	return &spannerDB{
+		db: db,
+		spannerImpl: &spannerImpl{
+			db:     db,
+			driver: db.DB,
+		},
+	}
+}
+
+func (obj *spannerDB) Schema() []string {
+	return []string{
+
+		`CREATE TABLE account_freeze_events (
+	user_id BYTES(MAX) NOT NULL,
+	event INT64 NOT NULL,
+	limits JSON,
+	days_till_escalation INT64,
+	notifications_count INT64 NOT NULL DEFAULT (0),
+	created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp)
+) PRIMARY KEY ( user_id, event )`,
+
+		`CREATE TABLE accounting_rollups (
+	node_id BYTES(MAX) NOT NULL,
+	start_time TIMESTAMP NOT NULL,
+	put_total INT64 NOT NULL,
+	get_total INT64 NOT NULL,
+	get_audit_total INT64 NOT NULL,
+	get_repair_total INT64 NOT NULL,
+	put_repair_total INT64 NOT NULL,
+	at_rest_total FLOAT64 NOT NULL,
+	interval_end_time TIMESTAMP
+) PRIMARY KEY ( node_id, start_time )`,
+
+		`CREATE TABLE accounting_timestamps (
+	name STRING(MAX) NOT NULL,
+	value TIMESTAMP NOT NULL
+) PRIMARY KEY ( name )`,
+
+		`CREATE TABLE billing_balances (
+	user_id BYTES(MAX) NOT NULL,
+	balance INT64 NOT NULL,
+	last_updated TIMESTAMP NOT NULL
+) PRIMARY KEY ( user_id )`,
+
+		`CREATE SEQUENCE billing_transactions_id OPTIONS (sequence_kind='bit_reversed_positive')`,
+
+		`CREATE TABLE billing_transactions (
+	id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE billing_transactions_id)),
+	user_id BYTES(MAX) NOT NULL,
+	amount INT64 NOT NULL,
+	currency STRING(MAX) NOT NULL,
+	description STRING(MAX) NOT NULL,
+	source STRING(MAX) NOT NULL,
+	status STRING(MAX) NOT NULL,
+	type STRING(MAX) NOT NULL,
+	metadata JSON NOT NULL,
+	tx_timestamp TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE bucket_bandwidth_rollups (
+	bucket_name BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INT64 NOT NULL,
+	action INT64 NOT NULL,
+	inline INT64 NOT NULL,
+	allocated INT64 NOT NULL,
+	settled INT64 NOT NULL
+) PRIMARY KEY ( project_id, bucket_name, interval_start, action )`,
+
+		`CREATE TABLE bucket_bandwidth_rollup_archives (
+	bucket_name BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INT64 NOT NULL,
+	action INT64 NOT NULL,
+	inline INT64 NOT NULL,
+	allocated INT64 NOT NULL,
+	settled INT64 NOT NULL
+) PRIMARY KEY ( bucket_name, project_id, interval_start, action )`,
+
+		`CREATE TABLE bucket_storage_tallies (
+	bucket_name BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	total_bytes INT64 NOT NULL DEFAULT (0),
+	inline INT64 NOT NULL,
+	remote INT64 NOT NULL,
+	total_segments_count INT64 NOT NULL DEFAULT (0),
+	remote_segments_count INT64 NOT NULL,
+	inline_segments_count INT64 NOT NULL,
+	object_count INT64 NOT NULL,
+	metadata_size INT64 NOT NULL
+) PRIMARY KEY ( bucket_name, project_id, interval_start )`,
+
+		`CREATE TABLE coinpayments_transactions (
+	id STRING(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	address STRING(MAX) NOT NULL,
+	amount_numeric INT64 NOT NULL,
+	received_numeric INT64 NOT NULL,
+	status INT64 NOT NULL,
+	key STRING(MAX) NOT NULL,
+	timeout INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE graceful_exit_progress (
+	node_id BYTES(MAX) NOT NULL,
+	bytes_transferred INT64 NOT NULL,
+	pieces_transferred INT64 NOT NULL DEFAULT (0),
+	pieces_failed INT64 NOT NULL DEFAULT (0),
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( node_id )`,
+
+		`CREATE TABLE graceful_exit_segment_transfer_queue (
+	node_id BYTES(MAX) NOT NULL,
+	stream_id BYTES(MAX) NOT NULL,
+	position INT64 NOT NULL,
+	piece_num INT64 NOT NULL,
+	root_piece_id BYTES(MAX),
+	durability_ratio FLOAT64 NOT NULL,
+	queued_at TIMESTAMP NOT NULL,
+	requested_at TIMESTAMP,
+	last_failed_at TIMESTAMP,
+	last_failed_code INT64,
+	failed_count INT64,
+	finished_at TIMESTAMP,
+	order_limit_send_count INT64 NOT NULL DEFAULT (0)
+) PRIMARY KEY ( node_id, stream_id, position, piece_num )`,
+
+		`CREATE TABLE nodes (
+	id BYTES(MAX) NOT NULL,
+	address STRING(MAX) NOT NULL DEFAULT (""),
+	last_net STRING(MAX) NOT NULL,
+	last_ip_port STRING(MAX),
+	country_code STRING(MAX),
+	protocol INT64 NOT NULL DEFAULT (0),
+	email STRING(MAX) NOT NULL,
+	wallet STRING(MAX) NOT NULL,
+	wallet_features STRING(MAX) NOT NULL DEFAULT (""),
+	free_disk INT64 NOT NULL DEFAULT (-1),
+	piece_count INT64 NOT NULL DEFAULT (0),
+	major INT64 NOT NULL DEFAULT (0),
+	minor INT64 NOT NULL DEFAULT (0),
+	patch INT64 NOT NULL DEFAULT (0),
+	commit_hash STRING(MAX) NOT NULL DEFAULT (""),
+	release_timestamp TIMESTAMP NOT NULL DEFAULT ("0001-01-01 00:00:00+00"),
+	release BOOL NOT NULL DEFAULT (false),
+	latency_90 INT64 NOT NULL DEFAULT (0),
+	vetted_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	last_contact_success TIMESTAMP NOT NULL DEFAULT (timestamp_seconds(0)),
+	last_contact_failure TIMESTAMP NOT NULL DEFAULT (timestamp_seconds(0)),
+	disqualified TIMESTAMP,
+	disqualification_reason INT64,
+	unknown_audit_suspended TIMESTAMP,
+	offline_suspended TIMESTAMP,
+	under_review TIMESTAMP,
+	exit_initiated_at TIMESTAMP,
+	exit_loop_completed_at TIMESTAMP,
+	exit_finished_at TIMESTAMP,
+	exit_success BOOL NOT NULL DEFAULT (false),
+	contained TIMESTAMP,
+	last_offline_email TIMESTAMP,
+	last_software_update_email TIMESTAMP,
+	noise_proto INT64,
+	noise_public_key BYTES(MAX),
+	debounce_limit INT64 NOT NULL DEFAULT (0),
+	features INT64 NOT NULL DEFAULT (0)
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE node_api_versions (
+	id BYTES(MAX) NOT NULL,
+	api_version INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE node_events (
+	id BYTES(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	last_ip_port STRING(MAX),
+	node_id BYTES(MAX) NOT NULL,
+	event INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	last_attempted TIMESTAMP,
+	email_sent TIMESTAMP
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE node_tags (
+	node_id BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	value BYTES(MAX) NOT NULL,
+	signed_at TIMESTAMP NOT NULL,
+	signer BYTES(MAX) NOT NULL
+) PRIMARY KEY ( node_id, name, signer )`,
+
+		`CREATE TABLE oauth_clients (
+	id BYTES(MAX) NOT NULL,
+	encrypted_secret BYTES(MAX) NOT NULL,
+	redirect_url STRING(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	app_name STRING(MAX) NOT NULL,
+	app_logo_url STRING(MAX) NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE oauth_codes (
+	client_id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	scope STRING(MAX) NOT NULL,
+	redirect_url STRING(MAX) NOT NULL,
+	challenge STRING(MAX) NOT NULL,
+	challenge_method STRING(MAX) NOT NULL,
+	code STRING(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	claimed_at TIMESTAMP
+) PRIMARY KEY ( code )`,
+
+		`CREATE TABLE oauth_tokens (
+	client_id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	scope STRING(MAX) NOT NULL,
+	kind INT64 NOT NULL,
+	token BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	expires_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( token )`,
+
+		`CREATE TABLE peer_identities (
+	node_id BYTES(MAX) NOT NULL,
+	leaf_serial_number BYTES(MAX) NOT NULL,
+	chain BYTES(MAX) NOT NULL,
+	updated_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( node_id )`,
+
+		`CREATE TABLE projects (
+	id BYTES(MAX) NOT NULL,
+	public_id BYTES(MAX),
+	name STRING(MAX) NOT NULL,
+	description STRING(MAX) NOT NULL,
+	usage_limit INT64,
+	bandwidth_limit INT64,
+	user_specified_usage_limit INT64,
+	user_specified_bandwidth_limit INT64,
+	segment_limit INT64 DEFAULT (1000000),
+	rate_limit INT64,
+	burst_limit INT64,
+	rate_limit_head INT64,
+	burst_limit_head INT64,
+	rate_limit_get INT64,
+	burst_limit_get INT64,
+	rate_limit_put INT64,
+	burst_limit_put INT64,
+	rate_limit_list INT64,
+	burst_limit_list INT64,
+	rate_limit_del INT64,
+	burst_limit_del INT64,
+	max_buckets INT64,
+	user_agent BYTES(MAX),
+	owner_id BYTES(MAX) NOT NULL,
+	salt BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	default_placement INT64,
+	default_versioning INT64 NOT NULL DEFAULT (1),
+	prompted_for_versioning_beta BOOL NOT NULL DEFAULT (false),
+	passphrase_enc BYTES(MAX),
+	passphrase_enc_key_id INT64,
+	path_encryption BOOL NOT NULL DEFAULT (true)
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE project_bandwidth_daily_rollups (
+	project_id BYTES(MAX) NOT NULL,
+	interval_day TIMESTAMP NOT NULL,
+	egress_allocated INT64 NOT NULL,
+	egress_settled INT64 NOT NULL,
+	egress_dead INT64 NOT NULL DEFAULT (0)
+) PRIMARY KEY ( project_id, interval_day )`,
+
+		`CREATE TABLE registration_tokens (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX),
+	project_limit INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret )`,
+
+		`CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens (owner_id)`,
+
+		`CREATE TABLE repair_queue (
+	stream_id BYTES(MAX) NOT NULL,
+	position INT64 NOT NULL,
+	attempted_at TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	segment_health FLOAT64 NOT NULL DEFAULT (1),
+	placement INT64
+) PRIMARY KEY ( stream_id, position )`,
+
+		`CREATE TABLE reputations (
+	id BYTES(MAX) NOT NULL,
+	audit_success_count INT64 NOT NULL DEFAULT (0),
+	total_audit_count INT64 NOT NULL DEFAULT (0),
+	vetted_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	updated_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	disqualified TIMESTAMP,
+	disqualification_reason INT64,
+	unknown_audit_suspended TIMESTAMP,
+	offline_suspended TIMESTAMP,
+	under_review TIMESTAMP,
+	online_score FLOAT64 NOT NULL DEFAULT (1),
+	audit_history BYTES(MAX) NOT NULL,
+	audit_reputation_alpha FLOAT64 NOT NULL DEFAULT (1),
+	audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0),
+	unknown_audit_reputation_alpha FLOAT64 NOT NULL DEFAULT (1),
+	unknown_audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0)
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE reset_password_tokens (
+	secret BYTES(MAX) NOT NULL,
+	owner_id BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( secret )`,
+
+		`CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens (owner_id)`,
+
+		`CREATE TABLE reverification_audits (
+	node_id BYTES(MAX) NOT NULL,
+	stream_id BYTES(MAX) NOT NULL,
+	position INT64 NOT NULL,
+	piece_num INT64 NOT NULL,
+	inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	last_attempt TIMESTAMP,
+	reverify_count INT64 NOT NULL DEFAULT (0)
+) PRIMARY KEY ( node_id, stream_id, position )`,
+
+		`CREATE TABLE revocations (
+	revoked BYTES(MAX) NOT NULL,
+	api_key_id BYTES(MAX) NOT NULL
+) PRIMARY KEY ( revoked )`,
+
+		`CREATE TABLE segment_pending_audits (
+	node_id BYTES(MAX) NOT NULL,
+	stream_id BYTES(MAX) NOT NULL,
+	position INT64 NOT NULL,
+	piece_id BYTES(MAX) NOT NULL,
+	stripe_index INT64 NOT NULL,
+	share_size INT64 NOT NULL,
+	expected_share_hash BYTES(MAX) NOT NULL,
+	reverify_count INT64 NOT NULL
+) PRIMARY KEY ( node_id )`,
+
+		`CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id BYTES(MAX) NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INT64 NOT NULL,
+	action INT64 NOT NULL,
+	allocated INT64 DEFAULT (0),
+	settled INT64 NOT NULL
+) PRIMARY KEY ( storagenode_id, interval_start, action )`,
+
+		`CREATE TABLE storagenode_bandwidth_rollup_archives (
+	storagenode_id BYTES(MAX) NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INT64 NOT NULL,
+	action INT64 NOT NULL,
+	allocated INT64 DEFAULT (0),
+	settled INT64 NOT NULL
+) PRIMARY KEY ( storagenode_id, interval_start, action )`,
+
+		`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
+	storagenode_id BYTES(MAX) NOT NULL,
+	interval_start TIMESTAMP NOT NULL,
+	interval_seconds INT64 NOT NULL,
+	action INT64 NOT NULL,
+	allocated INT64 DEFAULT (0),
+	settled INT64 NOT NULL
+) PRIMARY KEY ( storagenode_id, interval_start, action )`,
+
+		`CREATE SEQUENCE storagenode_payments_id OPTIONS (sequence_kind='bit_reversed_positive')`,
+
+		`CREATE TABLE storagenode_payments (
+	id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE storagenode_payments_id)),
+	created_at TIMESTAMP NOT NULL,
+	node_id BYTES(MAX) NOT NULL,
+	period STRING(MAX) NOT NULL,
+	amount INT64 NOT NULL,
+	receipt STRING(MAX),
+	notes STRING(MAX)
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE storagenode_paystubs (
+	period STRING(MAX) NOT NULL,
+	node_id BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	codes STRING(MAX) NOT NULL,
+	usage_at_rest FLOAT64 NOT NULL,
+	usage_get INT64 NOT NULL,
+	usage_put INT64 NOT NULL,
+	usage_get_repair INT64 NOT NULL,
+	usage_put_repair INT64 NOT NULL,
+	usage_get_audit INT64 NOT NULL,
+	comp_at_rest INT64 NOT NULL,
+	comp_get INT64 NOT NULL,
+	comp_put INT64 NOT NULL,
+	comp_get_repair INT64 NOT NULL,
+	comp_put_repair INT64 NOT NULL,
+	comp_get_audit INT64 NOT NULL,
+	surge_percent INT64 NOT NULL,
+	held INT64 NOT NULL,
+	owed INT64 NOT NULL,
+	disposed INT64 NOT NULL,
+	paid INT64 NOT NULL,
+	distributed INT64 NOT NULL
+) PRIMARY KEY ( period, node_id )`,
+
+		`CREATE TABLE storagenode_storage_tallies (
+	node_id BYTES(MAX) NOT NULL,
+	interval_end_time TIMESTAMP NOT NULL,
+	data_total FLOAT64 NOT NULL
+) PRIMARY KEY ( interval_end_time, node_id )`,
+
+		`CREATE TABLE storjscan_payments (
+	chain_id INT64 NOT NULL DEFAULT (0),
+	block_hash BYTES(MAX) NOT NULL,
+	block_number INT64 NOT NULL,
+	transaction BYTES(MAX) NOT NULL,
+	log_index INT64 NOT NULL,
+	from_address BYTES(MAX) NOT NULL,
+	to_address BYTES(MAX) NOT NULL,
+	token_value INT64 NOT NULL,
+	usd_value INT64 NOT NULL,
+	status STRING(MAX) NOT NULL,
+	block_timestamp TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( block_hash, log_index )`,
+
+		`CREATE TABLE storjscan_wallets (
+	user_id BYTES(MAX) NOT NULL,
+	wallet_address BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( user_id, wallet_address )`,
+
+		`CREATE TABLE stripe_customers (
+	user_id BYTES(MAX) NOT NULL,
+	customer_id STRING(MAX) NOT NULL,
+	billing_customer_id STRING(MAX),
+	package_plan STRING(MAX),
+	purchased_package_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( user_id )`,
+
+		`CREATE UNIQUE INDEX index_stripe_customers_customer_id ON stripe_customers (customer_id)`,
+
+		`CREATE TABLE stripecoinpayments_invoice_project_records (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	storage FLOAT64 NOT NULL,
+	egress INT64 NOT NULL,
+	objects INT64,
+	segments INT64,
+	period_start TIMESTAMP NOT NULL,
+	period_end TIMESTAMP NOT NULL,
+	state INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_stripecoinpayments_invoice_project_records_project_id ON stripecoinpayments_invoice_project_records (project_id)`,
+
+		`CREATE TABLE stripecoinpayments_tx_conversion_rates (
+	tx_id STRING(MAX) NOT NULL,
+	rate_numeric FLOAT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( tx_id )`,
+
+		`CREATE TABLE users (
+	id BYTES(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	normalized_email STRING(MAX) NOT NULL,
+	full_name STRING(MAX) NOT NULL,
+	short_name STRING(MAX),
+	password_hash BYTES(MAX) NOT NULL,
+	new_unverified_email STRING(MAX),
+	email_change_verification_step INT64 NOT NULL DEFAULT (0),
+	status INT64 NOT NULL,
+	status_updated_at TIMESTAMP,
+	final_invoice_generated BOOL NOT NULL DEFAULT (false),
+	user_agent BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	project_limit INT64 NOT NULL DEFAULT (0),
+	project_bandwidth_limit INT64 NOT NULL DEFAULT (0),
+	project_storage_limit INT64 NOT NULL DEFAULT (0),
+	project_segment_limit INT64 NOT NULL DEFAULT (0),
+	paid_tier BOOL NOT NULL DEFAULT (false),
+	position STRING(MAX),
+	company_name STRING(MAX),
+	company_size INT64,
+	working_on STRING(MAX),
+	is_professional BOOL NOT NULL DEFAULT (false),
+	employee_count STRING(MAX),
+	have_sales_contact BOOL NOT NULL DEFAULT (false),
+	mfa_enabled BOOL NOT NULL DEFAULT (false),
+	mfa_secret_key STRING(MAX),
+	mfa_recovery_codes STRING(MAX),
+	signup_promo_code STRING(MAX),
+	verification_reminders INT64 NOT NULL DEFAULT (0),
+	trial_notifications INT64 NOT NULL DEFAULT (0),
+	failed_login_count INT64,
+	login_lockout_expiration TIMESTAMP,
+	signup_captcha FLOAT64,
+	default_placement INT64,
+	activation_code STRING(MAX),
+	signup_id STRING(MAX),
+	trial_expiration TIMESTAMP,
+	upgrade_time TIMESTAMP
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE user_settings (
+	user_id BYTES(MAX) NOT NULL,
+	session_minutes INT64,
+	passphrase_prompt BOOL,
+	onboarding_start BOOL NOT NULL DEFAULT (true),
+	onboarding_end BOOL NOT NULL DEFAULT (true),
+	onboarding_step STRING(MAX),
+	notice_dismissal JSON NOT NULL DEFAULT (JSON "{}")
+) PRIMARY KEY ( user_id )`,
+
+		`CREATE TABLE value_attributions (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name BYTES(MAX) NOT NULL,
+	user_agent BYTES(MAX),
+	last_updated TIMESTAMP NOT NULL
+) PRIMARY KEY ( project_id, bucket_name )`,
+
+		`CREATE TABLE verification_audits (
+	inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	stream_id BYTES(MAX) NOT NULL,
+	position INT64 NOT NULL,
+	expires_at TIMESTAMP,
+	encrypted_size INT64 NOT NULL
+) PRIMARY KEY ( inserted_at, stream_id, position )`,
+
+		`CREATE TABLE webapp_sessions (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	ip_address STRING(MAX) NOT NULL,
+	user_agent STRING(MAX) NOT NULL,
+	status INT64 NOT NULL,
+	expires_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE api_keys (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	head BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	secret BYTES(MAX) NOT NULL,
+	user_agent BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	created_by BYTES(MAX),
+	version INT64 NOT NULL DEFAULT (0),
+	CONSTRAINT api_keys_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+	CONSTRAINT api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_api_keys_head ON api_keys (head)`,
+
+		`CREATE UNIQUE INDEX index_api_keys_name ON api_keys (name)`,
+
+		`CREATE TABLE bucket_metainfos (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	name BYTES(MAX) NOT NULL,
+	user_agent BYTES(MAX),
+	versioning INT64 NOT NULL DEFAULT (0),
+	object_lock_enabled BOOL NOT NULL DEFAULT (false),
+	path_cipher INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	default_segment_size INT64 NOT NULL,
+	default_encryption_cipher_suite INT64 NOT NULL,
+	default_encryption_block_size INT64 NOT NULL,
+	default_redundancy_algorithm INT64 NOT NULL,
+	default_redundancy_share_size INT64 NOT NULL,
+	default_redundancy_required_shares INT64 NOT NULL,
+	default_redundancy_repair_shares INT64 NOT NULL,
+	default_redundancy_optimal_shares INT64 NOT NULL,
+	default_redundancy_total_shares INT64 NOT NULL,
+	placement INT64,
+	created_by BYTES(MAX),
+	CONSTRAINT bucket_metainfos_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+) PRIMARY KEY ( project_id, name )`,
+
+		`CREATE TABLE project_invitations (
+	project_id BYTES(MAX) NOT NULL,
+	email STRING(MAX) NOT NULL,
+	inviter_id BYTES(MAX),
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT project_invitations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
+	CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE 
+) PRIMARY KEY ( project_id, email )`,
+
+		`CREATE TABLE project_members (
+	member_id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	role INT64 NOT NULL DEFAULT (0),
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT project_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE ,
+	CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
+) PRIMARY KEY ( member_id, project_id )`,
+
+		`CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id STRING(MAX) NOT NULL,
+	state INT64 NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT stripecoinpayments_apply_balance_intents_tx_id_fkey FOREIGN KEY (tx_id) REFERENCES coinpayments_transactions (id) ON DELETE CASCADE 
+) PRIMARY KEY ( tx_id )`,
+
+		`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
+
+		`CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start )`,
+
+		`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id )`,
+
+		`CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start )`,
+
+		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
+
+		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
+
+		`CREATE INDEX node_last_ip ON nodes ( last_net )`,
+
+		`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
+
+		`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at )`,
+
+		`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success )`,
+
+		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
+
+		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
+
+		`CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id )`,
+
+		`CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id )`,
+
+		`CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id )`,
+
+		`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
+
+		`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
+
+		`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
+
+		`CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day )`,
+
+		`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+
+		`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
+
+		`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+
+		`CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at )`,
+
+		`CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start )`,
+
+		`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start )`,
+
+		`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period )`,
+
+		`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id )`,
+
+		`CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id )`,
+
+		`CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index )`,
+
+		`CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address )`,
+
+		`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id )`,
+
+		`CREATE INDEX users_email_status_index ON users ( normalized_email, status )`,
+
+		`CREATE INDEX trial_expiration_index ON users ( trial_expiration )`,
+
+		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
+
+		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
+
+		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
+
+		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+	}
+}
+
+func (obj *spannerDB) DropSchema() []string {
+	return []string{
+
+		`ALTER TABLE stripecoinpayments_apply_balance_intents DROP CONSTRAINT stripecoinpayments_apply_balance_intents_tx_id_fkey`,
+
+		`ALTER TABLE project_members DROP CONSTRAINT project_members_member_id_fkey`,
+
+		`ALTER TABLE project_members DROP CONSTRAINT project_members_project_id_fkey`,
+
+		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_project_id_fkey`,
+
+		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey`,
+
+		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_project_id_fkey`,
+
+		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_created_by_fkey`,
+
+		`ALTER TABLE api_keys DROP CONSTRAINT api_keys_project_id_fkey`,
+
+		`ALTER TABLE api_keys DROP CONSTRAINT api_keys_created_by_fkey`,
+
+		`DROP INDEX IF EXISTS index_api_keys_head`,
+
+		`DROP INDEX IF EXISTS index_api_keys_name`,
+
+		`DROP INDEX IF EXISTS index_stripecoinpayments_invoice_project_records_project_id`,
+
+		`DROP INDEX IF EXISTS index_stripe_customers_customer_id`,
+
+		`DROP INDEX IF EXISTS index_reset_password_tokens_owner_id`,
+
+		`DROP INDEX IF EXISTS index_registration_tokens_owner_id`,
+
+		`DROP INDEX IF EXISTS accounting_rollups_start_time_index`,
+
+		`DROP INDEX IF EXISTS billing_transactions_tx_timestamp_index`,
+
+		`DROP INDEX IF EXISTS bucket_bandwidth_rollups_project_id_action_interval_index`,
+
+		`DROP INDEX IF EXISTS bucket_bandwidth_rollups_action_interval_project_id_index`,
+
+		`DROP INDEX IF EXISTS bucket_bandwidth_rollups_archive_project_id_action_interval_index`,
+
+		`DROP INDEX IF EXISTS bucket_bandwidth_rollups_archive_action_interval_project_id_index`,
+
+		`DROP INDEX IF EXISTS bucket_storage_tallies_project_id_interval_start_index`,
+
+		`DROP INDEX IF EXISTS bucket_storage_tallies_interval_start_index`,
+
+		`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
+
+		`DROP INDEX IF EXISTS node_last_ip`,
+
+		`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+
+		`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+
+		`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+
+		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
+
+		`DROP INDEX IF EXISTS oauth_clients_user_id_index`,
+
+		`DROP INDEX IF EXISTS oauth_codes_user_id_index`,
+
+		`DROP INDEX IF EXISTS oauth_codes_client_id_index`,
+
+		`DROP INDEX IF EXISTS oauth_tokens_user_id_index`,
+
+		`DROP INDEX IF EXISTS oauth_tokens_client_id_index`,
+
+		`DROP INDEX IF EXISTS projects_public_id_index`,
+
+		`DROP INDEX IF EXISTS projects_owner_id_index`,
+
+		`DROP INDEX IF EXISTS project_bandwidth_daily_rollup_interval_day_index`,
+
+		`DROP INDEX IF EXISTS repair_queue_updated_at_index`,
+
+		`DROP INDEX IF EXISTS repair_queue_num_healthy_pieces_attempted_at_index`,
+
+		`DROP INDEX IF EXISTS repair_queue_placement_index`,
+
+		`DROP INDEX IF EXISTS reverification_audits_inserted_at_index`,
+
+		`DROP INDEX IF EXISTS storagenode_bandwidth_rollups_interval_start_index`,
+
+		`DROP INDEX IF EXISTS storagenode_bandwidth_rollup_archives_interval_start_index`,
+
+		`DROP INDEX IF EXISTS storagenode_payments_node_id_period_index`,
+
+		`DROP INDEX IF EXISTS storagenode_paystubs_node_id_index`,
+
+		`DROP INDEX IF EXISTS storagenode_storage_tallies_node_id_index`,
+
+		`DROP INDEX IF EXISTS storjscan_payments_chain_id_block_number_log_index_index`,
+
+		`DROP INDEX IF EXISTS storjscan_wallets_wallet_address_index`,
+
+		`DROP INDEX IF EXISTS stripecoinpayments_invoice_project_records_unbilled_project_id_index`,
+
+		`DROP INDEX IF EXISTS users_email_status_index`,
+
+		`DROP INDEX IF EXISTS trial_expiration_index`,
+
+		`DROP INDEX IF EXISTS webapp_sessions_user_id_index`,
+
+		`DROP INDEX IF EXISTS project_invitations_project_id_index`,
+
+		`DROP INDEX IF EXISTS project_invitations_email_index`,
+
+		`DROP INDEX IF EXISTS project_members_project_id_index`,
+
+		`ALTER TABLE  stripecoinpayments_apply_balance_intents ALTER tx_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS stripecoinpayments_apply_balance_intents_tx_id`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_apply_balance_intents`,
+
+		`ALTER TABLE  project_members ALTER member_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_members_member_id`,
+
+		`ALTER TABLE  project_members ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_members_project_id`,
+
+		`DROP TABLE IF EXISTS project_members`,
+
+		`ALTER TABLE  project_invitations ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_invitations_project_id`,
+
+		`ALTER TABLE  project_invitations ALTER email SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_invitations_email`,
+
+		`DROP TABLE IF EXISTS project_invitations`,
+
+		`ALTER TABLE  bucket_metainfos ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_metainfos_project_id`,
+
+		`ALTER TABLE  bucket_metainfos ALTER name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_metainfos_name`,
+
+		`DROP TABLE IF EXISTS bucket_metainfos`,
+
+		`ALTER TABLE  api_keys ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS api_keys_id`,
+
+		`DROP TABLE IF EXISTS api_keys`,
+
+		`ALTER TABLE  webapp_sessions ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS webapp_sessions_id`,
+
+		`DROP TABLE IF EXISTS webapp_sessions`,
+
+		`ALTER TABLE  verification_audits ALTER inserted_at SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS verification_audits_inserted_at`,
+
+		`ALTER TABLE  verification_audits ALTER stream_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS verification_audits_stream_id`,
+
+		`ALTER TABLE  verification_audits ALTER position SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS verification_audits_position`,
+
+		`DROP TABLE IF EXISTS verification_audits`,
+
+		`ALTER TABLE  value_attributions ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS value_attributions_project_id`,
+
+		`ALTER TABLE  value_attributions ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS value_attributions_bucket_name`,
+
+		`DROP TABLE IF EXISTS value_attributions`,
+
+		`ALTER TABLE  user_settings ALTER user_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS user_settings_user_id`,
+
+		`DROP TABLE IF EXISTS user_settings`,
+
+		`ALTER TABLE  users ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS users_id`,
+
+		`DROP TABLE IF EXISTS users`,
+
+		`ALTER TABLE  stripecoinpayments_tx_conversion_rates ALTER tx_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS stripecoinpayments_tx_conversion_rates_tx_id`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
+
+		`ALTER TABLE  stripecoinpayments_invoice_project_records ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS stripecoinpayments_invoice_project_records_id`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_invoice_project_records`,
+
+		`ALTER TABLE  stripe_customers ALTER user_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS stripe_customers_user_id`,
+
+		`DROP TABLE IF EXISTS stripe_customers`,
+
+		`ALTER TABLE  storjscan_wallets ALTER user_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storjscan_wallets_user_id`,
+
+		`ALTER TABLE  storjscan_wallets ALTER wallet_address SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storjscan_wallets_wallet_address`,
+
+		`DROP TABLE IF EXISTS storjscan_wallets`,
+
+		`ALTER TABLE  storjscan_payments ALTER block_hash SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storjscan_payments_block_hash`,
+
+		`ALTER TABLE  storjscan_payments ALTER log_index SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storjscan_payments_log_index`,
+
+		`DROP TABLE IF EXISTS storjscan_payments`,
+
+		`ALTER TABLE  storagenode_storage_tallies ALTER interval_end_time SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_storage_tallies_interval_end_time`,
+
+		`ALTER TABLE  storagenode_storage_tallies ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_storage_tallies_node_id`,
+
+		`DROP TABLE IF EXISTS storagenode_storage_tallies`,
+
+		`ALTER TABLE  storagenode_paystubs ALTER period SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_paystubs_period`,
+
+		`ALTER TABLE  storagenode_paystubs ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_paystubs_node_id`,
+
+		`DROP TABLE IF EXISTS storagenode_paystubs`,
+
+		`ALTER TABLE  storagenode_payments ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_payments_id`,
+
+		`DROP TABLE IF EXISTS storagenode_payments`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollups_phase2 ALTER storagenode_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_phase2_storagenode_id`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollups_phase2 ALTER interval_start SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_phase2_interval_start`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollups_phase2 ALTER action SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_phase2_action`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollup_archives ALTER storagenode_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollup_archives_storagenode_id`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollup_archives ALTER interval_start SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollup_archives_interval_start`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollup_archives ALTER action SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollup_archives_action`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollup_archives`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollups ALTER storagenode_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_storagenode_id`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollups ALTER interval_start SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_interval_start`,
+
+		`ALTER TABLE  storagenode_bandwidth_rollups ALTER action SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_action`,
+
+		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups`,
+
+		`ALTER TABLE  segment_pending_audits ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS segment_pending_audits_node_id`,
+
+		`DROP TABLE IF EXISTS segment_pending_audits`,
+
+		`ALTER TABLE  revocations ALTER revoked SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS revocations_revoked`,
+
+		`DROP TABLE IF EXISTS revocations`,
+
+		`ALTER TABLE  reverification_audits ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reverification_audits_node_id`,
+
+		`ALTER TABLE  reverification_audits ALTER stream_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reverification_audits_stream_id`,
+
+		`ALTER TABLE  reverification_audits ALTER position SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reverification_audits_position`,
+
+		`DROP TABLE IF EXISTS reverification_audits`,
+
+		`ALTER TABLE  reset_password_tokens ALTER secret SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reset_password_tokens_secret`,
+
+		`DROP TABLE IF EXISTS reset_password_tokens`,
+
+		`ALTER TABLE  reputations ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS reputations_id`,
+
+		`DROP TABLE IF EXISTS reputations`,
+
+		`ALTER TABLE  repair_queue ALTER stream_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS repair_queue_stream_id`,
+
+		`ALTER TABLE  repair_queue ALTER position SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS repair_queue_position`,
+
+		`DROP TABLE IF EXISTS repair_queue`,
+
+		`ALTER TABLE  registration_tokens ALTER secret SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS registration_tokens_secret`,
+
+		`DROP TABLE IF EXISTS registration_tokens`,
+
+		`ALTER TABLE  project_bandwidth_daily_rollups ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_bandwidth_daily_rollups_project_id`,
+
+		`ALTER TABLE  project_bandwidth_daily_rollups ALTER interval_day SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS project_bandwidth_daily_rollups_interval_day`,
+
+		`DROP TABLE IF EXISTS project_bandwidth_daily_rollups`,
+
+		`ALTER TABLE  projects ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS projects_id`,
+
+		`DROP TABLE IF EXISTS projects`,
+
+		`ALTER TABLE  peer_identities ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS peer_identities_node_id`,
+
+		`DROP TABLE IF EXISTS peer_identities`,
+
+		`ALTER TABLE  oauth_tokens ALTER token SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS oauth_tokens_token`,
+
+		`DROP TABLE IF EXISTS oauth_tokens`,
+
+		`ALTER TABLE  oauth_codes ALTER code SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS oauth_codes_code`,
+
+		`DROP TABLE IF EXISTS oauth_codes`,
+
+		`ALTER TABLE  oauth_clients ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS oauth_clients_id`,
+
+		`DROP TABLE IF EXISTS oauth_clients`,
+
+		`ALTER TABLE  node_tags ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS node_tags_node_id`,
+
+		`ALTER TABLE  node_tags ALTER name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS node_tags_name`,
+
+		`ALTER TABLE  node_tags ALTER signer SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS node_tags_signer`,
+
+		`DROP TABLE IF EXISTS node_tags`,
+
+		`ALTER TABLE  node_events ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS node_events_id`,
+
+		`DROP TABLE IF EXISTS node_events`,
+
+		`ALTER TABLE  node_api_versions ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS node_api_versions_id`,
+
+		`DROP TABLE IF EXISTS node_api_versions`,
+
+		`ALTER TABLE  nodes ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS nodes_id`,
+
+		`DROP TABLE IF EXISTS nodes`,
+
+		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_node_id`,
+
+		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER stream_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_stream_id`,
+
+		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER position SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_position`,
+
+		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER piece_num SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_piece_num`,
+
+		`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+
+		`ALTER TABLE  graceful_exit_progress ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS graceful_exit_progress_node_id`,
+
+		`DROP TABLE IF EXISTS graceful_exit_progress`,
+
+		`ALTER TABLE  coinpayments_transactions ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS coinpayments_transactions_id`,
+
+		`DROP TABLE IF EXISTS coinpayments_transactions`,
+
+		`ALTER TABLE  bucket_storage_tallies ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_storage_tallies_bucket_name`,
+
+		`ALTER TABLE  bucket_storage_tallies ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_storage_tallies_project_id`,
+
+		`ALTER TABLE  bucket_storage_tallies ALTER interval_start SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_storage_tallies_interval_start`,
+
+		`DROP TABLE IF EXISTS bucket_storage_tallies`,
+
+		`ALTER TABLE  bucket_bandwidth_rollup_archives ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollup_archives_bucket_name`,
+
+		`ALTER TABLE  bucket_bandwidth_rollup_archives ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollup_archives_project_id`,
+
+		`ALTER TABLE  bucket_bandwidth_rollup_archives ALTER interval_start SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollup_archives_interval_start`,
+
+		`ALTER TABLE  bucket_bandwidth_rollup_archives ALTER action SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollup_archives_action`,
+
+		`DROP TABLE IF EXISTS bucket_bandwidth_rollup_archives`,
+
+		`ALTER TABLE  bucket_bandwidth_rollups ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollups_project_id`,
+
+		`ALTER TABLE  bucket_bandwidth_rollups ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollups_bucket_name`,
+
+		`ALTER TABLE  bucket_bandwidth_rollups ALTER interval_start SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollups_interval_start`,
+
+		`ALTER TABLE  bucket_bandwidth_rollups ALTER action SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_bandwidth_rollups_action`,
+
+		`DROP TABLE IF EXISTS bucket_bandwidth_rollups`,
+
+		`ALTER TABLE  billing_transactions ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS billing_transactions_id`,
+
+		`DROP TABLE IF EXISTS billing_transactions`,
+
+		`ALTER TABLE  billing_balances ALTER user_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS billing_balances_user_id`,
+
+		`DROP TABLE IF EXISTS billing_balances`,
+
+		`ALTER TABLE  accounting_timestamps ALTER name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS accounting_timestamps_name`,
+
+		`DROP TABLE IF EXISTS accounting_timestamps`,
+
+		`ALTER TABLE  accounting_rollups ALTER node_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS accounting_rollups_node_id`,
+
+		`ALTER TABLE  accounting_rollups ALTER start_time SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS accounting_rollups_start_time`,
+
+		`DROP TABLE IF EXISTS accounting_rollups`,
+
+		`ALTER TABLE  account_freeze_events ALTER user_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS account_freeze_events_user_id`,
+
+		`ALTER TABLE  account_freeze_events ALTER event SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS account_freeze_events_event`,
+
+		`DROP TABLE IF EXISTS account_freeze_events`,
+	}
+}
+
+func (obj *spannerDB) wrapTx(tx tagsql.Tx) txMethods {
+	return &spannerTx{
+		dialectTx: dialectTx{tx: tx},
+		spannerImpl: &spannerImpl{
+			db:     obj.db,
+			driver: tx,
+			txn:    true,
+		},
+	}
+}
+
+type spannerTx struct {
+	dialectTx
+	*spannerImpl
+}
+
+func spannerLogStmt(stmt string, args ...interface{}) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -31426,6 +32771,9325 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 
 }
 
+func (obj *spannerImpl) ReplaceNoReturn_AccountingTimestamps(ctx context.Context,
+	accounting_timestamps_name AccountingTimestamps_Name_Field,
+	accounting_timestamps_value AccountingTimestamps_Value_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__name_val := accounting_timestamps_name.value()
+	__value_val := accounting_timestamps_value.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO accounting_timestamps ( name, value ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __name_val, __value_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_interval_seconds StoragenodeBandwidthRollup_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field,
+	storagenode_bandwidth_rollup_settled StoragenodeBandwidthRollup_Settled_Field,
+	optional StoragenodeBandwidthRollup_Create_Fields) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storagenode_id_val := storagenode_bandwidth_rollup_storagenode_id.value()
+	__interval_start_val := storagenode_bandwidth_rollup_interval_start.value()
+	__interval_seconds_val := storagenode_bandwidth_rollup_interval_seconds.value()
+	__action_val := storagenode_bandwidth_rollup_action.value()
+	__settled_val := storagenode_bandwidth_rollup_settled.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups "), __clause, __sqlbundle_Literal(" THEN RETURN storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled")}}
+
+	var __values []interface{}
+	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Allocated._set {
+		__values = append(__values, optional.Allocated.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allocated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allocated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup, nil
+
+}
+
+func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field,
+	reverification_audits_piece_num ReverificationAudits_PieceNum_Field,
+	optional ReverificationAudits_Create_Fields) (
+	reverification_audits *ReverificationAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := reverification_audits_node_id.value()
+	__stream_id_val := reverification_audits_stream_id.value()
+	__position_val := reverification_audits_position.value()
+	__piece_num_val := reverification_audits_piece_num.value()
+	__last_attempt_val := optional.LastAttempt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, stream_id, position, piece_num, last_attempt")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reverification_audits "), __clause, __sqlbundle_Literal(" THEN RETURN reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count")}}
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __stream_id_val, __position_val, __piece_num_val, __last_attempt_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.InsertedAt._set {
+		__values = append(__values, optional.InsertedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("inserted_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ReverifyCount._set {
+		__values = append(__values, optional.ReverifyCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("reverify_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("inserted_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("reverify_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reverification_audits = &ReverificationAudits{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reverification_audits, nil
+
+}
+
+func (obj *spannerImpl) Create_StripeCustomer(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field,
+	optional StripeCustomer_Create_Fields) (
+	stripe_customer *StripeCustomer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := stripe_customer_user_id.value()
+	__customer_id_val := stripe_customer_customer_id.value()
+	__billing_customer_id_val := optional.BillingCustomerId.value()
+	__package_plan_val := optional.PackagePlan.value()
+	__purchased_package_at_val := optional.PurchasedPackageAt.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, billing_customer_id, package_plan, purchased_package_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __customer_id_val, __billing_customer_id_val, __package_plan_val, __purchased_package_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripe_customer = &StripeCustomer{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customer, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_BillingBalance(ctx context.Context,
+	billing_balance_user_id BillingBalance_UserId_Field,
+	billing_balance_balance BillingBalance_Balance_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := billing_balance_user_id.value()
+	__balance_val := billing_balance_balance.value()
+	__last_updated_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_balances ( user_id, balance, last_updated ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __balance_val, __last_updated_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Create_BillingTransaction(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_amount BillingTransaction_Amount_Field,
+	billing_transaction_currency BillingTransaction_Currency_Field,
+	billing_transaction_description BillingTransaction_Description_Field,
+	billing_transaction_source BillingTransaction_Source_Field,
+	billing_transaction_status BillingTransaction_Status_Field,
+	billing_transaction_type BillingTransaction_Type_Field,
+	billing_transaction_metadata BillingTransaction_Metadata_Field,
+	billing_transaction_tx_timestamp BillingTransaction_TxTimestamp_Field) (
+	billing_transaction *BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := billing_transaction_user_id.value()
+	__amount_val := billing_transaction_amount.value()
+	__currency_val := billing_transaction_currency.value()
+	__description_val := billing_transaction_description.value()
+	__source_val := billing_transaction_source.value()
+	__status_val := billing_transaction_status.value()
+	__type_val := billing_transaction_type.value()
+	__metadata_val := billing_transaction_metadata.value()
+	__tx_timestamp_val := billing_transaction_tx_timestamp.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, tx_timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __source_val, __status_val, __type_val, __metadata_val, __tx_timestamp_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	billing_transaction = &BillingTransaction{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return billing_transaction, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := storjscan_wallet_user_id.value()
+	__wallet_address_val := storjscan_wallet_wallet_address.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, created_at ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __wallet_address_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Create_CoinpaymentsTransaction(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
+	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount_numeric CoinpaymentsTransaction_AmountNumeric_Field,
+	coinpayments_transaction_received_numeric CoinpaymentsTransaction_ReceivedNumeric_Field,
+	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
+	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
+	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coinpayments_transaction_id.value()
+	__user_id_val := coinpayments_transaction_user_id.value()
+	__address_val := coinpayments_transaction_address.value()
+	__amount_numeric_val := coinpayments_transaction_amount_numeric.value()
+	__received_numeric_val := coinpayments_transaction_received_numeric.value()
+	__status_val := coinpayments_transaction_status.value()
+	__key_val := coinpayments_transaction_key.value()
+	__timeout_val := coinpayments_transaction_timeout.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_numeric, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_numeric_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coinpayments_transaction = &CoinpaymentsTransaction{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coinpayments_transaction, nil
+
+}
+
+func (obj *spannerImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+	stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
+	stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+	optional StripecoinpaymentsInvoiceProjectRecord_Create_Fields) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := stripecoinpayments_invoice_project_record_id.value()
+	__project_id_val := stripecoinpayments_invoice_project_record_project_id.value()
+	__storage_val := stripecoinpayments_invoice_project_record_storage.value()
+	__egress_val := stripecoinpayments_invoice_project_record_egress.value()
+	__objects_val := optional.Objects.value()
+	__segments_val := optional.Segments.value()
+	__period_start_val := stripecoinpayments_invoice_project_record_period_start.value()
+	__period_end_val := stripecoinpayments_invoice_project_record_period_end.value()
+	__state_val := stripecoinpayments_invoice_project_record_state.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, segments, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __segments_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_project_record, nil
+
+}
+
+func (obj *spannerImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
+	stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tx_id_val := stripecoinpayments_tx_conversion_rate_tx_id.value()
+	__rate_numeric_val := stripecoinpayments_tx_conversion_rate_rate_numeric.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_numeric, created_at ) VALUES ( ?, ?, ? ) THEN RETURN stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __tx_id_val, __rate_numeric_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_tx_conversion_rate, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
+	storjscan_payment_block_hash StorjscanPayment_BlockHash_Field,
+	storjscan_payment_block_number StorjscanPayment_BlockNumber_Field,
+	storjscan_payment_transaction StorjscanPayment_Transaction_Field,
+	storjscan_payment_log_index StorjscanPayment_LogIndex_Field,
+	storjscan_payment_from_address StorjscanPayment_FromAddress_Field,
+	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
+	storjscan_payment_token_value StorjscanPayment_TokenValue_Field,
+	storjscan_payment_usd_value StorjscanPayment_UsdValue_Field,
+	storjscan_payment_status StorjscanPayment_Status_Field,
+	storjscan_payment_block_timestamp StorjscanPayment_BlockTimestamp_Field,
+	optional StorjscanPayment_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__block_hash_val := storjscan_payment_block_hash.value()
+	__block_number_val := storjscan_payment_block_number.value()
+	__transaction_val := storjscan_payment_transaction.value()
+	__log_index_val := storjscan_payment_log_index.value()
+	__from_address_val := storjscan_payment_from_address.value()
+	__to_address_val := storjscan_payment_to_address.value()
+	__token_value_val := storjscan_payment_token_value.value()
+	__usd_value_val := storjscan_payment_usd_value.value()
+	__status_val := storjscan_payment_status.value()
+	__block_timestamp_val := storjscan_payment_block_timestamp.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, block_timestamp, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storjscan_payments "), __clause}}
+
+	var __values []interface{}
+	__values = append(__values, __block_hash_val, __block_number_val, __transaction_val, __log_index_val, __from_address_val, __to_address_val, __token_value_val, __usd_value_val, __status_val, __block_timestamp_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.ChainId._set {
+		__values = append(__values, optional.ChainId.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("chain_id"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("chain_id"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+	peer_identity_chain PeerIdentity_Chain_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := peer_identity_node_id.value()
+	__leaf_serial_number_val := peer_identity_leaf_serial_number.value()
+	__chain_val := peer_identity_chain.value()
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__revoked_val := revocation_revoked.value()
+	__api_key_id_val := revocation_api_key_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __revoked_val, __api_key_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
+	node_api_version_id NodeApiVersion_Id_Field,
+	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := node_api_version_id.value()
+	__api_version_val := node_api_version_api_version.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO node_api_versions ( id, api_version, created_at, updated_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __api_version_val, __created_at_val, __updated_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Create_NodeEvent(ctx context.Context,
+	node_event_id NodeEvent_Id_Field,
+	node_event_email NodeEvent_Email_Field,
+	node_event_node_id NodeEvent_NodeId_Field,
+	node_event_event NodeEvent_Event_Field,
+	optional NodeEvent_Create_Fields) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := node_event_id.value()
+	__email_val := node_event_email.value()
+	__last_ip_port_val := optional.LastIpPort.value()
+	__node_id_val := node_event_node_id.value()
+	__event_val := node_event_event.value()
+	__last_attempted_val := optional.LastAttempted.value()
+	__email_sent_val := optional.EmailSent.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, last_ip_port, node_id, event, last_attempted, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" THEN RETURN node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __last_ip_port_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.CreatedAt._set {
+		__values = append(__values, optional.CreatedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node_event = &NodeEvent{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node_event, nil
+
+}
+
+func (obj *spannerImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field,
+	node_tags_name NodeTags_Name_Field,
+	node_tags_value NodeTags_Value_Field,
+	node_tags_signed_at NodeTags_SignedAt_Field,
+	node_tags_signer NodeTags_Signer_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := node_tags_node_id.value()
+	__name_val := node_tags_name.value()
+	__value_val := node_tags_value.value()
+	__signed_at_val := node_tags_signed_at.value()
+	__signer_val := node_tags_signer.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO node_tags ( node_id, name, value, signed_at, signer ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
+	storagenode_paystub_period StoragenodePaystub_Period_Field,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_codes StoragenodePaystub_Codes_Field,
+	storagenode_paystub_usage_at_rest StoragenodePaystub_UsageAtRest_Field,
+	storagenode_paystub_usage_get StoragenodePaystub_UsageGet_Field,
+	storagenode_paystub_usage_put StoragenodePaystub_UsagePut_Field,
+	storagenode_paystub_usage_get_repair StoragenodePaystub_UsageGetRepair_Field,
+	storagenode_paystub_usage_put_repair StoragenodePaystub_UsagePutRepair_Field,
+	storagenode_paystub_usage_get_audit StoragenodePaystub_UsageGetAudit_Field,
+	storagenode_paystub_comp_at_rest StoragenodePaystub_CompAtRest_Field,
+	storagenode_paystub_comp_get StoragenodePaystub_CompGet_Field,
+	storagenode_paystub_comp_put StoragenodePaystub_CompPut_Field,
+	storagenode_paystub_comp_get_repair StoragenodePaystub_CompGetRepair_Field,
+	storagenode_paystub_comp_put_repair StoragenodePaystub_CompPutRepair_Field,
+	storagenode_paystub_comp_get_audit StoragenodePaystub_CompGetAudit_Field,
+	storagenode_paystub_surge_percent StoragenodePaystub_SurgePercent_Field,
+	storagenode_paystub_held StoragenodePaystub_Held_Field,
+	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
+	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field,
+	storagenode_paystub_distributed StoragenodePaystub_Distributed_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__period_val := storagenode_paystub_period.value()
+	__node_id_val := storagenode_paystub_node_id.value()
+	__created_at_val := __now
+	__codes_val := storagenode_paystub_codes.value()
+	__usage_at_rest_val := storagenode_paystub_usage_at_rest.value()
+	__usage_get_val := storagenode_paystub_usage_get.value()
+	__usage_put_val := storagenode_paystub_usage_put.value()
+	__usage_get_repair_val := storagenode_paystub_usage_get_repair.value()
+	__usage_put_repair_val := storagenode_paystub_usage_put_repair.value()
+	__usage_get_audit_val := storagenode_paystub_usage_get_audit.value()
+	__comp_at_rest_val := storagenode_paystub_comp_at_rest.value()
+	__comp_get_val := storagenode_paystub_comp_get.value()
+	__comp_put_val := storagenode_paystub_comp_put.value()
+	__comp_get_repair_val := storagenode_paystub_comp_get_repair.value()
+	__comp_put_repair_val := storagenode_paystub_comp_put_repair.value()
+	__comp_get_audit_val := storagenode_paystub_comp_get_audit.value()
+	__surge_percent_val := storagenode_paystub_surge_percent.value()
+	__held_val := storagenode_paystub_held.value()
+	__owed_val := storagenode_paystub_owed.value()
+	__disposed_val := storagenode_paystub_disposed.value()
+	__paid_val := storagenode_paystub_paid.value()
+	__distributed_val := storagenode_paystub_distributed.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid, distributed ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val, __distributed_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
+	storagenode_payment_amount StoragenodePayment_Amount_Field,
+	optional StoragenodePayment_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__created_at_val := __now
+	__node_id_val := storagenode_payment_node_id.value()
+	__period_val := storagenode_payment_period.value()
+	__amount_val := storagenode_payment_amount.value()
+	__receipt_val := optional.Receipt.value()
+	__notes_val := optional.Notes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_payments ( created_at, node_id, period, amount, receipt, notes ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __created_at_val, __node_id_val, __period_val, __amount_val, __receipt_val, __notes_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Create_Reputation(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	optional Reputation_Create_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := reputation_id.value()
+	__vetted_at_val := optional.VettedAt.value()
+	__disqualified_val := optional.Disqualified.value()
+	__disqualification_reason_val := optional.DisqualificationReason.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
+	__audit_history_val := reputation_audit_history.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, disqualification_reason, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" THEN RETURN reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AuditSuccessCount._set {
+		__values = append(__values, optional.AuditSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalAuditCount._set {
+		__values = append(__values, optional.TotalAuditCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.OnlineScore._set {
+		__values = append(__values, optional.OnlineScore.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("online_score"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationAlpha._set {
+		__values = append(__values, optional.AuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationBeta._set {
+		__values = append(__values, optional.AuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UnknownAuditReputationAlpha._set {
+		__values = append(__values, optional.UnknownAuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UnknownAuditReputationBeta._set {
+		__values = append(__values, optional.UnknownAuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("online_score"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_OauthClient(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+	oauth_client_user_id OauthClient_UserId_Field,
+	oauth_client_app_name OauthClient_AppName_Field,
+	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := oauth_client_id.value()
+	__encrypted_secret_val := oauth_client_encrypted_secret.value()
+	__redirect_url_val := oauth_client_redirect_url.value()
+	__user_id_val := oauth_client_user_id.value()
+	__app_name_val := oauth_client_app_name.value()
+	__app_logo_url_val := oauth_client_app_logo_url.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_OauthCode(ctx context.Context,
+	oauth_code_client_id OauthCode_ClientId_Field,
+	oauth_code_user_id OauthCode_UserId_Field,
+	oauth_code_scope OauthCode_Scope_Field,
+	oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+	oauth_code_challenge OauthCode_Challenge_Field,
+	oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+	oauth_code_code OauthCode_Code_Field,
+	oauth_code_created_at OauthCode_CreatedAt_Field,
+	oauth_code_expires_at OauthCode_ExpiresAt_Field,
+	optional OauthCode_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__client_id_val := oauth_code_client_id.value()
+	__user_id_val := oauth_code_user_id.value()
+	__scope_val := oauth_code_scope.value()
+	__redirect_url_val := oauth_code_redirect_url.value()
+	__challenge_val := oauth_code_challenge.value()
+	__challenge_method_val := oauth_code_challenge_method.value()
+	__code_val := oauth_code_code.value()
+	__created_at_val := oauth_code_created_at.value()
+	__expires_at_val := oauth_code_expires_at.value()
+	__claimed_at_val := optional.ClaimedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_OauthToken(ctx context.Context,
+	oauth_token_client_id OauthToken_ClientId_Field,
+	oauth_token_user_id OauthToken_UserId_Field,
+	oauth_token_scope OauthToken_Scope_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_created_at OauthToken_CreatedAt_Field,
+	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__client_id_val := oauth_token_client_id.value()
+	__user_id_val := oauth_token_user_id.value()
+	__scope_val := oauth_token_scope.value()
+	__kind_val := oauth_token_kind.value()
+	__token_val := oauth_token_token.value()
+	__created_at_val := oauth_token_created_at.value()
+	__expires_at_val := oauth_token_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Create_Project(ctx context.Context,
+	project_id Project_Id_Field,
+	project_name Project_Name_Field,
+	project_description Project_Description_Field,
+	project_owner_id Project_OwnerId_Field,
+	optional Project_Create_Fields) (
+	project *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := project_id.value()
+	__public_id_val := optional.PublicId.value()
+	__name_val := project_name.value()
+	__description_val := project_description.value()
+	__usage_limit_val := optional.UsageLimit.value()
+	__bandwidth_limit_val := optional.BandwidthLimit.value()
+	__user_specified_usage_limit_val := optional.UserSpecifiedUsageLimit.value()
+	__user_specified_bandwidth_limit_val := optional.UserSpecifiedBandwidthLimit.value()
+	__rate_limit_val := optional.RateLimit.value()
+	__burst_limit_val := optional.BurstLimit.value()
+	__rate_limit_head_val := optional.RateLimitHead.value()
+	__burst_limit_head_val := optional.BurstLimitHead.value()
+	__rate_limit_get_val := optional.RateLimitGet.value()
+	__burst_limit_get_val := optional.BurstLimitGet.value()
+	__rate_limit_put_val := optional.RateLimitPut.value()
+	__burst_limit_put_val := optional.BurstLimitPut.value()
+	__rate_limit_list_val := optional.RateLimitList.value()
+	__burst_limit_list_val := optional.BurstLimitList.value()
+	__rate_limit_del_val := optional.RateLimitDel.value()
+	__burst_limit_del_val := optional.BurstLimitDel.value()
+	__max_buckets_val := optional.MaxBuckets.value()
+	__user_agent_val := optional.UserAgent.value()
+	__owner_id_val := project_owner_id.value()
+	__salt_val := optional.Salt.value()
+	__created_at_val := __now
+	__default_placement_val := optional.DefaultPlacement.value()
+	__passphrase_enc_val := optional.PassphraseEnc.value()
+	__passphrase_enc_key_id_val := optional.PassphraseEncKeyId.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, public_id, name, description, usage_limit, bandwidth_limit, user_specified_usage_limit, user_specified_bandwidth_limit, rate_limit, burst_limit, rate_limit_head, burst_limit_head, rate_limit_get, burst_limit_get, rate_limit_put, burst_limit_put, rate_limit_list, burst_limit_list, rate_limit_del, burst_limit_del, max_buckets, user_agent, owner_id, salt, created_at, default_placement, passphrase_enc, passphrase_enc_key_id")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __created_at_val, __default_placement_val, __passphrase_enc_val, __passphrase_enc_key_id_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.SegmentLimit._set {
+		__values = append(__values, optional.SegmentLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("segment_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DefaultVersioning._set {
+		__values = append(__values, optional.DefaultVersioning.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PromptedForVersioningBeta._set {
+		__values = append(__values, optional.PromptedForVersioningBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("prompted_for_versioning_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PathEncryption._set {
+		__values = append(__values, optional.PathEncryption.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("path_encryption"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("segment_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("default_versioning"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("prompted_for_versioning_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("path_encryption"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
+func (obj *spannerImpl) Create_ProjectMember(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	optional ProjectMember_Create_Fields) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__member_id_val := project_member_member_id.value()
+	__project_id_val := project_member_project_id.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("member_id, project_id, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO project_members "), __clause, __sqlbundle_Literal(" THEN RETURN project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __member_id_val, __project_id_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Role._set {
+		__values = append(__values, optional.Role.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("role"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("role"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member, nil
+
+}
+
+func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	optional ProjectInvitation_Create_Fields) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_invitation_project_id.value()
+	__email_val := project_invitation_email.value()
+	__inviter_id_val := optional.InviterId.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invitation, nil
+
+}
+
+func (obj *spannerImpl) Create_ApiKey(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field,
+	optional ApiKey_Create_Fields) (
+	api_key *ApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := api_key_id.value()
+	__project_id_val := api_key_project_id.value()
+	__head_val := api_key_head.value()
+	__name_val := api_key_name.value()
+	__secret_val := api_key_secret.value()
+	__user_agent_val := optional.UserAgent.value()
+	__created_at_val := __now
+	__created_by_val := optional.CreatedBy.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, head, name, secret, user_agent, created_at, created_by")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO api_keys "), __clause, __sqlbundle_Literal(" THEN RETURN api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __user_agent_val, __created_at_val, __created_by_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Version._set {
+		__values = append(__values, optional.Version.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("version"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("version"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key = &ApiKey{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy, &api_key.Version)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key, nil
+
+}
+
+func (obj *spannerImpl) Create_BucketMetainfo(ctx context.Context,
+	bucket_metainfo_id BucketMetainfo_Id_Field,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
+	bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
+	bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
+	bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
+	bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
+	bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
+	bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
+	bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
+	bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
+	bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
+	optional BucketMetainfo_Create_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_metainfo_id.value()
+	__project_id_val := bucket_metainfo_project_id.value()
+	__name_val := bucket_metainfo_name.value()
+	__user_agent_val := optional.UserAgent.value()
+	__path_cipher_val := bucket_metainfo_path_cipher.value()
+	__created_at_val := __now
+	__default_segment_size_val := bucket_metainfo_default_segment_size.value()
+	__default_encryption_cipher_suite_val := bucket_metainfo_default_encryption_cipher_suite.value()
+	__default_encryption_block_size_val := bucket_metainfo_default_encryption_block_size.value()
+	__default_redundancy_algorithm_val := bucket_metainfo_default_redundancy_algorithm.value()
+	__default_redundancy_share_size_val := bucket_metainfo_default_redundancy_share_size.value()
+	__default_redundancy_required_shares_val := bucket_metainfo_default_redundancy_required_shares.value()
+	__default_redundancy_repair_shares_val := bucket_metainfo_default_redundancy_repair_shares.value()
+	__default_redundancy_optimal_shares_val := bucket_metainfo_default_redundancy_optimal_shares.value()
+	__default_redundancy_total_shares_val := bucket_metainfo_default_redundancy_total_shares.value()
+	__placement_val := optional.Placement.value()
+	__created_by_val := optional.CreatedBy.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, name, user_agent, path_cipher, created_at, default_segment_size, default_encryption_cipher_suite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares, placement, created_by")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_metainfos "), __clause, __sqlbundle_Literal(" THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __project_id_val, __name_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val, __created_by_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Versioning._set {
+		__values = append(__values, optional.Versioning.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("versioning"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ObjectLockEnabled._set {
+		__values = append(__values, optional.ObjectLockEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("object_lock_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("versioning"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("object_lock_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+
+}
+
+func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	optional ValueAttribution_Create_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := value_attribution_project_id.value()
+	__bucket_name_val := value_attribution_bucket_name.value()
+	__user_agent_val := optional.UserAgent.value()
+	__last_updated_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
+
+	var __values []interface{}
+	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+
+}
+
+func (obj *spannerImpl) Create_User(ctx context.Context,
+	user_id User_Id_Field,
+	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_full_name User_FullName_Field,
+	user_password_hash User_PasswordHash_Field,
+	optional User_Create_Fields) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := user_id.value()
+	__email_val := user_email.value()
+	__normalized_email_val := user_normalized_email.value()
+	__full_name_val := user_full_name.value()
+	__short_name_val := optional.ShortName.value()
+	__password_hash_val := user_password_hash.value()
+	__new_unverified_email_val := optional.NewUnverifiedEmail.value()
+	__status_val := int(0)
+	__status_updated_at_val := optional.StatusUpdatedAt.value()
+	__user_agent_val := optional.UserAgent.value()
+	__created_at_val := __now
+	__position_val := optional.Position.value()
+	__company_name_val := optional.CompanyName.value()
+	__company_size_val := optional.CompanySize.value()
+	__working_on_val := optional.WorkingOn.value()
+	__employee_count_val := optional.EmployeeCount.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
+	__signup_promo_code_val := optional.SignupPromoCode.value()
+	__failed_login_count_val := optional.FailedLoginCount.value()
+	__login_lockout_expiration_val := optional.LoginLockoutExpiration.value()
+	__signup_captcha_val := optional.SignupCaptcha.value()
+	__default_placement_val := optional.DefaultPlacement.value()
+	__activation_code_val := optional.ActivationCode.value()
+	__signup_id_val := optional.SignupId.value()
+	__trial_expiration_val := optional.TrialExpiration.value()
+	__upgrade_time_val := optional.UpgradeTime.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, new_unverified_email, status, status_updated_at, user_agent, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes, signup_promo_code, failed_login_count, login_lockout_expiration, signup_captcha, default_placement, activation_code, signup_id, trial_expiration, upgrade_time")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" THEN RETURN users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __new_unverified_email_val, __status_val, __status_updated_at_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val, __failed_login_count_val, __login_lockout_expiration_val, __signup_captcha_val, __default_placement_val, __activation_code_val, __signup_id_val, __trial_expiration_val, __upgrade_time_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.EmailChangeVerificationStep._set {
+		__values = append(__values, optional.EmailChangeVerificationStep.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("email_change_verification_step"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FinalInvoiceGenerated._set {
+		__values = append(__values, optional.FinalInvoiceGenerated.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("final_invoice_generated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ProjectLimit._set {
+		__values = append(__values, optional.ProjectLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ProjectBandwidthLimit._set {
+		__values = append(__values, optional.ProjectBandwidthLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_bandwidth_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ProjectStorageLimit._set {
+		__values = append(__values, optional.ProjectStorageLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_storage_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ProjectSegmentLimit._set {
+		__values = append(__values, optional.ProjectSegmentLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_segment_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PaidTier._set {
+		__values = append(__values, optional.PaidTier.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("paid_tier"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.IsProfessional._set {
+		__values = append(__values, optional.IsProfessional.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_professional"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.HaveSalesContact._set {
+		__values = append(__values, optional.HaveSalesContact.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("have_sales_contact"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.VerificationReminders._set {
+		__values = append(__values, optional.VerificationReminders.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("verification_reminders"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TrialNotifications._set {
+		__values = append(__values, optional.TrialNotifications.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("trial_notifications"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("email_change_verification_step"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("final_invoice_generated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_bandwidth_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_storage_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_segment_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("paid_tier"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("is_professional"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("have_sales_contact"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("verification_reminders"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("trial_notifications"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *spannerImpl) Create_WebappSession(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_ip_address WebappSession_IpAddress_Field,
+	webapp_session_user_agent WebappSession_UserAgent_Field,
+	webapp_session_expires_at WebappSession_ExpiresAt_Field) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := webapp_session_id.value()
+	__user_id_val := webapp_session_user_id.value()
+	__ip_address_val := webapp_session_ip_address.value()
+	__user_agent_val := webapp_session_user_agent.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session, nil
+
+}
+
+func (obj *spannerImpl) Create_RegistrationToken(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
+	optional RegistrationToken_Create_Fields) (
+	registration_token *RegistrationToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := registration_token_secret.value()
+	__owner_id_val := optional.OwnerId.value()
+	__project_limit_val := registration_token_project_limit.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *spannerImpl) Create_ResetPasswordToken(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__secret_val := reset_password_token_secret.value()
+	__owner_id_val := reset_password_token_owner_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) THEN RETURN reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
+func (obj *spannerImpl) Replace_AccountFreezeEvent(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	optional AccountFreezeEvent_Create_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := account_freeze_event_user_id.value()
+	__event_val := account_freeze_event_event.value()
+	__limits_val := optional.Limits.value()
+	__days_till_escalation_val := optional.DaysTillEscalation.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, event, limits, days_till_escalation")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT OR UPDATE INTO account_freeze_events "), __clause, __sqlbundle_Literal(" THEN RETURN account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __event_val, __limits_val, __days_till_escalation_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.NotificationsCount._set {
+		__values = append(__values, optional.NotificationsCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notifications_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.CreatedAt._set {
+		__values = append(__values, optional.CreatedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notifications_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return account_freeze_event, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := user_settings_user_id.value()
+	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
+	__onboarding_step_val := optional.OnboardingStep.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.OnboardingStart._set {
+		__values = append(__values, optional.OnboardingStart.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("onboarding_start"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.OnboardingEnd._set {
+		__values = append(__values, optional.OnboardingEnd.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("onboarding_end"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.NoticeDismissal._set {
+		__values = append(__values, optional.NoticeDismissal.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notice_dismissal"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("onboarding_start"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("onboarding_end"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notice_dismissal"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *spannerImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
+	accounting_timestamps_name AccountingTimestamps_Name_Field) (
+	row *Value_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, accounting_timestamps_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Value_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
+	if err == sql.ErrNoRows {
+		return (*Value_Row)(nil), nil
+	}
+	if err != nil {
+		return (*Value_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodeBandwidthRollup, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal StoragenodeBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND (storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND (storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup_phase2)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_StoragenodeStorageTally(ctx context.Context) (
+	rows []*StoragenodeStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodeStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_storage_tally := &StoragenodeStorageTally{}
+				err = __rows.Scan(&storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
+	rows []*StoragenodeStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodeStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_storage_tally := &StoragenodeStorageTally{}
+				err = __rows.Scan(&storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
+	rows []*BucketStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_storage_tally := &BucketStorageTally{}
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
+	rows []*BucketStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_storage_tally := &BucketStorageTally{}
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
+	reverification_audits *ReverificationAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count FROM reverification_audits WHERE reverification_audits.node_id = ? ORDER BY reverification_audits.stream_id, reverification_audits.position LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, reverification_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reverification_audits, err = func() (reverification_audits *ReverificationAudits, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
+
+			reverification_audits = &ReverificationAudits{}
+			err = __rows.Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+			if err != nil {
+				return nil, err
+			}
+
+			return reverification_audits, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reverification_audits, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *PackagePlan_PurchasedPackageAt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.package_plan, stripe_customers.purchased_package_at FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PackagePlan_PurchasedPackageAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PackagePlan, &row.PurchasedPackageAt)
+	if err != nil {
+		return (*PackagePlan_PurchasedPackageAt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *CustomerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CustomerId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
+	if err != nil {
+		return (*CustomerId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_StripeCustomer_CustomerId_StripeCustomer_BillingCustomerId_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *CustomerId_BillingCustomerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id, stripe_customers.billing_customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CustomerId_BillingCustomerId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId, &row.BillingCustomerId)
+	if err != nil {
+		return (*CustomerId_BillingCustomerId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
+	billing_balance_user_id BillingBalance_UserId_Field) (
+	row *Balance_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_balances.balance FROM billing_balances WHERE billing_balances.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, billing_balance_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Balance_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Balance)
+	if err != nil {
+		return (*Balance_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BillingTransaction_By_Id(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field) (
+	billing_transaction *BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	billing_transaction = &BillingTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+	if err != nil {
+		return (*BillingTransaction)(nil), obj.makeErr(err)
+	}
+	return billing_transaction, nil
+
+}
+
+func (obj *spannerImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field) (
+	row *Metadata_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.metadata FROM billing_transactions WHERE billing_transactions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Metadata_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Metadata)
+	if err != nil {
+		return (*Metadata_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field) (
+	rows []*BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.tx_timestamp DESC")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				billing_transaction := &BillingTransaction{}
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, billing_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxTimestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_source BillingTransaction_Source_Field) (
+	rows []*BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.tx_timestamp DESC")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_source.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				billing_transaction := &BillingTransaction{}
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, billing_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx context.Context,
+	billing_transaction_source BillingTransaction_Source_Field,
+	billing_transaction_type BillingTransaction_Type_Field) (
+	billing_transaction *BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		billing_transaction, err = func() (billing_transaction *BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
+
+			billing_transaction = &BillingTransaction{}
+			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+			if err != nil {
+				return nil, err
+			}
+
+			return billing_transaction, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return billing_transaction, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.Context,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets WHERE storjscan_wallets.wallet_address = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_wallet_address.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *UserId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			row = &UserId_Row{}
+			err = __rows.Scan(&row.UserId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("StorjscanWallet_UserId_By_WalletAddress")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *WalletAddress_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			row = &WalletAddress_Row{}
+			err = __rows.Scan(&row.WalletAddress)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("StorjscanWallet_WalletAddress_By_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_StorjscanWallet(ctx context.Context) (
+	rows []*StorjscanWallet, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.created_at FROM storjscan_wallets")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanWallet, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_wallet := &StorjscanWallet{}
+				err = __rows.Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_wallet)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
+	rows []*CoinpaymentsTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, coinpayments_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*CoinpaymentsTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				coinpayments_transaction := &CoinpaymentsTransaction{}
+				err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, coinpayments_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	if err != nil {
+		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_project_record, nil
+
+}
+
+func (obj *spannerImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
+	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
+	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	if err != nil {
+		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
+	}
+	return stripecoinpayments_tx_conversion_rate, nil
+
+}
+
+func (obj *spannerImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
+	rows []*StorjscanPayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.chain_id, storjscan_payments.block_number, storjscan_payments.log_index")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanPayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_payment := &StorjscanPayment{}
+				err = __rows.Scan(&storjscan_payment.ChainId, &storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.BlockTimestamp, &storjscan_payment.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_payment)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
+	limit int, offset int64) (
+	rows []*StorjscanPayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.chain_id DESC, storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_payment_to_address.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanPayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_payment := &StorjscanPayment{}
+				err = __rows.Scan(&storjscan_payment.ChainId, &storjscan_payment.BlockHash, &storjscan_payment.BlockNumber, &storjscan_payment.Transaction, &storjscan_payment.LogIndex, &storjscan_payment.FromAddress, &storjscan_payment.ToAddress, &storjscan_payment.TokenValue, &storjscan_payment.UsdValue, &storjscan_payment.Status, &storjscan_payment.BlockTimestamp, &storjscan_payment.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_payment)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
+	storjscan_payment_status StorjscanPayment_Status_Field,
+	storjscan_payment_chain_id StorjscanPayment_ChainId_Field) (
+	row *BlockNumber_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? AND storjscan_payments.chain_id = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_payment_status.value(), storjscan_payment_chain_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *BlockNumber_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
+
+			row = &BlockNumber_Row{}
+			err = __rows.Scan(&row.BlockNumber)
+			if err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_progress_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_progress = &GracefulExitProgress{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	if err != nil {
+		return (*GracefulExitProgress)(nil), obj.makeErr(err)
+	}
+	return graceful_exit_progress, nil
+
+}
+
+func (obj *spannerImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
+	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_segment_transfer = &GracefulExitSegmentTransfer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_segment_transfer.NodeId, &graceful_exit_segment_transfer.StreamId, &graceful_exit_segment_transfer.Position, &graceful_exit_segment_transfer.PieceNum, &graceful_exit_segment_transfer.RootPieceId, &graceful_exit_segment_transfer.DurabilityRatio, &graceful_exit_segment_transfer.QueuedAt, &graceful_exit_segment_transfer.RequestedAt, &graceful_exit_segment_transfer.LastFailedAt, &graceful_exit_segment_transfer.LastFailedCode, &graceful_exit_segment_transfer.FailedCount, &graceful_exit_segment_transfer.FinishedAt, &graceful_exit_segment_transfer.OrderLimitSendCount)
+	if err != nil {
+		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
+	}
+	return graceful_exit_segment_transfer, nil
+
+}
+
+func (obj *spannerImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	peer_identity *PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err != nil {
+		return (*PeerIdentity)(nil), obj.makeErr(err)
+	}
+	return peer_identity, nil
+
+}
+
+func (obj *spannerImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *LeafSerialNumber_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &LeafSerialNumber_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
+	if err != nil {
+		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
+	if err != nil {
+		return (*Node)(nil), obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *spannerImpl) All_Node_Id(ctx context.Context) (
+	rows []*Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_Row{}
+				err = __rows.Scan(&row.Id)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Paged_Node(ctx context.Context,
+	limit int, start *Paged_Node_Continuation) (
+	rows []*Node, next *Paged_Node_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+
+	var __values []interface{}
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_id, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*Node, next *Paged_Node_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_Node_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				node := &Node{}
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, node)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.disqualified is NULL")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_PieceCount_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_PieceCount_Row{}
+				err = __rows.Scan(&row.Id, &row.PieceCount)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx context.Context,
+	node_api_version_id NodeApiVersion_Id_Field,
+	node_api_version_api_version_greater_or_equal NodeApiVersion_ApiVersion_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM node_api_versions WHERE node_api_versions.id = ? AND node_api_versions.api_version >= ? )")
+
+	var __values []interface{}
+	__values = append(__values, node_api_version_id.value(), node_api_version_api_version_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
+
+}
+
+func (obj *spannerImpl) Get_NodeEvent_By_Id(ctx context.Context,
+	node_event_id NodeEvent_Id_Field) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_event_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node_event = &NodeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	if err != nil {
+		return (*NodeEvent)(nil), obj.makeErr(err)
+	}
+	return node_event, nil
+
+}
+
+func (obj *spannerImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_event NodeEvent_Event_Field) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, node_event_email.value(), node_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		node_event, err = func() (node_event *NodeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
+
+			node_event = &NodeEvent{}
+			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+			if err != nil {
+				return nil, err
+			}
+
+			return node_event, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return node_event, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_NodeTags_By_NodeId(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field) (
+	rows []*NodeTags, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags WHERE node_tags.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_tags_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeTags, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_tags := &NodeTags{}
+				err = __rows.Scan(&node_tags.NodeId, &node_tags.Name, &node_tags.Value, &node_tags.SignedAt, &node_tags.Signer)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_NodeTags(ctx context.Context) (
+	rows []*NodeTags, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeTags, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_tags := &NodeTags{}
+				err = __rows.Scan(&node_tags.NodeId, &node_tags.Name, &node_tags.Value, &node_tags.SignedAt, &node_tags.Signer)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_period StoragenodePaystub_Period_Field) (
+	storagenode_paystub *StoragenodePaystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_paystub = &StoragenodePaystub{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid, &storagenode_paystub.Distributed)
+	if err != nil {
+		return (*StoragenodePaystub)(nil), obj.makeErr(err)
+	}
+	return storagenode_paystub, nil
+
+}
+
+func (obj *spannerImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field) (
+	rows []*StoragenodePaystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_paystub_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePaystub, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_paystub := &StoragenodePaystub{}
+				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid, &storagenode_paystub.Distributed)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_paystub)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
+	limit int, offset int64) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ? ORDER BY storagenode_payments.id DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reputation_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err != nil {
+		return (*Reputation)(nil), obj.makeErr(err)
+	}
+	return reputation, nil
+
+}
+
+func (obj *spannerImpl) Get_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	oauth_client *OauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url FROM oauth_clients WHERE oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_client = &OauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	if err != nil {
+		return (*OauthClient)(nil), obj.makeErr(err)
+	}
+	return oauth_client, nil
+
+}
+
+func (obj *spannerImpl) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field) (
+	oauth_code *OauthCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")
+
+	var __values []interface{}
+	__values = append(__values, oauth_code_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_code = &OauthCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	if err != nil {
+		return (*OauthCode)(nil), obj.makeErr(err)
+	}
+	return oauth_code, nil
+
+}
+
+func (obj *spannerImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field) (
+	oauth_token *OauthToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at FROM oauth_tokens WHERE oauth_tokens.kind = ? AND oauth_tokens.token = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_token_kind.value(), oauth_token_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_token = &OauthToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	if err != nil {
+		return (*OauthToken)(nil), obj.makeErr(err)
+	}
+	return oauth_token, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *PassphraseEnc_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PassphraseEnc_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PassphraseEnc)
+	if err != nil {
+		return (*PassphraseEnc_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_Salt_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Salt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.salt FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Salt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Salt)
+	if err != nil {
+		return (*Salt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_By_PublicId(ctx context.Context,
+	project_public_id Project_PublicId_Field) (
+	project *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.public_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+
+	var __values []interface{}
+	if !project_public_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_public_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		project, err = func() (project *Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			project = &Project{}
+			err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return project, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("Project_By_PublicId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return project, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	project *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+	if err != nil {
+		return (*Project)(nil), obj.makeErr(err)
+	}
+	return project, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UsageLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.usage_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UsageLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
+	if err != nil {
+		return (*UsageLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &BandwidthLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
+	if err != nil {
+		return (*BandwidthLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_UserSpecifiedUsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UserSpecifiedUsageLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_usage_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserSpecifiedUsageLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserSpecifiedUsageLimit)
+	if err != nil {
+		return (*UserSpecifiedUsageLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_UserSpecifiedBandwidthLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UserSpecifiedBandwidthLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_bandwidth_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserSpecifiedBandwidthLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserSpecifiedBandwidthLimit)
+	if err != nil {
+		return (*UserSpecifiedBandwidthLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_SegmentLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *SegmentLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.segment_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &SegmentLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.SegmentLimit)
+	if err != nil {
+		return (*SegmentLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *MaxBuckets_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.max_buckets FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &MaxBuckets_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.MaxBuckets)
+	if err != nil {
+		return (*MaxBuckets_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLimit_Project_UsageLimit_Project_UserSpecifiedUsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_RateLimitHead_BurstLimitHead_RateLimitGet_BurstLimitGet_RateLimitPut_BurstLimitPut_RateLimitList_BurstLimitList_RateLimitDel_BurstLimitDel_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.user_specified_bandwidth_limit, projects.usage_limit, projects.user_specified_usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_RateLimitHead_BurstLimitHead_RateLimitGet_BurstLimitGet_RateLimitPut_BurstLimitPut_RateLimitList_BurstLimitList_RateLimitDel_BurstLimitDel_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UserSpecifiedBandwidthLimit, &row.UsageLimit, &row.UserSpecifiedUsageLimit, &row.SegmentLimit, &row.RateLimit, &row.BurstLimit, &row.RateLimitHead, &row.BurstLimitHead, &row.RateLimitGet, &row.BurstLimitGet, &row.RateLimitPut, &row.BurstLimitPut, &row.RateLimitList, &row.BurstLimitList, &row.RateLimitDel, &row.BurstLimitDel)
+	if err != nil {
+		return (*BandwidthLimit_UserSpecifiedBandwidthLimit_UsageLimit_UserSpecifiedUsageLimit_SegmentLimit_RateLimit_BurstLimit_RateLimitHead_BurstLimitHead_RateLimitGet_BurstLimitGet_RateLimitPut_BurstLimitPut_RateLimitList_BurstLimitList_RateLimitDel_BurstLimitDel_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_DefaultVersioning_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *DefaultVersioning_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.default_versioning FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &DefaultVersioning_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.DefaultVersioning)
+	if err != nil {
+		return (*DefaultVersioning_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_Project_UserAgent_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *UserAgent_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_agent FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserAgent_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserAgent)
+	if err != nil {
+		return (*UserAgent_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) All_Project(ctx context.Context) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+
+	var __values []interface{}
+	__values = append(__values, project_created_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+
+	var __values []interface{}
+	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field,
+	limit int, offset int64) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, project_created_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err != nil {
+		return (*ProjectMember)(nil), obj.makeErr(err)
+	}
+	return project_member, nil
+
+}
+
+func (obj *spannerImpl) All_ProjectMember_By_MemberId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field) (
+	rows []*ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectMember, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_member := &ProjectMember{}
+				err = __rows.Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_member)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	if err != nil {
+		return (*ProjectInvitation)(nil), obj.makeErr(err)
+	}
+	return project_invitation, nil
+
+}
+
+func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	row *ApiKey_Project_PublicId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId)
+	if err != nil {
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_By_ApiKey_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
+	row *ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_head.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId, &row.Project_RateLimit, &row.Project_BurstLimit, &row.Project_RateLimitHead, &row.Project_BurstLimitHead, &row.Project_RateLimitGet, &row.Project_BurstLimitGet, &row.Project_RateLimitPut, &row.Project_BurstLimitPut, &row.Project_RateLimitList, &row.Project_BurstLimitList, &row.Project_RateLimitDel, &row.Project_BurstLimitDel, &row.Project_SegmentLimit, &row.Project_UsageLimit, &row.Project_BandwidthLimit, &row.Project_UserSpecifiedUsageLimit, &row.Project_UserSpecifiedBandwidthLimit)
+	if err != nil {
+		return (*ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
+	api_key_name ApiKey_Name_Field,
+	api_key_project_id ApiKey_ProjectId_Field) (
+	row *ApiKey_Project_PublicId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_name.value(), api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.ApiKey.CreatedBy, &row.ApiKey.Version, &row.Project_PublicId)
+	if err != nil {
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	if err != nil {
+		return (*BucketMetainfo)(nil), obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+
+}
+
+func (obj *spannerImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *CreatedBy_CreatedAt_Placement_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CreatedBy_CreatedAt_Placement_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedBy, &row.CreatedAt, &row.Placement)
+	if err != nil {
+		return (*CreatedBy_CreatedAt_Placement_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Placement_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Placement_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement)
+	if err != nil {
+		return (*Placement_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *UserAgent_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.user_agent FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserAgent_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserAgent)
+	if err != nil {
+		return (*UserAgent_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BucketMetainfo_Versioning_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Versioning_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.versioning FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Versioning_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Versioning)
+	if err != nil {
+		return (*Versioning_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *ObjectLockEnabled_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ObjectLockEnabled_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ObjectLockEnabled)
+	if err != nil {
+		return (*ObjectLockEnabled_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
+
+}
+
+func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx context.Context,
+	limit int, start *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation) (
+	rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE (bucket_metainfos.project_id, bucket_metainfos.name) > (?, ?) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
+
+	var __values []interface{}
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_project_id, start._value_name, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				row := &ProjectId_Name_Row{}
+				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, row)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return (*ValueAttribution)(nil), obj.makeErr(err)
+	}
+	return value_attribution, nil
+
+}
+
+func (obj *spannerImpl) All_User_By_NormalizedEmail(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	rows []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user := &User{}
+				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, user_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user, err = func() (user *User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			user = &User{}
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return user, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+	if err != nil {
+		return (*User)(nil), obj.makeErr(err)
+	}
+	return user, nil
+
+}
+
+func (obj *spannerImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *ProjectLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_limit FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ProjectLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectLimit)
+	if err != nil {
+		return (*ProjectLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_User_PaidTier_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *PaidTier_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PaidTier_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
+	if err != nil {
+		return (*PaidTier_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *UpgradeTime_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.upgrade_time FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UpgradeTime_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UpgradeTime)
+	if err != nil {
+		return (*UpgradeTime_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User_ProjectSegmentLimit_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_storage_limit, users.project_bandwidth_limit, users.project_segment_limit FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectStorageLimit, &row.ProjectBandwidthLimit, &row.ProjectSegmentLimit)
+	if err != nil {
+		return (*ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *spannerImpl) Count_User_By_Status(ctx context.Context,
+	user_status User_Status_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM users WHERE users.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx context.Context,
+	user_status User_Status_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_FullName_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name FROM users WHERE users.status = ? LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, user_status.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_FullName_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &Id_Email_FullName_Row{}
+				err = __rows.Scan(&row.Id, &row.Email, &row.FullName)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	rows []*WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSession, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				webapp_session := &WebappSession{}
+				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return (*WebappSession)(nil), obj.makeErr(err)
+	}
+	return webapp_session, nil
+
+}
+
+func (obj *spannerImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field) (
+	registration_token *RegistrationToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, registration_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return (*RegistrationToken)(nil), obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *spannerImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
+	registration_token_owner_id RegistrationToken_OwnerId_Field) (
+	registration_token *RegistrationToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+
+	var __values []interface{}
+	if !registration_token_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, registration_token_owner_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return (*RegistrationToken)(nil), obj.makeErr(err)
+	}
+	return registration_token, nil
+
+}
+
+func (obj *spannerImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordToken)(nil), obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
+func (obj *spannerImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
+	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
+	reset_password_token *ResetPasswordToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reset_password_token = &ResetPasswordToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	if err != nil {
+		return (*ResetPasswordToken)(nil), obj.makeErr(err)
+	}
+	return reset_password_token, nil
+
+}
+
+func (obj *spannerImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
+	}
+	return account_freeze_event, nil
+
+}
+
+func (obj *spannerImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal FROM user_settings WHERE user_settings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_settings_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
+	if err != nil {
+		return (*UserSettings)(nil), obj.makeErr(err)
+	}
+	return user_settings, nil
+
+}
+
+func (obj *spannerImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
+	accounting_timestamps_name AccountingTimestamps_Name_Field,
+	update AccountingTimestamps_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Value._set {
+		__values = append(__values, update.Value.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("value = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, accounting_timestamps_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	update StripeCustomer_Update_Fields) (
+	stripe_customer *StripeCustomer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripe_customers SET "), __sets, __sqlbundle_Literal(" WHERE stripe_customers.user_id = ? THEN RETURN stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.BillingCustomerId._set {
+		__values = append(__values, update.BillingCustomerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("billing_customer_id = ?"))
+	}
+
+	if update.PackagePlan._set {
+		__values = append(__values, update.PackagePlan.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("package_plan = ?"))
+	}
+
+	if update.PurchasedPackageAt._set {
+		__values = append(__values, update.PurchasedPackageAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("purchased_package_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripe_customer_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripe_customer = &StripeCustomer{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customer, nil
+}
+
+func (obj *spannerImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Context,
+	billing_balance_user_id BillingBalance_UserId_Field,
+	billing_balance_balance BillingBalance_Balance_Field,
+	update BillingBalance_Update_Fields) (
+	billing_balance *BillingBalance, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_balances SET "), __sets, __sqlbundle_Literal(" WHERE billing_balances.user_id = ? AND billing_balances.balance = ? THEN RETURN billing_balances.user_id, billing_balances.balance, billing_balances.last_updated")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Balance._set {
+		__values = append(__values, update.Balance.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("balance = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_updated = ?"))
+
+	__args = append(__args, billing_balance_user_id.value(), billing_balance_balance.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	billing_balance = &BillingBalance{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_balance.UserId, &billing_balance.Balance, &billing_balance.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return billing_balance, nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field,
+	billing_transaction_status BillingTransaction_Status_Field,
+	update BillingTransaction_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Metadata._set {
+		__values = append(__values, update.Metadata.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
+	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
+	update CoinpaymentsTransaction_Update_Fields) (
+	coinpayments_transaction *CoinpaymentsTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? THEN RETURN coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ReceivedNumeric._set {
+		__values = append(__values, update.ReceivedNumeric.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("received_numeric = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, coinpayments_transaction_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coinpayments_transaction = &CoinpaymentsTransaction{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coinpayments_transaction, nil
+}
+
+func (obj *spannerImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
+	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
+	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? THEN RETURN stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripecoinpayments_invoice_project_record_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_project_record, nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
+	update GracefulExitSegmentTransfer_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DurabilityRatio._set {
+		__values = append(__values, update.DurabilityRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
+	}
+
+	if update.RequestedAt._set {
+		__values = append(__values, update.RequestedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
+	}
+
+	if update.LastFailedAt._set {
+		__values = append(__values, update.LastFailedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
+	}
+
+	if update.LastFailedCode._set {
+		__values = append(__values, update.LastFailedCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
+	}
+
+	if update.FailedCount._set {
+		__values = append(__values, update.FailedCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
+	}
+
+	if update.FinishedAt._set {
+		__values = append(__values, update.FinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
+	}
+
+	if update.OrderLimitSendCount._set {
+		__values = append(__values, update.OrderLimitSendCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.LeafSerialNumber._set {
+		__values = append(__values, update.LeafSerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
+	}
+
+	if update.Chain._set {
+		__values = append(__values, update.Chain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, peer_identity_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? THEN RETURN nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.CountryCode._set {
+		__values = append(__values, update.CountryCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country_code = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.CommitHash._set {
+		__values = append(__values, update.CommitHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("commit_hash = ?"))
+	}
+
+	if update.ReleaseTimestamp._set {
+		__values = append(__values, update.ReleaseTimestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release_timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.LastOfflineEmail._set {
+		__values = append(__values, update.LastOfflineEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_offline_email = ?"))
+	}
+
+	if update.LastSoftwareUpdateEmail._set {
+		__values = append(__values, update.LastSoftwareUpdateEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
+	}
+
+	if update.DebounceLimit._set {
+		__values = append(__values, update.DebounceLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debounce_limit = ?"))
+	}
+
+	if update.Features._set {
+		__values = append(__values, update.Features.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("features = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.CountryCode._set {
+		__values = append(__values, update.CountryCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country_code = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.CommitHash._set {
+		__values = append(__values, update.CommitHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("commit_hash = ?"))
+	}
+
+	if update.ReleaseTimestamp._set {
+		__values = append(__values, update.ReleaseTimestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release_timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.LastOfflineEmail._set {
+		__values = append(__values, update.LastOfflineEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_offline_email = ?"))
+	}
+
+	if update.LastSoftwareUpdateEmail._set {
+		__values = append(__values, update.LastSoftwareUpdateEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
+	}
+
+	if update.DebounceLimit._set {
+		__values = append(__values, update.DebounceLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debounce_limit = ?"))
+	}
+
+	if update.Features._set {
+		__values = append(__values, update.Features.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("features = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.CountryCode._set {
+		__values = append(__values, update.CountryCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country_code = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.CommitHash._set {
+		__values = append(__values, update.CommitHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("commit_hash = ?"))
+	}
+
+	if update.ReleaseTimestamp._set {
+		__values = append(__values, update.ReleaseTimestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release_timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.LastOfflineEmail._set {
+		__values = append(__values, update.LastOfflineEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_offline_email = ?"))
+	}
+
+	if update.LastSoftwareUpdateEmail._set {
+		__values = append(__values, update.LastSoftwareUpdateEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
+	}
+
+	if update.DebounceLimit._set {
+		__values = append(__values, update.DebounceLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debounce_limit = ?"))
+	}
+
+	if update.Features._set {
+		__values = append(__values, update.Features.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("features = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
+	node_api_version_id NodeApiVersion_Id_Field,
+	node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
+	update NodeApiVersion_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE node_api_versions SET "), __sets, __sqlbundle_Literal(" WHERE node_api_versions.id = ? AND node_api_versions.api_version < ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ApiVersion._set {
+		__values = append(__values, update.ApiVersion.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("api_version = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_api_version_id.value(), node_api_version_api_version_less.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? THEN RETURN reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+}
+
+func (obj *spannerImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? THEN RETURN reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value(), reputation_audit_history.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	update OauthClient_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE oauth_clients.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.EncryptedSecret._set {
+		__values = append(__values, update.EncryptedSecret.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("encrypted_secret = ?"))
+	}
+
+	if update.RedirectUrl._set {
+		__values = append(__values, update.RedirectUrl.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redirect_url = ?"))
+	}
+
+	if update.AppName._set {
+		__values = append(__values, update.AppName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_name = ?"))
+	}
+
+	if update.AppLogoUrl._set {
+		__values = append(__values, update.AppLogoUrl.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_logo_url = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_client_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field,
+	update OauthCode_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_codes SET "), __sets, __sqlbundle_Literal(" WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ClaimedAt._set {
+		__values = append(__values, update.ClaimedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("claimed_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_code_code.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Context,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	update OauthToken_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_tokens SET "), __sets, __sqlbundle_Literal(" WHERE oauth_tokens.token = ? AND oauth_tokens.kind = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_token_token.value(), oauth_token_kind.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field,
+	update Project_Update_Fields) (
+	project *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
+	}
+
+	if update.BandwidthLimit._set {
+		__values = append(__values, update.BandwidthLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bandwidth_limit = ?"))
+	}
+
+	if update.UserSpecifiedUsageLimit._set {
+		__values = append(__values, update.UserSpecifiedUsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_specified_usage_limit = ?"))
+	}
+
+	if update.UserSpecifiedBandwidthLimit._set {
+		__values = append(__values, update.UserSpecifiedBandwidthLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_specified_bandwidth_limit = ?"))
+	}
+
+	if update.SegmentLimit._set {
+		__values = append(__values, update.SegmentLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segment_limit = ?"))
+	}
+
+	if update.RateLimit._set {
+		__values = append(__values, update.RateLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit = ?"))
+	}
+
+	if update.BurstLimit._set {
+		__values = append(__values, update.BurstLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit = ?"))
+	}
+
+	if update.RateLimitHead._set {
+		__values = append(__values, update.RateLimitHead.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_head = ?"))
+	}
+
+	if update.BurstLimitHead._set {
+		__values = append(__values, update.BurstLimitHead.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_head = ?"))
+	}
+
+	if update.RateLimitGet._set {
+		__values = append(__values, update.RateLimitGet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_get = ?"))
+	}
+
+	if update.BurstLimitGet._set {
+		__values = append(__values, update.BurstLimitGet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_get = ?"))
+	}
+
+	if update.RateLimitPut._set {
+		__values = append(__values, update.RateLimitPut.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_put = ?"))
+	}
+
+	if update.BurstLimitPut._set {
+		__values = append(__values, update.BurstLimitPut.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_put = ?"))
+	}
+
+	if update.RateLimitList._set {
+		__values = append(__values, update.RateLimitList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_list = ?"))
+	}
+
+	if update.BurstLimitList._set {
+		__values = append(__values, update.BurstLimitList.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_list = ?"))
+	}
+
+	if update.RateLimitDel._set {
+		__values = append(__values, update.RateLimitDel.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_del = ?"))
+	}
+
+	if update.BurstLimitDel._set {
+		__values = append(__values, update.BurstLimitDel.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_del = ?"))
+	}
+
+	if update.MaxBuckets._set {
+		__values = append(__values, update.MaxBuckets.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.DefaultPlacement._set {
+		__values = append(__values, update.DefaultPlacement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_placement = ?"))
+	}
+
+	if update.DefaultVersioning._set {
+		__values = append(__values, update.DefaultVersioning.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_versioning = ?"))
+	}
+
+	if update.PromptedForVersioningBeta._set {
+		__values = append(__values, update.PromptedForVersioningBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prompted_for_versioning_beta = ?"))
+	}
+
+	if update.PassphraseEnc._set {
+		__values = append(__values, update.PassphraseEnc.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc = ?"))
+	}
+
+	if update.PassphraseEncKeyId._set {
+		__values = append(__values, update.PassphraseEncKeyId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc_key_id = ?"))
+	}
+
+	if update.PathEncryption._set {
+		__values = append(__values, update.PathEncryption.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("path_encryption = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project = &Project{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project, nil
+}
+
+func (obj *spannerImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field,
+	update ProjectMember_Update_Fields) (
+	project_member *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.member_id = ? AND project_members.project_id = ? THEN RETURN project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Role._set {
+		__values = append(__values, update.Role.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("role = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_member_member_id.value(), project_member_project_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_member = &ProjectMember{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_member, nil
+}
+
+func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	update ProjectInvitation_Update_Fields) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.InviterId._set {
+		__values = append(__values, update.InviterId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inviter_id = ?"))
+	}
+
+	if update.CreatedAt._set {
+		__values = append(__values, update.CreatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_invitation_project_id.value(), project_invitation_email.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invitation, nil
+}
+
+func (obj *spannerImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field,
+	update ApiKey_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, api_key_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.Versioning._set {
+		__values = append(__values, update.Versioning.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("versioning = ?"))
+	}
+
+	if update.ObjectLockEnabled._set {
+		__values = append(__values, update.ObjectLockEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("object_lock_enabled = ?"))
+	}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCipherSuite._set {
+		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+}
+
+func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	bucket_metainfo_versioning_greater_or_equal BucketMetainfo_Versioning_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.Versioning._set {
+		__values = append(__values, update.Versioning.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("versioning = ?"))
+	}
+
+	if update.ObjectLockEnabled._set {
+		__values = append(__values, update.ObjectLockEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("object_lock_enabled = ?"))
+	}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCipherSuite._set {
+		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value(), bucket_metainfo_versioning_greater_or_equal.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+}
+
+func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	update ValueAttribution_Update_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_updated = ?"))
+
+	__args = append(__args, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+}
+
+func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
+	user_id User_Id_Field,
+	update User_Update_Fields) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? THEN RETURN users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
+	}
+
+	if update.FullName._set {
+		__values = append(__values, update.FullName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
+	}
+
+	if update.ShortName._set {
+		__values = append(__values, update.ShortName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("short_name = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if update.NewUnverifiedEmail._set {
+		__values = append(__values, update.NewUnverifiedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("new_unverified_email = ?"))
+	}
+
+	if update.EmailChangeVerificationStep._set {
+		__values = append(__values, update.EmailChangeVerificationStep.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email_change_verification_step = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.StatusUpdatedAt._set {
+		__values = append(__values, update.StatusUpdatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status_updated_at = ?"))
+	}
+
+	if update.FinalInvoiceGenerated._set {
+		__values = append(__values, update.FinalInvoiceGenerated.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("final_invoice_generated = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.ProjectLimit._set {
+		__values = append(__values, update.ProjectLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_limit = ?"))
+	}
+
+	if update.ProjectBandwidthLimit._set {
+		__values = append(__values, update.ProjectBandwidthLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_bandwidth_limit = ?"))
+	}
+
+	if update.ProjectStorageLimit._set {
+		__values = append(__values, update.ProjectStorageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_storage_limit = ?"))
+	}
+
+	if update.ProjectSegmentLimit._set {
+		__values = append(__values, update.ProjectSegmentLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_segment_limit = ?"))
+	}
+
+	if update.PaidTier._set {
+		__values = append(__values, update.PaidTier.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("paid_tier = ?"))
+	}
+
+	if update.Position._set {
+		__values = append(__values, update.Position.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("position = ?"))
+	}
+
+	if update.CompanyName._set {
+		__values = append(__values, update.CompanyName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
+	}
+
+	if update.CompanySize._set {
+		__values = append(__values, update.CompanySize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_size = ?"))
+	}
+
+	if update.WorkingOn._set {
+		__values = append(__values, update.WorkingOn.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("working_on = ?"))
+	}
+
+	if update.IsProfessional._set {
+		__values = append(__values, update.IsProfessional.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_professional = ?"))
+	}
+
+	if update.EmployeeCount._set {
+		__values = append(__values, update.EmployeeCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("employee_count = ?"))
+	}
+
+	if update.HaveSalesContact._set {
+		__values = append(__values, update.HaveSalesContact.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("have_sales_contact = ?"))
+	}
+
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
+	if update.SignupPromoCode._set {
+		__values = append(__values, update.SignupPromoCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_promo_code = ?"))
+	}
+
+	if update.VerificationReminders._set {
+		__values = append(__values, update.VerificationReminders.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_reminders = ?"))
+	}
+
+	if update.TrialNotifications._set {
+		__values = append(__values, update.TrialNotifications.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("trial_notifications = ?"))
+	}
+
+	if update.FailedLoginCount._set {
+		__values = append(__values, update.FailedLoginCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
+	}
+
+	if update.LoginLockoutExpiration._set {
+		__values = append(__values, update.LoginLockoutExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
+	}
+
+	if update.DefaultPlacement._set {
+		__values = append(__values, update.DefaultPlacement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_placement = ?"))
+	}
+
+	if update.ActivationCode._set {
+		__values = append(__values, update.ActivationCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
+	}
+
+	if update.SignupId._set {
+		__values = append(__values, update.SignupId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
+	}
+
+	if update.TrialExpiration._set {
+		__values = append(__values, update.TrialExpiration.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("trial_expiration = ?"))
+	}
+
+	if update.UpgradeTime._set {
+		__values = append(__values, update.UpgradeTime.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("upgrade_time = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user = &User{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user, nil
+}
+
+func (obj *spannerImpl) Update_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	update WebappSession_Update_Fields) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? THEN RETURN webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session, nil
+}
+
+func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
+	registration_token_secret RegistrationToken_Secret_Field,
+	update RegistrationToken_Update_Fields) (
+	registration_token *RegistrationToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, registration_token_secret.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	registration_token = &RegistrationToken{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return registration_token, nil
+}
+
+func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	update AccountFreezeEvent_Update_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? THEN RETURN account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Limits._set {
+		__values = append(__values, update.Limits.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("limits = ?"))
+	}
+
+	if update.DaysTillEscalation._set {
+		__values = append(__values, update.DaysTillEscalation.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("days_till_escalation = ?"))
+	}
+
+	if update.NotificationsCount._set {
+		__values = append(__values, update.NotificationsCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notifications_count = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return account_freeze_event, nil
+}
+
+func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? THEN RETURN user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SessionMinutes._set {
+		__values = append(__values, update.SessionMinutes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
+	}
+
+	if update.OnboardingStart._set {
+		__values = append(__values, update.OnboardingStart.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_start = ?"))
+	}
+
+	if update.OnboardingEnd._set {
+		__values = append(__values, update.OnboardingEnd.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_end = ?"))
+	}
+
+	if update.OnboardingStep._set {
+		__values = append(__values, update.OnboardingStep.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_step = ?"))
+	}
+
+	if update.NoticeDismissal._set {
+		__values = append(__values, update.NoticeDismissal.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notice_dismissal = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_settings_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	tx, err := obj.db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	err = tx.Commit()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_settings, nil
+}
+
+func (obj *spannerImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
+
+	var __values []interface{}
+	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
+	storjscan_payment_status StorjscanPayment_Status_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storjscan_payments WHERE storjscan_payments.status = ?")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_payment_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
+	node_event_created_at_less NodeEvent_CreatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM node_events WHERE node_events.created_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, node_event_created_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth_clients WHERE oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
+	project_member_member_id ProjectMember_MemberId_Field,
+	project_member_project_id ProjectMember_ProjectId_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_ApiKey_By_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, repair_queue_updated_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_User_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
+	reset_password_token_secret ResetPasswordToken_Secret_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
+
+	var __values []interface{}
+	__values = append(__values, reset_password_token_secret.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (impl spannerImpl) isConstraintError(err error) (
+	constraint string, ok bool) {
+	return "", false
+}
+
+func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __res sql.Result
+	var __count int64
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_apply_balance_intents;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_metainfos;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_sessions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM verification_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_settings;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_tx_conversion_rates;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_invoice_project_records;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripe_customers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_wallets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_payments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_storage_tallies;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_paystubs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_payments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups_phase2;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollup_archives;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM segment_pending_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reverification_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_daily_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM projects;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_codes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_clients;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_tags;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_api_versions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollup_archives;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM billing_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM billing_balances;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM account_freeze_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+
+	return count, nil
+
+}
+
 type Methods interface {
 	All_AccountFreezeEvent_By_UserId(ctx context.Context,
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
@@ -32483,4 +43147,8 @@ func openpgxcockroach(source string) (*sql.DB, error) {
 		db, err = sql.Open("pgx", source)
 	}
 	return db, err
+}
+
+func openspanner(source string) (*sql.DB, error) {
+	return sql.Open("spanner", strings.TrimPrefix(source, "spanner://"))
 }
