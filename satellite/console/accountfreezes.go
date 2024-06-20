@@ -244,7 +244,8 @@ func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID u
 		}
 
 		for id, limits := range event.Limits.Projects {
-			err := tx.Projects().UpdateUsageLimits(ctx, id, limits)
+			limitUpdates := limitUpdatesFromLimits(limits)
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdates)
 			if err != nil {
 				return err
 			}
@@ -427,7 +428,8 @@ func (s *AccountFreezeService) ViolationUnfreezeUser(ctx context.Context, userID
 		}
 
 		for id, limits := range event.Limits.Projects {
-			err := tx.Projects().UpdateUsageLimits(ctx, id, limits)
+			limitUpdates := limitUpdatesFromLimits(limits)
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdates)
 			if err != nil {
 				return err
 			}
@@ -549,20 +551,10 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 		}
 
 		for id, limits := range event.Limits.Projects {
-			err = tx.Projects().UpdateUsageLimits(ctx, id, limits)
+			limitUpdates := limitUpdatesFromLimits(limits)
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdates)
 			if err != nil {
 				return err
-			}
-
-			// remove rate limit
-			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
-			if err != nil {
-				return ErrAccountFreeze.Wrap(err)
-			}
-			// remove burst limit
-			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
-			if err != nil {
-				return ErrAccountFreeze.Wrap(err)
 			}
 		}
 
@@ -694,18 +686,8 @@ func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.
 		}
 
 		for id, limits := range event.Limits.Projects {
-			err = tx.Projects().UpdateUsageLimits(ctx, id, limits)
-			if err != nil {
-				return err
-			}
-
-			// remove rate limit
-			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
-			if err != nil {
-				return err
-			}
-			// remove burst limit
-			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
+			limitUpdates := limitUpdatesFromLimits(limits)
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdates)
 			if err != nil {
 				return err
 			}
@@ -794,18 +776,8 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 		}
 
 		for id, limits := range event.Limits.Projects {
-			err := tx.Projects().UpdateUsageLimits(ctx, id, limits)
-			if err != nil {
-				return err
-			}
-
-			// remove rate limit
-			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
-			if err != nil {
-				return err
-			}
-			// remove burst limit
-			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
+			limitUpdates := limitUpdatesFromLimits(limits)
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdates)
 			if err != nil {
 				return err
 			}
@@ -906,6 +878,34 @@ func (s *AccountFreezeService) TestChangeFreezeTracker(t analytics.FreezeTracker
 	s.tracker = t
 }
 
+func limitUpdatesFromLimits(limits UsageLimits) []Limit {
+	toInt64Ptr := func(i *int) *int64 {
+		if i == nil {
+			return nil
+		}
+		v := int64(*i)
+		return &v
+	}
+
+	return []Limit{
+		{Kind: BandwidthLimit, Value: &limits.Bandwidth},
+		{Kind: StorageLimit, Value: &limits.Storage},
+		{Kind: SegmentLimit, Value: &limits.Segment},
+		{Kind: RateLimit, Value: toInt64Ptr(limits.RateLimit)},
+		{Kind: RateLimitGet, Value: toInt64Ptr(limits.RateLimitGet)},
+		{Kind: RateLimitDelete, Value: toInt64Ptr(limits.RateLimitDelete)},
+		{Kind: RateLimitHead, Value: toInt64Ptr(limits.RateLimitHead)},
+		{Kind: RateLimitList, Value: toInt64Ptr(limits.RateLimitList)},
+		{Kind: RateLimitPut, Value: toInt64Ptr(limits.RateLimitPut)},
+		{Kind: BurstLimit, Value: toInt64Ptr(limits.BurstLimit)},
+		{Kind: BurstLimitGet, Value: toInt64Ptr(limits.BurstLimitGet)},
+		{Kind: BurstLimitHead, Value: toInt64Ptr(limits.BurstLimitHead)},
+		{Kind: BurstLimitDelete, Value: toInt64Ptr(limits.BurstLimitDelete)},
+		{Kind: BurstLimitPut, Value: toInt64Ptr(limits.BurstLimitPut)},
+		{Kind: BurstLimitList, Value: toInt64Ptr(limits.BurstLimitList)},
+	}
+}
+
 type upsertData struct {
 	user                 *User
 	newFreezeEvent       *AccountFreezeEvent
@@ -971,8 +971,38 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 		if p.RateLimit != nil && *p.RateLimit != 0 {
 			projLimits.RateLimit = p.RateLimit
 		}
+		if p.RateLimitHead != nil && *p.RateLimitHead != 0 {
+			projLimits.RateLimitHead = p.RateLimitHead
+		}
+		if p.RateLimitGet != nil && *p.RateLimitGet != 0 {
+			projLimits.RateLimitGet = p.RateLimitGet
+		}
+		if p.RateLimitList != nil && *p.RateLimitList != 0 {
+			projLimits.RateLimitList = p.RateLimitList
+		}
+		if p.RateLimitPut != nil && *p.RateLimitPut != 0 {
+			projLimits.RateLimitPut = p.RateLimitPut
+		}
+		if p.RateLimitDelete != nil && *p.RateLimitDelete != 0 {
+			projLimits.RateLimitDelete = p.RateLimitDelete
+		}
 		if p.BurstLimit != nil && *p.BurstLimit != 0 {
 			projLimits.BurstLimit = p.BurstLimit
+		}
+		if p.BurstLimitHead != nil && *p.BurstLimitHead != 0 {
+			projLimits.BurstLimitHead = p.BurstLimitHead
+		}
+		if p.BurstLimitGet != nil && *p.BurstLimitGet != 0 {
+			projLimits.BurstLimitGet = p.BurstLimitGet
+		}
+		if p.BurstLimitList != nil && *p.BurstLimitList != 0 {
+			projLimits.BurstLimitList = p.BurstLimitList
+		}
+		if p.BurstLimitPut != nil && *p.BurstLimitPut != 0 {
+			projLimits.BurstLimitPut = p.BurstLimitPut
+		}
+		if p.BurstLimitDelete != nil && *p.BurstLimitDelete != 0 {
+			projLimits.BurstLimitDelete = p.BurstLimitDelete
 		}
 
 		data.newFreezeEvent.Limits.Projects[p.ID] = projLimits
@@ -989,23 +1019,35 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 	}
 
 	for _, proj := range projects {
-		err := tx.Projects().UpdateUsageLimits(ctx, proj.ID, UsageLimits{})
-		if err != nil {
-			return err
+		zeroLimit := int64(0)
+		limits := []Limit{
+			{Kind: StorageLimit, Value: &zeroLimit},
+			{Kind: BandwidthLimit, Value: &zeroLimit},
+			{Kind: SegmentLimit, Value: &zeroLimit},
 		}
 
 		if data.zeroProjectRateLimit {
 			// zero project's rate limit to prevent lists/deletes
-			zeroLimit := 0
-			err = tx.Projects().UpdateRateLimit(ctx, proj.ID, &zeroLimit)
-			if err != nil {
-				return err
-			}
+			limits = append(limits, Limit{Kind: RateLimit, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: RateLimitGet, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: RateLimitDelete, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: RateLimitHead, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: RateLimitList, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: RateLimitPut, Value: &zeroLimit})
 
-			err = tx.Projects().UpdateBurstLimit(ctx, proj.ID, &zeroLimit)
-			if err != nil {
-				return err
-			}
+			limits = append(limits, Limit{Kind: BurstLimit, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: BurstLimitGet, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: BurstLimitHead, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: BurstLimitDelete, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: BurstLimitPut, Value: &zeroLimit})
+			limits = append(limits, Limit{Kind: BurstLimitList, Value: &zeroLimit})
+
+			limits = append(limits, Limit{Kind: UserSetStorageLimit, Value: nil})
+			limits = append(limits, Limit{Kind: UserSetBandwidthLimit, Value: nil})
+		}
+		err = tx.Projects().UpdateLimitsGeneric(ctx, proj.ID, limits)
+		if err != nil {
+			return err
 		}
 	}
 
