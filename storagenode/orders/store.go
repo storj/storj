@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
+var nameBatchSize = 1024
+
 // activeWindow represents a window with active operations waiting to finish to enqueue
 // their orders.
 type activeWindow struct {
@@ -223,21 +225,14 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
 
-	var errList error
+	var errList errs.Group
 	infoMap = make(map[storj.NodeID]UnsentInfo)
 
-	err = filepath.Walk(store.unsentDir, func(path string, info os.FileInfo, err error) error {
+	errList.Add(walkFilenamesInPath(store.unsentDir, func(name string) error {
+		fileInfo, err := ordersfile.GetUnsentInfo(name)
 		if err != nil {
-			errList = errs.Combine(errList, OrderError.Wrap(err))
-			return nil //nolint: nilerr // errors are collected separately
-		}
-		if info.IsDir() {
+			errList.Add(OrderError.Wrap(err))
 			return nil
-		}
-		fileInfo, err := ordersfile.GetUnsentInfo(info)
-		if err != nil {
-			errList = errs.Combine(errList, OrderError.Wrap(err))
-			return nil //nolint: nilerr // errors are collected separately
 		}
 
 		// if we already have orders for this satellite, ignore the file
@@ -256,52 +251,58 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 			return nil
 		}
 
-		newUnsentInfo := UnsentInfo{
-			CreatedAtHour: fileInfo.CreatedAtHour,
-			Version:       fileInfo.Version,
-		}
-
-		of, err := ordersfile.OpenReadable(path, fileInfo.Version)
+		newUnsentInfo, err := store.getUnsentInfoFromUnsentFile(filepath.Join(store.unsentDir, name), fileInfo)
 		if err != nil {
-			return OrderError.Wrap(err)
+			errList.Add(OrderError.Wrap(err))
+			return nil
 		}
-		defer func() {
-			err = errs.Combine(err, OrderError.Wrap(of.Close()))
-		}()
-
-		for {
-			// if at any point we see an unexpected EOF error, return what orders we could read successfully with no error
-			// this behavior ensures that we will attempt to archive corrupted files instead of continually failing to read them
-			newInfo, err := of.ReadOne()
-			if err != nil {
-				if errs.Is(err, io.EOF) {
-					break
-				}
-				// if last entry read is corrupt, attempt to read again
-				if ordersfile.ErrEntryCorrupt.Has(err) {
-					store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
-					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
-					// if the error is unexpected EOF, we want the metrics and logs, but there
-					// is no use in trying to read from the file again.
-					if errs.Is(err, io.ErrUnexpectedEOF) {
-						break
-					}
-					continue
-				}
-				return err
-			}
-
-			newUnsentInfo.InfoList = append(newUnsentInfo.InfoList, newInfo)
-		}
-
 		infoMap[fileInfo.SatelliteID] = newUnsentInfo
 		return nil
-	})
-	if err != nil {
-		errList = errs.Combine(errList, err)
+	}))
+
+	return infoMap, errList.Err()
+}
+
+func (store *FileStore) getUnsentInfoFromUnsentFile(path string, fileInfo *ordersfile.UnsentInfo) (UnsentInfo, error) {
+	newUnsentInfo := UnsentInfo{
+		CreatedAtHour: fileInfo.CreatedAtHour,
+		Version:       fileInfo.Version,
 	}
 
-	return infoMap, errList
+	of, err := ordersfile.OpenReadable(path, fileInfo.Version)
+	if err != nil {
+		return UnsentInfo{}, OrderError.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, OrderError.Wrap(of.Close()))
+	}()
+
+	for {
+		// if at any point we see an unexpected EOF error, return what orders we could read successfully with no error
+		// this behavior ensures that we will attempt to archive corrupted files instead of continually failing to read them
+		newInfo, err := of.ReadOne()
+		if err != nil {
+			if errs.Is(err, io.EOF) {
+				break
+			}
+			// if last entry read is corrupt, attempt to read again
+			if ordersfile.ErrEntryCorrupt.Has(err) {
+				store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
+				mon.Meter("orders_unsent_file_corrupted").Mark64(1)
+				// if the error is unexpected EOF, we want the metrics and logs, but there
+				// is no use in trying to read from the file again.
+				if errs.Is(err, io.ErrUnexpectedEOF) {
+					break
+				}
+				continue
+			}
+			return UnsentInfo{}, err
+		}
+
+		newUnsentInfo.InfoList = append(newUnsentInfo.InfoList, newInfo)
+	}
+
+	return newUnsentInfo, err
 }
 
 // Archive moves a file from "unsent" to "archive".
@@ -327,67 +328,73 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
 
-	var errList error
-	archivedList := []*ArchivedInfo{}
-	err := filepath.Walk(store.archiveDir, func(path string, info os.FileInfo, err error) error {
+	var errList errs.Group
+	var archivedList []*ArchivedInfo
+
+	errList.Add(walkFilenamesInPath(store.archiveDir, func(name string) error {
+		fileInfo, err := ordersfile.GetArchivedInfo(name)
 		if err != nil {
-			errList = errs.Combine(errList, OrderError.Wrap(err))
-			return nil //nolint: nilerr // errors are collected separately
+			errList.Add(OrderError.Wrap(err))
+			return nil
 		}
-		if info.IsDir() {
+		path := filepath.Join(store.archiveDir, name)
+		archiveInfo, err := store.getArchiveInfosFromArchiveFile(path, fileInfo)
+		if err != nil {
+			errList.Add(OrderError.Wrap(err))
 			return nil
 		}
 
-		fileInfo, err := ordersfile.GetArchivedInfo(info)
-		if err != nil {
-			return OrderError.Wrap(err)
-		}
-		of, err := ordersfile.OpenReadable(path, fileInfo.Version)
-		if err != nil {
-			return OrderError.Wrap(err)
-		}
-		defer func() {
-			err = errs.Combine(err, OrderError.Wrap(of.Close()))
-		}()
-
-		status := StatusUnsent
-		switch fileInfo.StatusText {
-		case pb.SettlementWithWindowResponse_ACCEPTED.String():
-			status = StatusAccepted
-		case pb.SettlementWithWindowResponse_REJECTED.String():
-			status = StatusRejected
-		}
-
-		for {
-			info, err := of.ReadOne()
-			if err != nil {
-				if errs.Is(err, io.EOF) {
-					break
-				}
-				// if last entry read is corrupt, attempt to read again
-				if ordersfile.ErrEntryCorrupt.Has(err) {
-					store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
-					mon.Meter("orders_archive_file_corrupted").Mark64(1)
-					continue
-				}
-				return err
-			}
-
-			newInfo := &ArchivedInfo{
-				Limit:      info.Limit,
-				Order:      info.Order,
-				Status:     status,
-				ArchivedAt: fileInfo.ArchivedAt,
-			}
-			archivedList = append(archivedList, newInfo)
-		}
+		archivedList = append(archivedList, archiveInfo...)
 		return nil
-	})
+	}))
+
+	return archivedList, errList.Err()
+}
+
+func (store *FileStore) getArchiveInfosFromArchiveFile(path string, fileInfo *ordersfile.ArchivedInfo) ([]*ArchivedInfo, error) {
+	of, err := ordersfile.OpenReadable(path, fileInfo.Version)
 	if err != nil {
-		errList = errs.Combine(errList, err)
+		return nil, OrderError.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, OrderError.Wrap(of.Close()))
+	}()
+
+	status := StatusUnsent
+	switch fileInfo.StatusText {
+	case pb.SettlementWithWindowResponse_ACCEPTED.String():
+		status = StatusAccepted
+	case pb.SettlementWithWindowResponse_REJECTED.String():
+		status = StatusRejected
 	}
 
-	return archivedList, errList
+	var archivedList []*ArchivedInfo
+
+	for {
+		info, err := of.ReadOne()
+		if err != nil {
+			if errs.Is(err, io.EOF) {
+				break
+			}
+			// if last entry read is corrupt, attempt to read again
+			if ordersfile.ErrEntryCorrupt.Has(err) {
+				store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
+				mon.Meter("orders_archive_file_corrupted").Mark64(1)
+				continue
+			}
+			return nil, err
+		}
+
+		newInfo := &ArchivedInfo{
+			Limit:      info.Limit,
+			Order:      info.Order,
+			Status:     status,
+			ArchivedAt: fileInfo.ArchivedAt,
+		}
+		archivedList = append(archivedList, newInfo)
+	}
+
+	return archivedList, nil
 }
 
 // CleanArchive deletes all entries archvied before the provided time.
@@ -396,26 +403,52 @@ func (store *FileStore) CleanArchive(deleteBefore time.Time) error {
 	defer store.archiveMu.Unlock()
 
 	// we want to delete everything older than ttl
-	var errList error
-	err := filepath.Walk(store.archiveDir, func(path string, info os.FileInfo, err error) error {
+	var errList errs.Group
+
+	errList.Add(walkFilenamesInPath(store.archiveDir, func(name string) error {
+		fileInfo, err := ordersfile.GetArchivedInfo(name)
 		if err != nil {
-			errList = errs.Combine(errList, OrderError.Wrap(err))
+			errList.Add(OrderError.Wrap(err))
 			return nil
 		}
-		if info.IsDir() {
-			return nil
-		}
-		fileInfo, err := ordersfile.GetArchivedInfo(info)
-		if err != nil {
-			errList = errs.Combine(errList, err)
-			return nil
-		}
+
 		if fileInfo.ArchivedAt.Before(deleteBefore) {
-			return OrderError.Wrap(os.Remove(path))
+			err = os.Remove(filepath.Join(store.archiveDir, name))
+			if err != nil {
+				errList.Add(OrderError.Wrap(err))
+			}
 		}
 		return nil
-	})
-	return errs.Combine(errList, err)
+	}))
+
+	return errList.Err()
+}
+
+func walkFilenamesInPath(path string, cb func(name string) error) error {
+	root, err := os.Open(path)
+	if err != nil {
+		return OrderError.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, OrderError.Wrap(root.Close()))
+	}()
+
+	for {
+		entries, err := root.Readdirnames(nameBatchSize)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return OrderError.Wrap(err)
+		}
+		for _, name := range entries {
+			if err := cb(name); err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
 }
 
 // ensureDirectories checks for the existence of the unsent and archived directories, and creates them if they do not exist.

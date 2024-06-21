@@ -86,8 +86,8 @@ type ArchivedInfo struct {
 }
 
 // GetUnsentInfo returns a new UnsentInfo which can be used to get information about and read from an unsent orders file.
-func GetUnsentInfo(info os.FileInfo) (*UnsentInfo, error) {
-	satelliteID, createdAtHour, version, err := getUnsentFileInfo(info.Name())
+func GetUnsentInfo(filename string) (*UnsentInfo, error) {
+	satelliteID, createdAtHour, version, err := getUnsentFileInfo(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +100,8 @@ func GetUnsentInfo(info os.FileInfo) (*UnsentInfo, error) {
 }
 
 // GetArchivedInfo returns a new ArchivedInfo which can be used to get information about and read from an archived orders file.
-func GetArchivedInfo(info os.FileInfo) (*ArchivedInfo, error) {
-	satelliteID, createdAtHour, archivedAt, statusText, version, err := getArchivedFileInfo(info.Name())
+func GetArchivedInfo(filename string) (*ArchivedInfo, error) {
+	satelliteID, createdAtHour, archivedAt, statusText, version, err := getArchivedFileInfo(filename)
 	if err != nil {
 		return nil, err
 	}

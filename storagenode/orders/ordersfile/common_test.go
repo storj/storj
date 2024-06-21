@@ -65,7 +65,7 @@ func TestGetUnsentInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tArgs := tt.args(t)
 
-			got1, err := GetUnsentInfo(tArgs.info)
+			got1, err := GetUnsentInfo(tArgs.info.Name())
 
 			assert.Equal(t, tt.want1, got1)
 
@@ -96,7 +96,7 @@ func TestGetArchivedInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tArgs := tt.args(t)
 
-			got1, err := GetArchivedInfo(tArgs.info)
+			got1, err := GetArchivedInfo(tArgs.info.Name())
 
 			assert.Equal(t, tt.want1, got1)
 
