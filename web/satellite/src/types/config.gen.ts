@@ -66,6 +66,7 @@ export class FrontendConfig {
     satelliteManagedEncryptionEnabled: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
+    noLimitsUiEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

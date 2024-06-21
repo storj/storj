@@ -110,6 +110,7 @@ type Config struct {
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NewAppSetupFlowEnabled          bool          `help:"whether new application setup flow should be used" default:"false"`
+	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -887,6 +888,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
+		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
