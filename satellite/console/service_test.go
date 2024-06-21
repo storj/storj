@@ -17,6 +17,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	stripeLib "github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -68,6 +69,7 @@ func TestService(t *testing.T) {
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			service := sat.API.Console.Service
+			stripeClient := sat.API.Payments.StripeClient
 
 			up1Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
 			require.NoError(t, err)
@@ -238,6 +240,89 @@ func TestService(t *testing.T) {
 				cards, err := service.Payments().ListCreditCards(userCtx1)
 				require.NoError(t, err)
 				require.Len(t, cards, 1)
+
+				cus, err := sat.Core.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, up1Proj.OwnerID)
+				require.NoError(t, err)
+
+				inv, err := stripeClient.Invoices().New(&stripeLib.InvoiceParams{
+					Params:   stripeLib.Params{Context: ctx},
+					Customer: &cus,
+				})
+				require.NoError(t, err)
+
+				inv, err = stripeClient.Invoices().FinalizeInvoice(inv.ID, &stripeLib.InvoiceFinalizeInvoiceParams{
+					Params: stripeLib.Params{Context: ctx},
+				})
+				require.NoError(t, err)
+
+				// add a credit card to pay the invoice
+				_, err = service.Payments().AddCreditCard(userCtx1, "test-cc-token2")
+				require.NoError(t, err)
+
+				inv, err = stripeClient.Invoices().Get(inv.ID, &stripeLib.InvoiceParams{
+					Params: stripeLib.Params{Context: ctx},
+				})
+				require.NoError(t, err)
+				require.Equal(t, stripeLib.InvoiceStatusPaid, inv.Status)
+			})
+
+			t.Run("AddCreditCardByPaymentMethodID", func(t *testing.T) {
+				// user should be in free tier
+				user, userCtx3 := getOwnerAndCtx(ctx, up3Proj)
+				require.False(t, user.PaidTier)
+
+				pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+					Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+					Card: &stripeLib.PaymentMethodCardParams{
+						Token: stripeLib.String("test"),
+					},
+				})
+				require.NoError(t, err)
+
+				pm2, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+					Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+					Card: &stripeLib.PaymentMethodCardParams{
+						Token: stripeLib.String("test2"),
+					},
+				})
+				require.NoError(t, err)
+
+				// add a credit card to put the user in the paid tier
+				card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID)
+				require.NoError(t, err)
+				require.NotEmpty(t, card)
+				// user should be in paid tier
+				user, err = service.GetUser(ctx, up3Proj.OwnerID)
+				require.NoError(t, err)
+				require.True(t, user.PaidTier)
+
+				cards, err := service.Payments().ListCreditCards(userCtx3)
+				require.NoError(t, err)
+				require.Len(t, cards, 1)
+
+				cus, err := sat.Core.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, up3Proj.OwnerID)
+				require.NoError(t, err)
+
+				inv, err := stripeClient.Invoices().New(&stripeLib.InvoiceParams{
+					Params:   stripeLib.Params{Context: ctx},
+					Customer: &cus,
+				})
+				require.NoError(t, err)
+
+				inv, err = stripeClient.Invoices().FinalizeInvoice(inv.ID, &stripeLib.InvoiceFinalizeInvoiceParams{
+					Params: stripeLib.Params{Context: ctx},
+				})
+				require.NoError(t, err)
+
+				// add a credit card to pay the invoice
+				_, err = service.Payments().AddCardByPaymentMethodID(userCtx3, pm2.ID)
+				require.NoError(t, err)
+
+				inv, err = stripeClient.Invoices().Get(inv.ID, &stripeLib.InvoiceParams{
+					Params: stripeLib.Params{Context: ctx},
+				})
+				require.NoError(t, err)
+				require.Equal(t, stripeLib.InvoiceStatusPaid, inv.Status)
 			})
 
 			t.Run("Exit trial expiration freeze", func(t *testing.T) {

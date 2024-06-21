@@ -497,6 +497,11 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		}
 	}
 
+	err = payment.AttemptPayOverdueInvoices(ctx)
+	if err != nil {
+		payment.service.log.Warn("error attempting to pay invoices for user", zap.String("user_id", user.ID.String()), zap.Error(err))
+	}
+
 	return card, nil
 }
 
@@ -521,6 +526,11 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		if err != nil {
 			return payments.CreditCard{}, Error.Wrap(err)
 		}
+	}
+
+	err = payment.AttemptPayOverdueInvoices(ctx)
+	if err != nil {
+		payment.service.log.Warn("error attempting to pay invoices for user", zap.String("user_id", user.ID.String()), zap.Error(err))
 	}
 
 	return card, nil
