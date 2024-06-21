@@ -229,9 +229,10 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 				}
 				return AttributeGroupSelector(attr), nil
 			default:
-				return nil, Error.New("unable to create attribute selector from %s", expr)
+				return nil, Error.New("unable to create attribute selector from %s (%T)", expr, attribute)
 			}
 		},
+		"subnet": Subnet,
 		"random": func() (NodeSelectorInit, error) {
 			return RandomSelector(), nil
 		},

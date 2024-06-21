@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,4 +79,24 @@ func TestNodeAttribute(t *testing.T) {
 
 	_, err = CreateNodeAttribute("tag:a/b/c")
 	require.ErrorContains(t, err, "should be defined")
+}
+
+func TestSubnet(t *testing.T) {
+	s := SelectedNode{
+		LastIPPort: "12.23.34.45:8888",
+	}
+	require.Equal(t, "12.16.0.0/12", Subnet(12)(s))
+	require.Equal(t, "12.23.34.45/32", Subnet(32)(s))
+}
+
+func BenchmarkSubnet(b *testing.B) {
+	var s string
+	for i := 0; i < b.N; i++ {
+		s = Subnet(25)(SelectedNode{
+			LastIPPort: fmt.Sprintf("%d.%d.%d.%d:1234", (i>>24)%256, (i>>16)%256, (i>>8)%256, i%256),
+		})
+		if strings.Contains(s, "error") {
+			b.Fatalf(s)
+		}
+	}
 }

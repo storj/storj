@@ -18,3 +18,6 @@ placements:
   - id: 3
     name: ifeqselector
     selector: attribute(if(eq("tag:surge","true"),"last_ip_port","last_net"))
+  - id: 4
+    name: subnet
+    selector: attribute(subnet(25))
