@@ -205,7 +205,10 @@ func TestGetSingleBucketRollup(t *testing.T) {
 }
 
 func TestGetProjectTotal(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	since := time.Time{}.Add(24 * 365 * time.Hour)
+
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
@@ -215,7 +218,7 @@ func TestGetProjectTotal(t *testing.T) {
 			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
 			var tallies []accounting.BucketStorageTally
 			for i := 0; i < 3; i++ {
-				tally := randTally(bucketName, projectID, time.Time{}.Add(time.Duration(i)*time.Hour))
+				tally := randTally(bucketName, projectID, since.Add(time.Duration(i)*time.Hour))
 				tallies = append(tallies, tally)
 				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
 			}
@@ -268,10 +271,11 @@ func TestGetProjectTotalByPartner(t *testing.T) {
 		usagePeriod      = time.Hour
 		tallyRollupCount = 2
 	)
-	since := time.Time{}
+	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	since := time.Time{}.Add(24 * 365 * time.Hour)
 	before := since.Add(2 * usagePeriod)
 
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 
@@ -591,5 +595,5 @@ func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
 			BucketName: "b\\",
 		}, 0)
 		require.NoError(t, err)
-	})
+	}, satellitedbtest.WithSpanner())
 }

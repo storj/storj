@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -155,19 +156,49 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result []metabase.BucketLocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = withRows(db.db.QueryContext(ctx, `
+	var rows tagsql.Rows
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		rows, err = db.db.QueryContext(ctx, `
 		SELECT project_id, name
 		FROM bucket_metainfos bm`+
-		db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
-		` WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
+			db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
+			` WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
 		AND NOT 0 IN (
 			SELECT object_count FROM bucket_storage_tallies
 			WHERE (project_id, bucket_name) = (bm.project_id, bm.name)
 			ORDER BY interval_start DESC
 			LIMIT 1
 		)
-	`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName)),
-	)(func(r tagsql.Rows) error {
+		`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName))
+	case dbutil.Spanner:
+		var fromTuple string
+		var toTuple string
+
+		fromTuple, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "name"}, []string{"@from_project_id", "@from_name"}, true)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		toTuple, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "name"}, true)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		rows, err = db.db.QueryContext(ctx, `
+			SELECT project_id, name
+			FROM bucket_metainfos bm
+			WHERE`+fromTuple+` AND `+toTuple+` AND NOT 0 IN (
+				SELECT object_count
+				FROM bucket_storage_tallies
+				WHERE (project_id, bucket_name) = (bm.project_id, bm.name)
+				ORDER BY interval_start DESC
+				LIMIT 1
+			)
+		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
+	default:
+		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
+	err = withRows(rows, err)(func(r tagsql.Rows) error {
 		for r.Next() {
 			loc := metabase.BucketLocation{}
 			if err := r.Scan(&loc.ProjectID, &loc.BucketName); err != nil {
@@ -650,7 +681,7 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 			return nil, err
 		}
 
-		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
+		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, int64(pb.PieceAction_GET))
 		if err != nil {
 			return nil, err
 		}
@@ -1052,7 +1083,6 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 
 	switch db.db.impl {
 	case dbutil.Cockroach:
-
 		// We operate one action at a time, because we have an index on `(action, interval_start, project_id)`.
 		for action := range pb.PieceAction_name {
 			count, err := db.archiveRollupsBeforeByAction(ctx, action, before, batchSize)
@@ -1076,6 +1106,31 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 			SELECT count(*) FROM moved_rollups
 		`, before).Scan(&archivedCount)
 		return archivedCount, Error.Wrap(err)
+	case dbutil.Spanner:
+		row := db.db.DB.QueryRow(ctx, `SELECT count(*) FROM bucket_bandwidth_rollups
+                                WHERE interval_start <= ?`, before)
+		err = row.Scan(&archivedCount)
+		if err != nil {
+			return archivedCount, Error.Wrap(err)
+		}
+
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+			_, err = tx.Tx.ExecContext(ctx, `
+				 INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+						SELECT  bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM bucket_bandwidth_rollups WHERE interval_start <= ?`, before)
+
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.Tx.ExecContext(ctx, `
+				DELETE FROM bucket_bandwidth_rollups WHERE interval_start <= ?
+			`, before)
+
+			return err
+		})
+
+		return archivedCount, Error.Wrap(err)
 	default:
 		return 0, nil
 	}
@@ -1084,29 +1139,75 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, action int32, before time.Time, batchSize int) (archivedCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for {
-		var rowCount int
-		err := db.db.QueryRow(ctx, `
-			WITH rollups_to_move AS (
-				DELETE FROM bucket_bandwidth_rollups
-				WHERE action = $1 AND interval_start <= $2
-				LIMIT $3 RETURNING *
-			), moved_rollups AS (
-				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
-				RETURNING *
-			)
-			SELECT count(*) FROM moved_rollups
-		`, int(action), before, batchSize).Scan(&rowCount)
-		if err != nil {
-			return archivedCount, Error.Wrap(err)
-		}
-		archivedCount += rowCount
+	switch db.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		for {
+			var rowCount int
+			err := db.db.QueryRow(ctx, `
+				WITH rollups_to_move AS (
+					DELETE FROM bucket_bandwidth_rollups
+					WHERE action = $1 AND interval_start <= $2
+					LIMIT $3 RETURNING *
+				), moved_rollups AS (
+					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+					SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
+					RETURNING *
+				)
+				SELECT count(*) FROM moved_rollups
+			`, int(action), before, batchSize).Scan(&rowCount)
+			if err != nil {
+				return archivedCount, Error.Wrap(err)
+			}
+			archivedCount += rowCount
 
-		if rowCount < batchSize {
-			return archivedCount, nil
+			if rowCount < batchSize {
+				return archivedCount, nil
+			}
+		}
+	case dbutil.Spanner:
+		for {
+			var rowCount int
+			err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				row := tx.Tx.QueryRow(ctx, `
+					SELECT count(*) FROM bucket_bandwidth_rollups
+					 WHERE action = ? AND interval_start <= ? LIMIT ?
+				`, int(action), before, batchSize)
+				err = row.Scan(&rowCount)
+
+				if err != nil {
+					return Error.Wrap(err)
+				}
+
+				archivedCount += rowCount
+
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+						SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM bucket_bandwidth_rollups WHERE action = ? AND
+						interval_start <= ? LIMIT ?`,
+					int(action), before, batchSize,
+				)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+
+				_, err = tx.Tx.ExecContext(ctx, `
+					DELETE FROM bucket_bandwidth_rollups WHERE action = ? AND interval_start <= ?
+					LIMIT ?`,
+					int(action), before, batchSize,
+				)
+
+				return Error.Wrap(err)
+			})
+			if err != nil {
+				return archivedCount, err
+			}
+
+			if rowCount < batchSize {
+				return archivedCount, nil
+			}
 		}
 	}
+	return archivedCount, Error.Wrap(err)
 }
 
 // getBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.

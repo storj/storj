@@ -257,6 +257,15 @@ func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZomb
 func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
 	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
 	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
+	tuple, err := spannerutil.TupleGreaterThanSQL(
+		[]string{"project_id", "bucket_name", "object_key", "version"},
+		[]string{"@project_id", "@bucket_name", "@object_key", "@version"},
+		false,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	objects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -265,10 +274,7 @@ func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombi
 			WHERE
 				status = ` + statusPending + `
 				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
-				AND ` +
-			TupleGreaterThanSQL(
-				[]string{"project_id", "bucket_name", "object_key", "version"},
-				[]string{"@project_id", "@bucket_name", "@object_key", "@version"}, false) + `
+				AND ` + tuple + `
 			ORDER BY project_id, bucket_name, object_key, version
 			LIMIT @batch_size
 		`,

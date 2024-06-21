@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -134,13 +135,18 @@ func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBuck
 		projectsAndBuckets[i].BucketName = BucketName(bucketNamesBytes[i])
 	}
 
+	tuple, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name", "stream_id"}, []string{"@cursor_project_id", "@cursor_bucket_name", "@cursor_stream_id"}, false)
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
+
 	// get the list of stream_ids and segment counts from the objects table
 	// TODO(spanner): check if there is a performance penalty to using a STRUCT in this way.
 	err = s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
 			FROM objects
-			WHERE ` + TupleGreaterThanSQL([]string{"project_id", "bucket_name", "stream_id"}, []string{"@cursor_project_id", "@cursor_bucket_name", "@cursor_stream_id"}, false) + `
+			WHERE ` + tuple + `
 				AND STRUCT<ProjectID BYTES, BucketName STRING>(project_id, bucket_name) IN UNNEST(@projects_and_buckets)
 			ORDER BY project_id, bucket_name, stream_id
 			LIMIT @limit
