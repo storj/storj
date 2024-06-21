@@ -156,7 +156,7 @@ async function onDeleteClick(): Promise<void> {
         }
 
         emit('filesDeleted');
-        notify.success(`${fileCount.value + folderCount.value} ${fileTypes.value} deleted`);
+        notify.success(`${fileCount.value + folderCount.value + versionsCount.value} ${fileTypes.value} deleted`);
         model.value = false;
     });
 }
