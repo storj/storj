@@ -15,6 +15,7 @@ import (
 type NodeAliasDB interface {
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
+	GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (_ []NodeAliasEntry, err error)
 }
 
 // NodeAliasCache is a write-through cache for looking up node ID and alias mapping.
@@ -22,12 +23,15 @@ type NodeAliasCache struct {
 	db         NodeAliasDB
 	refreshing sync.Mutex
 	latest     atomic.Value // *NodeAliasMap
+
+	fullRefresh bool // TODO: remove once verified that it works better in production.
 }
 
 // NewNodeAliasCache creates a new cache using the specified database.
-func NewNodeAliasCache(db NodeAliasDB) *NodeAliasCache {
+func NewNodeAliasCache(db NodeAliasDB, fullRefresh bool) *NodeAliasCache {
 	cache := &NodeAliasCache{
-		db: db,
+		db:          db,
+		fullRefresh: fullRefresh,
 	}
 	cache.latest.Store(NewNodeAliasMap(nil))
 	return cache
@@ -151,9 +155,20 @@ func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.N
 		return latest, nil
 	}
 
-	entries, err := cache.db.ListNodeAliases(ctx)
-	if err != nil {
-		return nil, err
+	var entries []NodeAliasEntry
+	if cache.fullRefresh || latest == nil || latest.Size() == 0 {
+		entries, err = cache.db.ListNodeAliases(ctx)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		entries, err = cache.db.GetNodeAliasEntries(ctx, GetNodeAliasEntries{
+			Nodes:   missingNodes,
+			Aliases: missingAliases,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Since we never remove node aliases we can assume that the alias map that contains more

@@ -128,7 +128,7 @@ func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 
 // TestingDeleteAll deletes all objects and segments from the database.
 func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
-	db.aliasCache = NewNodeAliasCache(db)
+	db.aliasCache = NewNodeAliasCache(db, db.aliasCache.fullRefresh)
 	for _, a := range db.adapters {
 		if err := a.TestingDeleteAll(ctx); err != nil {
 			return err

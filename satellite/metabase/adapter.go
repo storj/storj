@@ -66,7 +66,8 @@ type Adapter interface {
 	DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error)
 
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
-	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
+	ListNodeAliases(ctx context.Context) (entries []NodeAliasEntry, err error)
+	GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (entries []NodeAliasEntry, err error)
 	GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error)
 
 	doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)

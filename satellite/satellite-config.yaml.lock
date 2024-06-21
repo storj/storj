@@ -889,6 +889,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# node alias cache does a full refresh when a value is missing
+# metainfo.node-alias-cache-full-refresh: false
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 

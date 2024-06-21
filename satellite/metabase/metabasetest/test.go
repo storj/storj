@@ -679,6 +679,20 @@ func (step ListNodeAliases) Check(ctx *testcontext.Context, t testing.TB, db *me
 	return result
 }
 
+// GetNodeAliasEntries is for testing metabase.GetNodeAliasEntries.
+type GetNodeAliasEntries struct {
+	Opts     metabase.GetNodeAliasEntries
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetNodeAliasEntries) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) []metabase.NodeAliasEntry {
+	result, err := db.GetNodeAliasEntries(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	return result
+}
+
 // GetTableStats is for testing metabase.GetTableStats.
 type GetTableStats struct {
 	Opts     metabase.GetTableStats
