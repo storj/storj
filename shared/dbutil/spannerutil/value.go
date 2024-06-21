@@ -64,6 +64,11 @@ func EncodeDateToValue(date civil.Date) *structpb.Value {
 	return structpb.NewStringValue(date.String())
 }
 
+// EncodeStringToValue encodes string type to what Spanner expects via protobuf.
+func EncodeStringToValue(str string) *structpb.Value {
+	return structpb.NewStringValue(str)
+}
+
 // BytesType is a convenience method to define a Spanner BYTES value.
 func BytesType() *spannerpb.Type { return &spannerpb.Type{Code: spannerpb.TypeCode_BYTES} }
 

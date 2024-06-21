@@ -6,9 +6,12 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"storj.io/common/currency"
 	"storj.io/storj/private/blockchain"
@@ -17,7 +20,10 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 var _ storjscan.PaymentsDB = (*storjscanPayments)(nil)
@@ -31,33 +37,6 @@ type storjscanPayments struct {
 func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, payments []storjscan.CachedPayment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	cmnd := `INSERT INTO storjscan_payments(
-				chain_id,
-				block_hash,
-				block_number,
-				transaction,
-				log_index,
-				from_address,
-				to_address,
-				token_value,
-				usd_value,
-				status,
-				block_timestamp,
-				created_at
-			) SELECT
-				UNNEST($1::INT8[]),
-				UNNEST($2::BYTEA[]),
-				UNNEST($3::INT8[]),
-				UNNEST($4::BYTEA[]),
-				UNNEST($5::INT4[]),
-				UNNEST($6::BYTEA[]),
-				UNNEST($7::BYTEA[]),
-				UNNEST($8::INT8[]),
-				UNNEST($9::INT8[]),
-				UNNEST($10::TEXT[]),
-				UNNEST($11::TIMESTAMPTZ[]),
-				$12
-			`
 	var (
 		chainIDs      = make([]int64, 0, len(payments))
 		blockHashes   = make([][]byte, 0, len(payments))
@@ -88,19 +67,103 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 		timestamps = append(timestamps, payment.Timestamp)
 	}
 
-	_, err = storjscanPayments.db.ExecContext(ctx, cmnd,
-		pgutil.Int8Array(chainIDs),
-		pgutil.ByteaArray(blockHashes),
-		pgutil.Int8Array(blockNumbers),
-		pgutil.ByteaArray(transactions),
-		pgutil.Int4Array(logIndexes),
-		pgutil.ByteaArray(fromAddresses),
-		pgutil.ByteaArray(toAddresses),
-		pgutil.Int8Array(tokenValues),
-		pgutil.Int8Array(usdValues),
-		pgutil.TextArray(statuses),
-		pgutil.TimestampTZArray(timestamps),
-		createdAt)
+	var query string
+
+	switch storjscanPayments.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		query = `INSERT INTO storjscan_payments(
+				chain_id,
+				block_hash,
+				block_number,
+				transaction,
+				log_index,
+				from_address,
+				to_address,
+				token_value,
+				usd_value,
+				status,
+				block_timestamp,
+				created_at
+			) SELECT
+				UNNEST($1::INT8[]),
+				UNNEST($2::BYTEA[]),
+				UNNEST($3::INT8[]),
+				UNNEST($4::BYTEA[]),
+				UNNEST($5::INT4[]),
+				UNNEST($6::BYTEA[]),
+				UNNEST($7::BYTEA[]),
+				UNNEST($8::INT8[]),
+				UNNEST($9::INT8[]),
+				UNNEST($10::TEXT[]),
+				UNNEST($11::TIMESTAMPTZ[]),
+				$12
+			`
+		_, err = storjscanPayments.db.ExecContext(ctx, query,
+			pgutil.Int8Array(chainIDs),
+			pgutil.ByteaArray(blockHashes),
+			pgutil.Int8Array(blockNumbers),
+			pgutil.ByteaArray(transactions),
+			pgutil.Int4Array(logIndexes),
+			pgutil.ByteaArray(fromAddresses),
+			pgutil.ByteaArray(toAddresses),
+			pgutil.Int8Array(tokenValues),
+			pgutil.Int8Array(usdValues),
+			pgutil.TextArray(statuses),
+			pgutil.TimestampTZArray(timestamps),
+			createdAt)
+
+	case dbutil.Spanner:
+
+		storjscanPaymentsValue := spanner.GenericColumnValue{
+			Type: spannerutil.ArrayOf(
+				spannerutil.StructOf(
+					spannerutil.FieldOf("chain_id", spannerutil.Int64Type()),
+					spannerutil.FieldOf("block_hash", spannerutil.BytesType()),
+					spannerutil.FieldOf("block_number", spannerutil.Int64Type()),
+					spannerutil.FieldOf("transaction", spannerutil.BytesType()),
+					spannerutil.FieldOf("log_index", spannerutil.Int64Type()),
+					spannerutil.FieldOf("from_address", spannerutil.BytesType()),
+					spannerutil.FieldOf("to_address", spannerutil.BytesType()),
+					spannerutil.FieldOf("token_value", spannerutil.Int64Type()),
+					spannerutil.FieldOf("usd_value", spannerutil.Int64Type()),
+					spannerutil.FieldOf("status", spannerutil.StringType()),
+					spannerutil.FieldOf("block_timestamp", spannerutil.TimestampType()),
+				),
+			),
+		}
+		storjscanPaymentsValues := make([]*structpb.Value, 0, len(chainIDs))
+		for i := range chainIDs {
+			str := structpb.NewListValue(&structpb.ListValue{
+				Values: []*structpb.Value{
+					spannerutil.EncodeIntToValue(chainIDs[i]),
+					spannerutil.EncodeBytesToValue(blockHashes[i]),
+					spannerutil.EncodeIntToValue(blockNumbers[i]),
+					spannerutil.EncodeBytesToValue(transactions[i]),
+					spannerutil.EncodeIntToValue(logIndexes[i]),
+					spannerutil.EncodeBytesToValue(fromAddresses[i]),
+					spannerutil.EncodeBytesToValue(toAddresses[i]),
+					spannerutil.EncodeIntToValue(tokenValues[i]),
+					spannerutil.EncodeIntToValue(usdValues[i]),
+					spannerutil.EncodeStringToValue(statuses[i]),
+					spannerutil.EncodeTimeToValue(timestamps[i]),
+				},
+			})
+			storjscanPaymentsValues = append(storjscanPaymentsValues, str)
+		}
+		storjscanPaymentsValue.Value = structpb.NewListValue(&structpb.ListValue{Values: storjscanPaymentsValues})
+
+		query = `
+			INSERT INTO
+			storjscan_payments ( chain_id, block_hash, block_number, transaction, log_index,
+				from_address, to_address, token_value, usd_value, status, block_timestamp, created_at)
+			(SELECT chain_id, block_hash, block_number, transaction, log_index,
+				from_address, to_address, token_value, usd_value, status, block_timestamp, ? FROM UNNEST(?))
+			`
+		_, err = storjscanPayments.db.ExecContext(ctx, query, createdAt, storjscanPaymentsValue)
+
+	default:
+		err = errors.New("database implementation not supported")
+	}
 	return err
 }
 
@@ -139,7 +202,9 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 // LastBlocks returns the highest blocks known to DB per chain.
 func (storjscanPayments *storjscanPayments) LastBlocks(ctx context.Context, status payments.PaymentStatus) (_ map[int64]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rows, err := storjscanPayments.db.QueryContext(ctx, `SELECT DISTINCT chain_id FROM storjscan_payments where status = $1`, string(status))
+
+	query := `SELECT DISTINCT chain_id FROM storjscan_payments where status = ?`
+	rows, err := storjscanPayments.db.QueryContext(ctx, storjscanPayments.db.Rebind(query), string(status))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -190,11 +255,38 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 		chainIDs = []int64{chainID}
 	}
 
-	// TODO: use DBX here and optimize this query
-	query := `SELECT chain_id, block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, block_timestamp
-              FROM storjscan_payments WHERE chain_id = any($1::INT8[]) AND (storjscan_payments.block_number, storjscan_payments.log_index) > ($2, $3)
-              AND storjscan_payments.status = $4 ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
-	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	var rows tagsql.Rows
+
+	switch storjscanPayments.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		// TODO: use DBX here and optimize this query
+		query := `SELECT chain_id, block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, block_timestamp
+				  FROM storjscan_payments WHERE chain_id = any($1::INT8[]) AND (storjscan_payments.block_number, storjscan_payments.log_index) > ($2, $3)
+				  AND storjscan_payments.status = $4 ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
+		rows, err = storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	case dbutil.Spanner:
+		query := `SELECT
+		   chain_id,
+		   block_hash,
+		   block_number,
+		   transaction,
+		   log_index,
+		   from_address,
+		   to_address,
+		   token_value,
+		   usd_value,
+		   status,
+		   block_timestamp
+		 FROM
+		   storjscan_payments
+		 WHERE chain_id IN UNNEST (?)
+		  AND (block_number > ? OR (block_number = ? AND log_index > ?))
+		  AND status = ?
+		 ORDER BY
+		   block_number,
+		   log_index`
+		rows, err = storjscanPayments.db.Query(ctx, query, chainIDs, blockNumber, blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	}
 	if err != nil {
 		return nil, err
 	}
