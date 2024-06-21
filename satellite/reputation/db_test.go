@@ -202,7 +202,7 @@ func TestApplyUpdatesEquivalentToMultipleUpdates(t *testing.T) {
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		testApplyUpdatesEquivalentToMultipleUpdates(ctx, t, db.Reputation(), config)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 // TestApplyUpdatesEquivalentToMultipleUpdatesCached checks that the ApplyUpdates
@@ -239,7 +239,7 @@ func TestApplyUpdatesEquivalentToMultipleUpdatesCached(t *testing.T) {
 			return errs2.IgnoreCanceled(err)
 		})
 		testApplyUpdatesEquivalentToMultipleUpdates(cancelCtx, t, cachingDB, config)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDBDisqualifyNode(t *testing.T) {
@@ -256,7 +256,7 @@ func TestDBDisqualifyNode(t *testing.T) {
 		require.NotNil(t, info.Disqualified)
 		require.Equal(t, now, info.Disqualified.UTC())
 		require.Equal(t, overlay.DisqualificationReasonAuditFailure, info.DisqualificationReason)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDBDisqualificationAuditFailure(t *testing.T) {
@@ -288,7 +288,7 @@ func TestDBDisqualificationAuditFailure(t *testing.T) {
 		require.NotNil(t, status.Disqualified)
 		assert.WithinDuration(t, now, *status.Disqualified, time.Microsecond)
 		assert.Equal(t, overlay.DisqualificationReasonAuditFailure, status.DisqualificationReason)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDBDisqualificationSuspension(t *testing.T) {
@@ -326,7 +326,7 @@ func TestDBDisqualificationSuspension(t *testing.T) {
 		assert.Nil(t, status.UnknownAuditSuspended)
 		assert.Equal(t, now, status.Disqualified.UTC())
 		assert.Equal(t, overlay.DisqualificationReasonSuspension, status.DisqualificationReason)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDBDisqualificationNodeOffline(t *testing.T) {
@@ -381,7 +381,7 @@ func TestDBDisqualificationNodeOffline(t *testing.T) {
 		require.NotNil(t, status.Disqualified)
 		assert.Equal(t, disqualifiedAt, status.Disqualified.UTC())
 		assert.Equal(t, overlay.DisqualificationReasonNodeOffline, status.DisqualificationReason)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func testAuditHistoryConfig() reputation.AuditHistoryConfig {
