@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 )
 
@@ -22,7 +23,8 @@ import (
 var _ consoleauth.WebappSessions = (*webappSessions)(nil)
 
 type webappSessions struct {
-	db dbx.DriverMethods
+	db   dbx.DriverMethods
+	impl dbutil.Implementation
 }
 
 // Create creates a webapp session and returns the session info.
@@ -206,14 +208,36 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 	var pageCursor uuid.UUID
 	selected := make([]uuid.UUID, pageSize)
 	aost := db.db.AsOfSystemInterval(asOfSystemTimeInterval)
+	queryFirst := `SELECT id FROM webapp_sessions ` + aost + `
+			WHERE id > ? AND expires_at < ?
+			ORDER BY id LIMIT 1`
+	queryPage := `SELECT id FROM webapp_sessions ` + aost + `
+			WHERE id >= ? ORDER BY id LIMIT ?`
+	var deleteFunc func(ctx context.Context, selected []uuid.UUID) error
+
+	switch db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		deleteFunc = func(ctx context.Context, selected []uuid.UUID) error {
+			_, err = db.db.ExecContext(ctx, `
+			DELETE FROM webapp_sessions WHERE id = ANY($1) AND expires_at < $2`,
+				pgutil.UUIDArray(selected), now)
+			return err
+		}
+
+	case dbutil.Spanner:
+		deleteFunc = func(ctx context.Context, selected []uuid.UUID) error {
+			_, err = db.db.ExecContext(ctx, `DELETE FROM webapp_sessions
+				WHERE id IN UNNEST (?) AND expires_at < ?`, uuidsToBytesArray(selected), now)
+			return err
+		}
+
+	default:
+		return errs.New("unsupported database dialect: %s", db.impl)
+	}
+
 	for {
 		// Select the ID beginning this page of records
-		err := db.db.QueryRowContext(ctx, `
-			SELECT id FROM webapp_sessions
-			`+aost+`
-			WHERE id > $1 AND expires_at < $2
-			ORDER BY id LIMIT 1
-		`, pageCursor, now).Scan(&pageCursor)
+		err := db.db.QueryRowContext(ctx, db.db.Rebind(queryFirst), pageCursor, now).Scan(&pageCursor)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
@@ -222,11 +246,7 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 		}
 
 		// Select page of records
-		rows, err := db.db.QueryContext(ctx, `
-			SELECT id FROM webapp_sessions
-			`+aost+`
-			WHERE id >= $1 ORDER BY id LIMIT $2
-		`, pageCursor, pageSize)
+		rows, err := db.db.QueryContext(ctx, db.db.Rebind(queryPage), pageCursor, pageSize)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -242,11 +262,7 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 		}
 
 		// Delete all expired records in the page
-		_, err = db.db.ExecContext(ctx, `
-			DELETE FROM webapp_sessions
-			WHERE id = ANY($1)
-			AND expires_at < $2
-		`, pgutil.UUIDArray(selected[:i]), now)
+		err = deleteFunc(ctx, selected[:i])
 		if err != nil {
 			return Error.Wrap(err)
 		}
