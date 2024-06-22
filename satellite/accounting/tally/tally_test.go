@@ -44,7 +44,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			nodeIDs := []storj.NodeID{{1}, {2}, {3}}
 			nodeBWAmounts := []float64{1000, 1000, 1000}
