@@ -381,6 +381,11 @@ func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 
 // openDatabase opens or creates a database at the specified path.
 func (db *DB) openDatabase(ctx context.Context, dbName string) error {
+	return db.openDatabaseWithStat(ctx, dbName, true)
+}
+
+// openDatabase opens or creates a database at the specified path.
+func (db *DB) openDatabaseWithStat(ctx context.Context, dbName string, registerStat bool) error {
 	path := db.filepathFromDBName(dbName)
 
 	driver := db.config.Driver
@@ -405,7 +410,9 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
-	dbutil.Configure(ctx, sqlDB, dbName, mon)
+	if registerStat {
+		dbutil.Configure(ctx, sqlDB, dbName, mon)
+	}
 
 	return nil
 }
@@ -679,7 +686,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		}
 	}
 
-	err = db.openDatabase(ctx, dbName)
+	err = db.openDatabaseWithStat(ctx, dbName, false)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
