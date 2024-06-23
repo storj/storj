@@ -22,8 +22,6 @@ var (
 
 func init() {
 	hw.Register(monkit.Default)
-	mon.Chain(hw.CPU())
-	mon.Chain(hw.Load())
 }
 
 func initializeDiskMon(log *zap.Logger) {
