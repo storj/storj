@@ -163,9 +163,9 @@ async function onDeleteClick(): Promise<void> {
 
 async function deleteSingleFile(file: BrowserObject): Promise<void> {
     if (isFolder.value) {
-        await obStore.deleteFolder(file, filePath.value ? filePath.value + '/' : '');
+        await obStore.deleteFolder(file, filePath.value ? filePath.value + '/' : '', false);
     } else {
-        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file);
+        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false, false);
     }
 }
 

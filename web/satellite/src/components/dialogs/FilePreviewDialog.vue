@@ -197,6 +197,10 @@ const props = withDefaults(defineProps<{
     showingVersions: false,
 });
 
+const emit = defineEmits<{
+    'fileDeleted': [],
+}>();
+
 const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
@@ -343,6 +347,7 @@ function onDeleteFileClick(): void {
 function onDeleteComplete(): void {
     fileToDelete.value = null;
     model.value = false;
+    emit('fileDeleted');
 }
 
 watchEffect(async () => {
