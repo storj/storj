@@ -175,6 +175,10 @@ var (
 	// ErrConflict occurs when a user attempts an operation that conflicts with the current state.
 	ErrConflict = errs.Class("conflict detected")
 
+	// ErrSatelliteManagedEncryption occurs when a user attempts to create a satellite managed
+	// encryption project when it is disabled.
+	ErrSatelliteManagedEncryption = ErrConflict.New("satellite managed encryption is not enabled")
+
 	// ErrForbidden occurs when a user attempts an operation without sufficient access rights.
 	ErrForbidden = errs.Class("insufficient access rights")
 
@@ -2625,16 +2629,15 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	var passphrase []byte
-	if s.config.SatelliteManagedEncryptionEnabled {
-		passphraseEnc, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
+	passphraseEnc, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if passphraseEnc != nil && s.kmsService != nil {
+		passphrase, err = s.kmsService.DecryptPassphrase(ctx, passphraseEnc)
 		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if passphraseEnc != nil {
-			passphrase, err = s.kmsService.DecryptPassphrase(ctx, passphraseEnc)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
+			s.log.Error("failed to decrypt passphrase", zap.Error(err))
+			return nil, Error.New("Failed to retrieve passphrase")
 		}
 	}
 
@@ -2778,13 +2781,15 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			SegmentLimit:     &newProjectLimits.Segment,
 			DefaultPlacement: user.DefaultPlacement,
 		}
-		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase {
+		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase && s.kmsService != nil {
 			encPassphrase, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 			newProject.PassphraseEnc = encPassphrase
 			newProject.PathEncryption = new(bool)
+		} else if projectInfo.ManagePassphrase {
+			return ErrSatelliteManagedEncryption
 		}
 
 		p, err = tx.Projects().Insert(ctx, newProject)
@@ -5437,4 +5442,9 @@ func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.
 func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
+}
+
+// TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
+func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
+	s.config.SatelliteManagedEncryptionEnabled = b
 }
