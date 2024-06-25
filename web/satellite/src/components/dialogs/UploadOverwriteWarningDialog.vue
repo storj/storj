@@ -18,7 +18,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <icon-info size="22" />
+                            <icon-info :size="22" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">

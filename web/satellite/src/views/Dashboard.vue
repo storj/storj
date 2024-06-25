@@ -862,7 +862,6 @@ onMounted(async (): Promise<void> => {
 
     const promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
         projectsStore.getDailyProjectData({ since: past, before: now }),
-        projectsStore.getProjectLimits(projectID),
         pmStore.getProjectMembers(FIRST_PAGE, projectID),
         agStore.getAccessGrants(FIRST_PAGE, projectID),
         bucketsStore.getBuckets(FIRST_PAGE, projectID),

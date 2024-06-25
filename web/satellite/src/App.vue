@@ -248,8 +248,9 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
             bucketsStore.setPassphrase(config.passphrase);
             bucketsStore.setPromptForPassphrase(false);
-            return;
         }
+        await projectsStore.getProjectLimits(project.id);
+        return;
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }

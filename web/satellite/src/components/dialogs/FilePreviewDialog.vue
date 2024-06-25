@@ -176,6 +176,8 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { ProjectLimits } from '@/types/projects';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import IconShare from '@/components/icons/IconShare.vue';
 import IconDistribution from '@/components/icons/IconDistribution.vue';
@@ -186,6 +188,7 @@ import IconTrash from '@/components/icons/IconTrash.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 
 const obStore = useObjectBrowserStore();
+const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
@@ -265,9 +268,25 @@ const bucketName = computed((): string => {
 });
 
 /**
+ * Returns current limits from store.
+ */
+const limits = computed((): ProjectLimits => {
+    return projectsStore.state.currentLimits;
+});
+
+const disableDownload = computed<boolean>(() => {
+    const diff = (limits.value.userSetBandwidthLimit ?? limits.value.bandwidthLimit) - limits.value.bandwidthUsed;
+    return (currentFile.value?.Size ?? 0) > diff;
+});
+
+/**
  * Download the current opened file.
  */
 async function download(): Promise<void> {
+    if (disableDownload.value) {
+        notify.error('Bandwidth limit exceeded, can not download this file.');
+        return;
+    }
     if (isDownloading.value || !currentFile.value) {
         return;
     }

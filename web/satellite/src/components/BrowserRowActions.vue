@@ -123,6 +123,8 @@ import { mdiDotsHorizontal } from '@mdi/js';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { ProjectLimits } from '@/types/projects';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import IconDownload from '@/components/icons/IconDownload.vue';
 import IconShare from '@/components/icons/IconShare.vue';
@@ -130,6 +132,8 @@ import IconPreview from '@/components/icons/IconPreview.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 
 const obStore = useObjectBrowserStore();
+const projectsStore = useProjectsStore();
+
 const notify = useNotify();
 
 const props = defineProps<{
@@ -150,7 +154,24 @@ const alignClass = computed<string>(() => {
     return 'text-' + props.align;
 });
 
+/**
+ * Returns current limits from store.
+ */
+const limits = computed((): ProjectLimits => {
+    return projectsStore.state.currentLimits;
+});
+
+const disableDownload = computed<boolean>(() => {
+    const diff = (limits.value.userSetBandwidthLimit ?? limits.value.bandwidthLimit) - limits.value.bandwidthUsed;
+    return props.file?.Size > diff;
+});
+
 async function onDownloadClick(): Promise<void> {
+    if (disableDownload.value) {
+        notify.error('Bandwidth limit exceeded, can not download this file.');
+        return;
+    }
+
     if (isDownloading.value) {
         return;
     }

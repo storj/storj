@@ -5,13 +5,13 @@
     <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center">
         <v-progress-circular indeterminate />
     </v-container>
-    <text-file-preview v-else-if="previewType === PreviewType.Text" :src="objectPreviewUrl">
+    <text-file-preview v-else-if="!loadError && previewType === PreviewType.Text" :src="objectPreviewUrl">
         <file-preview-placeholder :file="file" @download="emit('download')" />
     </text-file-preview>
-    <c-s-v-file-preview v-else-if="previewType === PreviewType.CSV" :src="objectPreviewUrl">
+    <c-s-v-file-preview v-else-if="!loadError && previewType === PreviewType.CSV" :src="objectPreviewUrl">
         <file-preview-placeholder :file="file" @download="emit('download')" />
     </c-s-v-file-preview>
-    <v-container v-else-if="previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
         <video
             controls
             :src="objectPreviewUrl"
@@ -19,25 +19,29 @@
             aria-roledescription="video-preview"
             :autoplay="videoAutoplay"
             :muted="videoAutoplay"
+            @error="loadError = true"
         />
     </v-container>
-    <v-container v-else-if="previewType === PreviewType.Audio" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.Audio" class="fill-height flex-column justify-center align-center">
         <audio
             controls
             :src="objectPreviewUrl"
             aria-roledescription="audio-preview"
+            @error="loadError = true"
         />
     </v-container>
-    <v-container v-else-if="previewType === PreviewType.Image" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.Image" class="fill-height flex-column justify-center align-center">
         <img
-            v-if="objectPreviewUrl"
+            v-if="objectPreviewUrl && !loadError"
             :src="objectPreviewUrl"
             class="v-img__img v-img__img--contain"
             aria-roledescription="image-preview"
             alt="preview"
+            @error="loadError = true"
         >
+        <file-preview-placeholder v-else :file="file" @download="emit('download')" />
     </v-container>
-    <v-container v-else-if="previewType === PreviewType.PDF" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.PDF" class="fill-height flex-column justify-center align-center">
         <object
             :data="objectPreviewUrl"
             type="application/pdf"
@@ -71,6 +75,7 @@ const notify = useNotify();
 const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
+const loadError = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
 
 const props = withDefaults(defineProps<{

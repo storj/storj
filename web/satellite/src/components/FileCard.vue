@@ -17,6 +17,18 @@
                         <template #placeholder>
                             <v-progress-linear indeterminate />
                         </template>
+                        <template #error>
+                            <div
+                                class="d-flex h-100 bg-light flex-column justify-center align-center file-icon-container card-preview-icon"
+                            >
+                                <img
+                                    :src="item.typeInfo.icon"
+                                    :alt="item.typeInfo.title + 'icon'"
+                                    :aria-roledescription="item.typeInfo.title + 'icon'"
+                                    height="52"
+                                >
+                            </div>
+                        </template>
                     </v-img>
                 </template>
                 <template v-else-if="previewType === PreviewType.Video">
@@ -28,19 +40,22 @@
                             muted
                             @loadedmetadata="captureVideoFrame"
                         />
-                        <img
-                            class="absolute"
-                            :src="item.typeInfo.icon"
-                            :alt="item.typeInfo.title + 'icon'"
-                            :aria-roledescription="item.typeInfo.title + 'icon'"
-                            height="52"
-                        >
+                        <div class="absolute w-100 h-100">
+                            <div
+                                class="d-flex h-100 bg-light flex-column justify-center align-center file-icon-container card-preview-icon"
+                            ><img
+                                :src="item.typeInfo.icon"
+                                :alt="item.typeInfo.title + 'icon'"
+                                :aria-roledescription="item.typeInfo.title + 'icon'"
+                                height="52"
+                            >
+                            </div>
+                        </div>
                     </div>
                 </template>
                 <div
                     v-else
                     class="d-flex h-100 bg-light flex-column justify-center align-center file-icon-container card-preview-icon"
-                    :aspect-ratio="1/1"
                 >
                     <img
                         :src="item.typeInfo.icon"

@@ -45,7 +45,18 @@ const isDark = computed(() => theme.global.current.value.dark);
 onMounted(async () => {
     await withLoading(async () => {
         try {
-            content.value = await (await fetch(props.src)).text();
+            const response = await fetch(props.src);
+            const text = await response.text();
+            if (!response.ok) {
+                let message = 'Failed to preview';
+                if (text.includes('limit exceeded')) {
+                    message = `${message}, bandwidth limit exceeded`;
+                }
+                notify.error(message, AnalyticsErrorEventSource.GALLERY_VIEW);
+                isError.value = true;
+                return;
+            }
+            content.value = text;
         } catch (error) {
             notify.error(`Error fetching object. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
             isError.value = true;
