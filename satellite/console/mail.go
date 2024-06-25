@@ -106,6 +106,17 @@ func (*ForgotPasswordEmail) Template() string { return "Forgot" }
 // Subject gets email subject.
 func (*ForgotPasswordEmail) Subject() string { return "Password recovery request" }
 
+// PasswordChangedEmail is mailservice template with password changed data.
+type PasswordChangedEmail struct {
+	ResetPasswordLink string
+}
+
+// Template returns email template name.
+func (*PasswordChangedEmail) Template() string { return "PasswordChanged" }
+
+// Subject gets email subject.
+func (*PasswordChangedEmail) Subject() string { return "Your password changed" }
+
 // ProjectInvitationEmail is mailservice template for project invitation email.
 type ProjectInvitationEmail struct {
 	Origin                string

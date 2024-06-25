@@ -2470,6 +2470,24 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return Error.Wrap(err)
 	}
 
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	address := s.satelliteAddress
+	if !strings.HasSuffix(address, "/") {
+		address += "/"
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&PasswordChangedEmail{
+			ResetPasswordLink: address + "forgot-password",
+		},
+	)
+
 	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
 	if err == nil {
 		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
