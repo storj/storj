@@ -239,7 +239,7 @@ watch(() => user.value.paidTier, (paidTier) => {
  * conditionally prompt for project passphrase if project changes
  */
 watch(() => projectsStore.state.selectedProject, async (project, oldProject) => {
-    if (project.id === oldProject.id) {
+    if (!project.id || project.id === oldProject.id) {
         return;
     }
     try {
