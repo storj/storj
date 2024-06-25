@@ -18,6 +18,7 @@ import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { APIError } from '@/utils/error';
 import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -154,6 +155,60 @@ export class AuthHttpApi implements UsersApi {
         throw new APIError({
             status: response.status,
             message: 'Can not logout. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Used to change user email requests.
+     *
+     * @throws Error
+     */
+    public async changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/change-email`;
+
+        const body = JSON.stringify({
+            step,
+            data,
+        });
+
+        const response = await this.http.post(path, body);
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not change email. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Used to mark user's account for deletion.
+     *
+     * @throws Error
+     */
+    public async deleteAccount(step: DeleteAccountStep, data: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/account`;
+
+        const body = JSON.stringify({
+            step,
+            data,
+        });
+
+        const response = await this.http.delete(path, body);
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not delete account. Please try again later',
             requestID: response.headers.get('x-request-id'),
         });
     }

@@ -121,7 +121,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCol, VRow } from 'vuetify/components';
 import { mdiArrowRight, mdiCheck } from '@mdi/js';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -133,7 +133,6 @@ import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/types/router';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
@@ -400,6 +399,14 @@ onMounted(async () => {
         onboardingInfo.value = config[user.partner] as OnboardingInfo;
     } catch { /* empty */ }
 });
+
+watch(() => projectsStore.state.selectedProjectConfig, config => {
+    const hasSatelliteManagedEncryption = !!config.passphrase;
+    if (hasSatelliteManagedEncryption && currentStep.value === OnboardingStep.EncryptionPassphrase) {
+    // Skip the passphrase step if the project passphrase is satellite managed
+        progressStep();
+    }
+}, { immediate: true });
 
 defineExpose({ endOnboarding });
 </script>

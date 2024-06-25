@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" rounded="lg">
+    <v-card variant="flat" rounded="lg">
         <div class="h-100 d-flex flex-column justify-space-between">
             <a role="button" class="h-100" @click="emit('previewClick', item.browserObject)">
                 <template v-if="previewType === PreviewType.Image">

@@ -68,5 +68,5 @@ func TestTestingBatchInsertSegments(t *testing.T) {
 
 		require.Zero(t, cmp.Diff(rawSegments, metabasetest.SegmentsToRaw(insertedSegments),
 			cmpopts.EquateApproxTime(1*time.Second)))
-	}, metabasetest.WithSpanner())
+	})
 }

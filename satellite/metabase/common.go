@@ -123,6 +123,15 @@ func (loc BucketLocation) CompactPrefix() []byte {
 	return xs
 }
 
+// Compare compares this BucketLocation with another.
+func (loc BucketLocation) Compare(other BucketLocation) int {
+	cmp := loc.ProjectID.Compare(other.ProjectID)
+	if cmp != 0 {
+		return cmp
+	}
+	return strings.Compare(loc.BucketName, other.BucketName)
+}
+
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
 // It is not ascii safe.
 type ObjectKey string

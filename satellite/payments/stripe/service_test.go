@@ -317,6 +317,7 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 			users[i], err = satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -421,6 +422,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			user, err := satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -505,6 +507,7 @@ func TestService_InvoiceElementsProcessingGrouped(t *testing.T) {
 			user, err := satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -592,6 +595,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, numberOfProjects)
 		require.NoError(t, err)
 
@@ -680,6 +684,7 @@ func TestService_FinalizeInvoices(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -769,6 +774,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 			users[i], err = satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -1115,6 +1121,7 @@ func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -1262,6 +1269,7 @@ func TestFailPendingInvoicePayment(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -1387,6 +1395,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 				user, err := satellite.AddUser(ctx, console.CreateUser{
 					FullName: "Test User",
 					Email:    "test@mail.test",
+					PaidTier: true,
 				}, 1)
 				require.NoError(t, err)
 
@@ -1545,6 +1554,7 @@ func TestProjectUsagePrice(t *testing.T) {
 					FullName:  "Test User",
 					Email:     fmt.Sprintf("user%d@mail.test", i),
 					UserAgent: tt.userAgent,
+					PaidTier:  true,
 				}, 1)
 				require.NoError(t, err)
 
@@ -1812,6 +1822,7 @@ func TestService_PayInvoiceBillingID(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 

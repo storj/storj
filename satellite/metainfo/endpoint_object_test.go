@@ -819,7 +819,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 	})
 }
 
-func TestEndpoint_Object_UploadLimit(t *testing.T) {
+func TestEndpoint_Object_Limit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -829,12 +829,23 @@ func TestEndpoint_Object_UploadLimit(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		endpoint := planet.Satellites[0].Metainfo.Endpoint
+		sat := planet.Satellites[0]
+		endpoint := sat.Metainfo.Endpoint
 
 		bucketName := "testbucket"
 
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		project, err := sat.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
 		require.NoError(t, err)
+		require.NotNil(t, project)
+
+		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
+
+		limit := 2 * memory.KB
+		project.StorageLimit = &limit
+		project.BandwidthLimit = &limit
+		err = sat.DB.Console().Projects().Update(ctx, project)
+		assert.NoError(t, err)
 
 		t.Run("limit single object upload", func(t *testing.T) {
 
@@ -869,6 +880,76 @@ func TestEndpoint_Object_UploadLimit(t *testing.T) {
 
 			request.EncryptedObjectKey = []byte("single-objectB")
 			_, err = endpoint.BeginObject(ctx, request)
+			require.NoError(t, err)
+		})
+
+		t.Run("user specified limit upload", func(t *testing.T) {
+			request := &pb.BeginObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("some-object"),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			}
+			_, err = endpoint.BeginObject(ctx, request)
+			require.NoError(t, err)
+
+			// zero user specified storage limit
+			project.UserSpecifiedStorageLimit = new(memory.Size)
+			err = sat.DB.Console().Projects().Update(ctx, project)
+			assert.NoError(t, err)
+
+			request.EncryptedObjectKey = []byte("another-object")
+			// must fail because user specified storage limit is zero
+			_, err = endpoint.BeginObject(ctx, request)
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+			project.UserSpecifiedStorageLimit = project.StorageLimit
+			err = sat.DB.Console().Projects().Update(ctx, project)
+			assert.NoError(t, err)
+
+			request.EncryptedObjectKey = []byte("yet-another-object")
+			_, err = endpoint.BeginObject(ctx, request)
+			require.NoError(t, err)
+		})
+
+		t.Run("user specified limit download", func(t *testing.T) {
+			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, "some-object", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.NotEmpty(t, objects)
+
+			request := &pb.DownloadObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			}
+			_, err = endpoint.DownloadObject(ctx, request)
+			require.NoError(t, err)
+
+			// zero user specified bandwidth limit
+			project.UserSpecifiedBandwidthLimit = new(memory.Size)
+			err = sat.DB.Console().Projects().Update(ctx, project)
+			assert.NoError(t, err)
+
+			// must fail because user specified bandwidth limit is zero
+			_, err = endpoint.DownloadObject(ctx, request)
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+			project.UserSpecifiedBandwidthLimit = project.BandwidthLimit
+			err = sat.DB.Console().Projects().Update(ctx, project)
+			assert.NoError(t, err)
+
+			_, err = endpoint.DownloadObject(ctx, request)
 			require.NoError(t, err)
 		})
 	})

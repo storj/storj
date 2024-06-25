@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -41,7 +42,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 				token_value,
 				usd_value,
 				status,
-				timestamp,
+				block_timestamp,
 				created_at
 			) SELECT
 				UNNEST($1::INT8[]),
@@ -132,7 +133,7 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 		return nil, Error.Wrap(err)
 	}
 
-	return convertSliceNoError(dbxPmnts, fromDBXPayment), nil
+	return slices2.Map(dbxPmnts, fromDBXPayment), nil
 }
 
 // LastBlocks returns the highest blocks known to DB per chain.
@@ -190,7 +191,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 	}
 
 	// TODO: use DBX here and optimize this query
-	query := `SELECT chain_id, block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
+	query := `SELECT chain_id, block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, block_timestamp
               FROM storjscan_payments WHERE chain_id = any($1::INT8[]) AND (storjscan_payments.block_number, storjscan_payments.log_index) > ($2, $3)
               AND storjscan_payments.status = $4 ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
 	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
@@ -203,7 +204,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 	for rows.Next() {
 		var payment dbx.StorjscanPayment
 		err = rows.Scan(&payment.ChainId, &payment.BlockHash, &payment.BlockNumber, &payment.Transaction, &payment.LogIndex,
-			&payment.FromAddress, &payment.ToAddress, &payment.TokenValue, &payment.UsdValue, &payment.Status, &payment.Timestamp)
+			&payment.FromAddress, &payment.ToAddress, &payment.TokenValue, &payment.UsdValue, &payment.Status, &payment.BlockTimestamp)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +222,7 @@ func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,
 		LogIndex:    dbxPmnt.LogIndex,
-		Timestamp:   dbxPmnt.Timestamp.UTC(),
+		Timestamp:   dbxPmnt.BlockTimestamp.UTC(),
 	}
 	copy(payment.From[:], dbxPmnt.FromAddress)
 	copy(payment.To[:], dbxPmnt.ToAddress)

@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -136,7 +137,7 @@ func (projects *projects) Get(ctx context.Context, id uuid.UUID) (_ *console.Pro
 		return nil, err
 	}
 
-	return projectFromDBX(ctx, project)
+	return ProjectFromDBX(ctx, project)
 }
 
 // GetSalt returns the project's salt.
@@ -157,6 +158,19 @@ func (projects *projects) GetSalt(ctx context.Context, id uuid.UUID) (salt []byt
 	return salt, nil
 }
 
+// GetEncryptedPassphrase gets the encrypted passphrase of this project.
+// NB: projects that don't have satellite managed encryption will not have this.
+func (projects *projects) GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	res, err := projects.db.Get_Project_PassphraseEnc_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.PassphraseEnc, nil
+}
+
 // GetByPublicID is a method for querying project from the database by public_id.
 func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -166,7 +180,7 @@ func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID)
 		return nil, err
 	}
 
-	return projectFromDBX(ctx, project)
+	return ProjectFromDBX(ctx, project)
 }
 
 // Insert is a method for inserting project into the database.
@@ -203,6 +217,12 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if project.SegmentLimit != nil {
 		createFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
 	}
+	if project.PassphraseEnc != nil {
+		createFields.PassphraseEnc = dbx.Project_PassphraseEnc(project.PassphraseEnc)
+	}
+	if project.PathEncryption != nil {
+		createFields.PathEncryption = dbx.Project_PathEncryption(*project.PathEncryption)
+	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
@@ -222,7 +242,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		return nil, err
 	}
 
-	return projectFromDBX(ctx, createdProject)
+	return ProjectFromDBX(ctx, createdProject)
 }
 
 // Delete is a method for deleting project by Id from the database.
@@ -383,6 +403,76 @@ func (projects *projects) UpdateAllLimits(
 	)
 
 	return err
+}
+
+// UpdateLimitsGeneric is a method for updating any or all types of limits on a project.
+// ALL limits passed in to the request will be updated i.e. if a limit type is passed in with a null value, that limit will be updated to null.
+func (projects *projects) UpdateLimitsGeneric(ctx context.Context, id uuid.UUID, toUpdate []console.Limit) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(toUpdate) == 0 {
+		return nil
+	}
+
+	updateFields := dbx.Project_Update_Fields{}
+
+	for _, limit := range toUpdate {
+		val64 := limit.Value
+		var val32 *int
+		if val64 != nil {
+			newVal := int(*val64)
+			val32 = &newVal
+		}
+
+		switch limit.Kind {
+		case console.StorageLimit:
+			updateFields.UsageLimit = dbx.Project_UsageLimit_Raw(val64)
+		case console.BandwidthLimit:
+			updateFields.BandwidthLimit = dbx.Project_BandwidthLimit_Raw(val64)
+		case console.UserSetStorageLimit:
+			updateFields.UserSpecifiedUsageLimit = dbx.Project_UserSpecifiedUsageLimit_Raw(val64)
+		case console.UserSetBandwidthLimit:
+			updateFields.UserSpecifiedBandwidthLimit = dbx.Project_UserSpecifiedBandwidthLimit_Raw(val64)
+		case console.SegmentLimit:
+			updateFields.SegmentLimit = dbx.Project_SegmentLimit_Raw(val64)
+		case console.BucketsLimit:
+			updateFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(val32)
+		case console.RateLimit:
+			updateFields.RateLimit = dbx.Project_RateLimit_Raw(val32)
+		case console.BurstLimit:
+			updateFields.BurstLimit = dbx.Project_BurstLimit_Raw(val32)
+		case console.RateLimitHead:
+			updateFields.RateLimitHead = dbx.Project_RateLimitHead_Raw(val32)
+		case console.BurstLimitHead:
+			updateFields.BurstLimitHead = dbx.Project_BurstLimitHead_Raw(val32)
+		case console.RateLimitGet:
+			updateFields.RateLimitGet = dbx.Project_RateLimitGet_Raw(val32)
+		case console.BurstLimitGet:
+			updateFields.BurstLimitGet = dbx.Project_BurstLimitGet_Raw(val32)
+		case console.RateLimitPut:
+			updateFields.RateLimitPut = dbx.Project_RateLimitPut_Raw(val32)
+		case console.BurstLimitPut:
+			updateFields.BurstLimitPut = dbx.Project_BurstLimitPut_Raw(val32)
+		case console.RateLimitList:
+			updateFields.RateLimitList = dbx.Project_RateLimitList_Raw(val32)
+		case console.BurstLimitList:
+			updateFields.BurstLimitList = dbx.Project_BurstLimitList_Raw(val32)
+		case console.RateLimitDelete:
+			updateFields.RateLimitDel = dbx.Project_RateLimitDel_Raw(val32)
+		case console.BurstLimitDelete:
+			updateFields.BurstLimitDel = dbx.Project_BurstLimitDel_Raw(val32)
+		default:
+			return errs.New("Limit kind not supported in update. No limits updated. Limit kind: %d", limit.Kind)
+		}
+
+	}
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		updateFields,
+	)
+
+	return err
+
 }
 
 // UpdateUserAgent is a method for updating projects user agent.
@@ -573,8 +663,8 @@ func (projects *projects) ListByOwnerID(
 	return page, rows.Err()
 }
 
-// projectFromDBX is used for creating Project entity from autogenerated dbx.Project struct.
-func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Project, err error) {
+// ProjectFromDBX is used for creating Project entity from autogenerated dbx.Project struct.
+func ProjectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if project == nil {
@@ -610,22 +700,35 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 	}
 
 	return &console.Project{
-		ID:                        id,
-		PublicID:                  publicID,
-		Name:                      project.Name,
-		Description:               project.Description,
-		UserAgent:                 userAgent,
-		OwnerID:                   ownerID,
-		RateLimit:                 project.RateLimit,
-		BurstLimit:                project.BurstLimit,
-		MaxBuckets:                project.MaxBuckets,
-		CreatedAt:                 project.CreatedAt,
-		StorageLimit:              (*memory.Size)(project.UsageLimit),
-		BandwidthLimit:            (*memory.Size)(project.BandwidthLimit),
-		SegmentLimit:              project.SegmentLimit,
-		DefaultPlacement:          placement,
-		DefaultVersioning:         console.DefaultVersioning(project.DefaultVersioning),
-		PromptedForVersioningBeta: project.PromptedForVersioningBeta,
+		ID:                          id,
+		PublicID:                    publicID,
+		Name:                        project.Name,
+		Description:                 project.Description,
+		UserAgent:                   userAgent,
+		OwnerID:                     ownerID,
+		RateLimit:                   project.RateLimit,
+		BurstLimit:                  project.BurstLimit,
+		RateLimitHead:               project.RateLimitHead,
+		BurstLimitHead:              project.BurstLimitHead,
+		RateLimitGet:                project.RateLimitGet,
+		BurstLimitGet:               project.BurstLimitGet,
+		RateLimitPut:                project.RateLimitPut,
+		BurstLimitPut:               project.BurstLimitPut,
+		RateLimitList:               project.RateLimitList,
+		BurstLimitList:              project.BurstLimitList,
+		RateLimitDelete:             project.RateLimitDel,
+		BurstLimitDelete:            project.BurstLimitDel,
+		MaxBuckets:                  project.MaxBuckets,
+		CreatedAt:                   project.CreatedAt,
+		StorageLimit:                (*memory.Size)(project.UsageLimit),
+		UserSpecifiedStorageLimit:   (*memory.Size)(project.UserSpecifiedUsageLimit),
+		BandwidthLimit:              (*memory.Size)(project.BandwidthLimit),
+		UserSpecifiedBandwidthLimit: (*memory.Size)(project.UserSpecifiedBandwidthLimit),
+		SegmentLimit:                project.SegmentLimit,
+		DefaultPlacement:            placement,
+		DefaultVersioning:           console.DefaultVersioning(project.DefaultVersioning),
+		PromptedForVersioningBeta:   project.PromptedForVersioningBeta,
+		PathEncryption:              &project.PathEncryption,
 	}, nil
 }
 
@@ -633,9 +736,9 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 func projectsFromDbxSlice(ctx context.Context, projectsDbx []*dbx.Project) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projects, errors := convertSliceWithErrors(projectsDbx,
+	projects, errors := slices2.ConvertErrs(projectsDbx,
 		func(v *dbx.Project) (r console.Project, _ error) {
-			p, err := projectFromDBX(ctx, v)
+			p, err := ProjectFromDBX(ctx, v)
 			if err != nil {
 				return r, err
 			}

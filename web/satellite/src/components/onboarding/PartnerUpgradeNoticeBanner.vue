@@ -3,7 +3,6 @@
 
 <template>
     <v-alert
-        v-if="planInfo"
         :model-value="model"
         :title="planInfo.bannerTitle"
         closable
@@ -42,14 +41,9 @@ import { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { useConfigStore } from '@/store/modules/configStore';
-import { PaymentsHttpApi } from '@/api/payments';
 
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
-const payments: PaymentsHttpApi = new PaymentsHttpApi();
-
-const configStore = useConfigStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
@@ -58,7 +52,7 @@ const isUpgradeDialogShown = ref<boolean>(false);
 
 const upgradeDialog = ref<{ setSecondStep: ()=>void }>();
 
-const props = defineProps<{
+defineProps<{
     planInfo: PricingPlanInfo,
 }>();
 

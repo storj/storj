@@ -17,6 +17,7 @@ type Config struct {
 	Info2     string `help:"path to the info database"`
 	Driver    string `help:"database driver to use" default:"sqlite3"`
 	Pieces    string `help:"path to store pieces in"`
+	Cache     string `help:"optional type of file stat cache. Might be useful for slow disk and limited memory. Available options: badger (EXPERIMENTAL)"`
 	Filestore filestore.Config
 
 	LowerIOPriority bool `help:"if true, the process will run with lower IO priority" default:"true"`
@@ -25,7 +26,7 @@ type Config struct {
 // Args returns the flags to be passed lazyfilewalker process.
 func (config *Config) Args() []string {
 	// TODO: of course, we shouldn't hardcode this.
-	return []string{
+	args := []string{
 		"--storage", config.Storage,
 		"--info", config.Info,
 		"--info2", config.Info2,
@@ -40,4 +41,9 @@ func (config *Config) Args() []string {
 		"--log.encoding", "json",
 		fmt.Sprintf("--lower-io-priority=%v", config.LowerIOPriority),
 	}
+	if config.Cache != "" {
+		args = append(args, "--cache")
+		args = append(args, config.Cache)
+	}
+	return args
 }

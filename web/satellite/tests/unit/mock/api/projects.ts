@@ -11,6 +11,7 @@ import {
     ProjectsCursor,
     ProjectsPage,
     ProjectsStorageBandwidthDaily,
+    UpdateProjectFields,
 } from '@/types/projects';
 
 /**
@@ -45,7 +46,7 @@ export class ProjectsApiMock implements ProjectsApi {
         return Promise.resolve(this.mockProjectsPage);
     }
 
-    update(_projectId: string, _projectFields: ProjectFields, _projectLimits: ProjectLimits): Promise<void> {
+    update(_projectId: string, _projectFields: UpdateProjectFields): Promise<void> {
         return Promise.resolve();
     }
 

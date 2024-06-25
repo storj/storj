@@ -17,6 +17,11 @@ import (
 
 func TestGetTableStats(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement for spanner.
+			t.Skip("not correct implementation for spanner")
+		}
+
 		t.Run("no data", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -85,28 +90,28 @@ func TestGetTableStats(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
-
-			t.Run("use statistics", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				obj1 := metabasetest.RandObjectStream()
-				metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 4)
-
-				_, err := db.UnderlyingTagSQL().ExecContext(ctx, "CREATE STATISTICS test FROM segments")
-				require.NoError(t, err)
-
-				// add some segments after creating statistics to know that results are taken
-				// from statistics and not directly with SELECT count(*)
-				obj1 = metabasetest.RandObjectStream()
-				metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 4)
-
-				metabasetest.GetTableStats{
-					Opts: metabase.GetTableStats{},
-					Result: metabase.TableStats{
-						SegmentCount: 4,
-					},
-				}.Check(ctx, t, db)
-			})
 		}
+
+		t.Run("use statistics", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 4)
+
+			err := db.UpdateTableStats(ctx)
+			require.NoError(t, err)
+
+			// add some segments after creating statistics to know that results are taken
+			// from statistics and not directly with SELECT count(*)
+			obj1 = metabasetest.RandObjectStream()
+			metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 4)
+
+			metabasetest.GetTableStats{
+				Opts: metabase.GetTableStats{},
+				Result: metabase.TableStats{
+					SegmentCount: 4,
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }

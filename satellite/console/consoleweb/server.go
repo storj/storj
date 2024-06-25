@@ -110,6 +110,7 @@ type Config struct {
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NewAppSetupFlowEnabled          bool          `help:"whether new application setup flow should be used" default:"false"`
+	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -289,6 +290,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("", http.HandlerFunc(projectsController.CreateProject)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/paged", http.HandlerFunc(projectsController.GetPagedProjects)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.UpdateProject)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}/limits", http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits)).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
@@ -320,6 +322,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
@@ -341,6 +344,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost, http.MethodOptions)
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
@@ -613,9 +617,9 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 
 	if server.config.CSPEnabled {
 		connectSrc := fmt.Sprintf("connect-src 'self' %s %s", server.config.ConnectSrcSuffix, server.config.GatewayCredentialsRequestURL)
-		scriptSrc := "script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com"
+		scriptSrc := "script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'nonce-dQw4w9WgXcQ' 'self' *.stripe.com"
 		// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self'"
+		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'nonce-dQw4w9WgXcQ' 'self'"
 		frameSrc := "frame-src 'self' *.stripe.com " + server.config.PublicLinksharingURL
 		objectSrc := "object-src 'self' " + server.config.PublicLinksharingURL
 
@@ -827,60 +831,64 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	w.Header().Set(contentType, applicationJSON)
 
 	cfg := FrontendConfig{
-		ExternalAddress:                 server.config.ExternalAddress,
-		SatelliteName:                   server.config.SatelliteName,
-		SatelliteNodeURL:                server.nodeURL.String(),
-		StripePublicKey:                 server.stripePublicKey,
-		PartneredSatellites:             server.config.PartneredSatellites,
-		DefaultProjectLimit:             server.config.DefaultProjectLimit,
-		GeneralRequestURL:               server.config.GeneralRequestURL,
-		ProjectLimitsIncreaseRequestURL: server.config.ProjectLimitsIncreaseRequestURL,
-		GatewayCredentialsRequestURL:    server.config.GatewayCredentialsRequestURL,
-		IsBetaSatellite:                 server.config.IsBetaSatellite,
-		BetaSatelliteFeedbackURL:        server.config.BetaSatelliteFeedbackURL,
-		BetaSatelliteSupportURL:         server.config.BetaSatelliteSupportURL,
-		DocumentationURL:                server.config.DocumentationURL,
-		CouponCodeBillingUIEnabled:      server.config.CouponCodeBillingUIEnabled,
-		CouponCodeSignupUIEnabled:       server.config.CouponCodeSignupUIEnabled,
-		FileBrowserFlowDisabled:         server.config.FileBrowserFlowDisabled,
-		LinksharingURL:                  server.config.LinksharingURL,
-		PublicLinksharingURL:            server.config.PublicLinksharingURL,
-		PathwayOverviewEnabled:          server.config.PathwayOverviewEnabled,
-		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
-		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
-		Captcha:                         server.config.Captcha,
-		LimitsAreaEnabled:               server.config.LimitsAreaEnabled,
-		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
-		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,
-		InactivityTimerViewerEnabled:    server.config.Session.InactivityTimerViewerEnabled,
-		OptionalSignupSuccessURL:        server.config.OptionalSignupSuccessURL,
-		HomepageURL:                     server.config.HomepageURL,
-		NativeTokenPaymentsEnabled:      server.config.NativeTokenPaymentsEnabled,
-		PasswordMinimumLength:           console.PasswordMinimumLength,
-		PasswordMaximumLength:           console.PasswordMaximumLength,
-		ABTestingEnabled:                server.config.ABTesting.Enabled,
-		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
-		GalleryViewEnabled:              server.config.GalleryViewEnabled,
-		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
-		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
-		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
-		StripePaymentElementEnabled:     server.config.StripePaymentElementEnabled,
-		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
-		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
-		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
-		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
-		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
-		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
-		EnableRegionTag:                 server.config.EnableRegionTag,
-		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
-		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
-		AnalyticsEnabled:                server.AnalyticsConfig.Enabled,
-		DaysBeforeTrialEndNotification:  server.config.DaysBeforeTrialEndNotification,
-		NewAppSetupFlowEnabled:          server.config.NewAppSetupFlowEnabled,
-		ObjectBrowserKeyNamePrefix:      server.config.ObjectBrowserKeyNamePrefix,
-		ObjectBrowserKeyLifetime:        server.config.ObjectBrowserKeyLifetime,
-		MaxNameCharacters:               server.config.MaxNameCharacters,
-		BillingInformationTabEnabled:    server.config.BillingInformationTabEnabled,
+		ExternalAddress:                   server.config.ExternalAddress,
+		SatelliteName:                     server.config.SatelliteName,
+		SatelliteNodeURL:                  server.nodeURL.String(),
+		StripePublicKey:                   server.stripePublicKey,
+		PartneredSatellites:               server.config.PartneredSatellites,
+		DefaultProjectLimit:               server.config.DefaultProjectLimit,
+		GeneralRequestURL:                 server.config.GeneralRequestURL,
+		ProjectLimitsIncreaseRequestURL:   server.config.ProjectLimitsIncreaseRequestURL,
+		GatewayCredentialsRequestURL:      server.config.GatewayCredentialsRequestURL,
+		IsBetaSatellite:                   server.config.IsBetaSatellite,
+		BetaSatelliteFeedbackURL:          server.config.BetaSatelliteFeedbackURL,
+		BetaSatelliteSupportURL:           server.config.BetaSatelliteSupportURL,
+		DocumentationURL:                  server.config.DocumentationURL,
+		CouponCodeBillingUIEnabled:        server.config.CouponCodeBillingUIEnabled,
+		CouponCodeSignupUIEnabled:         server.config.CouponCodeSignupUIEnabled,
+		FileBrowserFlowDisabled:           server.config.FileBrowserFlowDisabled,
+		LinksharingURL:                    server.config.LinksharingURL,
+		PublicLinksharingURL:              server.config.PublicLinksharingURL,
+		PathwayOverviewEnabled:            server.config.PathwayOverviewEnabled,
+		DefaultPaidStorageLimit:           server.config.UsageLimits.Storage.Paid,
+		DefaultPaidBandwidthLimit:         server.config.UsageLimits.Bandwidth.Paid,
+		Captcha:                           server.config.Captcha,
+		LimitsAreaEnabled:                 server.config.LimitsAreaEnabled,
+		InactivityTimerEnabled:            server.config.Session.InactivityTimerEnabled,
+		InactivityTimerDuration:           server.config.Session.InactivityTimerDuration,
+		InactivityTimerViewerEnabled:      server.config.Session.InactivityTimerViewerEnabled,
+		OptionalSignupSuccessURL:          server.config.OptionalSignupSuccessURL,
+		HomepageURL:                       server.config.HomepageURL,
+		NativeTokenPaymentsEnabled:        server.config.NativeTokenPaymentsEnabled,
+		PasswordMinimumLength:             console.PasswordMinimumLength,
+		PasswordMaximumLength:             console.PasswordMaximumLength,
+		ABTestingEnabled:                  server.config.ABTesting.Enabled,
+		PricingPackagesEnabled:            server.config.PricingPackagesEnabled,
+		GalleryViewEnabled:                server.config.GalleryViewEnabled,
+		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
+		ObjectBrowserPaginationEnabled:    server.config.ObjectBrowserPaginationEnabled,
+		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
+		StripePaymentElementEnabled:       server.config.StripePaymentElementEnabled,
+		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
+		UserBalanceForUpgrade:             server.config.UserBalanceForUpgrade,
+		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,
+		SignupActivationCodeEnabled:       server.config.SignupActivationCodeEnabled,
+		AllowedUsageReportDateRange:       server.config.AllowedUsageReportDateRange,
+		OnboardingStepperEnabled:          server.config.OnboardingStepperEnabled,
+		EnableRegionTag:                   server.config.EnableRegionTag,
+		EmissionImpactViewEnabled:         server.config.EmissionImpactViewEnabled,
+		ApplicationsPageEnabled:           server.config.ApplicationsPageEnabled,
+		AnalyticsEnabled:                  server.AnalyticsConfig.Enabled,
+		DaysBeforeTrialEndNotification:    server.config.DaysBeforeTrialEndNotification,
+		NewAppSetupFlowEnabled:            server.config.NewAppSetupFlowEnabled,
+		ObjectBrowserKeyNamePrefix:        server.config.ObjectBrowserKeyNamePrefix,
+		ObjectBrowserKeyLifetime:          server.config.ObjectBrowserKeyLifetime,
+		MaxNameCharacters:                 server.config.MaxNameCharacters,
+		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
+		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
+		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
+		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
+		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

@@ -34,6 +34,20 @@ func BenchmarkRun(b *testing.B) {
 	require.True(b, s1.closed)
 }
 
+func TestInterface(t *testing.T) {
+	ct := &closeableThing{n: 27}
+	var result int
+	Run[closeableInterface](t, func(ball *mud.Ball) {
+		mud.Provide[closeableInterface](ball, func() closeableInterface {
+			return ct
+		})
+	}, func(ctx context.Context, t *testing.T, target closeableInterface) {
+		result = target.(*closeableThing).n
+	})
+	require.Equal(t, 27, result)
+	require.True(t, ct.closed)
+}
+
 type Service1 struct {
 	closed bool
 }
@@ -55,4 +69,18 @@ func NewService2(service1 *Service1) *Service2 {
 	return &Service2{
 		Dependency: service1,
 	}
+}
+
+type closeableThing struct {
+	closed bool
+	n      int
+}
+
+func (c *closeableThing) Close() error {
+	c.closed = true
+	return nil
+}
+
+type closeableInterface interface {
+	Close() error
 }

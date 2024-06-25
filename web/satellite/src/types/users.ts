@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { Duration } from '@/utils/time';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 
 /**
  * Exposes all user-related functionality.
@@ -14,6 +15,7 @@ export interface UsersApi {
      * @throws Error
      */
     update(user: UpdatedUser): Promise<void>;
+
     /**
      * Fetch user.
      *
@@ -21,6 +23,7 @@ export interface UsersApi {
      * @throws Error
      */
     get(): Promise<User>;
+
     /**
      * Fetches user frozen status.
      *
@@ -47,35 +50,58 @@ export interface UsersApi {
     updateSettings(data: SetUserSettingsData): Promise<UserSettings>;
 
     /**
+     * Changes user's email.
+     *
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    changeEmail(step: ChangeEmailStep, data: string): Promise<void>;
+
+    /**
+     * Marks user's account for deletion.
+     *
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    deleteAccount(step: DeleteAccountStep, data: string): Promise<void>;
+
+    /**
      * Enable user's MFA.
      *
      * @throws Error
      */
     enableUserMFA(passcode: string): Promise<void>;
+
     /**
      * Disable user's MFA.
      *
      * @throws Error
      */
     disableUserMFA(passcode: string, recoveryCode: string): Promise<void>;
+
     /**
      * Generate user's MFA secret.
      *
      * @throws Error
      */
     generateUserMFASecret(): Promise<string>;
+
     /**
      * Generate user's MFA recovery codes.
      *
      * @throws Error
      */
     generateUserMFARecoveryCodes(): Promise<string[]>;
+
     /**
      * Generate user's MFA recovery codes requiring a code.
      *
      * @throws Error
      */
     regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]>;
+
     /**
      * Request increase for user's project limit.
      *
@@ -237,6 +263,7 @@ export interface NoticeDismissal {
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
     uploadOverwriteWarning?: boolean;
+    versioningBetaBanner?: boolean;
 }
 
 export interface SetUserSettingsData {
@@ -266,6 +293,7 @@ export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
     PersonalAccountForm = 'PersonalAccountForm',
     PricingPlanSelection = 'PricingPlanSelection',
+    ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
     PricingPlan = 'PricingPlan',
     BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
@@ -285,6 +313,7 @@ export const ONBOARDING_STEPPER_STEPS = [
 export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountTypeSelection,
     OnboardingStep.PersonalAccountForm,
+    OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.PricingPlanSelection,
     OnboardingStep.PricingPlan,
     OnboardingStep.BusinessAccountForm,

@@ -4,7 +4,7 @@
 <template>
     <v-card variant="flat" title="Add Card">
         <v-card-text>
-            <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
+            <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" rounded="md" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
 
             <template v-else>
                 <StripeCardElement

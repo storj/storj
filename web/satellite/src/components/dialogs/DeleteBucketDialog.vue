@@ -190,29 +190,16 @@ async function onDelete(): Promise<void> {
 
             const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
             bucketsStore.setEdgeCredentialsForDelete(edgeCredentials);
-            await bucketsStore.deleteBucket(props.bucketName);
-            analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
-            await fetchBuckets();
+            const deleteRequest = bucketsStore.deleteBucket(props.bucketName);
+            bucketsStore.handleDeleteBucketRequest(props.bucketName, deleteRequest);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
             return;
         }
 
-        notify.success('Bucket deleted.');
         model.value = false;
         emit('deleted');
     });
-}
-
-/**
- * Fetches bucket using api.
- */
-async function fetchBuckets(): Promise<void> {
-    try {
-        await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
-    } catch (error) {
-        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-    }
 }
 
 /**

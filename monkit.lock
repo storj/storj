@@ -39,12 +39,15 @@ storj.io/storj/satellite/audit."reverify_offlines_global" Meter
 storj.io/storj/satellite/audit."reverify_successes_global" Meter
 storj.io/storj/satellite/audit."reverify_unknown_global" Meter
 storj.io/storj/satellite/audit."verify_shares_downloaded_successfully" IntVal
+storj.io/storj/satellite/console."change_email_2fa_passcode_failure" Counter
+storj.io/storj/satellite/console."change_email_locked_out" Counter
 storj.io/storj/satellite/console."create_user_attempt" Counter
 storj.io/storj/satellite/console."create_user_captcha_error" Counter
 storj.io/storj/satellite/console."create_user_captcha_unsuccessful" Counter
 storj.io/storj/satellite/console."create_user_duplicate_unverified" Counter
 storj.io/storj/satellite/console."create_user_duplicate_verified" Counter
 storj.io/storj/satellite/console."create_user_success" Counter
+storj.io/storj/satellite/console."delete_account_locked_out" Counter
 storj.io/storj/satellite/console."login_attempt" Counter
 storj.io/storj/satellite/console."login_email_invalid" Counter
 storj.io/storj/satellite/console."login_email_unverified" Counter

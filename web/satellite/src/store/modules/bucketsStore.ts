@@ -63,7 +63,7 @@ export class BucketsState {
     public fileComponentPath = '';
     public leaveRoute = '';
     public enterPassphraseCallback: (() => void) | null = null;
-    public bucketToDelete = '';
+    public bucketsBeingDeleted: Set<string> = new Set<string>();
 }
 
 export const useBucketsStore = defineStore('buckets', () => {
@@ -291,10 +291,25 @@ export const useBucketsStore = defineStore('buckets', () => {
         }));
     }
 
+    /**
+     * This is an empty action for App.vue to subscribe to know the status of the delete bucket request.
+     *
+     * @param bucketName - the bucket name.
+     * @param deleteRequest - the promise of the delete bucket request.
+     */
+    function handleDeleteBucketRequest(bucketName: string, deleteRequest: Promise<void>): void {
+        /* empty */
+    }
+
     async function deleteBucket(name: string): Promise<void> {
-        await state.s3ClientForDelete.send(new DeleteBucketCommand({
-            Bucket: name,
-        }));
+        state.bucketsBeingDeleted.add(name);
+        try {
+            await state.s3ClientForDelete.send(new DeleteBucketCommand({
+                Bucket: name,
+            }));
+        } finally {
+            state.bucketsBeingDeleted.delete(name);
+        }
     }
 
     async function getObjectsCount(name: string): Promise<number> {
@@ -304,10 +319,6 @@ export const useBucketsStore = defineStore('buckets', () => {
         }));
 
         return (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
-    }
-
-    function setBucketToDelete(bucket: string): void {
-        state.bucketToDelete = bucket;
     }
 
     function clearS3Data(): void {
@@ -336,7 +347,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         });
         state.fileComponentBucketName = '';
         state.leaveRoute = '';
-        state.bucketToDelete = '';
+        state.bucketsBeingDeleted.clear();
     }
 
     function clear(): void {
@@ -368,8 +379,8 @@ export const useBucketsStore = defineStore('buckets', () => {
         createBucketWithNoPassphrase,
         setVersioning,
         deleteBucket,
+        handleDeleteBucketRequest,
         getObjectsCount,
-        setBucketToDelete,
         clearS3Data,
         clear,
     };

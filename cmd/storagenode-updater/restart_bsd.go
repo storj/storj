@@ -20,7 +20,7 @@ func cmdRestart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func restartService(ctx context.Context, service, binaryLocation, newVersionPath, backupPath string) error {
+func restartService(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) error {
 	if err := os.Rename(binaryLocation, backupPath); err != nil {
 		return errs.Wrap(err)
 	}
@@ -31,6 +31,15 @@ func restartService(ctx context.Context, service, binaryLocation, newVersionPath
 
 	if service == updaterServiceName {
 		os.Exit(1)
+	}
+
+	if restartMethod == "service" {
+		c := exec.Command("service", service, "restart")
+		output, err := c.CombinedOutput()
+		if err != nil {
+			return errs.New("Couldn't restart %s service: %s %v", service, string(output), err)
+		}
+		return nil
 	}
 
 	if err := stopProcess(service); err != nil {

@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metabase
+package metabase_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/mud"
 	"storj.io/storj/private/mud/mudtest"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestBeginObjectSpanner(t *testing.T) {
@@ -22,27 +23,27 @@ func TestBeginObjectSpanner(t *testing.T) {
 		return
 	}
 
-	mudtest.Run[*SpannerAdapter](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
-		SpannerTestModule(ball, spannerConnection)
+	mudtest.Run[*metabase.SpannerAdapter](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
+		metabase.SpannerTestModule(ball, spannerConnection)
 	}),
-		func(ctx context.Context, t *testing.T, adapter *SpannerAdapter) {
+		func(ctx context.Context, t *testing.T, adapter *metabase.SpannerAdapter) {
 			uuid := testrand.UUID()
-			o := &Object{}
-			err := adapter.BeginObjectNextVersion(ctx, BeginObjectNextVersion{
-				ObjectStream: ObjectStream{
+			o := &metabase.Object{}
+			err := adapter.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
 					ProjectID: uuid,
 				},
 			}, o)
 			require.NoError(t, err)
-			require.Equal(t, Version(1), o.Version)
+			require.Equal(t, metabase.Version(1), o.Version)
 
-			err = adapter.BeginObjectNextVersion(ctx, BeginObjectNextVersion{
-				ObjectStream: ObjectStream{
+			err = adapter.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
 					ProjectID: uuid,
 				},
 			}, o)
 			require.NoError(t, err)
-			require.Equal(t, Version(2), o.Version)
+			require.Equal(t, metabase.Version(2), o.Version)
 
 		})
 }

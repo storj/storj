@@ -20,7 +20,7 @@ func main() {
 
 package nodeselection
 
-//go:generate go run ./gen
+// Run "go run ./genprimes" to regenerate these values.
 var primes = []uint64{
 `)
 	if err != nil {

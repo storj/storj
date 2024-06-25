@@ -31,6 +31,8 @@ type APIKeys interface {
 	Update(ctx context.Context, key APIKeyInfo) error
 	// Delete deletes APIKeyInfo from store
 	Delete(ctx context.Context, id uuid.UUID) error
+	// DeleteAllByProjectID deletes all APIKeyInfos from store by given projectID
+	DeleteAllByProjectID(ctx context.Context, id uuid.UUID) error
 	// DeleteExpiredByNamePrefix deletes expired APIKeyInfo from store by key name prefix
 	DeleteExpiredByNamePrefix(ctx context.Context, lifetime time.Duration, prefix string, asOfSystemTimeInterval time.Duration, pageSize int) error
 }
@@ -68,8 +70,18 @@ type APIKeyInfo struct {
 	Version         macaroon.APIKeyVersion `json:"version"`
 
 	// TODO move this closer to metainfo
-	ProjectRateLimit  *int `json:"-"`
-	ProjectBurstLimit *int `json:"-"`
+	ProjectRateLimit        *int `json:"-"`
+	ProjectBurstLimit       *int `json:"-"`
+	ProjectRateLimitHead    *int `json:"-"`
+	ProjectBurstLimitHead   *int `json:"-"`
+	ProjectRateLimitGet     *int `json:"-"`
+	ProjectBurstLimitGet    *int `json:"-"`
+	ProjectRateLimitPut     *int `json:"-"`
+	ProjectBurstLimitPut    *int `json:"-"`
+	ProjectRateLimitList    *int `json:"-"`
+	ProjectBurstLimitList   *int `json:"-"`
+	ProjectRateLimitDelete  *int `json:"-"`
+	ProjectBurstLimitDelete *int `json:"-"`
 
 	ProjectStorageLimit   *int64 `json:"-"`
 	ProjectSegmentsLimit  *int64 `json:"-"`

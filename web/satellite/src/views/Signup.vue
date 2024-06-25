@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
+    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
@@ -212,8 +212,7 @@
                                     :src="partnerConfig.partnerLogoBottomUrl" :srcset="partnerConfig.partnerLogoBottomUrl"
                                     :alt="partnerConfig.name + ' logo'"
                                     height="44"
-                                    class="mt-6 rounded"
-                                    style="background-color: white;"
+                                    class="mt-6 rounded white-background"
                                 >
                             </a>
                         </v-card-text>

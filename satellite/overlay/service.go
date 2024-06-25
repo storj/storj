@@ -192,6 +192,7 @@ type FindStorageNodesRequest struct {
 	ExcludedIDs     []storj.NodeID
 	AlreadySelected []*nodeselection.SelectedNode
 	Placement       storj.PlacementConstraint
+	Requester       storj.NodeID
 }
 
 // NodeCriteria are the requirements for selecting nodes.

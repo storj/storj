@@ -5,11 +5,10 @@ package metabase
 
 import (
 	"context"
-	"log"
-	"os"
 
-	"github.com/storj/exp-spanner"
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 )
 
 // SpannerConfig includes all the configuration required by using spanner.
@@ -19,14 +18,16 @@ type SpannerConfig struct {
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
 type SpannerAdapter struct {
+	log    *zap.Logger
 	client *spanner.Client
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
-func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig) (*SpannerAdapter, error) {
+func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) (*SpannerAdapter, error) {
+	log = log.Named("spanner")
 	client, err := spanner.NewClientWithConfig(ctx, cfg.Database,
 		spanner.ClientConfig{
-			Logger:               log.New(os.Stdout, "spanner", log.LstdFlags),
+			Logger:               zap.NewStdLog(log.Named("stdlog")),
 			SessionPoolConfig:    spanner.DefaultSessionPoolConfig,
 			DisableRouteToLeader: false})
 	if err != nil {
@@ -34,6 +35,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig) (*SpannerAdapter,
 	}
 	return &SpannerAdapter{
 		client: client,
+		log:    log,
 	}, nil
 }
 
@@ -41,6 +43,16 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig) (*SpannerAdapter,
 func (s *SpannerAdapter) Close() error {
 	s.client.Close()
 	return nil
+}
+
+// Name returns the name of the adapter.
+func (s *SpannerAdapter) Name() string {
+	return "spanner"
+}
+
+// UnderlyingDB returns a handle to the underlying DB.
+func (s *SpannerAdapter) UnderlyingDB() *spanner.Client {
+	return s.client
 }
 
 var _ Adapter = &SpannerAdapter{}

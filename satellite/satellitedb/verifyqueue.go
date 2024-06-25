@@ -41,6 +41,7 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 	// sort segments in the order of the primary key before inserting, for performance reasons
 	sort.Sort(audit.ByStreamIDAndPosition(segments))
 
+	segmentsMeter := mon.Meter("audit_verify_queue_push_segments")
 	segmentsIndex := 0
 	for segmentsIndex < len(segments) {
 		batchIndex := 0
@@ -52,7 +53,7 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 			batchIndex++
 			segmentsIndex++
 		}
-		_, err = vq.db.DB.ExecContext(ctx, `
+		res, err := vq.db.DB.ExecContext(ctx, `
 		INSERT INTO verification_audits (stream_id, position, expires_at, encrypted_size)
 		SELECT unnest($1::bytea[]), unnest($2::int8[]), unnest($3::timestamptz[]), unnest($4::int4[])
 	`,
@@ -63,6 +64,12 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 		)
 		if err != nil {
 			return Error.Wrap(err)
+		}
+
+		if n, err := res.RowsAffected(); err == nil {
+			segmentsMeter.Mark64(n)
+		} else {
+			segmentsMeter.Mark(batchIndex)
 		}
 	}
 	return nil
@@ -115,5 +122,7 @@ func (vq *verifyQueue) Next(ctx context.Context) (seg audit.Segment, err error) 
 		}
 		return audit.Segment{}, Error.Wrap(err)
 	}
+
+	mon.Meter("audit_verify_queue_pop_segments").Mark(1)
 	return seg, nil
 }

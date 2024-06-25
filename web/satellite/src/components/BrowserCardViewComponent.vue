@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-2 mb-7">
+    <v-card class="pa-2 mb-7" variant="flat">
         <v-row align="center">
             <v-col>
                 <v-text-field
@@ -94,7 +94,7 @@
         </template>
 
         <template #footer>
-            <v-card class="pa-2 my-6">
+            <v-card class="pa-2 my-6" variant="flat">
                 <div class="d-flex align-center">
                     <v-menu>
                         <template #activator="{ props: limitProps }">
@@ -126,6 +126,7 @@
                     <v-btn
                         icon
                         size="small"
+                        rounded="md"
                         variant="text"
                         color="default"
                         :disabled="cursor.page === 1"
@@ -136,6 +137,7 @@
                     <v-btn
                         icon
                         size="small"
+                        rounded="md"
                         variant="text"
                         color="default"
                         class="ml-2"

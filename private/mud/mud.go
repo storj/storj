@@ -271,6 +271,26 @@ func Provide[A any](ball *Ball, factory interface{}) {
 // registerFunc tries to find a func with supported signature, to be used for stage runner func.
 func registerFunc[A any](f reflect.Method, run *Stage, name string) {
 	if !f.Func.IsValid() {
+		if f.Type.Kind() != reflect.Func {
+			return
+		}
+		// f is a method on an interface type, and it has no associated
+		// underlying type here. We need to wait until a concrete value is
+		// available before we can get a callable method.
+		run.run = func(a any, ctx context.Context) error {
+			method := reflect.ValueOf(a).MethodByName(f.Name)
+			if !method.IsValid() {
+				panic(fmt.Sprintf("%T object does not have the interface type it was registered with (%s)", a, typeOf[A]()))
+			}
+			switch runner := method.Interface().(type) {
+			case func(ctx context.Context) error:
+				return runner(ctx)
+			case func() error:
+				return runner()
+			default:
+				panic(fmt.Sprintf("Unsupported %T method signature: %s", a, method.Type()))
+			}
+		}
 		return
 	}
 	switch runner := f.Func.Interface().(type) {

@@ -403,8 +403,7 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 
 		intervalStart := intervalStartN.Time
 
-		rollup := usage.Rollup()
-		rollup.IntervalStart = intervalStart
+		rollup := usage.Rollup(intervalStart)
 
 		usageRollups = append(usageRollups, *rollup)
 	}

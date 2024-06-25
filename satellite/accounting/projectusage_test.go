@@ -497,13 +497,12 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		// Setup: add data to live accounting to exceed new limit
-		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, expectedLimit, 0)
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
+		limit := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
 			Usage: &expectedLimit,
 		})
-		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
 		require.Equal(t, expectedLimit, limit.StorageLimit.Int64())
 
@@ -1061,7 +1060,7 @@ func TestProjectUsage_BandwidthCache(t *testing.T) {
 	})
 }
 
-func TestProjectUsage_SegmentCache(t *testing.T) {
+func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1070,21 +1069,61 @@ func TestProjectUsage_SegmentCache(t *testing.T) {
 
 		segmentsUsed := int64(42)
 
-		err := projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, segmentsUsed)
+		storage, segments, err := projectUsage.GetProjectStorageAndSegmentUsage(ctx, testrand.UUID())
+		require.NoError(t, err)
+		require.Zero(t, storage)
+		require.Zero(t, segments)
+
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, 0, segmentsUsed)
 		require.NoError(t, err)
 
 		// verify cache key creation.
-		fromCache, err := projectUsage.GetProjectSegmentUsage(ctx, project.ID)
+		_, fromCache, err := projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, segmentsUsed, fromCache)
 
 		// verify cache key increment.
 		increment := int64(10)
-		err = projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, increment)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, 0, increment)
 		require.NoError(t, err)
-		fromCache, err = projectUsage.GetProjectSegmentUsage(ctx, project.ID)
+		_, fromCache, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, segmentsUsed+increment, fromCache)
+	})
+}
+
+func TestProjectUsage_UpdateStorageAndSegmentCache(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project := planet.Uplinks[0].Projects[0]
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+
+		storage, segments, err := projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Zero(t, storage)
+		require.Zero(t, segments)
+
+		storageUsed := int64(100)
+		segmentsUsed := int64(2)
+
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, storageUsed, segmentsUsed)
+		require.NoError(t, err)
+
+		storage, segments, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, storageUsed, storage)
+		require.Equal(t, segmentsUsed, segments)
+
+		increment := int64(10)
+
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, increment, increment)
+		require.NoError(t, err)
+
+		storage, segments, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, storageUsed+increment, storage)
+		require.Equal(t, segmentsUsed+increment, segments)
 	})
 }
 

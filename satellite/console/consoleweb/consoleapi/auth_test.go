@@ -148,6 +148,42 @@ func TestAuth_Register(t *testing.T) {
 	})
 }
 
+func TestAuth_ChangeEmail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usrLogin := planet.Uplinks[0].User[sat.ID()]
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		doRequest := func(step console.AccountActionStep, data string) (responseBody []byte, status int) {
+			body := &consoleapi.AccountActionData{
+				Step: step,
+				Data: data,
+			}
+
+			bodyBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			buf := bytes.NewBuffer(bodyBytes)
+
+			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/change-email", buf)
+			require.NoError(t, err)
+
+			return responseBody, status
+		}
+
+		_, status := doRequest(0, usrLogin.Password)
+		require.Equal(t, http.StatusBadRequest, status)
+
+		_, status = doRequest(console.VerifyAccountPasswordStep, "")
+		require.Equal(t, http.StatusBadRequest, status)
+	})
+}
+
 func TestAuth_UpdateUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

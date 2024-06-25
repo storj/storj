@@ -71,7 +71,7 @@
                         </v-tooltip>
                         <v-menu activator="parent">
                             <v-list class="pa-1" theme="light">
-                                <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="onDeleteFileClick">
+                                <v-list-item density="comfortable" link base-color="error" @click="onDeleteFileClick">
                                     <template #prepend>
                                         <icon-trash bold />
                                     </template>

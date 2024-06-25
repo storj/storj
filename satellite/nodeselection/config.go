@@ -31,10 +31,49 @@ type placementDefinition struct {
 	Filter    string
 	Invariant string
 	Selector  string
+	EC        ECParameters
+}
+
+// UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
+type UploadSuccessTracker interface {
+	Get(uplink storj.NodeID) func(node storj.NodeID) float64
+}
+
+// NoopTracker doesn't tracker uploads at all. Always returns with zero.
+type NoopTracker struct {
+}
+
+// Get implements UploadSuccessTracker.
+func (n NoopTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
+	return func(node storj.NodeID) float64 { return 0 }
+}
+
+var _ UploadSuccessTracker = NoopTracker{}
+
+// PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
+type PlacementConfigEnvironment struct {
+	tracker UploadSuccessTracker
+}
+
+// NewPlacementConfigEnvironment creates PlacementConfigEnvironment.
+func NewPlacementConfigEnvironment(tracker UploadSuccessTracker) *PlacementConfigEnvironment {
+	if tracker == nil {
+		tracker = NoopTracker{}
+	}
+	return &PlacementConfigEnvironment{
+		tracker: tracker,
+	}
+}
+
+func (e *PlacementConfigEnvironment) apply(env map[any]any) {
+	if e == nil {
+		return
+	}
+	env["tracker"] = e.tracker
 }
 
 // LoadConfig loads the placement yaml file and creates the Placement definitions.
-func LoadConfig(configFile string) (PlacementDefinitions, error) {
+func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	placements := make(PlacementDefinitions)
 
 	cfg := &placementConfig{}
@@ -68,6 +107,7 @@ func LoadConfig(configFile string) (PlacementDefinitions, error) {
 		p := Placement{
 			ID:   def.ID,
 			Name: def.Name,
+			EC:   def.EC,
 		}
 
 		filter := resolveTemplates(def.Filter)
@@ -83,7 +123,7 @@ func LoadConfig(configFile string) (PlacementDefinitions, error) {
 		}
 
 		selector := resolveTemplates(def.Selector)
-		p.Selector, err = SelectorFromString(selector)
+		p.Selector, err = SelectorFromString(selector, environment)
 		if err != nil {
 			return placements, errs.New("Selector definition '%s' of placement %d is invalid: %v", selector, def.ID, err)
 		}
@@ -173,26 +213,38 @@ func FilterFromString(expr string) (NodeFilter, error) {
 }
 
 // SelectorFromString parses complex node selection rules from config lines.
-func SelectorFromString(expr string) (NodeSelectorInit, error) {
+func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (NodeSelectorInit, error) {
 	if expr == "" {
 		expr = "random()"
 	}
 	env := map[any]any{
-		"attribute": func(attribute string) (NodeSelectorInit, error) {
-			attr, err := CreateNodeAttribute(attribute)
-			if err != nil {
-				return nil, err
+		"attribute": func(attribute interface{}) (NodeSelectorInit, error) {
+			switch value := attribute.(type) {
+			case NodeAttribute:
+				return AttributeGroupSelector(value), nil
+			case string:
+				attr, err := CreateNodeAttribute(value)
+				if err != nil {
+					return nil, err
+				}
+				return AttributeGroupSelector(attr), nil
+			default:
+				return nil, Error.New("unable to create attribute selector from %s (%T)", expr, attribute)
 			}
-			return AttributeGroupSelector(attr), nil
 		},
+		"subnet": Subnet,
 		"random": func() (NodeSelectorInit, error) {
 			return RandomSelector(), nil
 		},
 		"unvetted": func(newNodeRatio float64, def NodeSelectorInit) (NodeSelectorInit, error) {
 			return UnvettedSelector(newNodeRatio, def), nil
 		},
-		"nodelist": AllowedNodesFromFile,
-		"filter":   FilterSelector,
+		"nodelist":    AllowedNodesFromFile,
+		"filter":      FilterSelector,
+		"choiceofn":   ChoiceOfN,
+		"choiceoftwo": ChoiceOfTwo,
+		// DEPRECATED: use choiceoftwo. It's only here for backward-compatibility.
+		"pow2": ChoiceOfTwo,
 		"balanced": func(attribute string) (NodeSelectorInit, error) {
 			attr, err := CreateNodeAttribute(attribute)
 			if err != nil {
@@ -200,10 +252,32 @@ func SelectorFromString(expr string) (NodeSelectorInit, error) {
 			}
 			return BalancedGroupBasedSelector(attr), nil
 		},
+		"filterbest": FilterBest,
+		"bestofn":    BestOfN,
+		"eq": func(a, b string) func(SelectedNode) bool {
+			attr, err := CreateNodeAttribute(a)
+			if err != nil {
+				return func(SelectedNode) bool { return false }
+			}
+			return EqualSelector(attr, b)
+		},
+		"if": func(condition func(SelectedNode) bool, trueAttribute, falseAttribute string) (NodeAttribute, error) {
+			trueAttr, err := CreateNodeAttribute(trueAttribute)
+			if err != nil {
+				return nil, err
+			}
+			falseAttr, err := CreateNodeAttribute(falseAttribute)
+			if err != nil {
+				return nil, err
+			}
+			return IfSelector(condition, trueAttr, falseAttr), nil
+		},
+		"dual": DualSelector,
 	}
 	for k, v := range supportedFilters {
 		env[k] = v
 	}
+	environment.apply(env)
 	selector, err := mito.Eval(expr, env)
 	if err != nil {
 		return nil, errs.New("Invalid selector definition '%s', %v", expr, err)

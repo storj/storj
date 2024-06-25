@@ -5,9 +5,12 @@ package metabase
 
 import (
 	"context"
+	"time"
 
+	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -15,8 +18,12 @@ import (
 // Adapter is a low level extension point to use datasource related queries.
 // TODO: we may need separated adapter for segments/objects/etc.
 type Adapter interface {
+	Name() string
+	Now(ctx context.Context) (time.Time, error)
+	Ping(ctx context.Context) error
+
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
-	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted, object *Object) error
+	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error
@@ -24,16 +31,53 @@ type Adapter interface {
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
+	UpdateTableStats(ctx context.Context) error
+	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 
 	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
 
+	CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error)
+
+	GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error)
+	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
+	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
+	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)
+
+	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
+	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)
+	ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error)
+	ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error)
+	ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error)
+
+	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)
+	UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (affected int64, err error)
+
+	DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
+	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
+	DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error)
+	DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error)
+	DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
+	DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
+
+	FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error)
+	DeleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error)
+	FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error)
+	DeleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (objectsDeleted, segmentsDeleted int64, err error)
+	DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error)
+
 	EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) error
 	ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error)
+	GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error)
+
+	doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
 
 	TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error)
 	TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error)
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
+	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.
@@ -43,11 +87,26 @@ type PostgresAdapter struct {
 	impl dbutil.Implementation
 }
 
+// Name returns the name of the adapter.
+func (p *PostgresAdapter) Name() string {
+	return "postgres"
+}
+
+// UnderlyingDB returns a handle to the underlying DB.
+func (p *PostgresAdapter) UnderlyingDB() tagsql.DB {
+	return p.db
+}
+
 var _ Adapter = &PostgresAdapter{}
 
 // CockroachAdapter uses Cockroach related SQL queries.
 type CockroachAdapter struct {
 	PostgresAdapter
+}
+
+// Name returns the name of the adapter.
+func (c *CockroachAdapter) Name() string {
+	return "cockroach"
 }
 
 var _ Adapter = &CockroachAdapter{}
@@ -58,6 +117,7 @@ type TransactionAdapter interface {
 	commitObjectWithSegmentsTransactionAdapter
 	copyObjectTransactionAdapter
 	moveObjectTransactionAdapter
+	deleteTransactionAdapter
 }
 
 type postgresTransactionAdapter struct {
@@ -66,3 +126,10 @@ type postgresTransactionAdapter struct {
 }
 
 var _ TransactionAdapter = &postgresTransactionAdapter{}
+
+type spannerTransactionAdapter struct {
+	spannerAdapter *SpannerAdapter
+	tx             *spanner.ReadWriteTransaction
+}
+
+var _ TransactionAdapter = &spannerTransactionAdapter{}

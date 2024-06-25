@@ -60,6 +60,36 @@ func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" 
 // Subject gets email subject.
 func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
 
+// ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
+type ChangeEmailSuccessEmail struct{}
+
+// Template returns email template name.
+func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" }
+
+// Subject gets email subject.
+func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
+
+// RequestAccountDeletionSuccessEmail is mailservice template to notify user about successful account delete request.
+type RequestAccountDeletionSuccessEmail struct{}
+
+// Template returns email template name.
+func (*RequestAccountDeletionSuccessEmail) Template() string { return "RequestAccountDeletionSuccess" }
+
+// Subject gets email subject.
+func (*RequestAccountDeletionSuccessEmail) Subject() string { return "Account deletion" }
+
+// EmailAddressVerificationEmail is mailservice template with a verification code.
+type EmailAddressVerificationEmail struct {
+	Action           string
+	VerificationCode string
+}
+
+// Template returns email template name.
+func (*EmailAddressVerificationEmail) Template() string { return "EmailAddressVerification" }
+
+// Subject gets email subject.
+func (*EmailAddressVerificationEmail) Subject() string { return "Verify your email" }
+
 // ForgotPasswordEmail is mailservice template with reset password data.
 type ForgotPasswordEmail struct {
 	Origin                     string
@@ -183,6 +213,9 @@ const (
 
 	// MfaAccountLock stands for "2fa check" and represents an account lock activity type triggered by multiple failed two-factor authentication attempts.
 	MfaAccountLock LockAccountActivityType = "2fa check"
+
+	// ChangeEmailLock stands for "change email" and represents an account lock activity type triggered by multiple failed change email actions.
+	ChangeEmailLock LockAccountActivityType = "change email"
 )
 
 // LoginLockAccountEmail is mailservice template with login lock account data.

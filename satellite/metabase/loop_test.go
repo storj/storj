@@ -17,10 +17,16 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestIterateLoopObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): implement IterateLoopObjects for spanner.
+			t.Skip("not implemented for spanner")
+		}
+
 		t.Run("Limit is negative", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			metabasetest.IterateLoopObjects{
@@ -319,6 +325,10 @@ func TestIterateLoopObjects(t *testing.T) {
 
 func TestIterateLoopSegments(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() == dbutil.Spanner {
+			// TODO(spanner): seems to be flaky
+			t.Skip("not correct for spanner")
+		}
 
 		now := time.Now()
 
@@ -699,7 +709,7 @@ func TestIterateLoopSegmentsWithSpanner(t *testing.T) {
 				Segments: expectedRaw,
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {

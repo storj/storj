@@ -21,7 +21,14 @@
             </v-card-title>
         </template>
         <v-card-item>
-            <v-progress-linear :color="progressColor" bg-color="default" :model-value="progress" rounded height="6" />
+            <v-progress-linear
+                :class="{ 'no-limit-progress': noLimit }"
+                :color="noLimit ? 'success' : progressColor"
+                bg-color="default"
+                :model-value="noLimit ? 0 : progress"
+                rounded
+                height="6"
+            />
         </v-card-item>
         <v-card-item>
             <v-row>
@@ -58,6 +65,7 @@ const props = defineProps<{
     cta: string;
     icon?: keyof typeof iconComponents;
     extraInfo?: string;
+    noLimit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -86,3 +94,53 @@ const progressColor = computed(() => {
     }
 });
 </script>
+
+<style scoped lang="scss">
+    .no-limit-progress {
+        background: linear-gradient(90deg,
+        #091C45,   /* Secondary blue */
+        #2338C0,   /* Dark blue */
+        #0052FF,   /* Primary blue */
+        #0052FF,   /* Primary blue */
+        #00c6ff,   /* Cyan */
+        #00ff6a,   /* Green */
+        #00C257,   /* Green 2 */
+        #ffb018,   /* Yellow */
+        #FF8E45,   /* Orange */
+        #ff4ed8,   /* Pink */
+        #882de3,   /* Purple */
+        #0052FF,   /* Primary blue */
+        #0052FF,   /* Primary blue */
+        #2338C0,   /* Dark blue */
+        #091C45,   /* Secondary blue*/
+    );
+        background-size: 200% 100%;
+        animation: gradient-animation 12s linear infinite;
+        transition: all 0.14s ease-in-out;
+        height: 2px !important;
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+
+    .no-limit-progress:hover {
+        animation: gradient-animation 2s linear infinite;
+        height: 6px !important;
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    @keyframes gradient-animation {
+
+        0% {
+            background-position: 0 0;
+        }
+
+        50% {
+            background-position: 100% 0;
+        }
+
+        100% {
+            background-position: 0 0;
+        }
+    }
+</style>

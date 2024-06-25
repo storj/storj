@@ -60,10 +60,23 @@ type Egress struct {
 	Usage  int64 `json:"usage"`
 }
 
+// Add adds another egress to this one.
+func (egress *Egress) Add(b Egress) {
+	egress.Repair += b.Repair
+	egress.Audit += b.Audit
+	egress.Usage += b.Usage
+}
+
 // Ingress stores info about storage node ingress usage.
 type Ingress struct {
 	Repair int64 `json:"repair"`
 	Usage  int64 `json:"usage"`
+}
+
+// Add adds another ingress to this one.
+func (ingress *Ingress) Add(b Ingress) {
+	ingress.Repair += b.Repair
+	ingress.Usage += b.Usage
 }
 
 // UsageRollup contains rolluped bandwidth usage.
@@ -108,6 +121,40 @@ func (usage *Usage) Add(b *Usage) {
 	usage.Delete += b.Delete
 }
 
+// Egress returns egress bandwidth usage.
+func (usage *Usage) Egress() *Usage {
+	return &Usage{
+		Get:       usage.Get,
+		GetAudit:  usage.GetAudit,
+		GetRepair: usage.GetRepair,
+	}
+}
+
+// Ingress returns ingress bandwidth usage.
+func (usage *Usage) Ingress() *Usage {
+	return &Usage{
+		Put:       usage.Put,
+		PutRepair: usage.PutRepair,
+	}
+}
+
+// ToEgress converts Usage to Egress.
+func (usage *Usage) ToEgress() Egress {
+	return Egress{
+		Repair: usage.GetRepair,
+		Audit:  usage.GetAudit,
+		Usage:  usage.Get,
+	}
+}
+
+// ToIngress converts Usage to Ingress.
+func (usage *Usage) ToIngress() Ingress {
+	return Ingress{
+		Repair: usage.PutRepair,
+		Usage:  usage.Put,
+	}
+}
+
 // Total sums all type of bandwidths.
 func (usage *Usage) Total() int64 {
 	return usage.Invalid +
@@ -121,7 +168,7 @@ func (usage *Usage) Total() int64 {
 }
 
 // Rollup returns rolluped bandwidth usage.
-func (usage *Usage) Rollup() *UsageRollup {
+func (usage *Usage) Rollup(intervalStart time.Time) *UsageRollup {
 	return &UsageRollup{
 		Egress: Egress{
 			Repair: usage.GetRepair,
@@ -132,7 +179,8 @@ func (usage *Usage) Rollup() *UsageRollup {
 			Repair: usage.PutRepair,
 			Usage:  usage.Put,
 		},
-		Delete: usage.Delete,
+		Delete:        usage.Delete,
+		IntervalStart: intervalStart,
 	}
 }
 

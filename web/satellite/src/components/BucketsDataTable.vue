@@ -39,6 +39,7 @@
                     variant="text"
                     height="40"
                     color="default"
+                    :disabled="bucketsBeingDeleted.has(item.name)"
                     @click="openBucket(item.name)"
                 >
                     <template #default>
@@ -78,21 +79,25 @@
                 <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                     <icon-location />
                 </v-icon>
-                <v-chip variant="tonal" color="default" size="small" class="text-capitalize" rounded>
+                <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
                     {{ item.location || `unknown(${item.defaultPlacement})` }}
                 </v-chip>
             </template>
             <template #item.versioning="{ item }">
-                <v-icon size="28" class="mr-1 pa-1 rounded-lg border text-cursor-pointer">
+                <v-icon size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border text-cursor-pointer">
                     <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
-                    <icon-versioning />
                 </v-icon>
-                <v-chip variant="tonal" color="default" size="small" rounded>
+                <v-chip variant="tonal" color="default" size="small">
                     {{ item.versioning }}
                 </v-chip>
             </template>
             <template #item.actions="{ item }">
-                <v-menu location="bottom end" transition="scale-transition">
+                <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
+                    <template #activator="{ props }">
+                        <v-progress-circular width="2" size="22" color="error" indeterminate v-bind="props" />
+                    </template>
+                </v-tooltip>
+                <v-menu v-else location="bottom end" transition="scale-transition">
                     <template #activator="{ props: activatorProps }">
                         <v-btn
                             title="Bucket Actions"
@@ -100,6 +105,7 @@
                             color="default"
                             variant="outlined"
                             size="small"
+                            rounded="md"
                             density="comfortable"
                             v-bind="activatorProps"
                         />
@@ -107,7 +113,6 @@
                     <v-list class="pa-1">
                         <v-list-item
                             density="comfortable"
-                            rounded="lg"
                             link
                             @click="openBucket(item.name)"
                         >
@@ -124,7 +129,6 @@
                             v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
                             density="comfortable"
                             link
-                            rounded="lg"
                             @click="() => onToggleVersioning(item)"
                         >
                             <template #prepend>
@@ -135,7 +139,7 @@
                                 {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.name)">
+                        <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <icon-share size="18" />
                             </template>
@@ -143,7 +147,7 @@
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.name)">
+                        <v-list-item link @click="() => showBucketDetailsModal(item.name)">
                             <template #prepend>
                                 <icon-bucket size="18" />
                             </template>
@@ -152,7 +156,7 @@
                             </v-list-item-title>
                         </v-list-item>
                         <v-divider class="my-1" />
-                        <v-list-item rounded-lg class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
+                        <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
                             <template #prepend>
                                 <icon-trash />
                             </template>
@@ -186,10 +190,19 @@ import {
     VListItem,
     VListItemTitle,
     VMenu,
+    VProgressCircular,
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
+import {
+    mdiCheckCircleOutline,
+    mdiCloseCircleOutline,
+    mdiDotsHorizontal,
+    mdiHelpCircleOutline,
+    mdiMagnify,
+    mdiMinusCircleOutline,
+    mdiPauseCircleOutline,
+} from '@mdi/js';
 
 import { Bucket, BucketCursor, BucketMetadata, BucketPage } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -273,10 +286,6 @@ const showRegionTag = computed<boolean>(() => {
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
-const shouldShowVersioning = computed<boolean>(() => {
-    return versioningUIEnabled.value && displayedItems.value.some(b => b.versioning !== Versioning.NotSupported);
-});
-
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
@@ -299,7 +308,7 @@ const headers = computed<DataTableHeader[]>(() => {
         hdrs.push({ title: 'Location', key: 'location', sortable: isTableSortable.value });
     }
 
-    if (shouldShowVersioning.value) {
+    if (versioningUIEnabled.value) {
         hdrs.push({ title: 'Versioning', key: 'versioning', sortable: isTableSortable.value });
     }
 
@@ -345,6 +354,11 @@ const selectedBucketName = computed((): string => {
 const edgeCredentials = computed((): EdgeCredentials => {
     return bucketsStore.state.edgeCredentials;
 });
+
+/**
+ * Returns buckets being deleted from store.
+ */
+const bucketsBeingDeleted = computed((): Set<string> => bucketsStore.state.bucketsBeingDeleted);
 
 /**
  * Fetches bucket using api.
@@ -412,10 +426,35 @@ async function onToggleVersioning(bucket: Bucket) {
  * Returns helper info based on versioning status.
  */
 function getVersioningInfo(status: Versioning): string {
-    if (status === Versioning.Enabled) {
+    switch (status) {
+    case Versioning.Enabled:
         return 'Version history saved for all files.';
-    } else {
-        return 'Version history is not saved for all files.';
+    case Versioning.Suspended:
+        return 'Versioning is currently suspended.';
+    case Versioning.NotSupported:
+        return 'Versioning is not supported for this bucket.';
+    case Versioning.Unversioned:
+        return 'This bucket does not have versioning enabled.';
+    default:
+        return 'Unknown versioning status.';
+    }
+}
+
+/**
+ * Returns icon based on versioning status.
+ */
+function getVersioningIcon(status: Versioning): string {
+    switch (status) {
+    case Versioning.Enabled:
+        return mdiCheckCircleOutline;
+    case Versioning.Suspended:
+        return mdiPauseCircleOutline;
+    case Versioning.NotSupported:
+        return mdiCloseCircleOutline;
+    case Versioning.Unversioned:
+        return mdiMinusCircleOutline;
+    default:
+        return mdiHelpCircleOutline;
     }
 }
 

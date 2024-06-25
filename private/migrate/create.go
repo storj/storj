@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -24,7 +25,7 @@ func Create(ctx context.Context, identifier string, db DBX) error {
 	justRollbackPlease := errs.Class("only used to tell WithTx to do a rollback")
 
 	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		schema := db.Schema()
+		schema := strings.Join(db.Schema(), ";\n")
 
 		_, err = tx.ExecContext(ctx, db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
 		if err != nil {

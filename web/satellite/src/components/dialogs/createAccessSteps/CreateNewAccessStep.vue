@@ -53,6 +53,7 @@ import { VForm, VRow, VCol, VTextField, VCheckbox, VInput } from 'vuetify/compon
 import { AccessType, Exposed, ACCESS_TYPE_LINKS } from '@/types/createAccessGrant';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { RequiredRule, ValidationRule, DialogStepComponent } from '@/types/common';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import InfoTooltip from '@/components/dialogs/createAccessSteps/InfoTooltip.vue';
 
@@ -81,6 +82,8 @@ class AccessTypeInfo {
     }
 }
 
+const projectStore = useProjectsStore();
+
 const typeInfos: Record<AccessType, AccessTypeInfo> = {
     [AccessType.AccessGrant]: new AccessTypeInfo(
         AccessType.AccessGrant,
@@ -100,11 +103,13 @@ const typeInfos: Record<AccessType, AccessTypeInfo> = {
     ),
 };
 
-const typeOrder: AccessType[] = [
-    AccessType.AccessGrant,
-    AccessType.S3,
-    AccessType.APIKey,
-];
+const typeOrder = computed<AccessType[]> (() => {
+    const order = [ AccessType.AccessGrant, AccessType.S3 ];
+    if (!projectStore.state.selectedProjectConfig.passphrase) {
+        order.push(AccessType.APIKey);
+    }
+    return order;
+});
 
 const form = ref<VForm | null>(null);
 

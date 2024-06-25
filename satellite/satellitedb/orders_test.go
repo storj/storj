@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
 	"testing"
@@ -11,10 +11,11 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 func TestSortRollupKeys(t *testing.T) {
-	rollups := []bandwidthRollupKey{
+	rollups := []satellitedb.BandwidthRollupKey{
 		{
 			ProjectID:     uuid.UUID{1},
 			BucketName:    "a",
@@ -48,7 +49,7 @@ func TestSortRollupKeys(t *testing.T) {
 		},
 	}
 
-	expRollups := []bandwidthRollupKey{
+	expRollups := []satellitedb.BandwidthRollupKey{
 		{
 			ProjectID:     uuid.UUID{1},
 			BucketName:    "a",
@@ -82,6 +83,6 @@ func TestSortRollupKeys(t *testing.T) {
 	}
 
 	assert.NotEqual(t, expRollups, rollups)
-	sortBandwidthRollupKeys(rollups)
+	satellitedb.SortBandwidthRollupKeys(rollups)
 	assert.Empty(t, cmp.Diff(expRollups, rollups))
 }

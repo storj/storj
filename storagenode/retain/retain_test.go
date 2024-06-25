@@ -149,16 +149,15 @@ func TestRetainPieces(t *testing.T) {
 		})
 
 		// expect that disabled and debug endpoints do not delete any pieces
-		req := retain.Request{
-			SatelliteID:   satellite0.ID,
-			CreatedBefore: time.Now(),
-			Filter:        filter,
+		req := &pb.RetainRequest{
+			CreationDate: time.Now(),
+			Filter:       filter.Bytes(),
 		}
-		queued := retainDisabled.Queue(req)
+		queued := retainDisabled.Queue(satellite0.ID, req)
 		require.True(t, queued)
 		retainDisabled.TestWaitUntilEmpty()
 
-		queued = retainDebug.Queue(req)
+		queued = retainDebug.Queue(satellite0.ID, req)
 		require.True(t, queued)
 		retainDebug.TestWaitUntilEmpty()
 
@@ -171,7 +170,7 @@ func TestRetainPieces(t *testing.T) {
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
 		// expect that enabled endpoint deletes the correct pieces
-		queued = retainEnabled.Queue(req)
+		queued = retainEnabled.Queue(satellite0.ID, req)
 		require.True(t, queued)
 		retainEnabled.TestWaitUntilEmpty()
 
@@ -310,14 +309,13 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 		})
 
 		// expect that disabled and debug endpoints do not delete any pieces
-		req := retain.Request{
-			SatelliteID:   satellite0.ID,
-			CreatedBefore: time.Now(),
-			Filter:        filter,
+		req := &pb.RetainRequest{
+			CreationDate: time.Now(),
+			Filter:       filter.Bytes(),
 		}
 
 		// expect that enabled endpoint deletes the correct pieces
-		queued := retainEnabled.Queue(req)
+		queued := retainEnabled.Queue(satellite0.ID, req)
 		require.True(t, queued)
 		retainEnabled.TestWaitUntilEmpty()
 
@@ -447,7 +445,10 @@ func TestRetainPieces_fromStore(t *testing.T) {
 		}
 
 		// save the request to the store
-		err := retain.SaveRequest(retainDir, req)
+		err := retain.SaveRequest(retainDir, req.GetFilename(), &pb.RetainRequest{
+			CreationDate: req.CreatedBefore,
+			Filter:       req.Filter.Bytes(),
+		})
 		require.NoError(t, err)
 
 		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{

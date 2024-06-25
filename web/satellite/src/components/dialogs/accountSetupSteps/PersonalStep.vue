@@ -3,7 +3,7 @@
 
 <template>
     <v-container>
-        <v-form v-model="formValid" @submit.prevent="setupAccount">
+        <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
                 <v-col class="text-center pt-10 pb-4">
                     <icon-personal />
@@ -41,12 +41,12 @@
                 <v-col cols="6" sm="4" md="3" lg="2">
                     <v-btn
                         size="large"
-                        variant="tonal"
+                        variant="outlined"
                         :prepend-icon="mdiChevronLeft"
                         color="default"
-                        :disabled="isLoading"
+                        :disabled="loading"
                         block
-                        @click="emit('next', OnboardingStep.AccountTypeSelection)"
+                        @click="emit('back')"
                     >
                         Back
                     </v-btn>
@@ -55,7 +55,7 @@
                     <v-btn
                         size="large"
                         :append-icon="mdiChevronRight"
-                        :loading="isLoading"
+                        :loading="loading"
                         :disabled="!formValid"
                         block
                         type="submit"
@@ -73,12 +73,9 @@ import { VBtn, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetif
 import { ref } from 'vue';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
-import { OnboardingStep } from '@/types/users';
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
-import { useLoading } from '@/composables/useLoading';
 import { AuthHttpApi } from '@/api/auth';
-import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconPersonal from '@/components/icons/IconPersonal.vue';
@@ -86,38 +83,44 @@ import IconPersonal from '@/components/icons/IconPersonal.vue';
 const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
-const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
+
+const props = withDefaults(defineProps<{
+    loading: boolean,
+}>(), {
+    loading: false,
+});
+
+const name = defineModel<string>('name', { required: true });
+const useCase = defineModel<string | undefined>('useCase', { required: true });
+
+const emit = defineEmits<{
+    (event: 'next'): void,
+    (event: 'back'): void,
+}>();
 
 const formValid = ref(false);
 
-const name = ref('');
-const useCase = ref<string>();
-
-const emit = defineEmits<{
-    (event: 'next', value: OnboardingStep): void,
-}>();
-
-function setupAccount() {
-    withLoading(async () => {
-        if (!formValid.value) {
-            return;
-        }
-
-        try {
-            await auth.setupAccount({
-                fullName: name.value,
-                storageUseCase: useCase.value,
-                haveSalesContact: false,
-                interestedInPartnering: false,
-                isProfessional: false,
-            });
-
-            analyticsStore.eventTriggered(AnalyticsEvent.PERSONAL_INFO_SUBMITTED);
-            emit('next', OnboardingStep.SetupComplete);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
-        }
+async function setupAccount() {
+    if (props.loading || !formValid.value) {
+        return;
+    }
+    await auth.setupAccount({
+        fullName: name.value,
+        storageUseCase: useCase.value,
+        haveSalesContact: false,
+        interestedInPartnering: false,
+        isProfessional: false,
     });
+
+    analyticsStore.eventTriggered(AnalyticsEvent.PERSONAL_INFO_SUBMITTED);
 }
+
+function validate() {
+    return formValid.value;
+}
+
+defineExpose({
+    validate,
+    setup: setupAccount,
+});
 </script>

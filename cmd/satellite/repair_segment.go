@@ -93,7 +93,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,6 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ecRepairer := repairer.NewECRepairer(
-		log.Named("ec-repair"),
 		dialer,
 		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
 		config.Repairer.DialTimeout,
@@ -289,7 +288,7 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 
 	timeout := 5 * time.Minute
 	successfulNeeded := redundancy.OptimalThreshold()
-	successful, _, err := peer.EcRepairer.Repair(ctx, putLimits, putPrivateKey, redundancy, bytes.NewReader(segmentData),
+	successful, _, err := peer.EcRepairer.Repair(ctx, log, putLimits, putPrivateKey, redundancy, bytes.NewReader(segmentData),
 		timeout, successfulNeeded)
 	if err != nil {
 		return err

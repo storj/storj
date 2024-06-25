@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
@@ -302,5 +303,58 @@ func TestUplinkDifferentPathCipher(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.EqualValues(t, "object-name", objects[0].ObjectKey)
+	})
+}
+
+func TestUploadRSOveride(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				testplanet.ReconfigureRS(10, 11, 12, 14)(log, index, config)
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: "uplink_test_placement.yaml",
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedData := testrand.Bytes(memory.MiB)
+
+		client := planet.Uplinks[0]
+		err := client.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		// not enough nodes, with default RS parameters
+		require.Error(t, err)
+
+		{
+			buckets := planet.Satellites[0].API.Buckets.Service
+
+			err := client.CreateBucket(ctx, planet.Satellites[0], "placement1")
+			require.NoError(t, err)
+
+			bucket, err := buckets.GetBucket(ctx, []byte("placement1"), client.Projects[0].ID)
+			require.NoError(t, err)
+
+			bucket.Placement = 1
+			_, err = buckets.UpdateBucket(ctx, bucket)
+			require.NoError(t, err)
+		}
+
+		// should work, as we adjusted RS parameters with placement
+		err = client.Upload(ctx, planet.Satellites[0], "placement1", "test/path", expectedData)
+		require.NoError(t, err)
+
+		// get a remote segment from metabase
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.NotEmpty(t, segments[0].Pieces)
+		require.Equal(t, int16(2), segments[0].Redundancy.RequiredShares)
+		require.Equal(t, int16(3), segments[0].Redundancy.OptimalShares)
+		require.Equal(t, int16(3), segments[0].Redundancy.TotalShares)
+
+		data, err := client.Download(ctx, planet.Satellites[0], "placement1", "test/path")
+		assert.NoError(t, err)
+
+		assert.Equal(t, expectedData, data)
 	})
 }

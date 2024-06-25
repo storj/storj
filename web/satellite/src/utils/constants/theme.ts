@@ -6,8 +6,10 @@ import { createVuetify } from 'vuetify';
 type ThemeOptions = NonNullable<NonNullable<Parameters<typeof createVuetify>[0]>['theme']>;
 
 export const THEME_OPTIONS: ThemeOptions = {
+    cspNonce: 'dQw4w9WgXcQ',
     themes: {
         light: {
+            dark: false,
             colors: {
                 primary: '#0052FF',
                 secondary: '#091C45',
@@ -30,10 +32,10 @@ export const THEME_OPTIONS: ThemeOptions = {
                 orange: '#FFA800',
                 green: '#00E366',
                 paragraph: '#283968',
-
             },
         },
         dark: {
+            dark: true,
             colors: {
                 primary: '#0052FF',
                 secondary: '#537CFF',

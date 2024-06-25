@@ -111,7 +111,7 @@ func (group *Group) logStackTrace() {
 			}
 			buf = make([]byte, 2*len(buf))
 		}
-		group.log.Info("slow shutdown", zap.String("stack", string(buf)))
+		group.log.Info("slow shutdown", zap.String("stack", string(condenseStack(buf))))
 	})
 }
 

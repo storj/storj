@@ -6,6 +6,7 @@ package nodeselection
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -69,6 +70,18 @@ type NodeAttribute func(SelectedNode) string
 // LastNetAttribute is used for subnet based declumping/selection.
 var LastNetAttribute = mustCreateNodeAttribute("last_net")
 
+// Subnet can return the IP network of the node for any netmask length.
+func Subnet(bits int64) NodeAttribute {
+	return func(node SelectedNode) string {
+		addr, _, _ := strings.Cut(node.LastIPPort, ":")
+		_, network, err := net.ParseCIDR(fmt.Sprintf("%s/%d", addr, bits))
+		if err != nil {
+			return "error:" + err.Error()
+		}
+		return network.String()
+	}
+}
+
 func mustCreateNodeAttribute(attr string) NodeAttribute {
 	nodeAttr, err := CreateNodeAttribute(attr)
 	if err != nil {
@@ -121,6 +134,10 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	case "last_net":
 		return func(node SelectedNode) string {
 			return node.LastNet
+		}, nil
+	case "last_ip_port":
+		return func(node SelectedNode) string {
+			return node.LastIPPort
 		}, nil
 	case "wallet":
 		return func(node SelectedNode) string {

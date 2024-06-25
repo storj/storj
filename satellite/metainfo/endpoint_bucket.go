@@ -30,7 +30,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+	convBucket, err := convertMinimalBucketToProto(bucket, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 	if err != nil {
 		return resp, err
 	}
@@ -67,7 +67,7 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBu
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitHead)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		Op:     macaroon.ActionWrite,
 		Bucket: req.Name,
 		Time:   time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -147,11 +147,18 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		err = endpoint.buckets.SuspendBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
 	}
 	if err != nil {
-		if buckets.ErrBucketNotFound.Has(err) {
+		switch {
+		case buckets.ErrBucketNotFound.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case buckets.ErrConflict.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		case buckets.ErrLocked.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+		case buckets.ErrUnavailable.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to enable versioning for the bucket")
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set versioning state for the bucket")
 	}
 
 	return &pb.SetBucketVersioningResponse{}, nil
@@ -163,11 +170,24 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionWrite,
-		Bucket: req.Name,
-		Time:   time.Now(),
-	})
+	perms := []VerifyPermission{{
+		Action: macaroon.Action{
+			Op:     macaroon.ActionWrite,
+			Bucket: req.Name,
+			Time:   time.Now(),
+		},
+	}}
+	if req.ObjectLockEnabled {
+		perms = append(perms, VerifyPermission{
+			Action: macaroon.Action{
+				Op:     macaroon.ActionLock,
+				Bucket: req.Name,
+				Time:   time.Now(),
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, perms...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +196,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	err = endpoint.validateBucketName(req.Name)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	if req.ObjectLockEnabled && !endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -228,6 +252,11 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 			bucketReq.Versioning = buckets.VersioningEnabled
 		}
 	}
+
+	if bucketReq.ObjectLockEnabled && bucketReq.Versioning != buckets.VersioningEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock may only be enabled for versioned buckets")
+	}
+
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
 		if buckets.ErrBucketAlreadyExists.Has(err) {
@@ -247,7 +276,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	convBucket, err := convertMinimalBucketToProto(buckets.MinimalBucket{
 		Name:      []byte(bucket.Name),
 		CreatedAt: bucket.Created,
-	}, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+	}, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -268,31 +297,31 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 	var canRead, canList bool
 
-	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
-		verifyPermission{
-			action: macaroon.Action{
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:     macaroon.ActionDelete,
 				Bucket: req.Name,
 				Time:   now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:     macaroon.ActionRead,
 				Bucket: req.Name,
 				Time:   now,
 			},
-			actionPermitted: &canRead,
-			optional:        true,
+			ActionPermitted: &canRead,
+			Optional:        true,
 		},
-		verifyPermission{
-			action: macaroon.Action{
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:     macaroon.ActionList,
 				Bucket: req.Name,
 				Time:   now,
 			},
-			actionPermitted: &canList,
-			optional:        true,
+			ActionPermitted: &canList,
+			Optional:        true,
 		},
 	)
 	if err != nil {
@@ -305,12 +334,23 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+	var (
+		bucket      buckets.MinimalBucket
+		lockEnabled bool
+	)
+	if endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+		var fullBucket buckets.Bucket
+		fullBucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+		lockEnabled = fullBucket.ObjectLockEnabled
+	} else {
+		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
+	}
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		return nil, err
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket")
 	}
 
 	if !keyInfo.CreatedBy.IsZero() {
@@ -324,10 +364,14 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 	}
 
+	if lockEnabled && req.DeleteAll {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+	}
+
 	var convBucket *pb.Bucket
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 		if err != nil {
 			return nil, err
 		}
@@ -441,7 +485,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Op:   macaroon.ActionRead,
 		Time: time.Now(),
 	}
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action)
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action, console.RateLimitList)
 	if err != nil {
 		return nil, err
 	}
@@ -487,6 +531,42 @@ func (endpoint *Endpoint) CountBuckets(ctx context.Context, projectID uuid.UUID)
 	return count, nil
 }
 
+// GetBucketObjectLockConfiguration returns a bucket's Object Lock configuration.
+func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, req *pb.GetBucketObjectLockConfigurationRequest) (resp *pb.GetBucketObjectLockConfigurationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionLock,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitHead)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	}
+
+	enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
+	}
+
+	return &pb.GetBucketObjectLockConfigurationResponse{
+		Configuration: &pb.ObjectLockConfiguration{
+			Enabled: enabled,
+		},
+	}, nil
+}
+
 func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	key, err := getAPIKey(ctx, header)
 	if err != nil {
@@ -506,10 +586,11 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 	}
 
 	return buckets.Bucket{
-		ID:        bucketID,
-		Name:      string(req.GetName()),
-		ProjectID: keyInfo.ProjectID,
-		CreatedBy: keyInfo.CreatedBy,
+		ID:                bucketID,
+		Name:              string(req.GetName()),
+		ProjectID:         keyInfo.ProjectID,
+		CreatedBy:         keyInfo.CreatedBy,
+		ObjectLockEnabled: req.GetObjectLockEnabled(),
 	}, nil
 }
 

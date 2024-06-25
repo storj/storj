@@ -191,7 +191,8 @@ func (service *Service) process(ctx context.Context) (err error) {
 		cancel()
 		return err
 	}
-	service.log.Debug("Retrieved segment from repair queue")
+	log := service.log.With(zap.Stringer("Stream ID", seg.StreamID), zap.Uint64("Position", seg.Position.Encode()))
+	log.Debug("Retrieved segment from repair queue")
 
 	// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
 	// for releasing it.
@@ -199,7 +200,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		defer service.JobLimiter.Release(1)
 		defer cancel()
 		if err := service.worker(ctx, seg); err != nil {
-			service.log.Error("repair worker failed:", zap.Error(err))
+			log.Error("repair worker failed", zap.Error(err))
 		}
 	}()
 
@@ -211,14 +212,18 @@ func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (
 
 	workerStartTime := service.nowFn().UTC()
 
-	service.log.Debug("Limiter running repair on segment")
+	log := service.log.With(
+		zap.Stringer("Stream ID", seg.StreamID),
+		zap.Uint64("Position", seg.Position.Encode()))
+	log.Debug("Limiter running repair on segment")
+
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, seg)
 	if shouldDelete {
 		if err != nil {
-			service.log.Error("unexpected error repairing segment!", zap.Error(err))
+			log.Error("unexpected error repairing segment!", zap.Error(err))
 		} else {
-			service.log.Debug("removing repaired segment from repair queue")
+			log.Debug("removing repaired segment from repair queue")
 		}
 
 		delErr := service.queue.Delete(ctx, seg)

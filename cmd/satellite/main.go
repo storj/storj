@@ -23,7 +23,6 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
-	"storj.io/common/lrucache"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/process"
@@ -43,6 +42,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/lrucache"
 )
 
 // Satellite defines satellite configuration.

@@ -6,7 +6,6 @@ package blobstore
 import (
 	"context"
 	"io"
-	"os"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -140,7 +139,13 @@ type BlobInfo interface {
 	// FullPath gives the full path to the on-disk blob file.
 	FullPath(ctx context.Context) (string, error)
 	// Stat does a stat on the on-disk blob file.
-	Stat(ctx context.Context) (os.FileInfo, error)
+	Stat(ctx context.Context) (FileInfo, error)
+}
+
+// FileInfo contains information about the pieces files, what we care about.
+type FileInfo interface {
+	ModTime() time.Time
+	Size() int64
 }
 
 // DiskInfo contains information about the disk.

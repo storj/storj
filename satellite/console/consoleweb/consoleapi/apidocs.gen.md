@@ -35,6 +35,7 @@ Creates new Project with given info
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	managePassphrase: boolean
 }
 
 ```
@@ -49,8 +50,6 @@ Creates new Project with given info
 	description: string
 	userAgent: 	string
 	ownerId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
-	rateLimit: number
-	burstLimit: number
 	maxBuckets: number
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	memberCount: number
@@ -59,6 +58,18 @@ Creates new Project with given info
 	userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
 	userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 	segmentLimit: number
+	rateLimit: number
+	burstLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitList: number
+	burstLimitList: number
+	rateLimitDelete: number
+	burstLimitDelete: number
 	defaultPlacement: number
 	defaultVersioning: number
 }
@@ -86,6 +97,7 @@ Updates project with given info
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	managePassphrase: boolean
 }
 
 ```
@@ -100,8 +112,6 @@ Updates project with given info
 	description: string
 	userAgent: 	string
 	ownerId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
-	rateLimit: number
-	burstLimit: number
 	maxBuckets: number
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	memberCount: number
@@ -110,6 +120,18 @@ Updates project with given info
 	userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
 	userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 	segmentLimit: number
+	rateLimit: number
+	burstLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitList: number
+	burstLimitList: number
+	rateLimitDelete: number
+	burstLimitDelete: number
 	defaultPlacement: number
 	defaultVersioning: number
 }
@@ -145,8 +167,6 @@ Gets all projects user has
 		description: string
 		userAgent: 		string
 		ownerId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
-		rateLimit: number
-		burstLimit: number
 		maxBuckets: number
 		createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		memberCount: number
@@ -155,6 +175,18 @@ Gets all projects user has
 		userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
 		userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 		segmentLimit: number
+		rateLimit: number
+		burstLimit: number
+		rateLimitHead: number
+		burstLimitHead: number
+		rateLimitGet: number
+		burstLimitGet: number
+		rateLimitPut: number
+		burstLimitPut: number
+		rateLimitList: number
+		burstLimitList: number
+		rateLimitDelete: number
+		burstLimitDelete: number
 		defaultPlacement: number
 		defaultVersioning: number
 	}

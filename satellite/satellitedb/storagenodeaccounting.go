@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -56,7 +57,7 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accountin
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	out, err := convertSlice(raws, fromDBXStoragenodeStorageTally)
+	out, err := slices2.Convert(raws, fromDBXStoragenodeStorageTally)
 	return out, Error.Wrap(err)
 }
 
@@ -67,7 +68,7 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	out, err := convertSlice(raws, fromDBXStoragenodeStorageTally)
+	out, err := slices2.Convert(raws, fromDBXStoragenodeStorageTally)
 	return out, Error.Wrap(err)
 }
 
@@ -617,7 +618,7 @@ func (db *StoragenodeAccounting) GetRollupsSince(ctx context.Context, since time
 		}
 		cursor = next
 
-		rollups, err := convertSlice(dbxRollups, fromDBXStoragenodeBandwidthRollup)
+		rollups, err := slices2.Convert(dbxRollups, fromDBXStoragenodeBandwidthRollup)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -648,7 +649,7 @@ func (db *StoragenodeAccounting) GetArchivedRollupsSince(ctx context.Context, si
 		}
 		cursor = next
 
-		rollups, err := convertSlice(dbxRollups, fromDBXStoragenodeBandwidthRollupArchive)
+		rollups, err := slices2.Convert(dbxRollups, fromDBXStoragenodeBandwidthRollupArchive)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

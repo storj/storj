@@ -75,7 +75,7 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return version.AllowedVersions{}, Error.New("non-success http status code: %d; body: %s\n", resp.StatusCode, body)
+		return version.AllowedVersions{}, Error.New("non-success http status '%s' code: %d; body: %s\n", client.config.ServerAddress, resp.StatusCode, body)
 	}
 
 	err = json.NewDecoder(bytes.NewReader(body)).Decode(&ver)

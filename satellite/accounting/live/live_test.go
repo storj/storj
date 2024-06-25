@@ -69,7 +69,7 @@ func TestAddGetProjectStorageAndBandwidthUsage(t *testing.T) {
 					// upate it again and check
 					negativeVal := -(rand.Int63n(pdata.storageSum) + 1)
 					pdata.storageSum += negativeVal
-					err = cache.AddProjectStorageUsage(ctx, pdata.projectID, negativeVal)
+					err = cache.UpdateProjectStorageAndSegmentUsage(ctx, pdata.projectID, negativeVal, 0)
 					require.NoError(t, err)
 
 					spaceUsed, err = cache.GetProjectStorageUsage(ctx, pdata.projectID)
@@ -131,9 +131,8 @@ func TestGetAllProjectTotals(t *testing.T) {
 			projectIDs := make([]uuid.UUID, 1000)
 			for i := range projectIDs {
 				projectIDs[i] = testrand.UUID()
-				err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
-				require.NoError(t, err)
-				err = cache.UpdateProjectSegmentUsage(ctx, projectIDs[i], int64(i))
+				increment := int64(i)
+				err := cache.UpdateProjectStorageAndSegmentUsage(ctx, projectIDs[i], increment, increment)
 				require.NoError(t, err)
 			}
 
@@ -154,8 +153,9 @@ func TestGetAllProjectTotals(t *testing.T) {
 						require.NoError(t, err)
 						assert.Equal(t, totalStorage, usage[projID].Storage)
 
-						totalSegments, err := testCache.GetProjectSegmentUsage(ctx, projID)
+						totalStorageBis, totalSegments, err := testCache.GetProjectStorageAndSegmentUsage(ctx, projID)
 						require.NoError(t, err)
+						assert.Equal(t, totalStorageBis, usage[projID].Storage)
 						assert.Equal(t, totalSegments, usage[projID].Segments)
 					}
 				})
@@ -332,7 +332,7 @@ func populateCache(ctx context.Context, cache accounting.Cache) ([]populateCache
 			for _, val := range myValues {
 				storageVal := val * valueStorageMultiplier
 				populatedData[i].storageSum += storageVal
-				if err := cache.AddProjectStorageUsage(ctx, projID, storageVal); err != nil {
+				if err := cache.UpdateProjectStorageAndSegmentUsage(ctx, projID, storageVal, 0); err != nil {
 					return err
 				}
 

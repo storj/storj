@@ -37,6 +37,7 @@ import UpdraftPlusIcon from '@/assets/apps/updraftplus.png';
 import DuplicatiIcon from '@/assets/apps/duplicati.png';
 import ResticIcon from '@/assets/apps/restic.png';
 import StarfishIcon from '@/assets/apps/starfish.png';
+import CommvaultIcon from '@/assets/apps/commvault.png';
 import UplinkIcon from '@/assets/apps/uplink.svg';
 
 export enum AppCategory {
@@ -317,5 +318,12 @@ export const applications: Application[] = [
         category: AppCategory.FileManagement,
         src: StarfishIcon,
         docs: 'https://docs.storj.io/dcs/third-party-tools/starfish',
+    },
+    {
+        name: 'Commvault',
+        description: 'Reduce downtime, maintain operations and drive resiliency with Commvault and Storj.',
+        category: AppCategory.BackupRecovery,
+        src: CommvaultIcon,
+        docs: 'https://docs.storj.io/dcs/third-party-tools/commvault',
     },
 ];

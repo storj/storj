@@ -29,6 +29,9 @@ type Projects interface {
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// GetSalt returns the project's salt.
 	GetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
+	// GetEncryptedPassphrase gets the encrypted passphrase of this project.
+	// NB: projects that don't have satellite managed encryption will not have this.
+	GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) ([]byte, error)
 	// GetByPublicID is a method for querying project from the database by public_id.
 	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
@@ -62,6 +65,10 @@ type Projects interface {
 
 	// UpdateAllLimits is a method for updating max buckets, storage, bandwidth, segment, rate, and burst limits.
 	UpdateAllLimits(ctx context.Context, id uuid.UUID, storage, bandwidth, segment *int64, buckets, rate, burst *int) error
+
+	// UpdateLimitsGeneric is a method for updating any or all types of limits on a project.
+	// ALL limits passed in to the request will be updated i.e. if a limit type is passed in with a null value, that limit will be updated to null.
+	UpdateLimitsGeneric(ctx context.Context, id uuid.UUID, toUpdate []Limit) error
 
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
@@ -107,34 +114,58 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name                        string                    `json:"name"`
-	Description                 string                    `json:"description"`
-	UserAgent                   []byte                    `json:"userAgent"`
-	OwnerID                     uuid.UUID                 `json:"ownerId"`
-	RateLimit                   *int                      `json:"rateLimit"`
-	BurstLimit                  *int                      `json:"burstLimit"`
-	MaxBuckets                  *int                      `json:"maxBuckets"`
-	CreatedAt                   time.Time                 `json:"createdAt"`
-	MemberCount                 int                       `json:"memberCount"`
-	StorageLimit                *memory.Size              `json:"storageLimit"`
-	StorageUsed                 int64                     `json:"-"`
-	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
-	BandwidthUsed               int64                     `json:"-"`
-	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
-	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
-	SegmentLimit                *int64                    `json:"segmentLimit"`
-	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
-	PromptedForVersioningBeta   bool                      `json:"-"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	UserAgent   []byte    `json:"userAgent"`
+	OwnerID     uuid.UUID `json:"ownerId"`
+	MaxBuckets  *int      `json:"maxBuckets"`
+	CreatedAt   time.Time `json:"createdAt"`
+	MemberCount int       `json:"memberCount"`
+
+	StorageLimit                *memory.Size `json:"storageLimit"`
+	StorageUsed                 int64        `json:"-"`
+	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
+	BandwidthUsed               int64        `json:"-"`
+	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64       `json:"segmentLimit"`
+
+	RateLimit        *int `json:"rateLimit"`
+	BurstLimit       *int `json:"burstLimit"`
+	RateLimitHead    *int `json:"rateLimitHead,omitempty"`
+	BurstLimitHead   *int `json:"burstLimitHead,omitempty"`
+	RateLimitGet     *int `json:"rateLimitGet,omitempty"`
+	BurstLimitGet    *int `json:"burstLimitGet,omitempty"`
+	RateLimitPut     *int `json:"rateLimitPut,omitempty"`
+	BurstLimitPut    *int `json:"burstLimitPut,omitempty"`
+	RateLimitList    *int `json:"rateLimitList,omitempty"`
+	BurstLimitList   *int `json:"burstLimitList,omitempty"`
+	RateLimitDelete  *int `json:"rateLimitDelete,omitempty"`
+	BurstLimitDelete *int `json:"burstLimitDelete,omitempty"`
+
+	DefaultPlacement          storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning         DefaultVersioning         `json:"defaultVersioning"`
+	PromptedForVersioningBeta bool                      `json:"-"`
+	PassphraseEnc             []byte                    `json:"-"`
+	PathEncryption            *bool                     `json:"-"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {
-	Name           string      `json:"name"`
-	Description    string      `json:"description"`
-	StorageLimit   memory.Size `json:"storageLimit"`
-	BandwidthLimit memory.Size `json:"bandwidthLimit"`
-	CreatedAt      time.Time   `json:"createdAt"`
+	Name           string       `json:"name"`
+	Description    string       `json:"description"`
+	StorageLimit   *memory.Size `json:"storageLimit"`
+	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
+
+	// these fields are only used for inserts and ignored for updates
+	CreatedAt        time.Time `json:"createdAt"`
+	ManagePassphrase bool      `json:"managePassphrase"`
+}
+
+// UpdateLimitsInfo holds data needed to update project limits.
+type UpdateLimitsInfo struct {
+	StorageLimit   *memory.Size `json:"storageLimit"`
+	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
 }
 
 // ProjectInfo holds data sent via user facing http endpoints.
@@ -209,8 +240,9 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled     bool `json:"versioningUIEnabled"`
-	PromptForVersioningBeta bool `json:"promptForVersioningBeta"`
+	VersioningUIEnabled     bool   `json:"versioningUIEnabled"`
+	PromptForVersioningBeta bool   `json:"promptForVersioningBeta"`
+	Passphrase              string `json:"passphrase,omitempty"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

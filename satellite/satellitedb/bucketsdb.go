@@ -24,7 +24,10 @@ type bucketsDB struct {
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	optionalFields := dbx.BucketMetainfo_Create_Fields{}
+	optionalFields := dbx.BucketMetainfo_Create_Fields{
+		Placement:         dbx.BucketMetainfo_Placement(int(bucket.Placement)),
+		ObjectLockEnabled: dbx.BucketMetainfo_ObjectLockEnabled(bucket.ObjectLockEnabled),
+	}
 	if bucket.UserAgent != nil {
 		optionalFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
 	}
@@ -34,7 +37,6 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	if !bucket.CreatedBy.IsZero() {
 		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
 	}
-	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
@@ -123,53 +125,86 @@ func (db *bucketsDB) GetBucketVersioningState(ctx context.Context, bucketName []
 // EnableBucketVersioning enables versioning for a bucket.
 func (db *bucketsDB) EnableBucketVersioning(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+
+	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
-		// only enable versioning if current versioning state is unversioned, enabled, or suspended.
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket.Versioning == int(buckets.VersioningUnsupported) {
+		return buckets.ErrConflict.New("versioning is unsupported for this bucket")
+	}
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		// Only enable versioning if current versioning state is unversioned, enabled, or suspended.
 		dbx.BucketMetainfo_Versioning(int(buckets.Unversioned)),
 		dbx.BucketMetainfo_Update_Fields{
 			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
-		})
+		},
+	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
 		return buckets.ErrBucket.Wrap(err)
 	}
-	if dbxBucket == nil {
-		return buckets.ErrBucketNotFound.New("%s", bucketName)
-	}
-	if buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningEnabled {
-		return buckets.ErrBucket.New("cannot transition bucket versioning state to enabled")
-	}
+
 	return nil
 }
 
 // SuspendBucketVersioning disables versioning for a bucket.
 func (db *bucketsDB) SuspendBucketVersioning(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+
+	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
-		// only suspend versioning if current versioning state is enabled, or suspended.
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket.Versioning < int(buckets.VersioningEnabled) {
+		return buckets.ErrConflict.New("versioning may only be suspended for buckets with versioning enabled")
+	}
+	if dbxBucket.ObjectLockEnabled {
+		return buckets.ErrLocked.New("versioning may not be suspended for buckets with Object Lock enabled")
+	}
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual_And_ObjectLockEnabled_Equal_False(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		// Only suspend versioning if current versioning state is enabled or suspended.
 		dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
 		dbx.BucketMetainfo_Update_Fields{
 			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningSuspended)),
-		})
+		},
+	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// This should only occur if, between the execution of the two queries,
+			// the bucket was deleted or Object Lock was enabled for it.
+			return buckets.ErrUnavailable.New("")
+		}
 		return buckets.ErrBucket.Wrap(err)
 	}
-	if dbxBucket == nil {
-		return buckets.ErrBucketNotFound.New("%s", bucketName)
-	}
-	if buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningSuspended {
-		return buckets.ErrBucket.New("cannot transition bucket versioning state to suspended")
-	}
+
 	return nil
 }
 
 // GetMinimalBucket returns existing bucket with minimal number of fields.
 func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.MinimalBucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	row, err := db.db.Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
+	row, err := db.db.Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
@@ -188,10 +223,16 @@ func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, pr
 		}
 	}
 
+	var placement storj.PlacementConstraint
+	if row.Placement != nil {
+		placement = storj.PlacementConstraint(*row.Placement)
+	}
+
 	return buckets.MinimalBucket{
 		Name:      bucketName,
 		CreatedBy: createdBy,
 		CreatedAt: row.CreatedAt,
+		Placement: placement,
 	}, nil
 }
 
@@ -379,7 +420,8 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
-		Versioning: buckets.Versioning(dbxBucket.Versioning),
+		Versioning:        buckets.Versioning(dbxBucket.Versioning),
+		ObjectLockEnabled: dbxBucket.ObjectLockEnabled,
 	}
 
 	if dbxBucket.Placement != nil {
@@ -430,4 +472,20 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, pageSize int, f
 		}
 
 	}
+}
+
+// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.
+func (db *bucketsDB) GetBucketObjectLockEnabled(ctx context.Context, bucketName []byte, projectID uuid.UUID) (enabled bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	row, err := db.db.Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return false, buckets.ErrBucket.Wrap(err)
+	}
+	return row.ObjectLockEnabled, nil
 }

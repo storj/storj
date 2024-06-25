@@ -4,6 +4,7 @@
 package retain
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
@@ -68,6 +70,14 @@ func NewRequestStore(path string) (RequestStore, error) {
 			continue
 		}
 
+		// previously, we were storing only the bloom filter in the file, but now we store the entire request
+		// so .pb is appended to the filename to indicate that the file contains a protobuf message.
+		// To ensure backwards compatibility, we check if the filename ends with .pb and remove it if it does
+		isProtobufRequest := strings.HasSuffix(unixTimeStr, ".pb")
+		if isProtobufRequest {
+			unixTimeStr = strings.TrimSuffix(unixTimeStr, ".pb")
+		}
+
 		unixTime, err := strconv.ParseInt(unixTimeStr, 10, 64)
 		if err != nil {
 			errsEncountered.Add(errs.New("invalid filename: %s; %w", filename, err))
@@ -83,22 +93,43 @@ func NewRequestStore(path string) (RequestStore, error) {
 		req := Request{
 			SatelliteID:   satelliteID,
 			CreatedBefore: time.Unix(0, unixTime),
+			Filename:      filename,
 		}
 
-		data, err := os.ReadFile(filepath.Join(path, req.Filename()))
-		if err != nil {
-			errsEncountered.Add(err)
-			continue
-		}
-
-		req.Filter, err = bloomfilter.NewFromBytes(data)
-		if err != nil {
-			errsEncountered.Add(errs.New("malformed bloom filter: %w", err))
-			err := DeleteFile(store.path, file.Name())
+		{
+			data, err := os.ReadFile(filepath.Join(path, filename))
 			if err != nil {
-				errsEncountered.Add(errs.New("failed to delete malformed bloom filter from store: %w", err))
+				errsEncountered.Add(err)
+				continue
 			}
-			continue
+
+			if isProtobufRequest {
+				pbReq := new(pb.RetainRequest)
+
+				err = pb.Unmarshal(data, pbReq)
+				if err != nil {
+					errsEncountered.Add(errs.New("failed to parse pb file; %w", err))
+					continue
+				}
+
+				err = verifyHash(pbReq)
+				if err != nil {
+					errsEncountered.Add(errs.New("failed to verify hash: %w", err))
+					continue
+				}
+
+				data = pbReq.Filter
+			}
+
+			req.Filter, err = bloomfilter.NewFromBytes(data)
+			if err != nil {
+				errsEncountered.Add(errs.New("malformed bloom filter: %w", err))
+				err := DeleteFile(store.path, file.Name())
+				if err != nil {
+					errsEncountered.Add(errs.New("failed to delete malformed bloom filter from store: %w", err))
+				}
+				continue
+			}
 		}
 
 		// check if there is already a request for this satellite
@@ -110,7 +141,7 @@ func NewRequestStore(path string) (RequestStore, error) {
 			}
 
 			// if the new request is newer, remove the old one
-			err := DeleteFile(store.path, prevReq.Filename())
+			err := DeleteFile(store.path, prevReq.GetFilename())
 			if err != nil {
 				errsEncountered.Add(errs.New("failed to delete old bloomfilter file: %w", err))
 			}
@@ -129,17 +160,29 @@ func (store *RequestStore) Data() map[storj.NodeID]Request {
 
 // Add adds a request to the store. It returns true if the request was added, and an
 // error if the file could not be saved.
-func (store *RequestStore) Add(req Request) (bool, error) {
+func (store *RequestStore) Add(satelliteID storj.NodeID, pbReq *pb.RetainRequest) (bool, error) {
 	// if there is already a request for this satellite, remove it
-	if prevReq, ok := store.data[req.SatelliteID]; ok {
-		err := DeleteFile(store.path, prevReq.Filename())
+	if prevReq, ok := store.data[satelliteID]; ok {
+		err := DeleteFile(store.path, prevReq.GetFilename())
 		if err != nil {
 			return false, err
 		}
 	}
-	store.data[req.SatelliteID] = req
+
+	filter, err := bloomfilter.NewFromBytes(pbReq.GetFilter())
+	if err != nil {
+		return false, err
+	}
+
+	request := Request{
+		SatelliteID:   satelliteID,
+		CreatedBefore: pbReq.GetCreationDate(),
+		Filter:        filter,
+	}
+	store.data[satelliteID] = request
+
 	// save the new request
-	err := SaveRequest(store.path, req)
+	err = SaveRequest(store.path, request.GetFilename(), pbReq)
 	if err != nil {
 		return true, err
 	}
@@ -166,7 +209,7 @@ func (store *RequestStore) Remove(req Request) bool {
 // DeleteCache removes the request from the store and deletes the cache file.
 func (store *RequestStore) DeleteCache(req Request) error {
 	_ = store.Remove(req)
-	return DeleteFile(store.path, req.Filename())
+	return DeleteFile(store.path, req.GetFilename())
 }
 
 // Next returns the next request from the store.
@@ -192,10 +235,32 @@ func DeleteFile(path, filename string) error {
 }
 
 // SaveRequest stores the request to the filesystem.
-func SaveRequest(path string, req Request) error {
-	err := os.WriteFile(filepath.Join(path, req.Filename()), req.Filter.Bytes(), 0644)
+func SaveRequest(path, filename string, request *pb.RetainRequest) error {
+	data, err := pb.Marshal(request)
 	if err != nil {
 		return err
 	}
+
+	err = os.WriteFile(filepath.Join(path, filename), data, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// verifyHash calculates and verifies the hash of the filter.
+func verifyHash(req *pb.RetainRequest) error {
+	if len(req.Hash) == 0 {
+		return nil
+	}
+	hasher := pb.NewHashFromAlgorithm(req.HashAlgorithm)
+	_, err := hasher.Write(req.GetFilter())
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(req.Hash, hasher.Sum(nil)) {
+		return errs.New("hash mismatch")
+	}
+
 	return nil
 }

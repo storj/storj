@@ -45,10 +45,10 @@ func cmdRestart(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	return restartService(ctx, runCfg.ServiceName, runCfg.BinaryLocation, newVersionPath, backupPath)
+	return restartService(ctx, "", runCfg.ServiceName, runCfg.BinaryLocation, newVersionPath, backupPath)
 }
 
-func restartService(ctx context.Context, service, binaryLocation, newVersionPath, backupPath string) (err error) {
+func restartService(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (err error) {
 	srvc, err := openService(service)
 	if err != nil {
 		return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))

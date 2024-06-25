@@ -34,7 +34,7 @@
             </v-col>
         </v-row>
 
-        <v-card class="pa-2 my-5">
+        <v-card class="pa-2 my-5" variant="flat">
             <v-row align="center">
                 <v-col>
                     <v-text-field
@@ -65,7 +65,7 @@
                                 <span class="text-body-2 hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
                             </v-btn>
                         </template>
-                        <v-list>
+                        <v-list class="pa-1">
                             <v-list-item
                                 v-for="(key, index) in sortKeys"
                                 :key="index"

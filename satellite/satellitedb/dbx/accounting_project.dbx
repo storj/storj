@@ -33,8 +33,8 @@ model bucket_bandwidth_rollup (
 )
 
 read paged (
-    select bucket_bandwidth_rollup
-    where bucket_bandwidth_rollup.interval_start >= ?
+	select bucket_bandwidth_rollup
+	where bucket_bandwidth_rollup.interval_start >= ?
 )
 
 // bucket_bandwidth_rollup_archive contains historical condensed data from bucket_bandwidth_rollup table.
@@ -72,8 +72,8 @@ model bucket_bandwidth_rollup_archive (
 )
 
 read paged (
-    select bucket_bandwidth_rollup_archive
-    where bucket_bandwidth_rollup_archive.interval_start >= ?
+	select bucket_bandwidth_rollup_archive
+	where bucket_bandwidth_rollup_archive.interval_start >= ?
 )
 
 // project_bandwidth_daily_rollup contains the total traffic for a given project.
@@ -140,15 +140,15 @@ model bucket_storage_tally (
 )
 
 read all (
-    select bucket_storage_tally
-    orderby desc bucket_storage_tally.interval_start
+	select bucket_storage_tally
+	orderby desc bucket_storage_tally.interval_start
 )
 
 read all (
-    select bucket_storage_tally
-    where bucket_storage_tally.project_id = ?
-    where bucket_storage_tally.bucket_name = ?
-    where bucket_storage_tally.interval_start >= ?
-    where bucket_storage_tally.interval_start <= ?
-    orderby desc bucket_storage_tally.interval_start
+	select bucket_storage_tally
+	where bucket_storage_tally.project_id = ?
+	where bucket_storage_tally.bucket_name = ?
+	where bucket_storage_tally.interval_start >= ?
+	where bucket_storage_tally.interval_start <= ?
+	orderby desc bucket_storage_tally.interval_start
 )

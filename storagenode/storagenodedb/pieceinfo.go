@@ -5,7 +5,6 @@ package storagenodedb
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -279,7 +278,7 @@ func (v0Access *v0StoredPieceAccess) StorageFormatVersion() blobstore.FormatVers
 }
 
 // Stat does a stat on the on-disk blob file.
-func (v0Access *v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
+func (v0Access *v0StoredPieceAccess) Stat(ctx context.Context) (blobstore.FileInfo, error) {
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return nil, err
 	}

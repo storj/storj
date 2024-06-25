@@ -5,15 +5,14 @@ package metabase
 
 import (
 	"context"
-	"errors"
+	"reflect"
 	"sort"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
-	"github.com/storj/exp-spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -223,9 +222,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 // TestingGetAllObjects returns the state of the database.
 func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	objs := []RawObject{}
-
-	result := s.client.Single().Query(ctx, spanner.Statement{
+	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id,
@@ -238,19 +235,8 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 			FROM objects
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		`,
-	})
-	defer result.Stop()
-
-	for {
-		row, err := result.Next()
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return nil, Error.New("testingGetAllObjects query: %w", err)
-		}
-		var obj RawObject
-		err = row.Columns(
+	}), func(row *spanner.Row, obj *RawObject) error {
+		return Error.Wrap(row.Columns(
 			&obj.ProjectID,
 			&obj.BucketName,
 			&obj.ObjectKey,
@@ -273,25 +259,35 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-		)
-		if err != nil {
-			return nil, Error.New("testingGetAllObjects scan failed: %w", err)
-		}
-		objs = append(objs, obj)
-	}
-
-	if len(objs) == 0 {
-		return nil, nil
-	}
-	return objs, nil
+		))
+	})
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.
 // This implementation does no verification on the correctness of objects.
 func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	objectsByAdapterType := make(map[reflect.Type][]RawObject)
+	for _, obj := range objects {
+		adapter := db.ChooseAdapter(obj.ProjectID)
+		adapterType := reflect.TypeOf(adapter)
+		objectsByAdapterType[adapterType] = append(objectsByAdapterType[adapterType], obj)
+	}
+	for _, adapter := range db.adapters {
+		adapterType := reflect.TypeOf(adapter)
+		err := adapter.TestingBatchInsertObjects(ctx, objectsByAdapterType[adapterType])
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		delete(objectsByAdapterType, adapterType)
+	}
+	return nil
+}
+
+// TestingBatchInsertObjects batch inserts objects for testing.
+func (p *PostgresAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
 	const maxRowsPerCopy = 250000
 
-	return Error.Wrap(pgxutil.Conn(ctx, db.db,
+	return Error.Wrap(pgxutil.Conn(ctx, p.db,
 		func(conn *pgx.Conn) error {
 			progress, total := 0, len(objects)
 			for len(objects) > 0 {
@@ -308,16 +304,66 @@ func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject
 				}
 
 				progress += len(batch)
-				db.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+				p.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
 			}
 			return err
 		}))
 }
 
+// TestingBatchInsertObjects batch inserts objects for testing.
+func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	const maxRowsPerBatch = 250000
+
+	progress, total := 0, len(objects)
+	for len(objects) > 0 {
+		batch := objects
+		if len(batch) > maxRowsPerBatch {
+			batch = batch[:maxRowsPerBatch]
+		}
+		objects = objects[len(batch):]
+
+		source := newCopyFromRawObjects(batch)
+		muts := make([]*spanner.Mutation, 0, len(batch))
+		for source.Next() {
+			vals, err := source.Values()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			cols := source.Columns()
+
+			// Change the int32s to int64s to appease the capricious gods of Spanner.
+			// Also encode the "bucket_name" column value as a string instead of a byte array
+			// so that it doesn't come back as base64 for ridiculous Spanner reasons.
+			//
+			// At least this hacky bit is better than having a whole separate implementation
+			// of copyFromRawObjects.
+			//
+			// TODO: see whether there's a better way to approach this.
+			for i := range vals {
+				if v, ok := vals[i].(int32); ok {
+					vals[i] = int64(v)
+				}
+				if cols[i] == "bucket_name" {
+					vals[i] = string(vals[i].([]byte))
+				}
+			}
+
+			muts = append(muts, spanner.Insert("objects", source.Columns(), vals))
+		}
+		_, err = s.client.Apply(ctx, muts)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		progress += len(batch)
+		s.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+	}
+	return nil
+}
+
 type copyFromRawObjects struct {
 	idx  int
 	rows []RawObject
-	row  []any
 }
 
 func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
@@ -361,7 +407,7 @@ func (ctr *copyFromRawObjects) Columns() []string {
 
 func (ctr *copyFromRawObjects) Values() ([]any, error) {
 	obj := &ctr.rows[ctr.idx]
-	ctr.row = append(ctr.row[:0],
+	return []any{
 		obj.ProjectID.Bytes(),
 		[]byte(obj.BucketName),
 		[]byte(obj.ObjectKey),
@@ -384,8 +430,7 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 
 		encryptionParameters{&obj.Encryption},
 		obj.ZombieDeletionDeadline,
-	)
-	return ctr.row, nil
+	}, nil
 }
 
 func (ctr *copyFromRawObjects) Err() error { return nil }
@@ -463,7 +508,7 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 
 // TestingGetAllSegments implements Adapter.
 func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (segments []RawSegment, err error) {
-	iter := s.client.Single().Query(ctx, spanner.Statement{SQL: `
+	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{SQL: `
 		SELECT
 			stream_id, position,
 			created_at, repaired_at, expires_at,
@@ -475,22 +520,10 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			placement
 		FROM segments
 		ORDER BY stream_id ASC, position ASC
-	`})
-	defer iter.Stop()
-
-	for {
-		row, err := iter.Next()
-		if errors.Is(err, iterator.Done) {
-			return segments, nil
-		}
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		var segment RawSegment
+	`}), func(row *spanner.Row, segment *RawSegment) error {
 		var aliasPieces AliasPieces
-		// TODO(spanner) potentially we could use row.ToStruct but we would need to add AliasPieces to RawSegment
-		if err := row.Columns(
+
+		err := row.Columns(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
@@ -498,18 +531,19 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
-			spannerutil.Int(&segment.Placement), // can remove this spannerutil.Int call once gerrit common/13077 is merged
-		); err != nil {
-			return nil, Error.Wrap(err)
+			&segment.Placement,
+		)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
-			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
+			return Error.New("convert aliases to pieces failed: %w", err)
 		}
 
-		segments = append(segments, segment)
-	}
+		return nil
+	})
 }
 
 // TestingBatchInsertSegments batch inserts segments for testing.

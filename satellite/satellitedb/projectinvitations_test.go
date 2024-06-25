@@ -110,13 +110,13 @@ func TestProjectInvitations(t *testing.T) {
 			require.ElementsMatch(t, invites, []console.ProjectInvitation{*invite, *inviteSameProject})
 		})
 
-		t.Run("ensure inviter removal nullifies inviter ID", func(t *testing.T) {
+		t.Run("ensure inviter removal removes the invite", func(t *testing.T) {
 			ctx := testcontext.New(t)
-
-			require.NoError(t, db.Console().Users().Delete(ctx, inviterID))
-			invite, err := invitesDB.Get(ctx, projID, email)
+			_, err := invitesDB.Get(ctx, projID, email)
 			require.NoError(t, err)
-			require.Nil(t, invite.InviterID)
+			require.NoError(t, db.Console().Users().Delete(ctx, inviterID))
+			_, err = invitesDB.Get(ctx, projID, email)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 		})
 
 		t.Run("update invitation", func(t *testing.T) {

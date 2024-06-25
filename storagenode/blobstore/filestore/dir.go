@@ -1071,7 +1071,7 @@ func (info *blobInfo) StorageFormatVersion() blobstore.FormatVersion {
 	return info.formatVersion
 }
 
-func (info *blobInfo) Stat(ctx context.Context) (os.FileInfo, error) {
+func (info *blobInfo) Stat(ctx context.Context) (blobstore.FileInfo, error) {
 	if info.fileInfo == nil {
 		fileInfo, err := os.Lstat(info.path)
 		if err != nil {

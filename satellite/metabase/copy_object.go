@@ -9,9 +9,12 @@ import (
 	"errors"
 	"time"
 
+	"cloud.google.com/go/spanner"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -152,7 +155,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject := Object{}
 	var copyMetadata []byte
 
-	var precommit precommitConstraintResult
+	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
 		sourceObject, err := adapter.getObjectNonPendingExactVersion(ctx, opts)
 		if err != nil {
@@ -200,7 +203,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			copyMetadata = sourceObject.EncryptedMetadata
 		}
 
-		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
@@ -295,6 +298,71 @@ func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, s
 	return segments, err
 }
 
+func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
+	segments.Positions = make([]int64, sourceObject.SegmentCount)
+
+	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
+
+	segments.ExpiresAts = make([]*time.Time, sourceObject.SegmentCount)
+	segments.EncryptedSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
+	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
+	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
+
+	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
+
+	index := 0
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				position,
+				expires_at,
+				root_piece_id,
+				encrypted_size, plain_offset, plain_size,
+				redundancy,
+				remote_alias_pieces,
+				placement,
+				COALESCE(inline_data, B'') AS inline_data
+			FROM segments
+			WHERE stream_id = @stream_id
+			ORDER BY position ASC
+			LIMIT @segment_count
+		`,
+		Params: map[string]interface{}{
+			"stream_id":     sourceObject.StreamID,
+			"segment_count": int64(sourceObject.SegmentCount),
+		},
+	}).Do(func(row *spanner.Row) error {
+		err := row.Columns(
+			&segments.Positions[index],
+			&segments.ExpiresAts[index],
+			&segments.RootPieceIDs[index],
+			spannerutil.Int(&segments.EncryptedSizes[index]), &segments.PlainOffsets[index], spannerutil.Int(&segments.PlainSizes[index]),
+			&segments.RedundancySchemes[index],
+			&segments.PiecesLists[index],
+			&segments.Placements[index],
+			&segments.InlineDatas[index],
+		)
+		if err != nil {
+			return Error.New("could not read segments for copy: %w", err)
+		}
+		index++
+		return nil
+	})
+
+	if err != nil {
+		return transposedSegmentList{}, Error.New("could not load segments for copy: %w", err)
+	}
+
+	if index != int(sourceObject.SegmentCount) {
+		return transposedSegmentList{}, Error.New("could not load all of the segment information (%d != %d)", index, sourceObject.SegmentCount)
+	}
+
+	return segments, err
+}
+
 func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 	row := ptx.tx.QueryRowContext(ctx, `
@@ -362,15 +430,100 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 	return newObject, nil
 }
 
+func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
+	// TODO we need to handle metadata correctly (copy from original object or replace)
+
+	newObject = sourceObject
+
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				status, expires_at, segment_count,
+				encryption,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				zombie_deletion_deadline
+			) VALUES (
+				@project_id, @bucket_name, @object_key, @version, @stream_id,
+				@status, @expires_at, @segment_count,
+				@encryption,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				NULL
+			)
+			THEN RETURN
+				created_at
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.NewBucket,
+			"object_key":                       opts.NewEncryptedObjectKey,
+			"version":                          nextVersion,
+			"stream_id":                        opts.NewStreamID,
+			"status":                           newStatus,
+			"expires_at":                       sourceObject.ExpiresAt,
+			"segment_count":                    int64(sourceObject.SegmentCount),
+			"encryption":                       encryptionParameters{&sourceObject.Encryption},
+			"encrypted_metadata":               copyMetadata,
+			"encrypted_metadata_nonce":         opts.NewEncryptedMetadataKeyNonce,
+			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataKey,
+			"total_plain_size":                 sourceObject.TotalPlainSize,
+			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
+			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
+		},
+	}).Do(func(row *spanner.Row) error {
+		err := row.Columns(&newObject.CreatedAt)
+		if err != nil {
+			return Error.New("unable to scan created_at: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Object{}, Error.New("unable to copy object: %w", err)
+	}
+
+	newObject.Version = nextVersion
+	newObject.Status = newStatus
+
+	// Warning: these mutations will not be visible inside the transaction! Mutations only take
+	// effect when the transaction is closed. As the code is now, this is not a problem, but in
+	// case things are rearranged this may become an issue.
+	inserts := make([]*spanner.Mutation, len(newSegments.Positions))
+	for i := range newSegments.Positions {
+		inserts[i] = spanner.Insert("segments",
+			[]string{
+				"stream_id", "position", "expires_at",
+				"encrypted_key_nonce", "encrypted_key",
+				"root_piece_id",
+				"redundancy",
+				"encrypted_size", "plain_offset", "plain_size",
+				"remote_alias_pieces", "placement",
+				"inline_data",
+			}, []any{
+				opts.NewStreamID, newSegments.Positions[i], newSegments.ExpiresAts[i],
+				newSegments.EncryptedKeyNonces[i], newSegments.EncryptedKeys[i],
+				newSegments.RootPieceIDs[i],
+				newSegments.RedundancySchemes[i],
+				int64(newSegments.EncryptedSizes[i]), newSegments.PlainOffsets[i], int64(newSegments.PlainSizes[i]),
+				newSegments.PiecesLists[i], int64(newSegments.Placements[i]),
+				newSegments.InlineDatas[i],
+			},
+		)
+	}
+	err = stx.tx.BufferWrite(inserts)
+	if err != nil {
+		return Object{}, Error.New("unable to copy segments: %w", err)
+	}
+
+	return newObject, nil
+}
+
 // getObjectNonPendingExactVersion returns object information for exact version.
 //
 // Note: this returns both committed objects and delete markers.
 func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Object{}, err
-	}
 
 	object := Object{}
 	err = ptx.tx.QueryRowContext(ctx, `
@@ -400,6 +553,61 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
+	object.Version = opts.Version
+
+	return object, nil
+}
+
+func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	found := false
+	object := Object{}
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				stream_id, status,
+				created_at, expires_at,
+				segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
+				status <> ` + statusPending + ` AND
+				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	}).Do(func(row *spanner.Row) error {
+		found = true
+		err := row.Columns(
+			&object.StreamID, &object.Status,
+			&object.CreatedAt, &object.ExpiresAt,
+			spannerutil.Int(&object.SegmentCount),
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+			encryptionParameters{&object.Encryption},
+		)
+		if err != nil {
+			return Error.New("unable to scan object: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+	if !found {
+		return Object{}, ErrObjectNotFound.Wrap(Error.New("object does not exist"))
 	}
 
 	object.ProjectID = opts.ProjectID

@@ -315,9 +315,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get object", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CreateTestObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
@@ -362,9 +359,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get object last committed version from multiple", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CreateObject is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			firstObject := obj
@@ -406,9 +400,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get object last committed version, multiple versions", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CreateObjectVersioned is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			first := obj
@@ -433,9 +424,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get object delete marker, multiple versions", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CreateObjectVersioned is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			first := obj
@@ -479,9 +467,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				t.Skip("not ready for Spanner until CreateObjectCopy is implemented")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			copyObjStream := metabasetest.RandObjectStream()
@@ -528,7 +513,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				},
 			}}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithSpanner())
+	})
 }
 
 func TestGetSegmentByPosition(t *testing.T) {

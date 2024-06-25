@@ -2,38 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row v-if="isLoading" justify="center">
-        <v-col cols="auto" class="select-item">
-            <v-progress-circular indeterminate />
+    <v-row :align="smAndDown ? 'center' : 'start'" :justify="smAndDown ? 'start' : 'space-between'" :class="{'flex-column': smAndDown}">
+        <v-col v-for="(plan, index) in plans" :key="index" :cols="smAndDown ? 10 : 6" class="select-item">
+            <PricingPlanContainer
+                :plan="plan"
+                @select="(p) => emit('select', p)"
+            />
         </v-col>
     </v-row>
-    <template v-else>
-        <v-row :align="smAndDown ? 'center' : 'start'" :justify="smAndDown ? 'start' : 'space-between'" :class="{'flex-column': smAndDown}">
-            <v-col v-for="(plan, index) in plans" :key="index" :cols="smAndDown ? 10 : 6" class="select-item">
-                <PricingPlanContainer
-                    :plan="plan"
-                    @select="(p) => emit('select', p)"
-                />
-            </v-col>
-        </v-row>
-    </template>
 </template>
 
 <script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { VCol, VProgressCircular, VRow } from 'vuetify/components';
+import { VCol, VRow } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { User } from '@/types/users';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import PricingPlanContainer from '@/components/billing/pricingPlans/PricingPlanContainer.vue';
 
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const router = useRouter();
 const notify = useNotify();
 const { smAndDown } = useDisplay();
 
@@ -47,8 +39,6 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
     select: [PricingPlanInfo];
 }>();
-
-const isLoading = ref<boolean>(true);
 
 const plans = ref<PricingPlanInfo[]>([
     new PricingPlanInfo(
@@ -86,31 +76,14 @@ onBeforeMount(async () => {
             ),
         ];
     }
-    const user: User = usersStore.state.user;
-    if (user.paidTier || !user.partner) {
-        isLoading.value = false;
-        return;
-    }
 
-    let config;
-    try {
-        config = (await import('@/configs/pricingPlanConfig.json')).default;
-    } catch {
-        isLoading.value = false;
-        notify.error('No pricing plan configuration file.', null);
-        return;
-    }
-
-    const plan = config[user.partner] as PricingPlanInfo;
+    const plan = billingStore.state.pricingPlanInfo;
     if (!plan) {
-        isLoading.value = false;
-        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
+        notify.error(`No pricing plan configuration for partner '${usersStore.state.user.partner}'.`, null);
         return;
     }
     plan.type = PricingPlanType.PARTNER;
     plans.value.unshift(plan);
-
-    isLoading.value = false;
 });
 </script>
 

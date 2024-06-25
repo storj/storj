@@ -8,6 +8,7 @@ import (
 	"context"
 	"strings"
 
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
@@ -16,7 +17,7 @@ import (
 
 // objectIterator enables iteration on objects in a bucket.
 type objectsIterator struct {
-	db *DB
+	adapter Adapter
 
 	projectID             uuid.UUID
 	bucketName            []byte
@@ -30,7 +31,7 @@ type objectsIterator struct {
 
 	curIndex int
 	curRows  tagsql.Rows
-	cursor   iterateCursor // not relative to prefix
+	cursor   ObjectsIteratorCursor // not relative to prefix
 
 	skipPrefix  ObjectKey // relative to prefix
 	doNextQuery func(context.Context, *objectsIterator) (_ tagsql.Rows, err error)
@@ -39,37 +40,38 @@ type objectsIterator struct {
 	failErr error
 }
 
-type iterateCursor struct {
+// ObjectsIteratorCursor is the current location in an objects iterator.
+type ObjectsIteratorCursor struct {
 	Key       ObjectKey
 	Version   Version
 	StreamID  uuid.UUID
 	Inclusive bool
 }
 
-func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
-		db: db,
+		adapter: adapter,
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit(opts.Prefix),
+		prefixLimit:           PrefixLimit(opts.Prefix),
 		batchSize:             opts.BatchSize,
 		recursive:             opts.Recursive,
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
-		cursor:   firstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
 
-		doNextQuery: doNextQueryAllVersionsWithStatus,
+		doNextQuery: adapter.doNextQueryAllVersionsWithStatus,
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
+	if LessObjectKey(it.cursor.Key, opts.Prefix) {
 		it.cursor.Key = opts.Prefix
 		it.cursor.Version = MaxVersion
 		it.cursor.Inclusive = true // TODO: we probably won't need this `Inclusive` handling, if we specify MaxVersion already
@@ -78,30 +80,30 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, db *DB, opts It
 	return iterate(ctx, it, fn)
 }
 
-func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
-		db: db,
+		adapter: adapter,
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit(opts.Prefix),
+		prefixLimit:           PrefixLimit(opts.Prefix),
 		batchSize:             opts.BatchSize,
 		recursive:             opts.Recursive,
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
-		cursor:   firstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
 
-		doNextQuery: doNextQueryAllVersionsWithStatusAscending,
+		doNextQuery: adapter.doNextQueryAllVersionsWithStatusAscending,
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
+	if LessObjectKey(it.cursor.Key, opts.Prefix) {
 		it.cursor.Key = opts.Prefix
 		it.cursor.Version = -1
 		it.cursor.Inclusive = true
@@ -110,11 +112,11 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, db *DB, opts Ite
 	return iterate(ctx, it, fn)
 }
 
-func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := &objectsIterator{
-		db: db,
+		adapter: adapter,
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
@@ -127,12 +129,12 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		pending:               true,
 
 		curIndex: 0,
-		cursor: iterateCursor{
+		cursor: ObjectsIteratorCursor{
 			Key:      opts.ObjectKey,
 			Version:  MaxVersion, // TODO: this needs to come as an argument
 			StreamID: opts.Cursor.StreamID,
 		},
-		doNextQuery: doNextQueryPendingObjectsByKey,
+		doNextQuery: adapter.doNextQueryPendingObjectsByKey,
 	}
 
 	return iterate(ctx, it, fn)
@@ -211,7 +213,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 			afterPrefix := it.cursor.Key[len(it.prefix):]
 			p := bytes.IndexByte([]byte(afterPrefix), Delimiter)
 			if p >= 0 {
-				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
+				it.cursor.Key = it.prefix + PrefixLimit(afterPrefix[:p+1])
 				it.cursor.StreamID = uuid.UUID{}
 				it.cursor.Version = MaxVersion
 			}
@@ -249,7 +251,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	return true
 }
 
-func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -264,7 +266,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
-		return it.db.db.QueryContext(ctx, `
+		return p.db.QueryContext(ctx, `
 			SELECT
 				`+querySelectFields+`
 			FROM objects
@@ -294,7 +296,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	}
 
 	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
-	return it.db.db.QueryContext(ctx, `
+	return p.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
 		FROM objects
@@ -319,7 +321,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	)
 }
 
-func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -334,7 +336,85 @@ func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsI
 
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
-		return it.db.db.QueryContext(ctx, `
+		rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+			SQL: `
+				SELECT
+					` + querySelectFields + `
+				FROM objects
+				WHERE
+					project_id = @project_id
+					AND ` + TupleGreaterThanSQL([]string{"bucket_name", "object_key", "@cursor_version"}, []string{"@bucket_name", "@cursor_key", "version"}, it.cursor.Inclusive) + `
+					AND bucket_name < @next_bucket
+					` + statusFilter + `
+					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
+				LIMIT @batch_size
+			`,
+			Params: map[string]any{
+				"project_id":     it.projectID,
+				"bucket_name":    string(it.bucketName),
+				"cursor_key":     []byte(it.cursor.Key),
+				"cursor_version": it.cursor.Version,
+				"batch_size":     int64(it.batchSize),
+				"next_bucket":    string(nextBucket(it.bucketName)),
+			},
+		})
+		return newSpannerRows(rowIterator), nil
+	}
+
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring)", it)
+	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				` + querySelectFields + `
+			FROM objects
+			WHERE
+				project_id = @project_id
+				AND bucket_name = @bucket_name
+				AND (
+					object_key > @cursor_key
+					OR (object_key = @cursor_key AND @cursor_version ` + cursorCompare + ` version)
+				)
+				AND object_key < @prefix_limit
+				` + statusFilter + `
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
+			LIMIT @batch_size
+		`,
+		Params: map[string]any{
+			"project_id":     it.projectID,
+			"bucket_name":    string(it.bucketName),
+			"cursor_key":     []byte(it.cursor.Key),
+			"cursor_version": it.cursor.Version,
+			"prefix_limit":   []byte(it.prefixLimit),
+			"batch_size":     int64(it.batchSize),
+			"from_substring": int64(fromSubstring),
+		},
+	})
+	return newSpannerRows(rowIterator), nil
+}
+
+func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursorCompare := ">"
+	if it.cursor.Inclusive {
+		cursorCompare = ">="
+	}
+
+	statusFilter := `AND status <> ` + statusPending
+	if it.pending {
+		statusFilter = `AND status = ` + statusPending
+	}
+
+	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
+		return p.db.QueryContext(ctx, `
 			SELECT
 				`+querySelectFields+`
 			FROM objects
@@ -358,7 +438,7 @@ func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsI
 	}
 
 	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
-	return it.db.db.QueryContext(ctx, `
+	return p.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
 		FROM objects
@@ -375,6 +455,145 @@ func doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsI
 		it.batchSize,
 		fromSubstring,
 	)
+}
+
+func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursorCompare := ">"
+	if it.cursor.Inclusive {
+		cursorCompare = ">="
+	}
+
+	statusFilter := `AND status <> ` + statusPending
+	if it.pending {
+		statusFilter = `AND status = ` + statusPending
+	}
+
+	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
+		rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+			SQL: `
+				SELECT
+					` + querySelectFields + `
+				FROM objects
+				WHERE
+					project_id = @project_id
+					AND ` + TupleGreaterThanSQL([]string{"bucket_name", "object_key", "version"}, []string{"@bucket_name", "@cursor_key", "@cursor_version"}, it.cursor.Inclusive) + `
+					AND bucket_name < @next_bucket
+					` + statusFilter + `
+					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+				LIMIT @batch_size
+			`,
+			Params: map[string]any{
+				"project_id":     it.projectID,
+				"bucket_name":    string(it.bucketName),
+				"cursor_key":     []byte(it.cursor.Key),
+				"cursor_version": int64(it.cursor.Version),
+				"batch_size":     int64(it.batchSize),
+				"next_bucket":    string(nextBucket(it.bucketName)),
+			},
+		})
+		return newSpannerRows(rowIterator), nil
+	}
+
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring)", it)
+	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				` + querySelectFields + `
+			FROM objects
+			WHERE
+				project_id = @project_id
+				AND bucket_name = @bucket_name
+				AND (
+					(object_key > @cursor_key)
+					OR (object_key = @cursor_key AND version ` + cursorCompare + ` @cursor_version)
+				)
+				AND object_key < @prefix_limit
+				` + statusFilter + `
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+			LIMIT @batch_size
+		`,
+		Params: map[string]any{
+			"project_id":     it.projectID,
+			"bucket_name":    string(it.bucketName),
+			"cursor_key":     []byte(it.cursor.Key),
+			"cursor_version": int64(it.cursor.Version),
+			"prefix_limit":   []byte(it.prefixLimit),
+			"batch_size":     int64(it.batchSize),
+			"from_substring": int64(fromSubstring),
+		},
+	})
+	return newSpannerRows(rowIterator), nil
+}
+
+// TupleGreaterThanSQL returns a constructed SQL expression equivalent to a
+// tuple comparison (e.g. (tup1[0], tup1[1], ...) > (tup2[0], tup2[1], ...)).
+//
+// If orEqual is true, the returned expression will compare the tuples as
+// "greater than or equal" (>=) instead of "greater than" (>).
+//
+// This is necessary because Spanner does not support comparison of tuples,
+// except with equality (=).
+//
+// Example:
+//
+//	(a, b, c) >= (d, e, f)
+//
+// becomes
+//
+//	TupleGreaterThanSQL([]string{"a", "b", "c"}, []string{"d", "e", "f"}, true)
+//
+// which returns
+//
+//	"((a > d) OR (a = d AND b > e) OR (a = d AND b = e AND c >= f))"
+func TupleGreaterThanSQL(tup1, tup2 []string, orEqual bool) string {
+	if len(tup1) != len(tup2) {
+		panic("programming error: comparing tuples of different lengths")
+	}
+	if len(tup1) == 0 {
+		panic("programming error: comparing tuples of zero length")
+	}
+	comparator := " > "
+	if orEqual {
+		comparator = " >= "
+	}
+	var sb strings.Builder
+	if len(tup1) > 1 {
+		sb.WriteString("(")
+	}
+	for i := range tup1 {
+		sb.WriteString("(")
+		for j := 0; j < i; j++ {
+			sb.WriteString(tup1[j])
+			sb.WriteString(" = ")
+			sb.WriteString(tup2[j])
+			sb.WriteString(" AND ")
+		}
+		sb.WriteString(tup1[i])
+		if i == len(tup1)-1 {
+			sb.WriteString(comparator)
+		} else {
+			sb.WriteString(" > ")
+		}
+		sb.WriteString(tup2[i])
+		sb.WriteString(")")
+		if i < len(tup1)-1 {
+			sb.WriteString(" OR ")
+		}
+	}
+	if len(tup1) > 1 {
+		sb.WriteString(")")
+	}
+	return sb.String()
 }
 
 func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
@@ -412,10 +631,10 @@ func nextBucket(b []byte) []byte {
 }
 
 // doNextQuery executes query to fetch the next batch returning the rows.
-func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.QueryContext(ctx, `
+	return p.db.QueryContext(ctx, `
 			SELECT
 				object_key, stream_id, version, status, encryption,
 				created_at, expires_at,
@@ -434,6 +653,36 @@ func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_
 		it.cursor.StreamID,
 		it.batchSize,
 	)
+}
+
+func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				object_key, stream_id, version, status, encryption,
+				created_at, expires_at,
+				segment_count,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
+				AND stream_id > @stream_id
+				AND status = ` + statusPending + `
+			ORDER BY stream_id ASC
+			LIMIT @batch_size
+		`,
+		Params: map[string]any{
+			"project_id":  it.projectID,
+			"bucket_name": string(it.bucketName),
+			"cursor_key":  []byte(it.cursor.Key),
+			"stream_id":   it.cursor.StreamID,
+			"batch_size":  int64(it.batchSize),
+		},
+	})
+	return newSpannerRows(rowIterator), nil
 }
 
 // scanItem scans doNextQuery results into ObjectEntry.
@@ -475,7 +724,8 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	return nil
 }
 
-func prefixLimit(a ObjectKey) ObjectKey {
+// PrefixLimit returns the object key that can be used in where clause for querying objects matching a prefix.
+func PrefixLimit(a ObjectKey) ObjectKey {
 	if a == "" {
 		return ""
 	}
@@ -488,17 +738,17 @@ func prefixLimit(a ObjectKey) ObjectKey {
 	return ObjectKey(key)
 }
 
-// lessKey returns whether a < b.
-func lessKey(a, b ObjectKey) bool {
+// LessObjectKey returns whether a < b.
+func LessObjectKey(a, b ObjectKey) bool {
 	return bytes.Compare([]byte(a), []byte(b)) < 0
 }
 
-// firstIterateCursor adjust the cursor for a non-recursive iteration.
+// FirstIterateCursor adjust the cursor for a non-recursive iteration.
 // The cursor is non-inclusive and we need to adjust to handle prefix as cursor properly.
 // We return the next possible key from the prefix.
-func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) iterateCursor {
+func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) ObjectsIteratorCursor {
 	if recursive {
-		return iterateCursor{
+		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
 		}
@@ -506,7 +756,7 @@ func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 
 	// when the cursor does not match the prefix, we'll return the original cursor.
 	if !strings.HasPrefix(string(cursor.Key), string(prefix)) {
-		return iterateCursor{
+		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
 		}
@@ -522,14 +772,14 @@ func firstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 	if p < 0 {
 		// The cursor is not a prefix, but instead a path inside the prefix,
 		// so we can use it directly.
-		return iterateCursor{
+		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
 		}
 	}
 
 	// return the next prefix given a scoped path
-	return iterateCursor{
+	return ObjectsIteratorCursor{
 		Key:       cursor.Key[:len(prefix)+p] + ObjectKey(Delimiter+1),
 		Version:   MaxVersion,
 		Inclusive: true,

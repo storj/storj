@@ -13,7 +13,7 @@
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
                 </template>
-                <v-card-title class="font-weight-bold">Edit {{ limitType }} Limit</v-card-title>
+                <v-card-title class="font-weight-bold">{{ hasCustomLimit ? 'Edit' : 'Set' }} {{ limitType }} Limit</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -31,12 +31,46 @@
             <v-form v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
                     <v-col cols="6">
+                        <p class="text-subtitle-2 mb-2">Current Limit</p>
+                        <v-text-field
+                            class="edit-project-limit__text-field"
+                            variant="solo-filled"
+                            density="comfortable"
+                            flat
+                            readonly
+                            :model-value="currentLimitFormatted"
+                        >
+                            <template #append-inner>
+                                <v-menu>
+                                    <template #activator="{ props: slotProps, isActive }">
+                                        <v-btn
+                                            class="h-100 text-medium-emphasis"
+                                            variant="text"
+                                            density="comfortable"
+                                            color="default"
+                                            :append-icon="isActive ? mdiMenuUp : mdiMenuDown"
+                                            v-bind="slotProps"
+                                            @mousedown.stop
+                                            @click.stop
+                                        >
+                                            <span class="font-weight-regular">{{ activeMeasurement }}</span>
+                                        </v-btn>
+                                    </template>
+                                    <v-list v-model:selected="dropdownModel" density="compact">
+                                        <v-list-item :title="Dimensions.TB" :value="Dimensions.TB" />
+                                        <v-list-item :title="Dimensions.GB" :value="Dimensions.GB" />
+                                    </v-list>
+                                </v-menu>
+                            </template>
+                        </v-text-field>
+                    </v-col>
+                    <v-col cols="6">
                         <p class="text-subtitle-2 mb-2">Set {{ limitType }} Limit</p>
                         <v-text-field
                             class="edit-project-limit__text-field"
                             variant="outlined"
                             density="comfortable"
-                            type="number"
+                            :type="inputText !== NO_LIMIT ? 'number' : undefined"
                             :rules="rules"
                             :hide-details="false"
                             :model-value="inputText"
@@ -56,41 +90,7 @@
                                             @mousedown.stop
                                             @click.stop
                                         >
-                                            <span class="font-weight-regular">{{ activeMeasurement }}</span>
-                                        </v-btn>
-                                    </template>
-                                    <v-list v-model:selected="dropdownModel" density="compact">
-                                        <v-list-item :title="Dimensions.TB" :value="Dimensions.TB" />
-                                        <v-list-item :title="Dimensions.GB" :value="Dimensions.GB" />
-                                    </v-list>
-                                </v-menu>
-                            </template>
-                        </v-text-field>
-                    </v-col>
-                    <v-col cols="6">
-                        <p class="text-subtitle-2 mb-2">Available {{ limitType }}</p>
-                        <v-text-field
-                            class="edit-project-limit__text-field"
-                            variant="solo-filled"
-                            density="comfortable"
-                            flat
-                            readonly
-                            :model-value="availableUsageFormatted"
-                        >
-                            <template #append-inner>
-                                <v-menu>
-                                    <template #activator="{ props: slotProps, isActive }">
-                                        <v-btn
-                                            class="h-100 text-medium-emphasis"
-                                            variant="text"
-                                            density="comfortable"
-                                            color="default"
-                                            :append-icon="isActive ? mdiMenuUp : mdiMenuDown"
-                                            v-bind="slotProps"
-                                            @mousedown.stop
-                                            @click.stop
-                                        >
-                                            <span class="font-weight-regular">{{ activeMeasurement }}</span>
+                                            <span class="font-weight-regular">{{ inputText !== NO_LIMIT ? activeMeasurement : '' }}</span>
                                         </v-btn>
                                     </template>
                                     <v-list v-model:selected="dropdownModel" density="compact">
@@ -102,26 +102,26 @@
                         </v-text-field>
                     </v-col>
 
-                    <v-col cols="12">
-                        <v-card class="pa-3 mt-n4" variant="flat">
-                            <div class="d-flex mx-2 text-subtitle-2 font-weight-bold text-medium-emphasis">
-                                0 {{ activeMeasurement }}
-                                <v-spacer />
-                                {{ availableUsageFormatted }} {{ activeMeasurement }}
+                    <v-col v-if="hasCustomLimit" cols="12">
+                        <v-card class="px-3 mt-n4" variant="flat">
+                            <div class="d-flex justify-space-between align-center">
+                                <div>Don't need a limit?</div>
+                                <div>
+                                    <v-btn :loading="isLoading" variant="text" @click="unSetLimit">
+                                        Remove Limit
+                                    </v-btn>
+                                </div>
                             </div>
-                            <v-slider
-                                min="0"
-                                :max="availableUsage"
-                                :step="Memory[activeMeasurement]"
-                                color="primary"
-                                track-color="default"
-                                :model-value="input"
-                                hide-details
-                                @update:model-value="updateInput"
-                            />
                         </v-card>
                     </v-col>
                 </v-row>
+
+                <v-alert
+                    class="mt-3"
+                    density="compact"
+                    type="warning"
+                    text="Limit updates may take several minutes to be reflected."
+                />
             </v-form>
 
             <v-divider />
@@ -134,7 +134,7 @@
                         </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="primary" variant="flat" block :loading="isLoading" @click="onSaveClick">
+                        <v-btn color="primary" variant="flat" block :disabled="!hasChanged || !formValid" :loading="isLoading" @click="onSaveClick">
                             Save
                         </v-btn>
                     </v-col>
@@ -158,28 +158,27 @@ import {
     VBtn,
     VForm,
     VTextField,
-    VSpacer,
-    VSlider,
     VMenu,
     VList,
     VListItem,
+    VAlert,
 } from 'vuetify/components';
 import { mdiMenuDown, mdiMenuUp } from '@mdi/js';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { RequiredRule, ValidationRule } from '@/types/common';
-import { LimitToChange, ProjectLimits } from '@/types/projects';
+import { LimitToChange } from '@/types/projects';
 import { Dimensions, Memory } from '@/utils/bytesSize';
 import { decimalShift } from '@/utils/strings';
+import { useConfigStore } from '@/store/modules/configStore';
 
+const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -190,6 +189,7 @@ const props = defineProps<{
 
 const model = defineModel<boolean>({ required: true });
 
+const NO_LIMIT = 'No Limit';
 const formValid = ref<boolean>(false);
 const activeMeasurement = ref<Dimensions.GB | Dimensions.TB>(Dimensions.TB);
 const inputText = ref<string>('0');
@@ -203,47 +203,83 @@ const dropdownModel = computed<(Dimensions.GB | Dimensions.TB)[]>({
 });
 
 /**
+ * Whether the new no-limits UI is enabled.
+ */
+const noLimitsUiEnabled = computed((): boolean => {
+    return configStore.state.config.noLimitsUiEnabled;
+});
+
+const hasCustomLimit = computed(() => {
+    if (props.limitType === LimitToChange.Storage) {
+        return !!currentLimits.value.userSetStorageLimit;
+    }
+    return !!currentLimits.value.userSetBandwidthLimit;
+});
+
+/**
+ * Returns the current project limits from store.
+ */
+const currentLimits = computed(() => projectsStore.state.currentLimits);
+
+/**
+ * Returns whether the limit has been changed.
+ */
+const hasChanged = computed(() => {
+    let limit = currentLimits.value.userSetBandwidthLimit ?? currentLimits.value.bandwidthLimit;
+    if (props.limitType === LimitToChange.Storage) {
+        limit = currentLimits.value.userSetStorageLimit ?? currentLimits.value.storageLimit;
+    }
+    return limit !== input.value;
+});
+
+/**
  * Returns the maximum amount of bytes that the usage limit can be set to.
  */
 const availableUsage = computed<number>(() => {
     if (props.limitType === LimitToChange.Storage) {
-        return Math.max(
-            projectsStore.state.currentLimits.storageLimit,
-            parseConfigLimit(configStore.state.config.defaultPaidStorageLimit),
-        );
+        return currentLimits.value.storageLimit;
     }
-    return Math.max(
-        projectsStore.state.currentLimits.bandwidthLimit,
-        parseConfigLimit(configStore.state.config.defaultPaidBandwidthLimit),
-    );
+    return currentLimits.value.bandwidthLimit;
 });
 
 /**
  * Returns the maximum amount of active measurement units that the usage limit can be set to.
  */
-const availableUsageFormatted = computed<string>(() => {
-    return decimalShift((availableUsage.value / Memory[activeMeasurement.value]).toLocaleString(undefined, { maximumFractionDigits: 2 }), 0);
+const currentLimitFormatted = computed<string>(() => {
+    const customLimit = props.limitType === LimitToChange.Storage
+        ? currentLimits.value.userSetStorageLimit
+        : currentLimits.value.userSetBandwidthLimit;
+    const limit = props.limitType === LimitToChange.Storage
+        ? currentLimits.value.storageLimit
+        : currentLimits.value.bandwidthLimit;
+    if (noLimitsUiEnabled.value && !customLimit) {
+        return NO_LIMIT;
+    }
+    return decimalShift(((customLimit || limit) / Memory[activeMeasurement.value]).toLocaleString(undefined, { maximumFractionDigits: 2 }), 0);
 });
 
 /**
  * Returns an array of validation rules applied to the text input.
  */
 const rules = computed<ValidationRule<string>[]>(() => {
-    const max = availableUsage.value;
+    const max = availableUsage.value / Memory[activeMeasurement.value];
     return [
         RequiredRule,
-        v => !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
-        v => (parseFloat(v) > 0) || 'Number must be positive',
-        v => (parseFloat(v) <= max) || 'Number is too large',
+        v => v === NO_LIMIT || !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
+        v => v === NO_LIMIT || (parseFloat(v) > 0) || 'Number must be positive',
+        v => v === NO_LIMIT || (parseFloat(v) <= max) || 'Number is too large',
     ];
 });
 
 /**
- * Parses limit value from config, returning it as a byte amount.
+ * Resets the limit to the default value.
  */
-function parseConfigLimit(limit: string): number {
-    const [value, unit] = limit.split(' ');
-    return parseFloat(value) * Memory[unit === 'B' ? 'Bytes' : unit];
+function unSetLimit(): void {
+    const limit = props.limitType === LimitToChange.Storage
+        ? currentLimits.value.storageLimit
+        : currentLimits.value.bandwidthLimit;
+    inputText.value = noLimitsUiEnabled.value ? NO_LIMIT : (limit / Memory[activeMeasurement.value]).toString();
+    input.value = 0;
 }
 
 /**
@@ -254,9 +290,9 @@ async function onSaveClick(): Promise<void> {
     await withLoading(async () => {
         try {
             if (props.limitType === LimitToChange.Storage) {
-                await projectsStore.updateProjectStorageLimit(new ProjectLimits(0, 0, input.value));
+                await projectsStore.updateProjectStorageLimit(input.value);
             } else {
-                await projectsStore.updateProjectBandwidthLimit(new ProjectLimits(input.value));
+                await projectsStore.updateProjectBandwidthLimit(input.value);
             }
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_LIMIT);
@@ -296,8 +332,8 @@ watch(() => model.value, shown => {
     if (!shown) return;
     updateInput(
         props.limitType === LimitToChange.Storage
-            ? projectsStore.state.currentLimits.storageLimit
-            : projectsStore.state.currentLimits.bandwidthLimit,
+            ? (currentLimits.value.userSetStorageLimit ?? currentLimits.value.storageLimit)
+            : (currentLimits.value.userSetBandwidthLimit ?? currentLimits.value.bandwidthLimit),
     );
 }, { immediate: true });
 

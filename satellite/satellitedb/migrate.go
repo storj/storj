@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -986,7 +985,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     133,
 				SeparateTx:  true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err := db.Exec(ctx,
 							`ALTER TABLE accounting_rollups RENAME TO accounting_rollups_original;`,
 						)
@@ -1176,7 +1175,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
 				Version:     142,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err := db.Exec(ctx,
 							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
 						)
@@ -2259,7 +2258,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
 						err := db.QueryRow(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
@@ -2436,7 +2435,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop index from bucket_metainfos",
 				Version:     243,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) (err error) {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS bucket_metainfos_project_id_name_key CASCADE`)
 					} else {
 						_, err = tx.ExecContext(ctx, `ALTER TABLE bucket_metainfos DROP CONSTRAINT IF EXISTS bucket_metainfos_project_id_name_key;`)
@@ -2451,7 +2450,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
 						err := db.QueryRow(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_metainfos) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
@@ -2733,6 +2732,98 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     271,
 				Action: migrate.SQL{
 					`ALTER TABLE account_freeze_events ADD COLUMN notifications_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add object_lock_enabled column to bucket_metainfos table",
+				Version:     272,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN object_lock_enabled boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add per-operation rate limits to projects table",
+				Version:     273,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN rate_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_del integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_del integer DEFAULT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "populate per-operation rate limits from existing values",
+				Version:     274,
+				Action: migrate.SQL{
+					`UPDATE projects SET rate_limit_head=rate_limit, burst_limit_head=burst_limit,
+						rate_limit_get=rate_limit, burst_limit_get=burst_limit,
+						rate_limit_put=rate_limit, burst_limit_put=burst_limit,
+						rate_limit_list=rate_limit, burst_limit_list=burst_limit,
+						rate_limit_del=rate_limit, burst_limit_del=burst_limit
+						WHERE rate_limit IS NOT NULL OR burst_limit IS NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     275,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     276,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations ADD CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column, passphrase_enc_key_id, to projects",
+				Version:     277,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc_key_id INTEGER;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns, status_updated_at and final_invoice_generated, to users",
+				Version:     278,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE users ADD COLUMN final_invoice_generated BOOLEAN NOT NULL DEFAULT FALSE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table for handling change email address process",
+				Version:     279,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN new_unverified_email TEXT DEFAULT NULL;`,
+					`ALTER TABLE users ADD COLUMN email_change_verification_step INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "rename columns which are forbidden for spanner",
+				Version:     280,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes RENAME COLUMN hash TO commit_hash;`,
+					`ALTER TABLE nodes RENAME COLUMN timestamp TO release_timestamp;`,
+					`ALTER TABLE storjscan_payments RENAME COLUMN timestamp TO block_timestamp;`,
+					`ALTER TABLE billing_transactions RENAME COLUMN timestamp TO tx_timestamp;`,
+					`ALTER INDEX billing_transactions_timestamp_index RENAME TO billing_transactions_tx_timestamp_index;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

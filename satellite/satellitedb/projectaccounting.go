@@ -1154,11 +1154,11 @@ func timeTruncateDown(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
 
-// GetProjectLimits returns current project limit for both storage and bandwidth.
+// GetProjectLimits returns all project limits including user specified usage and bandwidth limits.
 func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx,
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLimit_Project_UsageLimit_Project_UserSpecifiedUsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
@@ -1166,12 +1166,24 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 	}
 
 	return accounting.ProjectLimits{
-		Usage:     row.UsageLimit,
-		Bandwidth: row.BandwidthLimit,
-		Segments:  row.SegmentLimit,
+		Usage:            row.UsageLimit,
+		UserSetUsage:     row.UserSpecifiedUsageLimit,
+		Bandwidth:        row.BandwidthLimit,
+		UserSetBandwidth: row.UserSpecifiedBandwidthLimit,
+		Segments:         row.SegmentLimit,
 
-		RateLimit:  row.RateLimit,
-		BurstLimit: row.BurstLimit,
+		RateLimit:        row.RateLimit,
+		BurstLimit:       row.BurstLimit,
+		RateLimitHead:    row.RateLimitHead,
+		BurstLimitHead:   row.BurstLimitHead,
+		RateLimitGet:     row.RateLimitGet,
+		BurstLimitGet:    row.BurstLimitGet,
+		RateLimitPut:     row.RateLimitPut,
+		BurstLimitPut:    row.BurstLimitPut,
+		RateLimitList:    row.RateLimitList,
+		BurstLimitList:   row.BurstLimitList,
+		RateLimitDelete:  row.RateLimitDel,
+		BurstLimitDelete: row.BurstLimitDel,
 	}, nil
 }
 

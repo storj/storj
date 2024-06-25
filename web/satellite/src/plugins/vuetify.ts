@@ -8,7 +8,7 @@ import { md3 } from 'vuetify/blueprints';
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
 
 import '@/styles/styles.scss';
-import { THEME_OPTIONS } from '@/plugins/theme';
+import { THEME_OPTIONS } from '@/utils/constants/theme';
 
 export default createVuetify({
     blueprint: md3,
@@ -44,7 +44,7 @@ export default createVuetify({
             color: 'secondary',
         },
         VTextField: {
-            rounded: 'lg',
+            rounded: 'md',
             variant: 'outlined',
             color: 'secondary',
         },
@@ -52,7 +52,7 @@ export default createVuetify({
             rounded: 'lg',
         },
         VListItem: {
-            rounded: 'lg',
+            rounded: 'md',
         },
         VListItemTitle: {
             class: 'text-body-2 font-weight-medium',
@@ -72,7 +72,7 @@ export default createVuetify({
             rounded: 'xlg',
         },
         VChip: {
-            rounded: 'lg',
+            rounded: 'md',
         },
         VRadio: {
             color: 'primary',

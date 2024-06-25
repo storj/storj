@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -47,6 +48,47 @@ func TestApiKeysRepository(t *testing.T) {
 				assert.NotNil(t, createdKey)
 				assert.NoError(t, err)
 			}
+		})
+
+		t.Run("Get by head", func(t *testing.T) {
+			limit := 2 * memory.B
+			project.StorageLimit = &limit
+			project.BandwidthLimit = &limit
+			err = projects.Update(ctx, project)
+			assert.NoError(t, err)
+
+			key, err := macaroon.NewAPIKey([]byte("testSecret"))
+			assert.NoError(t, err)
+
+			createdKey, err := apikeys.Create(ctx, key.Head(), console.APIKeyInfo{
+				Name:      "testKeyName",
+				ProjectID: project.ID,
+				Secret:    []byte("testSecret"),
+				UserAgent: userAgent,
+			})
+			assert.NotNil(t, createdKey)
+			assert.NoError(t, err)
+
+			keyInfo, err := apikeys.GetByHead(ctx, key.Head())
+			assert.NoError(t, err)
+			assert.NotNil(t, keyInfo)
+			assert.Equal(t, project.StorageLimit.Int64(), *keyInfo.ProjectStorageLimit)
+			assert.Equal(t, project.BandwidthLimit.Int64(), *keyInfo.ProjectBandwidthLimit)
+
+			limit /= 2
+			project.UserSpecifiedStorageLimit = &limit
+			project.UserSpecifiedBandwidthLimit = &limit
+			err = projects.Update(ctx, project)
+			assert.NoError(t, err)
+
+			keyInfo, err = apikeys.GetByHead(ctx, key.Head())
+			assert.NoError(t, err)
+			assert.NotNil(t, keyInfo)
+			assert.Equal(t, project.UserSpecifiedStorageLimit.Int64(), *keyInfo.ProjectStorageLimit)
+			assert.Equal(t, project.UserSpecifiedBandwidthLimit.Int64(), *keyInfo.ProjectBandwidthLimit)
+
+			err = apikeys.Delete(ctx, createdKey.ID)
+			assert.NoError(t, err)
 		})
 
 		t.Run("GetPagedByProjectID success", func(t *testing.T) {

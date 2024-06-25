@@ -12,11 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
-	database "github.com/storj/exp-spanner/admin/database/apiv1"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -44,8 +46,9 @@ type Config struct {
 	ServerSideCopyDisabled bool
 	UseListObjectsIterator bool
 
-	TestingUniqueUnversioned bool
-	TestingCommitSegmentMode string
+	TestingUniqueUnversioned   bool
+	TestingCommitSegmentMode   string
+	TestingPrecommitDeleteMode int
 }
 
 const commitSegmentModeTransaction = "transaction"
@@ -127,7 +130,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	case dbutil.Spanner:
 		adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
 			Database: source,
-		})
+		}, log)
 		if err != nil {
 			return nil, err
 		}
@@ -158,9 +161,35 @@ func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
 // TODO: remove.
 func (db *DB) UnderlyingTagSQL() tagsql.DB { return db.db }
 
-// Ping checks whether connection has been established.
+// Ping checks whether connection has been established to all adapters.
 func (db *DB) Ping(ctx context.Context) error {
-	return Error.Wrap(db.db.PingContext(ctx))
+	for _, adapter := range db.adapters {
+		err := adapter.Ping(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// Ping checks whether connection has been established.
+func (p *PostgresAdapter) Ping(ctx context.Context) error {
+	return p.db.PingContext(ctx)
+}
+
+// Ping checks whether connection has been established.
+func (s *SpannerAdapter) Ping(ctx context.Context) error {
+	ok, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{SQL: `SELECT true`}),
+		func(row *spanner.Row, item *bool) error {
+			return row.Columns(item)
+		})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if !ok {
+		return Error.New("up is down, left is right, true is false, and forwards is backwards")
+	}
+	return nil
 }
 
 // TestingSetCleanup is used to set the callback for cleaning up test database.
@@ -190,8 +219,6 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 		DROP TABLE IF EXISTS objects;
 		DROP TABLE IF EXISTS segments;
 		DROP TABLE IF EXISTS node_aliases;
-		DROP TABLE IF EXISTS segment_copies;
-		DROP TABLE IF EXISTS pending_objects;
 		DROP TABLE IF EXISTS metabase_versions;
 		DROP SEQUENCE IF EXISTS node_alias_seq;
 	`)
@@ -243,7 +270,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &db.db,
 				Description: "Test snapshot",
-				Version:     18,
+				Version:     20,
 				Action: migrate.SQL{
 					`CREATE TABLE objects (
 						project_id   BYTEA NOT NULL,
@@ -269,6 +296,9 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 						encryption INT8 NOT NULL default 0,
 
 						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
+
+						retention_mode INT2,
+						retain_until   TIMESTAMPTZ,
 
 						PRIMARY KEY (project_id, bucket_name, object_key, version)
 					);
@@ -297,6 +327,9 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
 
 					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
+
+					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: NULL/0=none, and 1=compliance.';
+					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 
 					CREATE TABLE segments (
 						stream_id  BYTEA NOT NULL,
@@ -360,56 +393,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 
 					COMMENT ON TABLE  node_aliases            is 'node_aliases table contains unique identifiers (aliases) for storagenodes that take less space than a NodeID.';
 					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storj.NodeID';
-					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';
-
-					CREATE TABLE segment_copies (
-						stream_id BYTEA NOT NULL PRIMARY KEY,
-						ancestor_stream_id BYTEA NOT NULL,
-
-						CONSTRAINT not_self_ancestor CHECK (stream_id != ancestor_stream_id)
-					);
-					CREATE INDEX ON segment_copies (ancestor_stream_id);
-
-					COMMENT ON TABLE  segment_copies                    is 'segment_copies contains a reference for sharing stream_id-s.';
-					COMMENT ON COLUMN segment_copies.stream_id          is 'stream_id refers to the objects.stream_id.';
-					COMMENT ON COLUMN segment_copies.ancestor_stream_id is 'ancestor_stream_id refers to the actual segments where data is stored.';
-					`, `
-					CREATE TABLE pending_objects (
-						project_id   BYTEA NOT NULL,
-						bucket_name  BYTEA NOT NULL,
-						object_key   BYTEA NOT NULL,
-						stream_id    BYTEA NOT NULL,
-
-						created_at TIMESTAMPTZ NOT NULL default now(),
-						expires_at TIMESTAMPTZ,
-
-						encrypted_metadata_nonce         BYTEA default NULL,
-						encrypted_metadata               BYTEA default NULL,
-						encrypted_metadata_encrypted_key BYTEA default NULL,
-
-						encryption INT8 NOT NULL default 0,
-
-						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
-
-						PRIMARY KEY (project_id, bucket_name, object_key, stream_id)
-					)`,
-					`
-					COMMENT ON TABLE  pending_objects     is 'Pending objects table contains information about path and streams of in progress uploads';
-					COMMENT ON COLUMN objects.project_id  is 'project_id is a uuid referring to project.id.';
-					COMMENT ON COLUMN objects.bucket_name is 'bucket_name is a alpha-numeric string referring to bucket_metainfo.name.';
-					COMMENT ON COLUMN objects.object_key  is 'object_key is an encrypted path of the object.';
-					COMMENT ON COLUMN objects.stream_id   is 'stream_id is a random identifier for the content uploaded to the object.';
-
-					COMMENT ON COLUMN objects.created_at  is 'created_at is the creation date of this object.';
-					COMMENT ON COLUMN objects.expires_at  is 'expires_at is the date when this object will be marked for deletion.';
-
-					COMMENT ON COLUMN objects.encrypted_metadata_nonce is 'encrypted_metadata_nonce is random identifier used as part of encryption for encrypted_metadata.';
-					COMMENT ON COLUMN objects.encrypted_metadata       is 'encrypted_metadata is encrypted key-value pairs of user-specified data.';
-					COMMENT ON COLUMN objects.encrypted_metadata_encrypted_key is 'encrypted_metadata_encrypted_key is the encrypted key for encrypted_metadata.';
-
-					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
-
-					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';`,
+					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';`,
 				},
 			},
 		},
@@ -420,7 +404,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 		migration.Steps = append(migration.Steps, &migrate.Step{
 			DB:          &db.db,
 			Description: "Constraint for ensuring our metabase correctness.",
-			Version:     19,
+			Version:     21,
 			Action: migrate.SQL{
 				`CREATE UNIQUE INDEX objects_one_unversioned_per_location ON objects (project_id, bucket_name, object_key) WHERE status IN ` + statusesUnversioned + `;`,
 			},
@@ -495,7 +479,7 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 
 // CheckVersion checks the database is the correct version.
 func (db *DB) CheckVersion(ctx context.Context) error {
-	// TODO: migration version is not yet supported
+	// TODO(spanner): migration version is not yet supported
 	if db.impl == dbutil.Spanner {
 		return nil
 	}
@@ -801,6 +785,27 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE objects ALTER COLUMN version TYPE INT8;
 				`},
 			},
+			{
+				DB:          &db.db,
+				Description: "add retention_mode and retain_until columns to objects table",
+				Version:     19,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN retention_mode INT2`,
+					`ALTER TABLE objects ADD COLUMN retain_until TIMESTAMPTZ`,
+					`
+					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: NULL/0=none, and 1=compliance.';
+					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
+				`},
+			},
+			{
+				DB:          &db.db,
+				Description: "drop tables, pending_objects and segment_copies",
+				Version:     20,
+				Action: migrate.SQL{
+					`DROP TABLE IF EXISTS pending_objects`,
+					`DROP TABLE IF EXISTS segment_copies`,
+				},
+			},
 		},
 	}
 }
@@ -861,18 +866,35 @@ func (pq postgresRebind) Rebind(sql string) string {
 	return string(out)
 }
 
-// Now returns time on the database.
+// Now returns the current time according to the first database adapter.
+// TODO(spanner): require callers to specify a projectID or adapter name to select which adapter they care about.
 func (db *DB) Now(ctx context.Context) (time.Time, error) {
+	return db.adapters[0].Now(ctx)
+}
+
+// Now returns the current time according to the database.
+func (p *PostgresAdapter) Now(ctx context.Context) (time.Time, error) {
 	var t time.Time
-	err := db.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
+	err := p.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
 	return t, Error.Wrap(err)
 }
 
-func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
-	return limitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
+// Now returns the current time according to the database.
+func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
+	return spannerutil.CollectRow(
+		s.client.Single().Query(ctx, spanner.Statement{SQL: `SELECT CURRENT_TIMESTAMP`}),
+		func(row *spanner.Row, now *time.Time) error {
+			return row.Columns(now)
+		},
+	)
 }
 
-func limitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
+func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
+	return LimitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
+}
+
+// LimitedAsOfSystemTime returns a SQL query clause for AS OF SYSTEM TIME.
+func LimitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
 	if baseline.IsZero() || now.IsZero() {
 		return impl.AsOfSystemInterval(maxInterval)
 	}

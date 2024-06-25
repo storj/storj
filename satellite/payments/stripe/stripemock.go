@@ -726,6 +726,8 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 	for _, invoices := range m.invoices {
 		for _, invoice := range invoices {
 			if invoice.ID == id {
+				invoice.Attempted = true
+				invoice.AttemptCount++
 				if params.PaymentMethod != nil {
 					if *params.PaymentMethod == MockInvoicesPayFailure {
 						invoice.Status = stripe.InvoiceStatusOpen

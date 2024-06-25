@@ -58,8 +58,6 @@ export class Project {
     description: string;
     userAgent: string | null;
     ownerId: UUID;
-    rateLimit: number | null;
-    burstLimit: number | null;
     maxBuckets: number | null;
     createdAt: Time;
     memberCount: number;
@@ -68,6 +66,18 @@ export class Project {
     userSpecifiedStorageLimit: MemorySize | null;
     userSpecifiedBandwidthLimit: MemorySize | null;
     segmentLimit: number | null;
+    rateLimit: number | null;
+    burstLimit: number | null;
+    rateLimitHead?: number | null;
+    burstLimitHead?: number | null;
+    rateLimitGet?: number | null;
+    burstLimitGet?: number | null;
+    rateLimitPut?: number | null;
+    burstLimitPut?: number | null;
+    rateLimitList?: number | null;
+    burstLimitList?: number | null;
+    rateLimitDelete?: number | null;
+    burstLimitDelete?: number | null;
     defaultPlacement: number;
     defaultVersioning: number;
 }
@@ -92,9 +102,10 @@ export class ResponseUser {
 export class UpsertProjectInfo {
     name: string;
     description: string;
-    storageLimit: MemorySize;
-    bandwidthLimit: MemorySize;
+    storageLimit: MemorySize | null;
+    bandwidthLimit: MemorySize | null;
     createdAt: Time;
+    managePassphrase: boolean;
 }
 
 class APIError extends Error {

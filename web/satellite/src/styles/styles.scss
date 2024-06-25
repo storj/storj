@@ -75,6 +75,9 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 // Custom rounded class
+.rounded-md {
+  border-radius: 6px !important;
+}
 .rounded-xlg {
   border-radius: 12px !important;
 }
@@ -438,6 +441,9 @@ table {
 .v-alert__content {
   font-size: 14px;
 }
+.v-alert--variant-tonal .v-alert__content {
+  color: rgba(var(--v-theme-on-surface),0.85);
+}
 // Make Alert Close icon same color as alert
 .v-alert__close .v-btn {
   color: currentColor !important;
@@ -445,7 +451,10 @@ table {
 // Tonal alert background
 .v-alert--variant-tonal .v-alert__underlay {
   background: currentColor;
-  opacity: 0.07 !important;
+  opacity: 0.1 !important;
+}
+.v-alert--variant-tonal .v-alert__border {
+  opacity: 0.75;
 }
 
 // Background color class
@@ -487,7 +496,7 @@ table {
 
 // Light background
 .bg-light {
-  background-color: rgba(var(--v-theme-on-background), 0.02);
+  background-color: rgba(var(--v-theme-on-background), 0.01);
 }
 
 // Preview Dialog
@@ -519,9 +528,6 @@ table {
   min-height: 240px;
   border-bottom: 1px solid rgba(var(--v-theme-on-background), 0.02);
 }
-.card-preview-icon img {
-  border-radius: 10%;
-}
 .card-preview-icon, .card-preview-icon img {
   transition: all 0.15s ease-in-out;
 }
@@ -531,18 +537,15 @@ table {
 }
 .card-preview-icon:hover img {
   transform: scale(1.3);
-  border-radius: 50%;
-}
-.v-theme--light .card-preview-icon:hover img {
-  background-color: rgb(var(--v-theme-blue6));
-}
-.v-theme--dark .card-preview-icon:hover img {
-  background-color: rgb(var(--v-theme-on-background));
 }
 
 // Fix label position on fields
 .v-field--variant-outlined .v-field__outline .v-field__outline__start {
   flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
+}
+
+.white-background {
+  background-color: white;
 }
 
 // No pointer events helper class

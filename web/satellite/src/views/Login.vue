@@ -303,7 +303,7 @@ async function onLoginClick(): Promise<void> {
     }
 
     isLoading.value = true;
-    if (hcaptcha.value && !captchaResponseToken.value) {
+    if (!isMFARequired.value && hcaptcha.value && !captchaResponseToken.value) {
         hcaptcha.value?.execute();
         return;
     }
@@ -325,15 +325,15 @@ async function login(): Promise<void> {
             LocalData.removeCustomSessionDuration();
         }
     } catch (error) {
+        if (hcaptcha.value) {
+            hcaptcha.value?.reset();
+            captchaResponseToken.value = '';
+        }
+
         if (error instanceof ErrorMFARequired) {
             isLoading.value = false;
             isMFARequired.value = true;
             return;
-        }
-
-        if (hcaptcha.value) {
-            hcaptcha.value?.reset();
-            captchaResponseToken.value = '';
         }
 
         if (isMFARequired.value && !(error instanceof ErrorTooManyRequests)) {

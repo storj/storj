@@ -14,13 +14,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/context2"
 	"storj.io/common/pb"
 	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/orders/ordersfile"
 	"storj.io/storj/storagenode/trust"
 )
@@ -100,7 +98,6 @@ type Service struct {
 	dialer      rpc.Dialer
 	ordersStore *FileStore
 	orders      DB
-	bandwidth   bandwidth.DB
 	trust       *trust.Pool
 
 	Sender  *sync2.Cycle
@@ -108,13 +105,12 @@ type Service struct {
 }
 
 // NewService creates an order service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, orders DB, bandwidth bandwidth.DB, trust *trust.Pool, config Config) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, orders DB, trust *trust.Pool, config Config) *Service {
 	return &Service{
 		log:         log,
 		dialer:      dialer,
 		ordersStore: ordersStore,
 		orders:      orders,
-		bandwidth:   bandwidth,
 		config:      config,
 		trust:       trust,
 
@@ -237,24 +233,6 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 					}
 				} else {
 					log.Warn("skipping order settlement for untrusted satellite. Order will be archived", zap.String("satellite ID", satelliteID.String()))
-				}
-
-				amountsByActions := make(map[pb.PieceAction]int64)
-				for _, order := range unsentInfo.InfoList {
-					amountsByActions[order.Limit.Action] += order.Order.Amount
-				}
-				for action, amount := range amountsByActions {
-					// NOTE: storing bandwidth usage during order settlement might be imprecise because
-					// the order amount might be larger due to larger signed orders during upload.
-					// See https://github.com/storj/storj/commit/b6026b9ff3b41d0d80e1cd1bae13f567856385ca
-
-					// The bandwidth usage now stores aggregated usage per day for each satellite
-					// so doesn't matter if we don't get the exact time of the order, we can just
-					// use the time the order file was created.
-					err := service.bandwidth.Add(context2.WithoutCancellation(ctx), satelliteID, action, amount, unsentInfo.CreatedAtHour)
-					if err != nil {
-						service.log.Error("failed to add bandwidth usage", zap.String("satellite ID", satelliteID.String()), zap.String("action", action.String()), zap.Int64("amount", amount), zap.Error(err))
-					}
 				}
 
 				err = service.ordersStore.Archive(satelliteID, unsentInfo, time.Now().UTC(), status)

@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/common/identity"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
@@ -47,6 +48,7 @@ import (
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -148,7 +150,7 @@ type TestingDB interface {
 	// RawDB returns the underlying database connection to the primary database.
 	RawDB() tagsql.DB
 	// Schema returns the full schema for the database.
-	Schema() string
+	Schema() []string
 	// TestMigrateToLatest initializes the database for testplanet.
 	TestMigrateToLatest(ctx context.Context) error
 	// ProductionMigration returns the primary migration.
@@ -225,6 +227,10 @@ type Config struct {
 	PieceTracker piecetracker.Config
 
 	DurabilityReport durability.ReportConfig
+
+	KeyManagement kms.Config
+
+	HealthCheck healthcheck.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 }

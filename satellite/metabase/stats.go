@@ -38,9 +38,35 @@ func (db *DB) GetTableStats(ctx context.Context, opts GetTableStats) (result Tab
 // GetTableStats implements Adapter.
 func (p *PostgresAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = p.db.QueryRowContext(ctx, `SELECT count(1) FROM segments`).Scan(&result.SegmentCount)
-	if err != nil {
+	var asOf *time.Time
+	// the " - ut.n_ins_since_vacuum" part of the query here is just so that the behavior
+	// matches the expectations in tests; we want the tuple count to reflect, as near as
+	// possible, the count at the time of the last vacuum.
+	err = p.db.QueryRowContext(ctx, `
+		WITH schema_names AS (
+			SELECT btrim(p) AS schema, ord
+			FROM UNNEST(string_to_array((
+				SELECT setting FROM pg_settings WHERE name='search_path'
+			), ',')) WITH ORDINALITY AS x(p, ord)
+		)
+		SELECT ut.n_live_tup - ut.n_ins_since_vacuum, GREATEST(ut.last_vacuum, ut.last_analyze, ut.last_autovacuum, ut.last_autoanalyze) AS as_of
+		FROM pg_stat_user_tables ut, schema_names sn
+		WHERE
+			(ut.schemaname = sn.schema OR '"' || ut.schemaname  || '"' = sn.schema)
+			AND ut.relname = 'segments'
+		ORDER BY sn.ord LIMIT 1
+	`).Scan(&result.SegmentCount, &asOf)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return TableStats{}, err
+	}
+	if asOf == nil || time.Since(*asOf) > statsUpToDateThreshold {
+		// Can't identify table (complicated search_path situation?), or table
+		// has not been VACUUMed or ANALYZEd within the threshold
+		err = p.db.QueryRowContext(ctx, `SELECT count(1) FROM segments`).Scan(&result.SegmentCount)
+		if err != nil {
+			return TableStats{}, err
+		}
+		return result, nil
 	}
 	return result, nil
 }
@@ -67,8 +93,52 @@ func (c *CockroachAdapter) GetTableStats(ctx context.Context, opts GetTableStats
 
 // GetTableStats (will) implement Adapter.
 func (s *SpannerAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
-	//TODO:spanner use https://cloud.google.com/spanner/docs/introspection/table-sizes-statistics
+	// TODO:spanner gather a total number of bytes stored instead of rows
+	//
+	// Unfortunately, https://cloud.google.com/spanner/docs/introspection/table-sizes-statistics
+	// won't quite be able to get us a number of rows here. It can only tell us how many total
+	// bytes are used to store a table, and not the number of rows. We could theoretically use
+	// the average number of bytes per row to get a decent estimate of the number of rows, but
+	// the sizes in TABLE_SIZES_STATS_1HOUR include all past versions of rows and deleted rows
+	// for whatever the version_retention_period is.
+	//
+	// Some other problems are (1) the Spanner emulator does not support TABLE_SIZES_STATS_1HOUR
+	// at all, and (2) there is no way to request or force an update to the statistics other than
+	// waiting until the top of the next hour.
+	//
+	// Instead of trying to force spanner into a cockroach-shaped hole, we should probably just
+	// report the table sizes in bytes. This will require storing some different metrics in
+	// rangedloop/observerlivecount.go, but that shouldn't be too bad.
+
 	return TableStats{
 		SegmentCount: 0,
 	}, nil
+}
+
+// UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
+func (db *DB) UpdateTableStats(ctx context.Context) (err error) {
+	for _, adapter := range db.adapters {
+		err := adapter.UpdateTableStats(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
+func (p *PostgresAdapter) UpdateTableStats(ctx context.Context) error {
+	_, err := p.db.ExecContext(ctx, "VACUUM segments")
+	return Error.Wrap(err)
+}
+
+// UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
+func (c *CockroachAdapter) UpdateTableStats(ctx context.Context) error {
+	_, err := c.db.ExecContext(ctx, "CREATE STATISTICS test FROM segments")
+	return Error.Wrap(err)
+}
+
+// UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
+func (s *SpannerAdapter) UpdateTableStats(ctx context.Context) error {
+	return nil
 }

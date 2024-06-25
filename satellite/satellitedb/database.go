@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/lrucache"
 	"storj.io/storj/private/logging"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
@@ -35,6 +34,7 @@ import (
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/lrucache"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -118,7 +118,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	if err != nil {
 		return nil, err
 	}
-	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
+	if impl != dbutil.Postgres && impl != dbutil.Cockroach && impl != dbutil.Spanner {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
@@ -347,7 +347,7 @@ func (db *satelliteDBTesting) RawDB() tagsql.DB {
 }
 
 // Schema returns the full schema for the database.
-func (db *satelliteDBTesting) Schema() string {
+func (db *satelliteDBTesting) Schema() []string {
 	return db.satelliteDB.Schema()
 }
 
@@ -374,7 +374,7 @@ func (dbc *satelliteDBCollectionTesting) RawDB() tagsql.DB {
 }
 
 // Schema returns the full schema for the database.
-func (dbc *satelliteDBCollectionTesting) Schema() string {
+func (dbc *satelliteDBCollectionTesting) Schema() []string {
 	return dbc.getByName("").Schema()
 }
 

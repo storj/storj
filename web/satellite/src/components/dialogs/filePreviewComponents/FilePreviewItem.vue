@@ -15,7 +15,7 @@
         <video
             controls
             :src="objectPreviewUrl"
-            style="max-width: 100%; max-height: 90%;"
+            class="video"
             aria-roledescription="video-preview"
             :autoplay="videoAutoplay"
             :muted="videoAutoplay"
@@ -198,3 +198,10 @@ watch(() => props.active, active => {
     }
 }, { immediate: true });
 </script>
+
+<style scoped lang="scss">
+.video {
+    max-width: 100%;
+    max-height: 90%;
+}
+</style>

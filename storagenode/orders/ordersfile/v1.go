@@ -44,7 +44,7 @@ type fileV1 struct {
 // If the file is new, the file header is written.
 func OpenWritableV1(path string, satelliteID storj.NodeID, creationTime time.Time) (Writable, error) {
 	// create file if not exists or append
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -53,7 +53,7 @@ func OpenWritableV1(path string, satelliteID storj.NodeID, creationTime time.Tim
 		f: f,
 	}
 
-	currentPos, err := of.f.Seek(0, io.SeekCurrent)
+	currentPos, err := of.f.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -63,6 +63,10 @@ export class FrontendConfig {
     objectBrowserKeyLifetime: number;
     maxNameCharacters: number;
     billingInformationTabEnabled: boolean;
+    satelliteManagedEncryptionEnabled: boolean;
+    emailChangeFlowEnabled: boolean;
+    selfServeAccountDeleteEnabled: boolean;
+    noLimitsUiEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

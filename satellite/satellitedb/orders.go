@@ -51,7 +51,8 @@ type bandwidth struct {
 	Dead      int64
 }
 
-type bandwidthRollupKey struct {
+// BandwidthRollupKey is used to collect data for a query.
+type BandwidthRollupKey struct {
 	BucketName    string
 	ProjectID     uuid.UUID
 	IntervalStart int64
@@ -247,12 +248,12 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		inlineSlice := make([]int64, 0, len(bucketRUMap))
 		settledSlice := make([]int64, 0, len(bucketRUMap))
 
-		bucketRUMapKeys := make([]bandwidthRollupKey, 0, len(bucketRUMap))
+		bucketRUMapKeys := make([]BandwidthRollupKey, 0, len(bucketRUMap))
 		for key := range bucketRUMap {
 			bucketRUMapKeys = append(bucketRUMapKeys, key)
 		}
 
-		sortBandwidthRollupKeys(bucketRUMapKeys)
+		SortBandwidthRollupKeys(bucketRUMapKeys)
 
 		for _, rollupInfo := range bucketRUMapKeys {
 			usage := bucketRUMap[rollupInfo]
@@ -299,14 +300,14 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		settledSlice = make([]int64, 0, len(projectRUMap))
 		deadSlice := make([]int64, 0, len(projectRUMap))
 
-		projectRUMapKeys := make([]bandwidthRollupKey, 0, len(projectRUMap))
+		projectRUMapKeys := make([]BandwidthRollupKey, 0, len(projectRUMap))
 		for key := range projectRUMap {
 			if key.Action == pb.PieceAction_GET {
 				projectRUMapKeys = append(projectRUMapKeys, key)
 			}
 		}
 
-		sortBandwidthRollupKeys(projectRUMapKeys)
+		SortBandwidthRollupKeys(projectRUMapKeys)
 
 		for _, rollupInfo := range projectRUMapKeys {
 			usage := projectRUMap[rollupInfo]
@@ -436,8 +437,8 @@ func toHourlyInterval(timeInterval time.Time) int64 {
 // rollupBandwidth rollup the bandwidth statistics into a map based on the provided key, interval.
 func rollupBandwidth(rollups []orders.BucketBandwidthRollup,
 	toInterval func(time.Time) int64,
-	getKey func(orders.BucketBandwidthRollup, func(time.Time) int64) bandwidthRollupKey) map[bandwidthRollupKey]bandwidth {
-	projectRUMap := make(map[bandwidthRollupKey]bandwidth)
+	getKey func(orders.BucketBandwidthRollup, func(time.Time) int64) BandwidthRollupKey) map[BandwidthRollupKey]bandwidth {
+	projectRUMap := make(map[BandwidthRollupKey]bandwidth)
 
 	for _, rollup := range rollups {
 		rollup := rollup
@@ -462,8 +463,8 @@ func rollupBandwidth(rollups []orders.BucketBandwidthRollup,
 }
 
 // getBucketRollupKey return a key for use in bucket bandwidth rollup statistics.
-func getBucketRollupKey(rollup orders.BucketBandwidthRollup, toInterval func(time.Time) int64) bandwidthRollupKey {
-	return bandwidthRollupKey{
+func getBucketRollupKey(rollup orders.BucketBandwidthRollup, toInterval func(time.Time) int64) BandwidthRollupKey {
+	return BandwidthRollupKey{
 		BucketName:    rollup.BucketName,
 		ProjectID:     rollup.ProjectID,
 		IntervalStart: toInterval(rollup.IntervalStart),
@@ -472,15 +473,16 @@ func getBucketRollupKey(rollup orders.BucketBandwidthRollup, toInterval func(tim
 }
 
 // getProjectRollupKey return a key for use in project bandwidth rollup statistics.
-func getProjectRollupKey(rollup orders.BucketBandwidthRollup, toInterval func(time.Time) int64) bandwidthRollupKey {
-	return bandwidthRollupKey{
+func getProjectRollupKey(rollup orders.BucketBandwidthRollup, toInterval func(time.Time) int64) BandwidthRollupKey {
+	return BandwidthRollupKey{
 		ProjectID:     rollup.ProjectID,
 		IntervalStart: toInterval(rollup.IntervalStart),
 		Action:        rollup.Action,
 	}
 }
 
-func sortBandwidthRollupKeys(bandwidthRollupKeys []bandwidthRollupKey) {
+// SortBandwidthRollupKeys sorts bandwidth rollups.
+func SortBandwidthRollupKeys(bandwidthRollupKeys []BandwidthRollupKey) {
 	sort.SliceStable(bandwidthRollupKeys, func(i, j int) bool {
 		uuidCompare := bandwidthRollupKeys[i].ProjectID.Compare(bandwidthRollupKeys[j].ProjectID)
 		switch {

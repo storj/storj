@@ -47,7 +47,7 @@
             </template>
 
             <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" rounded="xl" size="small" class="font-weight-bold">
+                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" size="small" class="font-weight-bold">
                     {{ item.role }}
                 </v-chip>
             </template>
@@ -69,7 +69,7 @@
                     >
                         Join Project
                     </v-btn>
-                    <v-btn v-else color="primary" size="small" @click="openProject(item)">Open Project</v-btn>
+                    <v-btn v-else color="primary" size="small" rounded="md" @click="openProject(item)">Open Project</v-btn>
 
                     <v-btn
                         v-if="item.role === ProjectRole.Owner || item.role === ProjectRole.Invited"
@@ -78,6 +78,7 @@
                         color="default"
                         variant="outlined"
                         size="small"
+                        rounded="md"
                         density="comfortable"
                         :loading="decliningIds.has(item.id)"
                     >

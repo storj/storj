@@ -14,7 +14,7 @@
             </v-col>
         </v-row>
 
-        <v-form v-model="formValid" @submit.prevent="setupAccount">
+        <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
                 <v-col cols="12" sm="6" md="5" lg="4" class="py-0">
                     <p>Fields marked with an * are required</p>
@@ -129,12 +129,12 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-btn
                         size="large"
-                        variant="tonal"
+                        variant="outlined"
                         :prepend-icon="mdiChevronLeft"
                         color="default"
-                        :disabled="isLoading"
+                        :disabled="loading"
                         block
-                        @click="emit('next', OnboardingStep.AccountTypeSelection)"
+                        @click="emit('back')"
                     >
                         Back
                     </v-btn>
@@ -143,7 +143,7 @@
                     <v-btn
                         size="large"
                         :append-icon="mdiChevronRight"
-                        :loading="isLoading"
+                        :loading="loading"
                         :disabled="!formValid"
                         block
                         type="submit"
@@ -162,11 +162,8 @@ import { ref } from 'vue';
 import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 import { useDisplay } from 'vuetify';
 
-import { OnboardingStep } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
-import { useNotify } from '@/utils/hooks';
-import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
@@ -175,53 +172,58 @@ import IconBusiness from '@/components/icons/IconBusiness.vue';
 const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
-const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
 const { smAndUp } = useDisplay();
+
+const props = defineProps<{
+    loading: boolean,
+}>();
+
+const firstName = defineModel<string>('firstName', { required: true });
+const lastName = defineModel<string>('lastName', { required: true });
+const companyName = defineModel<string>('companyName', { required: true });
+const position = defineModel<string | undefined>('position', { required: true });
+const employeeCount = defineModel<string | undefined>('employeeCount', { required: true });
+const storageNeeds = defineModel<string | undefined>('storageNeeds', { required: true });
+const useCase = defineModel<string | undefined>('useCase', { required: true });
+const functionalArea = defineModel<string | undefined>('functionalArea', { required: true });
+const haveSalesContact = defineModel<boolean>('haveSalesContact', { required: true, default: false });
+const interestedInPartnering = defineModel<boolean>('interestedInPartnering', { required: true, default: false });
+
+const emit = defineEmits<{
+    (event: 'next'): void,
+    (event: 'back'): void,
+}>();
 
 const formValid = ref(false);
 
-const firstName = ref('');
-const lastName = ref('');
-const companyName = ref('');
-const position = ref<string>();
-const employeeCount = ref<string>();
-const storageNeeds = ref<string>();
-const useCase = ref<string>();
-const functionalArea = ref<string>();
-const haveSalesContact = ref(false);
-const interestedInPartnering = ref(false);
+async function setupAccount() {
+    if (props.loading || !formValid.value) {
+        return;
+    }
 
-const emit = defineEmits<{
-    (event: 'next', value: OnboardingStep): void,
-}>();
-
-function setupAccount() {
-    withLoading(async () => {
-        if (!formValid.value) {
-            return;
-        }
-
-        try {
-            await auth.setupAccount({
-                firstName: firstName.value,
-                lastName: lastName.value,
-                position: position.value,
-                companyName: companyName.value,
-                employeeCount: employeeCount.value,
-                storageNeeds: storageNeeds.value,
-                storageUseCase: useCase.value,
-                functionalArea: functionalArea.value,
-                isProfessional: true,
-                haveSalesContact: haveSalesContact.value,
-                interestedInPartnering: interestedInPartnering.value,
-            });
-
-            analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
-            emit('next', OnboardingStep.SetupComplete);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
-        }
+    await auth.setupAccount({
+        firstName: firstName.value,
+        lastName: lastName.value,
+        position: position.value,
+        companyName: companyName.value,
+        employeeCount: employeeCount.value,
+        storageNeeds: storageNeeds.value,
+        storageUseCase: useCase.value,
+        functionalArea: functionalArea.value,
+        isProfessional: true,
+        haveSalesContact: haveSalesContact.value,
+        interestedInPartnering: interestedInPartnering.value,
     });
+
+    analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
 }
+
+function validate() {
+    return formValid.value;
+}
+
+defineExpose({
+    validate,
+    setup: setupAccount,
+});
 </script>

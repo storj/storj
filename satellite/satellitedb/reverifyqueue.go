@@ -37,6 +37,10 @@ func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) 
 		ON CONFLICT ("node_id", "stream_id", "position") DO NOTHING
 	`, piece.NodeID[:], piece.StreamID[:], piece.Position.Encode(), piece.PieceNum)
 
+	if err == nil {
+		mon.Meter("audit_reverify_queue_push_piece").Mark(1)
+	}
+
 	return audit.ContainError.Wrap(err)
 }
 
@@ -89,12 +93,18 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Dura
 func (rq *reverifyQueue) Remove(ctx context.Context, piece *audit.PieceLocator) (wasDeleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return rq.db.Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(
+	wasDeleted, err = rq.db.Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(
 		ctx,
 		dbx.ReverificationAudits_NodeId(piece.NodeID[:]),
 		dbx.ReverificationAudits_StreamId(piece.StreamID[:]),
 		dbx.ReverificationAudits_Position(piece.Position.Encode()),
 	)
+
+	if wasDeleted {
+		mon.Meter("audit_reverify_queue_pop_piece").Mark(1)
+	}
+
+	return wasDeleted, err
 }
 
 // TestingFudgeUpdateTime (used only for testing) changes the last_update

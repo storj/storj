@@ -166,6 +166,7 @@ func TestAuth(t *testing.T) {
 				PartnerUpgradeBanner:     false,
 				ProjectMembersPassphrase: false,
 				UploadOverwriteWarning:   false,
+				VersioningBetaBanner:     false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -184,6 +185,7 @@ func TestAuth(t *testing.T) {
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
 			noticeDismissal.UploadOverwriteWarning = true
+			noticeDismissal.VersioningBetaBanner = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -196,7 +198,8 @@ func TestAuth(t *testing.T) {
 						"serverSideEncryption":     noticeDismissal.ServerSideEncryption,
 						"partnerUpgradeBanner":     noticeDismissal.PartnerUpgradeBanner,
 						"projectMembersPassphrase": noticeDismissal.ProjectMembersPassphrase,
-						"UploadOverwriteWarning":   noticeDismissal.UploadOverwriteWarning,
+						"uploadOverwriteWarning":   noticeDismissal.UploadOverwriteWarning,
+						"versioningBetaBanner":     noticeDismissal.VersioningBetaBanner,
 					},
 				}))
 

@@ -10,7 +10,7 @@ import (
 // DBX contains additional methods for migrations.
 type DBX interface {
 	tagsql.DB
-	Schema() string
+	Schema() []string
 	Rebind(string) string
 }
 

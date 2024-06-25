@@ -4,6 +4,7 @@
 package piecestore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
@@ -32,6 +34,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -68,7 +71,7 @@ type Config struct {
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
-	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
+	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s" deprecated:"true"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"5GB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
@@ -103,6 +106,7 @@ type Endpoint struct {
 
 	store        *pieces.Store
 	trashChore   *pieces.TrashChore
+	usage        bandwidth.DB
 	ordersStore  *orders.FileStore
 	usedSerials  *usedserials.Table
 	pieceDeleter *pieces.Deleter
@@ -111,7 +115,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -125,6 +129,7 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Poo
 		store:        store,
 		trashChore:   trashChore,
 		ordersStore:  ordersStore,
+		usage:        usage,
 		usedSerials:  usedSerials,
 		pieceDeleter: pieceDeleter,
 
@@ -296,6 +301,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	})
 	switch {
 	case err != nil:
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	case message == nil:
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
@@ -315,6 +324,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
@@ -389,6 +399,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
 	if err != nil {
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	defer func() {
@@ -445,6 +456,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return true, rpcstatus.Error(rpcstatus.Internal, "out of space")
 			}
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
+				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 		}
@@ -459,6 +471,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		calculatedHash := pieceWriter.Hash()
 		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 		if message.Done.PieceSize != pieceWriter.Size() {
@@ -476,12 +489,13 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				OrderLimit:    *limit,
 			}
 			if err := pieceWriter.Commit(ctx, info); err != nil {
+				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 			committed = true
 			if !limit.PieceExpiration.IsZero() {
-				err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
-				if err != nil {
+				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration); err != nil {
+					endpoint.log.Error("upload internal error", zap.Error(err))
 					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 				}
 			}
@@ -495,6 +509,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			Timestamp:     time.Now(),
 		})
 		if err != nil {
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
@@ -507,6 +522,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			closeErr = nil
 		}
 		if closeErr != nil {
+			if errs2.IsCanceled(closeErr) {
+				return true, rpcstatus.Wrap(rpcstatus.Canceled, closeErr)
+			}
+			endpoint.log.Error("upload internal error", zap.Error(closeErr))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, closeErr)
 		}
 		return true, nil
@@ -532,6 +551,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		if errs.Is(err, io.EOF) {
 			return rpcstatus.Error(rpcstatus.InvalidArgument, "unexpected EOF")
 		} else if err != nil {
+			if errs2.IsCanceled(err) {
+				return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 		if message == nil {
@@ -903,6 +926,16 @@ func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLim
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
+		} else {
+			amount := order.Amount
+			if amountFunc != nil {
+				amount = amountFunc()
+			}
+			// We always want to save order to the database to be able to settle.
+			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
+			if err != nil {
+				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
+			}
 		}
 	}, nil
 }
@@ -947,6 +980,18 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
 	}
+
+	if len(retainReq.Hash) > 0 {
+		hasher := pb.NewHashFromAlgorithm(retainReq.HashAlgorithm)
+		_, err := hasher.Write(retainReq.GetFilter())
+		if err != nil {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+		if !bytes.Equal(retainReq.Hash, hasher.Sum(nil)) {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, errs.New("hash mismatch"))
+		}
+	}
+
 	return endpoint.processRetainReq(peer.ID, retainReq)
 }
 
@@ -961,11 +1006,7 @@ func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.Re
 	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
-	queued := endpoint.retain.Queue(retain.Request{
-		SatelliteID:   peerID,
-		CreatedBefore: retainReq.GetCreationDate(),
-		Filter:        filter,
-	})
+	queued := endpoint.retain.Queue(peerID, retainReq)
 	if queued {
 		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peerID))
 	} else {

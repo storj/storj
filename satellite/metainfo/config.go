@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -45,6 +45,32 @@ func (rs *RSConfig) String() string {
 		rs.Success,
 		rs.Total,
 		rs.ErasureShareSize.String())
+}
+
+// Override creates a new RSConfig instance, all non-zero parameters of o will be used to override current values.
+func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
+	ro := &RSConfig{
+		ErasureShareSize: rs.ErasureShareSize,
+		Min:              rs.Min,
+		Repair:           rs.Repair,
+		Success:          rs.Success,
+		Total:            rs.Total,
+	}
+	if o.Minimum > 0 {
+		ro.Min = o.Minimum
+	}
+	if o.Success > 0 {
+		ro.Success = o.Success
+	}
+	if o.Total > 0 {
+		ro.Total = o.Total
+		// we don't use override for repair (yet)
+		// we need to adjust to avoid validation error
+		if ro.Repair > ro.Total {
+			ro.Repair = ro.Total
+		}
+	}
+	return ro
 }
 
 // Set sets the value from a string in the format k/m/o/n-size (min/repair/optimal/total-erasuresharesize).
@@ -142,7 +168,7 @@ type Config struct {
 	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
 	UploadLimiter                UploadLimiterConfig `help:"object upload limiter configuration"`
 	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
-	SuccessTrackerEnabled        bool                `default:"false" devDefault:"true" help:"enable success tracker based node selection"`
+	SuccessTrackerKind           string              `default:"percent" help:"success tracker kind, bitshift or percent"`
 	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
 	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
 
@@ -155,19 +181,25 @@ type Config struct {
 	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
+	UseBucketLevelObjectLock         bool     `help:"enable the use of bucket-level Object Lock" default:"false"`
+	UseBucketLevelObjectLockProjects []string `help:"list of project IDs for which bucket-level Object Lock functionality is enabled" default:"" hidden:"true"`
+
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery      bool   `default:"false" help:"test the new query for non-recursive listing"`
-	TestCommitSegmentMode string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
+	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestOptimizedInlineObjectUpload bool   `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
+	TestingPrecommitDeleteMode      int    `default:"1" help:"which code path to use for precommit delete step for unversioned objects, 1 is the default (old) code path."`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
 func (c Config) Metabase(applicationName string) metabase.Config {
 	return metabase.Config{
-		ApplicationName:          applicationName,
-		MinPartSize:              c.MinPartSize,
-		MaxNumberOfParts:         c.MaxNumberOfParts,
-		ServerSideCopy:           c.ServerSideCopy,
-		TestingCommitSegmentMode: c.TestCommitSegmentMode,
+		ApplicationName:            applicationName,
+		MinPartSize:                c.MinPartSize,
+		MaxNumberOfParts:           c.MaxNumberOfParts,
+		ServerSideCopy:             c.ServerSideCopy,
+		TestingCommitSegmentMode:   c.TestCommitSegmentMode,
+		TestingPrecommitDeleteMode: c.TestingPrecommitDeleteMode,
 	}
 }
 
@@ -175,26 +207,30 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 type ExtendedConfig struct {
 	Config
 
-	useBucketLevelObjectVersioningProjects []uuid.UUID
-	successTrackerTrustedUplinks           []storj.NodeID
+	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
+	useBucketLevelObjectLockProjects       map[uuid.UUID]struct{}
 }
 
 // NewExtendedConfig creates new instance of extended config.
 func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
-	extendedConfig := ExtendedConfig{Config: config}
+	extendedConfig := ExtendedConfig{
+		Config:                                 config,
+		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
+		useBucketLevelObjectLockProjects:       make(map[uuid.UUID]struct{}),
+	}
 	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(projectIDString)
 		if err != nil {
 			return ExtendedConfig{}, err
 		}
-		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
+		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
 	}
-	for _, uplinkIDString := range config.SuccessTrackerTrustedUplinks {
-		uplinkID, err := storj.NodeIDFromString(uplinkIDString)
+	for _, projectIDString := range config.UseBucketLevelObjectLockProjects {
+		projectID, err := uuid.FromString(projectIDString)
 		if err != nil {
 			return ExtendedConfig{}, err
 		}
-		extendedConfig.successTrackerTrustedUplinks = append(extendedConfig.successTrackerTrustedUplinks, uplinkID)
+		extendedConfig.useBucketLevelObjectLockProjects[projectID] = struct{}{}
 	}
 
 	return extendedConfig, nil
@@ -204,10 +240,8 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *console.Project) bool {
 	// if its globally enabled don't look at projects
 	if !ec.UseBucketLevelObjectVersioning {
-		for _, p := range ec.useBucketLevelObjectVersioningProjects {
-			if p == project.ID {
-				return true
-			}
+		if _, ok := ec.useBucketLevelObjectVersioningProjects[project.ID]; ok {
+			return true
 		}
 		// account for whether the project has opted in to versioning beta
 		if !project.PromptedForVersioningBeta {
@@ -220,4 +254,15 @@ func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *consol
 	}
 
 	return true
+}
+
+// UseBucketLevelObjectLockByProjectID checks if bucket-level Object Lock functionality
+// should be enabled for a specific project.
+func (ec ExtendedConfig) UseBucketLevelObjectLockByProjectID(projectID uuid.UUID) bool {
+	// if its globally enabled don't look at projects
+	if ec.UseBucketLevelObjectLock {
+		return true
+	}
+	_, ok := ec.useBucketLevelObjectLockProjects[projectID]
+	return ok
 }

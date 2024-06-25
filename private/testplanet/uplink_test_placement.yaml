@@ -1,0 +1,10 @@
+placements:
+  - id: 0
+    name: global
+  - id: 1
+    name: test
+    ec:
+      minimum: 2
+      repair: 2
+      success: 3
+      total: 3

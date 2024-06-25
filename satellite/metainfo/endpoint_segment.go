@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,11 +17,11 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/eestream"
 )
 
 func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storj.RedundancyScheme) (totalStored int64) {
@@ -57,7 +56,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -69,78 +68,40 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
-	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
-		return nil, err
+	if !objectJustCreated {
+		// we need check limits only if object wasn't just created,
+		// begin object is checking limits on it' own
+		if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
+			return nil, err
+		}
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(endpoint.defaultRS)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
+	placement := endpoint.placement[storj.PlacementConstraint(streamID.Placement)]
 	config := endpoint.config
+	rsParams := config.RS.Override(placement.EC)
 	defaultRedundancy := storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
-		RequiredShares: int16(config.RS.Min),
-		RepairShares:   int16(config.RS.Repair),
-		OptimalShares:  int16(config.RS.Success),
-		TotalShares:    int16(config.RS.Total),
-		ShareSize:      config.RS.ErasureShareSize.Int32(),
+		RequiredShares: int16(rsParams.Min),
+		RepairShares:   int16(rsParams.Repair),
+		OptimalShares:  int16(rsParams.Success),
+		TotalShares:    int16(rsParams.Total),
+		ShareSize:      rsParams.ErasureShareSize.Int32(),
 	}
+
 	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
-	requestedCount := redundancy.TotalCount()
-	if endpoint.config.SuccessTrackerEnabled {
-		// times 2 to do power-of-2 choice filtering
-		requestedCount *= 2
-	}
-
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-		RequestedCount: requestedCount,
+		RequestedCount: int(defaultRedundancy.TotalShares),
 		Placement:      storj.PlacementConstraint(streamID.Placement),
+		Requester:      peer.ID,
 	})
 
-	// we requested redundancy.TotalCount() * 2 nodes but we only really need
-	// redundancy.TotalCount() nodes, as we're going to toss nodes out until
-	// we get to that amount soon, anyway. so explicitly ignore the NotEnoughNodes
-	// error if we got at least the amount we really need.
-	if len(nodes) >= redundancy.TotalCount() && overlay.ErrNotEnoughNodes.Has(err) {
-		err = nil
-	}
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
-	}
-
-	if endpoint.config.SuccessTrackerEnabled {
-		tracker := endpoint.successTrackers.GetTracker(peer.ID)
-
-		// shuffle the nodes to ensure the pairwise matching is fair and unbiased
-		// when the totals for either node are 0 (we just pick the first node in
-		// the pair in that case)
-		rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
-			nodes[i], nodes[j] = nodes[j], nodes[i]
-		})
-
-		// do pairwise selection while we have more than the total redundancy and
-		// at least 2 nodes to select on.
-		for len(nodes) > redundancy.TotalCount() && len(nodes) >= 2 {
-			success0, total0 := tracker.Get(nodes[0].ID)
-			success1, total1 := tracker.Get(nodes[1].ID)
-
-			selected := nodes[0]
-			if total0 != 0 && total1 != 0 &&
-				float64(success0)/float64(total0) > float64(success1)/float64(total1) {
-				selected = nodes[1]
-			}
-
-			// pop the 2 nodes that we compared from the front and append the selected
-			// node to the back.
-			nodes = append(nodes[2:], selected)
-		}
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -180,7 +141,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		ObjectExistsChecked: objectJustCreated,
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
@@ -203,7 +164,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		SegmentId:        segmentID,
 		AddressedLimits:  addressedLimits,
 		PrivateKey:       piecePrivateKey,
-		RedundancyScheme: endpoint.defaultRS,
+		RedundancyScheme: endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement)),
 	}, nil
 }
 
@@ -223,7 +184,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		Bucket:        segmentID.StreamId.Bucket,
 		EncryptedPath: segmentID.StreamId.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -323,32 +284,33 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	// cheap basic verification
-	if numResults := len(req.UploadResult); numResults < int(endpoint.defaultRS.GetSuccessThreshold()) {
+	rsParam := endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+	if numResults := len(req.UploadResult); numResults < int(rsParam.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
-			zap.Int32("redundancy optimal threshold", endpoint.defaultRS.GetSuccessThreshold()),
+			zap.Int32("redundancy optimal threshold", rsParam.GetSuccessThreshold()),
 			zap.Stringer("Segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
-			numResults, endpoint.defaultRS.GetSuccessThreshold(),
+			numResults, rsParam.GetSuccessThreshold(),
 		)
 	}
 
 	rs := storj.RedundancyScheme{
-		Algorithm:      storj.RedundancyAlgorithm(endpoint.defaultRS.Type),
-		RequiredShares: int16(endpoint.defaultRS.MinReq),
-		RepairShares:   int16(endpoint.defaultRS.RepairThreshold),
-		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
-		TotalShares:    int16(endpoint.defaultRS.Total),
-		ShareSize:      endpoint.defaultRS.ErasureShareSize,
+		Algorithm:      storj.RedundancyAlgorithm(rsParam.Type),
+		RequiredShares: int16(rsParam.MinReq),
+		RepairShares:   int16(rsParam.RepairThreshold),
+		OptimalShares:  int16(rsParam.SuccessThreshold),
+		TotalShares:    int16(rsParam.Total),
+		ShareSize:      rsParam.ErasureShareSize,
 	}
 
 	err = endpoint.pointerVerification.VerifySizes(ctx, rs, req.SizeEncryptedData, req.UploadResult)
@@ -468,7 +430,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.metabase.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
@@ -476,7 +438,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// increment our counters in the success tracker appropriate to the committing uplink
-	if endpoint.config.SuccessTrackerEnabled {
+	{
 		tracker := endpoint.successTrackers.GetTracker(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
@@ -517,7 +479,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitPut)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +532,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		InlineData: req.EncryptedInlineData,
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -608,7 +570,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitList)
 	if err != nil {
 		return nil, err
 	}
@@ -626,7 +588,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	result, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
-		StreamID: id,
+		ProjectID: keyInfo.ProjectID,
+		StreamID:  id,
 		Cursor: metabase.SegmentPosition{
 			Part:  uint32(cursor.PartNumber),
 			Index: uint32(cursor.Index),
@@ -634,7 +597,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Limit: int(req.Limit),
 	})
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	response, err := convertStreamListResults(result)
@@ -697,7 +660,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	})
+	}, console.RateLimitGet)
 	if err != nil {
 		return nil, err
 	}
@@ -738,7 +701,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		})
 	}
 	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.

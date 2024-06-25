@@ -34,6 +34,9 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { RouteConfig } from '@/types/router';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { PricingPlanInfo } from '@/types/common';
+import { EdgeCredentials } from '@/types/accessGrants';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -43,6 +46,7 @@ import TrialExpirationDialog from '@/components/dialogs/TrialExpirationDialog.vu
 const appStore = useAppStore();
 const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
+const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
@@ -68,6 +72,44 @@ const isErrorPageShown = computed<boolean>((): boolean => {
 const user = computed<User>(() => usersStore.state.user);
 
 /**
+ * Determine whether the current user is eligible for pricing plans.
+ */
+async function getPricingPlansAvailable() {
+    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)
+        || !configStore.state.config.pricingPackagesEnabled) {
+        return;
+    }
+    const user: User = usersStore.state.user;
+    if (user.paidTier || !user.partner) {
+        return;
+    }
+
+    try {
+        const hasPkg = await billingStore.getPricingPackageAvailable();
+        if (!hasPkg) {
+            return;
+        }
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        return;
+    }
+
+    let config;
+    try {
+        config = (await import('@/configs/pricingPlanConfig.json')).default;
+    } catch {
+        return;
+    }
+
+    const info = (config[user.partner] as PricingPlanInfo);
+    if (!info) {
+        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
+        return;
+    }
+    billingStore.setPricingPlansAvailable(true, info);
+}
+
+/**
  * Sets up the app by fetching all necessary data.
  */
 async function setup() {
@@ -83,6 +125,7 @@ async function setup() {
         ];
         if (configStore.state.config.billingFeaturesEnabled) {
             promises.push(billingStore.setupAccount());
+            promises.push(getPricingPlansAvailable());
         }
         await Promise.all(promises);
 
@@ -93,10 +136,7 @@ async function setup() {
             analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, { source: source });
         }
 
-        if (appStore.state.hasJustLoggedIn && !invites.length && projects.length <= 1) {
-            if (!projects.length) {
-                await projectsStore.createDefaultProject(usersStore.state.user.id);
-            }
+        if (appStore.state.hasJustLoggedIn && !invites.length && projects.length === 1) {
             projectsStore.selectProject(projects[0].id);
             const project = projectsStore.state.selectedProject;
             await router.push({
@@ -104,13 +144,6 @@ async function setup() {
                 params: { id: project.urlId },
             });
             analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-
-            if (usersStore.getShouldPromptPassphrase({
-                isProjectOwner: project.ownerId === usersStore.state.user.id,
-                onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
-            }) && !user.value.freezeStatus.trialExpiredFrozen) {
-                appStore.toggleProjectPassphraseDialog(true);
-            }
         }
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -167,13 +200,60 @@ usersStore.$onAction(({ name, after }) => {
     }
 });
 
+bucketsStore.$onAction(({ name, after, args }) => {
+    if (name === 'handleDeleteBucketRequest') {
+        after(async (_) => {
+            const bucketName = args[0];
+            const request = args[1];
+            try {
+                await request;
+                analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
+                notify.success(`Successfully deleted ${bucketName}.`, 'Bucket Deleted');
+            } catch (error) {
+                let message = `Failed to delete ${bucketName}.`;
+                if (error && error.message) {
+                    message += ` ${error.message}`;
+                }
+                notify.error(message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
+
+            try {
+                await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
+            } catch (error) {
+                notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
+        });
+    }
+});
+
+/**
+ * reset pricing plans available when user upgrades to paid tier.
+ */
+watch(() => user.value.paidTier, (paidTier) => {
+    if (paidTier) {
+        billingStore.setPricingPlansAvailable(false, null);
+    }
+});
+
 /**
  * conditionally prompt for project passphrase if project changes
  */
-watch(() => projectsStore.state.selectedProject, (project, oldProject) => {
-    if (project.id === oldProject.id) {
+watch(() => projectsStore.state.selectedProject, async (project, oldProject) => {
+    if (!project.id || project.id === oldProject.id) {
         return;
     }
+    try {
+        const config = await projectsStore.getProjectConfig();
+        if (config.passphrase) {
+            bucketsStore.setEdgeCredentials(new EdgeCredentials());
+            bucketsStore.setPassphrase(config.passphrase);
+            bucketsStore.setPromptForPassphrase(false);
+            return;
+        }
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
     if (usersStore.getShouldPromptPassphrase({
         isProjectOwner: project.ownerId === usersStore.state.user.id,
         onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,

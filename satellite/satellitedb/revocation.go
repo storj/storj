@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/lrucache"
 )
 
 type revocationDB struct {

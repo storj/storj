@@ -123,6 +123,7 @@ type CreateUser struct {
 	ActivationCode   string `json:"-"`
 	SignupId         string `json:"-"`
 	AllowNoName      bool   `json:"-"`
+	PaidTier         bool   `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -188,6 +189,8 @@ const (
 	LegalHold UserStatus = 4
 	// PendingBotVerification is a status that user receives after account activation but with high captcha score.
 	PendingBotVerification UserStatus = 5
+	// UserRequestedDeletion is a status that user receives after account owner completed delete account flow.
+	UserRequestedDeletion UserStatus = 6
 )
 
 // String returns a string representation of the user status.
@@ -220,8 +223,9 @@ type User struct {
 	Email        string `json:"email"`
 	PasswordHash []byte `json:"-"`
 
-	Status    UserStatus `json:"status"`
-	UserAgent []byte     `json:"userAgent"`
+	Status          UserStatus `json:"status"`
+	StatusUpdatedAt *time.Time `json:"-"`
+	UserAgent       []byte     `json:"userAgent"`
 
 	CreatedAt time.Time `json:"createdAt"`
 
@@ -260,6 +264,9 @@ type User struct {
 
 	TrialExpiration *time.Time `json:"trialExpiration"`
 	UpgradeTime     *time.Time `json:"upgradeTime"`
+
+	NewUnverifiedEmail          *string `json:"-"`
+	EmailChangeVerificationStep int     `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -315,7 +322,8 @@ type UpdateUserRequest struct {
 	Email        *string
 	PasswordHash []byte
 
-	Status *UserStatus
+	Status          *UserStatus
+	StatusUpdatedAt *time.Time
 
 	ProjectLimit          *int
 	ProjectStorageLimit   *int64
@@ -341,6 +349,9 @@ type UpdateUserRequest struct {
 	TrialExpiration    **time.Time
 	TrialNotifications *TrialNotificationStatus
 	UpgradeTime        *time.Time
+
+	NewUnverifiedEmail          **string
+	EmailChangeVerificationStep *int
 }
 
 // UserSettings contains configurations for a user.
@@ -371,6 +382,7 @@ type NoticeDismissal struct {
 	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
 	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
 	UploadOverwriteWarning   bool `json:"uploadOverwriteWarning"`
+	VersioningBetaBanner     bool `json:"versioningBetaBanner"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

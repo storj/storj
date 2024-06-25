@@ -12,3 +12,16 @@ placements:
     filter: country("EU") && $NORMAL
     invariant: maxcontrol("last_net",1)
     selector: attribute("last_net")
+  - id: 2
+    name: choiceoftwo
+    selector: choiceoftwo(tracker, random())
+  - id: 3
+    name: ifeqselector
+    selector: attribute(if(eq("tag:surge","true"),"last_ip_port","last_net"))
+  - id: 4
+    name: subnet
+    selector: attribute(subnet(25))
+  - id: 5
+    name: dual
+    selector: dual(0.2,random(), filter(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true"),random()))
+

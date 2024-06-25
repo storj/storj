@@ -7,10 +7,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
+
+	"cloud.google.com/go/spanner"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -94,30 +98,12 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 		}
 	}
 
-	err = withRows(db.db.QueryContext(ctx, `
-		SELECT
-			position, encrypted_key_nonce, encrypted_key
-		FROM segments
-		WHERE stream_id = $1
-		ORDER BY stream_id, position ASC
-	`, object.StreamID))(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var keys EncryptedKeyAndNonce
-
-			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
-			}
-
-			result.EncryptedKeysNonces = append(result.EncryptedKeysNonces, keys)
-		}
-
-		return nil
-	})
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return BeginMoveCopyResults{}, Error.New("unable to fetch object segments: %w", err)
+	keysNonces, err := db.ChooseAdapter(location.ProjectID).GetSegmentPositionsAndKeys(ctx, object.StreamID)
+	if err != nil {
+		return BeginMoveCopyResults{}, err
 	}
 
+	result.EncryptedKeysNonces = keysNonces
 	result.StreamID = object.StreamID
 	result.Version = object.Version
 	result.EncryptionParameters = object.Encryption
@@ -126,6 +112,58 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
 
 	return result, nil
+}
+
+// GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
+// segments in the db for the given stream ID, ordered by position.
+func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
+	err = withRows(p.db.QueryContext(ctx, `
+		SELECT
+			position, encrypted_key_nonce, encrypted_key
+		FROM segments
+		WHERE stream_id = $1
+		ORDER BY stream_id, position ASC
+	`, streamID))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var keys EncryptedKeyAndNonce
+
+			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+
+			keysNonces = append(keysNonces, keys)
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, Error.New("unable to fetch object segments: %w", err)
+	}
+	return keysNonces, nil
+}
+
+// GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
+// segments in the db for the given stream ID, ordered by position.
+func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
+	keysNonces, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				position, encrypted_key_nonce, encrypted_key
+			FROM segments
+			WHERE stream_id = @stream_id
+			ORDER BY stream_id, position ASC
+		`,
+		Params: map[string]interface{}{
+			"stream_id": streamID,
+		},
+	}), func(row *spanner.Row, keys *EncryptedKeyAndNonce) error {
+		err := row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+		if err != nil {
+			return Error.New("failed to scan segments: %w", err)
+		}
+		return nil
+	})
+	return keysNonces, Error.Wrap(err)
 }
 
 // FinishMoveObject holds all data needed to finish object move.
@@ -179,9 +217,9 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		return err
 	}
 
-	var precommit precommitConstraintResult
+	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
-		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
@@ -290,6 +328,119 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 	return oldStatus, segmentsCount, hasMetadata, streamID, nil
 }
 
+func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error) {
+	// We cannot UPDATE the object record in place, because some of the columns we need to update are
+	// part of the primary key. We must DELETE and INSERT instead.
+
+	// TODO(spanner): check whether INSERT FROM and then DELETE would be more performant, because
+	// it will use a single round trip, instead of two.
+
+	var (
+		found                         bool
+		createdAt                     time.Time
+		expiresAt                     *time.Time
+		segmentCount                  int64
+		encryptedMetadataNonce        []byte
+		encryptedMetadata             []byte
+		encryptedMetadataEncryptedKey []byte
+		totalPlainSize                int64
+		totalEncryptedSize            int64
+		fixedSegmentSize              int64
+		encryption                    storj.EncryptionParameters
+		zombieDeletionDeadline        *time.Time
+	)
+
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+			THEN RETURN
+				stream_id, created_at, expires_at, status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				zombie_deletion_deadline
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	}).Do(func(row *spanner.Row) error {
+		found = true
+		err := row.Columns(
+			&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
+			&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey,
+			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
+			encryptionParameters{&encryption},
+			&zombieDeletionDeadline,
+		)
+		if err != nil {
+			return Error.New("unable to read old object record: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, false, uuid.UUID{}, Error.New("unable to remove old object record: %w", err)
+	}
+	if !found {
+		return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
+	}
+
+	segmentsCount = int(segmentCount)
+
+	if encryptedMetadata != nil {
+		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
+		encryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+	}
+
+	_, err = stx.tx.Update(ctx, spanner.Statement{
+		SQL: `
+			INSERT INTO objects (
+			    project_id, bucket_name, object_key, version,
+				stream_id, created_at, expires_at, status, segment_count,
+			    encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				zombie_deletion_deadline
+			) VALUES (
+			    @project_id, @bucket_name, @object_key, @version,
+				@stream_id, @created_at, @expires_at, @status, @segment_count,
+			    @encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
+				@encryption,
+				@zombie_deletion_deadline
+			)
+		`,
+		Params: map[string]interface{}{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.NewBucket,
+			"object_key":                       opts.NewEncryptedObjectKey,
+			"version":                          nextVersion,
+			"stream_id":                        streamID,
+			"created_at":                       createdAt,
+			"expires_at":                       expiresAt,
+			"status":                           newStatus,
+			"segment_count":                    segmentsCount,
+			"encrypted_metadata_nonce":         encryptedMetadataNonce,
+			"encrypted_metadata":               encryptedMetadata,
+			"encrypted_metadata_encrypted_key": encryptedMetadataEncryptedKey,
+			"total_plain_size":                 totalPlainSize,
+			"total_encrypted_size":             totalEncryptedSize,
+			"fixed_segment_size":               fixedSegmentSize,
+			"encryption":                       encryptionParameters{&encryption},
+			"zombie_deletion_deadline":         zombieDeletionDeadline,
+		},
+	})
+	if err != nil {
+		return 0, 0, false, uuid.UUID{}, Error.New("unable to create new object record: %w", err)
+	}
+
+	return oldStatus, segmentsCount, len(encryptedMetadata) > 0, streamID, nil
+}
+
 func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
 	updateResult, err := ptx.tx.ExecContext(ctx, `
 			UPDATE segments SET
@@ -308,4 +459,39 @@ func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context,
 	}
 
 	return updateResult.RowsAffected()
+}
+
+func (stx *spannerTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
+	if len(positions) == 0 {
+		return 0, nil
+	}
+
+	stmts := make([]spanner.Statement, 0, len(positions))
+	for i := range positions {
+		stmts = append(stmts, spanner.Statement{
+			SQL: `
+				UPDATE segments SET
+					encrypted_key_nonce = COALESCE(@encrypted_key_nonce, B''),
+					encrypted_key = COALESCE(@encrypted_key, B'')
+				WHERE
+					stream_id = @stream_id
+					AND position = @position
+			`,
+			Params: map[string]interface{}{
+				"stream_id":           opts.StreamID,
+				"position":            positions[i],
+				"encrypted_key_nonce": encryptedKeyNonces[i],
+				"encrypted_key":       encryptedKeys[i],
+			},
+		})
+	}
+	affecteds, err := stx.tx.BatchUpdate(ctx, stmts)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	var totalFound int64
+	for _, affected := range affecteds {
+		totalFound += affected
+	}
+	return totalFound, nil
 }

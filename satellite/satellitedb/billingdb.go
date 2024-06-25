@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
@@ -108,7 +109,7 @@ func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
 			dbx.BillingTransaction_Type(string(billingTX.Type)),
 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
+			dbx.BillingTransaction_TxTimestamp(billingTX.Timestamp))
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
@@ -260,31 +261,31 @@ func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType
 		return time.Time{}, nil, billing.ErrNoTransactions
 	}
 
-	return lastTransaction.Timestamp, lastTransaction.Metadata, nil
+	return lastTransaction.TxTimestamp, lastTransaction.Metadata, nil
 }
 
 func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx,
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ctx,
 		dbx.BillingTransaction_UserId(userID[:]))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	txs, err = slices2.Convert(dbxTXs, fromDBXBillingTransaction)
 	return txs, Error.Wrap(err)
 }
 
 func (db billingDB) ListSource(ctx context.Context, userID uuid.UUID, txSource string) (txs []billing.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Timestamp(ctx,
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxTimestamp(ctx,
 		dbx.BillingTransaction_UserId(userID[:]),
 		dbx.BillingTransaction_Source(txSource))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	txs, err = slices2.Convert(dbxTXs, fromDBXBillingTransaction)
 	return txs, Error.Wrap(err)
 }
 
@@ -317,7 +318,7 @@ func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (billing.Transacti
 		Status:      billing.TransactionStatus(dbxTX.Status),
 		Type:        billing.TransactionType(dbxTX.Type),
 		Metadata:    dbxTX.Metadata,
-		Timestamp:   dbxTX.Timestamp,
+		Timestamp:   dbxTX.TxTimestamp,
 		CreatedAt:   dbxTX.CreatedAt,
 	}, nil
 }

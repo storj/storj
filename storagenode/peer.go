@@ -151,6 +151,7 @@ func (config *Config) DatabaseConfig() storagenodedb.Config {
 	}
 	return storagenodedb.Config{
 		Storage:   config.Storage.Path,
+		Cache:     config.Pieces.FileStatCache,
 		Info:      filepath.Join(dbdir, "piecestore.db"),
 		Info2:     filepath.Join(dbdir, "info.db"),
 		Pieces:    config.Storage.Path,
@@ -609,6 +610,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.TrashChore,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
+			peer.Bandwidth.Cache,
 			peer.UsedSerials,
 			config.Storage2,
 		)
@@ -639,7 +641,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			dialer,
 			peer.OrdersStore,
 			peer.DB.Orders(),
-			peer.DB.Bandwidth(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
 		)

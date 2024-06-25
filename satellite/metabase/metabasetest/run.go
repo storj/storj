@@ -5,12 +5,10 @@ package metabasetest
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
@@ -34,14 +32,7 @@ func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontex
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
 func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, flags ...interface{}) {
-	spannerTestEnabled := slices.ContainsFunc(flags, func(flag interface{}) bool {
-		return flag == withSpanner
-	})
-
 	for _, dbinfo := range satellitedbtest.DatabasesWithSpanner() {
-		if !spannerTestEnabled && strings.HasPrefix(dbinfo.MetabaseDB.URL, "spanner:") {
-			continue
-		}
 		dbinfo := dbinfo
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
@@ -62,13 +53,6 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 	}
 }
 
-var withSpanner = struct{}{}
-
-// WithSpanner flags the metabase test as ready for testing it with spanner.
-func WithSpanner() struct{} {
-	return withSpanner
-}
-
 // Run runs tests against all configured databases.
 func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...interface{}) {
 	var config metainfo.Config
@@ -85,7 +69,8 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 		UseListObjectsIterator: config.UseListObjectsIterator,
 
-		TestingUniqueUnversioned: true,
+		TestingUniqueUnversioned:   true,
+		TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 	}, fn, flags...)
 }
 
@@ -95,9 +80,10 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
 			config := metabase.Config{
-				ApplicationName:  "satellite-bench",
-				MinPartSize:      5 * memory.MiB,
-				MaxNumberOfParts: 10000,
+				ApplicationName:            "satellite-bench",
+				MinPartSize:                5 * memory.MiB,
+				MaxNumberOfParts:           10000,
+				TestingPrecommitDeleteMode: metabase.PrecommitDeleteModes[0],
 			}
 
 			mudtest.Run[*metabase.DB](b, mudtest.WithTestLogger(b, func(ball *mud.Ball) {
@@ -139,8 +125,9 @@ func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, confi
 			ServerSideCopy:         config.ServerSideCopy,
 			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 
-			TestingUniqueUnversioned: true,
-			TestingCommitSegmentMode: config.TestingCommitSegmentMode,
+			TestingUniqueUnversioned:   true,
+			TestingCommitSegmentMode:   config.TestingCommitSegmentMode,
+			TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 		}
 		return cfg
 	})

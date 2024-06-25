@@ -367,6 +367,23 @@ func (service *Service) CreateContact(fields TrackCreateUserFields) {
 	service.hubspot.EnqueueCreateUserMinimal(fields)
 }
 
+// ChangeContactEmail changes contact's email address.
+func (service *Service) ChangeContactEmail(userID uuid.UUID, oldEmail, newEmail string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	traits := segment.NewTraits()
+	traits.SetEmail(newEmail)
+
+	service.enqueueMessage(segment.Identify{
+		UserId: userID.String(),
+		Traits: traits,
+	})
+
+	service.hubspot.EnqueueUserChangeEmail(oldEmail, newEmail)
+}
+
 // TrackUserOnboardingInfo sends onboarding info to Hubspot.
 func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields) {
 	if !service.config.Enabled {

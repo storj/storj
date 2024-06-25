@@ -27,6 +27,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/version"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
@@ -42,9 +43,11 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
@@ -174,6 +177,16 @@ type API struct {
 	Buckets struct {
 		Service *buckets.Service
 	}
+
+	KeyManagement struct {
+		Service *kms.Service
+	}
+
+	HealthCheck struct {
+		Server *healthcheck.Server
+	}
+
+	SuccessTrackers *metainfo.SuccessTrackers
 }
 
 // NewAPI creates a new satellite API process.
@@ -278,7 +291,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	{
+		var trustedUplinks []storj.NodeID
+		for _, uplinkIDString := range config.Metainfo.SuccessTrackerTrustedUplinks {
+			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
+			if err != nil {
+				log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.String("uplink", uplinkIDString), zap.Error(err))
+			}
+			trustedUplinks = append(trustedUplinks, uplinkID)
+		}
+		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
+		if !ok {
+			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
+		}
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
+	}
+
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +344,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup contact service
-		authority, err := loadAuthorities(full.PeerIdentity(), config.TagAuthorities)
+		authority, err := LoadAuthorities(full.PeerIdentity(), config.TagAuthorities)
 		if err != nil {
 			return nil, err
 		}
@@ -338,6 +367,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
+			log.Named("accounting:projectusage-service"),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			*metabaseDB,
@@ -353,7 +383,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +461,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().ProjectMembers(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
+			peer.SuccessTrackers,
 			config.Metainfo,
+			placement,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -446,6 +478,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Metainfo.Endpoint.Run,
 			Close: peer.Metainfo.Endpoint.Close,
 		})
+	}
+
+	{ // setup kms
+		if config.Console.Config.SatelliteManagedEncryptionEnabled {
+			peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "kms:service",
+				Run:   peer.KeyManagement.Service.Initialize,
+				Close: peer.KeyManagement.Service.Close,
+			})
+		}
 	}
 
 	{ // setup userinfo.
@@ -541,9 +585,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.StorjscanClient,
 			pc.Storjscan.Confirmations,
 			pc.BonusRate)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
 		peer.Payments.DepositWallets = peer.Payments.StorjscanService
 	}
@@ -590,6 +631,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Mail.Service,
 			accountFreezeService,
 			emissionService,
+			peer.KeyManagement.Service,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
@@ -678,10 +720,29 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	{ // setup health check
+		if config.HealthCheck.Enabled {
+			listener, err := net.Listen("tcp", config.HealthCheck.Address)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener, peer.Payments.StripeService)
+			peer.HealthCheck.Server = srv
+
+			peer.Servers.Add(lifecycle.Item{
+				Name:  "healthcheck",
+				Run:   srv.Run,
+				Close: srv.Close,
+			})
+		}
+	}
+
 	return peer, nil
 }
 
-func loadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
+// LoadAuthorities loads the authorities from the specified locations.
+func LoadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
 	var authority nodetag.Authority
 	authority = append(authority, signing.SigneeFromPeerIdentity(peerIdentity))
 	for _, cert := range strings.Split(authorityLocations, ",") {

@@ -6,6 +6,7 @@ package sqliteutil
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
@@ -15,14 +16,14 @@ import (
 )
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
-func LoadSchemaFromSQL(ctx context.Context, script string) (_ *dbschema.Schema, err error) {
+func LoadSchemaFromSQL(ctx context.Context, script []string) (_ *dbschema.Schema, err error) {
 	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.ExecContext(ctx, script)
+	_, err = db.ExecContext(ctx, strings.Join(script, ";\n"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

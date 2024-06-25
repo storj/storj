@@ -62,6 +62,41 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 	return cache.getInt64(ctx, createStorageProjectIDKey(projectID))
 }
 
+// GetProjectStorageAndSegmentUsage gets storage and segment usage for give project.
+func (cache *redisLiveAccounting) GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segments int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	storageKey := createStorageProjectIDKey(projectID)
+	segmentsKey := createSegmentProjectIDKey(projectID)
+	resultSlice := cache.client.MGet(ctx, storageKey, segmentsKey)
+	results, err := resultSlice.Result()
+	if err != nil {
+		return 0, 0, accounting.ErrSystemOrNetError.New("Redis get failed: %w", err)
+	}
+
+	if len(results) != 2 {
+		return 0, 0, accounting.ErrUnexpectedValue.New("wrong number of results: got %d wants %d", len(results), 2)
+	}
+
+	if results[0] != nil {
+		storageValue := results[0].(string)
+		storage, err = strconv.ParseInt(storageValue, 10, 64)
+		if err != nil {
+			err = accounting.ErrUnexpectedValue.New("cannot parse the value as int64; key=%q val=%q", storageKey, storageValue)
+		}
+	}
+
+	if results[1] != nil {
+		segmentsValue := results[1].(string)
+		segments, err = strconv.ParseInt(segmentsValue, 10, 64)
+		if err != nil {
+			err = errs.Combine(err, accounting.ErrUnexpectedValue.New("cannot parse the value as int64; key=%q val=%q", segmentsKey, segmentsValue))
+		}
+	}
+
+	return storage, segments, err
+}
+
 // GetProjectBandwidthUsage returns the current bandwidth usage
 // from specific project.
 func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error) {
@@ -130,25 +165,6 @@ func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Contex
 	return nil
 }
 
-// GetProjectSegmentUsage returns the current segment usage from specific project.
-func (cache *redisLiveAccounting) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	return cache.getInt64(ctx, createSegmentProjectIDKey(projectID))
-}
-
-// UpdateProjectSegmentUsage increment the segment cache key value.
-func (cache *redisLiveAccounting) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
-	mon.Task()(&ctx, projectID, increment)(&err)
-
-	key := createSegmentProjectIDKey(projectID)
-	_, err = cache.client.IncrBy(ctx, key, increment).Result()
-	if err != nil {
-		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
-	}
-	return nil
-}
-
 // AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
 // If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
 func (cache *redisLiveAccounting) AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) (err error) {
@@ -176,20 +192,6 @@ func (cache *redisLiveAccounting) AddProjectSegmentUsageUpToLimit(ctx context.Co
 	return nil
 }
 
-// AddProjectStorageUsage lets the live accounting know that the given
-// project has just added spaceUsed bytes of storage (from the user's
-// perspective; i.e. segment size).
-func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
-	defer mon.Task()(&ctx, projectID, spaceUsed)(&err)
-
-	_, err = cache.client.IncrBy(ctx, createStorageProjectIDKey(projectID), spaceUsed).Result()
-	if err != nil {
-		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
-	}
-
-	return nil
-}
-
 // AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
 // If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
 func (cache *redisLiveAccounting) AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) (err error) {
@@ -210,6 +212,39 @@ func (cache *redisLiveAccounting) AddProjectStorageUsageUpToLimit(ctx context.Co
 		}
 
 		return accounting.ErrProjectLimitExceeded.New("Additional storage of %d bytes exceeds project limit of %d", increment, spaceLimit)
+	}
+
+	return nil
+}
+
+// UpdateProjectStorageAndSegmentUsage increment the storage and segment cache key values.
+func (cache *redisLiveAccounting) UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncrement, segmentIncrement int64) (err error) {
+	mon.Task()(&ctx, projectID, storageIncrement, segmentIncrement)(&err)
+
+	pipe := cache.client.Pipeline()
+
+	storageKey := createStorageProjectIDKey(projectID)
+	segmentKey := createSegmentProjectIDKey(projectID)
+	storageIncr := pipe.IncrBy(ctx, storageKey, storageIncrement)
+	segmentIncr := pipe.IncrBy(ctx, segmentKey, segmentIncrement)
+
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis pipeline exec failed: %w", err)
+	}
+
+	var errsList errs.Group
+
+	_, err = storageIncr.Result()
+	if err != nil {
+		errsList.Add(accounting.ErrSystemOrNetError.New("Redis storage incrby failed: %w", err))
+	}
+	_, err = segmentIncr.Result()
+	if err != nil {
+		errsList.Add(accounting.ErrSystemOrNetError.New("Redis segment incrby failed: %w", err))
+	}
+	if errsList.Err() != nil {
+		return errsList.Err()
 	}
 
 	return nil

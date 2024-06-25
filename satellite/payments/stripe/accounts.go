@@ -105,6 +105,32 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
 }
 
+// ChangeEmail changes a customer's email address.
+func (accounts *accounts) ChangeEmail(ctx context.Context, userID uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	cusID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+		Email:  stripe.String(email),
+	}
+
+	_, err = accounts.service.stripeClient.Customers().Update(cusID, params)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // SaveBillingAddress saves billing address for a user and returns the updated billing information.
 func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UUID, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)

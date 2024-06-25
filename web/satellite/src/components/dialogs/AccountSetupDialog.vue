@@ -8,30 +8,52 @@
             :title="step === OnboardingStep.PricingPlanSelection ? 'Select a pricing plan' : ''"
         >
             <v-card-item class="py-4">
-                <v-container
-                    v-if="isLoading"
-                    class="fill-height"
-                    fluid
-                >
-                    <v-row justify="center" align="center">
-                        <v-progress-circular indeterminate />
-                    </v-row>
-                </v-container>
-
-                <v-window v-else v-model="step">
+                <v-window v-model="step">
                     <!-- Choice step -->
                     <v-window-item :value="OnboardingStep.AccountTypeSelection">
-                        <choice-step @next="toNextStep" />
+                        <choice-step @select="onChoiceSelect" />
                     </v-window-item>
 
                     <!-- Business step -->
                     <v-window-item :value="OnboardingStep.BusinessAccountForm">
-                        <business-step @next="toNextStep" />
+                        <business-step
+                            :ref="stepInfos[OnboardingStep.BusinessAccountForm].ref"
+                            v-model:first-name="firstName"
+                            v-model:last-name="lastName"
+                            v-model:company-name="companyName"
+                            v-model:position="position"
+                            v-model:employee-count="employeeCount"
+                            v-model:storage-needs="storageNeeds"
+                            v-model:functional-area="functionalArea"
+                            v-model:have-sales-contact="haveSalesContact"
+                            v-model:interested-in-partnering="interestedInPartnering"
+                            v-model:use-case="useCase"
+                            :loading="isLoading"
+                            @back="toPrevStep"
+                            @next="toNextStep"
+                        />
                     </v-window-item>
 
                     <!-- Personal step -->
                     <v-window-item :value="OnboardingStep.PersonalAccountForm">
-                        <personal-step @next="toNextStep" />
+                        <personal-step
+                            :ref="stepInfos[OnboardingStep.BusinessAccountForm].ref"
+                            v-model:name="firstName"
+                            v-model:use-case="useCase"
+                            :loading="isLoading"
+                            @back="toPrevStep"
+                            @next="toNextStep"
+                        />
+                    </v-window-item>
+
+                    <v-window-item v-if="satelliteManagedEncryptionEnabled" :value="OnboardingStep.ManagedPassphraseOptIn">
+                        <managed-passphrase-opt-in-step
+                            :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
+                            v-model:manage-mode="passphraseManageMode"
+                            :loading="isLoading"
+                            @back="toPrevStep"
+                            @next="toNextStep"
+                        />
                     </v-window-item>
 
                     <!-- Pricing plan steps -->
@@ -45,14 +67,17 @@
                     <v-window-item :value="OnboardingStep.PricingPlan">
                         <PricingPlanStep
                             :plan="plan"
-                            @success="() => toNextStep(OnboardingStep.SetupComplete)"
-                            @back="() => toNextStep(OnboardingStep.PricingPlanSelection)"
+                            @back="toPrevStep"
+                            @success="toNextStep"
                         />
                     </v-window-item>
 
                     <!-- Final step -->
                     <v-window-item :value="OnboardingStep.SetupComplete">
-                        <success-step />
+                        <success-step
+                            :ref="stepInfos[OnboardingStep.SetupComplete].ref"
+                            :loading="isLoading"
+                        />
                     </v-window-item>
                 </v-window>
             </v-card-item>
@@ -61,21 +86,25 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, onBeforeMount, ref, watch } from 'vue';
-import { VCard, VCardItem, VContainer, VDialog, VProgressCircular, VRow, VWindow, VWindowItem } from 'vuetify/components';
+import { Component, computed, onBeforeMount, Ref, ref, watch } from 'vue';
+import { VCard, VCardItem, VDialog, VWindow, VWindowItem } from 'vuetify/components';
 
-import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { ACCOUNT_SETUP_STEPS, ONBOARDING_STEPPER_STEPS, OnboardingStep, UserSettings } from '@/types/users';
+import {
+    ACCOUNT_SETUP_STEPS,
+    ONBOARDING_STEPPER_STEPS,
+    OnboardingStep, SetUserSettingsData,
+    UserSettings,
+} from '@/types/users';
 import { PricingPlanInfo } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
-import { PaymentsHttpApi } from '@/api/payments';
 import { useAppStore } from '@/store/modules/appStore';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { APIError } from '@/utils/error';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { ManagePassphraseMode } from '@/types/projects';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 import ChoiceStep from '@/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -83,23 +112,148 @@ import PersonalStep from '@/components/dialogs/accountSetupSteps/PersonalStep.vu
 import SuccessStep from '@/components/dialogs/accountSetupSteps/SuccessStep.vue';
 import PricingPlanSelectionStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanSelectionStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';
+import ManagedPassphraseOptInStep from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInStep.vue';
 
-const payments: PaymentsHttpApi = new PaymentsHttpApi();
+type SetupLocation = OnboardingStep | undefined | (() => (OnboardingStep | undefined));
+interface SetupStep {
+    setup?: () => void | Promise<void>;
+    validate?: () => boolean;
+}
 
-const analyticsStore = useAnalyticsStore();
+class StepInfo {
+    public ref = ref<SetupStep>();
+    public prev: Ref<OnboardingStep | undefined>;
+    public next: Ref<OnboardingStep | undefined>;
+
+    constructor(
+        prev: SetupLocation = undefined,
+        next: SetupLocation = undefined,
+        public beforeNext?: () => Promise<void>,
+    ) {
+        this.prev = (typeof prev === 'function') ? computed<OnboardingStep | undefined>(prev) : ref<OnboardingStep | undefined>(prev);
+        this.next = (typeof next === 'function') ? computed<OnboardingStep | undefined>(next) : ref<OnboardingStep | undefined>(next);
+    }
+}
+
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
+const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
+const stepInfos = {
+    [OnboardingStep.AccountTypeSelection]: new StepInfo(
+        undefined,
+        () => accountType.value,
+        async () => {
+            const update: SetUserSettingsData = { onboardingStep: accountType.value };
+            if (!userSettings.value.onboardingStart) {
+                update.onboardingStart = true;
+            }
+            await userStore.updateSettings(update);
+        },
+    ),
+    [OnboardingStep.BusinessAccountForm]: (() => {
+        const info = new StepInfo(
+            OnboardingStep.AccountTypeSelection,
+            () => {
+                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
+                return OnboardingStep.SetupComplete;
+            },
+        );
+        info.beforeNext =  async () => {
+            await userStore.updateSettings({ onboardingStep: info.next.value });
+            await info.ref.value?.setup?.();
+        };
+        return info;
+    })(),
+    [OnboardingStep.PersonalAccountForm]: (() => {
+        const info = new StepInfo(
+            OnboardingStep.AccountTypeSelection,
+            () => {
+                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
+                return OnboardingStep.SetupComplete;
+            },
+        );
+        info.beforeNext =  async () => {
+            await userStore.updateSettings({ onboardingStep: info.next.value });
+            await info.ref.value?.setup?.();
+        };
+        return info;
+    })(),
+    [OnboardingStep.ManagedPassphraseOptIn]: (() => {
+        const info = new StepInfo(
+            () => accountType.value || OnboardingStep.AccountTypeSelection,
+            () => {
+                if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
+                return OnboardingStep.SetupComplete;
+            },
+        );
+        info.beforeNext =  async () => {
+            await userStore.updateSettings({ onboardingStep: info.next.value });
+            await info.ref.value?.setup?.();
+        };
+        return info;
+    })(),
+    [OnboardingStep.PricingPlanSelection]: new StepInfo(
+        () => {
+            if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+            return accountType.value || OnboardingStep.AccountTypeSelection;
+        },
+        OnboardingStep.PricingPlan,
+    ),
+    [OnboardingStep.PricingPlan]: (() => {
+        const info = new StepInfo(
+            OnboardingStep.PricingPlanSelection,
+            OnboardingStep.SetupComplete,
+        );
+        info.beforeNext =  async () => {
+            await userStore.updateSettings({ onboardingStep: info.next.value });
+        };
+        return info;
+    })(),
+    [OnboardingStep.SetupComplete]: new StepInfo(
+        undefined,
+        undefined,
+        async () => {
+            await stepInfos[OnboardingStep.SetupComplete].ref.value?.setup?.();
+        },
+    ),
+};
+
 const innerContent = ref<Component | null>(null);
 const step = ref<OnboardingStep>(OnboardingStep.AccountTypeSelection);
 const plan = ref<PricingPlanInfo>();
+const passphraseManageMode = ref<ManagePassphraseMode>('auto');
+const accountType = ref<OnboardingStep>();
 
-const pkgAvailable = ref(false);
+const firstName = ref<string>('');
+const lastName = ref<string>('');
+const companyName = ref<string>('');
+const position = ref<string | undefined>(undefined);
+const employeeCount = ref<string | undefined>(undefined);
+const storageNeeds = ref<string | undefined>(undefined);
+const useCase = ref<string | undefined>(undefined);
+const functionalArea = ref<string | undefined>(undefined);
+const haveSalesContact = ref<boolean>(false);
+const interestedInPartnering = ref<boolean>(false);
+
+const pkgAvailable = computed(() => billingStore.state.pricingPlansAvailable);
+
+/**
+ * Indicates if satellite managed encryption passphrase is enabled.
+ */
+const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+
+/**
+ * Indicates whether to allow progression to managed passphrase opt in step.
+ */
+const allowManagedPassphraseStep = computed(() => satelliteManagedEncryptionEnabled.value && projectsStore.state.projects.length === 0);
 
 const shouldShowSetupDialog = computed(() => {
     // settings are fetched on the projects page.
@@ -122,6 +276,7 @@ const dialogHeight = computed(() => {
     case OnboardingStep.AccountTypeSelection:
     case OnboardingStep.BusinessAccountForm:
     case OnboardingStep.PersonalAccountForm:
+    case OnboardingStep.ManagedPassphraseOptIn:
         return '87%';
     default:
         return 'auto';
@@ -134,6 +289,11 @@ const dialogHeight = computed(() => {
 const dialogWidth = computed(() => {
     switch (step.value) {
 
+    case OnboardingStep.AccountTypeSelection:
+    case OnboardingStep.BusinessAccountForm:
+    case OnboardingStep.PersonalAccountForm:
+        return '87%';
+
     case OnboardingStep.PricingPlanSelection:
         return '720px';
     case OnboardingStep.PricingPlan:
@@ -145,30 +305,42 @@ const dialogWidth = computed(() => {
     }
 });
 
-async function onSelectPricingPlan(p: PricingPlanInfo) {
+function onChoiceSelect(s: OnboardingStep) {
+    accountType.value = s;
+    toNextStep();
+}
+
+function onSelectPricingPlan(p: PricingPlanInfo) {
     plan.value = p;
-    toNextStep(OnboardingStep.PricingPlan);
+    toNextStep();
 }
 
 /**
  * Decides whether to move to the success step or the pricing plan selection.
  */
-function toNextStep(next: OnboardingStep) {
-    if (!userSettings.value.onboardingStart) {
-        userStore.updateSettings({ onboardingStart: true });
-    }
-
-    const isForm = step.value === OnboardingStep.PersonalAccountForm || step.value === OnboardingStep.BusinessAccountForm;
-    if (isForm && next === OnboardingStep.SetupComplete && pkgAvailable.value) {
-        step.value = OnboardingStep.PricingPlanSelection;
-    } else {
-        step.value = next;
-    }
-
-    if (step.value === OnboardingStep.PricingPlan) {
+function toNextStep() {
+    const info = stepInfos[step.value];
+    if (info.ref.value?.validate?.() === false) {
         return;
     }
-    userStore.updateSettings({ onboardingStep: step.value });
+    withLoading(async () => {
+        try {
+            await info.beforeNext?.();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+            return;
+        }
+        if (info.next.value) {
+            step.value = info.next.value;
+        }
+    });
+}
+
+async function toPrevStep() {
+    const info = stepInfos[step.value];
+    if (info.prev.value) {
+        step.value = info.prev.value;
+    }
 }
 
 /**
@@ -186,19 +358,11 @@ onBeforeMount(() => {
             return;
         }
 
-        if (configStore.getBillingEnabled(userStore.state.user.hasVarPartner)) {
-            const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
-            if (pricingPkgsEnabled && userStore.state.user.partner) {
-                try {
-                    pkgAvailable.value = await payments.pricingPackageAvailable();
-                } catch (error) {
-                    notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-                    return;
-                }
-            }
-        }
-
-        if (ACCOUNT_SETUP_STEPS.find(s => s === userSettings.value.onboardingStep)) {
+        if (userSettings.value.onboardingStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value) {
+            step.value = OnboardingStep.SetupComplete;
+        } else if (userSettings.value.onboardingStep === OnboardingStep.PricingPlanSelection && !pkgAvailable.value) {
+            step.value = OnboardingStep.SetupComplete;
+        } else if (ACCOUNT_SETUP_STEPS.find(s => s === userSettings.value.onboardingStep)) {
             step.value = userSettings.value.onboardingStep as OnboardingStep;
         } else if (!userStore.userName) {
             step.value = OnboardingStep.AccountTypeSelection;
@@ -211,7 +375,12 @@ onBeforeMount(() => {
 });
 
 watch(innerContent, comp => {
-    if (comp) return;
+    if (comp) {
+        if (!satelliteManagedEncryptionEnabled.value) {
+            passphraseManageMode.value = 'manual';
+        }
+        return;
+    }
     step.value = OnboardingStep.AccountTypeSelection;
 });
 </script>

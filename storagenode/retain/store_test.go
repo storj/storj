@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode/retain"
@@ -29,13 +30,24 @@ func TestNewRequestStore(t *testing.T) {
 		filter.Add(pieceID)
 	}
 
+	hasher := pb.NewHashFromAlgorithm(pb.PieceHashAlgorithm_BLAKE3)
+	_, err := hasher.Write(filter.Bytes())
+	require.NoError(t, err)
+
+	pbReq := &pb.RetainRequest{
+		CreationDate:  time.Now(),
+		Filter:        filter.Bytes(),
+		HashAlgorithm: pb.PieceHashAlgorithm_BLAKE3,
+		Hash:          hasher.Sum(nil),
+	}
+
 	req := retain.Request{
 		SatelliteID:   testrand.NodeID(),
-		CreatedBefore: time.Now(),
+		CreatedBefore: pbReq.CreationDate,
 		Filter:        filter,
 	}
 
-	err := retain.SaveRequest(retainDir, req)
+	err = retain.SaveRequest(retainDir, req.GetFilename(), pbReq)
 	require.NoError(t, err)
 
 	store, err := retain.NewRequestStore(retainDir)
@@ -46,6 +58,58 @@ func TestNewRequestStore(t *testing.T) {
 
 	require.Equal(t, req.CreatedBefore.UTC(), actualData.CreatedBefore.UTC())
 	require.Equal(t, req.Filter, actualData.Filter)
+}
+
+func TestRequestStore_truncated(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	retainDir := ctx.Dir("retain")
+
+	filter := bloomfilter.NewOptimal(10000000, 0.000000001)
+
+	for _, pieceID := range generateTestIDs(1000) {
+		filter.Add(pieceID)
+	}
+
+	hasher := pb.NewHashFromAlgorithm(pb.PieceHashAlgorithm_BLAKE3)
+	_, err := hasher.Write(filter.Bytes())
+	require.NoError(t, err)
+
+	pbReq := &pb.RetainRequest{
+		CreationDate:  time.Now(),
+		Filter:        filter.Bytes(),
+		HashAlgorithm: pb.PieceHashAlgorithm_BLAKE3,
+		Hash:          hasher.Sum(nil),
+	}
+
+	req := retain.Request{
+		SatelliteID:   testrand.NodeID(),
+		CreatedBefore: pbReq.GetCreationDate(),
+		Filter:        filter,
+	}
+
+	err = retain.SaveRequest(retainDir, req.GetFilename(), pbReq)
+	require.NoError(t, err)
+
+	{
+		// here we truncate the file, simulating a partial disk write
+		files, err := os.ReadDir(retainDir)
+		require.NoError(t, err)
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			info, err := f.Info()
+			require.NoError(t, err)
+			err = os.Truncate(filepath.Join(retainDir, f.Name()), info.Size()-10)
+			require.NoError(t, err)
+		}
+	}
+
+	store, err := retain.NewRequestStore(retainDir)
+	require.Error(t, err) // most likely to fail at pb.Unmarshal
+	t.Log(err)
+	require.Equal(t, 0, store.Len())
 }
 
 func TestNewRequestStore_invalidFilenames(t *testing.T) {
@@ -60,9 +124,14 @@ func TestNewRequestStore_invalidFilenames(t *testing.T) {
 		filter.Add(pieceID)
 	}
 
+	pbReq := &pb.RetainRequest{
+		CreationDate: time.Now(),
+		Filter:       filter.Bytes(),
+	}
+
 	req := retain.Request{
 		SatelliteID:   testrand.NodeID(),
-		CreatedBefore: time.Now(),
+		CreatedBefore: pbReq.CreationDate,
 		Filter:        filter,
 	}
 
@@ -119,7 +188,7 @@ func TestNewRequestStore_invalidFilenames(t *testing.T) {
 	}
 
 	// create a valid file
-	err := retain.SaveRequest(retainDir, req)
+	err := retain.SaveRequest(retainDir, req.GetFilename(), pbReq)
 	require.NoError(t, err)
 
 	store, err := retain.NewRequestStore(retainDir)
