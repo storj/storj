@@ -38,7 +38,7 @@ func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) 
 	`, piece.NodeID[:], piece.StreamID[:], piece.Position.Encode(), piece.PieceNum)
 
 	if err == nil {
-		mon.Meter("audit_reverify_queue_push_piece").Mark(1)
+		mon.Counter("audit_reverify_queue_piece_inserted").Inc(1)
 	}
 
 	return audit.ContainError.Wrap(err)
@@ -101,7 +101,7 @@ func (rq *reverifyQueue) Remove(ctx context.Context, piece *audit.PieceLocator) 
 	)
 
 	if wasDeleted {
-		mon.Meter("audit_reverify_queue_pop_piece").Mark(1)
+		mon.Counter("audit_reverify_queue_piece_deleted").Dec(1)
 	}
 
 	return wasDeleted, err

@@ -41,7 +41,7 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 	// sort segments in the order of the primary key before inserting, for performance reasons
 	sort.Sort(audit.ByStreamIDAndPosition(segments))
 
-	segmentsMeter := mon.Meter("audit_verify_queue_push_segments")
+	segmentsCounter := mon.Counter("audit_verify_queue_segments_inserted")
 	segmentsIndex := 0
 	for segmentsIndex < len(segments) {
 		batchIndex := 0
@@ -67,9 +67,9 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 		}
 
 		if n, err := res.RowsAffected(); err == nil {
-			segmentsMeter.Mark64(n)
+			segmentsCounter.Inc(n)
 		} else {
-			segmentsMeter.Mark(batchIndex)
+			segmentsCounter.Inc(int64(batchIndex))
 		}
 	}
 	return nil
@@ -123,6 +123,6 @@ func (vq *verifyQueue) Next(ctx context.Context) (seg audit.Segment, err error) 
 		return audit.Segment{}, Error.Wrap(err)
 	}
 
-	mon.Meter("audit_verify_queue_pop_segments").Mark(1)
+	mon.Counter("audit_verify_queue_segments_deleted").Dec(1)
 	return seg, nil
 }
