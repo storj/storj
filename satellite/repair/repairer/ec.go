@@ -159,6 +159,14 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 					triedLastIPPort = true
 				}
 
+				log.Debug("attempting to fetch piece for repair",
+					zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+					zap.Stringer("Piece ID", limit.Limit.PieceId),
+					zap.Int("piece index", currentLimitIndex),
+					zap.String("address", limit.GetStorageNodeAddress().Address),
+					zap.String("last_ip_port", info.LastIPPort),
+					zap.Binary("serial", limit.Limit.SerialNumber[:]))
+
 				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
 				if triedLastIPPort && ErrDialFailed.Has(err) {
