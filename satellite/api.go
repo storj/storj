@@ -481,7 +481,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup kms
-		if config.Console.Config.SatelliteManagedEncryptionEnabled {
+		if config.KeyManagement != (kms.Config{}) {
 			peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
 
 			peer.Services.Add(lifecycle.Item{

@@ -177,6 +177,8 @@ type Config struct {
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 	UseListObjectsIterator bool `help:"switch to iterator based implementation." default:"false"`
 
+	NodeAliasCacheFullRefresh bool `help:"node alias cache does a full refresh when a value is missing" default:"false"`
+
 	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"false"`
 	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
@@ -198,6 +200,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MinPartSize:                c.MinPartSize,
 		MaxNumberOfParts:           c.MaxNumberOfParts,
 		ServerSideCopy:             c.ServerSideCopy,
+		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
 		TestingCommitSegmentMode:   c.TestCommitSegmentMode,
 		TestingPrecommitDeleteMode: c.TestingPrecommitDeleteMode,
 	}

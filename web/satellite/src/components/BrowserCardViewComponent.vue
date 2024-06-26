@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-2 mb-7" variant="flat">
+    <v-card class="pa-2 mb-7" variant="flat" :loading="isFetching">
         <v-row align="center">
             <v-col>
                 <v-text-field
@@ -155,12 +155,13 @@
         v-model:current-file="fileToPreview"
         :showing-versions="!!fileToPreview?.VersionId"
         video-autoplay
+        @file-deleted="onFilesDeleted"
     />
 
     <delete-file-dialog
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
-        @content-removed="filesToDelete = []"
+        @files-deleted="onFilesDeleted"
     />
     <share-dialog
         v-model="isShareDialogShown"
@@ -428,6 +429,12 @@ function getFileTypeInfo(ext: string, type: BrowserObject['type']): BrowserObjec
         if (exts.indexOf(ext) !== -1) return info;
     }
     return FILE_INFO;
+}
+
+function onFilesDeleted(): void {
+    fetchFiles();
+    filesToDelete.value = [];
+    obStore.updateSelectedFiles([]);
 }
 
 /**

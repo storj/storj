@@ -3152,6 +3152,124 @@ func TestSatelliteManagedProject(t *testing.T) {
 	})
 }
 
+func TestSatelliteManagedProjectWithDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SatelliteManagedEncryptionEnabled = false
+				config.KeyManagement.TestMasterKey = ""
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		// the kms service should not be up because SatelliteManagedEncryptionEnabled is disabled
+		// and no KMS config was provided.
+		require.Nil(t, sat.API.KeyManagement.Service)
+		projectDB := sat.DB.Console().Projects()
+
+		existingUser, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, existingUser.ID)
+		require.NoError(t, err)
+
+		// creating a managed project should fail because satellite managed encryption is disabled
+		_, err = srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project",
+			ManagePassphrase: true,
+		})
+		require.True(t, errs.Is(err, console.ErrSatelliteManagedEncryption))
+
+		srv.TestToggleSatelliteManagedEncryption(true)
+		_, err = srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project",
+			ManagePassphrase: true,
+		})
+		require.True(t, errs.Is(err, console.ErrSatelliteManagedEncryption))
+		srv.TestToggleSatelliteManagedEncryption(false)
+
+		project, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "Test Project",
+		})
+		require.NoError(t, err)
+
+		project.PassphraseEnc = []byte("test-passphrase-enc")
+		err = projectDB.Update(userCtx, project)
+		require.NoError(t, err)
+
+		config, err := srv.GetProjectConfig(userCtx, project.ID)
+		require.NoError(t, err)
+		require.Empty(t, config.Passphrase)
+	})
+}
+
+func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SatelliteManagedEncryptionEnabled = false
+				config.KeyManagement.TestMasterKey = "test-master-key"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		kmsService := sat.API.KeyManagement.Service
+		// the kms service should be up even though satellite managed encryption is disabled
+		// because KMS config was provided.
+		require.NotNil(t, kmsService)
+		projectDB := sat.DB.Console().Projects()
+
+		existingUser, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, existingUser.ID)
+		require.NoError(t, err)
+
+		// creating a managed project should fail because satellite managed encryption is disabled
+		_, err = srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project",
+			ManagePassphrase: true,
+		})
+		require.True(t, errs.Is(err, console.ErrSatelliteManagedEncryption))
+
+		srv.TestToggleSatelliteManagedEncryption(true)
+		project, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "Test Project",
+			ManagePassphrase: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project)
+		require.False(t, *project.PathEncryption)
+
+		srv.TestToggleSatelliteManagedEncryption(false)
+
+		encryptedPassphrase, err := projectDB.GetEncryptedPassphrase(userCtx, project.ID)
+		require.NoError(t, err)
+		// encryptedPassphrase should not be empty because project encryption is managed by satellite
+		require.NotEmpty(t, encryptedPassphrase)
+
+		// should be able to get passphrase of already created satellite managed project
+		config, err := srv.GetProjectConfig(userCtx, project.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, config.Passphrase)
+
+		project2, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "Test Project2",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project2)
+		require.True(t, *project2.PathEncryption)
+
+		config, err = srv.GetProjectConfig(userCtx, project2.ID)
+		require.NoError(t, err)
+		require.Empty(t, config.Passphrase)
+	})
+}
+
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

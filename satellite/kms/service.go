@@ -22,7 +22,7 @@ var Error = errs.Class("kms")
 type Config struct {
 	SecretVersion  string `help:"version name of the master key in Google Secret Manager. E.g.: projects/{projectID}/secrets/{secretName}/versions/{latest}" default:""`
 	SecretChecksum int64  `help:"checksum of the master key in Google Secret Manager" default:"0"`
-	TestMasterKey  string `help:"a fake master key to be used for the purpose of testing" default:"test-master-key" hidden:"true"`
+	TestMasterKey  string `help:"a fake master key to be used for the purpose of testing" releaseDefault:"" devDefault:"test-master-key" hidden:"true"`
 }
 
 // Service is a service for encrypting/decrypting project passphrases.

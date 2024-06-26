@@ -73,9 +73,9 @@ func getProjectLimits(p *console.Project) console.UsageLimits {
 }
 
 func randUsageLimits(withRateAndBurst bool) console.UsageLimits {
-	usageLimits := console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
+	usageLimits := console.UsageLimits{Storage: rand.Int63() + 1, Bandwidth: rand.Int63() + 1, Segment: rand.Int63() + 1}
 	if withRateAndBurst {
-		rate, burst := rand.Intn(100), rand.Intn(100)
+		rate, burst := rand.Intn(100)+1, rand.Intn(100)+1
 		usageLimits.RateLimit = &rate
 		usageLimits.RateLimitHead = &rate
 		usageLimits.RateLimitGet = &rate

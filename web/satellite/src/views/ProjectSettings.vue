@@ -263,7 +263,7 @@ const currentLimits = computed(() => projectsStore.state.currentLimits);
  * Returns formatted storage limit.
  */
 const storageLimitFormatted = computed<string>(() => {
-    if (noLimitsUiEnabled.value && !currentLimits.value.userSetStorageLimit) {
+    if (isPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetStorageLimit) {
         return 'Unlimited';
     }
     return formatLimit(currentLimits.value.userSetStorageLimit || currentLimits.value.storageLimit);
@@ -273,7 +273,7 @@ const storageLimitFormatted = computed<string>(() => {
  * Returns formatted bandwidth limit.
  */
 const bandwidthLimitFormatted = computed<string>(() => {
-    if (noLimitsUiEnabled.value && !currentLimits.value.userSetBandwidthLimit) {
+    if (isPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetBandwidthLimit) {
         return 'Unlimited';
     }
     return formatLimit(currentLimits.value.userSetBandwidthLimit || currentLimits.value.bandwidthLimit);

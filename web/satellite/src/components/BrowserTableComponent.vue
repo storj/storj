@@ -155,6 +155,7 @@
             v-model="previewDialog"
             v-model:current-file="fileToPreview"
             :showing-versions="!!fileToPreview?.VersionId"
+            @file-deleted="onFilesDeleted"
         />
     </v-card>
 
@@ -191,7 +192,7 @@
     <delete-file-dialog
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
-        @files-deleted="clearDeleteFiles"
+        @files-deleted="onFilesDeleted"
         @content-removed="fileToDelete = null"
     />
     <share-dialog
@@ -447,7 +448,8 @@ const firstFile = computed<BrowserObject | null>(() => {
     return tableFiles.value.find(f => f.browserObject.type === 'file')?.browserObject || null;
 });
 
-function clearDeleteFiles(): void {
+function onFilesDeleted(): void {
+    fetchFiles();
     fileToDelete.value = null;
     obStore.updateSelectedFiles([]);
 }

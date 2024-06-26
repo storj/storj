@@ -46,6 +46,8 @@ type Config struct {
 	ServerSideCopyDisabled bool
 	UseListObjectsIterator bool
 
+	NodeAliasCacheFullRefresh bool
+
 	TestingUniqueUnversioned   bool
 	TestingCommitSegmentMode   string
 	TestingPrecommitDeleteMode int
@@ -111,7 +113,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		testCleanup: func() error { return nil },
 		config:      config,
 	}
-	db.aliasCache = NewNodeAliasCache(db)
+	db.aliasCache = NewNodeAliasCache(db, config.NodeAliasCacheFullRefresh)
 	switch impl {
 	case dbutil.Postgres:
 		db.adapters = []Adapter{&PostgresAdapter{

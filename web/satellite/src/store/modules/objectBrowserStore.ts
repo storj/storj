@@ -701,7 +701,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false): Promise<void> {
+    async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false, shouldRefresh = true): Promise<void> {
         if (!file) {
             return;
         }
@@ -717,10 +717,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
 
         if (!isFolder) {
-            if (config.state.config.objectBrowserPaginationEnabled) {
-                await initList();
-            } else {
-                await list();
+            if (shouldRefresh) {
+                if (config.state.config.objectBrowserPaginationEnabled) {
+                    await initList();
+                } else {
+                    await list();
+                }
             }
 
             if (file['VersionId']) {
@@ -728,11 +730,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 await listVersions(state.path + file.Key);
             }
 
-            removeFileFromToBeDeleted(file);
+            removeFile(file);
         }
     }
 
-    async function deleteFolder(file: BrowserObject, path: string): Promise<void> {
+    async function deleteFolder(file: BrowserObject, path: string, shouldRefresh = true): Promise<void> {
         assertIsInitialized(state);
 
         async function recurse(filePath: string) {
@@ -760,7 +762,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 while (Contents.length) {
                     const file = Contents.pop();
 
-                    await deleteObject('', file, true);
+                    await deleteObject('', file, true, shouldRefresh);
                 }
             }
 
@@ -773,7 +775,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
 
-        removeFileFromToBeDeleted(file);
+        removeFile(file);
         if (config.state.config.objectBrowserPaginationEnabled) {
             await initList();
         } else {
@@ -796,9 +798,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         await Promise.all(
             filesToDelete.map(async (file) => {
                 if (file.type === 'file') {
-                    await deleteObject(state.path, file);
+                    await deleteObject(state.path, file, false, false);
                 } else {
-                    await deleteFolder(file, state.path);
+                    await deleteFolder(file, state.path, false);
                 }
             }),
         );
@@ -840,8 +842,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.filesToBeDeleted = [...state.filesToBeDeleted, file];
     }
 
-    function removeFileFromToBeDeleted(file): void {
+    function removeFile(file): void {
         state.filesToBeDeleted = state.filesToBeDeleted.filter(
+            singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
+        );
+        state.files = state.files.filter(
             singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
         );
     }
@@ -969,7 +974,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         updateSelectedFiles,
         updateShiftSelectedFiles,
         addFileToBeDeleted,
-        removeFileFromToBeDeleted,
         clearAllSelectedFiles,
         setObjectPathForModal,
         openDropdown,

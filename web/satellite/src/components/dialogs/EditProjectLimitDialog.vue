@@ -53,7 +53,7 @@
                                             @mousedown.stop
                                             @click.stop
                                         >
-                                            <span class="font-weight-regular">{{ activeMeasurement }}</span>
+                                            <span class="font-weight-regular">{{ currentLimitFormatted !== NO_LIMIT ? activeMeasurement : '' }}</span>
                                         </v-btn>
                                     </template>
                                     <v-list v-model:selected="dropdownModel" density="compact">
@@ -225,9 +225,9 @@ const currentLimits = computed(() => projectsStore.state.currentLimits);
  * Returns whether the limit has been changed.
  */
 const hasChanged = computed(() => {
-    let limit = currentLimits.value.userSetBandwidthLimit ?? currentLimits.value.bandwidthLimit;
+    let limit = currentLimits.value.userSetBandwidthLimit;
     if (props.limitType === LimitToChange.Storage) {
-        limit = currentLimits.value.userSetStorageLimit ?? currentLimits.value.storageLimit;
+        limit = currentLimits.value.userSetStorageLimit;
     }
     return limit !== input.value;
 });
@@ -332,8 +332,8 @@ watch(() => model.value, shown => {
     if (!shown) return;
     updateInput(
         props.limitType === LimitToChange.Storage
-            ? (currentLimits.value.userSetStorageLimit ?? currentLimits.value.storageLimit)
-            : (currentLimits.value.userSetBandwidthLimit ?? currentLimits.value.bandwidthLimit),
+            ? (currentLimits.value.userSetStorageLimit || currentLimits.value.storageLimit)
+            : (currentLimits.value.userSetBandwidthLimit || currentLimits.value.bandwidthLimit),
     );
 }, { immediate: true });
 

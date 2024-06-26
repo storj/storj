@@ -156,16 +156,16 @@ async function onDeleteClick(): Promise<void> {
         }
 
         emit('filesDeleted');
-        notify.success(`${fileCount.value + folderCount.value} ${fileTypes.value} deleted`);
+        notify.success(`${fileCount.value + folderCount.value + versionsCount.value} ${fileTypes.value} deleted`);
         model.value = false;
     });
 }
 
 async function deleteSingleFile(file: BrowserObject): Promise<void> {
     if (isFolder.value) {
-        await obStore.deleteFolder(file, filePath.value ? filePath.value + '/' : '');
+        await obStore.deleteFolder(file, filePath.value ? filePath.value + '/' : '', false);
     } else {
-        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file);
+        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false, false);
     }
 }
 
