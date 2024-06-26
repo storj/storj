@@ -511,8 +511,10 @@ const segmentUsedPercent = computed((): number => {
  */
 const availableEgress = computed((): number => {
     let diff = (limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit) - limits.value.bandwidthUsed;
-    if (noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
+    if (isPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
         diff = Number.MAX_SAFE_INTEGER;
+    } else if (!noLimitsUiEnabled.value) {
+        diff = limits.value.bandwidthLimit - limits.value.bandwidthUsed;
     }
     return diff < 0 ? 0 : diff;
 });
@@ -542,7 +544,7 @@ const bandwidthCTA = computed((): string => {
  * Returns the used bandwidth text for the storage usage card.
  */
 const bandwidthLimitTxt = computed((): string => {
-    if (noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
+    if (isPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
         return 'Total';
     }
     return `Limit: ${usedLimitFormatted(limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit)}`;
@@ -563,8 +565,10 @@ const bandwidthAvailableTxt = computed((): string => {
  */
 const availableStorage = computed((): number => {
     let diff = (limits.value.userSetStorageLimit || limits.value.storageLimit) - limits.value.storageUsed;
-    if (noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
+    if (isPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
         diff = Number.MAX_SAFE_INTEGER;
+    } else if (!noLimitsUiEnabled.value) {
+        diff = limits.value.storageLimit - limits.value.storageUsed;
     }
     return diff < 0 ? 0 : diff;
 });
@@ -594,7 +598,7 @@ const storageCTA = computed((): string => {
  * Returns the used storage text for the storage usage card.
  */
 const storageLimitTxt = computed((): string => {
-    if (noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
+    if (isPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
         return 'Total';
     }
     return `Limit: ${usedLimitFormatted(limits.value.userSetStorageLimit || limits.value.storageLimit)}`;
