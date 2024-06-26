@@ -38,18 +38,17 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	now := time.Now()
 
-	var canDelete bool
+	var canDelete, canLock bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
-		VerifyPermission{
+	actions := []VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
@@ -59,11 +58,34 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			ActionPermitted: &canDelete,
 			Optional:        true,
 		},
-	)
+	}
+
+	retention, err := protobufRetentionToMetabase(req.Retention)
+	if err != nil {
+		return nil, err
+	}
+
+	if retention.Enabled() {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canLock,
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, actions...)
 	if err != nil {
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
 	if err != nil {
@@ -85,6 +107,17 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	} else if maxObjectTTL != nil {
 		ttl := now.Add(*maxObjectTTL)
 		expiresAt = ttl
+	}
+
+	if retention.Enabled() {
+		switch {
+		case maxObjectTTL != nil:
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument,
+				"cannot specify Object Lock settings when using an API key that enforces an object expiration time")
+		case !req.ExpiresAt.IsZero():
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument,
+				"cannot specify Object Lock settings and an object expiration time")
+		}
 	}
 
 	// we can do just basic name validation because later we are checking bucket in DB
@@ -115,6 +148,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
+	}
+
+	if retention.Enabled() && !bucket.ObjectLockEnabled {
+		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
@@ -152,6 +189,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        nonce,
+
+		Retention: retention,
 	}
 	if !expiresAt.IsZero() {
 		opts.ExpiresAt = &expiresAt

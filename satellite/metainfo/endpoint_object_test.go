@@ -31,6 +31,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/rpc/rpctest"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -3198,6 +3199,203 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t, pb.Object_COMMITTED_VERSIONED, finishResponse.Object.Status)
+		})
+	})
+}
+
+func TestEndpoint_BeginObjectWithRetention(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectLock = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		createBucket := func(t *testing.T, name string, lockEnabled bool) {
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:              name,
+				ProjectID:         project.ID,
+				Versioning:        buckets.VersioningEnabled,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+		}
+
+		newBeginReq := func(apiKey *macaroon.APIKey, bucketName, key string) *pb.BeginObjectRequest {
+			return &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(key),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+				Retention: &pb.Retention{
+					Mode:        pb.Retention_COMPLIANCE,
+					RetainUntil: time.Now().Add(time.Hour),
+				},
+			}
+		}
+
+		getObject := func(bucketName, key string) metabase.Object {
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, o := range objects {
+				if o.Location() == (metabase.ObjectLocation{
+					ProjectID:  project.ID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(key),
+				}) {
+					return o
+				}
+			}
+			return metabase.Object{}
+		}
+
+		requireObject := func(t *testing.T, bucketName, key string) metabase.Object {
+			obj := getObject(bucketName, key)
+			require.NotZero(t, obj)
+			return obj
+		}
+
+		requireNoObject := func(t *testing.T, bucketName, key string) {
+			obj := getObject(bucketName, key)
+			require.Zero(t, obj)
+		}
+
+		bucketName := testrand.BucketName()
+		createBucket(t, bucketName, true)
+
+		t.Run("Success", func(t *testing.T) {
+			key := testrand.Path()
+
+			beginReq := newBeginReq(apiKey, bucketName, key)
+			_, err := endpoint.BeginObject(ctx, beginReq)
+			require.NoError(t, err)
+
+			obj := requireObject(t, bucketName, key)
+			require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
+			require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
+		})
+
+		t.Run("Success - No retention period", func(t *testing.T) {
+			key := testrand.Path()
+			beginReq := newBeginReq(apiKey, bucketName, key)
+			beginReq.Retention = nil
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			require.NoError(t, err)
+
+			obj := requireObject(t, bucketName, key)
+			require.Zero(t, obj.Retention)
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			endpoint.SetUseBucketLevelObjectLock(false)
+			defer endpoint.SetUseBucketLevelObjectLock(true)
+
+			key := testrand.Path()
+			beginReq := newBeginReq(apiKey, bucketName, key)
+			_, err := endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+
+			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			require.NoError(t, err)
+
+			obj := requireObject(t, bucketName, key)
+			require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
+			require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
+		})
+
+		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			createBucket(t, bucketName, false)
+
+			key := testrand.Path()
+			_, err := endpoint.BeginObject(ctx, newBeginReq(apiKey, bucketName, key))
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+
+			requireNoObject(t, bucketName, key)
+		})
+
+		t.Run("Invalid retention mode", func(t *testing.T) {
+			key := testrand.Path()
+			beginReq := newBeginReq(apiKey, bucketName, key)
+
+			beginReq.Retention.Mode = pb.Retention_COMPLIANCE - 1
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			beginReq.Retention.Mode = pb.Retention_COMPLIANCE + 1
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			requireNoObject(t, bucketName, key)
+		})
+
+		t.Run("Invalid retention period expiration", func(t *testing.T) {
+			key := testrand.Path()
+			beginReq := newBeginReq(apiKey, bucketName, key)
+
+			beginReq.Retention.RetainUntil = time.Time{}
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			beginReq.Retention.RetainUntil = time.Now().Add(-time.Minute)
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			requireNoObject(t, bucketName, key)
+		})
+
+		t.Run("Retention period with TTL disallowed", func(t *testing.T) {
+			key := testrand.Path()
+			beginReq := newBeginReq(apiKey, bucketName, key)
+
+			beginReq.ExpiresAt = time.Now().Add(time.Hour)
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			ttl := time.Hour
+			ttlApiKey, err := apiKey.Restrict(macaroon.Caveat{MaxObjectTtl: &ttl})
+			require.NoError(t, err)
+
+			beginReq = newBeginReq(ttlApiKey, bucketName, key)
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			requireNoObject(t, bucketName, key)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			key := testrand.Path()
+			beginReq := newBeginReq(oldApiKey, bucketName, key)
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			require.NoError(t, err)
+
+			beginReq = newBeginReq(noLockApiKey, bucketName, key)
+			_, err = endpoint.BeginObject(ctx, beginReq)
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			requireNoObject(t, bucketName, key)
 		})
 	})
 }

@@ -375,6 +375,38 @@ func validateObjectVersion(version []byte) error {
 	return nil
 }
 
+// protobufRetentionToMetabase converts *pb.Retention to metabase.Retention.
+// If the *pb.Retention is malformed or represents an expired retention period,
+// an RPC error describing the issue is returned.
+func protobufRetentionToMetabase(pbRetention *pb.Retention) (metabase.Retention, error) {
+	if pbRetention == nil {
+		return metabase.Retention{}, nil
+	}
+	switch pbRetention.Mode {
+	case pb.Retention_COMPLIANCE:
+		switch {
+		case pbRetention.RetainUntil.IsZero():
+			return metabase.Retention{}, rpcstatus.Error(
+				rpcstatus.InvalidArgument,
+				"retention period expiration time must be set if retention is set",
+			)
+		case pbRetention.RetainUntil.Before(time.Now()):
+			return metabase.Retention{}, rpcstatus.Error(rpcstatus.InvalidArgument, "retention period expiration time must not be in the past")
+		}
+	default:
+		return metabase.Retention{}, rpcstatus.Errorf(
+			rpcstatus.InvalidArgument,
+			"invalid retention mode %d, expected %d (compliance)",
+			pbRetention.Mode,
+			pb.Retention_COMPLIANCE,
+		)
+	}
+	return metabase.Retention{
+		Mode:        storj.RetentionMode(pbRetention.Mode),
+		RetainUntil: pbRetention.RetainUntil,
+	}, nil
+}
+
 func isLowerLetter(r byte) bool {
 	return r >= 'a' && r <= 'z'
 }

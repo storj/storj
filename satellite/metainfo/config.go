@@ -268,9 +268,9 @@ func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *consol
 	return true
 }
 
-// UseBucketLevelObjectLockByProjectID checks if bucket-level Object Lock functionality
+// ObjectLockEnabled checks if bucket-level Object Lock functionality
 // should be enabled for a specific project.
-func (ec ExtendedConfig) UseBucketLevelObjectLockByProjectID(projectID uuid.UUID) bool {
+func (ec ExtendedConfig) ObjectLockEnabled(projectID uuid.UUID) bool {
 	// if its globally enabled don't look at projects
 	if ec.UseBucketLevelObjectLock {
 		return true

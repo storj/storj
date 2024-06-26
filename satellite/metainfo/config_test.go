@@ -164,14 +164,14 @@ func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
 	// Object Lock globally supported
 	config, err := metainfo.NewExtendedConfig(metainfo.Config{})
 	require.NoError(t, err)
-	require.False(t, config.UseBucketLevelObjectLockByProjectID(projectID1))
+	require.False(t, config.ObjectLockEnabled(projectID1))
 
 	// Object Lock not globally supported
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
 		UseBucketLevelObjectLock: true,
 	})
 	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectLockByProjectID(projectID1))
+	require.True(t, config.ObjectLockEnabled(projectID1))
 
 	// Object Lock not globally supported but supported for single project
 	projectID2 := testrand.UUID()
@@ -179,8 +179,8 @@ func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
 		UseBucketLevelObjectLockProjects: []string{projectID1.String()},
 	})
 	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectLockByProjectID(projectID1))
-	require.False(t, config.UseBucketLevelObjectLockByProjectID(projectID2))
+	require.True(t, config.ObjectLockEnabled(projectID1))
+	require.False(t, config.ObjectLockEnabled(projectID2))
 
 	// Object Lock globally supported and supported for single project
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
@@ -188,6 +188,6 @@ func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
 		UseBucketLevelObjectLockProjects: []string{projectID1.String()},
 	})
 	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectLockByProjectID(projectID1))
-	require.True(t, config.UseBucketLevelObjectLockByProjectID(projectID2))
+	require.True(t, config.ObjectLockEnabled(projectID1))
+	require.True(t, config.ObjectLockEnabled(projectID2))
 }

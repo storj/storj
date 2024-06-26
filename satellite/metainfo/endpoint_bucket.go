@@ -198,7 +198,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if req.ObjectLockEnabled && !endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
 	}
 
@@ -338,7 +338,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		bucket      buckets.MinimalBucket
 		lockEnabled bool
 	)
-	if endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+	if endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		var fullBucket buckets.Bucket
 		fullBucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 		lockEnabled = fullBucket.ObjectLockEnabled
@@ -547,7 +547,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.UseBucketLevelObjectLockByProjectID(keyInfo.ProjectID) {
+	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
 	}
 
