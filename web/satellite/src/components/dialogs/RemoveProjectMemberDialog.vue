@@ -59,7 +59,6 @@
                         <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
                     </template>
                 </v-alert>
-                
             </v-card-item>
 
             <v-divider />

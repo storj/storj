@@ -30,7 +30,7 @@
                 </v-card-item>
             </v-sheet>
 
-            <v-divider></v-divider>
+            <v-divider />
 
             <v-card-text class="pa-6">
                 <p class="text-body-2 mb-4">
@@ -66,7 +66,7 @@
                 </v-card>
             </v-card-text>
 
-            <v-divider></v-divider>
+            <v-divider />
 
             <v-card-actions class="pa-6">
                 <v-row>
