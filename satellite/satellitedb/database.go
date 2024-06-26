@@ -122,9 +122,12 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
-	if err != nil {
-		return nil, err
+	// spanner does not have an application name option in the connection string
+	if impl == dbutil.Postgres || impl == dbutil.Cockroach {
+		source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dbxDB, err := dbx.Open(driver, source)

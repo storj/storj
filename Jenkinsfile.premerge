@@ -144,6 +144,7 @@ pipeline {
         stage('Check Benchmark') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
             }
             steps {

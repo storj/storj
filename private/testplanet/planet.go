@@ -66,6 +66,9 @@ type Config struct {
 	Timeout     time.Duration
 
 	applicationName string
+
+	// EnableSpanner is a flag used to tell tests to run on the Spanner database.
+	EnableSpanner bool
 }
 
 // DatabaseConfig defines connection strings for database.

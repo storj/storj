@@ -8,10 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/currency"
-
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	blockchain2 "storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"

@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
 	"storj.io/storj/private/apigen/example"

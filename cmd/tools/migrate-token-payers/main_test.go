@@ -261,6 +261,9 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, db 
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
+		if satelliteDB.Name == "Spanner" {
+			t.Skip("not implemented for spanner")
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)

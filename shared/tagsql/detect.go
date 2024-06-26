@@ -69,6 +69,8 @@ func DetectContextSupport(db *sql.DB) (ContextSupport, error) {
 		return SupportAll, nil
 	case typ.PkgPath() == "github.com/jackc/pgx/v5/stdlib" && typ.Name() == "Driver":
 		return SupportAll, nil
+	case typ.PkgPath() == "github.com/googleapis/go-sql-spanner" && typ.Name() == "Driver":
+		return SupportAll, nil
 	default:
 		return SupportNone, errs.New("sql driver %q %q unsupported", typ.PkgPath(), typ.Name())
 	}

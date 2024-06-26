@@ -8,12 +8,15 @@ import (
 	"fmt"
 	"strings"
 
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -77,6 +80,9 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		}
 
 		return migration.Run(ctx, db.log.Named("migrate"))
+	case dbutil.Spanner:
+		// TODO(spanner): add incremental migration support
+		return migrate.CreateSpanner(ctx, "database", db.DB)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -108,6 +114,17 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
+	case dbutil.Spanner:
+		projectID, instance, database, err := spannerutil.ParseConnStr(db.source)
+		if err != nil {
+			return ErrMigrateMinVersion.New("error parsing connection string: %w", err)
+		}
+		if database == nil {
+			return ErrMigrateMinVersion.New("error spanner database is required in connection string for migration")
+		}
+		if err := spannerutil.CreateDatabase(ctx, projectID, instance, *database); err != nil && spanner.ErrCode(err) != codes.AlreadyExists {
+			return ErrMigrateMinVersion.New("error creating database: %w", err)
+		}
 	}
 
 	switch db.impl {
@@ -124,6 +141,9 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
+	case dbutil.Spanner:
+		// TODO(spanner): add incremental migration support
+		return migrate.CreateSpanner(ctx, "database", db.DB)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}

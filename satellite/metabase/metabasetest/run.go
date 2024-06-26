@@ -32,7 +32,7 @@ func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontex
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
 func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, flags ...interface{}) {
-	for _, dbinfo := range satellitedbtest.DatabasesWithSpanner() {
+	for _, dbinfo := range satellitedbtest.Databases() {
 		dbinfo := dbinfo
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()

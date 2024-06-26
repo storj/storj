@@ -23,11 +23,16 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-cockroach-test-db=" + pgtest.DefaultCockroach + "\n" +
+			"-spanner-test-db=" + pgtest.DefaultSpanner)
 	}
 
 	for _, satelliteDB := range databases {
 		satelliteDB := satelliteDB
+		// TODO(spanner): remove this check once full Spanner support is complete
+		if !config.EnableSpanner && satelliteDB.Name == "Spanner" {
+			t.Skipf("Test is not enabled to run on Spanner.")
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			parallel := !config.NonParallel
 			if parallel {

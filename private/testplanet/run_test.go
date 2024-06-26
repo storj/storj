@@ -19,7 +19,7 @@ import (
 
 func TestRun(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, MultinodeCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, MultinodeCount: 1, NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		t.Log("running test")
 	})

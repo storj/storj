@@ -31,6 +31,21 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
+// WithSpanner configures config to enable tests to run on spanner.
+func WithSpanner() ConfigOption {
+	return func(c *config) {
+		c.EnableSpanner = true
+	}
+}
+
+// ConfigOption modifies a satellitedbtest configuration to provide test specific options.
+type ConfigOption func(c *config)
+
+// config describes the configuration for a satellitedb test.
+type config struct {
+	EnableSpanner bool
+}
+
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
 var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
 
@@ -82,23 +97,15 @@ func Databases() []SatelliteDatabases {
 		})
 	}
 
-	return dbs
-}
-
-// DatabasesWithSpanner returns default databases AND spanner connection (if enabled).
-func DatabasesWithSpanner() []SatelliteDatabases {
-	dbs := Databases()
-	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
 	spanner := pgtest.PickSpanner(ignoreSkip{})
-	if spanner != "" && spanner != "omit" {
-		// TODO: this is not ideal, as we couldn't execute CockroachSpanner only
+	if !strings.EqualFold(spanner, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
-			Name: "Spanner",
-			// TODO: satellitedb should also support spanner.
-			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
+			Name:       "Spanner",
+			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + pgtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable."},
 			MetabaseDB: Database{"Spanner", spanner, ""},
 		})
 	}
+
 	return dbs
 }
 
@@ -117,13 +124,14 @@ func SchemaName(testname, category string, index int, schemaSuffix string) strin
 	category = nameCleaner.ReplaceAllString(category, "_")
 	schemaSuffix = nameCleaner.ReplaceAllString(schemaSuffix, "_")
 
-	// postgres has a maximum schema length of 64
-	// we need additional 6 bytes for the random suffix
-	//    and 4 bytes for the satellite index "/S0/""
+	// spanner has a maximum database length of 30 while postgres has a maximum schema length of 64
+	// we need additional 6 bytes for the random suffix and 4 bytes for the satellite index "/S0/""
+	// additionally, we will leave 5 bytes for a delimiter and any randomness that need to be added for testing or
+	// other purposes
 
 	indexStr := strconv.Itoa(index)
 
-	var maxTestNameLen = 64 - len(category) - len(indexStr) - len(schemaSuffix) - 2
+	var maxTestNameLen = 30 - len(category) - len(indexStr) - len(schemaSuffix) - 2 - 5
 	if len(testname) > maxTestNameLen {
 		testname = testname[:maxTestNameLen]
 	}
@@ -229,9 +237,16 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB), configOptions ...ConfigOption) {
+	var cfg config
+	for _, configOption := range configOptions {
+		configOption(&cfg)
+	}
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
+		if dbInfo.Name == "Spanner" && !cfg.EnableSpanner {
+			t.Skipf("Test is not enabled to run on Spanner.")
+		}
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
