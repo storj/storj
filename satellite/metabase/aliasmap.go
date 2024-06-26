@@ -4,9 +4,8 @@
 package metabase
 
 import (
-	"encoding/binary"
-
 	"storj.io/common/storj"
+	"storj.io/storj/shared/nodeidmap"
 )
 
 // NodeAliasMap contains bidirectional mapping between node ID and a NodeAlias.
@@ -16,71 +15,14 @@ import (
 // does not need to be hashed with each lookup.
 type NodeAliasMap struct {
 	node  []storj.NodeID
-	alias map[uint32]*nodeAliasChain
-}
-
-// nodeAliasChain implements linked list on NodeAliasEntry.
-type nodeAliasChain struct {
-	NodeAliasEntry
-	Tail *nodeAliasChain
-}
-
-// Include adds the entry to the current chain, if it already doesn't exist.
-func (chain *nodeAliasChain) Include(id storj.NodeID, alias NodeAlias) {
-	for {
-		if chain.ID == id {
-			return
-		}
-
-		if chain.Tail == nil {
-			chain.Tail = &nodeAliasChain{
-				NodeAliasEntry: NodeAliasEntry{ID: id, Alias: alias},
-			}
-			return
-		}
-
-		chain = chain.Tail
-	}
-}
-
-// Clone clones the chain.
-func (chain *nodeAliasChain) Clone() *nodeAliasChain {
-	if chain == nil {
-		return nil
-	}
-	return &nodeAliasChain{
-		NodeAliasEntry: chain.NodeAliasEntry,
-		Tail:           chain.Tail.Clone(),
-	}
-}
-
-// Count counts the number of entries in this chain.
-func (chain *nodeAliasChain) Count() (count int) {
-	for ; chain != nil; chain = chain.Tail {
-		count++
-	}
-	return count
-}
-
-// mergeNodeAliasChains merges a and b and doesn't include duplicates.
-func mergeNodeAliasChains(a, b *nodeAliasChain) *nodeAliasChain {
-	r := a.Clone()
-	if r == nil {
-		return b.Clone()
-	}
-
-	for ; b != nil; b = b.Tail {
-		r.Include(b.ID, b.Alias)
-	}
-
-	return r
+	alias nodeidmap.Map[NodeAlias]
 }
 
 // NewNodeAliasMap creates a new alias map from the given entries.
 func NewNodeAliasMap(entries []NodeAliasEntry) *NodeAliasMap {
 	m := &NodeAliasMap{
 		node:  make([]storj.NodeID, len(entries)),
-		alias: make(map[uint32]*nodeAliasChain, len(entries)),
+		alias: nodeidmap.MakeSized[NodeAlias](len(entries)),
 	}
 	for _, e := range entries {
 		m.setNode(e.Alias, e.ID)
@@ -98,19 +40,8 @@ func (m *NodeAliasMap) setNode(alias NodeAlias, value storj.NodeID) {
 }
 
 // setAlias sets a value in `m.alias`.
-func (m *NodeAliasMap) setAlias(value storj.NodeID, alias NodeAlias) {
-	prefix := binary.LittleEndian.Uint32(value[:4])
-	entry, ok := m.alias[prefix]
-	if !ok {
-		m.alias[prefix] = &nodeAliasChain{
-			NodeAliasEntry: NodeAliasEntry{
-				ID:    value,
-				Alias: alias,
-			},
-		}
-	} else {
-		entry.Include(value, alias)
-	}
+func (m *NodeAliasMap) setAlias(id storj.NodeID, alias NodeAlias) {
+	m.alias.Store(id, alias)
 }
 
 // Merge merges the other map into m.
@@ -121,9 +52,9 @@ func (m *NodeAliasMap) Merge(other *NodeAliasMap) {
 		}
 	}
 
-	for k, v := range other.alias {
-		m.alias[k] = mergeNodeAliasChains(m.alias[k], v)
-	}
+	m.alias.Add(other.alias, func(_, new NodeAlias) NodeAlias {
+		return new
+	})
 }
 
 // Node returns NodeID for the given alias.
@@ -137,16 +68,11 @@ func (m *NodeAliasMap) Node(alias NodeAlias) (x storj.NodeID, ok bool) {
 
 // Alias returns alias for the given node ID.
 func (m *NodeAliasMap) Alias(node storj.NodeID) (x NodeAlias, ok bool) {
-	prefix := binary.LittleEndian.Uint32(node[:4])
-
-	chain := m.alias[prefix]
-	for ; chain != nil; chain = chain.Tail {
-		if ([12]byte)(chain.ID[4:]) == ([12]byte)(node[4:]) {
-			return chain.Alias, true
-		}
+	x, ok = m.alias.Load(node)
+	if !ok {
+		return -1, false
 	}
-
-	return -1, false
+	return x, true
 }
 
 // Nodes returns NodeID-s for the given aliases and aliases that are not in this map.
@@ -196,12 +122,7 @@ func (m *NodeAliasMap) Size() int {
 		return 0
 	}
 
-	count := 0
-	for _, c := range m.alias {
-		count += c.Count()
-	}
-
-	return count
+	return m.alias.Count()
 }
 
 // Max returns the largest node alias in this map, -1 otherwise. Contrast with Size.
