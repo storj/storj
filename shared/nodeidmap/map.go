@@ -44,6 +44,9 @@ func (m *Map[Value]) Reset(size int) {
 	m.entries = make(map[idprefix]*entry[Value], size)
 }
 
+// IsEmpty returns true when there are no entries in the map.
+func (m Map[Value]) IsEmpty() bool { return len(m.entries) == 0 }
+
 // Clear clears the map.
 func (m Map[Value]) Clear() {
 	for key := range m.entries {

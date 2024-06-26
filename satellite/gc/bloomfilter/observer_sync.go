@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/shared/nodeidmap"
 )
 
 // SyncObserver implements a rangedloop observer to collect bloom filters for the garbage collection.
@@ -30,7 +31,7 @@ type SyncObserver struct {
 	seed            byte
 
 	mu          sync.Mutex
-	retainInfos map[storj.NodeID]*RetainInfo
+	retainInfos nodeidmap.Map[*RetainInfo]
 	// LatestCreationTime will be used to set bloom filter CreationDate.
 	// Because bloom filter service needs to be run against immutable database snapshot
 	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
@@ -74,7 +75,7 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
-	obs.retainInfos = make(map[storj.NodeID]*RetainInfo, len(lastPieceCounts))
+	obs.retainInfos = nodeidmap.MakeSized[*RetainInfo](len(lastPieceCounts))
 	obs.latestCreationTime = time.Time{}
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
@@ -102,7 +103,7 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 }
 
 // TestingRetainInfos returns retain infos collected by observer.
-func (obs *SyncObserver) TestingRetainInfos() map[storj.NodeID]*RetainInfo {
+func (obs *SyncObserver) TestingRetainInfos() nodeidmap.Map[*RetainInfo] {
 	return obs.retainInfos
 }
 
@@ -153,7 +154,7 @@ func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 	obs.mu.Lock()
 	defer obs.mu.Unlock()
 
-	info, ok := obs.retainInfos[nodeID]
+	info, ok := obs.retainInfos.Load(nodeID)
 	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := obs.config.InitialPieces
@@ -176,7 +177,7 @@ func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 		info = &RetainInfo{
 			Filter: filter,
 		}
-		obs.retainInfos[nodeID] = info
+		obs.retainInfos.Store(nodeID, info)
 	}
 
 	info.Filter.Add(pieceID)

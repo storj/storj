@@ -15,13 +15,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/shared/nodeidmap"
 )
 
 var mon = monkit.Package()
 
 // TestingObserver provides testing methods for bloom filter generation ranged loop observers.
 type TestingObserver interface {
-	TestingRetainInfos() map[storj.NodeID]*RetainInfo
+	TestingRetainInfos() nodeidmap.Map[*RetainInfo]
 	TestingForceTableSize(size int)
 }
 
@@ -43,7 +44,7 @@ type Observer struct {
 	// The following fields are reset for each loop.
 	startTime          time.Time
 	lastPieceCounts    map[storj.NodeID]int64
-	retainInfos        map[storj.NodeID]*RetainInfo
+	retainInfos        nodeidmap.Map[*RetainInfo]
 	latestCreationTime time.Time
 	seed               byte
 
@@ -85,7 +86,7 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
-	obs.retainInfos = make(map[storj.NodeID]*RetainInfo, len(lastPieceCounts))
+	obs.retainInfos = nodeidmap.MakeSized[*RetainInfo](len(lastPieceCounts))
 	obs.latestCreationTime = time.Time{}
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
@@ -106,16 +107,20 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 		return errs.New("expected %T but got %T", pieceTracker, partial)
 	}
 
+	var failures []error
+
 	// Update the count and merge the bloom filters for each node.
-	for nodeID, retainInfo := range pieceTracker.retainInfos {
-		if existing, ok := obs.retainInfos[nodeID]; ok {
-			existing.Count += retainInfo.Count
-			if err := existing.Filter.AddFilter(retainInfo.Filter); err != nil {
-				return err
+	obs.retainInfos.Add(pieceTracker.retainInfos,
+		func(old *RetainInfo, new *RetainInfo) *RetainInfo {
+			old.Count += new.Count
+			if err := old.Filter.AddFilter(new.Filter); err != nil {
+				failures = append(failures, err)
 			}
-		} else {
-			obs.retainInfos[nodeID] = retainInfo
-		}
+			return old
+		})
+
+	if len(failures) > 0 {
+		return errs.Combine(failures...)
 	}
 
 	// Replace the latestCreationTime if the partial observed a later time.
@@ -137,7 +142,7 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 }
 
 // TestingRetainInfos returns retain infos collected by observer.
-func (obs *Observer) TestingRetainInfos() map[storj.NodeID]*RetainInfo {
+func (obs *Observer) TestingRetainInfos() nodeidmap.Map[*RetainInfo] {
 	return obs.retainInfos
 }
 
@@ -154,7 +159,7 @@ type observerFork struct {
 	seed        byte
 	startTime   time.Time
 
-	retainInfos map[storj.NodeID]*RetainInfo
+	retainInfos nodeidmap.Map[*RetainInfo]
 	// latestCreationTime will be used to set bloom filter CreationDate.
 	// Because bloom filter service needs to be run against immutable database snapshot
 	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
@@ -173,7 +178,7 @@ func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 		seed:            seed,
 		startTime:       startTime,
 		forcedTableSize: forcedTableSize,
-		retainInfos:     make(map[storj.NodeID]*RetainInfo, len(pieceCounts)),
+		retainInfos:     nodeidmap.MakeSized[*RetainInfo](len(pieceCounts)),
 	}
 }
 
@@ -207,7 +212,7 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 
 // add adds a pieceID to the relevant node's RetainInfo.
 func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
-	info, ok := fork.retainInfos[nodeID]
+	info, ok := fork.retainInfos.Load(nodeID)
 	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := fork.config.InitialPieces
@@ -226,11 +231,12 @@ func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 		if fork.forcedTableSize > 0 {
 			tableSize = fork.forcedTableSize
 		}
+
 		filter := bloomfilter.NewExplicit(fork.seed, hashCount, tableSize)
 		info = &RetainInfo{
 			Filter: filter,
 		}
-		fork.retainInfos[nodeID] = info
+		fork.retainInfos.Store(nodeID, info)
 	}
 
 	info.Filter.Add(pieceID)

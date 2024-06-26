@@ -498,7 +498,8 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 				testingObserver, ok := observer.(bloomfilter.TestingObserver)
 				require.True(t, ok)
 				require.NotEmpty(t, testingObserver.TestingRetainInfos())
-				info := testingObserver.TestingRetainInfos()[planet.StorageNodes[0].ID()]
+				info, ok := testingObserver.TestingRetainInfos().Load(planet.StorageNodes[0].ID())
+				require.True(t, ok)
 				require.NotNil(t, info)
 				require.Equal(t, 1, info.Count)
 			})
