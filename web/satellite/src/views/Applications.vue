@@ -59,7 +59,7 @@
                                 :prepend-icon="mdiSort"
                                 :append-icon="mdiChevronDown"
                                 v-bind="props"
-                                class="mr-2 ml-n2"
+                                class="mr-0 mr-sm-2 ml-n2"
                                 title="Sort by"
                             >
                                 <span class="text-body-2 hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
@@ -83,10 +83,10 @@
                         class="pa-1"
                         mandatory
                     >
-                        <v-btn size="small" value="asc" title="Ascending" variant="text" rounded="xl">
+                        <v-btn size="x-small" value="asc" title="Ascending" variant="text" rounded="xl">
                             <v-icon :icon="mdiSortAscending" />
                         </v-btn>
-                        <v-btn size="small" value="desc" title="Descending" variant="text" rounded="xl">
+                        <v-btn size="x-small" value="desc" title="Descending" variant="text" rounded="xl">
                             <v-icon :icon="mdiSortDescending" />
                         </v-btn>
                     </v-btn-toggle>

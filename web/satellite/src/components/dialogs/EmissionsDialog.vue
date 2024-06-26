@@ -6,7 +6,6 @@
         v-model="model"
         activator="parent"
         width="auto"
-        min-width="400px"
         max-width="450px"
         transition="fade-transition"
     >
@@ -31,6 +30,8 @@
                 </v-card-item>
             </v-sheet>
 
+            <v-divider></v-divider>
+
             <v-card-text class="pa-6">
                 <p class="text-body-2 mb-4">
                     The carbon emissions displayed are estimated based on the total usage of this project, calculated from the date of project creation up to the present day.
@@ -40,30 +41,32 @@
                     <v-chip variant="tonal" color="info" class="font-weight-bold">
                         {{ storjImpact.toLocaleString() }} kg CO₂e
                     </v-chip>
-                    <p class="text-body-2 mt-2">Estimated for this Storj project. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
+                    <p class="text-body-2 mt-2">Estimated for this Storj project. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Comparison</p>
                     <v-chip variant="tonal" color="warning" class="font-weight-bold">
                         {{ hyperscalerImpact.toLocaleString() }} kg CO₂e
                     </v-chip>
-                    <p class="text-body-2 mt-2">By using traditional cloud storage. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
+                    <p class="text-body-2 mt-2">By using traditional cloud storage. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Total Carbon Avoided</p>
                     <v-chip variant="tonal" color="success" class="font-weight-bold">
                         {{ co2Savings }} kg CO₂e
                     </v-chip>
-                    <p class="text-body-2 mt-2">Estimated by using Storj. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
+                    <p class="text-body-2 mt-2">Estimated by using Storj. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-2">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Avoided Equals To</p>
                     <v-chip variant="tonal" color="success" class="font-weight-bold">
                         {{ emission.savedTrees.toLocaleString() }} tree{{ emission.savedTrees !== 1 ? 's' : '' }} grown for 10 years
                     </v-chip>
-                    <p class="text-body-2 mt-2">Estimated equivalencies. <a href="https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Learn more</a></p>
+                    <p class="text-body-2 mt-2">Estimated equivalencies. <a href="https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
                 </v-card>
             </v-card-text>
+
+            <v-divider></v-divider>
 
             <v-card-actions class="pa-6">
                 <v-row>
@@ -93,6 +96,7 @@ import {
     VRow,
     VCol,
     VIcon,
+    VDivider,
 } from 'vuetify/components';
 import { mdiOpenInNew } from '@mdi/js';
 

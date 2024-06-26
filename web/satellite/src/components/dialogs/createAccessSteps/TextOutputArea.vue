@@ -21,16 +21,19 @@
     >
         <template #prepend-inner>
             <v-fade-transition>
-                <div v-show="isBlurred" class="text-output-area__show">
+                <div v-show="isBlurred" class="text-output-area__show pl-5 pr-3">
+                    <p class="text-caption w-100">{{ label }}</p>
                     <v-btn
-                        class="bg-background"
+                        class="bg-background mx-2"
                         variant="outlined"
                         color="default"
+                        size="small"
                         :prepend-icon="mdiLockOutline"
                         @click="isBlurred = false"
                     >
-                        Show {{ label }}
+                        Show
                     </v-btn>
+                    <input-copy-button :value="value" :tooltip-disabled="true" />
                 </div>
             </v-fade-transition>
         </template>
@@ -68,7 +71,7 @@ const isBlurred = ref<boolean>(true);
         inset: 0;
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
         cursor: default;
     }
 

@@ -87,12 +87,12 @@
     >
         <v-row align="center" justify="space-between">
             <v-col>
-                {{ selected.length }} access{{ selected.length > 1 ? 'es' : '' }} selected
+                {{ selected.length }} key{{ selected.length > 1 ? 's' : '' }} selected
             </v-col>
             <v-col>
                 <div class="d-flex justify-end">
                     <v-btn
-                        color="default"
+                        color="error"
                         density="comfortable"
                         variant="outlined"
                         @click="isDeleteAccessDialogShown = true"

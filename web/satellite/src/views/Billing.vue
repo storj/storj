@@ -15,7 +15,7 @@
             </v-col>
         </v-row>
 
-        <v-card color="default" class="mt-2 mb-6">
+        <v-card color="default" class="mt-2 mb-6" variant="flat">
             <v-tabs
                 v-model="tab"
                 color="default"

@@ -9,14 +9,14 @@
             v-if="showNavDrawerButton"
             variant="text"
             color="default"
-            class="ml-4 ml-sm-5 mr-0 mr-sm-1"
+            class="ml-3 ml-sm-5 mr-0 mr-sm-1"
             size="small"
             density="comfortable"
             title="Toggle sidebar navigation"
             @click.stop="appStore.toggleNavigationDrawer()"
         />
 
-        <v-app-bar-title class="mt-n1 ml-1 mr-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
+        <v-app-bar-title class="mt-n1 ml-1 mr-2 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
             <router-link :to="ROUTES.Projects.path">
                 <v-img
                     v-if="theme.global.current.value.dark"

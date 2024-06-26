@@ -5,7 +5,7 @@
     <v-dialog
         v-model="model"
         :persistent="isLoading"
-        width="400px"
+        max-width="420px"
         transition="fade-transition"
     >
         <v-card ref="innerContent">

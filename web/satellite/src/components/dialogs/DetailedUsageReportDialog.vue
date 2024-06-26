@@ -6,7 +6,6 @@
         v-model="dialog"
         activator="parent"
         width="auto"
-        min-width="400px"
         transition="fade-transition"
     >
         <v-card>

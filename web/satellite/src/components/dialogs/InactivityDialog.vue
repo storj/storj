@@ -4,7 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
     >
         <v-card>

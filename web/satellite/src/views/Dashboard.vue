@@ -536,7 +536,7 @@ const bandwidthCTA = computed((): string => {
     if (limits.value.userSetBandwidthLimit) {
         return 'Edit / Remove Limit';
     } else {
-        return 'Set Custom Limit';
+        return 'Set Download Limit';
     }
 });
 
@@ -545,7 +545,7 @@ const bandwidthCTA = computed((): string => {
  */
 const bandwidthLimitTxt = computed((): string => {
     if (isPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
-        return 'Total';
+        return 'This Month';
     }
     return `Limit: ${usedLimitFormatted(limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit)}`;
 });
@@ -555,7 +555,7 @@ const bandwidthLimitTxt = computed((): string => {
  */
 const bandwidthAvailableTxt = computed((): string => {
     if (availableEgress.value === Number.MAX_SAFE_INTEGER) {
-        return `No Limit`;
+        return `∞ No Limit`;
     }
     return `${usedLimitFormatted(availableEgress.value)} Available`;
 });
@@ -590,7 +590,7 @@ const storageCTA = computed((): string => {
     if (limits.value.userSetStorageLimit) {
         return 'Edit / Remove Limit';
     } else {
-        return 'Set Custom Limit';
+        return 'Set Storage Limit';
     }
 });
 
@@ -609,7 +609,7 @@ const storageLimitTxt = computed((): string => {
  */
 const storageAvailableTxt = computed((): string => {
     if (availableStorage.value === Number.MAX_SAFE_INTEGER) {
-        return `No Limit`;
+        return `∞ No Limit`;
     }
     return `${usedLimitFormatted(availableStorage.value)} Available`;
 });

@@ -574,6 +574,11 @@ table {
   line-height: 1.25;
 }
 
+// Date Picker Buttons
+.v-date-picker-month__day .v-btn {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 // fix for the table footer info width being too big for its small content
 // a huge min-width was added in Vuetify 3.4.11
 // https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2
@@ -590,6 +595,10 @@ table {
 @media (max-width: 959px) {
   .no-position {
     position: unset !important;
+  }
+  // Responsiveness fix for multi step dialogs
+  .v-overlay .v-card .v-window {
+    overflow-y: auto;
   }
 }
 
@@ -609,6 +618,12 @@ table {
   }
   .v-theme--dark .signup-background::before {
     background-image: url('../assets/bg-line-dark.jpg');
+  }
+}
+
+@media (min-width: 960px) and (max-width: 1279px) {
+  .v-container {
+    max-width: none;
   }
 }
 

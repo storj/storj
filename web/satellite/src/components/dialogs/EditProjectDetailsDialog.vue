@@ -4,7 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
@@ -13,7 +13,7 @@
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-boxes.svg" alt="Boxes">
                 </template>
-                <v-card-title class="font-weight-bold">Edit Project {{ field }}</v-card-title>
+                <v-card-title class="font-weight-bold">Project {{ field }}</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"

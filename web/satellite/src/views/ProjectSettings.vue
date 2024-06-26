@@ -13,7 +13,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Project Name">
                     <v-card-text>
                         <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
@@ -26,7 +26,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Project Description">
                     <v-card-text>
                         <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
@@ -39,7 +39,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Delete Project">
                     <v-card-text>
                         <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
@@ -79,7 +79,7 @@
         </v-row>
 
         <v-row v-else>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Storage Limit">
                     <v-card-subtitle>
                         Storage Limit: {{ storageLimitFormatted }} <br>
@@ -94,10 +94,10 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Download Limit">
                     <v-card-subtitle>
-                        Download Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'Unlimited' ? '' : 'per month' }}<br>
+                        Download Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
                         <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
                     </v-card-subtitle>
                     <v-card-text>
@@ -109,7 +109,7 @@
                 </v-card>
             </v-col>
 
-            <v-col v-if="!noLimitsUiEnabled" cols="12" lg="4">
+            <v-col v-if="!noLimitsUiEnabled" cols="12" sm="6" lg="4">
                 <v-card title="Account Limits">
                     <v-card-subtitle>
                         Storage limit: {{ paidStorageLimitFormatted }} <br>
@@ -142,7 +142,7 @@
             </v-row>
 
             <v-row>
-                <v-col cols="12" lg="4">
+                <v-col cols="12" sm="6" lg="4">
                     <v-card title="Object Versioning">
                         <v-card-subtitle v-if="versioningUIEnabled">
                             Versioning (beta) is enabled for this project.
@@ -157,7 +157,7 @@
                                 Learn More
                                 <versioning-beta-dialog v-model="isVersioningDialogShown" />
                             </v-btn>
-                            <v-btn v-else-if="versioningUIEnabled" :prepend-icon="mdiInformationOutline" color="primary" size="small">
+                            <v-btn v-else-if="versioningUIEnabled" :append-icon="mdiInformationOutline" color="primary" size="small">
                                 Enabled
                                 <versioning-beta-dialog info />
                             </v-btn>
@@ -264,7 +264,7 @@ const currentLimits = computed(() => projectsStore.state.currentLimits);
  */
 const storageLimitFormatted = computed<string>(() => {
     if (isPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetStorageLimit) {
-        return 'Unlimited';
+        return 'No Limit';
     }
     return formatLimit(currentLimits.value.userSetStorageLimit || currentLimits.value.storageLimit);
 });
@@ -274,7 +274,7 @@ const storageLimitFormatted = computed<string>(() => {
  */
 const bandwidthLimitFormatted = computed<string>(() => {
     if (isPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetBandwidthLimit) {
-        return 'Unlimited';
+        return 'No Limit';
     }
     return formatLimit(currentLimits.value.userSetBandwidthLimit || currentLimits.value.bandwidthLimit);
 });

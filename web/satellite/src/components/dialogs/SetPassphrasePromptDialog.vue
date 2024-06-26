@@ -6,8 +6,7 @@
         v-model="model"
         :persistent="isLoading"
         width="auto"
-        min-width="320px"
-        max-width="410px"
+        max-width="420px"
         transition="fade-transition"
     >
         <v-card>

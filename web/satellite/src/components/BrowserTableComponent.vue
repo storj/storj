@@ -174,7 +174,7 @@
             <v-col>
                 <div class="d-flex justify-end">
                     <v-btn
-                        color="default"
+                        color="error"
                         density="comfortable"
                         variant="outlined"
                         @click="isDeleteFileDialogShown = true"

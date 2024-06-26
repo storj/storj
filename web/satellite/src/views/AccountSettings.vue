@@ -12,7 +12,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Name">
                     <v-card-text>
                         <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
@@ -25,7 +25,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Email Address">
                     <v-card-text>
                         <v-chip color="default" variant="tonal" size="small" rounded="md" class="font-weight-bold">
@@ -56,7 +56,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col v-if="billingEnabled" cols="12" lg="4">
+            <v-col v-if="billingEnabled" cols="12" sm="6" lg="4">
                 <v-card title="Account Type">
                     <v-card-text>
                         <v-chip
@@ -86,7 +86,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Password" variant="outlined">
                     <v-card-subtitle>
                         **********
@@ -100,7 +100,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Two-factor authentication">
                     <v-card-subtitle>
                         Improve security by enabling 2FA.
@@ -116,7 +116,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Session Timeout">
                     <v-card-subtitle>
                         Log out after {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}.
@@ -130,7 +130,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" lg="4">
+            <v-col cols="12" sm="6" lg="4">
                 <v-card title="Passphrase Preference">
                     <v-card-subtitle>
                         {{ userSettings.passphrasePrompt ? 'Ask for passphrase when opening a project.' : 'Only ask for passphrase when necessary.' }}
@@ -153,7 +153,7 @@
             </v-row>
 
             <v-row>
-                <v-col cols="12" lg="4">
+                <v-col cols="12" sm="6" lg="4">
                     <v-card title="Delete Account">
                         <v-card-subtitle>
                             Delete all of your own projects and data.

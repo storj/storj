@@ -6,13 +6,12 @@
         v-model="isDialogOpen"
         activator="parent"
         width="auto"
-        min-width="400px"
         max-width="450px"
         transition="fade-transition"
     >
         <v-card>
             <v-sheet>
-                <v-card-item class="py-4 pl-6">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <icon-versioning-clock size="40" />
                     </template>
