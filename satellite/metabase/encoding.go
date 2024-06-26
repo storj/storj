@@ -8,10 +8,27 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"strconv"
+	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
 
 	"storj.io/common/storj"
+)
+
+type encoderDecoder interface {
+	driver.Valuer
+	sql.Scanner
+	spanner.Encoder
+	spanner.Decoder
+}
+
+var (
+	_ encoderDecoder = encryptionParameters{}
+	_ encoderDecoder = (*SegmentPosition)(nil)
+	_ encoderDecoder = redundancyScheme{}
+	_ encoderDecoder = retentionModeWrapper{}
+	_ encoderDecoder = timeWrapper{}
 )
 
 type nullableValue[T sql.Scanner] struct {
@@ -235,4 +252,110 @@ func (pieces *Pieces) Scan(value interface{}) error {
 
 	*pieces = scan
 	return nil
+}
+
+type retentionModeWrapper struct {
+	*storj.RetentionMode
+}
+
+// Value implements the sql/driver.Valuer interface.
+func (r retentionModeWrapper) Value() (driver.Value, error) {
+	if *r.RetentionMode == storj.NoRetention {
+		return nil, nil
+	}
+	return int64(*r.RetentionMode), nil
+}
+
+// Scan implements the sql.Scanner interface.
+func (r retentionModeWrapper) Scan(val interface{}) error {
+	if val == nil {
+		*r.RetentionMode = storj.NoRetention
+		return nil
+	}
+	if v, ok := val.(int64); ok {
+		switch {
+		case v < 0:
+			return Error.New("%d is less than minimum value for storj.RetentionMode", v)
+		case v > 0xff:
+			return Error.New("%d is greater than maximum value for storj.RetentionMode", v)
+		}
+		*r.RetentionMode = storj.RetentionMode(v)
+		return nil
+	}
+	return Error.New("unable to scan %T into storj.RetentionMode", val)
+}
+
+// EncodeSpanner implements the spanner.Encoder interface.
+func (r retentionModeWrapper) EncodeSpanner() (interface{}, error) {
+	return r.Value()
+}
+
+// DecodeSpanner implements the spanner.Decoder interface.
+func (r retentionModeWrapper) DecodeSpanner(val interface{}) error {
+	if strPtrVal, ok := val.(*string); ok {
+		if strPtrVal == nil {
+			*r.RetentionMode = storj.NoRetention
+			return nil
+		}
+		val = strPtrVal
+	}
+	if strVal, ok := val.(string); ok {
+		iVal, err := strconv.ParseInt(strVal, 10, 8)
+		if err != nil {
+			return Error.New("unable to scan %T into storj.RetentionMode: %v", val, err)
+		}
+		*r.RetentionMode = storj.RetentionMode(iVal)
+		return nil
+	}
+	return r.Scan(val)
+}
+
+type timeWrapper struct {
+	*time.Time
+}
+
+// Value implements the sql/driver.Valuer interface.
+func (t timeWrapper) Value() (driver.Value, error) {
+	if t.Time.IsZero() {
+		return nil, nil
+	}
+	return *t.Time, nil
+}
+
+// Scan implements the sql.Scanner interface.
+func (t timeWrapper) Scan(val interface{}) error {
+	if val == nil {
+		*t.Time = time.Time{}
+		return nil
+	}
+	if v, ok := val.(time.Time); ok {
+		*t.Time = v
+		return nil
+	}
+	return Error.New("unable to scan %T into time.Time", val)
+}
+
+// EncodeSpanner implements the spanner.Encoder interface.
+func (t timeWrapper) EncodeSpanner() (interface{}, error) {
+	return t.Value()
+}
+
+// DecodeSpanner implements the spanner.Decoder interface.
+func (t timeWrapper) DecodeSpanner(val interface{}) error {
+	if strPtrVal, ok := val.(*string); ok {
+		if strPtrVal == nil {
+			*t.Time = time.Time{}
+			return nil
+		}
+		val = strPtrVal
+	}
+	if strVal, ok := val.(string); ok {
+		tVal, err := time.Parse(time.RFC3339Nano, strVal)
+		if err != nil {
+			return Error.New("unable to scan %T into storj.RetentionMode: %v", val, err)
+		}
+		*t.Time = tVal
+		return nil
+	}
+	return t.Scan(val)
 }

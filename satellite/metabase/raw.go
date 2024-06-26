@@ -46,6 +46,8 @@ type RawObject struct {
 	// This is as a safeguard against objects that failed to upload and the client has not indicated
 	// whether they want to continue uploading or delete the already uploaded data.
 	ZombieDeletionDeadline *time.Time
+
+	Retention Retention
 }
 
 // RawSegment defines the full segment that is stored in the database. It should be rarely used directly.
@@ -171,7 +173,8 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
-			zombie_deletion_deadline
+			zombie_deletion_deadline,
+			retention_mode, retain_until
 		FROM objects
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 	`)
@@ -204,10 +207,17 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
+			retentionModeWrapper{&obj.Retention.Mode},
+			timeWrapper{&obj.Retention.RetainUntil},
 		)
 		if err != nil {
 			return nil, Error.New("testingGetAllObjects scan failed: %w", err)
 		}
+
+		if err = obj.Retention.Verify(); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
 		objs = append(objs, obj)
 	}
 	if err := rows.Err(); err != nil {
@@ -231,12 +241,13 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
-				zombie_deletion_deadline
+				zombie_deletion_deadline,
+				retention_mode, retain_until
 			FROM objects
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		`,
 	}), func(row *spanner.Row, obj *RawObject) error {
-		return Error.Wrap(row.Columns(
+		err := row.Columns(
 			&obj.ProjectID,
 			&obj.BucketName,
 			&obj.ObjectKey,
@@ -259,7 +270,18 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-		))
+			retentionModeWrapper{&obj.Retention.Mode},
+			timeWrapper{&obj.Retention.RetainUntil},
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = obj.Retention.Verify(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		return Error.Wrap(err)
 	})
 }
 

@@ -59,6 +59,8 @@ type BeginObjectNextVersion struct {
 	EncryptedMetadataEncryptedKey []byte // optional
 
 	Encryption storj.EncryptionParameters
+
+	Retention Retention // optional
 }
 
 // Verify verifies get object request fields.
@@ -71,11 +73,21 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
-	if opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil) {
+	switch {
+	case opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil):
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	} else if opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil) {
+	case opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil):
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
+
+	if err := opts.Retention.Verify(); err != nil {
+		return err
+	}
+
+	if opts.Retention.Enabled() && opts.ExpiresAt != nil {
+		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	}
+
 	return nil
 }
 
@@ -102,6 +114,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		ExpiresAt:              opts.ExpiresAt,
 		Encryption:             opts.Encryption,
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
+		Retention:              opts.Retention,
 	}
 
 	err = db.ChooseAdapter(opts.ProjectID).BeginObjectNextVersion(ctx, opts, &object)
@@ -121,7 +134,8 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, encryption,
 				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				retention_mode, retain_until
 			) VALUES (
 				$1, $2, $3,
 					coalesce((
@@ -133,12 +147,15 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 					), 1),
 				$4, $5, $6,
 				$7,
-				$8, $9, $10)
+				$8, $9, $10,
+				$11, $12
+			)
 			RETURNING status, version, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(&object.Status, &object.Version, &object.CreatedAt)
 }
 
@@ -155,8 +172,9 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					project_id, bucket_name, object_key, version, stream_id,
 					expires_at, encryption,
 					zombie_deletion_deadline,
-					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key)
-				  VALUES(
+					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+					retention_mode, retain_until
+				) VALUES (
                   	@project_id, @bucket_name, @object_key,
 					coalesce(
 						(SELECT version + 1
@@ -167,8 +185,10 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					,1),
 					@stream_id, @expires_at,
 					@encryption, @zombie_deletion_deadline,
-					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key)
-                  THEN RETURN status,version,created_at`,
+					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+					@retention_mode, @retain_until
+				)
+                THEN RETURN status,version,created_at`,
 			Params: map[string]interface{}{
 				"project_id":                       opts.ProjectID.Bytes(),
 				"bucket_name":                      opts.BucketName,
@@ -180,6 +200,8 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+				"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
+				"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
 			return Error.Wrap(row.Columns(&object.Status, &object.Version, &object.CreatedAt))

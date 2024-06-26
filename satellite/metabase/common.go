@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -483,6 +484,34 @@ const PendingVersion = Version(0)
 //
 // It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
 const MaxVersion = Version(math.MaxInt64 - 64)
+
+// Retention represents an object version's Object Lock retention configuration.
+type Retention struct {
+	Mode        storj.RetentionMode
+	RetainUntil time.Time
+}
+
+// Enabled returns whether the retention configuration is enabled.
+func (r *Retention) Enabled() bool {
+	return r.Mode != storj.NoRetention
+}
+
+// Verify verifies the retention configuration.
+func (r *Retention) Verify() error {
+	switch r.Mode {
+	case storj.ComplianceMode:
+		if r.RetainUntil.IsZero() {
+			return ErrInvalidRequest.New("Retention.RetainUntil must be set if Retention.Mode is set")
+		}
+	case storj.NoRetention:
+		if !r.RetainUntil.IsZero() {
+			return ErrInvalidRequest.New("Retention.RetainUntil must not be set if Retention.Mode is not set")
+		}
+	default:
+		return ErrInvalidRequest.New("Retention.Mode must be %d (none) or %d (compliance), but got %d", storj.NoRetention, storj.ComplianceMode, r.Mode)
+	}
+	return nil
+}
 
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.
