@@ -31,7 +31,7 @@ var _ sync.Mutex
 
 var (
 	WrapErr = func(err *Error) error {return err}
-	Logger func(format string, args ...interface{})
+	Logger func(format string, args ...any)
 	ShouldRetry func(driver string, err error) bool
 
 	errTooManyRows = errors.New("too many rows")
@@ -39,7 +39,7 @@ var (
 	errEmptyUpdate = errors.New("empty update")
 )
 
-func logError(format string, args ...interface{}) {
+func logError(format string, args ...any) {
 	if Logger != nil {
 		Logger(format, args...)
 	}
@@ -67,6 +67,10 @@ type Error struct {
 
 func (e *Error) Error() string {
 	return e.Err.Error()
+}
+
+func (e *Error) Unwrap() error {
+	return e.Err
 }
 
 func wrapErr(e *Error) error {
@@ -129,15 +133,10 @@ func constraintViolation(err error, constraint string) error {
 }
 
 type driver interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
-
-var (
-	notAPointer = errors.New("destination not a pointer")
-	lossyConversion = errors.New("lossy conversion")
-)
 
 type DB struct {
 	*sql.DB
@@ -165,7 +164,7 @@ func Open(driver, source string) (db *DB, err error) {
 	}
 	defer func(sql_db *sql.DB) {
 		if err != nil {
-			sql_db.Close()
+			_ = sql_db.Close()
 		}
 	}(sql_db)
 
@@ -207,6 +206,7 @@ func (obj *DB) Open(ctx context.Context) (*Tx, error) {
 		txMethods: obj.wrapTx(tx),
 	}, nil
 }
+
 func DeleteAll(ctx context.Context, db *DB) (int64, error) {
 	tx, err := db.Open(ctx)
 	if err != nil {
@@ -259,7 +259,7 @@ func (obj *{{ $impltype }}) Rebind(s string) string {
 	return obj.dialect.Rebind(s)
 }
 
-func (obj *{{ $impltype }}) logStmt(stmt string, args... interface{}) {
+func (obj *{{ $impltype }}) logStmt(stmt string, args... any) {
 	{{ .Name }}LogStmt(stmt, args...)
 }
 
@@ -279,10 +279,10 @@ type {{ $impltype }}_retryingRow struct {
 	obj *{{ $impltype }}
 	ctx context.Context
 	query string
-	args []interface{}
+	args []any
 }
 
-func (obj *{{ $impltype }}) queryRowContext(ctx context.Context, query string, args ...interface{}) *{{ $impltype }}_retryingRow {
+func (obj *{{ $impltype }}) queryRowContext(ctx context.Context, query string, args ...any) *{{ $impltype }}_retryingRow {
 	return &{{ $impltype }}_retryingRow{
 	obj: obj,
 	ctx: ctx,
@@ -291,7 +291,7 @@ func (obj *{{ $impltype }}) queryRowContext(ctx context.Context, query string, a
 	}
 }
 
-func (rows *{{ $impltype }}_retryingRow) Scan(dest ...interface{}) error {
+func (rows *{{ $impltype }}_retryingRow) Scan(dest ...any) error {
 	for {
 		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
 		if err != nil {
@@ -352,7 +352,7 @@ type {{ $txtype }} struct {
 	*{{ $impltype }}
 }
 
-func {{ .Name }}LogStmt(stmt string, args ...interface{}) {
+func {{ .Name }}LogStmt(stmt string, args ...any) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -362,7 +362,7 @@ func {{ .Name }}LogStmt(stmt string, args ...interface{}) {
 
 {{- end }}
 
-type pretty []interface{}
+type pretty []any
 
 func (p pretty) Format(f fmt.State, c rune) {
 	fmt.Fprint(f, "[")
@@ -411,7 +411,7 @@ type {{ $struct }} struct {
 {{- if $options.SupportUserdata }}
 
 	userdata_mu sync.Mutex
-	userdata    interface{}
+	userdata    any
 {{- end}}
 }
 
@@ -464,7 +464,7 @@ func {{ $ctor }}_Null() {{ $fstruct }} {
 func (f {{ $fstruct }}) isnull() bool {	return !f._set || f._null || f._value == nil }
 {{ end }}
 
-func (f {{ $fstruct }}) value() interface{} { if !f._set || f._null { return nil }; return f._value }
+func (f {{ $fstruct }}) value() any { if !f._set || f._null { return nil }; return f._value }
 
 func ({{ $fstruct }}) _Column() string { return "{{ .Column }}" }
 

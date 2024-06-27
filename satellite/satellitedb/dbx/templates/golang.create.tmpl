@@ -11,7 +11,7 @@
 {{- template "name" . }}({{ ctxarg .Args }})
 {{ end -}}
 
-{{- define "body" -}}
+{{- define "body" -}}{{/* gotype: storj.io/dbx/code/golang.Create */}}
 	{{- if .NeedsNow }}
 	__now := obj.db.Hooks.Now().UTC()
 	{{ end -}}
@@ -20,8 +20,8 @@
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 
-	var __values []interface{}
-	__values = append(__values, {{ arg .StaticFields }})
+	var __values []any
+	{{ if .StaticFields }}__values = append(__values, {{ arg .StaticFields }}){{ end }}
 
 	{{ if .Struct.InsertableDynamicFields -}}
 	__optional_columns := __sqlbundle_Literals{Join: ", "}

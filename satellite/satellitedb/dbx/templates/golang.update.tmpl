@@ -12,13 +12,13 @@ Update{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
 {{- template "name" . }}({{ ctxarg .Args }}, update)
 {{- end -}}
 
-{{- define "body" -}}
+{{- define "body" -}}{{/* gotype: storj.io/dbx/code/golang.Update */}}
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	{{ range .Struct.UpdatableFields }}
 	if update.{{ .Name }}._set {

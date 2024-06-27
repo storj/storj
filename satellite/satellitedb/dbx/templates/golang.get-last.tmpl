@@ -4,7 +4,7 @@ getLast{{ .Return.Type }}(ctx context.Context,
 	{{ param .Return }}, err error)
 {{- end -}}
 
-{{- define "body" -}}
+{{- define "body" }}{{/* gotype: storj.io/dbx/code/golang.getLast */}}
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 

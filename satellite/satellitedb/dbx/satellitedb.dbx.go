@@ -31,7 +31,7 @@ var _ sync.Mutex
 
 var (
 	WrapErr     = func(err *Error) error { return err }
-	Logger      func(format string, args ...interface{})
+	Logger      func(format string, args ...any)
 	ShouldRetry func(driver string, err error) bool
 
 	errTooManyRows       = errors.New("too many rows")
@@ -39,7 +39,7 @@ var (
 	errEmptyUpdate       = errors.New("empty update")
 )
 
-func logError(format string, args ...interface{}) {
+func logError(format string, args ...any) {
 	if Logger != nil {
 		Logger(format, args...)
 	}
@@ -67,6 +67,10 @@ type Error struct {
 
 func (e *Error) Error() string {
 	return e.Err.Error()
+}
+
+func (e *Error) Unwrap() error {
+	return e.Err
 }
 
 func wrapErr(e *Error) error {
@@ -129,15 +133,10 @@ func constraintViolation(err error, constraint string) error {
 }
 
 type driver interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (tagsql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
-
-var (
-	notAPointer     = errors.New("destination not a pointer")
-	lossyConversion = errors.New("lossy conversion")
-)
 
 type DB struct {
 	tagsql.DB
@@ -167,7 +166,7 @@ func Open(driver, source string) (db *DB, err error) {
 	}
 	defer func(sql_db *sql.DB) {
 		if err != nil {
-			sql_db.Close()
+			_ = sql_db.Close()
 		}
 	}(sql_db)
 
@@ -211,6 +210,7 @@ func (obj *DB) Open(ctx context.Context) (*Tx, error) {
 		txMethods: obj.wrapTx(tx),
 	}, nil
 }
+
 func DeleteAll(ctx context.Context, db *DB) (int64, error) {
 	tx, err := db.Open(ctx)
 	if err != nil {
@@ -257,7 +257,7 @@ func (obj *pgxImpl) Rebind(s string) string {
 	return obj.dialect.Rebind(s)
 }
 
-func (obj *pgxImpl) logStmt(stmt string, args ...interface{}) {
+func (obj *pgxImpl) logStmt(stmt string, args ...any) {
 	pgxLogStmt(stmt, args...)
 }
 
@@ -277,10 +277,10 @@ type pgxImpl_retryingRow struct {
 	obj   *pgxImpl
 	ctx   context.Context
 	query string
-	args  []interface{}
+	args  []any
 }
 
-func (obj *pgxImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *pgxImpl_retryingRow {
+func (obj *pgxImpl) queryRowContext(ctx context.Context, query string, args ...any) *pgxImpl_retryingRow {
 	return &pgxImpl_retryingRow{
 		obj:   obj,
 		ctx:   ctx,
@@ -289,7 +289,7 @@ func (obj *pgxImpl) queryRowContext(ctx context.Context, query string, args ...i
 	}
 }
 
-func (rows *pgxImpl_retryingRow) Scan(dest ...interface{}) error {
+func (rows *pgxImpl_retryingRow) Scan(dest ...any) error {
 	for {
 		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
 		if err != nil {
@@ -1161,7 +1161,7 @@ type pgxTx struct {
 	*pgxImpl
 }
 
-func pgxLogStmt(stmt string, args ...interface{}) {
+func pgxLogStmt(stmt string, args ...any) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -1180,7 +1180,7 @@ func (obj *pgxcockroachImpl) Rebind(s string) string {
 	return obj.dialect.Rebind(s)
 }
 
-func (obj *pgxcockroachImpl) logStmt(stmt string, args ...interface{}) {
+func (obj *pgxcockroachImpl) logStmt(stmt string, args ...any) {
 	pgxcockroachLogStmt(stmt, args...)
 }
 
@@ -1200,10 +1200,10 @@ type pgxcockroachImpl_retryingRow struct {
 	obj   *pgxcockroachImpl
 	ctx   context.Context
 	query string
-	args  []interface{}
+	args  []any
 }
 
-func (obj *pgxcockroachImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *pgxcockroachImpl_retryingRow {
+func (obj *pgxcockroachImpl) queryRowContext(ctx context.Context, query string, args ...any) *pgxcockroachImpl_retryingRow {
 	return &pgxcockroachImpl_retryingRow{
 		obj:   obj,
 		ctx:   ctx,
@@ -1212,7 +1212,7 @@ func (obj *pgxcockroachImpl) queryRowContext(ctx context.Context, query string, 
 	}
 }
 
-func (rows *pgxcockroachImpl_retryingRow) Scan(dest ...interface{}) error {
+func (rows *pgxcockroachImpl_retryingRow) Scan(dest ...any) error {
 	for {
 		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
 		if err != nil {
@@ -2084,7 +2084,7 @@ type pgxcockroachTx struct {
 	*pgxcockroachImpl
 }
 
-func pgxcockroachLogStmt(stmt string, args ...interface{}) {
+func pgxcockroachLogStmt(stmt string, args ...any) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -2103,7 +2103,7 @@ func (obj *spannerImpl) Rebind(s string) string {
 	return obj.dialect.Rebind(s)
 }
 
-func (obj *spannerImpl) logStmt(stmt string, args ...interface{}) {
+func (obj *spannerImpl) logStmt(stmt string, args ...any) {
 	spannerLogStmt(stmt, args...)
 }
 
@@ -2123,10 +2123,10 @@ type spannerImpl_retryingRow struct {
 	obj   *spannerImpl
 	ctx   context.Context
 	query string
-	args  []interface{}
+	args  []any
 }
 
-func (obj *spannerImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *spannerImpl_retryingRow {
+func (obj *spannerImpl) queryRowContext(ctx context.Context, query string, args ...any) *spannerImpl_retryingRow {
 	return &spannerImpl_retryingRow{
 		obj:   obj,
 		ctx:   ctx,
@@ -2135,7 +2135,7 @@ func (obj *spannerImpl) queryRowContext(ctx context.Context, query string, args 
 	}
 }
 
-func (rows *spannerImpl_retryingRow) Scan(dest ...interface{}) error {
+func (rows *spannerImpl_retryingRow) Scan(dest ...any) error {
 	for {
 		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
 		if err != nil {
@@ -3423,7 +3423,7 @@ type spannerTx struct {
 	*spannerImpl
 }
 
-func spannerLogStmt(stmt string, args ...interface{}) {
+func spannerLogStmt(stmt string, args ...any) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -3431,7 +3431,7 @@ func spannerLogStmt(stmt string, args ...interface{}) {
 	}
 }
 
-type pretty []interface{}
+type pretty []any
 
 func (p pretty) Format(f fmt.State, c rune) {
 	fmt.Fprint(f, "[")
@@ -3502,7 +3502,7 @@ func AccountFreezeEvent_UserId(v []byte) AccountFreezeEvent_UserId_Field {
 	return AccountFreezeEvent_UserId_Field{_set: true, _value: v}
 }
 
-func (f AccountFreezeEvent_UserId_Field) value() interface{} {
+func (f AccountFreezeEvent_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3521,7 +3521,7 @@ func AccountFreezeEvent_Event(v int) AccountFreezeEvent_Event_Field {
 	return AccountFreezeEvent_Event_Field{_set: true, _value: v}
 }
 
-func (f AccountFreezeEvent_Event_Field) value() interface{} {
+func (f AccountFreezeEvent_Event_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3553,7 +3553,7 @@ func AccountFreezeEvent_Limits_Null() AccountFreezeEvent_Limits_Field {
 
 func (f AccountFreezeEvent_Limits_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f AccountFreezeEvent_Limits_Field) value() interface{} {
+func (f AccountFreezeEvent_Limits_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3587,7 +3587,7 @@ func (f AccountFreezeEvent_DaysTillEscalation_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f AccountFreezeEvent_DaysTillEscalation_Field) value() interface{} {
+func (f AccountFreezeEvent_DaysTillEscalation_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3606,7 +3606,7 @@ func AccountFreezeEvent_NotificationsCount(v int) AccountFreezeEvent_Notificatio
 	return AccountFreezeEvent_NotificationsCount_Field{_set: true, _value: v}
 }
 
-func (f AccountFreezeEvent_NotificationsCount_Field) value() interface{} {
+func (f AccountFreezeEvent_NotificationsCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3625,7 +3625,7 @@ func AccountFreezeEvent_CreatedAt(v time.Time) AccountFreezeEvent_CreatedAt_Fiel
 	return AccountFreezeEvent_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f AccountFreezeEvent_CreatedAt_Field) value() interface{} {
+func (f AccountFreezeEvent_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3666,7 +3666,7 @@ func AccountingRollup_NodeId(v []byte) AccountingRollup_NodeId_Field {
 	return AccountingRollup_NodeId_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_NodeId_Field) value() interface{} {
+func (f AccountingRollup_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3685,7 +3685,7 @@ func AccountingRollup_StartTime(v time.Time) AccountingRollup_StartTime_Field {
 	return AccountingRollup_StartTime_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_StartTime_Field) value() interface{} {
+func (f AccountingRollup_StartTime_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3704,7 +3704,7 @@ func AccountingRollup_PutTotal(v int64) AccountingRollup_PutTotal_Field {
 	return AccountingRollup_PutTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_PutTotal_Field) value() interface{} {
+func (f AccountingRollup_PutTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3723,7 +3723,7 @@ func AccountingRollup_GetTotal(v int64) AccountingRollup_GetTotal_Field {
 	return AccountingRollup_GetTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_GetTotal_Field) value() interface{} {
+func (f AccountingRollup_GetTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3742,7 +3742,7 @@ func AccountingRollup_GetAuditTotal(v int64) AccountingRollup_GetAuditTotal_Fiel
 	return AccountingRollup_GetAuditTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_GetAuditTotal_Field) value() interface{} {
+func (f AccountingRollup_GetAuditTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3761,7 +3761,7 @@ func AccountingRollup_GetRepairTotal(v int64) AccountingRollup_GetRepairTotal_Fi
 	return AccountingRollup_GetRepairTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_GetRepairTotal_Field) value() interface{} {
+func (f AccountingRollup_GetRepairTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3780,7 +3780,7 @@ func AccountingRollup_PutRepairTotal(v int64) AccountingRollup_PutRepairTotal_Fi
 	return AccountingRollup_PutRepairTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_PutRepairTotal_Field) value() interface{} {
+func (f AccountingRollup_PutRepairTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3799,7 +3799,7 @@ func AccountingRollup_AtRestTotal(v float64) AccountingRollup_AtRestTotal_Field 
 	return AccountingRollup_AtRestTotal_Field{_set: true, _value: v}
 }
 
-func (f AccountingRollup_AtRestTotal_Field) value() interface{} {
+func (f AccountingRollup_AtRestTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3833,7 +3833,7 @@ func (f AccountingRollup_IntervalEndTime_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f AccountingRollup_IntervalEndTime_Field) value() interface{} {
+func (f AccountingRollup_IntervalEndTime_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3863,7 +3863,7 @@ func AccountingTimestamps_Name(v string) AccountingTimestamps_Name_Field {
 	return AccountingTimestamps_Name_Field{_set: true, _value: v}
 }
 
-func (f AccountingTimestamps_Name_Field) value() interface{} {
+func (f AccountingTimestamps_Name_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3882,7 +3882,7 @@ func AccountingTimestamps_Value(v time.Time) AccountingTimestamps_Value_Field {
 	return AccountingTimestamps_Value_Field{_set: true, _value: v}
 }
 
-func (f AccountingTimestamps_Value_Field) value() interface{} {
+func (f AccountingTimestamps_Value_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3913,7 +3913,7 @@ func BillingBalance_UserId(v []byte) BillingBalance_UserId_Field {
 	return BillingBalance_UserId_Field{_set: true, _value: v}
 }
 
-func (f BillingBalance_UserId_Field) value() interface{} {
+func (f BillingBalance_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3932,7 +3932,7 @@ func BillingBalance_Balance(v int64) BillingBalance_Balance_Field {
 	return BillingBalance_Balance_Field{_set: true, _value: v}
 }
 
-func (f BillingBalance_Balance_Field) value() interface{} {
+func (f BillingBalance_Balance_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3951,7 +3951,7 @@ func BillingBalance_LastUpdated(v time.Time) BillingBalance_LastUpdated_Field {
 	return BillingBalance_LastUpdated_Field{_set: true, _value: v}
 }
 
-func (f BillingBalance_LastUpdated_Field) value() interface{} {
+func (f BillingBalance_LastUpdated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -3991,7 +3991,7 @@ func BillingTransaction_Id(v int64) BillingTransaction_Id_Field {
 	return BillingTransaction_Id_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Id_Field) value() interface{} {
+func (f BillingTransaction_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4010,7 +4010,7 @@ func BillingTransaction_UserId(v []byte) BillingTransaction_UserId_Field {
 	return BillingTransaction_UserId_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_UserId_Field) value() interface{} {
+func (f BillingTransaction_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4029,7 +4029,7 @@ func BillingTransaction_Amount(v int64) BillingTransaction_Amount_Field {
 	return BillingTransaction_Amount_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Amount_Field) value() interface{} {
+func (f BillingTransaction_Amount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4048,7 +4048,7 @@ func BillingTransaction_Currency(v string) BillingTransaction_Currency_Field {
 	return BillingTransaction_Currency_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Currency_Field) value() interface{} {
+func (f BillingTransaction_Currency_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4067,7 +4067,7 @@ func BillingTransaction_Description(v string) BillingTransaction_Description_Fie
 	return BillingTransaction_Description_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Description_Field) value() interface{} {
+func (f BillingTransaction_Description_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4086,7 +4086,7 @@ func BillingTransaction_Source(v string) BillingTransaction_Source_Field {
 	return BillingTransaction_Source_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Source_Field) value() interface{} {
+func (f BillingTransaction_Source_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4105,7 +4105,7 @@ func BillingTransaction_Status(v string) BillingTransaction_Status_Field {
 	return BillingTransaction_Status_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Status_Field) value() interface{} {
+func (f BillingTransaction_Status_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4124,7 +4124,7 @@ func BillingTransaction_Type(v string) BillingTransaction_Type_Field {
 	return BillingTransaction_Type_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Type_Field) value() interface{} {
+func (f BillingTransaction_Type_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4143,7 +4143,7 @@ func BillingTransaction_Metadata(v []byte) BillingTransaction_Metadata_Field {
 	return BillingTransaction_Metadata_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_Metadata_Field) value() interface{} {
+func (f BillingTransaction_Metadata_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4162,7 +4162,7 @@ func BillingTransaction_TxTimestamp(v time.Time) BillingTransaction_TxTimestamp_
 	return BillingTransaction_TxTimestamp_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_TxTimestamp_Field) value() interface{} {
+func (f BillingTransaction_TxTimestamp_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4181,7 +4181,7 @@ func BillingTransaction_CreatedAt(v time.Time) BillingTransaction_CreatedAt_Fiel
 	return BillingTransaction_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f BillingTransaction_CreatedAt_Field) value() interface{} {
+func (f BillingTransaction_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4219,7 +4219,7 @@ func BucketBandwidthRollup_BucketName(v []byte) BucketBandwidthRollup_BucketName
 	return BucketBandwidthRollup_BucketName_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_BucketName_Field) value() interface{} {
+func (f BucketBandwidthRollup_BucketName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4238,7 +4238,7 @@ func BucketBandwidthRollup_ProjectId(v []byte) BucketBandwidthRollup_ProjectId_F
 	return BucketBandwidthRollup_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_ProjectId_Field) value() interface{} {
+func (f BucketBandwidthRollup_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4257,7 +4257,7 @@ func BucketBandwidthRollup_IntervalStart(v time.Time) BucketBandwidthRollup_Inte
 	return BucketBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_IntervalStart_Field) value() interface{} {
+func (f BucketBandwidthRollup_IntervalStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4276,7 +4276,7 @@ func BucketBandwidthRollup_IntervalSeconds(v uint) BucketBandwidthRollup_Interva
 	return BucketBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+func (f BucketBandwidthRollup_IntervalSeconds_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4295,7 +4295,7 @@ func BucketBandwidthRollup_Action(v uint) BucketBandwidthRollup_Action_Field {
 	return BucketBandwidthRollup_Action_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Action_Field) value() interface{} {
+func (f BucketBandwidthRollup_Action_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4314,7 +4314,7 @@ func BucketBandwidthRollup_Inline(v uint64) BucketBandwidthRollup_Inline_Field {
 	return BucketBandwidthRollup_Inline_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Inline_Field) value() interface{} {
+func (f BucketBandwidthRollup_Inline_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4333,7 +4333,7 @@ func BucketBandwidthRollup_Allocated(v uint64) BucketBandwidthRollup_Allocated_F
 	return BucketBandwidthRollup_Allocated_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Allocated_Field) value() interface{} {
+func (f BucketBandwidthRollup_Allocated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4352,7 +4352,7 @@ func BucketBandwidthRollup_Settled(v uint64) BucketBandwidthRollup_Settled_Field
 	return BucketBandwidthRollup_Settled_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
+func (f BucketBandwidthRollup_Settled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4390,7 +4390,7 @@ func BucketBandwidthRollupArchive_BucketName(v []byte) BucketBandwidthRollupArch
 	return BucketBandwidthRollupArchive_BucketName_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_BucketName_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_BucketName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4409,7 +4409,7 @@ func BucketBandwidthRollupArchive_ProjectId(v []byte) BucketBandwidthRollupArchi
 	return BucketBandwidthRollupArchive_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_ProjectId_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4428,7 +4428,7 @@ func BucketBandwidthRollupArchive_IntervalStart(v time.Time) BucketBandwidthRoll
 	return BucketBandwidthRollupArchive_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_IntervalStart_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_IntervalStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4447,7 +4447,7 @@ func BucketBandwidthRollupArchive_IntervalSeconds(v uint) BucketBandwidthRollupA
 	return BucketBandwidthRollupArchive_IntervalSeconds_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_IntervalSeconds_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_IntervalSeconds_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4466,7 +4466,7 @@ func BucketBandwidthRollupArchive_Action(v uint) BucketBandwidthRollupArchive_Ac
 	return BucketBandwidthRollupArchive_Action_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_Action_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_Action_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4485,7 +4485,7 @@ func BucketBandwidthRollupArchive_Inline(v uint64) BucketBandwidthRollupArchive_
 	return BucketBandwidthRollupArchive_Inline_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_Inline_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_Inline_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4504,7 +4504,7 @@ func BucketBandwidthRollupArchive_Allocated(v uint64) BucketBandwidthRollupArchi
 	return BucketBandwidthRollupArchive_Allocated_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_Allocated_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_Allocated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4523,7 +4523,7 @@ func BucketBandwidthRollupArchive_Settled(v uint64) BucketBandwidthRollupArchive
 	return BucketBandwidthRollupArchive_Settled_Field{_set: true, _value: v}
 }
 
-func (f BucketBandwidthRollupArchive_Settled_Field) value() interface{} {
+func (f BucketBandwidthRollupArchive_Settled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4566,7 +4566,7 @@ func BucketStorageTally_BucketName(v []byte) BucketStorageTally_BucketName_Field
 	return BucketStorageTally_BucketName_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_BucketName_Field) value() interface{} {
+func (f BucketStorageTally_BucketName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4585,7 +4585,7 @@ func BucketStorageTally_ProjectId(v []byte) BucketStorageTally_ProjectId_Field {
 	return BucketStorageTally_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_ProjectId_Field) value() interface{} {
+func (f BucketStorageTally_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4604,7 +4604,7 @@ func BucketStorageTally_IntervalStart(v time.Time) BucketStorageTally_IntervalSt
 	return BucketStorageTally_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_IntervalStart_Field) value() interface{} {
+func (f BucketStorageTally_IntervalStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4623,7 +4623,7 @@ func BucketStorageTally_TotalBytes(v uint64) BucketStorageTally_TotalBytes_Field
 	return BucketStorageTally_TotalBytes_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_TotalBytes_Field) value() interface{} {
+func (f BucketStorageTally_TotalBytes_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4642,7 +4642,7 @@ func BucketStorageTally_Inline(v uint64) BucketStorageTally_Inline_Field {
 	return BucketStorageTally_Inline_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_Inline_Field) value() interface{} {
+func (f BucketStorageTally_Inline_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4661,7 +4661,7 @@ func BucketStorageTally_Remote(v uint64) BucketStorageTally_Remote_Field {
 	return BucketStorageTally_Remote_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_Remote_Field) value() interface{} {
+func (f BucketStorageTally_Remote_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4680,7 +4680,7 @@ func BucketStorageTally_TotalSegmentsCount(v uint) BucketStorageTally_TotalSegme
 	return BucketStorageTally_TotalSegmentsCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_TotalSegmentsCount_Field) value() interface{} {
+func (f BucketStorageTally_TotalSegmentsCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4699,7 +4699,7 @@ func BucketStorageTally_RemoteSegmentsCount(v uint) BucketStorageTally_RemoteSeg
 	return BucketStorageTally_RemoteSegmentsCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_RemoteSegmentsCount_Field) value() interface{} {
+func (f BucketStorageTally_RemoteSegmentsCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4718,7 +4718,7 @@ func BucketStorageTally_InlineSegmentsCount(v uint) BucketStorageTally_InlineSeg
 	return BucketStorageTally_InlineSegmentsCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_InlineSegmentsCount_Field) value() interface{} {
+func (f BucketStorageTally_InlineSegmentsCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4737,7 +4737,7 @@ func BucketStorageTally_ObjectCount(v uint) BucketStorageTally_ObjectCount_Field
 	return BucketStorageTally_ObjectCount_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_ObjectCount_Field) value() interface{} {
+func (f BucketStorageTally_ObjectCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4756,7 +4756,7 @@ func BucketStorageTally_MetadataSize(v uint64) BucketStorageTally_MetadataSize_F
 	return BucketStorageTally_MetadataSize_Field{_set: true, _value: v}
 }
 
-func (f BucketStorageTally_MetadataSize_Field) value() interface{} {
+func (f BucketStorageTally_MetadataSize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4794,7 +4794,7 @@ func CoinpaymentsTransaction_Id(v string) CoinpaymentsTransaction_Id_Field {
 	return CoinpaymentsTransaction_Id_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_Id_Field) value() interface{} {
+func (f CoinpaymentsTransaction_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4813,7 +4813,7 @@ func CoinpaymentsTransaction_UserId(v []byte) CoinpaymentsTransaction_UserId_Fie
 	return CoinpaymentsTransaction_UserId_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_UserId_Field) value() interface{} {
+func (f CoinpaymentsTransaction_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4832,7 +4832,7 @@ func CoinpaymentsTransaction_Address(v string) CoinpaymentsTransaction_Address_F
 	return CoinpaymentsTransaction_Address_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_Address_Field) value() interface{} {
+func (f CoinpaymentsTransaction_Address_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4851,7 +4851,7 @@ func CoinpaymentsTransaction_AmountNumeric(v int64) CoinpaymentsTransaction_Amou
 	return CoinpaymentsTransaction_AmountNumeric_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_AmountNumeric_Field) value() interface{} {
+func (f CoinpaymentsTransaction_AmountNumeric_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4870,7 +4870,7 @@ func CoinpaymentsTransaction_ReceivedNumeric(v int64) CoinpaymentsTransaction_Re
 	return CoinpaymentsTransaction_ReceivedNumeric_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_ReceivedNumeric_Field) value() interface{} {
+func (f CoinpaymentsTransaction_ReceivedNumeric_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4889,7 +4889,7 @@ func CoinpaymentsTransaction_Status(v int) CoinpaymentsTransaction_Status_Field 
 	return CoinpaymentsTransaction_Status_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_Status_Field) value() interface{} {
+func (f CoinpaymentsTransaction_Status_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4908,7 +4908,7 @@ func CoinpaymentsTransaction_Key(v string) CoinpaymentsTransaction_Key_Field {
 	return CoinpaymentsTransaction_Key_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_Key_Field) value() interface{} {
+func (f CoinpaymentsTransaction_Key_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4927,7 +4927,7 @@ func CoinpaymentsTransaction_Timeout(v int) CoinpaymentsTransaction_Timeout_Fiel
 	return CoinpaymentsTransaction_Timeout_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_Timeout_Field) value() interface{} {
+func (f CoinpaymentsTransaction_Timeout_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4946,7 +4946,7 @@ func CoinpaymentsTransaction_CreatedAt(v time.Time) CoinpaymentsTransaction_Crea
 	return CoinpaymentsTransaction_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
+func (f CoinpaymentsTransaction_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -4981,7 +4981,7 @@ func GracefulExitProgress_NodeId(v []byte) GracefulExitProgress_NodeId_Field {
 	return GracefulExitProgress_NodeId_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitProgress_NodeId_Field) value() interface{} {
+func (f GracefulExitProgress_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5000,7 +5000,7 @@ func GracefulExitProgress_BytesTransferred(v int64) GracefulExitProgress_BytesTr
 	return GracefulExitProgress_BytesTransferred_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitProgress_BytesTransferred_Field) value() interface{} {
+func (f GracefulExitProgress_BytesTransferred_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5019,7 +5019,7 @@ func GracefulExitProgress_PiecesTransferred(v int64) GracefulExitProgress_Pieces
 	return GracefulExitProgress_PiecesTransferred_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitProgress_PiecesTransferred_Field) value() interface{} {
+func (f GracefulExitProgress_PiecesTransferred_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5038,7 +5038,7 @@ func GracefulExitProgress_PiecesFailed(v int64) GracefulExitProgress_PiecesFaile
 	return GracefulExitProgress_PiecesFailed_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitProgress_PiecesFailed_Field) value() interface{} {
+func (f GracefulExitProgress_PiecesFailed_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5057,7 +5057,7 @@ func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_
 	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitProgress_UpdatedAt_Field) value() interface{} {
+func (f GracefulExitProgress_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5114,7 +5114,7 @@ func GracefulExitSegmentTransfer_NodeId(v []byte) GracefulExitSegmentTransfer_No
 	return GracefulExitSegmentTransfer_NodeId_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_NodeId_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5133,7 +5133,7 @@ func GracefulExitSegmentTransfer_StreamId(v []byte) GracefulExitSegmentTransfer_
 	return GracefulExitSegmentTransfer_StreamId_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_StreamId_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_StreamId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5152,7 +5152,7 @@ func GracefulExitSegmentTransfer_Position(v uint64) GracefulExitSegmentTransfer_
 	return GracefulExitSegmentTransfer_Position_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_Position_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_Position_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5171,7 +5171,7 @@ func GracefulExitSegmentTransfer_PieceNum(v int) GracefulExitSegmentTransfer_Pie
 	return GracefulExitSegmentTransfer_PieceNum_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_PieceNum_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_PieceNum_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5205,7 +5205,7 @@ func (f GracefulExitSegmentTransfer_RootPieceId_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitSegmentTransfer_RootPieceId_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_RootPieceId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5224,7 +5224,7 @@ func GracefulExitSegmentTransfer_DurabilityRatio(v float64) GracefulExitSegmentT
 	return GracefulExitSegmentTransfer_DurabilityRatio_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_DurabilityRatio_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_DurabilityRatio_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5243,7 +5243,7 @@ func GracefulExitSegmentTransfer_QueuedAt(v time.Time) GracefulExitSegmentTransf
 	return GracefulExitSegmentTransfer_QueuedAt_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_QueuedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_QueuedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5277,7 +5277,7 @@ func (f GracefulExitSegmentTransfer_RequestedAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitSegmentTransfer_RequestedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_RequestedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5311,7 +5311,7 @@ func (f GracefulExitSegmentTransfer_LastFailedAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitSegmentTransfer_LastFailedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_LastFailedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5345,7 +5345,7 @@ func (f GracefulExitSegmentTransfer_LastFailedCode_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitSegmentTransfer_LastFailedCode_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_LastFailedCode_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5379,7 +5379,7 @@ func (f GracefulExitSegmentTransfer_FailedCount_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitSegmentTransfer_FailedCount_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_FailedCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5413,7 +5413,7 @@ func (f GracefulExitSegmentTransfer_FinishedAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitSegmentTransfer_FinishedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_FinishedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5432,7 +5432,7 @@ func GracefulExitSegmentTransfer_OrderLimitSendCount(v int) GracefulExitSegmentT
 	return GracefulExitSegmentTransfer_OrderLimitSendCount_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitSegmentTransfer_OrderLimitSendCount_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_OrderLimitSendCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5571,7 +5571,7 @@ func Node_Id(v []byte) Node_Id_Field {
 	return Node_Id_Field{_set: true, _value: v}
 }
 
-func (f Node_Id_Field) value() interface{} {
+func (f Node_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5590,7 +5590,7 @@ func Node_Address(v string) Node_Address_Field {
 	return Node_Address_Field{_set: true, _value: v}
 }
 
-func (f Node_Address_Field) value() interface{} {
+func (f Node_Address_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5609,7 +5609,7 @@ func Node_LastNet(v string) Node_LastNet_Field {
 	return Node_LastNet_Field{_set: true, _value: v}
 }
 
-func (f Node_LastNet_Field) value() interface{} {
+func (f Node_LastNet_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5641,7 +5641,7 @@ func Node_LastIpPort_Null() Node_LastIpPort_Field {
 
 func (f Node_LastIpPort_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_LastIpPort_Field) value() interface{} {
+func (f Node_LastIpPort_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5673,7 +5673,7 @@ func Node_CountryCode_Null() Node_CountryCode_Field {
 
 func (f Node_CountryCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_CountryCode_Field) value() interface{} {
+func (f Node_CountryCode_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5692,7 +5692,7 @@ func Node_Protocol(v int) Node_Protocol_Field {
 	return Node_Protocol_Field{_set: true, _value: v}
 }
 
-func (f Node_Protocol_Field) value() interface{} {
+func (f Node_Protocol_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5711,7 +5711,7 @@ func Node_Email(v string) Node_Email_Field {
 	return Node_Email_Field{_set: true, _value: v}
 }
 
-func (f Node_Email_Field) value() interface{} {
+func (f Node_Email_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5730,7 +5730,7 @@ func Node_Wallet(v string) Node_Wallet_Field {
 	return Node_Wallet_Field{_set: true, _value: v}
 }
 
-func (f Node_Wallet_Field) value() interface{} {
+func (f Node_Wallet_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5749,7 +5749,7 @@ func Node_WalletFeatures(v string) Node_WalletFeatures_Field {
 	return Node_WalletFeatures_Field{_set: true, _value: v}
 }
 
-func (f Node_WalletFeatures_Field) value() interface{} {
+func (f Node_WalletFeatures_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5768,7 +5768,7 @@ func Node_FreeDisk(v int64) Node_FreeDisk_Field {
 	return Node_FreeDisk_Field{_set: true, _value: v}
 }
 
-func (f Node_FreeDisk_Field) value() interface{} {
+func (f Node_FreeDisk_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5787,7 +5787,7 @@ func Node_PieceCount(v int64) Node_PieceCount_Field {
 	return Node_PieceCount_Field{_set: true, _value: v}
 }
 
-func (f Node_PieceCount_Field) value() interface{} {
+func (f Node_PieceCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5806,7 +5806,7 @@ func Node_Major(v int64) Node_Major_Field {
 	return Node_Major_Field{_set: true, _value: v}
 }
 
-func (f Node_Major_Field) value() interface{} {
+func (f Node_Major_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5825,7 +5825,7 @@ func Node_Minor(v int64) Node_Minor_Field {
 	return Node_Minor_Field{_set: true, _value: v}
 }
 
-func (f Node_Minor_Field) value() interface{} {
+func (f Node_Minor_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5844,7 +5844,7 @@ func Node_Patch(v int64) Node_Patch_Field {
 	return Node_Patch_Field{_set: true, _value: v}
 }
 
-func (f Node_Patch_Field) value() interface{} {
+func (f Node_Patch_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5863,7 +5863,7 @@ func Node_CommitHash(v string) Node_CommitHash_Field {
 	return Node_CommitHash_Field{_set: true, _value: v}
 }
 
-func (f Node_CommitHash_Field) value() interface{} {
+func (f Node_CommitHash_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5882,7 +5882,7 @@ func Node_ReleaseTimestamp(v time.Time) Node_ReleaseTimestamp_Field {
 	return Node_ReleaseTimestamp_Field{_set: true, _value: v}
 }
 
-func (f Node_ReleaseTimestamp_Field) value() interface{} {
+func (f Node_ReleaseTimestamp_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5901,7 +5901,7 @@ func Node_Release(v bool) Node_Release_Field {
 	return Node_Release_Field{_set: true, _value: v}
 }
 
-func (f Node_Release_Field) value() interface{} {
+func (f Node_Release_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5920,7 +5920,7 @@ func Node_Latency90(v int64) Node_Latency90_Field {
 	return Node_Latency90_Field{_set: true, _value: v}
 }
 
-func (f Node_Latency90_Field) value() interface{} {
+func (f Node_Latency90_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5952,7 +5952,7 @@ func Node_VettedAt_Null() Node_VettedAt_Field {
 
 func (f Node_VettedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_VettedAt_Field) value() interface{} {
+func (f Node_VettedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5971,7 +5971,7 @@ func Node_CreatedAt(v time.Time) Node_CreatedAt_Field {
 	return Node_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f Node_CreatedAt_Field) value() interface{} {
+func (f Node_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -5990,7 +5990,7 @@ func Node_UpdatedAt(v time.Time) Node_UpdatedAt_Field {
 	return Node_UpdatedAt_Field{_set: true, _value: v}
 }
 
-func (f Node_UpdatedAt_Field) value() interface{} {
+func (f Node_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6009,7 +6009,7 @@ func Node_LastContactSuccess(v time.Time) Node_LastContactSuccess_Field {
 	return Node_LastContactSuccess_Field{_set: true, _value: v}
 }
 
-func (f Node_LastContactSuccess_Field) value() interface{} {
+func (f Node_LastContactSuccess_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6028,7 +6028,7 @@ func Node_LastContactFailure(v time.Time) Node_LastContactFailure_Field {
 	return Node_LastContactFailure_Field{_set: true, _value: v}
 }
 
-func (f Node_LastContactFailure_Field) value() interface{} {
+func (f Node_LastContactFailure_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6060,7 +6060,7 @@ func Node_Disqualified_Null() Node_Disqualified_Field {
 
 func (f Node_Disqualified_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_Disqualified_Field) value() interface{} {
+func (f Node_Disqualified_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6094,7 +6094,7 @@ func (f Node_DisqualificationReason_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Node_DisqualificationReason_Field) value() interface{} {
+func (f Node_DisqualificationReason_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6126,7 +6126,7 @@ func Node_UnknownAuditSuspended_Null() Node_UnknownAuditSuspended_Field {
 
 func (f Node_UnknownAuditSuspended_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_UnknownAuditSuspended_Field) value() interface{} {
+func (f Node_UnknownAuditSuspended_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6158,7 +6158,7 @@ func Node_OfflineSuspended_Null() Node_OfflineSuspended_Field {
 
 func (f Node_OfflineSuspended_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_OfflineSuspended_Field) value() interface{} {
+func (f Node_OfflineSuspended_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6190,7 +6190,7 @@ func Node_UnderReview_Null() Node_UnderReview_Field {
 
 func (f Node_UnderReview_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_UnderReview_Field) value() interface{} {
+func (f Node_UnderReview_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6222,7 +6222,7 @@ func Node_ExitInitiatedAt_Null() Node_ExitInitiatedAt_Field {
 
 func (f Node_ExitInitiatedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_ExitInitiatedAt_Field) value() interface{} {
+func (f Node_ExitInitiatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6254,7 +6254,7 @@ func Node_ExitLoopCompletedAt_Null() Node_ExitLoopCompletedAt_Field {
 
 func (f Node_ExitLoopCompletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_ExitLoopCompletedAt_Field) value() interface{} {
+func (f Node_ExitLoopCompletedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6286,7 +6286,7 @@ func Node_ExitFinishedAt_Null() Node_ExitFinishedAt_Field {
 
 func (f Node_ExitFinishedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_ExitFinishedAt_Field) value() interface{} {
+func (f Node_ExitFinishedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6305,7 +6305,7 @@ func Node_ExitSuccess(v bool) Node_ExitSuccess_Field {
 	return Node_ExitSuccess_Field{_set: true, _value: v}
 }
 
-func (f Node_ExitSuccess_Field) value() interface{} {
+func (f Node_ExitSuccess_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6337,7 +6337,7 @@ func Node_Contained_Null() Node_Contained_Field {
 
 func (f Node_Contained_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_Contained_Field) value() interface{} {
+func (f Node_Contained_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6369,7 +6369,7 @@ func Node_LastOfflineEmail_Null() Node_LastOfflineEmail_Field {
 
 func (f Node_LastOfflineEmail_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_LastOfflineEmail_Field) value() interface{} {
+func (f Node_LastOfflineEmail_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6403,7 +6403,7 @@ func (f Node_LastSoftwareUpdateEmail_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Node_LastSoftwareUpdateEmail_Field) value() interface{} {
+func (f Node_LastSoftwareUpdateEmail_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6435,7 +6435,7 @@ func Node_NoiseProto_Null() Node_NoiseProto_Field {
 
 func (f Node_NoiseProto_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_NoiseProto_Field) value() interface{} {
+func (f Node_NoiseProto_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6467,7 +6467,7 @@ func Node_NoisePublicKey_Null() Node_NoisePublicKey_Field {
 
 func (f Node_NoisePublicKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Node_NoisePublicKey_Field) value() interface{} {
+func (f Node_NoisePublicKey_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6486,7 +6486,7 @@ func Node_DebounceLimit(v int) Node_DebounceLimit_Field {
 	return Node_DebounceLimit_Field{_set: true, _value: v}
 }
 
-func (f Node_DebounceLimit_Field) value() interface{} {
+func (f Node_DebounceLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6505,7 +6505,7 @@ func Node_Features(v int) Node_Features_Field {
 	return Node_Features_Field{_set: true, _value: v}
 }
 
-func (f Node_Features_Field) value() interface{} {
+func (f Node_Features_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6537,7 +6537,7 @@ func NodeApiVersion_Id(v []byte) NodeApiVersion_Id_Field {
 	return NodeApiVersion_Id_Field{_set: true, _value: v}
 }
 
-func (f NodeApiVersion_Id_Field) value() interface{} {
+func (f NodeApiVersion_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6556,7 +6556,7 @@ func NodeApiVersion_ApiVersion(v int) NodeApiVersion_ApiVersion_Field {
 	return NodeApiVersion_ApiVersion_Field{_set: true, _value: v}
 }
 
-func (f NodeApiVersion_ApiVersion_Field) value() interface{} {
+func (f NodeApiVersion_ApiVersion_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6575,7 +6575,7 @@ func NodeApiVersion_CreatedAt(v time.Time) NodeApiVersion_CreatedAt_Field {
 	return NodeApiVersion_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f NodeApiVersion_CreatedAt_Field) value() interface{} {
+func (f NodeApiVersion_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6594,7 +6594,7 @@ func NodeApiVersion_UpdatedAt(v time.Time) NodeApiVersion_UpdatedAt_Field {
 	return NodeApiVersion_UpdatedAt_Field{_set: true, _value: v}
 }
 
-func (f NodeApiVersion_UpdatedAt_Field) value() interface{} {
+func (f NodeApiVersion_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6638,7 +6638,7 @@ func NodeEvent_Id(v []byte) NodeEvent_Id_Field {
 	return NodeEvent_Id_Field{_set: true, _value: v}
 }
 
-func (f NodeEvent_Id_Field) value() interface{} {
+func (f NodeEvent_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6657,7 +6657,7 @@ func NodeEvent_Email(v string) NodeEvent_Email_Field {
 	return NodeEvent_Email_Field{_set: true, _value: v}
 }
 
-func (f NodeEvent_Email_Field) value() interface{} {
+func (f NodeEvent_Email_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6689,7 +6689,7 @@ func NodeEvent_LastIpPort_Null() NodeEvent_LastIpPort_Field {
 
 func (f NodeEvent_LastIpPort_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f NodeEvent_LastIpPort_Field) value() interface{} {
+func (f NodeEvent_LastIpPort_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6708,7 +6708,7 @@ func NodeEvent_NodeId(v []byte) NodeEvent_NodeId_Field {
 	return NodeEvent_NodeId_Field{_set: true, _value: v}
 }
 
-func (f NodeEvent_NodeId_Field) value() interface{} {
+func (f NodeEvent_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6727,7 +6727,7 @@ func NodeEvent_Event(v int) NodeEvent_Event_Field {
 	return NodeEvent_Event_Field{_set: true, _value: v}
 }
 
-func (f NodeEvent_Event_Field) value() interface{} {
+func (f NodeEvent_Event_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6746,7 +6746,7 @@ func NodeEvent_CreatedAt(v time.Time) NodeEvent_CreatedAt_Field {
 	return NodeEvent_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f NodeEvent_CreatedAt_Field) value() interface{} {
+func (f NodeEvent_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6778,7 +6778,7 @@ func NodeEvent_LastAttempted_Null() NodeEvent_LastAttempted_Field {
 
 func (f NodeEvent_LastAttempted_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f NodeEvent_LastAttempted_Field) value() interface{} {
+func (f NodeEvent_LastAttempted_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6810,7 +6810,7 @@ func NodeEvent_EmailSent_Null() NodeEvent_EmailSent_Field {
 
 func (f NodeEvent_EmailSent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f NodeEvent_EmailSent_Field) value() interface{} {
+func (f NodeEvent_EmailSent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6842,7 +6842,7 @@ func NodeTags_NodeId(v []byte) NodeTags_NodeId_Field {
 	return NodeTags_NodeId_Field{_set: true, _value: v}
 }
 
-func (f NodeTags_NodeId_Field) value() interface{} {
+func (f NodeTags_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6861,7 +6861,7 @@ func NodeTags_Name(v string) NodeTags_Name_Field {
 	return NodeTags_Name_Field{_set: true, _value: v}
 }
 
-func (f NodeTags_Name_Field) value() interface{} {
+func (f NodeTags_Name_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6880,7 +6880,7 @@ func NodeTags_Value(v []byte) NodeTags_Value_Field {
 	return NodeTags_Value_Field{_set: true, _value: v}
 }
 
-func (f NodeTags_Value_Field) value() interface{} {
+func (f NodeTags_Value_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6899,7 +6899,7 @@ func NodeTags_SignedAt(v time.Time) NodeTags_SignedAt_Field {
 	return NodeTags_SignedAt_Field{_set: true, _value: v}
 }
 
-func (f NodeTags_SignedAt_Field) value() interface{} {
+func (f NodeTags_SignedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6918,7 +6918,7 @@ func NodeTags_Signer(v []byte) NodeTags_Signer_Field {
 	return NodeTags_Signer_Field{_set: true, _value: v}
 }
 
-func (f NodeTags_Signer_Field) value() interface{} {
+func (f NodeTags_Signer_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6955,7 +6955,7 @@ func OauthClient_Id(v []byte) OauthClient_Id_Field {
 	return OauthClient_Id_Field{_set: true, _value: v}
 }
 
-func (f OauthClient_Id_Field) value() interface{} {
+func (f OauthClient_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6974,7 +6974,7 @@ func OauthClient_EncryptedSecret(v []byte) OauthClient_EncryptedSecret_Field {
 	return OauthClient_EncryptedSecret_Field{_set: true, _value: v}
 }
 
-func (f OauthClient_EncryptedSecret_Field) value() interface{} {
+func (f OauthClient_EncryptedSecret_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -6993,7 +6993,7 @@ func OauthClient_RedirectUrl(v string) OauthClient_RedirectUrl_Field {
 	return OauthClient_RedirectUrl_Field{_set: true, _value: v}
 }
 
-func (f OauthClient_RedirectUrl_Field) value() interface{} {
+func (f OauthClient_RedirectUrl_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7012,7 +7012,7 @@ func OauthClient_UserId(v []byte) OauthClient_UserId_Field {
 	return OauthClient_UserId_Field{_set: true, _value: v}
 }
 
-func (f OauthClient_UserId_Field) value() interface{} {
+func (f OauthClient_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7031,7 +7031,7 @@ func OauthClient_AppName(v string) OauthClient_AppName_Field {
 	return OauthClient_AppName_Field{_set: true, _value: v}
 }
 
-func (f OauthClient_AppName_Field) value() interface{} {
+func (f OauthClient_AppName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7050,7 +7050,7 @@ func OauthClient_AppLogoUrl(v string) OauthClient_AppLogoUrl_Field {
 	return OauthClient_AppLogoUrl_Field{_set: true, _value: v}
 }
 
-func (f OauthClient_AppLogoUrl_Field) value() interface{} {
+func (f OauthClient_AppLogoUrl_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7092,7 +7092,7 @@ func OauthCode_ClientId(v []byte) OauthCode_ClientId_Field {
 	return OauthCode_ClientId_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_ClientId_Field) value() interface{} {
+func (f OauthCode_ClientId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7111,7 +7111,7 @@ func OauthCode_UserId(v []byte) OauthCode_UserId_Field {
 	return OauthCode_UserId_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_UserId_Field) value() interface{} {
+func (f OauthCode_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7130,7 +7130,7 @@ func OauthCode_Scope(v string) OauthCode_Scope_Field {
 	return OauthCode_Scope_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_Scope_Field) value() interface{} {
+func (f OauthCode_Scope_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7149,7 +7149,7 @@ func OauthCode_RedirectUrl(v string) OauthCode_RedirectUrl_Field {
 	return OauthCode_RedirectUrl_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_RedirectUrl_Field) value() interface{} {
+func (f OauthCode_RedirectUrl_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7168,7 +7168,7 @@ func OauthCode_Challenge(v string) OauthCode_Challenge_Field {
 	return OauthCode_Challenge_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_Challenge_Field) value() interface{} {
+func (f OauthCode_Challenge_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7187,7 +7187,7 @@ func OauthCode_ChallengeMethod(v string) OauthCode_ChallengeMethod_Field {
 	return OauthCode_ChallengeMethod_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_ChallengeMethod_Field) value() interface{} {
+func (f OauthCode_ChallengeMethod_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7206,7 +7206,7 @@ func OauthCode_Code(v string) OauthCode_Code_Field {
 	return OauthCode_Code_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_Code_Field) value() interface{} {
+func (f OauthCode_Code_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7225,7 +7225,7 @@ func OauthCode_CreatedAt(v time.Time) OauthCode_CreatedAt_Field {
 	return OauthCode_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_CreatedAt_Field) value() interface{} {
+func (f OauthCode_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7244,7 +7244,7 @@ func OauthCode_ExpiresAt(v time.Time) OauthCode_ExpiresAt_Field {
 	return OauthCode_ExpiresAt_Field{_set: true, _value: v}
 }
 
-func (f OauthCode_ExpiresAt_Field) value() interface{} {
+func (f OauthCode_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7276,7 +7276,7 @@ func OauthCode_ClaimedAt_Null() OauthCode_ClaimedAt_Field {
 
 func (f OauthCode_ClaimedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f OauthCode_ClaimedAt_Field) value() interface{} {
+func (f OauthCode_ClaimedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7311,7 +7311,7 @@ func OauthToken_ClientId(v []byte) OauthToken_ClientId_Field {
 	return OauthToken_ClientId_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_ClientId_Field) value() interface{} {
+func (f OauthToken_ClientId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7330,7 +7330,7 @@ func OauthToken_UserId(v []byte) OauthToken_UserId_Field {
 	return OauthToken_UserId_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_UserId_Field) value() interface{} {
+func (f OauthToken_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7349,7 +7349,7 @@ func OauthToken_Scope(v string) OauthToken_Scope_Field {
 	return OauthToken_Scope_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_Scope_Field) value() interface{} {
+func (f OauthToken_Scope_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7368,7 +7368,7 @@ func OauthToken_Kind(v int) OauthToken_Kind_Field {
 	return OauthToken_Kind_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_Kind_Field) value() interface{} {
+func (f OauthToken_Kind_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7387,7 +7387,7 @@ func OauthToken_Token(v []byte) OauthToken_Token_Field {
 	return OauthToken_Token_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_Token_Field) value() interface{} {
+func (f OauthToken_Token_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7406,7 +7406,7 @@ func OauthToken_CreatedAt(v time.Time) OauthToken_CreatedAt_Field {
 	return OauthToken_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_CreatedAt_Field) value() interface{} {
+func (f OauthToken_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7425,7 +7425,7 @@ func OauthToken_ExpiresAt(v time.Time) OauthToken_ExpiresAt_Field {
 	return OauthToken_ExpiresAt_Field{_set: true, _value: v}
 }
 
-func (f OauthToken_ExpiresAt_Field) value() interface{} {
+func (f OauthToken_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7458,7 +7458,7 @@ func PeerIdentity_NodeId(v []byte) PeerIdentity_NodeId_Field {
 	return PeerIdentity_NodeId_Field{_set: true, _value: v}
 }
 
-func (f PeerIdentity_NodeId_Field) value() interface{} {
+func (f PeerIdentity_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7477,7 +7477,7 @@ func PeerIdentity_LeafSerialNumber(v []byte) PeerIdentity_LeafSerialNumber_Field
 	return PeerIdentity_LeafSerialNumber_Field{_set: true, _value: v}
 }
 
-func (f PeerIdentity_LeafSerialNumber_Field) value() interface{} {
+func (f PeerIdentity_LeafSerialNumber_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7496,7 +7496,7 @@ func PeerIdentity_Chain(v []byte) PeerIdentity_Chain_Field {
 	return PeerIdentity_Chain_Field{_set: true, _value: v}
 }
 
-func (f PeerIdentity_Chain_Field) value() interface{} {
+func (f PeerIdentity_Chain_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7515,7 +7515,7 @@ func PeerIdentity_UpdatedAt(v time.Time) PeerIdentity_UpdatedAt_Field {
 	return PeerIdentity_UpdatedAt_Field{_set: true, _value: v}
 }
 
-func (f PeerIdentity_UpdatedAt_Field) value() interface{} {
+func (f PeerIdentity_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7631,7 +7631,7 @@ func Project_Id(v []byte) Project_Id_Field {
 	return Project_Id_Field{_set: true, _value: v}
 }
 
-func (f Project_Id_Field) value() interface{} {
+func (f Project_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7663,7 +7663,7 @@ func Project_PublicId_Null() Project_PublicId_Field {
 
 func (f Project_PublicId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_PublicId_Field) value() interface{} {
+func (f Project_PublicId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7682,7 +7682,7 @@ func Project_Name(v string) Project_Name_Field {
 	return Project_Name_Field{_set: true, _value: v}
 }
 
-func (f Project_Name_Field) value() interface{} {
+func (f Project_Name_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7701,7 +7701,7 @@ func Project_Description(v string) Project_Description_Field {
 	return Project_Description_Field{_set: true, _value: v}
 }
 
-func (f Project_Description_Field) value() interface{} {
+func (f Project_Description_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7733,7 +7733,7 @@ func Project_UsageLimit_Null() Project_UsageLimit_Field {
 
 func (f Project_UsageLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_UsageLimit_Field) value() interface{} {
+func (f Project_UsageLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7765,7 +7765,7 @@ func Project_BandwidthLimit_Null() Project_BandwidthLimit_Field {
 
 func (f Project_BandwidthLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BandwidthLimit_Field) value() interface{} {
+func (f Project_BandwidthLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7799,7 +7799,7 @@ func (f Project_UserSpecifiedUsageLimit_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Project_UserSpecifiedUsageLimit_Field) value() interface{} {
+func (f Project_UserSpecifiedUsageLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7833,7 +7833,7 @@ func (f Project_UserSpecifiedBandwidthLimit_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Project_UserSpecifiedBandwidthLimit_Field) value() interface{} {
+func (f Project_UserSpecifiedBandwidthLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7867,7 +7867,7 @@ func Project_SegmentLimit_Null() Project_SegmentLimit_Field {
 
 func (f Project_SegmentLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_SegmentLimit_Field) value() interface{} {
+func (f Project_SegmentLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7899,7 +7899,7 @@ func Project_RateLimit_Null() Project_RateLimit_Field {
 
 func (f Project_RateLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_RateLimit_Field) value() interface{} {
+func (f Project_RateLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7931,7 +7931,7 @@ func Project_BurstLimit_Null() Project_BurstLimit_Field {
 
 func (f Project_BurstLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BurstLimit_Field) value() interface{} {
+func (f Project_BurstLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7963,7 +7963,7 @@ func Project_RateLimitHead_Null() Project_RateLimitHead_Field {
 
 func (f Project_RateLimitHead_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_RateLimitHead_Field) value() interface{} {
+func (f Project_RateLimitHead_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -7995,7 +7995,7 @@ func Project_BurstLimitHead_Null() Project_BurstLimitHead_Field {
 
 func (f Project_BurstLimitHead_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BurstLimitHead_Field) value() interface{} {
+func (f Project_BurstLimitHead_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8027,7 +8027,7 @@ func Project_RateLimitGet_Null() Project_RateLimitGet_Field {
 
 func (f Project_RateLimitGet_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_RateLimitGet_Field) value() interface{} {
+func (f Project_RateLimitGet_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8059,7 +8059,7 @@ func Project_BurstLimitGet_Null() Project_BurstLimitGet_Field {
 
 func (f Project_BurstLimitGet_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BurstLimitGet_Field) value() interface{} {
+func (f Project_BurstLimitGet_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8091,7 +8091,7 @@ func Project_RateLimitPut_Null() Project_RateLimitPut_Field {
 
 func (f Project_RateLimitPut_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_RateLimitPut_Field) value() interface{} {
+func (f Project_RateLimitPut_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8123,7 +8123,7 @@ func Project_BurstLimitPut_Null() Project_BurstLimitPut_Field {
 
 func (f Project_BurstLimitPut_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BurstLimitPut_Field) value() interface{} {
+func (f Project_BurstLimitPut_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8155,7 +8155,7 @@ func Project_RateLimitList_Null() Project_RateLimitList_Field {
 
 func (f Project_RateLimitList_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_RateLimitList_Field) value() interface{} {
+func (f Project_RateLimitList_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8187,7 +8187,7 @@ func Project_BurstLimitList_Null() Project_BurstLimitList_Field {
 
 func (f Project_BurstLimitList_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BurstLimitList_Field) value() interface{} {
+func (f Project_BurstLimitList_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8219,7 +8219,7 @@ func Project_RateLimitDel_Null() Project_RateLimitDel_Field {
 
 func (f Project_RateLimitDel_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_RateLimitDel_Field) value() interface{} {
+func (f Project_RateLimitDel_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8251,7 +8251,7 @@ func Project_BurstLimitDel_Null() Project_BurstLimitDel_Field {
 
 func (f Project_BurstLimitDel_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_BurstLimitDel_Field) value() interface{} {
+func (f Project_BurstLimitDel_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8283,7 +8283,7 @@ func Project_MaxBuckets_Null() Project_MaxBuckets_Field {
 
 func (f Project_MaxBuckets_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_MaxBuckets_Field) value() interface{} {
+func (f Project_MaxBuckets_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8315,7 +8315,7 @@ func Project_UserAgent_Null() Project_UserAgent_Field {
 
 func (f Project_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_UserAgent_Field) value() interface{} {
+func (f Project_UserAgent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8334,7 +8334,7 @@ func Project_OwnerId(v []byte) Project_OwnerId_Field {
 	return Project_OwnerId_Field{_set: true, _value: v}
 }
 
-func (f Project_OwnerId_Field) value() interface{} {
+func (f Project_OwnerId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8366,7 +8366,7 @@ func Project_Salt_Null() Project_Salt_Field {
 
 func (f Project_Salt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_Salt_Field) value() interface{} {
+func (f Project_Salt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8385,7 +8385,7 @@ func Project_CreatedAt(v time.Time) Project_CreatedAt_Field {
 	return Project_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f Project_CreatedAt_Field) value() interface{} {
+func (f Project_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8417,7 +8417,7 @@ func Project_DefaultPlacement_Null() Project_DefaultPlacement_Field {
 
 func (f Project_DefaultPlacement_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_DefaultPlacement_Field) value() interface{} {
+func (f Project_DefaultPlacement_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8436,7 +8436,7 @@ func Project_DefaultVersioning(v int) Project_DefaultVersioning_Field {
 	return Project_DefaultVersioning_Field{_set: true, _value: v}
 }
 
-func (f Project_DefaultVersioning_Field) value() interface{} {
+func (f Project_DefaultVersioning_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8455,7 +8455,7 @@ func Project_PromptedForVersioningBeta(v bool) Project_PromptedForVersioningBeta
 	return Project_PromptedForVersioningBeta_Field{_set: true, _value: v}
 }
 
-func (f Project_PromptedForVersioningBeta_Field) value() interface{} {
+func (f Project_PromptedForVersioningBeta_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8489,7 +8489,7 @@ func Project_PassphraseEnc_Null() Project_PassphraseEnc_Field {
 
 func (f Project_PassphraseEnc_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_PassphraseEnc_Field) value() interface{} {
+func (f Project_PassphraseEnc_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8521,7 +8521,7 @@ func Project_PassphraseEncKeyId_Null() Project_PassphraseEncKeyId_Field {
 
 func (f Project_PassphraseEncKeyId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Project_PassphraseEncKeyId_Field) value() interface{} {
+func (f Project_PassphraseEncKeyId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8540,7 +8540,7 @@ func Project_PathEncryption(v bool) Project_PathEncryption_Field {
 	return Project_PathEncryption_Field{_set: true, _value: v}
 }
 
-func (f Project_PathEncryption_Field) value() interface{} {
+func (f Project_PathEncryption_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8579,7 +8579,7 @@ func ProjectBandwidthDailyRollup_ProjectId(v []byte) ProjectBandwidthDailyRollup
 	return ProjectBandwidthDailyRollup_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f ProjectBandwidthDailyRollup_ProjectId_Field) value() interface{} {
+func (f ProjectBandwidthDailyRollup_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8599,7 +8599,7 @@ func ProjectBandwidthDailyRollup_IntervalDay(v time.Time) ProjectBandwidthDailyR
 	return ProjectBandwidthDailyRollup_IntervalDay_Field{_set: true, _value: v}
 }
 
-func (f ProjectBandwidthDailyRollup_IntervalDay_Field) value() interface{} {
+func (f ProjectBandwidthDailyRollup_IntervalDay_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8618,7 +8618,7 @@ func ProjectBandwidthDailyRollup_EgressAllocated(v uint64) ProjectBandwidthDaily
 	return ProjectBandwidthDailyRollup_EgressAllocated_Field{_set: true, _value: v}
 }
 
-func (f ProjectBandwidthDailyRollup_EgressAllocated_Field) value() interface{} {
+func (f ProjectBandwidthDailyRollup_EgressAllocated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8637,7 +8637,7 @@ func ProjectBandwidthDailyRollup_EgressSettled(v uint64) ProjectBandwidthDailyRo
 	return ProjectBandwidthDailyRollup_EgressSettled_Field{_set: true, _value: v}
 }
 
-func (f ProjectBandwidthDailyRollup_EgressSettled_Field) value() interface{} {
+func (f ProjectBandwidthDailyRollup_EgressSettled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8656,7 +8656,7 @@ func ProjectBandwidthDailyRollup_EgressDead(v uint64) ProjectBandwidthDailyRollu
 	return ProjectBandwidthDailyRollup_EgressDead_Field{_set: true, _value: v}
 }
 
-func (f ProjectBandwidthDailyRollup_EgressDead_Field) value() interface{} {
+func (f ProjectBandwidthDailyRollup_EgressDead_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8692,7 +8692,7 @@ func RegistrationToken_Secret(v []byte) RegistrationToken_Secret_Field {
 	return RegistrationToken_Secret_Field{_set: true, _value: v}
 }
 
-func (f RegistrationToken_Secret_Field) value() interface{} {
+func (f RegistrationToken_Secret_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8724,7 +8724,7 @@ func RegistrationToken_OwnerId_Null() RegistrationToken_OwnerId_Field {
 
 func (f RegistrationToken_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f RegistrationToken_OwnerId_Field) value() interface{} {
+func (f RegistrationToken_OwnerId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8743,7 +8743,7 @@ func RegistrationToken_ProjectLimit(v int) RegistrationToken_ProjectLimit_Field 
 	return RegistrationToken_ProjectLimit_Field{_set: true, _value: v}
 }
 
-func (f RegistrationToken_ProjectLimit_Field) value() interface{} {
+func (f RegistrationToken_ProjectLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8762,7 +8762,7 @@ func RegistrationToken_CreatedAt(v time.Time) RegistrationToken_CreatedAt_Field 
 	return RegistrationToken_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f RegistrationToken_CreatedAt_Field) value() interface{} {
+func (f RegistrationToken_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8807,7 +8807,7 @@ func RepairQueue_StreamId(v []byte) RepairQueue_StreamId_Field {
 	return RepairQueue_StreamId_Field{_set: true, _value: v}
 }
 
-func (f RepairQueue_StreamId_Field) value() interface{} {
+func (f RepairQueue_StreamId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8826,7 +8826,7 @@ func RepairQueue_Position(v uint64) RepairQueue_Position_Field {
 	return RepairQueue_Position_Field{_set: true, _value: v}
 }
 
-func (f RepairQueue_Position_Field) value() interface{} {
+func (f RepairQueue_Position_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8858,7 +8858,7 @@ func RepairQueue_AttemptedAt_Null() RepairQueue_AttemptedAt_Field {
 
 func (f RepairQueue_AttemptedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f RepairQueue_AttemptedAt_Field) value() interface{} {
+func (f RepairQueue_AttemptedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8877,7 +8877,7 @@ func RepairQueue_UpdatedAt(v time.Time) RepairQueue_UpdatedAt_Field {
 	return RepairQueue_UpdatedAt_Field{_set: true, _value: v}
 }
 
-func (f RepairQueue_UpdatedAt_Field) value() interface{} {
+func (f RepairQueue_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8896,7 +8896,7 @@ func RepairQueue_InsertedAt(v time.Time) RepairQueue_InsertedAt_Field {
 	return RepairQueue_InsertedAt_Field{_set: true, _value: v}
 }
 
-func (f RepairQueue_InsertedAt_Field) value() interface{} {
+func (f RepairQueue_InsertedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8915,7 +8915,7 @@ func RepairQueue_SegmentHealth(v float64) RepairQueue_SegmentHealth_Field {
 	return RepairQueue_SegmentHealth_Field{_set: true, _value: v}
 }
 
-func (f RepairQueue_SegmentHealth_Field) value() interface{} {
+func (f RepairQueue_SegmentHealth_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -8947,7 +8947,7 @@ func RepairQueue_Placement_Null() RepairQueue_Placement_Field {
 
 func (f RepairQueue_Placement_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f RepairQueue_Placement_Field) value() interface{} {
+func (f RepairQueue_Placement_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9021,7 +9021,7 @@ func Reputation_Id(v []byte) Reputation_Id_Field {
 	return Reputation_Id_Field{_set: true, _value: v}
 }
 
-func (f Reputation_Id_Field) value() interface{} {
+func (f Reputation_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9040,7 +9040,7 @@ func Reputation_AuditSuccessCount(v int64) Reputation_AuditSuccessCount_Field {
 	return Reputation_AuditSuccessCount_Field{_set: true, _value: v}
 }
 
-func (f Reputation_AuditSuccessCount_Field) value() interface{} {
+func (f Reputation_AuditSuccessCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9059,7 +9059,7 @@ func Reputation_TotalAuditCount(v int64) Reputation_TotalAuditCount_Field {
 	return Reputation_TotalAuditCount_Field{_set: true, _value: v}
 }
 
-func (f Reputation_TotalAuditCount_Field) value() interface{} {
+func (f Reputation_TotalAuditCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9091,7 +9091,7 @@ func Reputation_VettedAt_Null() Reputation_VettedAt_Field {
 
 func (f Reputation_VettedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Reputation_VettedAt_Field) value() interface{} {
+func (f Reputation_VettedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9110,7 +9110,7 @@ func Reputation_CreatedAt(v time.Time) Reputation_CreatedAt_Field {
 	return Reputation_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f Reputation_CreatedAt_Field) value() interface{} {
+func (f Reputation_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9129,7 +9129,7 @@ func Reputation_UpdatedAt(v time.Time) Reputation_UpdatedAt_Field {
 	return Reputation_UpdatedAt_Field{_set: true, _value: v}
 }
 
-func (f Reputation_UpdatedAt_Field) value() interface{} {
+func (f Reputation_UpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9161,7 +9161,7 @@ func Reputation_Disqualified_Null() Reputation_Disqualified_Field {
 
 func (f Reputation_Disqualified_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Reputation_Disqualified_Field) value() interface{} {
+func (f Reputation_Disqualified_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9195,7 +9195,7 @@ func (f Reputation_DisqualificationReason_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Reputation_DisqualificationReason_Field) value() interface{} {
+func (f Reputation_DisqualificationReason_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9229,7 +9229,7 @@ func (f Reputation_UnknownAuditSuspended_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Reputation_UnknownAuditSuspended_Field) value() interface{} {
+func (f Reputation_UnknownAuditSuspended_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9263,7 +9263,7 @@ func (f Reputation_OfflineSuspended_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f Reputation_OfflineSuspended_Field) value() interface{} {
+func (f Reputation_OfflineSuspended_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9295,7 +9295,7 @@ func Reputation_UnderReview_Null() Reputation_UnderReview_Field {
 
 func (f Reputation_UnderReview_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f Reputation_UnderReview_Field) value() interface{} {
+func (f Reputation_UnderReview_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9314,7 +9314,7 @@ func Reputation_OnlineScore(v float64) Reputation_OnlineScore_Field {
 	return Reputation_OnlineScore_Field{_set: true, _value: v}
 }
 
-func (f Reputation_OnlineScore_Field) value() interface{} {
+func (f Reputation_OnlineScore_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9333,7 +9333,7 @@ func Reputation_AuditHistory(v []byte) Reputation_AuditHistory_Field {
 	return Reputation_AuditHistory_Field{_set: true, _value: v}
 }
 
-func (f Reputation_AuditHistory_Field) value() interface{} {
+func (f Reputation_AuditHistory_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9352,7 +9352,7 @@ func Reputation_AuditReputationAlpha(v float64) Reputation_AuditReputationAlpha_
 	return Reputation_AuditReputationAlpha_Field{_set: true, _value: v}
 }
 
-func (f Reputation_AuditReputationAlpha_Field) value() interface{} {
+func (f Reputation_AuditReputationAlpha_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9371,7 +9371,7 @@ func Reputation_AuditReputationBeta(v float64) Reputation_AuditReputationBeta_Fi
 	return Reputation_AuditReputationBeta_Field{_set: true, _value: v}
 }
 
-func (f Reputation_AuditReputationBeta_Field) value() interface{} {
+func (f Reputation_AuditReputationBeta_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9390,7 +9390,7 @@ func Reputation_UnknownAuditReputationAlpha(v float64) Reputation_UnknownAuditRe
 	return Reputation_UnknownAuditReputationAlpha_Field{_set: true, _value: v}
 }
 
-func (f Reputation_UnknownAuditReputationAlpha_Field) value() interface{} {
+func (f Reputation_UnknownAuditReputationAlpha_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9411,7 +9411,7 @@ func Reputation_UnknownAuditReputationBeta(v float64) Reputation_UnknownAuditRep
 	return Reputation_UnknownAuditReputationBeta_Field{_set: true, _value: v}
 }
 
-func (f Reputation_UnknownAuditReputationBeta_Field) value() interface{} {
+func (f Reputation_UnknownAuditReputationBeta_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9444,7 +9444,7 @@ func ResetPasswordToken_Secret(v []byte) ResetPasswordToken_Secret_Field {
 	return ResetPasswordToken_Secret_Field{_set: true, _value: v}
 }
 
-func (f ResetPasswordToken_Secret_Field) value() interface{} {
+func (f ResetPasswordToken_Secret_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9463,7 +9463,7 @@ func ResetPasswordToken_OwnerId(v []byte) ResetPasswordToken_OwnerId_Field {
 	return ResetPasswordToken_OwnerId_Field{_set: true, _value: v}
 }
 
-func (f ResetPasswordToken_OwnerId_Field) value() interface{} {
+func (f ResetPasswordToken_OwnerId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9482,7 +9482,7 @@ func ResetPasswordToken_CreatedAt(v time.Time) ResetPasswordToken_CreatedAt_Fiel
 	return ResetPasswordToken_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
+func (f ResetPasswordToken_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9524,7 +9524,7 @@ func ReverificationAudits_NodeId(v []byte) ReverificationAudits_NodeId_Field {
 	return ReverificationAudits_NodeId_Field{_set: true, _value: v}
 }
 
-func (f ReverificationAudits_NodeId_Field) value() interface{} {
+func (f ReverificationAudits_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9543,7 +9543,7 @@ func ReverificationAudits_StreamId(v []byte) ReverificationAudits_StreamId_Field
 	return ReverificationAudits_StreamId_Field{_set: true, _value: v}
 }
 
-func (f ReverificationAudits_StreamId_Field) value() interface{} {
+func (f ReverificationAudits_StreamId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9562,7 +9562,7 @@ func ReverificationAudits_Position(v uint64) ReverificationAudits_Position_Field
 	return ReverificationAudits_Position_Field{_set: true, _value: v}
 }
 
-func (f ReverificationAudits_Position_Field) value() interface{} {
+func (f ReverificationAudits_Position_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9581,7 +9581,7 @@ func ReverificationAudits_PieceNum(v int) ReverificationAudits_PieceNum_Field {
 	return ReverificationAudits_PieceNum_Field{_set: true, _value: v}
 }
 
-func (f ReverificationAudits_PieceNum_Field) value() interface{} {
+func (f ReverificationAudits_PieceNum_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9600,7 +9600,7 @@ func ReverificationAudits_InsertedAt(v time.Time) ReverificationAudits_InsertedA
 	return ReverificationAudits_InsertedAt_Field{_set: true, _value: v}
 }
 
-func (f ReverificationAudits_InsertedAt_Field) value() interface{} {
+func (f ReverificationAudits_InsertedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9634,7 +9634,7 @@ func (f ReverificationAudits_LastAttempt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f ReverificationAudits_LastAttempt_Field) value() interface{} {
+func (f ReverificationAudits_LastAttempt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9653,7 +9653,7 @@ func ReverificationAudits_ReverifyCount(v int64) ReverificationAudits_ReverifyCo
 	return ReverificationAudits_ReverifyCount_Field{_set: true, _value: v}
 }
 
-func (f ReverificationAudits_ReverifyCount_Field) value() interface{} {
+func (f ReverificationAudits_ReverifyCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9682,7 +9682,7 @@ func Revocation_Revoked(v []byte) Revocation_Revoked_Field {
 	return Revocation_Revoked_Field{_set: true, _value: v}
 }
 
-func (f Revocation_Revoked_Field) value() interface{} {
+func (f Revocation_Revoked_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9701,7 +9701,7 @@ func Revocation_ApiKeyId(v []byte) Revocation_ApiKeyId_Field {
 	return Revocation_ApiKeyId_Field{_set: true, _value: v}
 }
 
-func (f Revocation_ApiKeyId_Field) value() interface{} {
+func (f Revocation_ApiKeyId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9737,7 +9737,7 @@ func SegmentPendingAudits_NodeId(v []byte) SegmentPendingAudits_NodeId_Field {
 	return SegmentPendingAudits_NodeId_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_NodeId_Field) value() interface{} {
+func (f SegmentPendingAudits_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9756,7 +9756,7 @@ func SegmentPendingAudits_StreamId(v []byte) SegmentPendingAudits_StreamId_Field
 	return SegmentPendingAudits_StreamId_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_StreamId_Field) value() interface{} {
+func (f SegmentPendingAudits_StreamId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9775,7 +9775,7 @@ func SegmentPendingAudits_Position(v uint64) SegmentPendingAudits_Position_Field
 	return SegmentPendingAudits_Position_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_Position_Field) value() interface{} {
+func (f SegmentPendingAudits_Position_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9794,7 +9794,7 @@ func SegmentPendingAudits_PieceId(v []byte) SegmentPendingAudits_PieceId_Field {
 	return SegmentPendingAudits_PieceId_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_PieceId_Field) value() interface{} {
+func (f SegmentPendingAudits_PieceId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9813,7 +9813,7 @@ func SegmentPendingAudits_StripeIndex(v int64) SegmentPendingAudits_StripeIndex_
 	return SegmentPendingAudits_StripeIndex_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_StripeIndex_Field) value() interface{} {
+func (f SegmentPendingAudits_StripeIndex_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9832,7 +9832,7 @@ func SegmentPendingAudits_ShareSize(v int64) SegmentPendingAudits_ShareSize_Fiel
 	return SegmentPendingAudits_ShareSize_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_ShareSize_Field) value() interface{} {
+func (f SegmentPendingAudits_ShareSize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9851,7 +9851,7 @@ func SegmentPendingAudits_ExpectedShareHash(v []byte) SegmentPendingAudits_Expec
 	return SegmentPendingAudits_ExpectedShareHash_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_ExpectedShareHash_Field) value() interface{} {
+func (f SegmentPendingAudits_ExpectedShareHash_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9870,7 +9870,7 @@ func SegmentPendingAudits_ReverifyCount(v int64) SegmentPendingAudits_ReverifyCo
 	return SegmentPendingAudits_ReverifyCount_Field{_set: true, _value: v}
 }
 
-func (f SegmentPendingAudits_ReverifyCount_Field) value() interface{} {
+func (f SegmentPendingAudits_ReverifyCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9909,7 +9909,7 @@ func StoragenodeBandwidthRollup_StoragenodeId(v []byte) StoragenodeBandwidthRoll
 	return StoragenodeBandwidthRollup_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_StoragenodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9928,7 +9928,7 @@ func StoragenodeBandwidthRollup_IntervalStart(v time.Time) StoragenodeBandwidthR
 	return StoragenodeBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9947,7 +9947,7 @@ func StoragenodeBandwidthRollup_IntervalSeconds(v uint) StoragenodeBandwidthRoll
 	return StoragenodeBandwidthRollup_IntervalSeconds_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_IntervalSeconds_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_IntervalSeconds_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -9966,7 +9966,7 @@ func StoragenodeBandwidthRollup_Action(v uint) StoragenodeBandwidthRollup_Action
 	return StoragenodeBandwidthRollup_Action_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_Action_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_Action_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10000,7 +10000,7 @@ func (f StoragenodeBandwidthRollup_Allocated_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StoragenodeBandwidthRollup_Allocated_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_Allocated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10019,7 +10019,7 @@ func StoragenodeBandwidthRollup_Settled(v uint64) StoragenodeBandwidthRollup_Set
 	return StoragenodeBandwidthRollup_Settled_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
+func (f StoragenodeBandwidthRollup_Settled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10060,7 +10060,7 @@ func StoragenodeBandwidthRollupArchive_StoragenodeId(v []byte) StoragenodeBandwi
 	return StoragenodeBandwidthRollupArchive_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupArchive_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupArchive_StoragenodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10081,7 +10081,7 @@ func StoragenodeBandwidthRollupArchive_IntervalStart(v time.Time) StoragenodeBan
 	return StoragenodeBandwidthRollupArchive_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupArchive_IntervalStart_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupArchive_IntervalStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10102,7 +10102,7 @@ func StoragenodeBandwidthRollupArchive_IntervalSeconds(v uint) StoragenodeBandwi
 	return StoragenodeBandwidthRollupArchive_IntervalSeconds_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupArchive_IntervalSeconds_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupArchive_IntervalSeconds_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10123,7 +10123,7 @@ func StoragenodeBandwidthRollupArchive_Action(v uint) StoragenodeBandwidthRollup
 	return StoragenodeBandwidthRollupArchive_Action_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupArchive_Action_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupArchive_Action_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10157,7 +10157,7 @@ func (f StoragenodeBandwidthRollupArchive_Allocated_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StoragenodeBandwidthRollupArchive_Allocated_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupArchive_Allocated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10176,7 +10176,7 @@ func StoragenodeBandwidthRollupArchive_Settled(v uint64) StoragenodeBandwidthRol
 	return StoragenodeBandwidthRollupArchive_Settled_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupArchive_Settled_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupArchive_Settled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10217,7 +10217,7 @@ func StoragenodeBandwidthRollupPhase2_StoragenodeId(v []byte) StoragenodeBandwid
 	return StoragenodeBandwidthRollupPhase2_StoragenodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10236,7 +10236,7 @@ func StoragenodeBandwidthRollupPhase2_IntervalStart(v time.Time) StoragenodeBand
 	return StoragenodeBandwidthRollupPhase2_IntervalStart_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupPhase2_IntervalStart_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupPhase2_IntervalStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10255,7 +10255,7 @@ func StoragenodeBandwidthRollupPhase2_IntervalSeconds(v uint) StoragenodeBandwid
 	return StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10276,7 +10276,7 @@ func StoragenodeBandwidthRollupPhase2_Action(v uint) StoragenodeBandwidthRollupP
 	return StoragenodeBandwidthRollupPhase2_Action_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupPhase2_Action_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupPhase2_Action_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10310,7 +10310,7 @@ func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10329,7 +10329,7 @@ func StoragenodeBandwidthRollupPhase2_Settled(v uint64) StoragenodeBandwidthRoll
 	return StoragenodeBandwidthRollupPhase2_Settled_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeBandwidthRollupPhase2_Settled_Field) value() interface{} {
+func (f StoragenodeBandwidthRollupPhase2_Settled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10368,7 +10368,7 @@ func StoragenodePayment_Id(v int64) StoragenodePayment_Id_Field {
 	return StoragenodePayment_Id_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePayment_Id_Field) value() interface{} {
+func (f StoragenodePayment_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10387,7 +10387,7 @@ func StoragenodePayment_CreatedAt(v time.Time) StoragenodePayment_CreatedAt_Fiel
 	return StoragenodePayment_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePayment_CreatedAt_Field) value() interface{} {
+func (f StoragenodePayment_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10406,7 +10406,7 @@ func StoragenodePayment_NodeId(v []byte) StoragenodePayment_NodeId_Field {
 	return StoragenodePayment_NodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePayment_NodeId_Field) value() interface{} {
+func (f StoragenodePayment_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10425,7 +10425,7 @@ func StoragenodePayment_Period(v string) StoragenodePayment_Period_Field {
 	return StoragenodePayment_Period_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePayment_Period_Field) value() interface{} {
+func (f StoragenodePayment_Period_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10444,7 +10444,7 @@ func StoragenodePayment_Amount(v int64) StoragenodePayment_Amount_Field {
 	return StoragenodePayment_Amount_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePayment_Amount_Field) value() interface{} {
+func (f StoragenodePayment_Amount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10476,7 +10476,7 @@ func StoragenodePayment_Receipt_Null() StoragenodePayment_Receipt_Field {
 
 func (f StoragenodePayment_Receipt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f StoragenodePayment_Receipt_Field) value() interface{} {
+func (f StoragenodePayment_Receipt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10508,7 +10508,7 @@ func StoragenodePayment_Notes_Null() StoragenodePayment_Notes_Field {
 
 func (f StoragenodePayment_Notes_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f StoragenodePayment_Notes_Field) value() interface{} {
+func (f StoragenodePayment_Notes_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10557,7 +10557,7 @@ func StoragenodePaystub_Period(v string) StoragenodePaystub_Period_Field {
 	return StoragenodePaystub_Period_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Period_Field) value() interface{} {
+func (f StoragenodePaystub_Period_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10576,7 +10576,7 @@ func StoragenodePaystub_NodeId(v []byte) StoragenodePaystub_NodeId_Field {
 	return StoragenodePaystub_NodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_NodeId_Field) value() interface{} {
+func (f StoragenodePaystub_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10595,7 +10595,7 @@ func StoragenodePaystub_CreatedAt(v time.Time) StoragenodePaystub_CreatedAt_Fiel
 	return StoragenodePaystub_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CreatedAt_Field) value() interface{} {
+func (f StoragenodePaystub_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10614,7 +10614,7 @@ func StoragenodePaystub_Codes(v string) StoragenodePaystub_Codes_Field {
 	return StoragenodePaystub_Codes_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Codes_Field) value() interface{} {
+func (f StoragenodePaystub_Codes_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10633,7 +10633,7 @@ func StoragenodePaystub_UsageAtRest(v float64) StoragenodePaystub_UsageAtRest_Fi
 	return StoragenodePaystub_UsageAtRest_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_UsageAtRest_Field) value() interface{} {
+func (f StoragenodePaystub_UsageAtRest_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10652,7 +10652,7 @@ func StoragenodePaystub_UsageGet(v int64) StoragenodePaystub_UsageGet_Field {
 	return StoragenodePaystub_UsageGet_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_UsageGet_Field) value() interface{} {
+func (f StoragenodePaystub_UsageGet_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10671,7 +10671,7 @@ func StoragenodePaystub_UsagePut(v int64) StoragenodePaystub_UsagePut_Field {
 	return StoragenodePaystub_UsagePut_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_UsagePut_Field) value() interface{} {
+func (f StoragenodePaystub_UsagePut_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10690,7 +10690,7 @@ func StoragenodePaystub_UsageGetRepair(v int64) StoragenodePaystub_UsageGetRepai
 	return StoragenodePaystub_UsageGetRepair_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_UsageGetRepair_Field) value() interface{} {
+func (f StoragenodePaystub_UsageGetRepair_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10709,7 +10709,7 @@ func StoragenodePaystub_UsagePutRepair(v int64) StoragenodePaystub_UsagePutRepai
 	return StoragenodePaystub_UsagePutRepair_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_UsagePutRepair_Field) value() interface{} {
+func (f StoragenodePaystub_UsagePutRepair_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10728,7 +10728,7 @@ func StoragenodePaystub_UsageGetAudit(v int64) StoragenodePaystub_UsageGetAudit_
 	return StoragenodePaystub_UsageGetAudit_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_UsageGetAudit_Field) value() interface{} {
+func (f StoragenodePaystub_UsageGetAudit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10747,7 +10747,7 @@ func StoragenodePaystub_CompAtRest(v int64) StoragenodePaystub_CompAtRest_Field 
 	return StoragenodePaystub_CompAtRest_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CompAtRest_Field) value() interface{} {
+func (f StoragenodePaystub_CompAtRest_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10766,7 +10766,7 @@ func StoragenodePaystub_CompGet(v int64) StoragenodePaystub_CompGet_Field {
 	return StoragenodePaystub_CompGet_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CompGet_Field) value() interface{} {
+func (f StoragenodePaystub_CompGet_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10785,7 +10785,7 @@ func StoragenodePaystub_CompPut(v int64) StoragenodePaystub_CompPut_Field {
 	return StoragenodePaystub_CompPut_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CompPut_Field) value() interface{} {
+func (f StoragenodePaystub_CompPut_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10804,7 +10804,7 @@ func StoragenodePaystub_CompGetRepair(v int64) StoragenodePaystub_CompGetRepair_
 	return StoragenodePaystub_CompGetRepair_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CompGetRepair_Field) value() interface{} {
+func (f StoragenodePaystub_CompGetRepair_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10823,7 +10823,7 @@ func StoragenodePaystub_CompPutRepair(v int64) StoragenodePaystub_CompPutRepair_
 	return StoragenodePaystub_CompPutRepair_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CompPutRepair_Field) value() interface{} {
+func (f StoragenodePaystub_CompPutRepair_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10842,7 +10842,7 @@ func StoragenodePaystub_CompGetAudit(v int64) StoragenodePaystub_CompGetAudit_Fi
 	return StoragenodePaystub_CompGetAudit_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_CompGetAudit_Field) value() interface{} {
+func (f StoragenodePaystub_CompGetAudit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10861,7 +10861,7 @@ func StoragenodePaystub_SurgePercent(v int64) StoragenodePaystub_SurgePercent_Fi
 	return StoragenodePaystub_SurgePercent_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_SurgePercent_Field) value() interface{} {
+func (f StoragenodePaystub_SurgePercent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10880,7 +10880,7 @@ func StoragenodePaystub_Held(v int64) StoragenodePaystub_Held_Field {
 	return StoragenodePaystub_Held_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Held_Field) value() interface{} {
+func (f StoragenodePaystub_Held_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10899,7 +10899,7 @@ func StoragenodePaystub_Owed(v int64) StoragenodePaystub_Owed_Field {
 	return StoragenodePaystub_Owed_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Owed_Field) value() interface{} {
+func (f StoragenodePaystub_Owed_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10918,7 +10918,7 @@ func StoragenodePaystub_Disposed(v int64) StoragenodePaystub_Disposed_Field {
 	return StoragenodePaystub_Disposed_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Disposed_Field) value() interface{} {
+func (f StoragenodePaystub_Disposed_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10937,7 +10937,7 @@ func StoragenodePaystub_Paid(v int64) StoragenodePaystub_Paid_Field {
 	return StoragenodePaystub_Paid_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Paid_Field) value() interface{} {
+func (f StoragenodePaystub_Paid_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10956,7 +10956,7 @@ func StoragenodePaystub_Distributed(v int64) StoragenodePaystub_Distributed_Fiel
 	return StoragenodePaystub_Distributed_Field{_set: true, _value: v}
 }
 
-func (f StoragenodePaystub_Distributed_Field) value() interface{} {
+func (f StoragenodePaystub_Distributed_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -10986,7 +10986,7 @@ func StoragenodeStorageTally_NodeId(v []byte) StoragenodeStorageTally_NodeId_Fie
 	return StoragenodeStorageTally_NodeId_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageTally_NodeId_Field) value() interface{} {
+func (f StoragenodeStorageTally_NodeId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11005,7 +11005,7 @@ func StoragenodeStorageTally_IntervalEndTime(v time.Time) StoragenodeStorageTall
 	return StoragenodeStorageTally_IntervalEndTime_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageTally_IntervalEndTime_Field) value() interface{} {
+func (f StoragenodeStorageTally_IntervalEndTime_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11024,7 +11024,7 @@ func StoragenodeStorageTally_DataTotal(v float64) StoragenodeStorageTally_DataTo
 	return StoragenodeStorageTally_DataTotal_Field{_set: true, _value: v}
 }
 
-func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
+func (f StoragenodeStorageTally_DataTotal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11067,7 +11067,7 @@ func StorjscanPayment_ChainId(v int64) StorjscanPayment_ChainId_Field {
 	return StorjscanPayment_ChainId_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_ChainId_Field) value() interface{} {
+func (f StorjscanPayment_ChainId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11086,7 +11086,7 @@ func StorjscanPayment_BlockHash(v []byte) StorjscanPayment_BlockHash_Field {
 	return StorjscanPayment_BlockHash_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_BlockHash_Field) value() interface{} {
+func (f StorjscanPayment_BlockHash_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11105,7 +11105,7 @@ func StorjscanPayment_BlockNumber(v int64) StorjscanPayment_BlockNumber_Field {
 	return StorjscanPayment_BlockNumber_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_BlockNumber_Field) value() interface{} {
+func (f StorjscanPayment_BlockNumber_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11124,7 +11124,7 @@ func StorjscanPayment_Transaction(v []byte) StorjscanPayment_Transaction_Field {
 	return StorjscanPayment_Transaction_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_Transaction_Field) value() interface{} {
+func (f StorjscanPayment_Transaction_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11143,7 +11143,7 @@ func StorjscanPayment_LogIndex(v int) StorjscanPayment_LogIndex_Field {
 	return StorjscanPayment_LogIndex_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_LogIndex_Field) value() interface{} {
+func (f StorjscanPayment_LogIndex_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11162,7 +11162,7 @@ func StorjscanPayment_FromAddress(v []byte) StorjscanPayment_FromAddress_Field {
 	return StorjscanPayment_FromAddress_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_FromAddress_Field) value() interface{} {
+func (f StorjscanPayment_FromAddress_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11181,7 +11181,7 @@ func StorjscanPayment_ToAddress(v []byte) StorjscanPayment_ToAddress_Field {
 	return StorjscanPayment_ToAddress_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_ToAddress_Field) value() interface{} {
+func (f StorjscanPayment_ToAddress_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11200,7 +11200,7 @@ func StorjscanPayment_TokenValue(v int64) StorjscanPayment_TokenValue_Field {
 	return StorjscanPayment_TokenValue_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_TokenValue_Field) value() interface{} {
+func (f StorjscanPayment_TokenValue_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11219,7 +11219,7 @@ func StorjscanPayment_UsdValue(v int64) StorjscanPayment_UsdValue_Field {
 	return StorjscanPayment_UsdValue_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_UsdValue_Field) value() interface{} {
+func (f StorjscanPayment_UsdValue_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11238,7 +11238,7 @@ func StorjscanPayment_Status(v string) StorjscanPayment_Status_Field {
 	return StorjscanPayment_Status_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_Status_Field) value() interface{} {
+func (f StorjscanPayment_Status_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11257,7 +11257,7 @@ func StorjscanPayment_BlockTimestamp(v time.Time) StorjscanPayment_BlockTimestam
 	return StorjscanPayment_BlockTimestamp_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_BlockTimestamp_Field) value() interface{} {
+func (f StorjscanPayment_BlockTimestamp_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11276,7 +11276,7 @@ func StorjscanPayment_CreatedAt(v time.Time) StorjscanPayment_CreatedAt_Field {
 	return StorjscanPayment_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StorjscanPayment_CreatedAt_Field) value() interface{} {
+func (f StorjscanPayment_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11306,7 +11306,7 @@ func StorjscanWallet_UserId(v []byte) StorjscanWallet_UserId_Field {
 	return StorjscanWallet_UserId_Field{_set: true, _value: v}
 }
 
-func (f StorjscanWallet_UserId_Field) value() interface{} {
+func (f StorjscanWallet_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11325,7 +11325,7 @@ func StorjscanWallet_WalletAddress(v []byte) StorjscanWallet_WalletAddress_Field
 	return StorjscanWallet_WalletAddress_Field{_set: true, _value: v}
 }
 
-func (f StorjscanWallet_WalletAddress_Field) value() interface{} {
+func (f StorjscanWallet_WalletAddress_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11344,7 +11344,7 @@ func StorjscanWallet_CreatedAt(v time.Time) StorjscanWallet_CreatedAt_Field {
 	return StorjscanWallet_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StorjscanWallet_CreatedAt_Field) value() interface{} {
+func (f StorjscanWallet_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11386,7 +11386,7 @@ func StripeCustomer_UserId(v []byte) StripeCustomer_UserId_Field {
 	return StripeCustomer_UserId_Field{_set: true, _value: v}
 }
 
-func (f StripeCustomer_UserId_Field) value() interface{} {
+func (f StripeCustomer_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11405,7 +11405,7 @@ func StripeCustomer_CustomerId(v string) StripeCustomer_CustomerId_Field {
 	return StripeCustomer_CustomerId_Field{_set: true, _value: v}
 }
 
-func (f StripeCustomer_CustomerId_Field) value() interface{} {
+func (f StripeCustomer_CustomerId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11439,7 +11439,7 @@ func (f StripeCustomer_BillingCustomerId_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StripeCustomer_BillingCustomerId_Field) value() interface{} {
+func (f StripeCustomer_BillingCustomerId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11471,7 +11471,7 @@ func StripeCustomer_PackagePlan_Null() StripeCustomer_PackagePlan_Field {
 
 func (f StripeCustomer_PackagePlan_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f StripeCustomer_PackagePlan_Field) value() interface{} {
+func (f StripeCustomer_PackagePlan_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11505,7 +11505,7 @@ func (f StripeCustomer_PurchasedPackageAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StripeCustomer_PurchasedPackageAt_Field) value() interface{} {
+func (f StripeCustomer_PurchasedPackageAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11524,7 +11524,7 @@ func StripeCustomer_CreatedAt(v time.Time) StripeCustomer_CreatedAt_Field {
 	return StripeCustomer_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StripeCustomer_CreatedAt_Field) value() interface{} {
+func (f StripeCustomer_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11569,7 +11569,7 @@ func StripecoinpaymentsInvoiceProjectRecord_Id(v []byte) StripecoinpaymentsInvoi
 	return StripecoinpaymentsInvoiceProjectRecord_Id_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_Id_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11588,7 +11588,7 @@ func StripecoinpaymentsInvoiceProjectRecord_ProjectId(v []byte) Stripecoinpaymen
 	return StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11607,7 +11607,7 @@ func StripecoinpaymentsInvoiceProjectRecord_Storage(v float64) Stripecoinpayment
 	return StripecoinpaymentsInvoiceProjectRecord_Storage_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_Storage_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_Storage_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11626,7 +11626,7 @@ func StripecoinpaymentsInvoiceProjectRecord_Egress(v int64) StripecoinpaymentsIn
 	return StripecoinpaymentsInvoiceProjectRecord_Egress_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_Egress_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_Egress_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11660,7 +11660,7 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11694,7 +11694,7 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Segments_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_Segments_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_Segments_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11713,7 +11713,7 @@ func StripecoinpaymentsInvoiceProjectRecord_PeriodStart(v time.Time) Stripecoinp
 	return StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11734,7 +11734,7 @@ func StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(v time.Time) Stripecoinpay
 	return StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11753,7 +11753,7 @@ func StripecoinpaymentsInvoiceProjectRecord_State(v int) StripecoinpaymentsInvoi
 	return StripecoinpaymentsInvoiceProjectRecord_State_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_State_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_State_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11772,7 +11772,7 @@ func StripecoinpaymentsInvoiceProjectRecord_CreatedAt(v time.Time) Stripecoinpay
 	return StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) value() interface{} {
+func (f StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11804,7 +11804,7 @@ func StripecoinpaymentsTxConversionRate_TxId(v string) StripecoinpaymentsTxConve
 	return StripecoinpaymentsTxConversionRate_TxId_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsTxConversionRate_TxId_Field) value() interface{} {
+func (f StripecoinpaymentsTxConversionRate_TxId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11823,7 +11823,7 @@ func StripecoinpaymentsTxConversionRate_RateNumeric(v float64) Stripecoinpayment
 	return StripecoinpaymentsTxConversionRate_RateNumeric_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsTxConversionRate_RateNumeric_Field) value() interface{} {
+func (f StripecoinpaymentsTxConversionRate_RateNumeric_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11842,7 +11842,7 @@ func StripecoinpaymentsTxConversionRate_CreatedAt(v time.Time) Stripecoinpayment
 	return StripecoinpaymentsTxConversionRate_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() interface{} {
+func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11979,7 +11979,7 @@ func User_Id(v []byte) User_Id_Field {
 	return User_Id_Field{_set: true, _value: v}
 }
 
-func (f User_Id_Field) value() interface{} {
+func (f User_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -11998,7 +11998,7 @@ func User_Email(v string) User_Email_Field {
 	return User_Email_Field{_set: true, _value: v}
 }
 
-func (f User_Email_Field) value() interface{} {
+func (f User_Email_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12017,7 +12017,7 @@ func User_NormalizedEmail(v string) User_NormalizedEmail_Field {
 	return User_NormalizedEmail_Field{_set: true, _value: v}
 }
 
-func (f User_NormalizedEmail_Field) value() interface{} {
+func (f User_NormalizedEmail_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12036,7 +12036,7 @@ func User_FullName(v string) User_FullName_Field {
 	return User_FullName_Field{_set: true, _value: v}
 }
 
-func (f User_FullName_Field) value() interface{} {
+func (f User_FullName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12068,7 +12068,7 @@ func User_ShortName_Null() User_ShortName_Field {
 
 func (f User_ShortName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_ShortName_Field) value() interface{} {
+func (f User_ShortName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12087,7 +12087,7 @@ func User_PasswordHash(v []byte) User_PasswordHash_Field {
 	return User_PasswordHash_Field{_set: true, _value: v}
 }
 
-func (f User_PasswordHash_Field) value() interface{} {
+func (f User_PasswordHash_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12119,7 +12119,7 @@ func User_NewUnverifiedEmail_Null() User_NewUnverifiedEmail_Field {
 
 func (f User_NewUnverifiedEmail_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_NewUnverifiedEmail_Field) value() interface{} {
+func (f User_NewUnverifiedEmail_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12138,7 +12138,7 @@ func User_EmailChangeVerificationStep(v int) User_EmailChangeVerificationStep_Fi
 	return User_EmailChangeVerificationStep_Field{_set: true, _value: v}
 }
 
-func (f User_EmailChangeVerificationStep_Field) value() interface{} {
+func (f User_EmailChangeVerificationStep_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12159,7 +12159,7 @@ func User_Status(v int) User_Status_Field {
 	return User_Status_Field{_set: true, _value: v}
 }
 
-func (f User_Status_Field) value() interface{} {
+func (f User_Status_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12191,7 +12191,7 @@ func User_StatusUpdatedAt_Null() User_StatusUpdatedAt_Field {
 
 func (f User_StatusUpdatedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_StatusUpdatedAt_Field) value() interface{} {
+func (f User_StatusUpdatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12210,7 +12210,7 @@ func User_FinalInvoiceGenerated(v bool) User_FinalInvoiceGenerated_Field {
 	return User_FinalInvoiceGenerated_Field{_set: true, _value: v}
 }
 
-func (f User_FinalInvoiceGenerated_Field) value() interface{} {
+func (f User_FinalInvoiceGenerated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12242,7 +12242,7 @@ func User_UserAgent_Null() User_UserAgent_Field {
 
 func (f User_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_UserAgent_Field) value() interface{} {
+func (f User_UserAgent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12261,7 +12261,7 @@ func User_CreatedAt(v time.Time) User_CreatedAt_Field {
 	return User_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f User_CreatedAt_Field) value() interface{} {
+func (f User_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12280,7 +12280,7 @@ func User_ProjectLimit(v int) User_ProjectLimit_Field {
 	return User_ProjectLimit_Field{_set: true, _value: v}
 }
 
-func (f User_ProjectLimit_Field) value() interface{} {
+func (f User_ProjectLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12299,7 +12299,7 @@ func User_ProjectBandwidthLimit(v int64) User_ProjectBandwidthLimit_Field {
 	return User_ProjectBandwidthLimit_Field{_set: true, _value: v}
 }
 
-func (f User_ProjectBandwidthLimit_Field) value() interface{} {
+func (f User_ProjectBandwidthLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12318,7 +12318,7 @@ func User_ProjectStorageLimit(v int64) User_ProjectStorageLimit_Field {
 	return User_ProjectStorageLimit_Field{_set: true, _value: v}
 }
 
-func (f User_ProjectStorageLimit_Field) value() interface{} {
+func (f User_ProjectStorageLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12337,7 +12337,7 @@ func User_ProjectSegmentLimit(v int64) User_ProjectSegmentLimit_Field {
 	return User_ProjectSegmentLimit_Field{_set: true, _value: v}
 }
 
-func (f User_ProjectSegmentLimit_Field) value() interface{} {
+func (f User_ProjectSegmentLimit_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12356,7 +12356,7 @@ func User_PaidTier(v bool) User_PaidTier_Field {
 	return User_PaidTier_Field{_set: true, _value: v}
 }
 
-func (f User_PaidTier_Field) value() interface{} {
+func (f User_PaidTier_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12388,7 +12388,7 @@ func User_Position_Null() User_Position_Field {
 
 func (f User_Position_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_Position_Field) value() interface{} {
+func (f User_Position_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12420,7 +12420,7 @@ func User_CompanyName_Null() User_CompanyName_Field {
 
 func (f User_CompanyName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_CompanyName_Field) value() interface{} {
+func (f User_CompanyName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12452,7 +12452,7 @@ func User_CompanySize_Null() User_CompanySize_Field {
 
 func (f User_CompanySize_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_CompanySize_Field) value() interface{} {
+func (f User_CompanySize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12484,7 +12484,7 @@ func User_WorkingOn_Null() User_WorkingOn_Field {
 
 func (f User_WorkingOn_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_WorkingOn_Field) value() interface{} {
+func (f User_WorkingOn_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12503,7 +12503,7 @@ func User_IsProfessional(v bool) User_IsProfessional_Field {
 	return User_IsProfessional_Field{_set: true, _value: v}
 }
 
-func (f User_IsProfessional_Field) value() interface{} {
+func (f User_IsProfessional_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12535,7 +12535,7 @@ func User_EmployeeCount_Null() User_EmployeeCount_Field {
 
 func (f User_EmployeeCount_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_EmployeeCount_Field) value() interface{} {
+func (f User_EmployeeCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12554,7 +12554,7 @@ func User_HaveSalesContact(v bool) User_HaveSalesContact_Field {
 	return User_HaveSalesContact_Field{_set: true, _value: v}
 }
 
-func (f User_HaveSalesContact_Field) value() interface{} {
+func (f User_HaveSalesContact_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12573,7 +12573,7 @@ func User_MfaEnabled(v bool) User_MfaEnabled_Field {
 	return User_MfaEnabled_Field{_set: true, _value: v}
 }
 
-func (f User_MfaEnabled_Field) value() interface{} {
+func (f User_MfaEnabled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12605,7 +12605,7 @@ func User_MfaSecretKey_Null() User_MfaSecretKey_Field {
 
 func (f User_MfaSecretKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_MfaSecretKey_Field) value() interface{} {
+func (f User_MfaSecretKey_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12637,7 +12637,7 @@ func User_MfaRecoveryCodes_Null() User_MfaRecoveryCodes_Field {
 
 func (f User_MfaRecoveryCodes_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_MfaRecoveryCodes_Field) value() interface{} {
+func (f User_MfaRecoveryCodes_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12669,7 +12669,7 @@ func User_SignupPromoCode_Null() User_SignupPromoCode_Field {
 
 func (f User_SignupPromoCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_SignupPromoCode_Field) value() interface{} {
+func (f User_SignupPromoCode_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12688,7 +12688,7 @@ func User_VerificationReminders(v int) User_VerificationReminders_Field {
 	return User_VerificationReminders_Field{_set: true, _value: v}
 }
 
-func (f User_VerificationReminders_Field) value() interface{} {
+func (f User_VerificationReminders_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12707,7 +12707,7 @@ func User_TrialNotifications(v int) User_TrialNotifications_Field {
 	return User_TrialNotifications_Field{_set: true, _value: v}
 }
 
-func (f User_TrialNotifications_Field) value() interface{} {
+func (f User_TrialNotifications_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12739,7 +12739,7 @@ func User_FailedLoginCount_Null() User_FailedLoginCount_Field {
 
 func (f User_FailedLoginCount_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_FailedLoginCount_Field) value() interface{} {
+func (f User_FailedLoginCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12773,7 +12773,7 @@ func (f User_LoginLockoutExpiration_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f User_LoginLockoutExpiration_Field) value() interface{} {
+func (f User_LoginLockoutExpiration_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12805,7 +12805,7 @@ func User_SignupCaptcha_Null() User_SignupCaptcha_Field {
 
 func (f User_SignupCaptcha_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_SignupCaptcha_Field) value() interface{} {
+func (f User_SignupCaptcha_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12837,7 +12837,7 @@ func User_DefaultPlacement_Null() User_DefaultPlacement_Field {
 
 func (f User_DefaultPlacement_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_DefaultPlacement_Field) value() interface{} {
+func (f User_DefaultPlacement_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12869,7 +12869,7 @@ func User_ActivationCode_Null() User_ActivationCode_Field {
 
 func (f User_ActivationCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_ActivationCode_Field) value() interface{} {
+func (f User_ActivationCode_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12901,7 +12901,7 @@ func User_SignupId_Null() User_SignupId_Field {
 
 func (f User_SignupId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_SignupId_Field) value() interface{} {
+func (f User_SignupId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12933,7 +12933,7 @@ func User_TrialExpiration_Null() User_TrialExpiration_Field {
 
 func (f User_TrialExpiration_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_TrialExpiration_Field) value() interface{} {
+func (f User_TrialExpiration_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12965,7 +12965,7 @@ func User_UpgradeTime_Null() User_UpgradeTime_Field {
 
 func (f User_UpgradeTime_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f User_UpgradeTime_Field) value() interface{} {
+func (f User_UpgradeTime_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13014,7 +13014,7 @@ func UserSettings_UserId(v []byte) UserSettings_UserId_Field {
 	return UserSettings_UserId_Field{_set: true, _value: v}
 }
 
-func (f UserSettings_UserId_Field) value() interface{} {
+func (f UserSettings_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13048,7 +13048,7 @@ func (f UserSettings_SessionMinutes_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f UserSettings_SessionMinutes_Field) value() interface{} {
+func (f UserSettings_SessionMinutes_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13082,7 +13082,7 @@ func (f UserSettings_PassphrasePrompt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f UserSettings_PassphrasePrompt_Field) value() interface{} {
+func (f UserSettings_PassphrasePrompt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13101,7 +13101,7 @@ func UserSettings_OnboardingStart(v bool) UserSettings_OnboardingStart_Field {
 	return UserSettings_OnboardingStart_Field{_set: true, _value: v}
 }
 
-func (f UserSettings_OnboardingStart_Field) value() interface{} {
+func (f UserSettings_OnboardingStart_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13120,7 +13120,7 @@ func UserSettings_OnboardingEnd(v bool) UserSettings_OnboardingEnd_Field {
 	return UserSettings_OnboardingEnd_Field{_set: true, _value: v}
 }
 
-func (f UserSettings_OnboardingEnd_Field) value() interface{} {
+func (f UserSettings_OnboardingEnd_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13154,7 +13154,7 @@ func (f UserSettings_OnboardingStep_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f UserSettings_OnboardingStep_Field) value() interface{} {
+func (f UserSettings_OnboardingStep_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13173,7 +13173,7 @@ func UserSettings_NoticeDismissal(v []byte) UserSettings_NoticeDismissal_Field {
 	return UserSettings_NoticeDismissal_Field{_set: true, _value: v}
 }
 
-func (f UserSettings_NoticeDismissal_Field) value() interface{} {
+func (f UserSettings_NoticeDismissal_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13209,7 +13209,7 @@ func ValueAttribution_ProjectId(v []byte) ValueAttribution_ProjectId_Field {
 	return ValueAttribution_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f ValueAttribution_ProjectId_Field) value() interface{} {
+func (f ValueAttribution_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13228,7 +13228,7 @@ func ValueAttribution_BucketName(v []byte) ValueAttribution_BucketName_Field {
 	return ValueAttribution_BucketName_Field{_set: true, _value: v}
 }
 
-func (f ValueAttribution_BucketName_Field) value() interface{} {
+func (f ValueAttribution_BucketName_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13260,7 +13260,7 @@ func ValueAttribution_UserAgent_Null() ValueAttribution_UserAgent_Field {
 
 func (f ValueAttribution_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f ValueAttribution_UserAgent_Field) value() interface{} {
+func (f ValueAttribution_UserAgent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13279,7 +13279,7 @@ func ValueAttribution_LastUpdated(v time.Time) ValueAttribution_LastUpdated_Fiel
 	return ValueAttribution_LastUpdated_Field{_set: true, _value: v}
 }
 
-func (f ValueAttribution_LastUpdated_Field) value() interface{} {
+func (f ValueAttribution_LastUpdated_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13316,7 +13316,7 @@ func VerificationAudits_InsertedAt(v time.Time) VerificationAudits_InsertedAt_Fi
 	return VerificationAudits_InsertedAt_Field{_set: true, _value: v}
 }
 
-func (f VerificationAudits_InsertedAt_Field) value() interface{} {
+func (f VerificationAudits_InsertedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13335,7 +13335,7 @@ func VerificationAudits_StreamId(v []byte) VerificationAudits_StreamId_Field {
 	return VerificationAudits_StreamId_Field{_set: true, _value: v}
 }
 
-func (f VerificationAudits_StreamId_Field) value() interface{} {
+func (f VerificationAudits_StreamId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13354,7 +13354,7 @@ func VerificationAudits_Position(v uint64) VerificationAudits_Position_Field {
 	return VerificationAudits_Position_Field{_set: true, _value: v}
 }
 
-func (f VerificationAudits_Position_Field) value() interface{} {
+func (f VerificationAudits_Position_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13388,7 +13388,7 @@ func (f VerificationAudits_ExpiresAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f VerificationAudits_ExpiresAt_Field) value() interface{} {
+func (f VerificationAudits_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13407,7 +13407,7 @@ func VerificationAudits_EncryptedSize(v int) VerificationAudits_EncryptedSize_Fi
 	return VerificationAudits_EncryptedSize_Field{_set: true, _value: v}
 }
 
-func (f VerificationAudits_EncryptedSize_Field) value() interface{} {
+func (f VerificationAudits_EncryptedSize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13442,7 +13442,7 @@ func WebappSession_Id(v []byte) WebappSession_Id_Field {
 	return WebappSession_Id_Field{_set: true, _value: v}
 }
 
-func (f WebappSession_Id_Field) value() interface{} {
+func (f WebappSession_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13461,7 +13461,7 @@ func WebappSession_UserId(v []byte) WebappSession_UserId_Field {
 	return WebappSession_UserId_Field{_set: true, _value: v}
 }
 
-func (f WebappSession_UserId_Field) value() interface{} {
+func (f WebappSession_UserId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13480,7 +13480,7 @@ func WebappSession_IpAddress(v string) WebappSession_IpAddress_Field {
 	return WebappSession_IpAddress_Field{_set: true, _value: v}
 }
 
-func (f WebappSession_IpAddress_Field) value() interface{} {
+func (f WebappSession_IpAddress_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13499,7 +13499,7 @@ func WebappSession_UserAgent(v string) WebappSession_UserAgent_Field {
 	return WebappSession_UserAgent_Field{_set: true, _value: v}
 }
 
-func (f WebappSession_UserAgent_Field) value() interface{} {
+func (f WebappSession_UserAgent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13518,7 +13518,7 @@ func WebappSession_Status(v int) WebappSession_Status_Field {
 	return WebappSession_Status_Field{_set: true, _value: v}
 }
 
-func (f WebappSession_Status_Field) value() interface{} {
+func (f WebappSession_Status_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13537,7 +13537,7 @@ func WebappSession_ExpiresAt(v time.Time) WebappSession_ExpiresAt_Field {
 	return WebappSession_ExpiresAt_Field{_set: true, _value: v}
 }
 
-func (f WebappSession_ExpiresAt_Field) value() interface{} {
+func (f WebappSession_ExpiresAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13580,7 +13580,7 @@ func ApiKey_Id(v []byte) ApiKey_Id_Field {
 	return ApiKey_Id_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Id_Field) value() interface{} {
+func (f ApiKey_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13599,7 +13599,7 @@ func ApiKey_ProjectId(v []byte) ApiKey_ProjectId_Field {
 	return ApiKey_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_ProjectId_Field) value() interface{} {
+func (f ApiKey_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13618,7 +13618,7 @@ func ApiKey_Head(v []byte) ApiKey_Head_Field {
 	return ApiKey_Head_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Head_Field) value() interface{} {
+func (f ApiKey_Head_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13637,7 +13637,7 @@ func ApiKey_Name(v string) ApiKey_Name_Field {
 	return ApiKey_Name_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Name_Field) value() interface{} {
+func (f ApiKey_Name_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13656,7 +13656,7 @@ func ApiKey_Secret(v []byte) ApiKey_Secret_Field {
 	return ApiKey_Secret_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Secret_Field) value() interface{} {
+func (f ApiKey_Secret_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13688,7 +13688,7 @@ func ApiKey_UserAgent_Null() ApiKey_UserAgent_Field {
 
 func (f ApiKey_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f ApiKey_UserAgent_Field) value() interface{} {
+func (f ApiKey_UserAgent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13707,7 +13707,7 @@ func ApiKey_CreatedAt(v time.Time) ApiKey_CreatedAt_Field {
 	return ApiKey_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_CreatedAt_Field) value() interface{} {
+func (f ApiKey_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13739,7 +13739,7 @@ func ApiKey_CreatedBy_Null() ApiKey_CreatedBy_Field {
 
 func (f ApiKey_CreatedBy_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f ApiKey_CreatedBy_Field) value() interface{} {
+func (f ApiKey_CreatedBy_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13758,7 +13758,7 @@ func ApiKey_Version(v uint) ApiKey_Version_Field {
 	return ApiKey_Version_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Version_Field) value() interface{} {
+func (f ApiKey_Version_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13825,7 +13825,7 @@ func BucketMetainfo_Id(v []byte) BucketMetainfo_Id_Field {
 	return BucketMetainfo_Id_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_Id_Field) value() interface{} {
+func (f BucketMetainfo_Id_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13844,7 +13844,7 @@ func BucketMetainfo_ProjectId(v []byte) BucketMetainfo_ProjectId_Field {
 	return BucketMetainfo_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_ProjectId_Field) value() interface{} {
+func (f BucketMetainfo_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13863,7 +13863,7 @@ func BucketMetainfo_Name(v []byte) BucketMetainfo_Name_Field {
 	return BucketMetainfo_Name_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_Name_Field) value() interface{} {
+func (f BucketMetainfo_Name_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13895,7 +13895,7 @@ func BucketMetainfo_UserAgent_Null() BucketMetainfo_UserAgent_Field {
 
 func (f BucketMetainfo_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f BucketMetainfo_UserAgent_Field) value() interface{} {
+func (f BucketMetainfo_UserAgent_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13914,7 +13914,7 @@ func BucketMetainfo_Versioning(v int) BucketMetainfo_Versioning_Field {
 	return BucketMetainfo_Versioning_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_Versioning_Field) value() interface{} {
+func (f BucketMetainfo_Versioning_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13933,7 +13933,7 @@ func BucketMetainfo_ObjectLockEnabled(v bool) BucketMetainfo_ObjectLockEnabled_F
 	return BucketMetainfo_ObjectLockEnabled_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_ObjectLockEnabled_Field) value() interface{} {
+func (f BucketMetainfo_ObjectLockEnabled_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13952,7 +13952,7 @@ func BucketMetainfo_PathCipher(v int) BucketMetainfo_PathCipher_Field {
 	return BucketMetainfo_PathCipher_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_PathCipher_Field) value() interface{} {
+func (f BucketMetainfo_PathCipher_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13971,7 +13971,7 @@ func BucketMetainfo_CreatedAt(v time.Time) BucketMetainfo_CreatedAt_Field {
 	return BucketMetainfo_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_CreatedAt_Field) value() interface{} {
+func (f BucketMetainfo_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -13990,7 +13990,7 @@ func BucketMetainfo_DefaultSegmentSize(v int) BucketMetainfo_DefaultSegmentSize_
 	return BucketMetainfo_DefaultSegmentSize_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultSegmentSize_Field) value() interface{} {
+func (f BucketMetainfo_DefaultSegmentSize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14009,7 +14009,7 @@ func BucketMetainfo_DefaultEncryptionCipherSuite(v int) BucketMetainfo_DefaultEn
 	return BucketMetainfo_DefaultEncryptionCipherSuite_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultEncryptionCipherSuite_Field) value() interface{} {
+func (f BucketMetainfo_DefaultEncryptionCipherSuite_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14030,7 +14030,7 @@ func BucketMetainfo_DefaultEncryptionBlockSize(v int) BucketMetainfo_DefaultEncr
 	return BucketMetainfo_DefaultEncryptionBlockSize_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultEncryptionBlockSize_Field) value() interface{} {
+func (f BucketMetainfo_DefaultEncryptionBlockSize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14051,7 +14051,7 @@ func BucketMetainfo_DefaultRedundancyAlgorithm(v int) BucketMetainfo_DefaultRedu
 	return BucketMetainfo_DefaultRedundancyAlgorithm_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultRedundancyAlgorithm_Field) value() interface{} {
+func (f BucketMetainfo_DefaultRedundancyAlgorithm_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14072,7 +14072,7 @@ func BucketMetainfo_DefaultRedundancyShareSize(v int) BucketMetainfo_DefaultRedu
 	return BucketMetainfo_DefaultRedundancyShareSize_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultRedundancyShareSize_Field) value() interface{} {
+func (f BucketMetainfo_DefaultRedundancyShareSize_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14093,7 +14093,7 @@ func BucketMetainfo_DefaultRedundancyRequiredShares(v int) BucketMetainfo_Defaul
 	return BucketMetainfo_DefaultRedundancyRequiredShares_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultRedundancyRequiredShares_Field) value() interface{} {
+func (f BucketMetainfo_DefaultRedundancyRequiredShares_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14114,7 +14114,7 @@ func BucketMetainfo_DefaultRedundancyRepairShares(v int) BucketMetainfo_DefaultR
 	return BucketMetainfo_DefaultRedundancyRepairShares_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultRedundancyRepairShares_Field) value() interface{} {
+func (f BucketMetainfo_DefaultRedundancyRepairShares_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14135,7 +14135,7 @@ func BucketMetainfo_DefaultRedundancyOptimalShares(v int) BucketMetainfo_Default
 	return BucketMetainfo_DefaultRedundancyOptimalShares_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultRedundancyOptimalShares_Field) value() interface{} {
+func (f BucketMetainfo_DefaultRedundancyOptimalShares_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14156,7 +14156,7 @@ func BucketMetainfo_DefaultRedundancyTotalShares(v int) BucketMetainfo_DefaultRe
 	return BucketMetainfo_DefaultRedundancyTotalShares_Field{_set: true, _value: v}
 }
 
-func (f BucketMetainfo_DefaultRedundancyTotalShares_Field) value() interface{} {
+func (f BucketMetainfo_DefaultRedundancyTotalShares_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14190,7 +14190,7 @@ func BucketMetainfo_Placement_Null() BucketMetainfo_Placement_Field {
 
 func (f BucketMetainfo_Placement_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f BucketMetainfo_Placement_Field) value() interface{} {
+func (f BucketMetainfo_Placement_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14222,7 +14222,7 @@ func BucketMetainfo_CreatedBy_Null() BucketMetainfo_CreatedBy_Field {
 
 func (f BucketMetainfo_CreatedBy_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
-func (f BucketMetainfo_CreatedBy_Field) value() interface{} {
+func (f BucketMetainfo_CreatedBy_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14259,7 +14259,7 @@ func ProjectInvitation_ProjectId(v []byte) ProjectInvitation_ProjectId_Field {
 	return ProjectInvitation_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f ProjectInvitation_ProjectId_Field) value() interface{} {
+func (f ProjectInvitation_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14278,7 +14278,7 @@ func ProjectInvitation_Email(v string) ProjectInvitation_Email_Field {
 	return ProjectInvitation_Email_Field{_set: true, _value: v}
 }
 
-func (f ProjectInvitation_Email_Field) value() interface{} {
+func (f ProjectInvitation_Email_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14312,7 +14312,7 @@ func (f ProjectInvitation_InviterId_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f ProjectInvitation_InviterId_Field) value() interface{} {
+func (f ProjectInvitation_InviterId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14331,7 +14331,7 @@ func ProjectInvitation_CreatedAt(v time.Time) ProjectInvitation_CreatedAt_Field 
 	return ProjectInvitation_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f ProjectInvitation_CreatedAt_Field) value() interface{} {
+func (f ProjectInvitation_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14367,7 +14367,7 @@ func ProjectMember_MemberId(v []byte) ProjectMember_MemberId_Field {
 	return ProjectMember_MemberId_Field{_set: true, _value: v}
 }
 
-func (f ProjectMember_MemberId_Field) value() interface{} {
+func (f ProjectMember_MemberId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14386,7 +14386,7 @@ func ProjectMember_ProjectId(v []byte) ProjectMember_ProjectId_Field {
 	return ProjectMember_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f ProjectMember_ProjectId_Field) value() interface{} {
+func (f ProjectMember_ProjectId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14405,7 +14405,7 @@ func ProjectMember_Role(v int) ProjectMember_Role_Field {
 	return ProjectMember_Role_Field{_set: true, _value: v}
 }
 
-func (f ProjectMember_Role_Field) value() interface{} {
+func (f ProjectMember_Role_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14424,7 +14424,7 @@ func ProjectMember_CreatedAt(v time.Time) ProjectMember_CreatedAt_Field {
 	return ProjectMember_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f ProjectMember_CreatedAt_Field) value() interface{} {
+func (f ProjectMember_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14457,7 +14457,7 @@ func StripecoinpaymentsApplyBalanceIntent_TxId(v string) StripecoinpaymentsApply
 	return StripecoinpaymentsApplyBalanceIntent_TxId_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() interface{} {
+func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14476,7 +14476,7 @@ func StripecoinpaymentsApplyBalanceIntent_State(v int) StripecoinpaymentsApplyBa
 	return StripecoinpaymentsApplyBalanceIntent_State_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() interface{} {
+func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -14495,7 +14495,7 @@ func StripecoinpaymentsApplyBalanceIntent_CreatedAt(v time.Time) Stripecoinpayme
 	return StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field{_set: true, _value: v}
 }
 
-func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() interface{} {
+func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -15047,7 +15047,7 @@ func (obj *pgxImpl) ReplaceNoReturn_AccountingTimestamps(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? ) ON CONFLICT ( name ) DO UPDATE SET name = EXCLUDED.name, value = EXCLUDED.value")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __name_val, __value_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15082,7 +15082,7 @@ func (obj *pgxImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups "), __clause, __sqlbundle_Literal(" RETURNING storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -15134,7 +15134,7 @@ func (obj *pgxImpl) Create_ReverificationAudits(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reverification_audits "), __clause, __sqlbundle_Literal(" RETURNING reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __stream_id_val, __position_val, __piece_num_val, __last_attempt_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -15189,7 +15189,7 @@ func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, billing_customer_id, package_plan, purchased_package_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __customer_id_val, __billing_customer_id_val, __package_plan_val, __purchased_package_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15217,7 +15217,7 @@ func (obj *pgxImpl) CreateNoReturn_BillingBalance(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_balances ( user_id, balance, last_updated ) VALUES ( ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __balance_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15258,7 +15258,7 @@ func (obj *pgxImpl) Create_BillingTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, tx_timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __source_val, __status_val, __type_val, __metadata_val, __tx_timestamp_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15286,7 +15286,7 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, created_at ) VALUES ( ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __wallet_address_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15325,7 +15325,7 @@ func (obj *pgxImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_numeric, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_numeric_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15366,7 +15366,7 @@ func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, segments, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __segments_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15394,7 +15394,7 @@ func (obj *pgxImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_numeric, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __tx_id_val, __rate_numeric_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15443,7 +15443,7 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storjscan_payments "), __clause}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __block_hash_val, __block_number_val, __transaction_val, __log_index_val, __from_address_val, __to_address_val, __token_value_val, __usd_value_val, __status_val, __block_timestamp_val, __created_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -15489,7 +15489,7 @@ func (obj *pgxImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15513,7 +15513,7 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __revoked_val, __api_key_id_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15541,7 +15541,7 @@ func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO node_api_versions ( id, api_version, created_at, updated_at ) VALUES ( ?, ?, ?, ? ) ON CONFLICT ( id ) DO UPDATE SET id = EXCLUDED.id, api_version = EXCLUDED.api_version, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __api_version_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15577,7 +15577,7 @@ func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __email_val, __last_ip_port_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -15625,7 +15625,7 @@ func (obj *pgxImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO node_tags ( node_id, name, value, signed_at, signer ) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT ( node_id, name, signer ) DO UPDATE SET node_id = EXCLUDED.node_id, name = EXCLUDED.name, value = EXCLUDED.value, signed_at = EXCLUDED.signed_at, signer = EXCLUDED.signer")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15690,7 +15690,7 @@ func (obj *pgxImpl) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid, distributed ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) ON CONFLICT ( period, node_id ) DO UPDATE SET period = EXCLUDED.period, node_id = EXCLUDED.node_id, created_at = EXCLUDED.created_at, codes = EXCLUDED.codes, usage_at_rest = EXCLUDED.usage_at_rest, usage_get = EXCLUDED.usage_get, usage_put = EXCLUDED.usage_put, usage_get_repair = EXCLUDED.usage_get_repair, usage_put_repair = EXCLUDED.usage_put_repair, usage_get_audit = EXCLUDED.usage_get_audit, comp_at_rest = EXCLUDED.comp_at_rest, comp_get = EXCLUDED.comp_get, comp_put = EXCLUDED.comp_put, comp_get_repair = EXCLUDED.comp_get_repair, comp_put_repair = EXCLUDED.comp_put_repair, comp_get_audit = EXCLUDED.comp_get_audit, surge_percent = EXCLUDED.surge_percent, held = EXCLUDED.held, owed = EXCLUDED.owed, disposed = EXCLUDED.disposed, paid = EXCLUDED.paid, distributed = EXCLUDED.distributed")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val, __distributed_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15722,7 +15722,7 @@ func (obj *pgxImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_payments ( created_at, node_id, period, amount, receipt, notes ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __created_at_val, __node_id_val, __period_val, __amount_val, __receipt_val, __notes_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15757,7 +15757,7 @@ func (obj *pgxImpl) Create_Reputation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -15843,7 +15843,7 @@ func (obj *pgxImpl) CreateNoReturn_OauthClient(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15883,7 +15883,7 @@ func (obj *pgxImpl) CreateNoReturn_OauthCode(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15917,7 +15917,7 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -15976,7 +15976,7 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __created_at_val, __default_placement_val, __passphrase_enc_val, __passphrase_enc_key_id_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16044,7 +16044,7 @@ func (obj *pgxImpl) Create_ProjectMember(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO project_members "), __clause, __sqlbundle_Literal(" RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __member_id_val, __project_id_val, __created_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16091,7 +16091,7 @@ func (obj *pgxImpl) Replace_ProjectInvitation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) ON CONFLICT ( project_id, email ) DO UPDATE SET project_id = EXCLUDED.project_id, email = EXCLUDED.email, inviter_id = EXCLUDED.inviter_id, created_at = EXCLUDED.created_at RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16132,7 +16132,7 @@ func (obj *pgxImpl) Create_ApiKey(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO api_keys "), __clause, __sqlbundle_Literal(" RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __user_agent_val, __created_at_val, __created_by_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16207,7 +16207,7 @@ func (obj *pgxImpl) Create_BucketMetainfo(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_metainfos "), __clause, __sqlbundle_Literal(" RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __name_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val, __created_by_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16260,7 +16260,7 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16320,7 +16320,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __new_unverified_email_val, __status_val, __status_updated_at_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val, __failed_login_count_val, __login_lockout_expiration_val, __signup_captcha_val, __default_placement_val, __activation_code_val, __signup_id_val, __trial_expiration_val, __upgrade_time_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16435,7 +16435,7 @@ func (obj *pgxImpl) Create_WebappSession(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16465,7 +16465,7 @@ func (obj *pgxImpl) Create_RegistrationToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16493,7 +16493,7 @@ func (obj *pgxImpl) Create_ResetPasswordToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16525,7 +16525,7 @@ func (obj *pgxImpl) Replace_AccountFreezeEvent(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" ON CONFLICT ( user_id, event ) DO UPDATE SET user_id = EXCLUDED.user_id, event = EXCLUDED.event, limits = EXCLUDED.limits, days_till_escalation = EXCLUDED.days_till_escalation, notifications_count = EXCLUDED.notifications_count, created_at = EXCLUDED.created_at RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __event_val, __limits_val, __days_till_escalation_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16579,7 +16579,7 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -16629,7 +16629,7 @@ func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, accounting_timestamps_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16655,7 +16655,7 @@ func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interval
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -16703,7 +16703,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrE
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -16765,7 +16765,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interv
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -16826,7 +16826,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_Gre
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -16888,7 +16888,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -16945,7 +16945,7 @@ func (obj *pgxImpl) All_StoragenodeStorageTally(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -16989,7 +16989,7 @@ func (obj *pgxImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqua
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17037,7 +17037,7 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -17098,7 +17098,7 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterO
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -17155,7 +17155,7 @@ func (obj *pgxImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -17202,7 +17202,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17247,7 +17247,7 @@ func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_As
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count FROM reverification_audits WHERE reverification_audits.node_id = ? ORDER BY reverification_audits.stream_id, reverification_audits.position LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reverification_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17294,7 +17294,7 @@ func (obj *pgxImpl) Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPacka
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.package_plan, stripe_customers.purchased_package_at FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17316,7 +17316,7 @@ func (obj *pgxImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17338,7 +17338,7 @@ func (obj *pgxImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_customer_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17360,7 +17360,7 @@ func (obj *pgxImpl) Get_StripeCustomer_CustomerId_StripeCustomer_BillingCustomer
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id, stripe_customers.billing_customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17382,7 +17382,7 @@ func (obj *pgxImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_balances.balance FROM billing_balances WHERE billing_balances.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_balance_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17404,7 +17404,7 @@ func (obj *pgxImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17426,7 +17426,7 @@ func (obj *pgxImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.metadata FROM billing_transactions WHERE billing_transactions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17448,7 +17448,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ct
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.tx_timestamp DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17494,7 +17494,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxT
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.tx_timestamp DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_source.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17540,7 +17540,7 @@ func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Cre
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17587,7 +17587,7 @@ func (obj *pgxImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets WHERE storjscan_wallets.wallet_address = ? LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_wallet_wallet_address.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17645,7 +17645,7 @@ func (obj *pgxImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ? LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_wallet_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17702,7 +17702,7 @@ func (obj *pgxImpl) All_StorjscanWallet(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.created_at FROM storjscan_wallets")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -17746,7 +17746,7 @@ func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, coinpayments_transaction_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17793,7 +17793,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17815,7 +17815,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.C
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17836,7 +17836,7 @@ func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.chain_id, storjscan_payments.block_number, storjscan_payments.log_index")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -17881,7 +17881,7 @@ func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_D
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.chain_id DESC, storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_to_address.value())
 
 	__values = append(__values, limit, offset)
@@ -17930,7 +17930,7 @@ func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_Ord
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? AND storjscan_payments.chain_id = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_status.value(), storjscan_payment_chain_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -17977,7 +17977,7 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_progress_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18002,7 +18002,7 @@ func (obj *pgxImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_P
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18024,7 +18024,7 @@ func (obj *pgxImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, peer_identity_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18046,7 +18046,7 @@ func (obj *pgxImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, peer_identity_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18068,7 +18068,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features FROM nodes WHERE nodes.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18089,7 +18089,7 @@ func (obj *pgxImpl) All_Node_Id(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -18135,7 +18135,7 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt string
 	if start != nil && start._set {
@@ -18191,7 +18191,7 @@ func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.disqualified is NULL")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -18236,7 +18236,7 @@ func (obj *pgxImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM node_api_versions WHERE node_api_versions.id = ? AND node_api_versions.api_version >= ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_api_version_id.value(), node_api_version_api_version_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18257,7 +18257,7 @@ func (obj *pgxImpl) Get_NodeEvent_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18280,7 +18280,7 @@ func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ct
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_email.value(), node_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18327,7 +18327,7 @@ func (obj *pgxImpl) All_NodeTags_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags WHERE node_tags.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_tags_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18371,7 +18371,7 @@ func (obj *pgxImpl) All_NodeTags(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -18416,7 +18416,7 @@ func (obj *pgxImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18438,7 +18438,7 @@ func (obj *pgxImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_paystub_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18485,7 +18485,7 @@ func (obj *pgxImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ? ORDER BY storagenode_payments.id DESC LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
 
 	__values = append(__values, limit, offset)
@@ -18533,7 +18533,7 @@ func (obj *pgxImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18579,7 +18579,7 @@ func (obj *pgxImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18624,7 +18624,7 @@ func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reputation_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18646,7 +18646,7 @@ func (obj *pgxImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url FROM oauth_clients WHERE oauth_clients.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_client_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18668,7 +18668,7 @@ func (obj *pgxImpl) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_code_code.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18691,7 +18691,7 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at FROM oauth_tokens WHERE oauth_tokens.kind = ? AND oauth_tokens.token = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_token_kind.value(), oauth_token_token.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18713,7 +18713,7 @@ func (obj *pgxImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18735,7 +18735,7 @@ func (obj *pgxImpl) Get_Project_Salt_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.salt FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18759,7 +18759,7 @@ func (obj *pgxImpl) Get_Project_By_PublicId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
-	var __values []interface{}
+	var __values []any
 	if !project_public_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, project_public_id.value())
@@ -18820,7 +18820,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18842,7 +18842,7 @@ func (obj *pgxImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.usage_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18864,7 +18864,7 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18886,7 +18886,7 @@ func (obj *pgxImpl) Get_Project_UserSpecifiedUsageLimit_By_Id(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_usage_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18908,7 +18908,7 @@ func (obj *pgxImpl) Get_Project_UserSpecifiedBandwidthLimit_By_Id(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_bandwidth_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18930,7 +18930,7 @@ func (obj *pgxImpl) Get_Project_SegmentLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.segment_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18952,7 +18952,7 @@ func (obj *pgxImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.max_buckets FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18974,7 +18974,7 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidthLim
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.user_specified_bandwidth_limit, projects.usage_limit, projects.user_specified_usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -18996,7 +18996,7 @@ func (obj *pgxImpl) Get_Project_DefaultVersioning_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.default_versioning FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19018,7 +19018,7 @@ func (obj *pgxImpl) Get_Project_UserAgent_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_agent FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19039,7 +19039,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19083,7 +19083,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19128,7 +19128,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_owner_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19173,7 +19173,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19219,7 +19219,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_created_at_less.value())
 
 	__values = append(__values, limit, offset)
@@ -19268,7 +19268,7 @@ func (obj *pgxImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19290,7 +19290,7 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19336,7 +19336,7 @@ func (obj *pgxImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19358,7 +19358,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19403,7 +19403,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19448,7 +19448,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19470,7 +19470,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstL
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19493,7 +19493,7 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_Projec
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19516,7 +19516,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19539,7 +19539,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_Bucket
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19562,7 +19562,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19585,7 +19585,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.user_agent FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19608,7 +19608,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_Versioning_By_ProjectId_And_Name(ctx cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.versioning FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19631,7 +19631,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Name(c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19654,7 +19654,7 @@ func (obj *pgxImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19677,7 +19677,7 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
@@ -19727,7 +19727,7 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
 
 	__values = append(__values, limit, offset)
@@ -19775,7 +19775,7 @@ func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19799,7 +19799,7 @@ func (obj *pgxImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx conte
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt string
 	if start != nil && start._set {
@@ -19857,7 +19857,7 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19879,7 +19879,7 @@ func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19924,7 +19924,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -19982,7 +19982,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20004,7 +20004,7 @@ func (obj *pgxImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_limit FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20026,7 +20026,7 @@ func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20048,7 +20048,7 @@ func (obj *pgxImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.upgrade_time FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20070,7 +20070,7 @@ func (obj *pgxImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_storage_limit, users.project_bandwidth_limit, users.project_segment_limit FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20092,7 +20092,7 @@ func (obj *pgxImpl) Count_User_By_Status(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM users WHERE users.status = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_status.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20115,7 +20115,7 @@ func (obj *pgxImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name FROM users WHERE users.status = ? LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_status.value())
 
 	__values = append(__values, limit, offset)
@@ -20163,7 +20163,7 @@ func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20208,7 +20208,7 @@ func (obj *pgxImpl) Get_WebappSession_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20230,7 +20230,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, registration_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20254,7 +20254,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
-	var __values []interface{}
+	var __values []any
 	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, registration_token_owner_id.value())
@@ -20279,7 +20279,7 @@ func (obj *pgxImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20301,7 +20301,7 @@ func (obj *pgxImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_owner_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20324,7 +20324,7 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20346,7 +20346,7 @@ func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20391,7 +20391,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal FROM user_settings WHERE user_settings.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_settings_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -20411,13 +20411,14 @@ func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Cont
 	update AccountingTimestamps_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Value._set {
 		__values = append(__values, update.Value.value())
@@ -20448,13 +20449,14 @@ func (obj *pgxImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
 	update StripeCustomer_Update_Fields) (
 	stripe_customer *StripeCustomer, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripe_customers SET "), __sets, __sqlbundle_Literal(" WHERE stripe_customers.user_id = ? RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.BillingCustomerId._set {
 		__values = append(__values, update.BillingCustomerId.value())
@@ -20500,13 +20502,14 @@ func (obj *pgxImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Cont
 	update BillingBalance_Update_Fields) (
 	billing_balance *BillingBalance, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_balances SET "), __sets, __sqlbundle_Literal(" WHERE billing_balances.user_id = ? AND billing_balances.balance = ? RETURNING billing_balances.user_id, billing_balances.balance, billing_balances.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Balance._set {
 		__values = append(__values, update.Balance.value())
@@ -20543,13 +20546,14 @@ func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx conte
 	update BillingTransaction_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
@@ -20585,13 +20589,14 @@ func (obj *pgxImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	update CoinpaymentsTransaction_Update_Fields) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ReceivedNumeric._set {
 		__values = append(__values, update.ReceivedNumeric.value())
@@ -20631,13 +20636,14 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.State._set {
 		__values = append(__values, update.State.value())
@@ -20675,13 +20681,14 @@ func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_Str
 	update GracefulExitSegmentTransfer_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.DurabilityRatio._set {
 		__values = append(__values, update.DurabilityRatio.value())
@@ -20742,13 +20749,14 @@ func (obj *pgxImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	update PeerIdentity_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.LeafSerialNumber._set {
 		__values = append(__values, update.LeafSerialNumber.value())
@@ -20785,13 +20793,14 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	update Node_Update_Fields) (
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -21002,13 +21011,14 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	update Node_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -21215,13 +21225,14 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitF
 	update Node_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -21429,13 +21440,14 @@ func (obj *pgxImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx 
 	update NodeApiVersion_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE node_api_versions SET "), __sets, __sqlbundle_Literal(" WHERE node_api_versions.id = ? AND node_api_versions.api_version < ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ApiVersion._set {
 		__values = append(__values, update.ApiVersion.value())
@@ -21467,13 +21479,14 @@ func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
 	update Reputation_Update_Fields) (
 	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -21575,13 +21588,14 @@ func (obj *pgxImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context
 	update Reputation_Update_Fields) (
 	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -21682,13 +21696,14 @@ func (obj *pgxImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 	update Reputation_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -21785,13 +21800,14 @@ func (obj *pgxImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	update OauthClient_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE oauth_clients.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.EncryptedSecret._set {
 		__values = append(__values, update.EncryptedSecret.value())
@@ -21837,13 +21853,14 @@ func (obj *pgxImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx c
 	update OauthCode_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_codes SET "), __sets, __sqlbundle_Literal(" WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ClaimedAt._set {
 		__values = append(__values, update.ClaimedAt.value())
@@ -21875,13 +21892,14 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	update OauthToken_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_tokens SET "), __sets, __sqlbundle_Literal(" WHERE oauth_tokens.token = ? AND oauth_tokens.kind = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ExpiresAt._set {
 		__values = append(__values, update.ExpiresAt.value())
@@ -21912,13 +21930,14 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	update Project_Update_Fields) (
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
@@ -22084,13 +22103,14 @@ func (obj *pgxImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx context.C
 	update ProjectMember_Update_Fields) (
 	project_member *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.member_id = ? AND project_members.project_id = ? RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Role._set {
 		__values = append(__values, update.Role.value())
@@ -22126,13 +22146,14 @@ func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 	update ProjectInvitation_Update_Fields) (
 	project_invitation *ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.InviterId._set {
 		__values = append(__values, update.InviterId.value())
@@ -22172,13 +22193,14 @@ func (obj *pgxImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	update ApiKey_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
@@ -22210,13 +22232,14 @@ func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 	update BucketMetainfo_Update_Fields) (
 	bucket_metainfo *BucketMetainfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -22313,13 +22336,14 @@ func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_G
 	update BucketMetainfo_Update_Fields) (
 	bucket_metainfo *BucketMetainfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -22416,13 +22440,14 @@ func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_G
 	update BucketMetainfo_Update_Fields) (
 	bucket_metainfo *BucketMetainfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? AND bucket_metainfos.object_lock_enabled = false RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -22518,13 +22543,14 @@ func (obj *pgxImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx cont
 	update ValueAttribution_Update_Fields) (
 	value_attribution *ValueAttribution, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -22560,13 +22586,14 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	update User_Update_Fields) (
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
@@ -22776,13 +22803,14 @@ func (obj *pgxImpl) Update_WebappSession_By_Id(ctx context.Context,
 	update WebappSession_Update_Fields) (
 	webapp_session *WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
@@ -22822,13 +22850,14 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	update RegistrationToken_Update_Fields) (
 	registration_token *RegistrationToken, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.OwnerId._set {
 		__values = append(__values, update.OwnerId.value())
@@ -22864,13 +22893,14 @@ func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 	update AccountFreezeEvent_Update_Fields) (
 	account_freeze_event *AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Limits._set {
 		__values = append(__values, update.Limits.value())
@@ -22915,13 +22945,14 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	update UserSettings_Update_Fields) (
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
@@ -22985,7 +23016,7 @@ func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Posit
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23012,7 +23043,7 @@ func (obj *pgxImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storjscan_payments WHERE storjscan_payments.status = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_status.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23039,7 +23070,7 @@ func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23069,7 +23100,7 @@ func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_An
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23096,7 +23127,7 @@ func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23123,7 +23154,7 @@ func (obj *pgxImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM node_events WHERE node_events.created_at < ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23150,7 +23181,7 @@ func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth_clients WHERE oauth_clients.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_client_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23177,7 +23208,7 @@ func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23205,7 +23236,7 @@ func (obj *pgxImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.C
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23233,7 +23264,7 @@ func (obj *pgxImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23260,7 +23291,7 @@ func (obj *pgxImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23287,7 +23318,7 @@ func (obj *pgxImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23315,7 +23346,7 @@ func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23342,7 +23373,7 @@ func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, repair_queue_updated_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23369,7 +23400,7 @@ func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23396,7 +23427,7 @@ func (obj *pgxImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23423,7 +23454,7 @@ func (obj *pgxImpl) Delete_WebappSession_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23450,7 +23481,7 @@ func (obj *pgxImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23477,7 +23508,7 @@ func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23505,7 +23536,7 @@ func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -23525,8 +23556,7 @@ func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 
 }
 
-func (impl pgxImpl) isConstraintError(err error) (
-	constraint string, ok bool) {
+func (impl pgxImpl) isConstraintError(err error) (constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
 		if e.Code[:2] == "23" {
 			return e.ConstraintName, true
@@ -24044,7 +24074,7 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_AccountingTimestamps(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __name_val, __value_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24079,7 +24109,7 @@ func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollup(ctx context.Conte
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups "), __clause, __sqlbundle_Literal(" RETURNING storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -24131,7 +24161,7 @@ func (obj *pgxcockroachImpl) Create_ReverificationAudits(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reverification_audits "), __clause, __sqlbundle_Literal(" RETURNING reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __stream_id_val, __position_val, __piece_num_val, __last_attempt_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -24186,7 +24216,7 @@ func (obj *pgxcockroachImpl) Create_StripeCustomer(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, billing_customer_id, package_plan, purchased_package_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __customer_id_val, __billing_customer_id_val, __package_plan_val, __purchased_package_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24214,7 +24244,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_BillingBalance(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_balances ( user_id, balance, last_updated ) VALUES ( ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __balance_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24255,7 +24285,7 @@ func (obj *pgxcockroachImpl) Create_BillingTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, tx_timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __source_val, __status_val, __type_val, __metadata_val, __tx_timestamp_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24283,7 +24313,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, created_at ) VALUES ( ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __wallet_address_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24322,7 +24352,7 @@ func (obj *pgxcockroachImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_numeric, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_numeric_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24363,7 +24393,7 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, segments, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __segments_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24391,7 +24421,7 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_numeric, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __tx_id_val, __rate_numeric_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24440,7 +24470,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storjscan_payments "), __clause}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __block_hash_val, __block_number_val, __transaction_val, __log_index_val, __from_address_val, __to_address_val, __token_value_val, __usd_value_val, __status_val, __block_timestamp_val, __created_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -24486,7 +24516,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24510,7 +24540,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __revoked_val, __api_key_id_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24538,7 +24568,7 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO node_api_versions ( id, api_version, created_at, updated_at ) VALUES ( ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __api_version_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24574,7 +24604,7 @@ func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __email_val, __last_ip_port_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -24622,7 +24652,7 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO node_tags ( node_id, name, value, signed_at, signer ) VALUES ( ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24687,7 +24717,7 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_StoragenodePaystub(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid, distributed ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val, __distributed_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24719,7 +24749,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Conte
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_payments ( created_at, node_id, period, amount, receipt, notes ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __created_at_val, __node_id_val, __period_val, __amount_val, __receipt_val, __notes_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24754,7 +24784,7 @@ func (obj *pgxcockroachImpl) Create_Reputation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -24840,7 +24870,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthClient(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24880,7 +24910,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthCode(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24914,7 +24944,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -24973,7 +25003,7 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __created_at_val, __default_placement_val, __passphrase_enc_val, __passphrase_enc_key_id_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25041,7 +25071,7 @@ func (obj *pgxcockroachImpl) Create_ProjectMember(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO project_members "), __clause, __sqlbundle_Literal(" RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __member_id_val, __project_id_val, __created_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25088,7 +25118,7 @@ func (obj *pgxcockroachImpl) Replace_ProjectInvitation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25129,7 +25159,7 @@ func (obj *pgxcockroachImpl) Create_ApiKey(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO api_keys "), __clause, __sqlbundle_Literal(" RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __user_agent_val, __created_at_val, __created_by_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25204,7 +25234,7 @@ func (obj *pgxcockroachImpl) Create_BucketMetainfo(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_metainfos "), __clause, __sqlbundle_Literal(" RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __name_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val, __created_by_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25257,7 +25287,7 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25317,7 +25347,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __new_unverified_email_val, __status_val, __status_updated_at_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val, __failed_login_count_val, __login_lockout_expiration_val, __signup_captcha_val, __default_placement_val, __activation_code_val, __signup_id_val, __trial_expiration_val, __upgrade_time_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25432,7 +25462,7 @@ func (obj *pgxcockroachImpl) Create_WebappSession(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25462,7 +25492,7 @@ func (obj *pgxcockroachImpl) Create_RegistrationToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25490,7 +25520,7 @@ func (obj *pgxcockroachImpl) Create_ResetPasswordToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) RETURNING reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25522,7 +25552,7 @@ func (obj *pgxcockroachImpl) Replace_AccountFreezeEvent(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __event_val, __limits_val, __days_till_escalation_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25576,7 +25606,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -25626,7 +25656,7 @@ func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, accounting_timestamps_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25652,7 +25682,7 @@ func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -25700,7 +25730,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_G
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -25762,7 +25792,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_A
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -25823,7 +25853,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupArchive_By_Interval
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -25885,7 +25915,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupPhase2_By_Storageno
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -25942,7 +25972,7 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -25986,7 +26016,7 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Grea
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26034,7 +26064,7 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -26095,7 +26125,7 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -26152,7 +26182,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -26199,7 +26229,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26244,7 +26274,7 @@ func (obj *pgxcockroachImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_St
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count FROM reverification_audits WHERE reverification_audits.node_id = ? ORDER BY reverification_audits.stream_id, reverification_audits.position LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reverification_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26291,7 +26321,7 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_PackagePlan_StripeCustomer_Purch
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.package_plan, stripe_customers.purchased_package_at FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26313,7 +26343,7 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26335,7 +26365,7 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_customer_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26357,7 +26387,7 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_StripeCustomer_Billin
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id, stripe_customers.billing_customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26379,7 +26409,7 @@ func (obj *pgxcockroachImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_balances.balance FROM billing_balances WHERE billing_balances.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_balance_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26401,7 +26431,7 @@ func (obj *pgxcockroachImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26423,7 +26453,7 @@ func (obj *pgxcockroachImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.C
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.metadata FROM billing_transactions WHERE billing_transactions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26445,7 +26475,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTim
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.tx_timestamp DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26491,7 +26521,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.tx_timestamp DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_source.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26537,7 +26567,7 @@ func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26584,7 +26614,7 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets WHERE storjscan_wallets.wallet_address = ? LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_wallet_wallet_address.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26642,7 +26672,7 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ? LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_wallet_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26699,7 +26729,7 @@ func (obj *pgxcockroachImpl) All_StorjscanWallet(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.created_at FROM storjscan_wallets")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -26743,7 +26773,7 @@ func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, coinpayments_transaction_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26790,7 +26820,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_Proje
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26812,7 +26842,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx 
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26833,7 +26863,7 @@ func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockN
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.chain_id, storjscan_payments.block_number, storjscan_payments.log_index")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -26878,7 +26908,7 @@ func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.chain_id DESC, storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_to_address.value())
 
 	__values = append(__values, limit, offset)
@@ -26927,7 +26957,7 @@ func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_Ch
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? AND storjscan_payments.chain_id = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_status.value(), storjscan_payment_chain_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26974,7 +27004,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_progress_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -26999,7 +27029,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_Strea
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27021,7 +27051,7 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, peer_identity_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27043,7 +27073,7 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, peer_identity_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27065,7 +27095,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features FROM nodes WHERE nodes.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27086,7 +27116,7 @@ func (obj *pgxcockroachImpl) All_Node_Id(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -27132,7 +27162,7 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt string
 	if start != nil && start._set {
@@ -27188,7 +27218,7 @@ func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.disqualified is NULL")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -27233,7 +27263,7 @@ func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEq
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM node_api_versions WHERE node_api_versions.id = ? AND node_api_versions.api_version >= ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_api_version_id.value(), node_api_version_api_version_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27254,7 +27284,7 @@ func (obj *pgxcockroachImpl) Get_NodeEvent_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27277,7 +27307,7 @@ func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_Cre
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_email.value(), node_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27324,7 +27354,7 @@ func (obj *pgxcockroachImpl) All_NodeTags_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags WHERE node_tags.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_tags_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27368,7 +27398,7 @@ func (obj *pgxcockroachImpl) All_NodeTags(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -27413,7 +27443,7 @@ func (obj *pgxcockroachImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27435,7 +27465,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePaystub_By_NodeId(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_paystub_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27482,7 +27512,7 @@ func (obj *pgxcockroachImpl) Limited_StoragenodePayment_By_NodeId_And_Period_Ord
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ? ORDER BY storagenode_payments.id DESC LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
 
 	__values = append(__values, limit, offset)
@@ -27530,7 +27560,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27576,7 +27606,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27621,7 +27651,7 @@ func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reputation_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27643,7 +27673,7 @@ func (obj *pgxcockroachImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url FROM oauth_clients WHERE oauth_clients.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_client_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27665,7 +27695,7 @@ func (obj *pgxcockroachImpl) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_code_code.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27688,7 +27718,7 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at FROM oauth_tokens WHERE oauth_tokens.kind = ? AND oauth_tokens.token = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_token_kind.value(), oauth_token_token.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27710,7 +27740,7 @@ func (obj *pgxcockroachImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27732,7 +27762,7 @@ func (obj *pgxcockroachImpl) Get_Project_Salt_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.salt FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27756,7 +27786,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_PublicId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
-	var __values []interface{}
+	var __values []any
 	if !project_public_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, project_public_id.value())
@@ -27817,7 +27847,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27839,7 +27869,7 @@ func (obj *pgxcockroachImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.usage_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27861,7 +27891,7 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27883,7 +27913,7 @@ func (obj *pgxcockroachImpl) Get_Project_UserSpecifiedUsageLimit_By_Id(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_usage_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27905,7 +27935,7 @@ func (obj *pgxcockroachImpl) Get_Project_UserSpecifiedBandwidthLimit_By_Id(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_bandwidth_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27927,7 +27957,7 @@ func (obj *pgxcockroachImpl) Get_Project_SegmentLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.segment_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27949,7 +27979,7 @@ func (obj *pgxcockroachImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.max_buckets FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27971,7 +28001,7 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UserSpecifiedBan
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.user_specified_bandwidth_limit, projects.usage_limit, projects.user_specified_usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -27993,7 +28023,7 @@ func (obj *pgxcockroachImpl) Get_Project_DefaultVersioning_By_Id(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.default_versioning FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28015,7 +28045,7 @@ func (obj *pgxcockroachImpl) Get_Project_UserAgent_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_agent FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28036,7 +28066,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -28080,7 +28110,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28125,7 +28155,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_owner_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28170,7 +28200,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28216,7 +28246,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_created_at_less.value())
 
 	__values = append(__values, limit, offset)
@@ -28265,7 +28295,7 @@ func (obj *pgxcockroachImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28287,7 +28317,7 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28333,7 +28363,7 @@ func (obj *pgxcockroachImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28355,7 +28385,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28400,7 +28430,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28445,7 +28475,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28467,7 +28497,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Proje
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28490,7 +28520,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiK
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28513,7 +28543,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28536,7 +28566,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_Created
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28559,7 +28589,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28582,7 +28612,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.user_agent FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28605,7 +28635,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_Versioning_By_ProjectId_And_Name
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.versioning FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28628,7 +28658,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_A
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28651,7 +28681,7 @@ func (obj *pgxcockroachImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28674,7 +28704,7 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
@@ -28724,7 +28754,7 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
 
 	__values = append(__values, limit, offset)
@@ -28772,7 +28802,7 @@ func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28796,7 +28826,7 @@ func (obj *pgxcockroachImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt string
 	if start != nil && start._set {
@@ -28854,7 +28884,7 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28876,7 +28906,7 @@ func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28921,7 +28951,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -28979,7 +29009,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29001,7 +29031,7 @@ func (obj *pgxcockroachImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_limit FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29023,7 +29053,7 @@ func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29045,7 +29075,7 @@ func (obj *pgxcockroachImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.upgrade_time FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29067,7 +29097,7 @@ func (obj *pgxcockroachImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthL
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_storage_limit, users.project_bandwidth_limit, users.project_segment_limit FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29089,7 +29119,7 @@ func (obj *pgxcockroachImpl) Count_User_By_Status(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM users WHERE users.status = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_status.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29112,7 +29142,7 @@ func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_User_FullName_By_Status(
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name FROM users WHERE users.status = ? LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_status.value())
 
 	__values = append(__values, limit, offset)
@@ -29160,7 +29190,7 @@ func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29205,7 +29235,7 @@ func (obj *pgxcockroachImpl) Get_WebappSession_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29227,7 +29257,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, registration_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29251,7 +29281,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
-	var __values []interface{}
+	var __values []any
 	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, registration_token_owner_id.value())
@@ -29276,7 +29306,7 @@ func (obj *pgxcockroachImpl) Get_ResetPasswordToken_By_Secret(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29298,7 +29328,7 @@ func (obj *pgxcockroachImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_owner_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29321,7 +29351,7 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29343,7 +29373,7 @@ func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29388,7 +29418,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal FROM user_settings WHERE user_settings.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_settings_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -29408,13 +29438,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx con
 	update AccountingTimestamps_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Value._set {
 		__values = append(__values, update.Value.value())
@@ -29445,13 +29476,14 @@ func (obj *pgxcockroachImpl) Update_StripeCustomer_By_UserId(ctx context.Context
 	update StripeCustomer_Update_Fields) (
 	stripe_customer *StripeCustomer, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripe_customers SET "), __sets, __sqlbundle_Literal(" WHERE stripe_customers.user_id = ? RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.BillingCustomerId._set {
 		__values = append(__values, update.BillingCustomerId.value())
@@ -29497,13 +29529,14 @@ func (obj *pgxcockroachImpl) Update_BillingBalance_By_UserId_And_Balance(ctx con
 	update BillingBalance_Update_Fields) (
 	billing_balance *BillingBalance, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_balances SET "), __sets, __sqlbundle_Literal(" WHERE billing_balances.user_id = ? AND billing_balances.balance = ? RETURNING billing_balances.user_id, billing_balances.balance, billing_balances.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Balance._set {
 		__values = append(__values, update.Balance.value())
@@ -29540,13 +29573,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(
 	update BillingTransaction_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
@@ -29582,13 +29616,14 @@ func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Co
 	update CoinpaymentsTransaction_Update_Fields) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ReceivedNumeric._set {
 		__values = append(__values, update.ReceivedNumeric.value())
@@ -29628,13 +29663,14 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.State._set {
 		__values = append(__values, update.State.value())
@@ -29672,13 +29708,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeI
 	update GracefulExitSegmentTransfer_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.DurabilityRatio._set {
 		__values = append(__values, update.DurabilityRatio.value())
@@ -29739,13 +29776,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.C
 	update PeerIdentity_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.LeafSerialNumber._set {
 		__values = append(__values, update.LeafSerialNumber.value())
@@ -29782,13 +29820,14 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	update Node_Update_Fields) (
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -29999,13 +30038,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	update Node_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -30212,13 +30252,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_
 	update Node_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -30426,13 +30467,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_
 	update NodeApiVersion_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE node_api_versions SET "), __sets, __sqlbundle_Literal(" WHERE node_api_versions.id = ? AND node_api_versions.api_version < ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ApiVersion._set {
 		__values = append(__values, update.ApiVersion.value())
@@ -30464,13 +30506,14 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
 	update Reputation_Update_Fields) (
 	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -30572,13 +30615,14 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id_And_AuditHistory(ctx contex
 	update Reputation_Update_Fields) (
 	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -30679,13 +30723,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context
 	update Reputation_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -30782,13 +30827,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Contex
 	update OauthClient_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE oauth_clients.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.EncryptedSecret._set {
 		__values = append(__values, update.EncryptedSecret.value())
@@ -30834,13 +30880,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_N
 	update OauthCode_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_codes SET "), __sets, __sqlbundle_Literal(" WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ClaimedAt._set {
 		__values = append(__values, update.ClaimedAt.value())
@@ -30872,13 +30919,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	update OauthToken_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_tokens SET "), __sets, __sqlbundle_Literal(" WHERE oauth_tokens.token = ? AND oauth_tokens.kind = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ExpiresAt._set {
 		__values = append(__values, update.ExpiresAt.value())
@@ -30909,13 +30957,14 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	update Project_Update_Fields) (
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
@@ -31081,13 +31130,14 @@ func (obj *pgxcockroachImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx 
 	update ProjectMember_Update_Fields) (
 	project_member *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.member_id = ? AND project_members.project_id = ? RETURNING project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Role._set {
 		__values = append(__values, update.Role.value())
@@ -31123,13 +31173,14 @@ func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx
 	update ProjectInvitation_Update_Fields) (
 	project_invitation *ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.InviterId._set {
 		__values = append(__values, update.InviterId.value())
@@ -31169,13 +31220,14 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	update ApiKey_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
@@ -31207,13 +31259,14 @@ func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx con
 	update BucketMetainfo_Update_Fields) (
 	bucket_metainfo *BucketMetainfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -31310,13 +31363,14 @@ func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Ver
 	update BucketMetainfo_Update_Fields) (
 	bucket_metainfo *BucketMetainfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -31413,13 +31467,14 @@ func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Ver
 	update BucketMetainfo_Update_Fields) (
 	bucket_metainfo *BucketMetainfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? AND bucket_metainfos.object_lock_enabled = false RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -31515,13 +31570,14 @@ func (obj *pgxcockroachImpl) Update_ValueAttribution_By_ProjectId_And_BucketName
 	update ValueAttribution_Update_Fields) (
 	value_attribution *ValueAttribution, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -31557,13 +31613,14 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	update User_Update_Fields) (
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
@@ -31773,13 +31830,14 @@ func (obj *pgxcockroachImpl) Update_WebappSession_By_Id(ctx context.Context,
 	update WebappSession_Update_Fields) (
 	webapp_session *WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
@@ -31819,13 +31877,14 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 	update RegistrationToken_Update_Fields) (
 	registration_token *RegistrationToken, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.OwnerId._set {
 		__values = append(__values, update.OwnerId.value())
@@ -31861,13 +31920,14 @@ func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx c
 	update AccountFreezeEvent_Update_Fields) (
 	account_freeze_event *AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Limits._set {
 		__values = append(__values, update.Limits.value())
@@ -31912,13 +31972,14 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	update UserSettings_Update_Fields) (
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
@@ -31982,7 +32043,7 @@ func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32009,7 +32070,7 @@ func (obj *pgxcockroachImpl) Delete_StorjscanPayment_By_Status(ctx context.Conte
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storjscan_payments WHERE storjscan_payments.status = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_status.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32036,7 +32097,7 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx co
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32066,7 +32127,7 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_St
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32093,7 +32154,7 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_Fi
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32120,7 +32181,7 @@ func (obj *pgxcockroachImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM node_events WHERE node_events.created_at < ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32147,7 +32208,7 @@ func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth_clients WHERE oauth_clients.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_client_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32174,7 +32235,7 @@ func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32202,7 +32263,7 @@ func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx 
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32230,7 +32291,7 @@ func (obj *pgxcockroachImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32257,7 +32318,7 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32284,7 +32345,7 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32312,7 +32373,7 @@ func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32339,7 +32400,7 @@ func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, repair_queue_updated_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32366,7 +32427,7 @@ func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32393,7 +32454,7 @@ func (obj *pgxcockroachImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32420,7 +32481,7 @@ func (obj *pgxcockroachImpl) Delete_WebappSession_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32447,7 +32508,7 @@ func (obj *pgxcockroachImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32474,7 +32535,7 @@ func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32502,7 +32563,7 @@ func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -32522,8 +32583,7 @@ func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx c
 
 }
 
-func (impl pgxcockroachImpl) isConstraintError(err error) (
-	constraint string, ok bool) {
+func (impl pgxcockroachImpl) isConstraintError(err error) (constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
 		if e.Code[:2] == "23" {
 			return e.ConstraintName, true
@@ -33041,7 +33101,7 @@ func (obj *spannerImpl) ReplaceNoReturn_AccountingTimestamps(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO accounting_timestamps ( name, value ) VALUES ( ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __name_val, __value_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33076,7 +33136,7 @@ func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups "), __clause, __sqlbundle_Literal(" THEN RETURN storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -33140,7 +33200,7 @@ func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reverification_audits "), __clause, __sqlbundle_Literal(" THEN RETURN reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __stream_id_val, __position_val, __piece_num_val, __last_attempt_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -33210,7 +33270,7 @@ func (obj *spannerImpl) Create_StripeCustomer(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, billing_customer_id, package_plan, purchased_package_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __customer_id_val, __billing_customer_id_val, __package_plan_val, __purchased_package_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33246,7 +33306,7 @@ func (obj *spannerImpl) CreateNoReturn_BillingBalance(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_balances ( user_id, balance, last_updated ) VALUES ( ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __balance_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33287,7 +33347,7 @@ func (obj *spannerImpl) Create_BillingTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, tx_timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __amount_val, __currency_val, __description_val, __source_val, __status_val, __type_val, __metadata_val, __tx_timestamp_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33323,7 +33383,7 @@ func (obj *spannerImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, created_at ) VALUES ( ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __wallet_address_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33362,7 +33422,7 @@ func (obj *spannerImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_numeric, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_numeric_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33411,7 +33471,7 @@ func (obj *spannerImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, segments, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __segments_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33447,7 +33507,7 @@ func (obj *spannerImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_numeric, created_at ) VALUES ( ?, ?, ? ) THEN RETURN stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __tx_id_val, __rate_numeric_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33504,7 +33564,7 @@ func (obj *spannerImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storjscan_payments "), __clause}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __block_hash_val, __block_number_val, __transaction_val, __log_index_val, __from_address_val, __to_address_val, __token_value_val, __usd_value_val, __status_val, __block_timestamp_val, __created_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -33554,7 +33614,7 @@ func (obj *spannerImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33578,7 +33638,7 @@ func (obj *spannerImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __revoked_val, __api_key_id_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33606,7 +33666,7 @@ func (obj *spannerImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO node_api_versions ( id, api_version, created_at, updated_at ) VALUES ( ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __api_version_val, __created_at_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33642,7 +33702,7 @@ func (obj *spannerImpl) Create_NodeEvent(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" THEN RETURN node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __email_val, __last_ip_port_val, __node_id_val, __event_val, __last_attempted_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -33702,7 +33762,7 @@ func (obj *spannerImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO node_tags ( node_id, name, value, signed_at, signer ) VALUES ( ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33767,7 +33827,7 @@ func (obj *spannerImpl) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid, distributed ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val, __distributed_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33799,7 +33859,7 @@ func (obj *spannerImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_payments ( created_at, node_id, period, amount, receipt, notes ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __created_at_val, __node_id_val, __period_val, __amount_val, __receipt_val, __notes_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33834,7 +33894,7 @@ func (obj *spannerImpl) Create_Reputation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" THEN RETURN reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -33950,7 +34010,7 @@ func (obj *spannerImpl) CreateNoReturn_OauthClient(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -33990,7 +34050,7 @@ func (obj *spannerImpl) CreateNoReturn_OauthCode(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34024,7 +34084,7 @@ func (obj *spannerImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34083,7 +34143,7 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __public_id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __user_specified_usage_limit_val, __user_specified_bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __rate_limit_head_val, __burst_limit_head_val, __rate_limit_get_val, __burst_limit_get_val, __rate_limit_put_val, __burst_limit_put_val, __rate_limit_list_val, __burst_limit_list_val, __rate_limit_del_val, __burst_limit_del_val, __max_buckets_val, __user_agent_val, __owner_id_val, __salt_val, __created_at_val, __default_placement_val, __passphrase_enc_val, __passphrase_enc_key_id_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34172,7 +34232,7 @@ func (obj *spannerImpl) Create_ProjectMember(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO project_members "), __clause, __sqlbundle_Literal(" THEN RETURN project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __member_id_val, __project_id_val, __created_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34231,7 +34291,7 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT OR UPDATE INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34280,7 +34340,7 @@ func (obj *spannerImpl) Create_ApiKey(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO api_keys "), __clause, __sqlbundle_Literal(" THEN RETURN api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __user_agent_val, __created_at_val, __created_by_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34367,7 +34427,7 @@ func (obj *spannerImpl) Create_BucketMetainfo(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_metainfos "), __clause, __sqlbundle_Literal(" THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __project_id_val, __name_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val, __created_by_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34435,7 +34495,7 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34503,7 +34563,7 @@ func (obj *spannerImpl) Create_User(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" THEN RETURN users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __new_unverified_email_val, __status_val, __status_updated_at_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val, __failed_login_count_val, __login_lockout_expiration_val, __signup_captcha_val, __default_placement_val, __activation_code_val, __signup_id_val, __trial_expiration_val, __upgrade_time_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34663,7 +34723,7 @@ func (obj *spannerImpl) Create_WebappSession(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34701,7 +34761,7 @@ func (obj *spannerImpl) Create_RegistrationToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, created_at ) VALUES ( ?, ?, ?, ? ) THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34737,7 +34797,7 @@ func (obj *spannerImpl) Create_ResetPasswordToken(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reset_password_tokens ( secret, owner_id, created_at ) VALUES ( ?, ?, ? ) THEN RETURN reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __secret_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34777,7 +34837,7 @@ func (obj *spannerImpl) Replace_AccountFreezeEvent(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT OR UPDATE INTO account_freeze_events "), __clause, __sqlbundle_Literal(" THEN RETURN account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __event_val, __limits_val, __days_till_escalation_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34846,7 +34906,7 @@ func (obj *spannerImpl) CreateNoReturn_UserSettings(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -34906,7 +34966,7 @@ func (obj *spannerImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, accounting_timestamps_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34932,7 +34992,7 @@ func (obj *spannerImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Inte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34980,7 +35040,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -35042,7 +35102,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -35103,7 +35163,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -35165,7 +35225,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -35222,7 +35282,7 @@ func (obj *spannerImpl) All_StoragenodeStorageTally(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -35266,7 +35326,7 @@ func (obj *spannerImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35314,7 +35374,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -35375,7 +35435,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
 
 	var __stmt string
@@ -35432,7 +35492,7 @@ func (obj *spannerImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -35479,7 +35539,7 @@ func (obj *spannerImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_I
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35524,7 +35584,7 @@ func (obj *spannerImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamI
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count FROM reverification_audits WHERE reverification_audits.node_id = ? ORDER BY reverification_audits.stream_id, reverification_audits.position LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reverification_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35571,7 +35631,7 @@ func (obj *spannerImpl) Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedP
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.package_plan, stripe_customers.purchased_package_at FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35593,7 +35653,7 @@ func (obj *spannerImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35615,7 +35675,7 @@ func (obj *spannerImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Cont
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_customer_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35637,7 +35697,7 @@ func (obj *spannerImpl) Get_StripeCustomer_CustomerId_StripeCustomer_BillingCust
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.customer_id, stripe_customers.billing_customer_id FROM stripe_customers WHERE stripe_customers.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripe_customer_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35659,7 +35719,7 @@ func (obj *spannerImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_balances.balance FROM billing_balances WHERE billing_balances.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_balance_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35681,7 +35741,7 @@ func (obj *spannerImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35703,7 +35763,7 @@ func (obj *spannerImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.Contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.metadata FROM billing_transactions WHERE billing_transactions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35725,7 +35785,7 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestam
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.tx_timestamp DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35771,7 +35831,7 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.source = ? ORDER BY billing_transactions.tx_timestamp DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_source.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35817,7 +35877,7 @@ func (obj *spannerImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.tx_timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35864,7 +35924,7 @@ func (obj *spannerImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets WHERE storjscan_wallets.wallet_address = ? LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_wallet_wallet_address.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35922,7 +35982,7 @@ func (obj *spannerImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ? LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_wallet_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -35979,7 +36039,7 @@ func (obj *spannerImpl) All_StorjscanWallet(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.created_at FROM storjscan_wallets")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36023,7 +36083,7 @@ func (obj *spannerImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Creat
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, coinpayments_transaction_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36070,7 +36130,7 @@ func (obj *spannerImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36092,7 +36152,7 @@ func (obj *spannerImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36113,7 +36173,7 @@ func (obj *spannerImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments ORDER BY storjscan_payments.chain_id, storjscan_payments.block_number, storjscan_payments.log_index")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36158,7 +36218,7 @@ func (obj *spannerImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_Chain
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.chain_id, storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.block_timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.chain_id DESC, storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_to_address.value())
 
 	__values = append(__values, limit, offset)
@@ -36207,7 +36267,7 @@ func (obj *spannerImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_number FROM storjscan_payments WHERE storjscan_payments.status = ? AND storjscan_payments.chain_id = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_status.value(), storjscan_payment_chain_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36254,7 +36314,7 @@ func (obj *spannerImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_progress_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36279,7 +36339,7 @@ func (obj *spannerImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_A
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36301,7 +36361,7 @@ func (obj *spannerImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, peer_identity_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36323,7 +36383,7 @@ func (obj *spannerImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, peer_identity_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36345,7 +36405,7 @@ func (obj *spannerImpl) Get_Node_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features FROM nodes WHERE nodes.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36366,7 +36426,7 @@ func (obj *spannerImpl) All_Node_Id(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36412,7 +36472,7 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt string
 	if start != nil && start._set {
@@ -36468,7 +36528,7 @@ func (obj *spannerImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx 
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.disqualified is NULL")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36513,7 +36573,7 @@ func (obj *spannerImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM node_api_versions WHERE node_api_versions.id = ? AND node_api_versions.api_version >= ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_api_version_id.value(), node_api_version_api_version_greater_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36534,7 +36594,7 @@ func (obj *spannerImpl) Get_NodeEvent_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36557,7 +36617,7 @@ func (obj *spannerImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedA
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event, node_events.created_at, node_events.last_attempted, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_email.value(), node_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36604,7 +36664,7 @@ func (obj *spannerImpl) All_NodeTags_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags WHERE node_tags.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_tags_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36648,7 +36708,7 @@ func (obj *spannerImpl) All_NodeTags(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36693,7 +36753,7 @@ func (obj *spannerImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36715,7 +36775,7 @@ func (obj *spannerImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_paystub_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36762,7 +36822,7 @@ func (obj *spannerImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ? ORDER BY storagenode_payments.id DESC LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
 
 	__values = append(__values, limit, offset)
@@ -36810,7 +36870,7 @@ func (obj *spannerImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36856,7 +36916,7 @@ func (obj *spannerImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36901,7 +36961,7 @@ func (obj *spannerImpl) Get_Reputation_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reputation_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36923,7 +36983,7 @@ func (obj *spannerImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url FROM oauth_clients WHERE oauth_clients.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_client_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36945,7 +37005,7 @@ func (obj *spannerImpl) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_code_code.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36968,7 +37028,7 @@ func (obj *spannerImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at FROM oauth_tokens WHERE oauth_tokens.kind = ? AND oauth_tokens.token = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_token_kind.value(), oauth_token_token.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -36990,7 +37050,7 @@ func (obj *spannerImpl) Get_Project_PassphraseEnc_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.passphrase_enc FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37012,7 +37072,7 @@ func (obj *spannerImpl) Get_Project_Salt_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.salt FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37036,7 +37096,7 @@ func (obj *spannerImpl) Get_Project_By_PublicId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
-	var __values []interface{}
+	var __values []any
 	if !project_public_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, project_public_id.value())
@@ -37097,7 +37157,7 @@ func (obj *spannerImpl) Get_Project_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37119,7 +37179,7 @@ func (obj *spannerImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.usage_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37141,7 +37201,7 @@ func (obj *spannerImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37163,7 +37223,7 @@ func (obj *spannerImpl) Get_Project_UserSpecifiedUsageLimit_By_Id(ctx context.Co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_usage_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37185,7 +37245,7 @@ func (obj *spannerImpl) Get_Project_UserSpecifiedBandwidthLimit_By_Id(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_specified_bandwidth_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37207,7 +37267,7 @@ func (obj *spannerImpl) Get_Project_SegmentLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.segment_limit FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37229,7 +37289,7 @@ func (obj *spannerImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.max_buckets FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37251,7 +37311,7 @@ func (obj *spannerImpl) Get_Project_BandwidthLimit_Project_UserSpecifiedBandwidt
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.user_specified_bandwidth_limit, projects.usage_limit, projects.user_specified_usage_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37273,7 +37333,7 @@ func (obj *spannerImpl) Get_Project_DefaultVersioning_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.default_versioning FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37295,7 +37355,7 @@ func (obj *spannerImpl) Get_Project_UserAgent_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.user_agent FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37316,7 +37376,7 @@ func (obj *spannerImpl) All_Project(ctx context.Context) (
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -37360,7 +37420,7 @@ func (obj *spannerImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37405,7 +37465,7 @@ func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_owner_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37450,7 +37510,7 @@ func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37496,7 +37556,7 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_created_at_less.value())
 
 	__values = append(__values, limit, offset)
@@ -37545,7 +37605,7 @@ func (obj *spannerImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37567,7 +37627,7 @@ func (obj *spannerImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_members.member_id, project_members.project_id, project_members.role, project_members.created_at FROM project_members WHERE project_members.member_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37613,7 +37673,7 @@ func (obj *spannerImpl) Get_ProjectInvitation_By_ProjectId_And_Email(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37635,7 +37695,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37680,7 +37740,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37725,7 +37785,7 @@ func (obj *spannerImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37747,7 +37807,7 @@ func (obj *spannerImpl) Get_ApiKey_Project_PublicId_Project_RateLimit_Project_Bu
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.segment_limit, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37770,7 +37830,7 @@ func (obj *spannerImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_Pr
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.user_agent, api_keys.created_at, api_keys.created_by, api_keys.version, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37793,7 +37853,7 @@ func (obj *spannerImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37816,7 +37876,7 @@ func (obj *spannerImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_Bu
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_by, bucket_metainfos.created_at, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37839,7 +37899,7 @@ func (obj *spannerImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37862,7 +37922,7 @@ func (obj *spannerImpl) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.user_agent FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37885,7 +37945,7 @@ func (obj *spannerImpl) Get_BucketMetainfo_Versioning_By_ProjectId_And_Name(ctx 
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.versioning FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37908,7 +37968,7 @@ func (obj *spannerImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Na
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37931,7 +37991,7 @@ func (obj *spannerImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -37954,7 +38014,7 @@ func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEq
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
 
 	__values = append(__values, limit, offset)
@@ -38004,7 +38064,7 @@ func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Ord
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
 
 	__values = append(__values, limit, offset)
@@ -38052,7 +38112,7 @@ func (obj *spannerImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Conte
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38076,7 +38136,7 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
-	var __values []interface{}
+	var __values []any
 
 	var __stmt string
 	if start != nil && start._set {
@@ -38134,7 +38194,7 @@ func (obj *spannerImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx con
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38156,7 +38216,7 @@ func (obj *spannerImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38201,7 +38261,7 @@ func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx co
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38259,7 +38319,7 @@ func (obj *spannerImpl) Get_User_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38281,7 +38341,7 @@ func (obj *spannerImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_limit FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38303,7 +38363,7 @@ func (obj *spannerImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38325,7 +38385,7 @@ func (obj *spannerImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.upgrade_time FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38347,7 +38407,7 @@ func (obj *spannerImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.project_storage_limit, users.project_bandwidth_limit, users.project_segment_limit FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38369,7 +38429,7 @@ func (obj *spannerImpl) Count_User_By_Status(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM users WHERE users.status = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_status.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38392,7 +38452,7 @@ func (obj *spannerImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx c
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name FROM users WHERE users.status = ? LIMIT ? OFFSET ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_status.value())
 
 	__values = append(__values, limit, offset)
@@ -38440,7 +38500,7 @@ func (obj *spannerImpl) All_WebappSession_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38485,7 +38545,7 @@ func (obj *spannerImpl) Get_WebappSession_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38507,7 +38567,7 @@ func (obj *spannerImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, registration_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38531,7 +38591,7 @@ func (obj *spannerImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
-	var __values []interface{}
+	var __values []any
 	if !registration_token_owner_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, registration_token_owner_id.value())
@@ -38556,7 +38616,7 @@ func (obj *spannerImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38578,7 +38638,7 @@ func (obj *spannerImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT reset_password_tokens.secret, reset_password_tokens.owner_id, reset_password_tokens.created_at FROM reset_password_tokens WHERE reset_password_tokens.owner_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_owner_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38601,7 +38661,7 @@ func (obj *spannerImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.C
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38623,7 +38683,7 @@ func (obj *spannerImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38668,7 +38728,7 @@ func (obj *spannerImpl) Get_UserSettings_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal FROM user_settings WHERE user_settings.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_settings_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -38694,8 +38754,8 @@ func (obj *spannerImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Value._set {
 		__values = append(__values, update.Value.value())
@@ -38732,8 +38792,8 @@ func (obj *spannerImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripe_customers SET "), __sets, __sqlbundle_Literal(" WHERE stripe_customers.user_id = ? THEN RETURN stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.billing_customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.BillingCustomerId._set {
 		__values = append(__values, update.BillingCustomerId.value())
@@ -38793,8 +38853,8 @@ func (obj *spannerImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_balances SET "), __sets, __sqlbundle_Literal(" WHERE billing_balances.user_id = ? AND billing_balances.balance = ? THEN RETURN billing_balances.user_id, billing_balances.balance, billing_balances.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Balance._set {
 		__values = append(__values, update.Balance.value())
@@ -38845,8 +38905,8 @@ func (obj *spannerImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx c
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
@@ -38888,8 +38948,8 @@ func (obj *spannerImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? THEN RETURN coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ReceivedNumeric._set {
 		__values = append(__values, update.ReceivedNumeric.value())
@@ -38943,8 +39003,8 @@ func (obj *spannerImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? THEN RETURN stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.State._set {
 		__values = append(__values, update.State.value())
@@ -38996,8 +39056,8 @@ func (obj *spannerImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.DurabilityRatio._set {
 		__values = append(__values, update.DurabilityRatio.value())
@@ -39064,8 +39124,8 @@ func (obj *spannerImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Contex
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.LeafSerialNumber._set {
 		__values = append(__values, update.LeafSerialNumber.value())
@@ -39108,8 +39168,8 @@ func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? THEN RETURN nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -39334,8 +39394,8 @@ func (obj *spannerImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -39548,8 +39608,8 @@ func (obj *spannerImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_E
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
@@ -39763,8 +39823,8 @@ func (obj *spannerImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE node_api_versions SET "), __sets, __sqlbundle_Literal(" WHERE node_api_versions.id = ? AND node_api_versions.api_version < ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ApiVersion._set {
 		__values = append(__values, update.ApiVersion.value())
@@ -39802,8 +39862,8 @@ func (obj *spannerImpl) Update_Reputation_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? THEN RETURN reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -39919,8 +39979,8 @@ func (obj *spannerImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Con
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? THEN RETURN reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -40035,8 +40095,8 @@ func (obj *spannerImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.AuditSuccessCount._set {
 		__values = append(__values, update.AuditSuccessCount.value())
@@ -40139,8 +40199,8 @@ func (obj *spannerImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE oauth_clients.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.EncryptedSecret._set {
 		__values = append(__values, update.EncryptedSecret.value())
@@ -40192,8 +40252,8 @@ func (obj *spannerImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(c
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_codes SET "), __sets, __sqlbundle_Literal(" WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ClaimedAt._set {
 		__values = append(__values, update.ClaimedAt.value())
@@ -40231,8 +40291,8 @@ func (obj *spannerImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_tokens SET "), __sets, __sqlbundle_Literal(" WHERE oauth_tokens.token = ? AND oauth_tokens.kind = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.ExpiresAt._set {
 		__values = append(__values, update.ExpiresAt.value())
@@ -40269,8 +40329,8 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? THEN RETURN projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
@@ -40450,8 +40510,8 @@ func (obj *spannerImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx conte
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_members SET "), __sets, __sqlbundle_Literal(" WHERE project_members.member_id = ? AND project_members.project_id = ? THEN RETURN project_members.member_id, project_members.project_id, project_members.role, project_members.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Role._set {
 		__values = append(__values, update.Role.value())
@@ -40501,8 +40561,8 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? THEN RETURN project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.InviterId._set {
 		__values = append(__values, update.InviterId.value())
@@ -40556,8 +40616,8 @@ func (obj *spannerImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
@@ -40595,8 +40655,8 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -40707,8 +40767,8 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -40819,8 +40879,8 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? AND bucket_metainfos.versioning >= ? AND bucket_metainfos.object_lock_enabled = false THEN RETURN bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.user_agent, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement, bucket_metainfos.created_by")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -40930,8 +40990,8 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
@@ -40981,8 +41041,8 @@ func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? THEN RETURN users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
@@ -41206,8 +41266,8 @@ func (obj *spannerImpl) Update_WebappSession_By_Id(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? THEN RETURN webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
@@ -41261,8 +41321,8 @@ func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.OwnerId._set {
 		__values = append(__values, update.OwnerId.value())
@@ -41312,8 +41372,8 @@ func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? THEN RETURN account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.Limits._set {
 		__values = append(__values, update.Limits.value())
@@ -41372,8 +41432,8 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? THEN RETURN user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
+	var __values []any
+	var __args []any
 
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
@@ -41445,7 +41505,7 @@ func (obj *spannerImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_P
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41472,7 +41532,7 @@ func (obj *spannerImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storjscan_payments WHERE storjscan_payments.status = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, storjscan_payment_status.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41499,7 +41559,7 @@ func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41529,7 +41589,7 @@ func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamI
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41556,7 +41616,7 @@ func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_Finishe
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41583,7 +41643,7 @@ func (obj *spannerImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM node_events WHERE node_events.created_at < ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, node_event_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41610,7 +41670,7 @@ func (obj *spannerImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth_clients WHERE oauth_clients.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, oauth_client_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41637,7 +41697,7 @@ func (obj *spannerImpl) Delete_Project_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM projects WHERE projects.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41665,7 +41725,7 @@ func (obj *spannerImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx conte
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_members WHERE project_members.member_id = ? AND project_members.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_member_member_id.value(), project_member_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41693,7 +41753,7 @@ func (obj *spannerImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41720,7 +41780,7 @@ func (obj *spannerImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41747,7 +41807,7 @@ func (obj *spannerImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, api_key_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41775,7 +41835,7 @@ func (obj *spannerImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41802,7 +41862,7 @@ func (obj *spannerImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, repair_queue_updated_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41829,7 +41889,7 @@ func (obj *spannerImpl) Delete_User_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM users WHERE users.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41856,7 +41916,7 @@ func (obj *spannerImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41883,7 +41943,7 @@ func (obj *spannerImpl) Delete_WebappSession_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, webapp_session_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41910,7 +41970,7 @@ func (obj *spannerImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reset_password_tokens WHERE reset_password_tokens.secret = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, reset_password_token_secret.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41937,7 +41997,7 @@ func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41965,7 +42025,7 @@ func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
 
-	var __values []interface{}
+	var __values []any
 	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -41985,8 +42045,7 @@ func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 
 }
 
-func (impl spannerImpl) isConstraintError(err error) (
-	constraint string, ok bool) {
+func (impl spannerImpl) isConstraintError(err error) (constraint string, ok bool) {
 	return "", false
 }
 

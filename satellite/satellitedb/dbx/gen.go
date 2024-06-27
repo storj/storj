@@ -40,9 +40,6 @@ func init() {
 	}
 }
 
-// Unwrap returns the underlying error.
-func (e *Error) Unwrap() error { return e.Err }
-
 // Cause returns the underlying error.
 func (e *Error) Cause() error { return e.Err }
 

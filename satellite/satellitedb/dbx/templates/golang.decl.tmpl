@@ -1,4 +1,4 @@
-{{- define "decl" }}
+{{- define "decl" }}{{/* gotype: storj.io/dbx/code/golang.funcDecl */}}
 func (obj *{{ .ReceiverBase }}Impl) {{ .Signature }} {
 	defer mon.Task()(&ctx)(&err)
 {{ .Body }}

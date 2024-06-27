@@ -11,7 +11,7 @@ First_{{ .Suffix }}({{ ctxarg .Args }})
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 
-	var __values []interface{}
+	var __values []any
 	{{ embedvalues .Args "__values" }}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
