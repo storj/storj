@@ -16,33 +16,26 @@
         <v-col cols="12" sm="8" md="6" lg="4">
             <v-card variant="outlined" rounded="xlg" class="h-100">
                 <div class="d-flex flex-column justify-space-between pa-6">
-                    <p>
-                        <v-chip
-                            rounded="lg"
-                            class="text-caption font-weight-bold"
-                            color="primary"
-                            size="small"
-                            :prepend-icon="mdiCheck"
-                        >
-                            Recommended
-                        </v-chip>
-                    </p>
-                    <h3 class="font-weight-black mt-2 mb-1 text-primary">Storj Managed Encryption</h3>
-                    <p class="text-medium-emphasis text-caption mb-3"> Secure, automatic encryption handled by Storj</p>
+                    <h3 class="font-weight-black">Automatic</h3>
+                    <p>Storj securely manages the encryption and decryption of your project automatically.</p>
+                    <p><v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" variant="tonal" size="small">
+                    Recommended for most users and teams
+                    </v-chip></p>
 
-                    <v-alert color="primary" variant="tonal" rounded="lg">
-                        <p class="text-body-2 mb-2">
-                            Seamless collaboration: Easily work on projects with team members, no passphrase sharing required
-                        </p>
-                        <v-divider />
-                        <p class="text-body-2 my-2">
-                            Effortless security: Storj automatically encrypts and decrypts your data, ensuring robust protection
-                        </p>
-                        <v-divider />
-                        <p class="text-body-2 mt-2">
-                            Streamlined workflow: Fewer steps to upload and download files, simplifying your experience
-                        </p>
-                    </v-alert>
+                    <p class="text-body-2 my-2">
+                        <b>Simple user experience</b><br>
+                        Fewer steps to upload, download, manage, and browse your data.
+                        No need to remember an additional encryption passphrase.
+                    </p>
+
+                    <p class="text-body-2 my-2">
+                        <b>Easy team management</b><br>
+                        Your team members would automatically have access to your project's data.
+                    </p>
+                    
+                    <p class="text-body-2 my-2">
+                        <a href="" class="link">Learn more in the documentation.</a>
+                    </p>
 
                     <v-btn
                         :disabled="selectedMode !== 'auto' && loading"
@@ -53,7 +46,7 @@
                         <template #append>
                             <v-icon :icon="mdiArrowRight" />
                         </template>
-                        Storj Managed Encryption
+                        Automatic
                     </v-btn>
                 </div>
             </v-card>
@@ -62,26 +55,28 @@
         <v-col cols="12" sm="8" md="6" lg="4">
             <v-card variant="outlined" rounded="xlg" class="h-100">
                 <div class="d-flex flex-column justify-space-between pa-6">
-                    <p><v-chip rounded="lg" class="text-caption font-weight-bold" color="purple" size="small">Advanced</v-chip></p>
-                    <h3 class="font-weight-black mt-2 mb-1 primary">Self-Managed Encryption</h3>
-                    <p class="text-medium-emphasis text-caption mb-3">Full control over your encryption keys</p>
-                    <v-alert color="secondary" variant="tonal" rounded="lg">
-                        <p class="text-body-2 mb-2">
-                            Enhanced privacy: You have complete ownership and control over your encryption passphrase
-                        </p>
+                    <h3 class="font-weight-black primary">Manual</h3>
+                    <p>You are responsible for securely managing your own data encryption passphrase.</p>
+                    <p>
+                        <v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" size="small" variant="tonal">
+                        Best for control over your data encryption
+                        </v-chip>
+                    </p>
 
-                        <v-divider />
+                    <p class="text-body-2 my-2">
+                        <b>Passphrase experience</b><br>
+                        You will need to enter your passphrase each time you access your data. 
+                        If you forget the passphrase, you can't recover your data.
+                    </p>
 
-                        <p class="text-body-2 my-2">
-                            Client-side encryption: Your data is encrypted before reaching our servers, ensuring maximum confidentiality
-                        </p>
+                    <p class="text-body-2 my-2">
+                        <b>Manual team management</b><br>
+                        Team members must share and enter the same encryption passphrase to access the data.
+                    </p>
 
-                        <v-divider />
-
-                        <p class="text-body-2 mt-2">
-                            Responsibility: Securely manage and store your passphrase, as Storj cannot recover it if lost
-                        </p>
-                    </v-alert>
+                    <p class="text-body-2 my-2">
+                        <a href="" class="link">Learn more in the documentation.</a>
+                    </p>
 
                     <v-btn
                         :disabled="selectedMode !== 'manual' && loading"
@@ -90,7 +85,7 @@
                         class="mt-4"
                         @click="emit('modeChosen', 'manual')"
                     >
-                        Self-Managed Encryption
+                        Manual
                         <template #append>
                             <v-icon :icon="mdiArrowRight" />
                         </template>
@@ -101,18 +96,9 @@
     </v-row>
 
     <v-row justify="center" class="mt-3">
-        <v-col cols="12" sm="10">
-            <p class="text-body-2 mt-2 text-center">
-                <a href="" class="link">Learn more about encryption methods.</a>
-            </p>
-        </v-col>
-    </v-row>
-
-    <v-row justify="center" class="mt-3">
         <v-col cols="6" sm="4" md="3" lg="2">
             <v-btn
                 :disabled="loading"
-                size="small"
                 variant="text"
                 :prepend-icon="mdiChevronLeft"
                 color="default" block
@@ -125,8 +111,8 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert, VBtn, VCard, VChip, VCol, VDivider, VIcon, VRow } from 'vuetify/components';
-import { mdiArrowRight, mdiCheck, mdiChevronLeft } from '@mdi/js';
+import { VBtn, VCard, VChip, VCol, VDivider, VIcon, VRow } from 'vuetify/components';
+import { mdiArrowRight, mdiChevronLeft } from '@mdi/js';
 
 import { ManagePassphraseMode } from '@/types/projects';
 
