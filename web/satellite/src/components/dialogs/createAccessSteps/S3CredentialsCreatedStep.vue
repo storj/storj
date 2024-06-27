@@ -17,7 +17,7 @@
                 <text-output-area label="Secret Key" :value="secretKey" :tooltip-disabled="isTooltipDisabled" show-copy />
             </v-col>
             <v-col cols="12">
-                <text-output-area label="Endpoint" :value="endpoint" :tooltip-disabled="isTooltipDisabled" show-copy />
+                <text-output-area label="Endpoint" :is-blurred="false" :value="endpoint" :tooltip-disabled="isTooltipDisabled" show-copy />
             </v-col>
         </v-row>
     </div>

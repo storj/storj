@@ -54,6 +54,7 @@
                 <v-col cols="12">
                     <text-output-area
                         label="Endpoint"
+                        :is-blurred="false"
                         :value="credentials.endpoint"
                         show-copy
                     />

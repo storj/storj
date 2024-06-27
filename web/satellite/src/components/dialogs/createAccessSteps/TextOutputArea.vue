@@ -59,7 +59,7 @@ defineProps<{
     showCopy?: boolean;
 }>();
 
-const isBlurred = ref<boolean>(true);
+const isBlurred = defineModel<boolean>('isBlurred', { default: true });
 </script>
 
 <style scoped lang="scss">

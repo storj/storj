@@ -311,7 +311,7 @@ const worker = ref<Worker | null>(null);
 const stepInfos: Record<CreateAccessStep, StepInfo> = {
     [CreateAccessStep.CreateNewAccess]: new StepInfo(
         null,
-        () => (accessTypes.value.includes(AccessType.S3) && !userStore.noticeDismissal.serverSideEncryption)
+        () => (accessTypes.value.includes(AccessType.S3) && !userStore.noticeDismissal.serverSideEncryption && !hasManagedPassphrase.value)
             ? CreateAccessStep.EncryptionInfo
             : CreateAccessStep.ChoosePermission,
     ),
@@ -320,7 +320,7 @@ const stepInfos: Record<CreateAccessStep, StepInfo> = {
         CreateAccessStep.ChoosePermission,
     ),
     [CreateAccessStep.ChoosePermission]: new StepInfo(
-        () => (accessTypes.value.includes(AccessType.S3) && !userStore.noticeDismissal.serverSideEncryption)
+        () => (accessTypes.value.includes(AccessType.S3) && !userStore.noticeDismissal.serverSideEncryption && !hasManagedPassphrase.value)
             ? CreateAccessStep.EncryptionInfo
             : CreateAccessStep.CreateNewAccess,
         () => {

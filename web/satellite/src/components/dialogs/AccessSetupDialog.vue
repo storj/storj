@@ -315,12 +315,14 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
+const hasManagedPassphrase = computed<boolean>(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseAccessStep]: new StepInfo(
         'Next ->',
         'Cancel',
         undefined,
-        () => (accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption)
+        () => (accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption && !hasManagedPassphrase.value)
             ? SetupStep.EncryptionInfo
             : SetupStep.ChooseFlowStep,
     ),
@@ -342,7 +344,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         () => {
             if (props.defaultAccessType) return undefined;
 
-            return accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption
+            return accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption  && !hasManagedPassphrase.value
                 ? SetupStep.EncryptionInfo
                 : SetupStep.ChooseAccessStep;
         },
