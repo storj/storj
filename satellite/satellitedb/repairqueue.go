@@ -76,6 +76,8 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 	// insert if not exists, or update healthy count if does exist
 	var query string
 
+	mon.Counter("repair_queue_inserted").Inc(1)
+
 	// we want to insert the segment if it is not in the queue, but update the segment health if it already is in the queue
 	// we also want to know if the result was an insert or an update - this is the reasoning for the xmax section of the postgres query
 	// and the separate cockroach query (which the xmax trick does not work for)
@@ -140,6 +142,8 @@ func (r *repairQueue) InsertBatch(
 	if len(segments) == 0 {
 		return nil, nil
 	}
+
+	mon.Counter("repair_queue_inserted").Inc(int64(len(segments)))
 
 	// insert if not exists, or update healthy count if does exist
 	var query string
