@@ -78,6 +78,15 @@
                                 <v-progress-circular indeterminate size="23" width="2" />
                             </div>
                         </v-list-item>
+
+                        <v-list-item v-if="isVersion" density="comfortable" link @click="emit('restoreObjectClick')">
+                            <template #prepend>
+                                <icon-restore />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Restore
+                            </v-list-item-title>
+                        </v-list-item>
                     </template>
 
                     <v-list-item v-if="!isVersion" density="comfortable" link @click="emit('shareClick')">
@@ -130,6 +139,7 @@ import IconDownload from '@/components/icons/IconDownload.vue';
 import IconShare from '@/components/icons/IconShare.vue';
 import IconPreview from '@/components/icons/IconPreview.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
+import IconRestore from '@/components/icons/IconRestore.vue';
 
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
@@ -146,6 +156,7 @@ const emit = defineEmits<{
     previewClick: [];
     deleteFileClick: [];
     shareClick: [];
+    restoreObjectClick: [];
 }>();
 
 const isDownloading = ref<boolean>(false);
@@ -189,6 +200,7 @@ async function onDownloadClick(): Promise<void> {
     }
     isDownloading.value = false;
 }
+
 </script>
 
 <style scoped lang="scss">

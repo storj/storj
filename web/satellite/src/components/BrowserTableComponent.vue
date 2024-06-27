@@ -83,6 +83,7 @@
                             align="right"
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
+                            @restore-object-click="onRestoreObjectClick(file)"
                         />
                     </td>
                     <td />
@@ -201,6 +202,12 @@
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
     />
+    <restore-version-dialog
+        v-model="isRestoreDialogShown"
+        :file="fileToRestore"
+        @file-restored="onFileRestored"
+        @content-removed="fileToRestore = null"
+    />
 </template>
 
 <script setup lang="ts">
@@ -245,6 +252,7 @@ import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
+import RestoreVersionDialog from '@/components/dialogs/RestoreVersionDialog.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconCurveRight from '@/components/icons/IconCurveRight.vue';
 import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
@@ -286,10 +294,12 @@ const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
 const fileToDelete = ref<BrowserObject | null>(null);
+const fileToRestore = ref<BrowserObject | null>(null);
 const fileToPreview = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
+const isRestoreDialogShown = ref<boolean>(false);
 const isFileGuideShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
@@ -447,6 +457,11 @@ function onFilesDeleted(): void {
     obStore.updateSelectedFiles([]);
 }
 
+function onFileRestored(): void {
+    fetchFiles();
+    obStore.updateSelectedFiles([]);
+}
+
 /**
  * Handles page change event.
  */
@@ -592,6 +607,14 @@ function onDeleteFileClick(file: BrowserObject): void {
 function onShareClick(file: BrowserObject): void {
     fileToShare.value = file;
     isShareDialogShown.value = true;
+}
+
+/**
+ * Handles restore button click event.
+ */
+function onRestoreObjectClick(file: BrowserObject): void {
+    fileToRestore.value = file;
+    isRestoreDialogShown.value = true;
 }
 
 async function dismissFileGuide() {

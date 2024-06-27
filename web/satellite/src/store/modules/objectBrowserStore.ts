@@ -6,6 +6,7 @@ import { defineStore } from 'pinia';
 import {
     _Object,
     CommonPrefix,
+    CopyObjectCommand,
     DeleteObjectCommand,
     GetObjectCommand,
     ListObjectsCommand,
@@ -446,6 +447,17 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }));
 
         state.objectsCount = (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
+    }
+
+    async function restoreObject(obj: BrowserObject): Promise<void> {
+        assertIsInitialized(state);
+
+        await state.s3.send(new CopyObjectCommand({
+            CopySource: `${state.bucket}/${obj.Key}?versionId=${obj.VersionId}`,
+            Bucket: state.bucket,
+            Key: obj.Key,
+            MetadataDirective: 'REPLACE',
+        }));
     }
 
     async function upload({ e }: { e: DragEvent | Event }, ignoreDuplicate = false): Promise<void> {
@@ -947,6 +959,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         sort,
         getObjectCount,
         upload,
+        restoreObject,
         retryUpload,
         createFolder,
         deleteObject,
