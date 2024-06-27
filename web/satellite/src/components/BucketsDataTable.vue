@@ -71,25 +71,29 @@
                 </span>
             </template>
             <template #item.since="{ item }">
-                <span>
+                <span class="text-no-wrap">
                     {{ Time.formattedDate(item.since) }}
                 </span>
             </template>
             <template #item.location="{ item }">
-                <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
-                    <icon-location />
-                </v-icon>
-                <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
-                    {{ item.location || `unknown(${item.defaultPlacement})` }}
-                </v-chip>
+                <div class="text-no-wrap">
+                    <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
+                        <icon-globe />
+                    </v-icon>
+                    <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
+                        {{ item.location || `unknown(${item.defaultPlacement})` }}
+                    </v-chip>
+                </div>
             </template>
             <template #item.versioning="{ item }">
-                <v-icon size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border text-cursor-pointer">
-                    <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
-                </v-icon>
-                <v-chip variant="tonal" color="default" size="small">
-                    {{ item.versioning }}
-                </v-chip>
+                <div class="text-no-wrap">
+                    <v-icon size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border">
+                        <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
+                    </v-icon>
+                    <v-chip variant="tonal" color="default" size="small">
+                        {{ item.versioning }}
+                    </v-chip>
+                </div>
             </template>
             <template #item.actions="{ item }">
                 <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
@@ -226,7 +230,7 @@ import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphr
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import IconVersioning from '@/components/icons/IconVersioning.vue';
-import IconLocation from '@/components/icons/IconLocation.vue';
+import IconGlobe from '@/components/icons/IconGlobe.vue';
 import IconPause from '@/components/icons/IconPause.vue';
 import IconForward from '@/components/icons/IconForward.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';

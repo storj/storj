@@ -5,13 +5,12 @@
     <v-dialog
         v-model="model"
         width="auto"
-        min-width="400px"
         max-width="450px"
         transition="fade-transition"
     >
         <v-card rounded="xlg">
             <v-sheet>
-                <v-card-item class="py-4 pl-6">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <v-sheet
                             class="border-sm d-flex justify-center align-center"

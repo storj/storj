@@ -36,16 +36,17 @@
                 </v-alert>
 
                 <v-alert v-else variant="tonal">
-                    <p class="text-subtitle-2 font-weight-bold">Select specific buckets</p>
-                    <p class="text-subtitle-2">Please select which buckets do you want to share.</p>
+                    <p class="text-subtitle-2 font-weight-bold">Select Buckets</p>
+                    <p class="text-subtitle-2">The application can access the selected buckets in this project.</p>
                     <v-autocomplete
                         v-model="buckets"
                         v-model:search="bucketSearch"
                         :items="allBucketNames"
-                        class="mt-3"
+                        class="mt-4"
                         variant="outlined"
                         color="default"
-                        label="Select Buckets"
+                        label="Buckets"
+                        placeholder="Select buckets"
                         no-data-text="No buckets found."
                         multiple
                         chips

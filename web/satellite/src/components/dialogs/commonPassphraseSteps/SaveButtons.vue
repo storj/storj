@@ -6,22 +6,22 @@
         <v-btn
             variant="outlined"
             block
-            :color="justCopied ? 'success' : 'default'"
-            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
-            @click="onCopy"
+            :color="justDownloaded ? 'success' : 'default'"
+            :prepend-icon="justDownloaded ? mdiCheck : mdiTrayArrowDown"
+            @click="onDownload"
         >
-            {{ justCopied ? 'Copied' : (items.length > 1 ? 'Copy All' : 'Copy') }}
+            {{ justDownloaded ? 'Downloaded' : (items.length > 1 ? 'Download All' : 'Download') }}
         </v-btn>
     </v-col>
     <v-col cols="6">
         <v-btn
             variant="outlined"
             block
-            :color="justDownloaded ? 'success' : 'default'"
-            :prepend-icon="justDownloaded ? mdiCheck : mdiTrayArrowDown"
-            @click="onDownload"
+            :color="justCopied ? 'success' : 'default'"
+            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
+            @click="onCopy"
         >
-            {{ justDownloaded ? 'Downloaded' : (items.length > 1 ? 'Download All' : 'Download') }}
+            {{ justCopied ? 'Copied' : (items.length > 1 ? 'Copy All' : 'Copy') }}
         </v-btn>
     </v-col>
 </template>

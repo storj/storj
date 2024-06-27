@@ -8,7 +8,7 @@
                 <p>Select the access configuration{{ app ? ` for ${app.name}` : '' }}.</p>
                 <v-chip-group
                     v-model="flowType"
-                    class="my-3"
+                    class="mt-2 mb-3"
                     selected-class="text-info font-weight-bold"
                     variant="outlined"
                     mandatory

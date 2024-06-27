@@ -5,7 +5,6 @@
     <v-dialog
         v-model="model"
         width="auto"
-        min-width="400px"
         max-width="450px"
         transition="fade-transition"
         :persistent="isLoading"

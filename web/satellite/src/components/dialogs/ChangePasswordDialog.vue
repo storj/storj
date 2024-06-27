@@ -6,8 +6,7 @@
         v-model="model"
         :persistent="isLoading"
         width="auto"
-        min-width="320px"
-        max-width="410px"
+        max-width="420px"
         transition="fade-transition"
     >
         <v-card>
@@ -41,12 +40,11 @@
                             :rules="oldRules"
                             label="Current password"
                             placeholder="Enter your current password"
+                            class="mb-2"
                             :hide-details="false"
                             required
                             autofocus
                         />
-                    </v-col>
-                    <v-col cols="12" class="px-0">
                         <v-text-field
                             v-model="newPassword"
                             variant="outlined"
@@ -54,17 +52,17 @@
                             :rules="newRules"
                             label="New password"
                             placeholder="Enter a new password"
+                            class="mb-2"
                             :hide-details="false"
                             required
                         />
-                    </v-col>
-                    <v-col cols="12" class="px-0">
                         <v-text-field
                             variant="outlined"
                             type="password"
                             :rules="repeatRules"
                             label="Repeat password"
                             placeholder="Enter the new password again"
+                            class="mb-2"
                             :hide-details="false"
                             required
                         />

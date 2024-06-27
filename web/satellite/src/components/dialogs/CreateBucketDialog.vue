@@ -6,7 +6,6 @@
         v-model="model"
         :persistent="isLoading"
         width="auto"
-        min-width="320px"
         max-width="450px"
         transition="fade-transition"
     >

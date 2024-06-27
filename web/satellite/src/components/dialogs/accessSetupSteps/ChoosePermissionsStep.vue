@@ -5,14 +5,14 @@
     <v-form class="pa-6" @submit.prevent>
         <v-row>
             <v-col cols="12">
-                <p>Select which permissions to give.</p>
+                <p>Select the permissions you want to allow.</p>
                 <v-btn
                     :color="permissions.length === 4 ? 'info' : 'secondary'"
                     variant="outlined"
                     density="compact"
                     size="default"
                     :prepend-icon="permissions.length === 4 ? mdiCheckBold : undefined"
-                    class="mt-3 text-body-2"
+                    class="mt-4 text-body-2"
                     rounded="md"
                     @click="onAllClick"
                 >
@@ -24,7 +24,7 @@
                     filter
                     multiple
                     selected-class="text-info font-weight-bold"
-                    class="my-2"
+                    class="mt-2 mb-3"
                 >
                     <v-chip
                         :key="Permission.Read"

@@ -4,7 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
@@ -103,9 +103,9 @@
                     </v-col>
 
                     <v-col v-if="hasCustomLimit" cols="12">
-                        <v-card class="px-3 mt-n4" variant="flat">
+                        <v-card class="pa-2 pl-4 mt-n4" variant="flat">
                             <div class="d-flex justify-space-between align-center">
-                                <div>Don't need a limit?</div>
+                                <div><p class="text-body-2">Don't need a limit?</p></div>
                                 <div>
                                     <v-btn :loading="isLoading" variant="text" @click="unSetLimit">
                                         Remove Limit
@@ -119,7 +119,8 @@
                 <v-alert
                     class="mt-3"
                     density="compact"
-                    type="warning"
+                    type="info"
+                    variant="tonal"
                     text="Limit updates may take several minutes to be reflected."
                 />
             </v-form>

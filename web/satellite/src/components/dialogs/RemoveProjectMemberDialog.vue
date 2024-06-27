@@ -4,7 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
@@ -33,20 +33,16 @@
                 </template>
             </v-card-item>
 
-            <v-card-item class="px-6 py-0">
-                <v-divider />
+            <v-divider />
 
-                <p class="py-4">The following team members will be removed.</p>
+            <v-card-item class="pa-6">
+                <p class="mb-3">The following team members will be removed.</p>
 
-                <v-divider />
-            </v-card-item>
-
-            <v-card-item class="px-6 pt-4 pb-1">
                 <v-chip
                     v-for="email in firstThreeSelected"
                     :key="email"
                     rounded
-                    class="mb-3 mr-1"
+                    class="mb-4 mr-1"
                 >
                     <template #default>
                         <div class="max-width">
@@ -57,17 +53,15 @@
                 <v-chip v-if="props.emails.length > 3" rounded class="mb-3 mr-1">
                     + {{ props.emails.length - 3 }} more
                 </v-chip>
-            </v-card-item>
 
-            <v-card-item class="px-6 py-0">
-                <v-alert variant="tonal" class="mb-4 pa-4" color="warning" border="start">
+                <v-alert variant="tonal" class="pa-4" type="warning">
                     <template #text>
                         <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
                     </template>
                 </v-alert>
-
-                <v-divider />
             </v-card-item>
+
+            <v-divider />
 
             <v-card-actions class="pa-6">
                 <v-row>

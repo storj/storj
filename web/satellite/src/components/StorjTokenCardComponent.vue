@@ -5,8 +5,8 @@
     <v-card title="STORJ Token" variant="flat">
         <v-card-text>
             <v-row class="ma-0 align-center">
-                <v-chip color="default" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
-                <v-chip color="info" variant="tonal" class="font-weight-bold">
+                <v-chip color="default" size="small" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
+                <v-chip color="info" size="small" variant="tonal" class="font-weight-bold">
                     Default
                     <span class="d-inline-flex ml-1">
                         <v-icon class="text-cursor-pointer" :icon="mdiInformationOutline" />
