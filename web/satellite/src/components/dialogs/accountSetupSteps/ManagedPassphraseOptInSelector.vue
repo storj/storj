@@ -18,9 +18,11 @@
                 <div class="d-flex flex-column justify-space-between pa-6">
                     <h3 class="font-weight-black">Automatic</h3>
                     <p>Storj securely manages the encryption and decryption of your project automatically.</p>
-                    <p><v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" variant="tonal" size="small">
-                    Recommended for most users and teams
-                    </v-chip></p>
+                    <p>
+                        <v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" variant="tonal" size="small">
+                            Recommended for most users and teams
+                        </v-chip>
+                    </p>
 
                     <p class="text-body-2 my-2">
                         <b>Simple user experience</b><br>
@@ -32,7 +34,7 @@
                         <b>Easy team management</b><br>
                         Your team members would automatically have access to your project's data.
                     </p>
-                    
+
                     <p class="text-body-2 my-2">
                         <a href="" class="link">Learn more in the documentation.</a>
                     </p>
@@ -59,13 +61,13 @@
                     <p>You are responsible for securely managing your own data encryption passphrase.</p>
                     <p>
                         <v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" size="small" variant="tonal">
-                        Best for control over your data encryption
+                            Best for control over your data encryption
                         </v-chip>
                     </p>
 
                     <p class="text-body-2 my-2">
                         <b>Passphrase experience</b><br>
-                        You will need to enter your passphrase each time you access your data. 
+                        You will need to enter your passphrase each time you access your data.
                         If you forget the passphrase, you can't recover your data.
                     </p>
 
