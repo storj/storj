@@ -39,9 +39,6 @@ func (db *DB) GetTableStats(ctx context.Context, opts GetTableStats) (result Tab
 func (p *PostgresAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var asOf *time.Time
-	// the " - ut.n_ins_since_vacuum" part of the query here is just so that the behavior
-	// matches the expectations in tests; we want the tuple count to reflect, as near as
-	// possible, the count at the time of the last vacuum.
 	err = p.db.QueryRowContext(ctx, `
 		WITH schema_names AS (
 			SELECT btrim(p) AS schema, ord
@@ -49,7 +46,7 @@ func (p *PostgresAdapter) GetTableStats(ctx context.Context, opts GetTableStats)
 				SELECT setting FROM pg_settings WHERE name='search_path'
 			), ',')) WITH ORDINALITY AS x(p, ord)
 		)
-		SELECT ut.n_live_tup - ut.n_ins_since_vacuum, GREATEST(ut.last_vacuum, ut.last_analyze, ut.last_autovacuum, ut.last_autoanalyze) AS as_of
+		SELECT ut.n_live_tup, GREATEST(ut.last_vacuum, ut.last_analyze, ut.last_autovacuum, ut.last_autoanalyze) AS as_of
 		FROM pg_stat_user_tables ut, schema_names sn
 		WHERE
 			(ut.schemaname = sn.schema OR '"' || ut.schemaname  || '"' = sn.schema)
