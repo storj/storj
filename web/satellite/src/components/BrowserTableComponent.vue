@@ -63,12 +63,12 @@
                     </td>
                     <td>
                         <p class="text-caption">
-                            {{ getFormattedSize(file) }}
+                            {{ getFileInfo(file).typeInfo.title }}
                         </p>
                     </td>
                     <td>
                         <p class="text-caption">
-                            {{ getFileInfo(file).typeInfo.title }}
+                            {{ getFormattedSize(file) }}
                         </p>
                     </td>
                     <td>

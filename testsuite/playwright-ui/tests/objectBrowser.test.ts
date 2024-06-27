@@ -25,6 +25,7 @@ test.describe('object browser + edge services', () => {
         await loginPage.verifySetupAccountFirstStep();
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
+        await loginPage.selectFreeTrial();
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 

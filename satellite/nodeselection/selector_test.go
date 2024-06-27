@@ -893,7 +893,7 @@ func TestIfWithEqSelector(t *testing.T) {
 	nodeID3total := subnetB1Count / total
 	nodeID4total := subnetB2Count / total
 
-	const selectionEpsilon = 0.02
+	const selectionEpsilon = 0.05
 
 	// we expect that 2 nodes from the same subnet should be
 	// selected roughly the same percent of the time

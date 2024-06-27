@@ -17,7 +17,7 @@ import { onBeforeMount, ref } from 'vue';
 import { VCol, VRow } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
-import { PricingPlanInfo, PricingPlanType } from '@/types/common';
+import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, PRO_PLAN_INFO } from '@/types/common';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -41,18 +41,7 @@ const emit = defineEmits<{
 }>();
 
 const plans = ref<PricingPlanInfo[]>([
-    new PricingPlanInfo(
-        PricingPlanType.PRO,
-        'Pro Account',
-        '',
-        'Only pay for what you need. $4/TB stored per month* $7/TB for download bandwidth.',
-        '*Additional per-segment fee of $0.0000088 applies.',
-        null,
-        null,
-        'Add a credit card to activate your Pro Account.<br><br>Only pay for what you use.',
-        'No charge today',
-        '',
-    ),
+    PRO_PLAN_INFO,
 ]);
 
 /**
@@ -62,18 +51,7 @@ onBeforeMount(async () => {
     if (props.showFreePlan) {
         plans.value = [
             ...plans.value,
-            new PricingPlanInfo(
-                PricingPlanType.FREE,
-                'Free Trial',
-                'Limited',
-                'Free usage up to 25GB storage and 25GB egress bandwidth for 30 days.',
-                null,
-                null,
-                null,
-                'Start for free to try Storj and upgrade later.',
-                null,
-                'Limited 25',
-            ),
+            FREE_PLAN_INFO,
         ];
     }
 

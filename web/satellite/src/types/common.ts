@@ -41,6 +41,32 @@ export enum PricingPlanType {
     PRO = 'pro',
 }
 
+export const PRO_PLAN_INFO = new PricingPlanInfo(
+    PricingPlanType.PRO,
+    'Pro Account',
+    '',
+    'Only pay for what you need. $4/TB stored per month* $7/TB for download bandwidth.',
+    '*Additional per-segment fee of $0.0000088 applies.',
+    null,
+    null,
+    'Add a credit card to activate your Pro Account.<br><br>Only pay for what you use.',
+    'No charge today',
+    '',
+);
+
+export const FREE_PLAN_INFO = new PricingPlanInfo(
+    PricingPlanType.FREE,
+    'Free Trial',
+    'Limited',
+    'Free usage up to 25GB storage and 25GB egress bandwidth for 30 days.',
+    null,
+    null,
+    null,
+    'Start for free to try Storj and upgrade later.',
+    null,
+    'Limited 25',
+);
+
 // TODO: fully implement these types and their methods according to their Go counterparts
 export type UUID = string
 export type MemorySize = string

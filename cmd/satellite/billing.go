@@ -81,6 +81,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		pc.BonusRate,
 		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName),
 		emission.NewService(runCfg.Emission),
+		runCfg.Console.SelfServeAccountDeleteEnabled,
 	)
 }
 

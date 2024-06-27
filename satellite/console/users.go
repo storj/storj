@@ -244,6 +244,8 @@ type User struct {
 
 	HaveSalesContact bool `json:"haveSalesContact"`
 
+	FinalInvoiceGenerated bool `json:"-"`
+
 	MFAEnabled       bool     `json:"mfaEnabled"`
 	MFASecretKey     string   `json:"-"`
 	MFARecoveryCodes []string `json:"-"`
@@ -338,6 +340,8 @@ type UpdateUserRequest struct {
 	// failed_login_count is nullable, but we don't really have a reason
 	// to set it to NULL, so it doesn't need to be a double pointer here.
 	FailedLoginCount *int
+
+	FinalInvoiceGenerated *bool
 
 	LoginLockoutExpiration **time.Time
 

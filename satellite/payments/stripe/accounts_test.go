@@ -75,6 +75,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			pc.BonusRate,
 			nil,
 			nil,
+			false,
 		)
 		require.NoError(t, err)
 

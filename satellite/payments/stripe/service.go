@@ -98,16 +98,17 @@ type Service struct {
 	// Stripe Extended Features
 	AutoAdvance bool
 
-	listingLimit        int
-	skipEmptyInvoices   bool
-	maxParallelCalls    int
-	removeExpiredCredit bool
-	useIdempotency      bool
-	nowFn               func() time.Time
+	listingLimit         int
+	skipEmptyInvoices    bool
+	maxParallelCalls     int
+	removeExpiredCredit  bool
+	useIdempotency       bool
+	deleteAccountEnabled bool
+	nowFn                func() time.Time
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)
@@ -136,6 +137,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		deleteAccountEnabled:   deleteAccountEnabled,
 		nowFn:                  time.Now,
 	}, nil
 }
@@ -253,12 +255,12 @@ func (service *Service) createProjectRecords(ctx context.Context, customer *Cust
 			return nil, err
 		}
 
-		from, err := service.getFromDate(ctx, customer.UserID, start, end)
+		from, to, err := service.getFromToDates(ctx, customer.UserID, start, end)
 		if err != nil {
 			return nil, err
 		}
 
-		usage, err := service.usageDB.GetProjectTotal(ctx, project.ID, from, end)
+		usage, err := service.usageDB.GetProjectTotal(ctx, project.ID, from, to)
 		if err != nil {
 			return nil, err
 		}
@@ -730,12 +732,12 @@ func (service *Service) createInvoiceItems(ctx context.Context, billingID *strin
 		return true, nil
 	}
 
-	from, err := service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
+	from, to, err := service.getFromToDates(ctx, userID, record.PeriodStart, record.PeriodEnd)
 	if err != nil {
 		return false, err
 	}
 
-	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, record.PeriodEnd)
+	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, to)
 	if err != nil {
 		return false, err
 	}
@@ -753,6 +755,10 @@ func (service *Service) createInvoiceItems(ctx context.Context, billingID *strin
 		item.Params = stripe.Params{Context: ctx}
 		item.Currency = stripe.String(string(stripe.CurrencyUSD))
 		item.Customer = stripe.String(*billingID)
+		item.Period = &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(to.Unix()),
+			Start: stripe.Int64(from.Unix()),
+		}
 		if invoiceID != nil {
 			item.Invoice = invoiceID
 		}
@@ -806,12 +812,12 @@ func (service *Service) processProjectRecord(ctx context.Context, cusID, projNam
 		return true, nil
 	}
 
-	from, err := service.getFromDate(ctx, userID, record.PeriodStart, record.PeriodEnd)
+	from, to, err := service.getFromToDates(ctx, userID, record.PeriodStart, record.PeriodEnd)
 	if err != nil {
 		return false, err
 	}
 
-	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, record.PeriodEnd)
+	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, to)
 	if err != nil {
 		return false, err
 	}
@@ -828,6 +834,10 @@ func (service *Service) processProjectRecord(ctx context.Context, cusID, projNam
 			item.Params = stripe.Params{Context: ctx}
 			item.Currency = stripe.String(string(stripe.CurrencyUSD))
 			item.Customer = stripe.String(cusID)
+			item.Period = &stripe.InvoiceItemPeriodParams{
+				End:   stripe.Int64(to.Unix()),
+				Start: stripe.Int64(from.Unix()),
+			}
 			// TODO: do not expose regular project ID.
 			item.AddMetadata("projectID", record.ProjectID.String())
 
@@ -1633,6 +1643,29 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 		if err != nil {
 			return Error.Wrap(err)
 		}
+
+		if service.deleteAccountEnabled {
+			user, err := service.usersDB.Get(ctx, userID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// we use line item's period.end field to check if it corresponds to user's status update at field.
+			// unfortunately, we can't use invoice's period_end field as it's not relevant and can't be updated or predefined.
+			if user.StatusUpdatedAt == nil || stripeInvoice.Lines.Data[0] == nil || stripeInvoice.Lines.Data[0].Period == nil {
+				continue
+			}
+
+			statusUpdatedAt := user.StatusUpdatedAt.UTC().Unix()
+
+			if user.Status == console.UserRequestedDeletion && !user.FinalInvoiceGenerated && stripeInvoice.Lines.Data[0].Period.End == statusUpdatedAt {
+				invoiceGenerated := true
+				err = service.usersDB.Update(ctx, user.ID, console.UpdateUserRequest{FinalInvoiceGenerated: &invoiceGenerated})
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+		}
 	}
 
 	return Error.Wrap(invoicesIterator.Err())
@@ -1852,7 +1885,11 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 	return errGrp.Err()
 }
 
-// mustSkipUser checks whether a user does not have a status of console.Active or is in Free tier.
+// mustSkipUser checks whether a user should be skipped based on their status and tier.
+// It returns true if any of the following conditions are met:
+// 1. The user has requested deletion and their final invoice has been generated.
+// 2. The user's status is neither 'Active' nor 'UserRequestedDeletion'.
+// 3. The user is not on a paid tier.
 func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
@@ -1862,7 +1899,9 @@ func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (boo
 		return false, Error.New("unable to look up user %s: %w", userID, err)
 	}
 
-	return user.Status != console.Active || !user.PaidTier, nil
+	return (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
+		(user.Status != console.Active && user.Status != console.UserRequestedDeletion) ||
+		!user.PaidTier, nil
 }
 
 // projectUsagePrice represents pricing for project usage.
@@ -1897,25 +1936,33 @@ func (service *Service) SetNow(now func() time.Time) {
 	service.nowFn = now
 }
 
-// getFromDate returns from date value used for data usage calculations depending on users upgrade time.
-func (service *Service) getFromDate(ctx context.Context, userID uuid.UUID, start, end time.Time) (time.Time, error) {
-	upgradeTime, err := service.usersDB.GetUpgradeTime(ctx, userID)
+// getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.
+func (service *Service) getFromToDates(ctx context.Context, userID uuid.UUID, start, end time.Time) (time.Time, time.Time, error) {
+	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
-		return start, err
+		return time.Time{}, time.Time{}, err
 	}
 
-	if upgradeTime == nil {
-		return start, nil
+	from := start
+	if user.UpgradeTime != nil {
+		utc := user.UpgradeTime.UTC()
+		dayAfterUpgrade := time.Date(utc.Year(), utc.Month(), utc.Day()+1, 0, 0, 0, 0, time.UTC)
+
+		if dayAfterUpgrade.After(start) && dayAfterUpgrade.Before(end) {
+			from = dayAfterUpgrade
+		}
 	}
 
-	utc := upgradeTime.UTC()
-	dayAfterUpgrade := time.Date(utc.Year(), utc.Month(), utc.Day()+1, 0, 0, 0, 0, time.UTC)
+	to := end
+	if service.deleteAccountEnabled && user.Status == console.UserRequestedDeletion && user.StatusUpdatedAt != nil {
+		statusUpdatedAt := user.StatusUpdatedAt.UTC()
 
-	if dayAfterUpgrade.After(start) && dayAfterUpgrade.Before(end) {
-		return dayAfterUpgrade, nil
+		if !user.FinalInvoiceGenerated && statusUpdatedAt.Before(end) && statusUpdatedAt.After(start) {
+			to = statusUpdatedAt
+		}
 	}
 
-	return start, nil
+	return from, to, nil
 }
 
 // storageMBMonthDecimal converts storage usage from Byte-Hours to Megabyte-Months.
