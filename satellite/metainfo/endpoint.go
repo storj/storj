@@ -77,10 +77,12 @@ type Endpoint struct {
 	projectUsage           *accounting.Service
 	projects               console.Projects
 	projectMembers         console.ProjectMembers
+	users                  console.Users
 	apiKeys                APIKeys
 	satellite              signing.Signer
 	limiterCache           *lrucache.ExpiringLRUOf[*rate.Limiter]
 	singleObjectLimitCache *lrucache.ExpiringLRUOf[struct{}]
+	userInfoCache          *lrucache.ExpiringLRUOf[*console.UserInfo]
 	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
 	revocations            revocation.DB
 	config                 ExtendedConfig
@@ -94,7 +96,7 @@ type Endpoint struct {
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers,
+	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
 
 	// TODO do something with too many params
@@ -136,6 +138,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		projectUsage:        projectUsage,
 		projects:            projects,
 		projectMembers:      projectMembers,
+		users:               users,
 		satellite:           satellite,
 		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
@@ -145,6 +148,10 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		singleObjectLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
 			Expiration: config.UploadLimiter.SingleObjectLimit,
 			Capacity:   config.UploadLimiter.CacheCapacity,
+		}),
+		userInfoCache: lrucache.NewOf[*console.UserInfo](lrucache.Options{
+			Expiration: config.UserInfoValidation.CacheExpiration,
+			Capacity:   config.UserInfoValidation.CacheCapacity,
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,

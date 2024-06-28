@@ -39,6 +39,8 @@ type Users interface {
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
+	// GetUserInfoByProjectID gets the user info of the project (id) owner.
+	GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (*UserInfo, error)
 	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
@@ -71,12 +73,6 @@ type Users interface {
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 }
 
-// UserInfo holds User updatable data.
-type UserInfo struct {
-	FullName  string `json:"fullName"`
-	ShortName string `json:"shortName"`
-}
-
 // UserCursor holds info for user info cursor pagination.
 type UserCursor struct {
 	Limit uint `json:"limit"`
@@ -95,15 +91,9 @@ type UsersPage struct {
 	TotalCount  uint64 `json:"totalCount"`
 }
 
-// IsValid checks UserInfo validity and returns error describing whats wrong.
-// The returned error has the class ErrValidation.
-func (user *UserInfo) IsValid() error {
-	// validate fullName
-	if err := ValidateFullName(user.FullName); err != nil {
-		return ErrValidation.Wrap(err)
-	}
-
-	return nil
+// UserInfo holds minimal user info.
+type UserInfo struct {
+	Status UserStatus
 }
 
 // CreateUser struct holds info for User creation.

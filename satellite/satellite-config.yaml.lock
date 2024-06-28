@@ -946,6 +946,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # switch to iterator based implementation.
 # metainfo.use-list-objects-iterator: false
 
+# user info cache capacity
+# metainfo.user-info-validation.cache-capacity: 10000
+
+# user info cache expiration
+# metainfo.user-info-validation.cache-expiration: 5m0s
+
+# whether validation is enabled for user account info
+# metainfo.user-info-validation.enabled: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 

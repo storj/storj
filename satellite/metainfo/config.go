@@ -150,6 +150,13 @@ type ProjectLimitConfig struct {
 	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
 }
 
+// UserInfoValidationConfig is a configuration struct for user info validation.
+type UserInfoValidationConfig struct {
+	Enabled         bool          `help:"whether validation is enabled for user account info" default:"false"`
+	CacheExpiration time.Duration `help:"user info cache expiration" default:"5m"`
+	CacheCapacity   int           `help:"user info cache capacity" default:"10000"`
+}
+
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	DatabaseURL          string      `help:"the database connection string to use" default:"postgres://"`
@@ -185,6 +192,8 @@ type Config struct {
 
 	UseBucketLevelObjectLock         bool     `help:"enable the use of bucket-level Object Lock" default:"false"`
 	UseBucketLevelObjectLockProjects []string `help:"list of project IDs for which bucket-level Object Lock functionality is enabled" default:"" hidden:"true"`
+
+	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`

@@ -469,6 +469,43 @@ func TestGetEmailsForDeletion(t *testing.T) {
 	})
 }
 
+func TestGetUserInfoByProjectID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
+		users := db.Console().Users()
+
+		user, err := users.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Test user",
+			PasswordHash: []byte("password"),
+		})
+		require.NoError(t, err)
+
+		active := console.Active
+		err = users.Update(ctx, user.ID, console.UpdateUserRequest{Status: &active})
+		require.NoError(t, err)
+
+		prj, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+			OwnerID:     user.ID,
+		})
+		require.NoError(t, err)
+
+		info, err := users.GetUserInfoByProjectID(ctx, prj.ID)
+		require.NoError(t, err)
+		require.Equal(t, active, info.Status)
+
+		pendingDeletion := console.PendingDeletion
+		err = users.Update(ctx, user.ID, console.UpdateUserRequest{Status: &pendingDeletion})
+		require.NoError(t, err)
+
+		info, err = users.GetUserInfoByProjectID(ctx, prj.ID)
+		require.NoError(t, err)
+		require.Equal(t, pendingDeletion, info.Status)
+	})
+}
+
 func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		usersRepo := db.Console().Users()

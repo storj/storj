@@ -155,6 +155,12 @@ read limitoffset (
 	where user.status = ?
 )
 
+read one (
+	select user.status
+	join user.id = project.owner_id
+	where project.id = ?
+)
+
 model webapp_session (
 	key id
 	index ( fields user_id )

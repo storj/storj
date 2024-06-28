@@ -192,6 +192,20 @@ func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, 
 	return page, nil
 }
 
+// GetUserInfoByProjectID gets the user info of the project (id) owner.
+func (users *users) GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (_ *console.UserInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	statusRow, err := users.db.Get_User_Status_By_Project_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return &console.UserInfo{
+		Status: console.UserStatus(statusRow.Status),
+	}, nil
+}
+
 // GetByEmail is a method for querying user by verified email from the database.
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)

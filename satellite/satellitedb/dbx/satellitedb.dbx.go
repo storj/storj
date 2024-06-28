@@ -15018,6 +15018,10 @@ type SegmentLimit_Row struct {
 	SegmentLimit *int64
 }
 
+type Status_Row struct {
+	Status int
+}
+
 type UpgradeTime_Row struct {
 	UpgradeTime *time.Time
 }
@@ -20575,6 +20579,28 @@ func (obj *pgxImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx conte
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxImpl) Get_User_Status_By_Project_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Status_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.status FROM users  JOIN projects ON users.id = projects.owner_id WHERE projects.id = ?")
+
+	var __values []any
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Status_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Status)
+	if err != nil {
+		return (*Status_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -30190,6 +30216,28 @@ func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_User_FullName_By_Status(
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_User_Status_By_Project_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Status_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.status FROM users  JOIN projects ON users.id = projects.owner_id WHERE projects.id = ?")
+
+	var __values []any
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Status_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Status)
+	if err != nil {
+		return (*Status_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -40311,6 +40359,28 @@ func (obj *spannerImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx c
 
 }
 
+func (obj *spannerImpl) Get_User_Status_By_Project_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Status_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.status FROM users  JOIN projects ON users.id = projects.owner_id WHERE projects.id = ?")
+
+	var __values []any
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Status_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Status)
+	if err != nil {
+		return (*Status_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *spannerImpl) All_WebappSession_By_UserId(ctx context.Context,
 	webapp_session_user_id WebappSession_UserId_Field) (
 	rows []*WebappSession, err error) {
@@ -45458,6 +45528,10 @@ type Methods interface {
 	Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User_ProjectSegmentLimit_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		row *ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row, err error)
+
+	Get_User_Status_By_Project_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *Status_Row, err error)
 
 	Get_User_UpgradeTime_By_Id(ctx context.Context,
 		user_id User_Id_Field) (

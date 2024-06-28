@@ -435,3 +435,48 @@ func TestEndpoint_checkRate(t *testing.T) {
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 		})
 }
+
+func TestEndpoint_checkUserStatus(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UserInfoValidation.Enabled = true
+				config.Metainfo.UserInfoValidation.CacheCapacity = 0
+			},
+		},
+	},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			endpoint := sat.Metainfo.Endpoint
+			users := sat.API.DB.Console().Users()
+
+			user, err := users.GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+			require.NoError(t, err)
+			require.Equal(t, console.Active, user.Status)
+
+			ownerAPIKey := planet.Uplinks[0].APIKey[sat.ID()]
+
+			listReq := &pb.ListBucketsRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Direction: buckets.DirectionForward,
+			}
+			_, err = endpoint.ListBuckets(ctx, listReq)
+			require.NoError(t, err)
+
+			// update user status to inactive
+			inactive := console.Inactive
+			err = users.Update(ctx, user.ID, console.UpdateUserRequest{Status: &inactive})
+			require.NoError(t, err)
+
+			// inactive user is denied access
+			_, err = endpoint.ListBuckets(ctx, listReq)
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		})
+}

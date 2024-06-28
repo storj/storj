@@ -173,6 +173,11 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
 
+	if err = endpoint.checkUserStatus(ctx, keyInfo); err != nil {
+		endpoint.log.Debug("user status check failed", zap.Error(err))
+		return nil, nil, err
+	}
+
 	if err = endpoint.checkRate(ctx, keyInfo, rateKind); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, nil, err
@@ -282,6 +287,28 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}
 
+	return nil
+}
+
+// checkUserStatus validates whether the user associated with keyInfo is active.
+func (endpoint *Endpoint) checkUserStatus(ctx context.Context, keyInfo *console.APIKeyInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.UserInfoValidation.Enabled {
+		return nil
+	}
+
+	info, err := endpoint.userInfoCache.Get(ctx, keyInfo.ProjectID.String(), func() (*console.UserInfo, error) {
+		return endpoint.users.GetUserInfoByProjectID(ctx, keyInfo.ProjectID)
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, "unable to get user info")
+	}
+
+	if info.Status != console.Active {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "User is not active")
+	}
 	return nil
 }
 
