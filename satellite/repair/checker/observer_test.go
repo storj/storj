@@ -658,7 +658,8 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				}
 
 				// confirm that some pieces are out of placement
-				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement))
+				filter, _ := nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement)
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, filter)
 				require.NoError(t, err)
 				require.False(t, ok)
 

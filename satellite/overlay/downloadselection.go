@@ -87,7 +87,9 @@ func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context
 		return nil, Error.Wrap(err)
 	}
 
-	return state.FilteredIPs(nodes, cache.placementRules(placement)), nil
+	filter, _ := cache.placementRules(placement)
+
+	return state.FilteredIPs(nodes, filter), nil
 }
 
 // GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.

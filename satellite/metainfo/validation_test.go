@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
@@ -296,6 +298,10 @@ func TestEndpoint_checkRate(t *testing.T) {
 			burstPut := int64(7)
 
 			// switch project so that cached rate limiter isn't used for next test stage
+			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+				State: tls.ConnectionState{
+					PeerCertificates: planet.Uplinks[1].Identity.Chain(),
+				}})
 			proj, err = projects.Get(ctx, planet.Uplinks[1].Projects[0].ID)
 			require.NoError(t, err)
 			ownerAPIKey = planet.Uplinks[1].APIKey[sat.ID()]
@@ -401,11 +407,11 @@ func TestEndpoint_checkRate(t *testing.T) {
 			for i := int64(0); i < burstGet; i++ {
 				// no objects are uploaded, so we always expect "not found"
 				// since we are testing the rate limiter only, we simply need to verify we get "resource exhausted" after all the allowed requests
-				_, err = endpoint.DownloadObject(ctx, dlRequest)
+				_, err = endpoint.DownloadObject(peerctx, dlRequest)
 				require.Error(t, err)
 				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
-			_, err = endpoint.DownloadObject(ctx, dlRequest)
+			_, err = endpoint.DownloadObject(peerctx, dlRequest)
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 

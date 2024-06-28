@@ -87,9 +87,10 @@ func (aost *AsOfSystemTimeConfig) Interval() time.Duration {
 // This is used only if no placement is configured, but we need a 0 placement rule.
 func (c NodeSelectionConfig) CreateDefaultPlacement() (nodeselection.Placement, error) {
 	placement := nodeselection.Placement{
-		NodeFilter: nodeselection.AnyFilter{},
-		Selector:   nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
-		Invariant:  nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		NodeFilter:       nodeselection.AnyFilter{},
+		Selector:         nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
+		Invariant:        nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		DownloadSelector: nodeselection.DefaultDownloadSelector,
 	}
 	if len(c.UploadExcludedCountryCodes) > 0 {
 		countryFilter, err := nodeselection.NewCountryFilterFromString(c.UploadExcludedCountryCodes)

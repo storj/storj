@@ -431,8 +431,8 @@ func TestPlacementFromString(t *testing.T) {
 
 		// check if old geofencing rules are working as before (and string based config is the same as the code base)
 		for _, placement := range []storj.PlacementConstraint{storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			filter1 := rules1.CreateFilters(placement)
-			filter2 := rules2.CreateFilters(placement)
+			filter1, _ := rules1.CreateFilters(placement)
+			filter2, _ := rules2.CreateFilters(placement)
 			for _, country := range testCountries {
 				result1 := filter1.Match(&SelectedNode{
 					CountryCode: country,
@@ -444,9 +444,11 @@ func TestPlacementFromString(t *testing.T) {
 			}
 		}
 
+		filter1, _ := rules1.CreateFilters(storj.NR)
+		filter2, _ := rules2.CreateFilters(storj.NR)
 		// make sure that new rules exclude location.None from NR
-		assert.False(t, rules1.CreateFilters(storj.NR).Match(&SelectedNode{}))
-		assert.False(t, rules2.CreateFilters(storj.NR).Match(&SelectedNode{}))
+		assert.False(t, filter1.Match(&SelectedNode{}))
+		assert.False(t, filter2.Match(&SelectedNode{}))
 
 		// make sure tagged nodes (even from EU) matches only the special placement
 		node := &SelectedNode{
@@ -461,12 +463,15 @@ func TestPlacementFromString(t *testing.T) {
 		}
 
 		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			assert.False(t, rules1.CreateFilters(placement).Match(node))
+			filter, _ := rules1.CreateFilters(placement)
+			assert.False(t, filter.Match(node))
 		}
-		assert.False(t, rules1.CreateFilters(6).Match(node))
+		filter, _ := rules1.CreateFilters(6)
+		assert.False(t, filter.Match(node))
 
 		// any value is accepted
-		assert.True(t, rules1.CreateFilters(11).Match(&SelectedNode{
+		filter, _ = rules1.CreateFilters(11)
+		assert.True(t, filter.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -477,7 +482,8 @@ func TestPlacementFromString(t *testing.T) {
 		}))
 
 		// but not empty
-		assert.False(t, rules1.CreateFilters(11).Match(&SelectedNode{
+		filter, _ = rules1.CreateFilters(11)
+		assert.False(t, filter.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -498,11 +504,13 @@ func TestPlacementFromString(t *testing.T) {
 			},
 		}
 		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			value := rules1.CreateFilters(placement).Match(datacenterNode)
+			filter, _ := rules1.CreateFilters(placement)
+			value := filter.Match(datacenterNode)
 			assert.False(t, value)
 		}
 
-		assert.True(t, rules1.CreateFilters(13).Match(&SelectedNode{
+		filter, _ = rules1.CreateFilters(13)
+		assert.True(t, filter.Match(&SelectedNode{
 			Tags: NodeTags{
 				{
 					Signer: signer,
@@ -514,7 +522,8 @@ func TestPlacementFromString(t *testing.T) {
 
 		// check if annotation present on 11,12, but not on other
 		for i := 0; i < 20; i++ {
-			subnetDisabled := GetAnnotation(rules1.CreateFilters(storj.PlacementConstraint(i)), AutoExcludeSubnet) == AutoExcludeSubnetOFF
+			filter, _ := rules1.CreateFilters(storj.PlacementConstraint(i))
+			subnetDisabled := GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF
 			if i == 11 || i == 12 || i == 14 {
 				require.True(t, subnetDisabled, "Placement filter should be disabled for %d", i)
 			} else {

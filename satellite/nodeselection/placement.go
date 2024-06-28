@@ -25,10 +25,14 @@ type Placement struct {
 	Name string
 	// binding condition for filtering out nodes
 	NodeFilter NodeFilter
-	// selector is the method how the nodes are selected from the full node space (eg. pick a subnet first, and pick a node from the subnet)
+	// Selector is the method how the nodes are selected from the full node space (eg. pick a subnet first, and pick a node from the subnet)
 	Selector NodeSelectorInit
 	// checked by repair job, applied to the full selection. Out of placement items will be replaced by new, selected by the Selector.
 	Invariant Invariant
+	// DownloadSelector is the method for how the nodes are selected for
+	// downloading (e.g., at random from the uploaded set, or filtered down with
+	// choice of 2).
+	DownloadSelector DownloadSelector
 
 	// EC defines erasure coding parameter overrides.
 	EC ECParameters `yaml:"ec"`
@@ -72,11 +76,31 @@ type NodeSelectorInit func([]*SelectedNode, NodeFilter) NodeSelector
 // (for example, when a last_net is already selected, all the nodes from the same net should be excluded as well.
 type NodeSelector func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
 
+// DownloadSelector will take a map of possible nodes to choose for a download.
+// It returns a new map of nodes to consider for selecting for the download.
+// It is always true that 0 <= len(result) <= len(possibleNodes), and every
+// element in result will have come from possibleNodes. 'needed' is a hint to
+// the selector of how many nodes are needed for return ideally, so many
+// selectors will try to return at least 'needed' nodes.
+type DownloadSelector func(requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error)
+
+// ExcludeAllDownloadSelector is a DownloadSelector that always returns an
+// empty map.
+var ExcludeAllDownloadSelector DownloadSelector = func(storj.NodeID, map[storj.NodeID]*SelectedNode, int) (map[storj.NodeID]*SelectedNode, error) {
+	return map[storj.NodeID]*SelectedNode{}, nil
+}
+
+// DefaultDownloadSelector is a DownloadSelector that returns the set of
+// possibleNodes unchanged.
+var DefaultDownloadSelector DownloadSelector = func(_ storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, _ int) (map[storj.NodeID]*SelectedNode, error) {
+	return possibleNodes, nil
+}
+
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")
 
 // PlacementRules can crate filter based on the placement identifier.
-type PlacementRules func(constraint storj.PlacementConstraint) (filter NodeFilter)
+type PlacementRules func(constraint storj.PlacementConstraint) (filter NodeFilter, selector DownloadSelector)
 
 // PlacementDefinitions can include the placement definitions for each known identifier.
 type PlacementDefinitions map[storj.PlacementConstraint]Placement
@@ -147,10 +171,11 @@ var _ pflag.Value = &ConfigurablePlacementRule{}
 func TestPlacementDefinitions() PlacementDefinitions {
 	return map[storj.PlacementConstraint]Placement{
 		storj.DefaultPlacement: {
-			ID:         storj.DefaultPlacement,
-			NodeFilter: AnyFilter{},
-			Selector:   AttributeGroupSelector(LastNetAttribute),
-			Invariant:  ClumpingByAttribute(LastNetAttribute, 1),
+			ID:               storj.DefaultPlacement,
+			NodeFilter:       AnyFilter{},
+			Selector:         AttributeGroupSelector(LastNetAttribute),
+			Invariant:        ClumpingByAttribute(LastNetAttribute, 1),
+			DownloadSelector: DefaultDownloadSelector,
 		},
 	}
 }
@@ -159,9 +184,10 @@ func TestPlacementDefinitions() PlacementDefinitions {
 func TestPlacementDefinitionsWithFraction(newNodeFraction float64) PlacementDefinitions {
 	return map[storj.PlacementConstraint]Placement{
 		storj.DefaultPlacement: {
-			ID:         storj.DefaultPlacement,
-			NodeFilter: AnyFilter{},
-			Selector:   UnvettedSelector(newNodeFraction, AttributeGroupSelector(LastNetAttribute)),
+			ID:               storj.DefaultPlacement,
+			NodeFilter:       AnyFilter{},
+			Selector:         UnvettedSelector(newNodeFraction, AttributeGroupSelector(LastNetAttribute)),
+			DownloadSelector: DefaultDownloadSelector,
 		},
 	}
 }
@@ -178,19 +204,24 @@ func NewPlacementDefinitions(placements ...Placement) PlacementDefinitions {
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d PlacementDefinitions) AddLegacyStaticRules() {
 	d[storj.EEA] = Placement{
-		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))},
+		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))},
+		DownloadSelector: DefaultDownloadSelector,
 	}
 	d[storj.EU] = Placement{
-		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))},
+		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))},
+		DownloadSelector: DefaultDownloadSelector,
 	}
 	d[storj.US] = Placement{
-		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))},
+		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))},
+		DownloadSelector: DefaultDownloadSelector,
 	}
 	d[storj.DE] = Placement{
-		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(location.Germany))},
+		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(location.Germany))},
+		DownloadSelector: DefaultDownloadSelector,
 	}
 	d[storj.NR] = Placement{
-		NodeFilter: NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))},
+		NodeFilter:       NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))},
+		DownloadSelector: DefaultDownloadSelector,
 	}
 }
 
@@ -200,11 +231,12 @@ func (d PlacementDefinitions) AddPlacement(id storj.PlacementConstraint, placeme
 }
 
 // AddPlacementRule registers a new placement.
-func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter) {
+func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter, downloadSelector DownloadSelector) {
 	placement := Placement{
-		NodeFilter: filter,
-		Selector:   AttributeGroupSelector(LastNetAttribute),
-		Invariant:  ClumpingByAttribute(LastNetAttribute, 1),
+		NodeFilter:       filter,
+		Selector:         AttributeGroupSelector(LastNetAttribute),
+		Invariant:        ClumpingByAttribute(LastNetAttribute, 1),
+		DownloadSelector: downloadSelector,
 	}
 	if GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF {
 		placement.Selector = RandomSelector()
@@ -321,6 +353,9 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 		}
 		placement := Placement{
 			NodeFilter: val.(NodeFilter),
+
+			// setting this requires YAML configuration
+			DownloadSelector: DefaultDownloadSelector,
 		}
 
 		if GetAnnotation(placement.NodeFilter, AutoExcludeSubnet) != AutoExcludeSubnetOFF {
@@ -338,13 +373,13 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 }
 
 // CreateFilters implements PlacementCondition.
-func (d PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter NodeFilter) {
+func (d PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter NodeFilter, selector DownloadSelector) {
 	if filters, found := d[constraint]; found {
-		return filters.NodeFilter
+		return filters.NodeFilter, filters.DownloadSelector
 	}
 	return NodeFilters{
 		ExcludeAllFilter{},
-	}
+	}, ExcludeAllDownloadSelector
 }
 
 // SupportedPlacements returns all the IDs, which have associated placement rules.

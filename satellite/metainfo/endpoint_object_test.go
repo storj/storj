@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"sort"
@@ -28,6 +29,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/nodetag"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -69,6 +71,11 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
 
 		bucketName := "testbucket"
 		deleteBucket := func() error {
@@ -606,7 +613,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, committedObject.Version+1, pendingObject.Version)
 
-			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(peerctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
@@ -720,7 +727,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			committedObject := objects[0]
 
 			// download without specifying version
-			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(peerctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
@@ -731,7 +738,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.EqualValues(t, committedObject.StreamVersionID().Bytes(), downloadObjectResponse.Object.ObjectVersion)
 
 			// download using explicit version
-			downloadObjectResponse, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+			downloadObjectResponse, err = satellite.API.Metainfo.Endpoint.DownloadObject(peerctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
@@ -745,7 +752,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			// download using NON EXISTING version
 			nonExistingObject := committedObject
 			nonExistingObject.Version++
-			_, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+			_, err = satellite.API.Metainfo.Endpoint.DownloadObject(peerctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
@@ -830,6 +837,11 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		sat := planet.Satellites[0]
 		endpoint := sat.Metainfo.Endpoint
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
 
 		bucketName := "testbucket"
 
@@ -931,7 +943,7 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 			}
-			_, err = endpoint.DownloadObject(ctx, request)
+			_, err = endpoint.DownloadObject(peerctx, request)
 			require.NoError(t, err)
 
 			// zero user specified bandwidth limit
@@ -940,7 +952,7 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 			assert.NoError(t, err)
 
 			// must fail because user specified bandwidth limit is zero
-			_, err = endpoint.DownloadObject(ctx, request)
+			_, err = endpoint.DownloadObject(peerctx, request)
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 
@@ -948,7 +960,7 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 			err = sat.DB.Console().Projects().Update(ctx, project)
 			assert.NoError(t, err)
 
-			_, err = endpoint.DownloadObject(ctx, request)
+			_, err = endpoint.DownloadObject(peerctx, request)
 			require.NoError(t, err)
 		})
 	})
@@ -2200,7 +2212,11 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		require.Equal(t, getResp.Object.InlineSize, getCopyResp.Object.InlineSize)
 
 		// compare segments
-		originalSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: uplnk.Identity.Chain(),
+			}})
+		originalSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -2208,7 +2224,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			CursorPosition: segmentKeys.Position,
 		})
 		require.NoError(t, err)
-		copiedSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+		copiedSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -2838,6 +2854,11 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
 		projectID := planet.Uplinks[0].Projects[0].ID
 
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
 		bucketName := "versioned-bucket"
 		objectKey := "versioned-object"
 
@@ -2917,7 +2938,7 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.True(t, errs2.IsRPC(err, rpcstatus.MethodNotAllowed))
 
 			// with version set we should get MethodNotAllowed error
-			_, err = satelliteSys.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.DownloadObjectRequest{
+			_, err = satelliteSys.API.Metainfo.Endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),

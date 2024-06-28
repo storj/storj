@@ -650,6 +650,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		// N.B. jeff thinks this is a bad idea but jt convinced him
+		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+	}
+
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -754,7 +760,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Remote segment
-	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment, req.GetDesiredNodes(), 0)
+	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, peer, bucket, segment, req.GetDesiredNodes(), 0)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",

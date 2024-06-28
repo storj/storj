@@ -507,7 +507,7 @@ func piecesOnNodeByIndex(planet *testplanet.Planet, pieces metabase.Pieces, allo
 }
 
 func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint, rules nodeselection.PlacementRules) (bool, error) {
-	filter := rules(placement)
+	filter, _ := rules(placement)
 	for _, piece := range pieces {
 
 		nodeDossier, err := overaly.Get(ctx, piece.StorageNode)

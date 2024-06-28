@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
+	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -672,6 +673,12 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		// N.B. jeff thinks this is a bad idea but jt convinced him
+		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
@@ -829,7 +836,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}}, nil
 		}
 
-		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, object.Location().Bucket(), segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, peer, object.Location().Bucket(), segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 				endpoint.log.Error("Unable to create order limits.",

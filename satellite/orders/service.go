@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -167,7 +168,7 @@ func (service *Service) DownloadNodes(scheme storj.RedundancyScheme) int32 {
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderLimit := segment.PieceSize()
@@ -186,16 +187,11 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	filter := service.placementRules(segment.Placement)
+	filter, selector := service.placementRules(segment.Placement)
 	for id, node := range nodes {
 		if !filter.Match(node) {
 			delete(nodes, id)
 		}
-	}
-
-	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), orderLimit, bucket)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
 	neededLimits := service.DownloadNodes(segment.Redundancy)
@@ -203,11 +199,21 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		neededLimits = desiredNodes
 	}
 
+	selectedNodes, err := selector(peer.ID, nodes, int(neededLimits))
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), orderLimit, bucket)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
 	pieces := segment.Pieces
 	for _, pieceIndex := range service.perm(len(pieces)) {
 		piece := pieces[pieceIndex]
-		node, ok := nodes[piece.StorageNode]
-		if !ok {
+		node, ok := selectedNodes[piece.StorageNode]
+		if !ok || node == nil {
 			continue
 		}
 

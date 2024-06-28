@@ -104,7 +104,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	for _, placementNum := range placement.SupportedPlacements() {
 		fmt.Printf("\n--------- Evaluating placement rule %d ---------\n", placementNum)
-		filter := placement.CreateFilters(placementNum)
+		filter, _ := placement.CreateFilters(placementNum)
 
 		fmt.Printf("Placement: %s\n", filter)
 		result := filter.Match(node)

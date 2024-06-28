@@ -6,6 +6,7 @@ package nodeselection
 import (
 	"math"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -303,6 +304,58 @@ func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSe
 	return ChoiceOfN(tracker, 2, delegate)
 }
 
+func choiceOfNReduction(getSuccessRate func(storj.NodeID) float64, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
+	// shuffle the nodes to ensure the pairwise matching is fair and unbiased when the
+	// totals for either node are 0 (we just pick the first node in the pair in that case)
+	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	})
+
+	// do choice selection while we have more than the total redundancy
+	for len(nodes) > desired {
+		// we're going to choose between up to n nodes
+		toChooseBetween := n
+		excessNodes := len(nodes) - desired
+		if toChooseBetween > excessNodes+1 {
+			// we add one because we essentially subtract toChooseBetween nodes
+			// from the list and then add the chosen node.
+			toChooseBetween = excessNodes + 1
+		}
+
+		for toChooseBetween > 1 {
+			success0 := getSuccessRate(nodes[0].ID)
+			success1 := getSuccessRate(nodes[1].ID)
+
+			// success0 and success1 could both potentially be NaN. we want to prefer a node if
+			// it is NaN and if they are both NaN then it does not matter which we prefer (the
+			// input list is randomly shuffled). note that ALL comparisons where one of the
+			// operands is NaN evaluate to false. thus for the following if statement, we have
+			// the following table:
+			//
+			//     success0 | success1 | result
+			//    ----------|----------|-------
+			//          NaN |      NaN | node1
+			//          NaN |   number | node0
+			//       number |      NaN | node1
+			//       number |   number | whoever is larger
+
+			if math.IsNaN(success1) || success1 > success0 {
+				// nodes[1] is selected
+				nodes = nodes[1:]
+			} else {
+				// nodes[0] is selected
+				nodes[1] = nodes[0]
+				nodes = nodes[1:]
+			}
+			toChooseBetween--
+		}
+
+		// move the selected node to the back
+		nodes = append(nodes[1:], nodes[0])
+	}
+	return nodes
+}
+
 // ChoiceOfN will perform the selection for n*x nodes and choose the best node
 // from groups of n size. n is an int64 type due to a mito scripting shortcoming
 // but really an int16 should be fine.
@@ -311,63 +364,65 @@ func ChoiceOfN(tracker UploadSuccessTracker, n int64, delegate NodeSelectorInit)
 	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		selector := delegate(allNodes, filter)
 		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
-
-			getSuccessRate := tracker.Get(requester)
 			nodes, err := selector(requester, int(n)*m, excluded, alreadySelected)
 			if err != nil {
 				return nil, err
 			}
 
-			// shuffle the nodes to ensure the pairwise matching is fair and unbiased when the
-			// totals for either node are 0 (we just pick the first node in the pair in that case)
-			rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
-				nodes[i], nodes[j] = nodes[j], nodes[i]
-			})
-
-			// do choice selection while we have more than the total redundancy
-			for len(nodes) > m {
-				// we're going to choose between up to n nodes
-				toChooseBetween := int(n)
-				excessNodes := len(nodes) - m
-				if toChooseBetween > excessNodes+1 {
-					// we add one because we essentially subtract toChooseBetween nodes
-					// from the list and then add the chosen node.
-					toChooseBetween = excessNodes + 1
-				}
-
-				for toChooseBetween > 1 {
-					success0 := getSuccessRate(nodes[0].ID)
-					success1 := getSuccessRate(nodes[1].ID)
-
-					// success0 and success1 could both potentially be NaN. we want to prefer a node if
-					// it is NaN and if they are both NaN then it does not matter which we prefer (the
-					// input list is randomly shuffled). note that ALL comparisons where one of the
-					// operands is NaN evaluate to false. thus for the following if statement, we have
-					// the following table:
-					//
-					//     success0 | success1 | result
-					//    ----------|----------|-------
-					//          NaN |      NaN | node1
-					//          NaN |   number | node1
-					//       number |      NaN | node0
-					//       number |   number | whoever is larger
-
-					if math.IsNaN(success1) || success1 > success0 {
-						// nodes[1] is selected
-						nodes = nodes[1:]
-					} else {
-						// nodes[0] is selected
-						nodes[1] = nodes[0]
-						nodes = nodes[1:]
-					}
-					toChooseBetween--
-				}
-
-				// move the selected node to the back
-				nodes = append(nodes[1:], nodes[0])
-			}
-			return nodes, nil
+			return choiceOfNReduction(tracker.Get(requester), int(n), nodes, m), nil
 		}
+	}
+}
+
+// DownloadChoiceOfN will take a set of nodes and winnow it down using choice
+// of n. n is an int64 type due to a mito scripting shortcoming but really an
+// int16 should be fine.
+func DownloadChoiceOfN(tracker UploadSuccessTracker, n int64) DownloadSelector {
+	return func(requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error) {
+		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
+		for _, node := range possibleNodes {
+			nodeSlice = append(nodeSlice, node)
+		}
+
+		nodeSlice = choiceOfNReduction(tracker.Get(requester), int(n), nodeSlice, needed)
+
+		result := make(map[storj.NodeID]*SelectedNode, needed)
+		for _, node := range nodeSlice {
+			result[node.ID] = node
+		}
+		return result, nil
+	}
+}
+
+// DownloadBest will take a set of nodes and will return just the best nodes.
+func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
+	return func(requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error) {
+		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
+		for _, node := range possibleNodes {
+			nodeSlice = append(nodeSlice, node)
+		}
+
+		getSuccessRate := tracker.Get(requester)
+
+		sort.Slice(nodeSlice, func(i, j int) bool {
+			success0 := getSuccessRate(nodeSlice[i].ID)
+			success1 := getSuccessRate(nodeSlice[j].ID)
+
+			// we do the same thing as choiceofn where we assume NaN is better
+			// than not NaN. this has the additional benefit of falling back
+			// to random selection behavior for full nodes, where they still
+			// get a shot.
+			return success0 > success1 || math.IsNaN(success0) && !math.IsNaN(success1)
+		})
+		if len(nodeSlice) > needed {
+			nodeSlice = nodeSlice[:needed]
+		}
+
+		result := make(map[storj.NodeID]*SelectedNode, needed)
+		for _, node := range nodeSlice {
+			result[node.ID] = node
+		}
+		return result, nil
 	}
 }
 

@@ -38,7 +38,7 @@ func TestOrderLimitsEncryptedMetadata(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(segments))
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segments[0], 0, 0)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, uplinkPeer.Identity.PeerIdentity(), bucket, segments[0], 0, 0)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(limits))
 
