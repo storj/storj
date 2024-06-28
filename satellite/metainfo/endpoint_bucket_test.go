@@ -938,23 +938,24 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.True(t, resp.Configuration.Enabled)
+		})
 
-			bucketName = []byte(testrand.BucketName())
+		t.Run("Object Lock disabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
 			createBucket(t, bucketName, false)
 
-			resp, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				Name: bucketName,
 			})
-			require.NoError(t, err)
-			require.False(t, resp.Configuration.Enabled)
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
 			bucketName := []byte(testrand.BucketName())
-			createBucket(t, bucketName, false)
+			createBucket(t, bucketName, true)
 
 			endpoint.SetUseBucketLevelObjectLock(false)
 			defer endpoint.SetUseBucketLevelObjectLock(true)
@@ -973,7 +974,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 
 			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
 			require.NoError(t, err)
-			require.False(t, resp.Configuration.Enabled)
+			require.True(t, resp.Configuration.Enabled)
 		})
 
 		t.Run("Nonexistent bucket", func(t *testing.T) {
