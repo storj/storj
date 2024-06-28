@@ -3203,7 +3203,7 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 	})
 }
 
-func TestEndpoint_BeginObjectWithRetention(t *testing.T) {
+func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -3280,8 +3280,18 @@ func TestEndpoint_BeginObjectWithRetention(t *testing.T) {
 			key := testrand.Path()
 
 			beginReq := newBeginReq(apiKey, bucketName, key)
-			_, err := endpoint.BeginObject(ctx, beginReq)
+			beginResp, err := endpoint.BeginObject(ctx, beginReq)
 			require.NoError(t, err)
+
+			commitResp, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			})
+			require.NoError(t, err)
+
+			require.NotNil(t, commitResp.Object.Retention)
+			require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
+			require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
 
 			obj := requireObject(t, bucketName, key)
 			require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
@@ -3292,8 +3302,16 @@ func TestEndpoint_BeginObjectWithRetention(t *testing.T) {
 			key := testrand.Path()
 			beginReq := newBeginReq(apiKey, bucketName, key)
 			beginReq.Retention = nil
-			_, err = endpoint.BeginObject(ctx, beginReq)
+			beginResp, err := endpoint.BeginObject(ctx, beginReq)
 			require.NoError(t, err)
+
+			commitResp, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			})
+			require.NoError(t, err)
+
+			require.Nil(t, commitResp.Object.Retention)
 
 			obj := requireObject(t, bucketName, key)
 			require.Zero(t, obj.Retention)
@@ -3311,8 +3329,18 @@ func TestEndpoint_BeginObjectWithRetention(t *testing.T) {
 			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
 			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
-			_, err = endpoint.BeginObject(ctx, beginReq)
+			beginResp, err := endpoint.BeginObject(ctx, beginReq)
 			require.NoError(t, err)
+
+			commitResp, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			})
+			require.NoError(t, err)
+
+			require.NotNil(t, commitResp.Object.Retention)
+			require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
+			require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
 
 			obj := requireObject(t, bucketName, key)
 			require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)

@@ -260,7 +260,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	now := time.Now()
-	var allowDelete bool
+	var allowDelete, allowLock bool
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
@@ -278,6 +278,16 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 				Time:          now,
 			},
 			ActionPermitted: &allowDelete,
+			Optional:        true,
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &allowLock,
 			Optional:        true,
 		},
 	)
@@ -328,7 +338,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		DisallowDelete: !allowDelete,
 
-		Versioned: streamID.Versioned,
+		Versioned:     streamID.Versioned,
+		UseObjectLock: endpoint.config.ObjectLockEnabled(keyInfo.ProjectID),
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -362,6 +373,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if err != nil {
 		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+	if !allowLock {
+		pbObject.Retention = nil
 	}
 
 	mon.Meter("req_commit_object").Mark(1)
@@ -1456,7 +1470,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	now := time.Now()
 
-	var canRead, canList bool
+	var canRead, canList, canLock bool
 
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
 		VerifyPermission{
@@ -1485,6 +1499,16 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 				Time:          now,
 			},
 			ActionPermitted: &canList,
+			Optional:        true,
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canLock,
 			Optional:        true,
 		},
 	)
@@ -1548,6 +1572,9 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		}
 		if len(deletedObjects) > 0 {
 			object = deletedObjects[0]
+			if !canLock {
+				object.Retention = nil
+			}
 		}
 	}
 
@@ -1790,6 +1817,14 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		return nil, errs.New("unable to convert version for protobuf object")
 	}
 
+	var retention *pb.Retention
+	if object.Retention.Enabled() {
+		retention = &pb.Retention{
+			Mode:        pb.Retention_Mode(object.Retention.Mode),
+			RetainUntil: object.Retention.RetainUntil,
+		}
+	}
+
 	result := &pb.Object{
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
@@ -1809,6 +1844,8 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
 		},
+
+		Retention: retention,
 	}
 
 	return result, nil
