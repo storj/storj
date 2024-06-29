@@ -214,9 +214,9 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 				now := time.Now()
 
-				check(storj.ComplianceMode, time.Time{}, "Retention.RetainUntil must be set if Retention.Mode is set")
-				check(storj.NoRetention, now.Add(time.Minute), "Retention.RetainUntil must not be set if Retention.Mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "Retention.Mode must be 0 (none) or 1 (compliance), but got 2")
+				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -681,9 +681,9 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 				now := time.Now()
 
-				check(storj.ComplianceMode, time.Time{}, "Retention.RetainUntil must be set if Retention.Mode is set")
-				check(storj.NoRetention, now.Add(time.Minute), "Retention.RetainUntil must not be set if Retention.Mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "Retention.Mode must be 0 (none) or 1 (compliance), but got 2")
+				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -3029,6 +3029,43 @@ func TestCommitObject(t *testing.T) {
 							Status:       metabase.CommittedUnversioned,
 
 							Encryption: metabasetest.DefaultEncryption,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("commit with retention period", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+
+				retention := metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream: obj,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.CommittedUnversioned,
+							Encryption:   metabasetest.DefaultEncryption,
+							Retention:    retention,
 						},
 					},
 				}.Check(ctx, t, db)

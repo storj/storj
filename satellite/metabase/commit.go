@@ -81,7 +81,7 @@ func (opts *BeginObjectNextVersion) Verify() error {
 	}
 
 	if err := opts.Retention.Verify(); err != nil {
-		return err
+		return ErrInvalidRequest.Wrap(err)
 	}
 
 	if opts.Retention.Enabled() && opts.ExpiresAt != nil {
@@ -244,7 +244,7 @@ func (opts *BeginObjectExactVersion) Verify() error {
 	}
 
 	if err := opts.Retention.Verify(); err != nil {
-		return err
+		return ErrInvalidRequest.Wrap(err)
 	}
 
 	if opts.Retention.Enabled() && opts.ExpiresAt != nil {
@@ -1232,11 +1232,13 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 			RETURNING
 				created_at, expires_at,
 				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
-				encryption
+				encryption,
+				retention_mode, retain_until
 			`, args...).Scan(
 		&object.CreatedAt, &object.ExpiresAt,
 		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 		encryptionParameters{&object.Encryption},
+		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1247,6 +1249,10 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		}
 		return Error.New("failed to update object: %w", err)
 	}
+	if err := object.Retention.Verify(); err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -1261,6 +1267,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		oldEncryptedMetadataNonce        []byte
 		oldEncryptionParameters          storj.EncryptionParameters
 	)
+	retentionMode := retentionModeWrapper{&object.Retention.Mode}
+	retainUntil := timeWrapper{&object.Retention.RetainUntil}
 
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
 	// which is part of the primary key. Spanner does not allow changing a primary key
@@ -1278,7 +1286,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 				THEN RETURN
 					created_at, expires_at,
 					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
-					encryption
+					encryption,
+					retention_mode, retain_until
 			`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
@@ -1292,7 +1301,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		return Error.Wrap(row.Columns(
 			&object.CreatedAt, &object.ExpiresAt,
 			&oldEncryptedMetadata, &oldEncryptedMetadataEncryptedKey, &oldEncryptedMetadataNonce,
-			encryptionParameters{&oldEncryptionParameters},
+			encryptionParameters{&oldEncryptionParameters}, retentionMode, retainUntil,
 		))
 	})
 	if err != nil {
@@ -1300,6 +1309,9 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 	if !deleted {
 		return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+	}
+	if err := object.Retention.Verify(); err != nil {
+		return Error.Wrap(err)
 	}
 
 	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
@@ -1333,6 +1345,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		"total_encrypted_size":             totalEncryptedSize,
 		"fixed_segment_size":               int64(fixedSegmentSize),
 		"encryption":                       encryptionParameters{encryptionArg},
+		"retention_mode":                   retentionMode,
+		"retain_until":                     retainUntil,
 		"next_version":                     nextVersion,
 	}
 
@@ -1343,13 +1357,15 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 				stream_id, created_at, expires_at, status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			    total_plain_size, total_encrypted_size, fixed_segment_size,
-			    encryption, zombie_deletion_deadline
+			    encryption, zombie_deletion_deadline,
+				retention_mode, retain_until
 			) VALUES (
 			    @project_id, @bucket_name, @object_key, @version,
 				@stream_id, @created_at, @expires_at, @status, @segment_count,
 				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
-				@encryption, NULL
+				@encryption, NULL,
+				@retention_mode, @retain_until
 			)
 		`,
 		Params: args,

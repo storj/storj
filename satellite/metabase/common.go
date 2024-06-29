@@ -501,14 +501,14 @@ func (r *Retention) Verify() error {
 	switch r.Mode {
 	case storj.ComplianceMode:
 		if r.RetainUntil.IsZero() {
-			return ErrInvalidRequest.New("Retention.RetainUntil must be set if Retention.Mode is set")
+			return errs.New("retention period expiration must be set if retention mode is set")
 		}
 	case storj.NoRetention:
 		if !r.RetainUntil.IsZero() {
-			return ErrInvalidRequest.New("Retention.RetainUntil must not be set if Retention.Mode is not set")
+			return errs.New("retention period expiration must not be set if retention mode is not set")
 		}
 	default:
-		return ErrInvalidRequest.New("Retention.Mode must be %d (none) or %d (compliance), but got %d", storj.NoRetention, storj.ComplianceMode, r.Mode)
+		return errs.New("retention mode must be %d (none) or %d (compliance), but it was %d", storj.NoRetention, storj.ComplianceMode, r.Mode)
 	}
 	return nil
 }
