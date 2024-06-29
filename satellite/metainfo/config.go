@@ -211,7 +211,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		ServerSideCopy:             c.ServerSideCopy,
 		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
 		TestingCommitSegmentMode:   c.TestCommitSegmentMode,
-		TestingPrecommitDeleteMode: c.TestingPrecommitDeleteMode,
+		TestingPrecommitDeleteMode: metabase.PrecommitDeleteMode(c.TestingPrecommitDeleteMode),
 	}
 }
 

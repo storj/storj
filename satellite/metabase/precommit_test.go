@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
@@ -50,6 +52,95 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{}, result)
+		})
+	})
+}
+
+func TestObjectLockPrecommitDeleteMode(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		precommit := func(loc metabase.ObjectLocation) (result metabase.PrecommitConstraintResult, err error) {
+			err = db.ChooseAdapter(loc.ProjectID).WithTx(ctx, func(ctx context.Context, tx metabase.TransactionAdapter) (err error) {
+				result, err = db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
+					Location:            loc,
+					PrecommitDeleteMode: metabase.WithObjectLockUnversionedPrecommitMode,
+				}, tx)
+				return
+			})
+			return
+		}
+
+		objStream := metabasetest.RandObjectStream()
+		loc := objStream.Location()
+
+		t.Run("No objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			result, err := precommit(loc)
+			require.NoError(t, err)
+			require.Empty(t, result)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Active retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj, segs := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().Add(time.Hour),
+					},
+				},
+			}.Run(ctx, t, db, objStream, 3)
+
+			res, err := precommit(loc)
+			require.True(t, metabase.ErrObjectLocked.Has(err))
+			require.Empty(t, res)
+
+			metabasetest.Verify{
+				Objects:  []metabase.RawObject{metabase.RawObject(obj)},
+				Segments: metabasetest.SegmentsToRaw(segs),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Expired retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().Add(-time.Minute),
+					},
+				},
+			}.Run(ctx, t, db, objStream, 3)
+
+			pendingObjStream := objStream
+			pendingObjStream.Version++
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: pendingObjStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			result, err := precommit(loc)
+			require.NoError(t, err)
+			require.Equal(t, metabase.PrecommitConstraintResult{
+				Deleted:             []metabase.Object{obj},
+				DeletedObjectCount:  1,
+				DeletedSegmentCount: 3,
+				HighestVersion:      pending.Version,
+			}, result)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
 		})
 	})
 }

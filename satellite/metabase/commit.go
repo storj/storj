@@ -1048,6 +1048,10 @@ type CommitObject struct {
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
+
+	// UseObjectLock, if enabled, prevents the deletion of committed object versions
+	// with active Object Lock configurations.
+	UseObjectLock bool
 }
 
 // Verify verifies request fields.
@@ -1136,11 +1140,16 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
 
+		deleteMode := db.config.TestingPrecommitDeleteMode
+		if opts.UseObjectLock {
+			deleteMode = WithObjectLockUnversionedPrecommitMode
+		}
+
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:            opts.Location(),
 			Versioned:           opts.Versioned,
 			DisallowDelete:      opts.DisallowDelete,
-			PrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
+			PrecommitDeleteMode: deleteMode,
 		}, adapter)
 		if err != nil {
 			return err

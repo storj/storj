@@ -198,6 +198,8 @@ pipeline {
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
                         STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
                     }
 
                     steps {
@@ -213,6 +215,8 @@ pipeline {
 
                         STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
                         STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
+
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
                     }
 
                     steps {

@@ -30,7 +30,7 @@ type BeginObjectNextVersion struct {
 }
 
 // Check runs the test.
-func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
 	got, err := db.BeginObjectNextVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -55,6 +55,7 @@ func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB,
 		}
 		require.Equal(t, step.Opts.Encryption, got.Encryption)
 	}
+	return got
 }
 
 // BeginObjectExactVersion is for testing metabase.BeginObjectExactVersion.

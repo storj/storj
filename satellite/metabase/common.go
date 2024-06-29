@@ -496,6 +496,11 @@ func (r *Retention) Enabled() bool {
 	return r.Mode != storj.NoRetention
 }
 
+// Active returns whether the retention configuration is enabled and active as of the current time.
+func (r *Retention) Active() bool {
+	return r.Enabled() && time.Now().Before(r.RetainUntil)
+}
+
 // Verify verifies the retention configuration.
 func (r *Retention) Verify() error {
 	switch r.Mode {
@@ -609,6 +614,11 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
+// IsUnversioned returns whether the status indicates that an object is unversioned.
+func (status ObjectStatus) IsUnversioned() bool {
+	return status == DeleteMarkerUnversioned || status == CommittedUnversioned
 }
 
 // String returns textual representation of status.

@@ -18,6 +18,14 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
+const objectLockedErrMsg = "object has an active retention period"
+
+var (
+	// ErrObjectLocked is used when an object's Object Lock configuration prevents
+	// an operation from succeeding.
+	ErrObjectLocked = errs.Class("object locked")
+)
+
 // DeleteObjectExactVersion contains arguments necessary for deleting an exact version of object.
 type DeleteObjectExactVersion struct {
 	Version Version

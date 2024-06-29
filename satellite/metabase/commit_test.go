@@ -4519,3 +4519,122 @@ func TestCommitInlineObject(t *testing.T) {
 
 	})
 }
+
+func TestOverwriteLockedObject(t *testing.T) {
+	// This tests a case where an object is committed to an unversioned bucket, but
+	// an object version with an active Object Lock configuration is already present
+	// in its place. We don't expect any unversioned objects to have Object Lock
+	// configurations, but we must ensure that we handle them properly in case we
+	// introduce a bug that allows them to exist.
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("Active retention period", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			lockedObj, lockedSegs := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().Add(time.Hour),
+					},
+				},
+			}.Run(ctx, t, db, objStream, 1)
+
+			objStream.Version = metabase.NextVersion
+			obj := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: lockedObj.Version + 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:  obj.ObjectStream,
+					UseObjectLock: true,
+				},
+				ErrClass: &metabase.ErrObjectLocked,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects:  []metabase.RawObject{metabase.RawObject(lockedObj), metabase.RawObject(obj)},
+				Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Active retention period - UseObjectLock disabled", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			lockedObj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().Add(time.Hour),
+					},
+				},
+			}.Run(ctx, t, db, objStream, 1)
+
+			objStream.Version = metabase.NextVersion
+			obj := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: lockedObj.Version + 1,
+			}.Check(ctx, t, db)
+
+			obj = metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:  obj.ObjectStream,
+					UseObjectLock: false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Expired retention period", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			lockedObj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().Add(-time.Minute),
+					},
+				},
+			}.Run(ctx, t, db, objStream, 1)
+
+			objStream.Version = metabase.NextVersion
+			obj := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: lockedObj.Version + 1,
+			}.Check(ctx, t, db)
+
+			obj = metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:  obj.ObjectStream,
+					UseObjectLock: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+	})
+}

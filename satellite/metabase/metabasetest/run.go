@@ -70,7 +70,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		UseListObjectsIterator: config.UseListObjectsIterator,
 
 		TestingUniqueUnversioned:   true,
-		TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
+		TestingPrecommitDeleteMode: metabase.PrecommitDeleteMode(config.TestingPrecommitDeleteMode),
 	}, fn, flags...)
 }
 
@@ -83,7 +83,7 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 				ApplicationName:            "satellite-bench",
 				MinPartSize:                5 * memory.MiB,
 				MaxNumberOfParts:           10000,
-				TestingPrecommitDeleteMode: metabase.PrecommitDeleteModes[0],
+				TestingPrecommitDeleteMode: metabase.DefaultUnversionedPrecommitMode,
 			}
 
 			mudtest.Run[*metabase.DB](b, mudtest.WithTestLogger(b, func(ball *mud.Ball) {
