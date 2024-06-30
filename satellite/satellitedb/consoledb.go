@@ -27,8 +27,8 @@ type ConsoleDB struct {
 
 	methods dbx.DriverMethods
 
-	apikeysOnce *sync.Once
-	apikeys     *apikeys
+	apikeysOnce  *sync.Once
+	apikeysCache *lrucache.ExpiringLRUOf[*projectApiKeyRow]
 }
 
 // Users is getter a for Users repository.
@@ -56,13 +56,13 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	db.apikeysOnce.Do(func() {
 		options := db.apikeysLRUOptions
 		options.Name = "satellitedb-apikeys"
-		db.apikeys = &apikeys{
-			db:  db.methods,
-			lru: lrucache.NewOf[*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row](options),
-		}
+		db.apikeysCache = lrucache.NewOf[*projectApiKeyRow](options)
 	})
 
-	return db.apikeys
+	return &apikeys{
+		db:  db.methods,
+		lru: db.apikeysCache,
+	}
 }
 
 // RegistrationTokens is a getter for RegistrationTokens repository.
@@ -101,8 +101,8 @@ func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, consol
 				tx:      tx,
 				methods: tx,
 
-				apikeysOnce: db.apikeysOnce,
-				apikeys:     db.apikeys,
+				apikeysOnce:  db.apikeysOnce,
+				apikeysCache: db.apikeysCache,
 			},
 		}
 		return fn(ctx, dbTx)
