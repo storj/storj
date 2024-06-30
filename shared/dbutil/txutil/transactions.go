@@ -28,6 +28,7 @@ var mon = monkit.Package()
 // be called more than one time.
 func WithTx(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn func(context.Context, tagsql.Tx) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	ctx = withInsideTx(ctx)
 
 	start := time.Now()
 
@@ -73,4 +74,16 @@ func withTxOnce(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn fun
 	}()
 
 	return fn(ctx, tx), nil
+}
+
+type insideTx struct{}
+
+func withInsideTx(ctx context.Context) context.Context {
+	return context.WithValue(ctx, insideTx{}, insideTx{})
+}
+
+// IsInsideTx returns whether ctx is from a WithTx call.
+func IsInsideTx(ctx context.Context) bool {
+	k := ctx.Value(insideTx{})
+	return k != nil
 }
