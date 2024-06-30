@@ -192,7 +192,7 @@ func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs .
 			return Error.New("Unable to get user balance for ID: %v %v", userID, err)
 		}
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			err = db.db.UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx, dbx.BillingTransaction_Id(txID),
+			err = tx.UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx, dbx.BillingTransaction_Id(txID),
 				dbx.BillingTransaction_Status(billing.TransactionStatusPending),
 				dbx.BillingTransaction_Update_Fields{
 					Status: dbx.BillingTransaction_Status(billing.TransactionStatusFailed),
