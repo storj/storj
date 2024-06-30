@@ -22,7 +22,7 @@ var _ console.AccountFreezeEvents = (*accountFreezeEvents)(nil)
 
 // accountFreezeEvents is an implementation of console.AccountFreezeEvents.
 type accountFreezeEvents struct {
-	db *satelliteDB
+	db dbx.DriverMethods
 }
 
 // Upsert is a method for updating an account freeze event if it exists and inserting it otherwise.
@@ -91,7 +91,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 
 	var rows tagsql.Rows
 	if len(optionalEventTypes) == 0 {
-		rows, err = events.db.Query(ctx, events.db.Rebind(`
+		rows, err = events.db.QueryContext(ctx, events.db.Rebind(`
 		SELECT user_id, event, days_till_escalation, notifications_count, created_at
 		FROM account_freeze_events
 			WHERE user_id > ?
@@ -102,7 +102,7 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 		for _, t := range optionalEventTypes {
 			types = append(types, strconv.Itoa(int(t)))
 		}
-		rows, err = events.db.Query(ctx, events.db.Rebind(`
+		rows, err = events.db.QueryContext(ctx, events.db.Rebind(`
 		SELECT user_id, event, days_till_escalation, notifications_count, created_at
 		FROM account_freeze_events
 			WHERE user_id > ? AND event IN (`+strings.Join(types, ",")+`)

@@ -21,7 +21,7 @@ import (
 var _ consoleauth.WebappSessions = (*webappSessions)(nil)
 
 type webappSessions struct {
-	db *satelliteDB
+	db dbx.DriverMethods
 }
 
 // Create creates a webapp session and returns the session info.
@@ -106,7 +106,7 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 
 	var pageCursor uuid.UUID
 	selected := make([]uuid.UUID, pageSize)
-	aost := db.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
+	aost := db.db.AsOfSystemInterval(asOfSystemTimeInterval)
 	for {
 		// Select the ID beginning this page of records
 		err := db.db.QueryRowContext(ctx, `

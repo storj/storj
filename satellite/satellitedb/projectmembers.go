@@ -19,16 +19,15 @@ import (
 // ensures that projectMembers implements console.ProjectMembers.
 var _ console.ProjectMembers = (*projectMembers)(nil)
 
-// ProjectMembers exposes methods to manage ProjectMembers table in database.
+// ProjectMembers exposes db to manage ProjectMembers table in database.
 type projectMembers struct {
-	methods dbx.Methods
-	db      *satelliteDB
+	db dbx.DriverMethods
 }
 
 // GetByMemberID is a method for querying project member from the database by memberID.
 func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID) (_ []console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
-	projectMembersDbx, err := pm.methods.All_ProjectMember_By_MemberId(ctx, dbx.ProjectMember_MemberId(memberID[:]))
+	projectMembersDbx, err := pm.db.All_ProjectMember_By_MemberId(ctx, dbx.ProjectMember_MemberId(memberID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +40,7 @@ func (pm *projectMembers) GetByMemberIDAndProjectID(ctx context.Context, memberI
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	projectMember, err := pm.methods.Get_ProjectMember_By_MemberId_And_ProjectId(ctx,
+	projectMember, err := pm.db.Get_ProjectMember_By_MemberId_And_ProjectId(ctx,
 		dbx.ProjectMember_MemberId(memberID[:]),
 		dbx.ProjectMember_ProjectId(projectID[:]),
 	)
@@ -54,7 +53,7 @@ func (pm *projectMembers) GetByMemberIDAndProjectID(ctx context.Context, memberI
 
 func (pm *projectMembers) UpdateRole(ctx context.Context, memberID, projectID uuid.UUID, newRole console.ProjectMemberRole) (_ *console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
-	projectMember, err := pm.methods.Update_ProjectMember_By_MemberId_And_ProjectId(ctx,
+	projectMember, err := pm.db.Update_ProjectMember_By_MemberId_And_ProjectId(ctx,
 		dbx.ProjectMember_MemberId(memberID[:]),
 		dbx.ProjectMember_ProjectId(projectID[:]),
 		dbx.ProjectMember_Update_Fields{
@@ -219,7 +218,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 // Insert is a method for inserting project member into the database.
 func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.UUID, role console.ProjectMemberRole) (_ *console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
-	createdProjectMember, err := pm.methods.Create_ProjectMember(ctx,
+	createdProjectMember, err := pm.db.Create_ProjectMember(ctx,
 		dbx.ProjectMember_MemberId(memberID[:]),
 		dbx.ProjectMember_ProjectId(projectID[:]),
 		dbx.ProjectMember_Create_Fields{
@@ -236,7 +235,7 @@ func (pm *projectMembers) Insert(ctx context.Context, memberID, projectID uuid.U
 // Delete is a method for deleting project member by memberID and projectID from the database.
 func (pm *projectMembers) Delete(ctx context.Context, memberID, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = pm.methods.Delete_ProjectMember_By_MemberId_And_ProjectId(
+	_, err = pm.db.Delete_ProjectMember_By_MemberId_And_ProjectId(
 		ctx,
 		dbx.ProjectMember_MemberId(memberID[:]),
 		dbx.ProjectMember_ProjectId(projectID[:]),

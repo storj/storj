@@ -27,8 +27,7 @@ var ek = eventkit.Package()
 
 // implementation of Projects interface repository using spacemonkeygo/dbx orm.
 type projects struct {
-	db  dbx.Methods
-	sdb *satelliteDB
+	db dbx.DriverMethods
 }
 
 // GetAll is a method for querying all projects from the database.
@@ -71,7 +70,7 @@ func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
+	rows, err := projects.db.QueryContext(ctx, projects.db.Rebind(`
 		SELECT
 			projects.id,
 			projects.public_id,
@@ -584,7 +583,7 @@ func (projects *projects) ListByOwnerID(
 		Offset:      int64((cursor.Page - 1) * cursor.Limit),
 	}
 
-	countRow := projects.sdb.QueryRowContext(ctx, projects.sdb.Rebind(`
+	countRow := projects.db.QueryRowContext(ctx, projects.db.Rebind(`
 		SELECT COUNT(*) FROM projects WHERE owner_id = ?
 	`), ownerID)
 	err = countRow.Scan(&page.TotalCount)
@@ -596,7 +595,7 @@ func (projects *projects) ListByOwnerID(
 		page.PageCount++
 	}
 
-	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
+	rows, err := projects.db.QueryContext(ctx, projects.db.Rebind(`
 		SELECT
 			id,
 			public_id,
