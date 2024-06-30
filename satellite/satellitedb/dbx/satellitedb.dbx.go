@@ -234,6 +234,16 @@ type Tx struct {
 	txMethods
 }
 
+func (tx *Tx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return tx.Tx.ExecContext(ctx, query, args...)
+}
+func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (tagsql.Rows, error) {
+	return tx.Tx.QueryContext(ctx, query, args...)
+}
+func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return tx.Tx.QueryRowContext(ctx, query, args...)
+}
+
 type dialectTx struct {
 	tx tagsql.Tx
 }
@@ -249,8 +259,8 @@ func (tx *dialectTx) Rollback() (err error) {
 type pgxImpl struct {
 	db      *DB
 	dialect __sqlbundle_pgx
-	driver  driver
-	txn     bool
+	driver
+	txn bool
 }
 
 func (obj *pgxImpl) Rebind(s string) string {
@@ -1172,8 +1182,8 @@ func pgxLogStmt(stmt string, args ...any) {
 type pgxcockroachImpl struct {
 	db      *DB
 	dialect __sqlbundle_pgxcockroach
-	driver  driver
-	txn     bool
+	driver
+	txn bool
 }
 
 func (obj *pgxcockroachImpl) Rebind(s string) string {
@@ -2095,8 +2105,8 @@ func pgxcockroachLogStmt(stmt string, args ...any) {
 type spannerImpl struct {
 	db      *DB
 	dialect __sqlbundle_spanner
-	driver  driver
-	txn     bool
+	driver
+	txn bool
 }
 
 func (obj *spannerImpl) Rebind(s string) string {
@@ -43572,10 +43582,16 @@ type Methods interface {
 		webapp_session *WebappSession, err error)
 }
 
+type DialectMethods interface {
+	AsOfSystemTime(time.Time) string
+	AsOfSystemInterval(time.Duration) string
+	Rebind(s string) string
+}
+
 type TxMethods interface {
 	Methods
+	DialectMethods
 
-	Rebind(s string) string
 	Commit() error
 	Rollback() error
 }
@@ -43589,11 +43605,10 @@ type txMethods interface {
 
 type DBMethods interface {
 	Methods
+	DialectMethods
 
 	Schema() []string
 	DropSchema() []string
-
-	Rebind(sql string) string
 }
 
 type dbMethods interface {

@@ -25,7 +25,7 @@ type ConsoleDB struct {
 	db *satelliteDB
 	tx *dbx.Tx
 
-	methods dbx.Methods
+	methods dbx.DriverMethods
 
 	apikeysOnce *sync.Once
 	apikeys     *apikeys
@@ -57,9 +57,8 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 		options := db.apikeysLRUOptions
 		options.Name = "satellitedb-apikeys"
 		db.apikeys = &apikeys{
-			methods: db.methods,
-			lru:     lrucache.NewOf[*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row](options),
-			db:      db.db,
+			db:  db.methods,
+			lru: lrucache.NewOf[*dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_Project_RateLimitHead_Project_BurstLimitHead_Project_RateLimitGet_Project_BurstLimitGet_Project_RateLimitPut_Project_BurstLimitPut_Project_RateLimitList_Project_BurstLimitList_Project_RateLimitDel_Project_BurstLimitDel_Project_SegmentLimit_Project_UsageLimit_Project_BandwidthLimit_Project_UserSpecifiedUsageLimit_Project_UserSpecifiedBandwidthLimit_Row](options),
 		}
 	})
 
