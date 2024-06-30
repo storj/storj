@@ -26,7 +26,7 @@ var _ console.Users = (*users)(nil)
 
 // implementation of Users interface repository using spacemonkeygo/dbx orm.
 type users struct {
-	db *satelliteDB
+	db dbx.DriverMethods
 }
 
 // UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
@@ -34,17 +34,17 @@ func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, fai
 	if failedLoginPenalty != nil {
 		// failed_login_count exceeded config.FailedLoginPenalty
 		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
-		UPDATE users
-		SET failed_login_count = COALESCE(failed_login_count, 0) + 1,
-		login_lockout_expiration = CURRENT_TIMESTAMP + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
-		WHERE id = ?
-	`), failedLoginPenalty, id.Bytes())
+			UPDATE users
+			SET failed_login_count = COALESCE(failed_login_count, 0) + 1,
+				login_lockout_expiration = CURRENT_TIMESTAMP + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
+			WHERE id = ?
+		`), failedLoginPenalty, id.Bytes())
 	} else {
 		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
-		UPDATE users
-		SET failed_login_count = COALESCE(failed_login_count, 0) + 1
-		WHERE id = ?
-	`), id.Bytes())
+			UPDATE users
+			SET failed_login_count = COALESCE(failed_login_count, 0) + 1
+			WHERE id = ?
+		`), id.Bytes())
 	}
 	return
 }
@@ -71,7 +71,7 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 		return nil, Error.New("limit cannot be 0")
 	}
 
-	rows, err := users.db.Query(ctx, `
+	rows, err := users.db.QueryContext(ctx, `
 		SELECT u.id, u.email FROM users AS u
 		LEFT JOIN account_freeze_events AS ae
 		    ON u.id = ae.user_id
@@ -208,7 +208,7 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus console.TrialNotificationStatus, expiresBefore time.Time) (needNotification []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := users.db.Query(ctx, `
+	rows, err := users.db.QueryContext(ctx, `
 		SELECT id, email
 		FROM users
 		WHERE paid_tier = false
@@ -236,11 +236,11 @@ func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notification
 func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefore time.Time) (emails []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := users.db.Query(ctx, `
+	rows, err := users.db.QueryContext(ctx, `
 		SELECT email
 		FROM users
 		WHERE status = $1
-		  	AND status_updated_at < $2
+			AND status_updated_at < $2
 			AND (paid_tier = false OR final_invoice_generated = true)
 	`, console.UserRequestedDeletion, statusUpdatedBefore)
 	if err != nil {
@@ -267,7 +267,7 @@ func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefor
 func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := users.db.Query(ctx, `
+	rows, err := users.db.QueryContext(ctx, `
 		SELECT id, email, full_name, short_name
 		FROM users
 		WHERE status = 0
@@ -399,7 +399,7 @@ func (users *users) DeleteUnverifiedBefore(
 
 	var pageCursor uuid.UUID
 	selected := make([]uuid.UUID, pageSize)
-	aost := users.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
+	aost := users.db.AsOfSystemInterval(asOfSystemTimeInterval)
 	for {
 		// Select the ID beginning this page of records
 		err = users.db.QueryRowContext(ctx, `
@@ -660,28 +660,35 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 		fieldCount++
 	}
 
-	return users.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		_, err := tx.Get_UserSettings_By_UserId(ctx, dbID)
-		if errors.Is(err, sql.ErrNoRows) {
-			if settings.OnboardingStart == nil {
-				// temporarily inserting as false for new users until we make default for this column false.
-				update.OnboardingStart = dbx.UserSettings_OnboardingStart(false)
-			}
-			if settings.OnboardingEnd == nil {
-				// temporarily inserting as false for new users until we make default for this column false.
-				update.OnboardingEnd = dbx.UserSettings_OnboardingEnd(false)
-			}
-			return tx.CreateNoReturn_UserSettings(ctx, dbID, dbx.UserSettings_Create_Fields(update))
+	// We need to check whether we are creating a new user, to set default values for onboarding.
+	_, err = users.db.Get_UserSettings_By_UserId(ctx, dbID)
+	if errors.Is(err, sql.ErrNoRows) {
+		create := update
+		if settings.OnboardingStart == nil {
+			// temporarily inserting as false for new users until we make default for this column false.
+			create.OnboardingStart = dbx.UserSettings_OnboardingStart(false)
 		}
-		if err != nil {
-			return err
+		if settings.OnboardingEnd == nil {
+			// temporarily inserting as false for new users until we make default for this column false.
+			create.OnboardingEnd = dbx.UserSettings_OnboardingEnd(false)
 		}
-		if fieldCount > 0 {
-			_, err := tx.Update_UserSettings_By_UserId(ctx, dbID, update)
-			return err
+
+		err = users.db.CreateNoReturn_UserSettings(ctx, dbID, dbx.UserSettings_Create_Fields(create))
+		if err == nil { // TODO: this should check "already exists", but this should be good enough
+			return nil
 		}
+		err = nil // ignore the error and retry with a regular update
+	}
+	if err != nil {
+		return err
+	}
+
+	if fieldCount <= 0 {
 		return nil
-	})
+	}
+
+	_, err = users.db.Update_UserSettings_By_UserId(ctx, dbID, update)
+	return err
 }
 
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
