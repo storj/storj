@@ -25,7 +25,7 @@ var _ stripe.TransactionsDB = (*coinPaymentsTransactions)(nil)
 //
 // architecture: Database
 type coinPaymentsTransactions struct {
-	db *satelliteDB
+	db dbx.Methods
 }
 
 // GetLockedRate returns locked conversion rate for transaction or error if non exists.

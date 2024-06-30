@@ -23,12 +23,7 @@ var _ stripe.CustomersDB = (*customers)(nil)
 //
 // architecture: Database
 type customers struct {
-	db *satelliteDB
-}
-
-// Raw returns the raw dbx handle.
-func (customers *customers) Raw() *dbx.DB {
-	return customers.db.DB
+	db dbx.DriverMethods
 }
 
 // Insert inserts a stripe customer into the database.
@@ -43,6 +38,39 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 	)
 
 	return err
+}
+
+// StripeSignupInfo is used in generateStripeCustomer information.
+type StripeSignupInfo struct {
+	ID              uuid.UUID
+	Email           string
+	SignupPromoCode string
+}
+
+// ListMissingCustomers lists users that have a missing stripe entry.
+func (customers *customers) ListMissingCustomers(ctx context.Context) (_ []stripe.MissingCustomer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := customers.db.QueryContext(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id FROM stripe_customers) AND users.status=1")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var users []stripe.MissingCustomer
+
+	for rows.Next() {
+		var user stripe.MissingCustomer
+		err := rows.Scan(&user.ID, &user.Email, &user.SignupPromoCode)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
 }
 
 // GetCustomerID returns stripe customers id.
