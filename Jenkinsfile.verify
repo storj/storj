@@ -125,27 +125,6 @@ pipeline {
             }
         }
 
-        stage('Satellite UI Tests') {
-            environment {
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
-                STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_LOG_LEVEL = 'debug'
-            }
-
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
-                sh 'make test-satellite-ui'
-            }
-
-            post {
-                failure {
-                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
-                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
-                }
-            }
-        }
-
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
@@ -193,6 +172,27 @@ pipeline {
                                 failUnhealthy: true
                         }
                     }
+                }
+            }
+        }
+
+        stage('Satellite UI Tests') {
+            environment {
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'debug'
+            }
+
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'make test-satellite-ui'
+            }
+
+            post {
+                failure {
+                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
                 }
             }
         }
