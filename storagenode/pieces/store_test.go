@@ -342,7 +342,7 @@ func TestTrashAndRestore(t *testing.T) {
 			for _, piece := range satellite.pieces {
 				// If test has expiration, add to expiration db
 				if !piece.expiration.IsZero() {
-					require.NoError(t, store.SetExpiration(ctx, satellite.satelliteID, piece.pieceID, piece.expiration))
+					require.NoError(t, store.SetExpiration(ctx, satellite.satelliteID, piece.pieceID, piece.expiration, 0))
 				}
 
 				for _, file := range piece.files {
@@ -723,9 +723,9 @@ func TestGetExpired(t *testing.T) {
 		require.NoError(t, err)
 
 		// put testPieces 2 and 3 in the piece_expirations db
-		err = expirationInfo.SetExpiration(ctx, testPieces[2].SatelliteID, testPieces[2].PieceID, testPieces[2].PieceExpiration)
+		err = expirationInfo.SetExpiration(ctx, testPieces[2].SatelliteID, testPieces[2].PieceID, testPieces[2].PieceExpiration, 0)
 		require.NoError(t, err)
-		err = expirationInfo.SetExpiration(ctx, testPieces[3].SatelliteID, testPieces[3].PieceID, testPieces[3].PieceExpiration)
+		err = expirationInfo.SetExpiration(ctx, testPieces[3].SatelliteID, testPieces[3].PieceID, testPieces[3].PieceExpiration, 0)
 		require.NoError(t, err)
 
 		// GetExpired with gives all results

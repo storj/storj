@@ -48,13 +48,15 @@ import (
 )
 
 var (
-	pieceSize       = flag.Int("piece-size", 62068, "62068 bytes for a piece in a 1.8 MB file. must be less than 100MiB")
-	piecesToUpload  = flag.Int("pieces-to-upload", 10000, "")
-	workers         = flag.Int("workers", 5, "")
-	ttl             = flag.Duration("ttl", time.Hour, "")
-	forceSync       = flag.Bool("force-sync", false, "")
-	disablePrealloc = flag.Bool("disable-prealloc", false, "")
-	dbsLocation     = flag.String("dbs-location", "", "")
+	pieceSize          = flag.Int("piece-size", 62068, "62068 bytes for a piece in a 1.8 MB file. must be less than 100MiB")
+	piecesToUpload     = flag.Int("pieces-to-upload", 10000, "")
+	workers            = flag.Int("workers", 5, "")
+	ttl                = flag.Duration("ttl", time.Hour, "")
+	forceSync          = flag.Bool("force-sync", false, "")
+	disablePrealloc    = flag.Bool("disable-prealloc", false, "")
+	dbsLocation        = flag.String("dbs-location", "", "")
+	flatFileTTLStore   = flag.Bool("flat-ttl-store", false, "use flat-files ttl store")
+	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
 	memprofile = flag.String("memprofile", "", "write a memory profile")
@@ -97,7 +99,17 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
 		snDB.GCFilewalkerProgress())
 
-	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), snDB.PieceExpirationDB(), snDB.PieceSpaceUsedDB(), cfg.Pieces)
+	var expirationStore pieces.PieceExpirationDB
+	if *flatFileTTLStore {
+		cfg.Pieces.EnableFlatExpirationStore = true
+		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), pieces.PieceExpirationConfig{
+			DataDir:               filepath.Join(cfg.Storage2.DatabaseDir, "pieceexpiration"),
+			ConcurrentFileHandles: *flatFileTTLHandles,
+		}))
+	} else {
+		expirationStore = snDB.PieceExpirationDB()
+	}
+	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), expirationStore, snDB.PieceSpaceUsedDB(), cfg.Pieces)
 
 	tlsOptions := try.E1(tlsopts.NewOptions(snIdent, cfg.Server.Config, nil))
 

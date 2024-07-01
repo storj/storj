@@ -522,12 +522,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.LazyFileWalker = lazyfilewalker.NewSupervisor(process.NamedLog(peer.Log, "lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
 		}
 
+		var pieceExpiration pieces.PieceExpirationDB
+		if config.Pieces.EnableFlatExpirationStore {
+			pieceExpirationStore, err := pieces.NewPieceExpirationStore(process.NamedLog(peer.Log, "pieceexpiration"), pieces.PieceExpirationConfig{
+				DataDir:               filepath.Join(config.Storage2.DatabaseDir, config.Pieces.FlatExpirationStorePath),
+				ConcurrentFileHandles: config.Pieces.FlatExpirationStoreFileHandles,
+				MaxBufferTime:         config.Pieces.FlatExpirationStoreMaxBufferTime,
+			})
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+			peer.Services.Add(lifecycle.Item{
+				Name:  "pieceexpirationstore",
+				Close: pieceExpirationStore.Close,
+			})
+			pieceExpiration = pieceExpirationStore
+		} else {
+			pieceExpiration = peer.DB.PieceExpirationDB()
+		}
+
 		peer.Storage2.Store = pieces.NewStore(process.NamedLog(peer.Log, "pieces"),
 			peer.Storage2.FileWalker,
 			peer.Storage2.LazyFileWalker,
 			peer.Storage2.BlobsCache,
 			peer.DB.V0PieceInfo(),
-			peer.DB.PieceExpirationDB(),
+			pieceExpiration,
 			peer.DB.PieceSpaceUsedDB(),
 			config.Pieces,
 		)
