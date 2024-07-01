@@ -262,6 +262,16 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	return err
 }
 
+// DeleteMultiple implements satellite.APIKeys.
+func (keys *apikeys) DeleteMultiple(ctx context.Context, ids []uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = keys.db.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ANY($1)`, pgutil.UUIDArray(ids))
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+	}
+	return err
+}
+
 // DeleteAllByProjectID deletes all APIKeyInfos from store by given projectID.
 func (keys *apikeys) DeleteAllByProjectID(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)

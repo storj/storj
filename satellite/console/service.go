@@ -3759,17 +3759,11 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 		return Error.Wrap(err)
 	}
 
-	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		for _, keyToDeleteID := range ids {
-			err = tx.APIKeys().Delete(ctx, keyToDeleteID)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	return Error.Wrap(err)
+	err = s.store.APIKeys().DeleteMultiple(ctx, ids)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 // GetAllAPIKeyNamesByProjectID returns all api key names by project ID.

@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -404,6 +406,45 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.NotNil(t, keys)
 			assert.Len(t, keys.APIKeys, 1)
 			assert.Equal(t, keyInfo.Name, keys.APIKeys[0].Name)
+		})
+
+		t.Run("DeleteMultiple", func(t *testing.T) {
+			pr, err := projects.Insert(ctx, &console.Project{
+				Name: "ProjectName3",
+			})
+			require.NoError(t, err)
+			require.NotNil(t, pr)
+
+			secret, err := macaroon.NewSecret()
+			require.NoError(t, err)
+
+			key0, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+			key1, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+			key2, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+
+			keyInfo0 := console.APIKeyInfo{Name: "key0", ProjectID: pr.ID, Secret: secret}
+			keyInfo1 := console.APIKeyInfo{Name: "key1", ProjectID: pr.ID, Secret: secret}
+			keyInfo2 := console.APIKeyInfo{Name: "key2", ProjectID: pr.ID, Secret: secret}
+
+			createdKey0, err := apikeys.Create(ctx, key0.Head(), keyInfo0)
+			require.NoError(t, err)
+			require.NotNil(t, createdKey0)
+			createdKey1, err := apikeys.Create(ctx, key1.Head(), keyInfo1)
+			require.NoError(t, err)
+			require.NotNil(t, createdKey1)
+			createdKey2, err := apikeys.Create(ctx, key2.Head(), keyInfo2)
+			require.NoError(t, err)
+			require.NotNil(t, createdKey2)
+
+			err = apikeys.DeleteMultiple(ctx, []uuid.UUID{createdKey0.ID, createdKey2.ID})
+			require.NoError(t, err)
+
+			keys, err := apikeys.GetAllNamesByProjectID(ctx, pr.ID)
+			require.NoError(t, err)
+			require.Equal(t, []string{"key1"}, keys)
 		})
 	})
 }
