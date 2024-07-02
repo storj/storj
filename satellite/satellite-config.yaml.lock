@@ -1336,6 +1336,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
+# indicates whether the console API should be split out from satellite API
+# separate-console-api: false
+
 # public address to listen on
 server.address: :7777
 

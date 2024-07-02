@@ -233,6 +233,8 @@ type Config struct {
 	HealthCheck healthcheck.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
+
+	SeparateConsoleAPI bool `help:"indicates whether the console API should be split out from satellite API" default:"false"`
 }
 
 func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {
