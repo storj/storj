@@ -627,6 +627,91 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		// TODO: expires at date
 		// TODO: zombie deletion deadline
 
+		t.Run("Retention", func(t *testing.T) {
+			objectStream.Version = 5
+
+			t.Run("Success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				retention := metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream:           objectStream,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+						Retention:              retention,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("Invalid retention period", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
+					metabasetest.BeginObjectExactVersion{
+						Opts: metabase.BeginObjectExactVersion{
+							ObjectStream: objectStream,
+							Encryption:   metabasetest.DefaultEncryption,
+							Retention: metabase.Retention{
+								Mode:        mode,
+								RetainUntil: retainUntil,
+							},
+						},
+						ErrClass: &metabase.ErrInvalidRequest,
+						ErrText:  errText,
+					}.Check(ctx, t, db)
+				}
+
+				now := time.Now()
+
+				check(storj.ComplianceMode, time.Time{}, "Retention.RetainUntil must be set if Retention.Mode is set")
+				check(storj.NoRetention, now.Add(time.Minute), "Retention.RetainUntil must not be set if Retention.Mode is not set")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "Retention.Mode must be 0 (none) or 1 (compliance), but got 2")
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+
+			t.Run("Retention period with TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention: metabase.Retention{
+							Mode:        storj.ComplianceMode,
+							RetainUntil: now.Add(time.Minute),
+						},
+						ExpiresAt: &expires,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
+
 		t.Run("Older committed version exists", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

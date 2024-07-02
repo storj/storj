@@ -222,6 +222,8 @@ type BeginObjectExactVersion struct {
 	EncryptedMetadataEncryptedKey []byte // optional
 
 	Encryption storj.EncryptionParameters
+
+	Retention Retention // optional
 }
 
 // Verify verifies get object reqest fields.
@@ -234,11 +236,21 @@ func (opts *BeginObjectExactVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
-	if opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil) {
+	switch {
+	case opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil):
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	} else if opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil) {
+	case opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil):
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
+
+	if err := opts.Retention.Verify(); err != nil {
+		return err
+	}
+
+	if opts.Retention.Enabled() && opts.ExpiresAt != nil {
+		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	}
+
 	return nil
 }
 
@@ -266,6 +278,7 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 		ExpiresAt:              opts.ExpiresAt,
 		Encryption:             opts.Encryption,
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
+		Retention:              opts.Retention,
 	}
 
 	err = db.ChooseAdapter(opts.ProjectID).TestingBeginObjectExactVersion(ctx, opts, &object)
@@ -288,18 +301,21 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
 			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+			retention_mode, retain_until
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7,
 			$8,
-			$9, $10, $11
+			$9, $10, $11,
+			$12, $13
 		)
 		RETURNING status, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(
 		&object.Status, &object.CreatedAt,
 	)
@@ -319,12 +335,14 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, encryption,
 				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				retention_mode, retain_until
 			) VALUES (
 				@project_id, @bucket_name, @object_key, @version, @stream_id,
 				@expires_at, @encryption,
 				@zombie_deletion_deadline,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@retention_mode, @retain_until
 			) THEN RETURN status, created_at`,
 			Params: map[string]interface{}{
 				"project_id":                       opts.ProjectID,
@@ -338,6 +356,8 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+				"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
+				"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
 			return Error.Wrap(row.Columns(&object.Status, &object.CreatedAt))
