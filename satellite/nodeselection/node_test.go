@@ -96,7 +96,7 @@ func BenchmarkSubnet(b *testing.B) {
 			LastIPPort: fmt.Sprintf("%d.%d.%d.%d:1234", (i>>24)%256, (i>>16)%256, (i>>8)%256, i%256),
 		})
 		if strings.Contains(s, "error") {
-			b.Fatalf(s)
+			b.Fatal(s)
 		}
 	}
 }

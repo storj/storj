@@ -49,7 +49,7 @@ func (s *gsmService) GetKey(ctx context.Context, k KeyInfo) (*storj.Key, error) 
 		return nil, Error.Wrap(err)
 	}
 
-	if keyResp.Payload.Data == nil || len(keyResp.Payload.Data) == 0 {
+	if len(keyResp.Payload.Data) == 0 {
 		return nil, Error.New("no key found in secret manager")
 	}
 

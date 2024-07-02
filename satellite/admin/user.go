@@ -61,7 +61,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, "failed to check for user email",
 			err.Error(), http.StatusInternalServerError)
 		return
@@ -447,7 +447,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if input.Email != "" {
 		existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
-		if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, "failed to check for user email",
 				err.Error(), http.StatusInternalServerError)
 			return
