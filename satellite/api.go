@@ -279,18 +279,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{ // setup mailservice
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:service",
-			Close: peer.Mail.Service.Close,
-		})
-	}
-
 	{
 		var trustedUplinks []storj.NodeID
 		for _, uplinkIDString := range config.Metainfo.SuccessTrackerTrustedUplinks {
@@ -379,10 +367,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 	}
 
-	{ // setup oidc
-		peer.OIDC.Service = oidc.NewService(db.OIDC())
-	}
-
 	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
 	if err != nil {
 		return nil, err
@@ -426,24 +410,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup analytics service
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "analytics:service",
-			Run:   peer.Analytics.Service.Run,
-			Close: peer.Analytics.Service.Close,
-		})
-	}
-
-	{ // setup AB test service
-		peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
-
-		peer.Services.Add(lifecycle.Item{
-			Name: "abtesting:service",
-		})
-	}
-
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
 
@@ -481,20 +447,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{ // setup kms
-		if len(config.KeyManagement.KeyInfos.Values) > 0 {
-			peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
-
-			peer.Services.Add(lifecycle.Item{
-				Name: "kms:service",
-				Run:  peer.KeyManagement.Service.Initialize,
-			})
-		}
-	}
-
 	{ // setup userinfo.
 		if config.Userinfo.Enabled {
-
 			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
 				peer.Log.Named("userinfo:endpoint"),
 				peer.DB.Console().Users(),
@@ -517,158 +471,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		} else {
 			peer.Log.Named("userinfo:endpoint").Info("disabled")
 		}
-	}
-
-	emissionService := emission.NewService(config.Emission)
-
-	{ // setup payments
-		pc := config.Payments
-
-		var stripeClient stripe.Client
-		switch pc.Provider {
-		case "": // just new mock, only used in testing binaries
-			stripeClient = stripe.NewStripeMock(
-				peer.DB.StripeCoinPayments().Customers(),
-				peer.DB.Console().Users(),
-			)
-		case "mock":
-			stripeClient = pc.MockProvider
-		case "stripecoinpayments":
-			stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
-		default:
-			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
-		}
-
-		prices, err := pc.UsagePrice.ToModel()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Payments.StripeService, err = stripe.NewService(
-			peer.Log.Named("payments.stripe:service"),
-			stripeClient,
-			pc.StripeCoinPayments,
-			peer.DB.StripeCoinPayments(),
-			peer.DB.Wallets(),
-			peer.DB.Billing(),
-			peer.DB.Console().Projects(),
-			peer.DB.Console().Users(),
-			peer.DB.ProjectAccounting(),
-			prices,
-			priceOverrides,
-			pc.PackagePlans.Packages,
-			pc.BonusRate,
-			peer.Analytics.Service,
-			emissionService,
-			config.Console.SelfServeAccountDeleteEnabled,
-		)
-
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Payments.StripeClient = stripeClient
-		peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
-
-		peer.Payments.StorjscanClient = storjscan.NewClient(
-			pc.Storjscan.Endpoint,
-			pc.Storjscan.Auth.Identifier,
-			pc.Storjscan.Auth.Secret)
-
-		peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
-			peer.DB.Wallets(),
-			peer.DB.StorjscanPayments(),
-			peer.Payments.StorjscanClient,
-			pc.Storjscan.Confirmations,
-			pc.BonusRate)
-
-		peer.Payments.DepositWallets = peer.Payments.StorjscanService
-	}
-
-	{ // setup account management api keys
-		peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys)
-	}
-
-	{ // setup console
-		consoleConfig := config.Console
-		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		if consoleConfig.AuthTokenSecret == "" {
-			return nil, errs.New("Auth token secret required")
-		}
-
-		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
-
-		externalAddress := consoleConfig.ExternalAddress
-		if externalAddress == "" {
-			externalAddress = "http://" + peer.Console.Listener.Addr().String()
-		}
-
-		accountFreezeService := console.NewAccountFreezeService(
-			db.Console(),
-			peer.Analytics.Service,
-			consoleConfig.AccountFreeze,
-		)
-
-		peer.Console.Service, err = console.NewService(
-			peer.Log.Named("console:service"),
-			peer.DB.Console(),
-			peer.REST.Keys,
-			peer.DB.ProjectAccounting(),
-			peer.Accounting.ProjectUsage,
-			peer.Buckets.Service,
-			peer.Payments.Accounts,
-			peer.Payments.DepositWallets,
-			peer.DB.Billing(),
-			peer.Analytics.Service,
-			peer.Console.AuthTokens,
-			peer.Mail.Service,
-			accountFreezeService,
-			emissionService,
-			peer.KeyManagement.Service,
-			externalAddress,
-			consoleConfig.SatelliteName,
-			config.Metainfo.ProjectLimits.MaxBuckets,
-			placement,
-			console.VersioningConfig{
-				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
-				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
-			},
-			consoleConfig.Config,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Console.Endpoint = consoleweb.NewServer(
-			peer.Log.Named("console:endpoint"),
-			consoleConfig,
-			peer.Console.Service,
-			peer.OIDC.Service,
-			peer.Mail.Service,
-			peer.Analytics.Service,
-			peer.ABTesting.Service,
-			accountFreezeService,
-			peer.Console.Listener,
-			config.Payments.StripeCoinPayments.StripePublicKey,
-			config.Payments.Storjscan.Confirmations,
-			peer.URL(),
-			config.Analytics,
-			config.Payments.PackagePlans,
-		)
-
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "console:endpoint",
-			Run:   peer.Console.Endpoint.Run,
-			Close: peer.Console.Endpoint.Close,
-		})
 	}
 
 	{ // setup node stats endpoint
@@ -721,21 +523,220 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup health check
-		if config.HealthCheck.Enabled {
-			listener, err := net.Listen("tcp", config.HealthCheck.Address)
+	if !config.SeparateConsoleAPI {
+		{ // setup mailservice
+			peer.Mail.Service, err = setupMailService(peer.Log, *config)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
 
-			srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener, peer.Payments.StripeService)
-			peer.HealthCheck.Server = srv
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:service",
+				Close: peer.Mail.Service.Close,
+			})
+		}
+
+		{ // setup oidc
+			peer.OIDC.Service = oidc.NewService(db.OIDC())
+		}
+
+		{ // setup analytics service
+			peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "analytics:service",
+				Run:   peer.Analytics.Service.Run,
+				Close: peer.Analytics.Service.Close,
+			})
+		}
+
+		{ // setup AB test service
+			peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "abtesting:service",
+			})
+		}
+
+		{ // setup kms
+			if len(config.KeyManagement.KeyInfos.Values) > 0 {
+				peer.KeyManagement.Service = kms.NewService(config.KeyManagement)
+
+				peer.Services.Add(lifecycle.Item{
+					Name: "kms:service",
+					Run:  peer.KeyManagement.Service.Initialize,
+				})
+			}
+		}
+
+		emissionService := emission.NewService(config.Emission)
+
+		{ // setup payments
+			pc := config.Payments
+
+			var stripeClient stripe.Client
+			switch pc.Provider {
+			case "": // just new mock, only used in testing binaries
+				stripeClient = stripe.NewStripeMock(
+					peer.DB.StripeCoinPayments().Customers(),
+					peer.DB.Console().Users(),
+				)
+			case "mock":
+				stripeClient = pc.MockProvider
+			case "stripecoinpayments":
+				stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
+			default:
+				return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
+			}
+
+			prices, err := pc.UsagePrice.ToModel()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Payments.StripeService, err = stripe.NewService(
+				peer.Log.Named("payments.stripe:service"),
+				stripeClient,
+				pc.StripeCoinPayments,
+				peer.DB.StripeCoinPayments(),
+				peer.DB.Wallets(),
+				peer.DB.Billing(),
+				peer.DB.Console().Projects(),
+				peer.DB.Console().Users(),
+				peer.DB.ProjectAccounting(),
+				prices,
+				priceOverrides,
+				pc.PackagePlans.Packages,
+				pc.BonusRate,
+				peer.Analytics.Service,
+				emissionService,
+				config.Console.SelfServeAccountDeleteEnabled,
+			)
+
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Payments.StripeClient = stripeClient
+			peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
+
+			peer.Payments.StorjscanClient = storjscan.NewClient(
+				pc.Storjscan.Endpoint,
+				pc.Storjscan.Auth.Identifier,
+				pc.Storjscan.Auth.Secret)
+
+			peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
+				peer.DB.Wallets(),
+				peer.DB.StorjscanPayments(),
+				peer.Payments.StorjscanClient,
+				pc.Storjscan.Confirmations,
+				pc.BonusRate)
+
+			peer.Payments.DepositWallets = peer.Payments.StorjscanService
+		}
+
+		{ // setup account management api keys
+			peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys)
+		}
+
+		{ // setup console
+			consoleConfig := config.Console
+			peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+			if consoleConfig.AuthTokenSecret == "" {
+				return nil, errs.New("Auth token secret required")
+			}
+
+			peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+
+			externalAddress := consoleConfig.ExternalAddress
+			if externalAddress == "" {
+				externalAddress = "http://" + peer.Console.Listener.Addr().String()
+			}
+
+			accountFreezeService := console.NewAccountFreezeService(
+				db.Console(),
+				peer.Analytics.Service,
+				consoleConfig.AccountFreeze,
+			)
+
+			peer.Console.Service, err = console.NewService(
+				peer.Log.Named("console:service"),
+				peer.DB.Console(),
+				peer.REST.Keys,
+				peer.DB.ProjectAccounting(),
+				peer.Accounting.ProjectUsage,
+				peer.Buckets.Service,
+				peer.Payments.Accounts,
+				peer.Payments.DepositWallets,
+				peer.DB.Billing(),
+				peer.Analytics.Service,
+				peer.Console.AuthTokens,
+				peer.Mail.Service,
+				accountFreezeService,
+				emissionService,
+				peer.KeyManagement.Service,
+				externalAddress,
+				consoleConfig.SatelliteName,
+				config.Metainfo.ProjectLimits.MaxBuckets,
+				placement,
+				console.VersioningConfig{
+					UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
+					UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				},
+				consoleConfig.Config,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Console.Endpoint = consoleweb.NewServer(
+				peer.Log.Named("console:endpoint"),
+				consoleConfig,
+				peer.Console.Service,
+				peer.OIDC.Service,
+				peer.Mail.Service,
+				peer.Analytics.Service,
+				peer.ABTesting.Service,
+				accountFreezeService,
+				peer.Console.Listener,
+				config.Payments.StripeCoinPayments.StripePublicKey,
+				config.Payments.Storjscan.Confirmations,
+				peer.URL(),
+				config.Analytics,
+				config.Payments.PackagePlans,
+			)
 
 			peer.Servers.Add(lifecycle.Item{
-				Name:  "healthcheck",
-				Run:   srv.Run,
-				Close: srv.Close,
+				Name:  "console:endpoint",
+				Run:   peer.Console.Endpoint.Run,
+				Close: peer.Console.Endpoint.Close,
 			})
+		}
+
+		{ // setup health check
+			if config.HealthCheck.Enabled {
+				listener, err := net.Listen("tcp", config.HealthCheck.Address)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+
+				srv := healthcheck.NewServer(peer.Log.Named("healthcheck:server"), listener, peer.Payments.StripeService)
+				peer.HealthCheck.Server = srv
+
+				peer.Servers.Add(lifecycle.Item{
+					Name:  "healthcheck",
+					Run:   srv.Run,
+					Close: srv.Close,
+				})
+			}
 		}
 	}
 
