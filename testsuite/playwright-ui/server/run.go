@@ -35,6 +35,7 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 	config.Console.SignupActivationCodeEnabled = false
 	config.Console.CouponCodeBillingUIEnabled = true
 	config.Console.RateLimit.Burst = 10000
+	config.SeparateConsoleAPI = false
 }
 
 // Run starts a new UI test.

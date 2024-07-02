@@ -64,6 +64,7 @@ func TestService(t *testing.T) {
 				}
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
 				config.Console.VarPartners = []string{"partner1"}
+				config.SeparateConsoleAPI = false
 			},
 		},
 	},
