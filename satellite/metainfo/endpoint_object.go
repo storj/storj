@@ -385,25 +385,30 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}, nil
 }
 
-func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq *pb.ObjectBeginRequest, makeInlineSegReq *pb.SegmentMakeInlineRequest, commitObjectReq *pb.ObjectCommitRequest) (
+// CommitInlineObject commits a full inline object.
+func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq *pb.ObjectBeginRequest, makeInlineSegReq *pb.SegmentMakeInlineRequest, commitObjectReq *pb.ObjectCommitRequest) (
 	_ *pb.ObjectBeginResponse,
 	_ *pb.SegmentMakeInlineResponse,
 	_ *pb.ObjectCommitResponse, err error,
 ) {
 	defer mon.Task()(&ctx)(&err)
 
+	retention, err := protobufRetentionToMetabase(beginObjectReq.Retention)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	now := time.Now()
 	var allowDelete bool
-	keyInfo, err := endpoint.ValidateAuthN(ctx, beginObjectReq.Header, console.RateLimitPut,
-		VerifyPermission{
+	actions := []VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
 				Time:          now,
 			},
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        beginObjectReq.Bucket,
@@ -413,7 +418,19 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 			ActionPermitted: &allowDelete,
 			Optional:        true,
 		},
-	)
+	}
+	if retention.Enabled() {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, beginObjectReq.Header, console.RateLimitPut, actions...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -423,6 +440,10 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, beginObjectReq.Header, fmt.Sprintf("%T", beginObjectReq))
 	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
+
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
 	if err != nil {
@@ -476,6 +497,10 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
+	}
+
+	if retention.Enabled() && !bucket.ObjectLockEnabled {
+		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
 	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, false); err != nil {
@@ -553,9 +578,12 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 		EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        metadataNonce,
 
+		Retention: retention,
+
 		DisallowDelete: !allowDelete,
 
-		Versioned: bucket.Versioning == buckets.VersioningEnabled,
+		Versioned:     bucket.Versioning == buckets.VersioningEnabled,
+		UseObjectLock: bucket.ObjectLockEnabled,
 	})
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)

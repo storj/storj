@@ -190,7 +190,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			if makeInlineSeg, commitObj, should := shouldDoInlineObject(i, req.Requests); should && endpoint.config.TestOptimizedInlineObjectUpload {
 				makeInlineSeg.Header = req.Header
 				commitObj.Header = req.Header
-				beginObjResp, makeInlineSegResp, commitObjResp, err := endpoint.commitInlineObject(ctx, singleRequest.ObjectBegin, makeInlineSeg, commitObj)
+				beginObjResp, makeInlineSegResp, commitObjResp, err := endpoint.CommitInlineObject(ctx, singleRequest.ObjectBegin, makeInlineSeg, commitObj)
 				if err != nil {
 					return resp, err
 				}
