@@ -67,7 +67,7 @@ export const useUsersStore = defineStore('users', () => {
         setUser(user);
     }
 
-    function getShouldPromptPassphrase(data: {isProjectOwner: boolean, onboardingStepperEnabled: boolean}): boolean {
+    function getShouldPromptPassphrase(isProjectOwner: boolean): boolean {
         const settings = state.settings;
         const step = settings.onboardingStep as OnboardingStep || OnboardingStep.AccountTypeSelection;
         if (!settings.passphrasePrompt) {
@@ -76,7 +76,7 @@ export const useUsersStore = defineStore('users', () => {
         if (!settings.onboardingEnd && ACCOUNT_SETUP_STEPS.includes(step)) {
             return false;
         }
-        if (data.isProjectOwner && data.onboardingStepperEnabled) {
+        if (isProjectOwner) {
             return settings.onboardingEnd || step !== OnboardingStep.EncryptionPassphrase;
         }
         return true;

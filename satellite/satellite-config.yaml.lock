@@ -439,9 +439,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to use object browser pagination
 # console.object-browser-pagination-enabled: false
 
-# whether the onboarding stepper should be enabled
-# console.onboarding-stepper-enabled: false
-
 # enable open registration
 # console.open-registration-enabled: false
 

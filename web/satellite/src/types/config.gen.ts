@@ -52,7 +52,6 @@ export class FrontendConfig {
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
     allowedUsageReportDateRange: number;
-    onboardingStepperEnabled: boolean;
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
     applicationsPageEnabled: boolean;

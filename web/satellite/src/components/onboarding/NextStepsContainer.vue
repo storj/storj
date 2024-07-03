@@ -67,9 +67,6 @@ const planInfo = computed<PricingPlanInfo | null>(() => billingStore.state.prici
 const partnerBannerVisible = computed(() => !usersStore.noticeDismissal.partnerUpgradeBanner && billingStore.state.pricingPlansAvailable);
 
 const shouldShowOnboardStepper = computed<boolean>(() => {
-    if (!configStore.state.config.onboardingStepperEnabled) {
-        return false;
-    }
     if (selectedProject.value.ownerId !== user.value.id) {
         return false;
     }

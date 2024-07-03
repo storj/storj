@@ -103,7 +103,6 @@ type Config struct {
 	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
-	OnboardingStepperEnabled        bool          `help:"whether the onboarding stepper should be enabled" default:"false"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
 	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
@@ -874,7 +873,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:       server.config.SignupActivationCodeEnabled,
 		AllowedUsageReportDateRange:       server.config.AllowedUsageReportDateRange,
-		OnboardingStepperEnabled:          server.config.OnboardingStepperEnabled,
 		EnableRegionTag:                   server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:         server.config.EmissionImpactViewEnabled,
 		ApplicationsPageEnabled:           server.config.ApplicationsPageEnabled,

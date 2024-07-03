@@ -255,10 +255,11 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
-    if (usersStore.getShouldPromptPassphrase({
-        isProjectOwner: project.ownerId === usersStore.state.user.id,
-        onboardingStepperEnabled: configStore.state.config.onboardingStepperEnabled,
-    }) && !user.value.freezeStatus.trialExpiredFrozen && route.name !== ROUTES.Bucket.name) {
+    if (
+        usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
+        !user.value.freezeStatus.trialExpiredFrozen &&
+        route.name !== ROUTES.Bucket.name
+    ) {
         appStore.toggleProjectPassphraseDialog(true);
     }
 });

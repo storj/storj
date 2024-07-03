@@ -56,7 +56,6 @@ type FrontendConfig struct {
 	LimitIncreaseRequestEnabled       bool                  `json:"limitIncreaseRequestEnabled"`
 	SignupActivationCodeEnabled       bool                  `json:"signupActivationCodeEnabled"`
 	AllowedUsageReportDateRange       time.Duration         `json:"allowedUsageReportDateRange"`
-	OnboardingStepperEnabled          bool                  `json:"onboardingStepperEnabled"`
 	EnableRegionTag                   bool                  `json:"enableRegionTag"`
 	EmissionImpactViewEnabled         bool                  `json:"emissionImpactViewEnabled"`
 	ApplicationsPageEnabled           bool                  `json:"applicationsPageEnabled"`
