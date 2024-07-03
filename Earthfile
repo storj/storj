@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM golang:1.22.2
+FROM golang:1.22.5
 WORKDIR /go/storj
 
 multinode-web:
