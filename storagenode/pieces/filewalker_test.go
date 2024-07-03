@@ -54,7 +54,7 @@ func TestFilewalker_Basic(t *testing.T) {
 			}))
 		}
 
-		filter := bloomfilter.NewOptimal(int64(numberOfPieces), 0.1)
+		filter := bloomfilter.NewOptimal(int64(numberOfPieces), 0.000000001)
 
 		// WalkAndComputeSpaceUsedBySatellite
 		total, totalContentSize, err := fw.WalkAndComputeSpaceUsedBySatellite(ctx, satellite)
@@ -64,11 +64,13 @@ func TestFilewalker_Basic(t *testing.T) {
 
 		// WalkSatellitePieces
 		count := 0
+		numOfTrashPieces := 0
 		err = store.WalkSatellitePieces(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
+			count++
 			if count%2 == 0 {
 				filter.Add(pieceAccess.PieceID())
+				numOfTrashPieces++
 			}
-			count++
 			return nil
 		})
 		require.NoError(t, err)
@@ -82,7 +84,7 @@ func TestFilewalker_Basic(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, int64(numberOfPieces), piecesCount)
-		require.Equal(t, numberOfPieces/2, trashPieceCount)
+		require.Equal(t, numOfTrashPieces, trashPieceCount)
 
 		// check for the logs
 		require.Equal(t, 0, observedLogs.FilterMessage("failed to get progress from database").Len())

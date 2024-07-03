@@ -12,6 +12,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -29,7 +30,8 @@ type CacheService struct {
 	Loop               *sync2.Cycle
 
 	// InitFence is released once the cache's Run method returns or when it has
-	// completed its first loop. This is useful for testing.
+	// completed the scan and persisted the data to the database.
+	// This is useful for testing.
 	InitFence sync2.Fence
 }
 
@@ -51,50 +53,68 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer service.InitFence.Release()
 
-	totalsAtStart := service.usageCache.copyCacheTotals()
-
-	// recalculate the cache once
-	if service.pieceScanOnStartup {
-		piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
-		if err != nil {
-			service.log.Error("error getting current used space: ", zap.Error(err))
-			return err
-		}
-		trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
-		if err != nil {
-			service.log.Error("error getting current used space for trash: ", zap.Error(err))
-			return err
-		}
-		service.usageCache.Recalculate(
-			piecesTotal,
-			totalsAtStart.piecesTotal,
-			piecesContentSize,
-			totalsAtStart.piecesContentSize,
-			trashTotal,
-			totalsAtStart.trashTotal,
-			totalsBySatellite,
-			totalsAtStart.spaceUsedBySatellite,
-		)
-	} else {
-		service.log.Info("Startup piece scan omitted by configuration")
-	}
-
 	if err = service.store.spaceUsedDB.Init(ctx); err != nil {
 		service.log.Error("error during init space usage db: ", zap.Error(err))
 		return err
 	}
 
-	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
-		defer mon.Task()(&ctx)(&err)
+	totalsAtStart := service.usageCache.copyCacheTotals()
 
-		// on a loop sync the cache values to the db so that we have the them saved
-		// in the case that the storagenode restarts
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		// recalculate the cache once
+		if !service.pieceScanOnStartup {
+			service.log.Info("Startup piece scan omitted by configuration")
+			return nil
+		}
+
+		piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
+		if err != nil {
+			service.log.Error("error getting current used space: ", zap.Error(err))
+			return err
+		}
+		service.usageCache.recalculateUsage(
+			piecesTotal,
+			totalsAtStart.piecesTotal,
+			piecesContentSize,
+			totalsAtStart.trashTotal,
+			totalsBySatellite,
+			totalsAtStart.spaceUsedBySatellite,
+		)
+
+		// TODO(clement): this walks the trash and doesn't use lazyfilewalker all this while???
+		//  See if we can avoid this completely, or make it faster
+		trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
+		if err != nil {
+			service.log.Error("error getting current used space for trash: ", zap.Error(err))
+			return err
+		}
+		service.usageCache.recalculateTrash(trashTotal, totalsAtStart.trashTotal)
+
+		// persist the recalculated values
 		if err := service.PersistCacheTotals(ctx); err != nil {
 			service.log.Error("error persisting cache totals to the database: ", zap.Error(err))
 		}
+
 		service.InitFence.Release()
-		return err
+
+		return nil
 	})
+
+	group.Go(func() error {
+		return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
+			defer mon.Task()(&ctx)(&err)
+
+			// on a loop sync the cache values to the db so that we have them saved
+			// in the case that the storagenode restarts
+			if err := service.PersistCacheTotals(ctx); err != nil {
+				service.log.Error("error persisting cache totals to the database: ", zap.Error(err))
+			}
+			return err
+		})
+	})
+
+	return group.Wait()
 }
 
 // PersistCacheTotals saves the current totals of the space used cache to the database
@@ -426,18 +446,24 @@ func (blobs *BlobsUsageCache) Recalculate(
 	totalsBySatelliteAtStart map[storj.NodeID]SatelliteUsage,
 ) {
 
+	blobs.recalculateUsage(piecesTotal, piecesTotalAtStart, piecesContentSize, piecesContentSizeAtStart, totalsBySatellite, totalsBySatelliteAtStart)
+	blobs.recalculateTrash(trashTotal, trashTotalAtStart)
+}
+
+func (blobs *BlobsUsageCache) recalculateTrash(trashTotal, totalAtStart int64) {
+	blobs.mu.Lock()
+	blobs.trashTotal = estimate(trashTotal, totalAtStart, blobs.trashTotal)
+	blobs.mu.Unlock()
+}
+
+func (blobs *BlobsUsageCache) recalculateUsage(piecesTotal, piecesTotalAtStart, piecesContentSize, piecesContentSizeAtStart int64, totalsBySatellite, totalsBySatelliteAtStart map[storj.NodeID]SatelliteUsage) {
+
 	totalsAtEnd := blobs.copyCacheTotals()
 
 	estimatedPiecesTotal := estimate(
 		piecesTotal,
 		piecesTotalAtStart,
 		totalsAtEnd.piecesTotal,
-	)
-
-	estimatedTotalTrash := estimate(
-		trashTotal,
-		trashTotalAtStart,
-		totalsAtEnd.trashTotal,
 	)
 
 	estimatedPiecesContentSize := estimate(
@@ -498,7 +524,6 @@ func (blobs *BlobsUsageCache) Recalculate(
 	blobs.mu.Lock()
 	blobs.piecesTotal = estimatedPiecesTotal
 	blobs.piecesContentSize = estimatedPiecesContentSize
-	blobs.trashTotal = estimatedTotalTrash
 	blobs.spaceUsedBySatellite = estimatedTotalsBySatellite
 	blobs.mu.Unlock()
 }
