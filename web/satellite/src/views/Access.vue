@@ -19,8 +19,11 @@
 
         <AccessTableComponent />
     </v-container>
-    <AccessSetupDialog v-if="newAppSetupFlowEnabled" v-model="dialog" docs-link="https://docs.storj.io/dcs/access" />
-    <NewAccessDialog v-else v-model="dialog" />
+    <AccessSetupDialog
+        v-model="dialog"
+        docs-link="https://docs.storj.io/dcs/access"
+        :default-step="SetupStep.ChooseAccessStep"
+    />
 </template>
 
 <script setup lang="ts">
@@ -33,9 +36,8 @@ import {
 } from 'vuetify/components';
 
 import { useTrialCheck } from '@/composables/useTrialCheck';
-import { useConfigStore } from '@/store/modules/configStore';
+import { SetupStep } from '@/types/setupAccess';
 
-import NewAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -45,7 +47,6 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const dialog = ref<boolean>(false);
 
-const { newAppSetupFlowEnabled } = useConfigStore().state.config;
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
 
 /**

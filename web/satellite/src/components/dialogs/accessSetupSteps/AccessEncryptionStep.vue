@@ -5,7 +5,6 @@
     <v-form ref="form" class="pa-6 pb-4" @submit.prevent="emit('submit')">
         <v-row>
             <v-col cols="12">
-                <!-- <p class="text-subtitle-2 font-weight-bold mb-2">Encryption Passphrase</p> -->
                 <v-radio-group v-model="passphraseOption" hide-details="auto">
                     <template v-if="isPromptForPassphrase">
                         <v-radio v-if="isPromptForPassphrase" label="Enter your project passphrase" :value="PassphraseOption.SetMyProjectPassphrase" density="compact">
@@ -106,11 +105,11 @@ import {
     VTextField,
 } from 'vuetify/components';
 
-import { PassphraseOption } from '@/types/createAccessGrant';
+import { PassphraseOption } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { ValidationRule, DialogStepComponent } from '@/types/common';
+import { ValidationRule, IDialogFlowStep } from '@/types/common';
 
-import InfoTooltip from '@/components/dialogs/createAccessSteps/InfoTooltip.vue';
+import InfoTooltip from '@/components/dialogs/accessSetupSteps/InfoTooltip.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 
 const emit = defineEmits<{
@@ -147,8 +146,7 @@ const passphraseRules = computed<ValidationRule<string>[]>(() => {
     return [ v => !required || !!v || 'Required' ];
 });
 
-defineExpose<DialogStepComponent>({
-    title: 'Access Encryption',
+defineExpose<IDialogFlowStep>({
     validate: () => {
         const passphraseRequired = passphraseOption.value === PassphraseOption.SetMyProjectPassphrase;
         if (!passphraseRequired) return true;
@@ -163,13 +161,10 @@ defineExpose<DialogStepComponent>({
             PassphraseOption.UseExistingPassphrase;
     },
     onExit: () => {
-        switch (passphraseOption.value) {
-        case PassphraseOption.UseExistingPassphrase:
+        if (passphraseOption.value === PassphraseOption.UseExistingPassphrase) {
             emit('passphraseChanged', bucketsStore.state.passphrase);
-            break;
-        case PassphraseOption.SetMyProjectPassphrase:
+        } else {
             emit('passphraseChanged', passphrase.value);
-            break;
         }
     },
 });

@@ -60,7 +60,6 @@ type FrontendConfig struct {
 	EmissionImpactViewEnabled         bool                  `json:"emissionImpactViewEnabled"`
 	DaysBeforeTrialEndNotification    int                   `json:"daysBeforeTrialEndNotification"`
 	AnalyticsEnabled                  bool                  `json:"analyticsEnabled"`
-	NewAppSetupFlowEnabled            bool                  `json:"newAppSetupFlowEnabled"`
 	ObjectBrowserKeyNamePrefix        string                `json:"objectBrowserKeyNamePrefix"`
 	ObjectBrowserKeyLifetime          time.Duration         `json:"objectBrowserKeyLifetime"`
 	MaxNameCharacters                 int                   `json:"maxNameCharacters"`

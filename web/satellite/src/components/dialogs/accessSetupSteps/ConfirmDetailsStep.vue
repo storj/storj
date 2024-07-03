@@ -24,7 +24,7 @@
 import { computed } from 'vue';
 import { VRow, VCol, VList, VListItem } from 'vuetify/components';
 
-import { Permission, AccessType } from '@/types/createAccessGrant';
+import { Permission, AccessType } from '@/types/setupAccess';
 
 interface Item {
     title: string;

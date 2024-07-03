@@ -412,9 +412,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
 
-# whether new application setup flow should be used
-# console.new-app-setup-flow-enabled: false
-
 # whether to show unlimited-limits UI for pro users
 # console.no-limits-ui-enabled: false
 

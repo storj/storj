@@ -76,7 +76,7 @@ import { ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VBtn } from 'vuetify/components';
 import { mdiCheckBold } from '@mdi/js';
 
-import { Permission } from '@/types/createAccessGrant';
+import { Permission } from '@/types/setupAccess';
 
 const emit = defineEmits<{
     'permissionsChanged': [perms: Permission[]];

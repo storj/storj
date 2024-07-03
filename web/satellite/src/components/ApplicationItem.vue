@@ -45,15 +45,14 @@
         </v-card>
     </v-col>
     <AccessSetupDialog
-        v-if="newAppSetupFlowEnabled"
         v-model="dialog"
         :app="app"
         :access-name="app.name"
         :docs-link="app.docs"
+        :default-step="SetupStep.ChooseFlowStep"
         :default-access-type="neededAccessType"
         is-app-setup
     />
-    <CreateAccessDialog v-else ref="accessDialog" v-model="dialog" :default-name="app.name" />
 </template>
 
 <script setup lang="ts">
@@ -62,25 +61,21 @@ import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
 import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
 
 import { Application, UplinkApp } from '@/types/applications';
-import { AccessType, Exposed } from '@/types/createAccessGrant';
+import { AccessType, SetupStep } from '@/types/setupAccess';
 import { useTrialCheck } from '@/composables/useTrialCheck';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
-import CreateAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 
 const props = defineProps<{
     app: Application
 }>();
 
-const { newAppSetupFlowEnabled } = useConfigStore().state.config;
 const analyticsStore  = useAnalyticsStore();
 
 const { withTrialCheck } = useTrialCheck();
 
-const accessDialog = ref<Exposed>();
 const dialog = ref<boolean>(false);
 
 /**
@@ -97,7 +92,6 @@ const neededAccessType = computed<AccessType>(() => {
 function onSetup(): void {
     withTrialCheck(() => {
         sendAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_CLICKED);
-        accessDialog.value?.setTypes([neededAccessType.value]);
         dialog.value = true;
     });
 }

@@ -56,7 +56,6 @@ export class FrontendConfig {
     emissionImpactViewEnabled: boolean;
     daysBeforeTrialEndNotification: number;
     analyticsEnabled: boolean;
-    newAppSetupFlowEnabled: boolean;
     objectBrowserKeyNamePrefix: string;
     objectBrowserKeyLifetime: number;
     maxNameCharacters: number;

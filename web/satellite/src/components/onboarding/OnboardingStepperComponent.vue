@@ -94,10 +94,10 @@
         </v-col>
     </v-row>
 
-    <new-access-dialog
-        v-if="currentStep === OnboardingStep.UploadFiles || currentStep === OnboardingStep.CreateAccess"
-        ref="accessDialog"
+    <AccessSetupDialog
         v-model="isAccessDialogOpen"
+        :default-step="SetupStep.ChooseAccessStep"
+        docs-link="https://docs.storj.io/dcs/access"
         @access-created="onAccessCreated"
     />
     <CreateBucketDialog
@@ -137,14 +137,13 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
-import { AccessType, Exposed } from '@/types/createAccessGrant';
+import { SetupStep } from '@/types/setupAccess';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
-import NewAccessDialog from '@/components/dialogs/CreateAccessDialog.vue';
-import EnterBucketPassphraseDialog
-    from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
+import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
+import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -162,8 +161,6 @@ const isBucketDialogOpen = ref(false);
 const isAccessDialogOpen = ref(false);
 const isBucketPassphraseDialogOpen = ref(false);
 const isManagePassphraseDialogOpen = ref(false);
-
-const accessDialog = ref<Exposed>();
 
 /**
  * contains custom texts to be shown on the steps
@@ -331,7 +328,6 @@ function openAccessDialog(): void {
             // end correctly after the access is created.
             await progressStep();
         }
-        accessDialog.value?.setTypes([AccessType.S3]);
         isAccessDialogOpen.value = true;
     });
 }

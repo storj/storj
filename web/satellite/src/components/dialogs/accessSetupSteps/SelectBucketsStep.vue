@@ -82,7 +82,7 @@ import {
     VRow,
 } from 'vuetify/components';
 
-import { BucketsOption } from '@/types/createAccessGrant';
+import { BucketsOption } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 const bucketsStore = useBucketsStore();

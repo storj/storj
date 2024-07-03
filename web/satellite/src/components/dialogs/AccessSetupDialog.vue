@@ -6,6 +6,7 @@
         v-model="model"
         width="auto"
         max-width="450px"
+        min-width="320px"
         transition="fade-transition"
     >
         <v-card ref="innerContent">
@@ -207,15 +208,7 @@ import {
 } from 'vuetify/components';
 import { useRoute } from 'vue-router';
 
-import IconAccess from '../icons/IconAccess.vue';
-
-import {
-    AccessType,
-    FlowType,
-    PassphraseOption,
-    Permission,
-    SetupStep,
-} from '@/types/createAccessGrant';
+import { AccessType, FlowType, PassphraseOption, Permission, SetupStep } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { getUniqueName, IDialogFlowStep } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -234,12 +227,13 @@ import ChooseAccessStep from '@/components/dialogs/accessSetupSteps/ChooseAccess
 import ChoosePermissionsStep from '@/components/dialogs/accessSetupSteps/ChoosePermissionsStep.vue';
 import SelectBucketsStep from '@/components/dialogs/accessSetupSteps/SelectBucketsStep.vue';
 import AccessCreatedStep from '@/components/dialogs/accessSetupSteps/AccessCreatedStep.vue';
-import AccessEncryptionStep from '@/components/dialogs/createAccessSteps/AccessEncryptionStep.vue';
+import AccessEncryptionStep from '@/components/dialogs/accessSetupSteps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
 import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/PassphraseGeneratedStep.vue';
 import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/OptionalExpirationStep.vue';
-import EncryptionInfoStep from '@/components/dialogs/createAccessSteps/EncryptionInfoStep.vue';
+import EncryptionInfoStep from '@/components/dialogs/accessSetupSteps/EncryptionInfoStep.vue';
 import ConfirmDetailsStep from '@/components/dialogs/accessSetupSteps/ConfirmDetailsStep.vue';
+import IconAccess from '@/components/icons/IconAccess.vue';
 import IconDocs from '@/components/icons/IconDocs.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
@@ -265,8 +259,13 @@ class StepInfo {
     }
 }
 
+const emit = defineEmits<{
+    'accessCreated': [];
+}>();
+
 const props = withDefaults(defineProps<{
     docsLink: string
+    defaultStep: SetupStep
     app?: Application
     accessName?: string
     defaultAccessType?: AccessType
@@ -300,7 +299,7 @@ function resettableRef<T>(value: T): Ref<T> {
     return thisRef;
 }
 
-const step = resettableRef<SetupStep>(props.defaultAccessType ? SetupStep.ChooseFlowStep : SetupStep.ChooseAccessStep);
+const step = resettableRef<SetupStep>(props.defaultStep);
 const accessType = resettableRef<AccessType>(props.defaultAccessType ?? AccessType.S3);
 const flowType = resettableRef<FlowType>(FlowType.FullAccess);
 const name = resettableRef<string>('');
@@ -660,6 +659,10 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     isFetching.value = false;
 
     stepInfos[step.value].ref.value?.onEnter?.();
+});
+
+watch(model, value => {
+    if (!value && step.value === SetupStep.AccessCreatedStep) emit('accessCreated');
 });
 </script>
 

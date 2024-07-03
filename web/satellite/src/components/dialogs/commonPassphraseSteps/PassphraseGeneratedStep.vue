@@ -33,12 +33,10 @@ import { ref } from 'vue';
 import { generateMnemonic } from 'bip39-english';
 import { VForm, VRow, VCol, VCheckbox } from 'vuetify/components';
 
-import { RequiredRule, DialogStepComponent } from '@/types/common';
+import { RequiredRule, IDialogFlowStep } from '@/types/common';
 
-import TextOutputArea from '@/components/dialogs/createAccessSteps/TextOutputArea.vue';
+import TextOutputArea from '@/components/dialogs/accessSetupSteps/TextOutputArea.vue';
 import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
-
-import Icon from '@/assets/createAccessGrantFlow/passphraseGenerated.svg';
 
 defineProps<{
     name: string;
@@ -53,9 +51,7 @@ const isTooltipDisabled = ref<boolean>(false);
 
 const passphrase: string = generateMnemonic();
 
-defineExpose<DialogStepComponent>({
-    title: 'Passphrase Generated',
-    iconSrc: Icon,
+defineExpose<IDialogFlowStep>({
     onEnter: () => {
         emit('passphraseChanged', passphrase);
         isTooltipDisabled.value = false;

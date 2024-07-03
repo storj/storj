@@ -16,7 +16,7 @@ import { PassphraseOption } from '@/types/managePassphrase';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { EdgeCredentials } from '@/types/accessGrants';
 
-import Icon from '@/assets/createAccessGrantFlow/accessCreated.svg';
+import Icon from '@/assets/icon-access-created.svg';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();

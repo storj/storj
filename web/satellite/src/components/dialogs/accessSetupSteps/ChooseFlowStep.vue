@@ -63,7 +63,7 @@
 import { ref } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow } from 'vuetify/components';
 
-import { FlowType } from '@/types/createAccessGrant';
+import { FlowType } from '@/types/setupAccess';
 import { IDialogFlowStep } from '@/types/common';
 import { Application } from '@/types/applications';
 

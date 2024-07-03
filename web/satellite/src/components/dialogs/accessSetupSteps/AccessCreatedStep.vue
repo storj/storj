@@ -76,13 +76,13 @@ import { VAlert, VCol, VForm, VRow } from 'vuetify/components';
 import { computed } from 'vue';
 
 import { EdgeCredentials } from '@/types/accessGrants';
-import { AccessType } from '@/types/createAccessGrant';
+import { AccessType } from '@/types/setupAccess';
 import { useConfigStore } from '@/store/modules/configStore';
 import { SaveButtonsItem } from '@/types/common';
 import { Application } from '@/types/applications';
 
 import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
-import TextOutputArea from '@/components/dialogs/createAccessSteps/TextOutputArea.vue';
+import TextOutputArea from '@/components/dialogs/accessSetupSteps/TextOutputArea.vue';
 
 const props = withDefaults(defineProps<{
     name: string

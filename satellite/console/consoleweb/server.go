@@ -107,7 +107,6 @@ type Config struct {
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
-	NewAppSetupFlowEnabled          bool          `help:"whether new application setup flow should be used" default:"false"`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
@@ -876,7 +875,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EmissionImpactViewEnabled:         server.config.EmissionImpactViewEnabled,
 		AnalyticsEnabled:                  server.AnalyticsConfig.Enabled,
 		DaysBeforeTrialEndNotification:    server.config.DaysBeforeTrialEndNotification,
-		NewAppSetupFlowEnabled:            server.config.NewAppSetupFlowEnabled,
 		ObjectBrowserKeyNamePrefix:        server.config.ObjectBrowserKeyNamePrefix,
 		ObjectBrowserKeyLifetime:          server.config.ObjectBrowserKeyLifetime,
 		MaxNameCharacters:                 server.config.MaxNameCharacters,

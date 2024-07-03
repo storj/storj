@@ -11,7 +11,7 @@
         <v-card ref="innerContent">
             <v-card-item class="pa-6 pr-5">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/createAccessGrantFlow/accessEncryption.svg" alt="icon">
+                    <img class="d-block" src="@/assets/icon-access.svg" alt="icon">
                 </template>
 
                 <v-card-title class="font-weight-bold">

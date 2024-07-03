@@ -156,7 +156,7 @@ import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/
 import SuccessStep from '@/components/dialogs/managePassphraseSteps/SuccessStep.vue';
 import ClearStep from '@/components/dialogs/managePassphraseSteps/ClearStep.vue';
 
-import LockIcon from '@/assets/createAccessGrantFlow/accessEncryption.svg';
+import LockIcon from '@/assets/icon-access.svg';
 
 type ManagePassphraseLocation = ManageProjectPassphraseStep | null | (() => (ManageProjectPassphraseStep | null));
 

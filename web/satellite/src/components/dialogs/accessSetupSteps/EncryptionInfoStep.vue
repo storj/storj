@@ -24,7 +24,6 @@
 <script setup lang="ts">
 import { VRow, VCol, VCheckbox } from 'vuetify/components';
 
-import { DialogStepComponent } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -42,8 +41,4 @@ async function toggleServerSideEncryptionNotice(value: boolean): Promise<void> {
         notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
-
-defineExpose<DialogStepComponent>({
-    title: 'Encryption Information',
-});
 </script>

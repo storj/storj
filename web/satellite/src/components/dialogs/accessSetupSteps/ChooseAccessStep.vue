@@ -80,7 +80,7 @@
 import { computed, ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VTextField } from 'vuetify/components';
 
-import { AccessType } from '@/types/createAccessGrant';
+import { AccessType } from '@/types/setupAccess';
 import { IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
