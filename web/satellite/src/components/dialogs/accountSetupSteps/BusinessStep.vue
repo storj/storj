@@ -174,7 +174,7 @@ const auth = new AuthHttpApi();
 const analyticsStore = useAnalyticsStore();
 const { smAndUp } = useDisplay();
 
-const props = defineProps<{
+defineProps<{
     loading: boolean,
 }>();
 
@@ -197,10 +197,6 @@ const emit = defineEmits<{
 const formValid = ref(false);
 
 async function setupAccount() {
-    if (props.loading || !formValid.value) {
-        return;
-    }
-
     await auth.setupAccount({
         firstName: firstName.value,
         lastName: lastName.value,
