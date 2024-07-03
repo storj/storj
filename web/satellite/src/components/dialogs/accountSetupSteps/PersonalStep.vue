@@ -84,7 +84,7 @@ const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     loading: boolean,
 }>(), {
     loading: false,
@@ -101,9 +101,6 @@ const emit = defineEmits<{
 const formValid = ref(false);
 
 async function setupAccount() {
-    if (props.loading || !formValid.value) {
-        return;
-    }
     await auth.setupAccount({
         fullName: name.value,
         storageUseCase: useCase.value,
