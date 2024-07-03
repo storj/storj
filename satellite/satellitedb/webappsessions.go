@@ -96,6 +96,13 @@ func (db *webappSessions) DeleteAllByUserID(ctx context.Context, userID uuid.UUI
 	return db.db.Delete_WebappSession_By_UserId(ctx, dbx.WebappSession_UserId(userID.Bytes()))
 }
 
+// DeleteAllByUserIDExcept deletes all webapp sessions by user ID except one of sessionID.
+func (db *webappSessions) DeleteAllByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (deleted int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.db.Delete_WebappSession_By_UserId_And_Id_Not(ctx, dbx.WebappSession_UserId(userID.Bytes()), dbx.WebappSession_Id(sessionID.Bytes()))
+}
+
 // DeleteExpired deletes all sessions that have expired before the provided timestamp.
 func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)

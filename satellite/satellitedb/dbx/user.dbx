@@ -176,6 +176,10 @@ model webapp_session (
 create webapp_session ( )
 update webapp_session ( where webapp_session.id = ? )
 delete webapp_session ( where webapp_session.id = ? )
+delete webapp_session (
+	where webapp_session.user_id = ?
+	where webapp_session.id != ?
+)
 delete webapp_session ( where webapp_session.user_id = ? )
 
 read all (

@@ -853,7 +853,13 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword, &sessionID)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return

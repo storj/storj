@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -169,18 +169,6 @@ async function onChangePassword(): Promise<void> {
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
             return;
-        }
-
-        try {
-            await auth.logout();
-
-            setTimeout(() => {
-                router.push(ROUTES.Login.path);
-                // TODO: this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
-                location.reload();
-            }, DELAY_BEFORE_REDIRECT);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
         }
 
         model.value = false;

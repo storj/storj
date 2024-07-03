@@ -24063,6 +24063,37 @@ func (obj *pgxImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_WebappSession_By_UserId_And_Id_Not(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_id_not WebappSession_Id_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ? AND webapp_sessions.id != ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_user_id.value(), webapp_session_id_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_WebappSession_By_UserId(ctx context.Context,
 	webapp_session_user_id WebappSession_UserId_Field) (
 	count int64, err error) {
@@ -33697,6 +33728,37 @@ func (obj *pgxcockroachImpl) Delete_WebappSession_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSession_By_UserId_And_Id_Not(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_id_not WebappSession_Id_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ? AND webapp_sessions.id != ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_user_id.value(), webapp_session_id_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -44201,6 +44263,37 @@ func (obj *spannerImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Delete_WebappSession_By_UserId_And_Id_Not(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_id_not WebappSession_Id_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ? AND webapp_sessions.id != ?")
+
+	var __values []any
+	__values = append(__values, webapp_session_user_id.value(), webapp_session_id_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Delete_WebappSession_By_UserId(ctx context.Context,
 	webapp_session_user_id WebappSession_UserId_Field) (
 	count int64, err error) {
@@ -45259,6 +45352,11 @@ type Methods interface {
 
 	Delete_WebappSession_By_UserId(ctx context.Context,
 		webapp_session_user_id WebappSession_UserId_Field) (
+		count int64, err error)
+
+	Delete_WebappSession_By_UserId_And_Id_Not(ctx context.Context,
+		webapp_session_user_id WebappSession_UserId_Field,
+		webapp_session_id_not WebappSession_Id_Field) (
 		count int64, err error)
 
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,

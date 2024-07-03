@@ -2434,14 +2434,29 @@ func TestChangePassword(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
+		for i := 0; i < 2; i++ {
+			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+			require.NoError(t, err)
+		}
+		sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, sessions, 2)
+
 		// generate a password recovery token to test that changing password invalidates it
 		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user.ID)
 		require.NoError(t, err)
 
-		require.NoError(t, sat.API.Console.Service.ChangePassword(userCtx, upl.User[sat.ID()].Password, newPass))
+		sessionID := sessions[0].ID
+		require.NoError(t, sat.API.Console.Service.ChangePassword(userCtx, upl.User[sat.ID()].Password, newPass, &sessionID))
 		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.NoError(t, bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(newPass)))
+
+		// change password should've deleted other sessions.
+		sessions, err = sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, sessions, 1)
+		require.Equal(t, sessionID, sessions[0].ID)
 
 		err = sat.API.Console.Service.ResetPassword(
 			userCtx,

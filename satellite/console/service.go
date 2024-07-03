@@ -2441,7 +2441,7 @@ func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (nam
 }
 
 // ChangePassword updates password for a given user.
-func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
+func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sessionID *uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "change password")
 	if err != nil {
@@ -2496,9 +2496,11 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		}
 	}
 
-	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
+	if sessionID != nil {
+		err = s.DeleteAllSessionsByUserIDExcept(ctx, user.ID, *sessionID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	return nil
@@ -4880,21 +4882,8 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err e
 func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	sessions, err := s.store.WebappSessions().GetAllByUserID(ctx, userID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for _, session := range sessions {
-		if session.ID != sessionID {
-			err = s.DeleteSession(ctx, session.ID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	_, err = s.store.WebappSessions().DeleteAllByUserIDExcept(ctx, userID, sessionID)
+	return Error.Wrap(err)
 }
 
 // RefreshSession resets the expiration time of the session.

@@ -160,23 +160,27 @@ func TestWebappSessionsDeleteAllByUserID(t *testing.T) {
 		userAgent := "test_user_agent"
 		expiresAt := time.Now().Add(24 * time.Hour).Truncate(time.Second)
 
-		session1, err := sessions.Create(ctx, id1, userID, address, userAgent, expiresAt)
-		require.NoError(t, err)
-		require.Equal(t, id1, session1.ID)
-		require.Equal(t, userID, session1.UserID)
-		require.Equal(t, address, session1.Address)
-		require.Equal(t, userAgent, session1.UserAgent)
-		require.Equal(t, expiresAt, session1.ExpiresAt)
+		createSessions := func() {
+			session1, err := sessions.Create(ctx, id1, userID, address, userAgent, expiresAt)
+			require.NoError(t, err)
+			require.Equal(t, id1, session1.ID)
+			require.Equal(t, userID, session1.UserID)
+			require.Equal(t, address, session1.Address)
+			require.Equal(t, userAgent, session1.UserAgent)
+			require.Equal(t, expiresAt, session1.ExpiresAt)
 
-		id2 := testrand.UUID()
+			id2 := testrand.UUID()
 
-		session2, err := sessions.Create(ctx, id2, userID, address, userAgent, expiresAt)
-		require.NoError(t, err)
-		require.Equal(t, id2, session2.ID)
-		require.Equal(t, userID, session2.UserID)
-		require.Equal(t, address, session2.Address)
-		require.Equal(t, userAgent, session2.UserAgent)
-		require.Equal(t, expiresAt, session2.ExpiresAt)
+			session2, err := sessions.Create(ctx, id2, userID, address, userAgent, expiresAt)
+			require.NoError(t, err)
+			require.Equal(t, id2, session2.ID)
+			require.Equal(t, userID, session2.UserID)
+			require.Equal(t, address, session2.Address)
+			require.Equal(t, userAgent, session2.UserAgent)
+			require.Equal(t, expiresAt, session2.ExpiresAt)
+		}
+
+		createSessions()
 
 		deleted, err := sessions.DeleteAllByUserID(ctx, userID)
 		require.NoError(t, err)
@@ -185,6 +189,23 @@ func TestWebappSessionsDeleteAllByUserID(t *testing.T) {
 		allSessions, err := sessions.GetAllByUserID(ctx, userID)
 		require.NoError(t, err)
 		require.Len(t, allSessions, 0)
+
+		createSessions()
+
+		allSessions, err = sessions.GetAllByUserID(ctx, userID)
+		require.NoError(t, err)
+		require.Len(t, allSessions, 2)
+
+		excluded := allSessions[0].ID
+
+		deleted, err = sessions.DeleteAllByUserIDExcept(ctx, userID, excluded)
+		require.NoError(t, err)
+		require.Equal(t, deleted, int64(1))
+
+		allSessions, err = sessions.GetAllByUserID(ctx, userID)
+		require.NoError(t, err)
+		require.Len(t, allSessions, 1)
+		require.Equal(t, excluded, allSessions[0].ID)
 	})
 }
 
