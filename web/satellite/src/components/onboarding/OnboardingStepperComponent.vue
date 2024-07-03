@@ -3,92 +3,34 @@
 
 <template>
     <v-row>
-        <v-col cols="12" md="6" lg="3" xl="3">
+        <v-col
+            v-for="(step, i) in steps"
+            :key="i"
+            cols="12"
+            md="6"
+            :lg="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
+            :xl="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
+        >
             <v-card class="pa-5 pt-3">
                 <p class="text-overline">
-                    Step 1
+                    {{ step?.stepTxt }}
                 </p>
                 <h4>
-                    Encryption Passphrase
+                    {{ step?.title }}
                 </h4>
                 <p class="mt-1 mb-2">
-                    This passphrase will be used to
-                    encrypt all your data in this project.
+                    {{ step?.description }}
                 </p>
                 <v-btn
-                    :color="currentStep === OnboardingStep.EncryptionPassphrase ? 'primary' : 'default'"
-                    :variant="currentStep === OnboardingStep.EncryptionPassphrase ? 'elevated' : 'tonal'"
-                    :disabled="currentStep !== OnboardingStep.EncryptionPassphrase"
-                    :prepend-icon="isPassphraseDone ? mdiCheck : ''"
+                    :color="step?.color"
+                    :variant="step?.variant"
+                    :disabled="step?.disabled"
+                    :prepend-icon="step?.prependIcon"
+                    :append-icon="step?.appendIcon"
                     block
-                    @click="onManagePassphrase"
+                    @click="step?.onClick"
                 >
-                    Set a Passphrase
-                </v-btn>
-            </v-card>
-        </v-col>
-        <v-col cols="12" md="6" lg="3" xl="3">
-            <v-card class="pa-5 pt-3">
-                <p class="text-overline">
-                    Step 2
-                </p>
-                <h4>
-                    Create a Bucket
-                </h4>
-                <p class="mt-1 mb-2">
-                    Buckets are used to store and
-                    organize your data in this project.
-                </p>
-                <v-btn
-                    :color="currentStep === OnboardingStep.CreateBucket ? 'primary' : 'default'"
-                    :variant="currentStep === OnboardingStep.CreateBucket ? 'elevated' : 'tonal'"
-                    :disabled="currentStep !== OnboardingStep.CreateBucket"
-                    :prepend-icon="isBucketDone ? mdiCheck : ''"
-                    block
-                    @click="onCreateBucket"
-                >
-                    Create a Bucket
-                </v-btn>
-            </v-card>
-        </v-col>
-        <v-col cols="12" md="6" lg="3" xl="3">
-            <v-card class="pa-5 pt-3">
-                <p class="text-overline">Step 3</p>
-                <h4>Upload Files</h4>
-                <p class="mt-1 mb-2">
-                    Click 'Upload Files' to go to
-                    your storage bucket and start uploading files.
-                </p>
-                <v-btn
-                    :color="uploadStepInfo.color"
-                    :variant="uploadStepInfo.variant"
-                    :disabled="uploadStepInfo.disabled"
-                    :append-icon="uploadStepInfo.appendIcon"
-                    router-link
-                    block
-                    @click="uploadFilesClicked"
-                >
-                    Go to Upload
-                </v-btn>
-            </v-card>
-        </v-col>
-        <v-col cols="12" md="6" lg="3" xl="3">
-            <v-card class="pa-5 pt-3">
-                <p class="text-overline">{{ onboardingInfo ? "Step 4" : "Optional" }}</p>
-                <h4>{{ onboardingInfo?.accessTitle || "S3 Credentials" }}</h4>
-                <p class="mt-1 mb-2">
-                    {{ onboardingInfo?.accessText || "Connect your S3 compatible application to Storj with S3 credentials." }}
-                </p>
-                <v-btn
-                    :color="accessStepInfo.color"
-                    :variant="accessStepInfo.variant"
-                    :disabled="accessStepInfo.disabled"
-                    :append-icon="accessStepInfo.appendIcon"
-                    block
-                    router-link
-                    @click="openAccessDialog"
-                >
-                    {{ onboardingInfo?.accessBtnText || "Create Access Key" }}
+                    {{ step?.buttonTxt }}
                 </v-btn>
             </v-card>
         </v-col>
@@ -129,10 +71,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { ONBOARDING_STEPPER_STEPS, OnboardingStep, User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
-import {
-    AnalyticsErrorEventSource,
-    AnalyticsEvent,
-} from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
@@ -144,6 +83,19 @@ import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
+
+interface StepData {
+    stepTxt: string;
+    title: string;
+    description: string;
+    buttonTxt: string;
+    color: string;
+    variant: string;
+    disabled: boolean;
+    prependIcon?: string;
+    appendIcon?: string;
+    onClick: () => void;
+}
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -161,6 +113,76 @@ const isBucketDialogOpen = ref(false);
 const isAccessDialogOpen = ref(false);
 const isBucketPassphraseDialogOpen = ref(false);
 const isManagePassphraseDialogOpen = ref(false);
+
+/**
+ * Returns whether this project has passphrase managed by the satellite.
+ */
+const hasManagedPassphrase = computed((): boolean => {
+    return !!projectsStore.state.selectedProjectConfig.passphrase;
+});
+
+const steps = computed<StepData[]>(() => {
+    let onBoardSteps = ONBOARDING_STEPPER_STEPS;
+    if (hasManagedPassphrase.value) {
+        onBoardSteps = onBoardSteps.filter(s => s !== OnboardingStep.EncryptionPassphrase);
+    }
+    return onBoardSteps.map<StepData>((step, i) => {
+        const data: StepData = {
+            stepTxt: `Step ${i + 1}`,
+            color: currentStep.value === step ? 'primary' : 'default',
+            variant: currentStep.value === step ? 'elevated' : 'tonal',
+            disabled: currentStep.value !== step,
+            buttonTxt: '', description: '', onClick(): void {}, title: '',
+        };
+        switch (step) {
+        case OnboardingStep.EncryptionPassphrase:
+            return {
+                ...data,
+                title: 'Encryption Passphrase',
+                description: 'This passphrase will be used to encrypt all your data in this project.',
+                buttonTxt: 'Set a Passphrase',
+                prependIcon: isPassphraseDone.value ? mdiCheck : '',
+                onClick: onManagePassphrase,
+            };
+        case OnboardingStep.CreateBucket:
+            return {
+                ...data,
+                title : 'Create a Bucket',
+                description : 'Buckets are used to store and organize your data in this project.',
+                buttonTxt : 'Create a Bucket',
+                prependIcon : isBucketDone.value ? mdiCheck : '',
+                onClick : onCreateBucket,
+            };
+        case OnboardingStep.UploadFiles:
+            return {
+                ...data,
+                title: 'Upload Files',
+                description: 'You are ready to upload files in your bucket, and share with the world.',
+                buttonTxt: 'Go to Upload',
+                color: uploadStepInfo.value.color,
+                variant: uploadStepInfo.value.variant,
+                disabled: uploadStepInfo.value.disabled,
+                appendIcon: uploadStepInfo.value.appendIcon,
+                onClick: uploadFilesClicked,
+            };
+        case OnboardingStep.CreateAccess:
+            return {
+                ...data,
+                stepTxt: `Step ${i + 1} ${!onboardingInfo.value ? '(Optional)' : ''}`,
+                title: onboardingInfo.value?.accessTitle || 'Connect Applications',
+                description: onboardingInfo.value?.accessText || 'Connect your S3 compatible application to Storj with S3 credentials.',
+                buttonTxt: onboardingInfo.value?.accessBtnText || 'View Applications',
+                color: accessStepInfo.value.color,
+                variant: accessStepInfo.value.variant,
+                disabled: accessStepInfo.value.disabled,
+                appendIcon: accessStepInfo.value.appendIcon,
+                onClick: openAccessDialog,
+            };
+        default:
+            return data;
+        }
+    });
+});
 
 /**
  * contains custom texts to be shown on the steps
@@ -323,6 +345,10 @@ function onBucketCreated(bucketName: string): void {
 
 function openAccessDialog(): void {
     withTrialCheck(async () => {
+        if (!onboardingInfo.value) {
+            router.push({ name: ROUTES.Applications.name, params: { id: selectedProject.value.urlId } });
+            return;
+        }
         if (currentStep.value === OnboardingStep.UploadFiles) {
             // progress to access step so the onboarding will
             // end correctly after the access is created.
