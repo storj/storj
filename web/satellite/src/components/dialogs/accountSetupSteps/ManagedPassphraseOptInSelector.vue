@@ -36,7 +36,7 @@
                     </p>
 
                     <p class="text-body-2 my-2">
-                        <a href="" class="link">Learn more in the documentation.</a>
+                        <a class="link" @click="goToDocs">Learn more in the documentation.</a>
                     </p>
 
                     <v-btn
@@ -77,7 +77,7 @@
                     </p>
 
                     <p class="text-body-2 my-2">
-                        <a href="" class="link">Learn more in the documentation.</a>
+                        <a class="link" @click="goToDocs">Learn more in the documentation.</a>
                     </p>
 
                     <v-btn
@@ -117,6 +117,14 @@ import { VBtn, VCard, VChip, VCol, VDivider, VIcon, VRow } from 'vuetify/compone
 import { mdiArrowRight, mdiChevronLeft } from '@mdi/js';
 
 import { ManagePassphraseMode } from '@/types/projects';
+import {
+    AnalyticsEvent,
+    PageVisitSource,
+    SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
+} from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+
+const analyticsStore = useAnalyticsStore();
 
 defineProps<{
     loading: boolean
@@ -127,4 +135,10 @@ const emit = defineEmits<{
     modeChosen: [ManagePassphraseMode]
     back: []
 }>();
+
+function goToDocs() {
+    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
+}
 </script>

@@ -39,16 +39,15 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" sm="6" lg="4">
-                <v-card title="Delete Project">
+            <v-col v-if="hasManagedPassphrase" cols="12" lg="4">
+                <v-card title="Project Encryption">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
-                            Not Available
+                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                            Automatic
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
+                        <v-btn variant="outlined" color="default" size="small" @click="goToDocs">
                             Learn More
-                            <v-icon end :icon="mdiOpenInNew" />
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -166,6 +165,29 @@
                 </v-col>
             </v-row>
         </template>
+
+        <v-row>
+            <v-col>
+                <h3 class="mt-5">Danger Zone</h3>
+            </v-col>
+        </v-row>
+
+        <v-row>
+            <v-col cols="12" sm="6" lg="4">
+                <v-card title="Delete Project">
+                    <v-card-text>
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
+                            Not Available
+                        </v-chip>
+                        <v-divider class="my-4" />
+                        <v-btn variant="outlined" color="default" size="small" rounded="md" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
+                            Learn More
+                            <v-icon end :icon="mdiOpenInNew" />
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
     </v-container>
 
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
@@ -195,9 +217,15 @@ import { Memory, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';
 import { decimalShift } from '@/utils/strings';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import {
+    AnalyticsErrorEventSource,
+    AnalyticsEvent,
+    PageVisitSource,
+    SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
+} from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
@@ -213,6 +241,7 @@ const allowVersioningToggle = ref<boolean>(false);
 const fieldToChange = ref<FieldToChange>(FieldToChange.Name);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
@@ -246,6 +275,11 @@ const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForV
  * Whether versioning has been enabled for current project.
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+
+/**
+ * whether this project has a satellite managed passphrase.
+ */
+const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
 
 /**
  * Returns user's paid tier status from store.
@@ -307,6 +341,12 @@ const paidBandwidthLimitFormatted = computed<string>(() => {
 const projectLimitsIncreaseRequestURL = computed((): string => {
     return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
+
+function goToDocs() {
+    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
+}
 
 function toggleUpgradeFlow(): void {
     appStore.toggleUpgradeFlow(true);

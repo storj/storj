@@ -123,3 +123,5 @@ export enum PageVisitSource {
     FORUM = 'forum',
     SUPPORT = 'support'
 }
+
+export const SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE = 'https://docs.storj.io/learn/concepts/encryption-key/storj-vs-user-managed-encryption';
