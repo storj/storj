@@ -105,7 +105,6 @@ type Config struct {
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
-	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NewAppSetupFlowEnabled          bool          `help:"whether new application setup flow should be used" default:"false"`
@@ -875,7 +874,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AllowedUsageReportDateRange:       server.config.AllowedUsageReportDateRange,
 		EnableRegionTag:                   server.config.EnableRegionTag,
 		EmissionImpactViewEnabled:         server.config.EmissionImpactViewEnabled,
-		ApplicationsPageEnabled:           server.config.ApplicationsPageEnabled,
 		AnalyticsEnabled:                  server.AnalyticsConfig.Enabled,
 		DaysBeforeTrialEndNotification:    server.config.DaysBeforeTrialEndNotification,
 		NewAppSetupFlowEnabled:            server.config.NewAppSetupFlowEnabled,

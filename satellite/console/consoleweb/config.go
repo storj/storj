@@ -58,7 +58,6 @@ type FrontendConfig struct {
 	AllowedUsageReportDateRange       time.Duration         `json:"allowedUsageReportDateRange"`
 	EnableRegionTag                   bool                  `json:"enableRegionTag"`
 	EmissionImpactViewEnabled         bool                  `json:"emissionImpactViewEnabled"`
-	ApplicationsPageEnabled           bool                  `json:"applicationsPageEnabled"`
 	DaysBeforeTrialEndNotification    int                   `json:"daysBeforeTrialEndNotification"`
 	AnalyticsEnabled                  bool                  `json:"analyticsEnabled"`
 	NewAppSetupFlowEnabled            bool                  `json:"newAppSetupFlowEnabled"`

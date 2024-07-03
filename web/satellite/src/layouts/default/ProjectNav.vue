@@ -268,7 +268,6 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
-import { useConfigStore } from '@/store/modules/configStore';
 
 import IconProject from '@/components/icons/IconProject.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -291,7 +290,6 @@ import EnterProjectPassphraseDialog
     from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();

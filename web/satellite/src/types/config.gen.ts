@@ -54,7 +54,6 @@ export class FrontendConfig {
     allowedUsageReportDateRange: number;
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
-    applicationsPageEnabled: boolean;
     daysBeforeTrialEndNotification: number;
     analyticsEnabled: boolean;
     newAppSetupFlowEnabled: boolean;
