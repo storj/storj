@@ -6,40 +6,38 @@
 
     <v-dialog
         :model-value="model && !isUpgradeDialogShown"
-        :width="createStep !== CreateSteps.ManageMode ? '410px' : '1500px'"
+        width="410px"
         transition="fade-transition"
         :persistent="isLoading"
         :scrim="false"
         @update:model-value="v => model = v"
     >
         <v-card ref="innerContent">
-            <template v-if="createStep != CreateSteps.ManageMode">
-                <v-card-item class="pa-6">
-                    <template #prepend>
-                        <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
-                        <img v-else class="d-block" src="@/assets/icon-blue-box.svg" alt="Box">
-                    </template>
+            <v-card-item class="pa-6">
+                <template #prepend>
+                    <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
+                    <img v-else class="d-block" src="@/assets/icon-blue-box.svg" alt="Box">
+                </template>
 
-                    <v-card-title class="font-weight-bold">
-                        {{ cardTitle }}
-                    </v-card-title>
+                <v-card-title class="font-weight-bold">
+                    {{ cardTitle }}
+                </v-card-title>
 
-                    <template #append>
-                        <v-btn
-                            icon="$close"
-                            variant="text"
-                            size="small"
-                            color="default"
-                            :disabled="isLoading"
-                            @click="model = false"
-                        />
-                    </template>
-                </v-card-item>
+                <template #append>
+                    <v-btn
+                        icon="$close"
+                        variant="text"
+                        size="small"
+                        color="default"
+                        :disabled="isLoading"
+                        @click="model = false"
+                    />
+                </template>
+            </v-card-item>
 
-                <v-divider />
-            </template>
+            <v-divider />
 
-            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep" :class="{ 'overflow-y-auto': createStep === CreateSteps.ManageMode }">
+            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep">
                 <v-window-item :value="CreateSteps.Info">
                     <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>
@@ -86,14 +84,62 @@
                     </v-form>
                 </v-window-item>
                 <v-window-item :value="CreateSteps.ManageMode">
-                    <div class="py-6">
-                        <managed-passphrase-opt-in-selector
-                            :selected-mode="passphraseManageMode"
-                            :loading="isLoading"
-                            @back="onBackOrCancel"
-                            @mode-chosen="onModeChosen"
-                        />
-                    </div>
+                    <v-form v-model="formValid" class="pa-6">
+                        <v-row>
+                            <v-col>
+                                <p><b>Project Encryption</b></p>
+                                <p class="my-2">Choose the encryption method for your data.</p>
+                                <v-chip-group v-model="passphraseManageMode" column filter variant="outlined" selected-class="font-weight-bold" mandatory>
+                                    <v-chip color="primary" value="auto">
+                                        Automatic
+                                    </v-chip>
+                                    <v-chip color="primary" value="manual">Manual</v-chip>
+
+                                    <v-divider thickness="0" class="my-1" />
+
+                                    <v-alert v-if="passphraseManageMode === 'auto'" variant="tonal" color="default">
+                                        <p>
+                                            <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                                Recommended for most users and teams
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            Storj securely manages the encryption and decryption of your project automatically.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Your team members would automatically have access to your project's data.
+                                        </p>
+                                        <p class="text-body-2 m-2">
+                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        </p>
+                                    </v-alert>
+
+                                    <v-alert v-if="passphraseManageMode === 'manual'" variant="tonal" color="default">
+                                        <p>
+                                            <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                                Best for control over your data encryption
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            You are responsible for securely managing your own data encryption passphrase.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            You will need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Team members must share and enter the same encryption passphrase to access the data.
+                                        </p>
+                                        <p class="text-body-2 mt-2">
+                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        </p>
+                                    </v-alert>
+                                </v-chip-group>
+                            </v-col>
+                        </v-row>
+                    </v-form>
                 </v-window-item>
             </v-window>
             <v-form v-else-if="isProjectLimitReached && usersStore.state.user.paidTier" v-model="formValid" class="pa-6" @submit.prevent>
@@ -143,7 +189,7 @@
 
             <v-divider />
 
-            <v-card-actions v-if="createStep !== CreateSteps.ManageMode" class="pa-6">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn
@@ -197,12 +243,15 @@
 import { Component, ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    VDialog,
+    VAlert,
+    VBtn,
     VCard,
     VCardItem,
     VCardTitle,
     VCardActions,
-    VBtn,
+    VChip,
+    VChipGroup,
+    VDialog,
     VDivider,
     VForm,
     VRow,
@@ -212,7 +261,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { mdiArrowLeft, mdiArrowRight, mdiPlus } from '@mdi/js';
+import { mdiArrowRight, mdiPlus } from '@mdi/js';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
@@ -220,12 +269,16 @@ import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import {
+    AnalyticsErrorEventSource, AnalyticsEvent,
+    PageVisitSource,
+    SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
+} from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
-import ManagedPassphraseOptInSelector from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInSelector.vue';
 
 enum CreateSteps {
     Info,
@@ -234,6 +287,7 @@ enum CreateSteps {
 
 const model = defineModel<boolean>({ required: true });
 
+const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
@@ -345,6 +399,12 @@ function onBackOrCancel(): void {
     } else {
         model.value = false;
     }
+}
+
+function goToDocs() {
+    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
 }
 
 /*
