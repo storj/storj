@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS segments
     inline_data         BYTES(MAX),
     remote_alias_pieces BYTES(MAX),
     placement           INT64,
-    ) PRIMARY KEY(stream_id, position);
+) PRIMARY KEY(stream_id, position);
 
 CREATE TABLE IF NOT EXISTS objects
 (

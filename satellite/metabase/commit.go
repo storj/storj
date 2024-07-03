@@ -135,7 +135,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				$7,
 				$8, $9, $10)
 			RETURNING status, version, created_at
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
@@ -274,7 +274,7 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 			$9, $10, $11
 		)
 		RETURNING status, created_at
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
@@ -392,7 +392,7 @@ func (p *PostgresAdapter) PendingObjectExists(ctx context.Context, opts BeginSeg
 			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
 				status = `+statusPending+`
 		)`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
 	return exists, err
 }
 
@@ -544,7 +544,7 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
 		aliasPieces,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.Placement,
 	)
 	if err != nil {
@@ -567,7 +567,7 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 				FROM objects
 				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
 				AND status = `+statusPending+`
-			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
+			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -653,7 +653,7 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 			redundancyScheme{&opts.Redundancy},
 			aliasPieces,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 			opts.Placement,
 		)
 		if err != nil {
@@ -827,7 +827,7 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
@@ -849,7 +849,7 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 				WHERE
 				(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
 				AND status = `+statusPending+`
-			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
+			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -925,7 +925,7 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 			opts.InlineData,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		)
 		if err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
@@ -1143,7 +1143,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 
 	args := []interface{}{
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		nextStatus,
 		len(finalSegments),
 		totalPlainSize,
@@ -1479,7 +1479,7 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 			$13, $14, $15
 		)
 		RETURNING created_at`,
-		object.ProjectID, []byte(object.BucketName), object.ObjectKey, object.Version, object.StreamID,
+		object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
 		object.Status, object.SegmentCount, object.ExpiresAt, encryptionParameters{&object.Encryption},
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,

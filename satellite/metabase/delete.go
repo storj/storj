@@ -4,7 +4,6 @@
 package metabase
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -15,7 +14,6 @@ import (
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -123,7 +121,7 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption
 			FROM deleted_objects`,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version),
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version),
 	)(func(rows tagsql.Rows) error {
 		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
@@ -232,7 +230,7 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size, encryption
 			FROM deleted_objects
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
 		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
 		return err
 	})
@@ -299,9 +297,9 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 	projectID := opts.Locations[0].ProjectID
 	bucketName := opts.Locations[0].BucketName
 
-	objectKeys := make([][]byte, len(opts.Locations))
+	objectKeys := make([]ObjectKey, len(opts.Locations))
 	for i := range opts.Locations {
-		objectKeys[i] = []byte(opts.Locations[i].ObjectKey)
+		objectKeys[i] = opts.Locations[i].ObjectKey
 	}
 
 	result, err = db.ChooseAdapter(projectID).DeleteObjectsAllVersions(ctx, projectID, bucketName, objectKeys)
@@ -318,10 +316,9 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 }
 
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
-func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error) {
-	// Sorting the object keys just in case.
+func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName BucketName, objectKeys []ObjectKey) (result DeleteObjectResult, err error) {
 	sort.Slice(objectKeys, func(i, j int) bool {
-		return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
+		return objectKeys[i] < objectKeys[j]
 	})
 
 	err = withRows(p.db.QueryContext(ctx, `
@@ -347,7 +344,7 @@ func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectI
 			encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
 			fixed_segment_size, encryption
 		FROM deleted_objects
-	`, projectID, []byte(bucketName), pgutil.ByteaArray(objectKeys)))(func(rows tagsql.Rows) error {
+	`, projectID, bucketName, pgtype_ObjectKeyArray(objectKeys)))(func(rows tagsql.Rows) error {
 		result.Removed, err = scanMultipleObjectsDeletionPostgres(ctx, rows)
 		return err
 	})
@@ -356,7 +353,7 @@ func (p *PostgresAdapter) DeleteObjectsAllVersions(ctx context.Context, projectI
 }
 
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
-func (s *SpannerAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName string, objectKeys [][]byte) (result DeleteObjectResult, err error) {
+func (s *SpannerAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID uuid.UUID, bucketName BucketName, objectKeys []ObjectKey) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result.Removed, err = spannerutil.CollectRows(tx.Query(ctx, spanner.Statement{
 			SQL: `
@@ -374,7 +371,7 @@ func (s *SpannerAdapter) DeleteObjectsAllVersions(ctx context.Context, projectID
 			Params: map[string]interface{}{
 				"project_id":  projectID,
 				"bucket_name": bucketName,
-				"keys":        objectKeys,
+				"keys":        spanner_ObjectKeyArray(objectKeys),
 			},
 		}), func(row *spanner.Row, object *Object) error {
 			err := row.Columns(&object.ProjectID, &object.BucketName,
@@ -595,7 +592,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, op
 				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption
 			FROM deleted_objects`,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey),
+			opts.ProjectID, opts.BucketName, opts.ObjectKey),
 	)(func(rows tagsql.Rows) error {
 		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
@@ -679,7 +676,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 				RETURNING
 					version,
 					created_at
-			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, precommit.HighestVersion+1, deleterMarkerStreamID)
+			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, precommit.HighestVersion+1, deleterMarkerStreamID)
 
 		var marker Object
 		marker.ProjectID = opts.ProjectID
@@ -791,7 +788,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 				`+statusDeleteMarkerVersioned+`,
 				NULL
 			RETURNING version, created_at
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleterMarkerStreamID)
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, deleterMarkerStreamID)
 
 	var deleted Object
 	deleted.ProjectID = opts.ProjectID

@@ -329,7 +329,7 @@ func newMetabaseMock(nodes map[metabase.NodeAlias]storj.NodeID, segments ...meta
 	return mock
 }
 
-func (db *metabaseMock) AddStreamIDToBucket(projectID uuid.UUID, bucketName string, streamIDs ...uuid.UUID) {
+func (db *metabaseMock) AddStreamIDToBucket(projectID uuid.UUID, bucketName metabase.BucketName, streamIDs ...uuid.UUID) {
 	bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: bucketName}
 	db.streamIDsPerBucket[bucket] = append(db.streamIDsPerBucket[bucket], streamIDs...)
 }

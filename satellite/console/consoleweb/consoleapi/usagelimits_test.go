@@ -219,7 +219,7 @@ func TestTotalUsageReport(t *testing.T) {
 
 		bucketLoc1 := metabase.BucketLocation{
 			ProjectID:  project1.ID,
-			BucketName: bucketName,
+			BucketName: metabase.BucketName(bucketName),
 		}
 		tally1 := &accounting.BucketTally{
 			BucketLocation: bucketLoc1,
@@ -227,7 +227,7 @@ func TestTotalUsageReport(t *testing.T) {
 
 		bucketLoc2 := metabase.BucketLocation{
 			ProjectID:  project2.ID,
-			BucketName: bucketName,
+			BucketName: metabase.BucketName(bucketName),
 		}
 		tally2 := &accounting.BucketTally{
 			BucketLocation: bucketLoc2,

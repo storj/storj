@@ -432,7 +432,7 @@ func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucketName []byte, p
 func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) (bool, error) {
 	empty, err := endpoint.metabase.BucketEmpty(ctx, metabase.BucketEmpty{
 		ProjectID:  projectID,
-		BucketName: string(bucketName),
+		BucketName: metabase.BucketName(bucketName),
 	})
 	return empty, Error.Wrap(err)
 }
@@ -465,7 +465,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
+	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucketName)}
 	deletedObjects, err := endpoint.metabase.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 		Bucket: bucketLocation,
 	})

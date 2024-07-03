@@ -116,7 +116,7 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighest(ctx context.Context
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 		ORDER BY version DESC
 		LIMIT 1
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).Scan(&highest)
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).Scan(&highest)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
@@ -177,7 +177,7 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx c
 						status IN `+statusesUnversioned+`
 				)
 			)
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).Scan(&version, &unversionedExists)
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).Scan(&version, &unversionedExists)
 	if err != nil {
 		return 0, false, Error.Wrap(err)
 	}
@@ -291,7 +291,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments),
 			coalesce((SELECT version FROM highest_object), 0)
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
 		Scan(
 			&version,
 			&streamID,
@@ -344,7 +344,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 		// with something like "more than one row returned by a subquery used as an expression".
 		// But this is left as a protection against a broken implementation.
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
@@ -417,7 +417,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments),
 			coalesce((SELECT version FROM highest_object), 0)
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
 		Scan(
 			&version,
 			&streamID,
@@ -459,7 +459,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
@@ -534,7 +534,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			(SELECT encryption FROM deleted_objects),
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments)
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
 		Scan(
 			&version,
 			&streamID,
@@ -572,7 +572,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
@@ -645,7 +645,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", len(result.Deleted)))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
@@ -765,7 +765,7 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 			(SELECT count(*) FROM deleted_segments),
 			coalesce((SELECT version FROM highest_object), 0),
 			coalesce((SELECT version FROM highest_non_pending_object), 0)
-	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
 		Scan(
 			&version,
 			&streamID,
@@ -806,7 +806,7 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
@@ -905,7 +905,7 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
 			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)

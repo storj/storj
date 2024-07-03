@@ -329,25 +329,12 @@ func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects 
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			cols := source.Columns()
-
 			// Change the int32s to int64s to appease the capricious gods of Spanner.
-			// Also encode the "bucket_name" column value as a string instead of a byte array
-			// so that it doesn't come back as base64 for ridiculous Spanner reasons.
-			//
-			// At least this hacky bit is better than having a whole separate implementation
-			// of copyFromRawObjects.
-			//
-			// TODO: see whether there's a better way to approach this.
 			for i := range vals {
 				if v, ok := vals[i].(int32); ok {
 					vals[i] = int64(v)
 				}
-				if cols[i] == "bucket_name" {
-					vals[i] = string(vals[i].([]byte))
-				}
 			}
-
 			muts = append(muts, spanner.Insert("objects", source.Columns(), vals))
 		}
 		_, err = s.client.Apply(ctx, muts)
@@ -409,7 +396,7 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 	obj := &ctr.rows[ctr.idx]
 	return []any{
 		obj.ProjectID.Bytes(),
-		[]byte(obj.BucketName),
+		obj.BucketName,
 		[]byte(obj.ObjectKey),
 		obj.Version,
 		obj.StreamID.Bytes(),

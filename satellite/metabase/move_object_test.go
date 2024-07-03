@@ -87,7 +87,7 @@ func TestBeginMoveObject(t *testing.T) {
 func TestFinishMoveObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		newBucketName := "New bucket name"
+		newBucketName := metabase.BucketName("New bucket name")
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test

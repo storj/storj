@@ -106,7 +106,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
 			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > now())`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -216,7 +216,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 			(expires_at IS NULL OR expires_at > now())
 		ORDER BY version DESC
 		LIMIT 1`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey,
 	).Scan(
 		&object.StreamID, &object.Version, &object.Status,
 		&object.CreatedAt, &object.ExpiresAt,
@@ -453,7 +453,7 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 			)
 		ORDER BY position DESC
 		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey).
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey).
 		Scan(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.RepairedAt,
@@ -531,7 +531,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
 type BucketEmpty struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 }
 
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
@@ -555,7 +555,7 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 	var value bool
 	err = p.db.QueryRowContext(ctx, `
 		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = ($1, $2))
-	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&value)
+	`, opts.ProjectID, opts.BucketName).Scan(&value)
 	if err != nil {
 		return false, Error.New("unable to query objects: %w", err)
 	}

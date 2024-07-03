@@ -163,7 +163,7 @@ func Setup(ctx context.Context, log *zap.Logger, db *metabase.DB) error {
 	for _, scenario := range scenarios {
 		log.Info("setting up scenario "+scenario.Name, zap.Int("objects", scenario.Setup.Expected()))
 		data := scenario.Setup.Generate(nil)
-		setBucketAndProject(data, DefaultProjectID, scenario.Name)
+		setBucketAndProject(data, DefaultProjectID, metabase.BucketName(scenario.Name))
 		err := db.TestingBatchInsertObjects(ctx, data)
 		if err != nil {
 			return fmt.Errorf("%q failed to insert objects: %w", scenario.Name, err)
@@ -214,7 +214,7 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 					for _, limit := range queryLimits {
 						opts := metabase.ListObjects{
 							ProjectID:   DefaultProjectID,
-							BucketName:  scenario.Name,
+							BucketName:  metabase.BucketName(scenario.Name),
 							Recursive:   recursive,
 							Pending:     pending,
 							AllVersions: allVersions,
@@ -472,7 +472,7 @@ func prependObjectKey(xs []metabase.RawObject, prefix string) {
 	}
 }
 
-func setBucketAndProject(xs []metabase.RawObject, projectID uuid.UUID, bucketName string) {
+func setBucketAndProject(xs []metabase.RawObject, projectID uuid.UUID, bucketName metabase.BucketName) {
 	for i := range xs {
 		xs[i].ProjectID = projectID
 		xs[i].BucketName = bucketName

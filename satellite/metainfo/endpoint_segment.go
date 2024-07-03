@@ -104,7 +104,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
-	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
 	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -127,7 +127,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	err = endpoint.metabase.BeginSegment(ctx, metabase.BeginSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
+			BucketName: metabase.BucketName(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    metabase.Version(streamID.Version),
@@ -378,7 +378,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	mbCommitSegment := metabase.CommitSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
+			BucketName: metabase.BucketName(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    metabase.Version(streamID.Version),
@@ -512,7 +512,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	err = endpoint.metabase.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
+			BucketName: metabase.BucketName(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    metabase.Version(streamID.Version),
@@ -535,7 +535,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, bucket, inlineUsed)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -666,7 +666,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
 
 	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
 		return nil, err
@@ -687,7 +687,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		segment, err = endpoint.metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(streamID.Bucket),
+				BucketName: metabase.BucketName(streamID.Bucket),
 				ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			},
 		})

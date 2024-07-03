@@ -260,7 +260,7 @@ func TestListVerifySegments(t *testing.T) {
 			bucketList := metabase.ListVerifyBucketList{}
 			for i := 0; i < nbBuckets; i++ {
 				projectID := testrand.UUID()
-				bucketName := testrand.BucketName()
+				bucketName := metabase.BucketName(testrand.BucketName())
 				bucketList.Add(projectID, bucketName)
 
 				obj := metabasetest.RandObjectStream()
@@ -376,7 +376,7 @@ func TestListBucketsStreamIDs(t *testing.T) {
 			for i := 0; i < nbBuckets; i++ {
 				projectID := testrand.UUID()
 				projectID[0] = byte(i) // make projectID ordered
-				bucketName := testrand.BucketName()
+				bucketName := metabase.BucketName(testrand.BucketName())
 				bucketList.Add(projectID, bucketName)
 
 				obj.ProjectID = projectID

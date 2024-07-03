@@ -42,7 +42,7 @@ func (buckets *Service) UpdateBucket(ctx context.Context, bucket Bucket) (Bucket
 	if current.Placement != bucket.Placement {
 		ok, err := buckets.metabase.BucketEmpty(ctx, metabase.BucketEmpty{
 			ProjectID:  bucket.ProjectID,
-			BucketName: bucket.Name,
+			BucketName: metabase.BucketName(bucket.Name),
 		})
 
 		switch {

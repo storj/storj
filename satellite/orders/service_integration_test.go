@@ -60,7 +60,7 @@ func TestOrderLimitsEncryptedMetadata(t *testing.T) {
 		require.NoError(t, err)
 		actualBucketInfo, err := metabase.ParseCompactBucketPrefix(actualOrderMetadata.GetCompactProjectBucketPrefix())
 		require.NoError(t, err)
-		require.Equal(t, bucketName, actualBucketInfo.BucketName)
+		require.Equal(t, metabase.BucketName(bucketName), actualBucketInfo.BucketName)
 		require.Equal(t, projectID, actualBucketInfo.ProjectID)
 	})
 }

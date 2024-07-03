@@ -196,13 +196,13 @@ func TestDeleteBucket(t *testing.T) {
 			"remote-segment-inline-object": testrand.Bytes(33 * memory.KiB),
 		}
 
-		uploadObjects := func(t *testing.T, bucketName string) {
+		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
 			for name, bytes := range expectedObjects {
-				require.NoError(t, uplnk.Upload(ctx, sat, bucketName, name, bytes))
+				require.NoError(t, uplnk.Upload(ctx, sat, bucketName.String(), name, bytes))
 			}
 		}
 
-		requireBucketDeleted := func(t *testing.T, bucketName string) {
+		requireBucketDeleted := func(t *testing.T, bucketName metabase.BucketName) {
 			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.True(t, buckets.ErrBucketNotFound.Has(err))
 
@@ -215,7 +215,7 @@ func TestDeleteBucket(t *testing.T) {
 			require.Empty(t, objects.Objects)
 		}
 
-		requireBucketNotDeleted := func(t *testing.T, bucketName string) {
+		requireBucketNotDeleted := func(t *testing.T, bucketName metabase.BucketName) {
 			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.NoError(t, err)
 
@@ -229,7 +229,7 @@ func TestDeleteBucket(t *testing.T) {
 		}
 
 		t.Run("Delete bucket as owner", func(t *testing.T) {
-			bucketName := testrand.BucketName()
+			bucketName := metabase.BucketName(testrand.BucketName())
 			uploadObjects(t, bucketName)
 
 			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
@@ -247,10 +247,10 @@ func TestDeleteBucket(t *testing.T) {
 		})
 
 		t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
-			bucketName := testrand.BucketName()
+			bucketName := metabase.BucketName(testrand.BucketName())
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				ProjectID:         project.ID,
-				Name:              bucketName,
+				Name:              bucketName.String(),
 				ObjectLockEnabled: true,
 			})
 			require.NoError(t, err)
@@ -298,7 +298,7 @@ func TestDeleteBucket(t *testing.T) {
 		})
 
 		t.Run("Delete bucket as member", func(t *testing.T) {
-			bucketName := testrand.BucketName()
+			bucketName := metabase.BucketName(testrand.BucketName())
 			uploadObjects(t, bucketName)
 
 			member, err := sat.AddUser(ctx, console.CreateUser{
@@ -333,7 +333,7 @@ func TestDeleteBucket(t *testing.T) {
 		})
 
 		t.Run("Delete bucket as admin", func(t *testing.T) {
-			bucketName := testrand.BucketName()
+			bucketName := metabase.BucketName(testrand.BucketName())
 			uploadObjects(t, bucketName)
 
 			admin, err := sat.AddUser(ctx, console.CreateUser{

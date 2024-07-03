@@ -220,7 +220,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
-		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
+		bucketName := metabase.BucketName(fmt.Sprintf("%s%d", "testbucket", i))
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,

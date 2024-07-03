@@ -51,7 +51,7 @@ func (db *DB) UpdateObjectLastCommittedMetadata(ctx context.Context, opts Update
 
 	if affected > 1 {
 		db.log.Warn("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+			zap.Stringer("Project ID", opts.ProjectID), zap.Stringer("Bucket Name", opts.BucketName),
 			zap.String("Object Key", string(opts.ObjectKey)), zap.Stringer("Stream ID", opts.StreamID))
 		mon.Meter("multiple_committed_versions").Mark(1)
 	}
@@ -86,7 +86,7 @@ func (p *PostgresAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context,
 			) AND
 			stream_id    = $4 AND
 			status       IN `+statusesCommitted,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {
 		return 0, Error.New("unable to update object metadata: %w", err)

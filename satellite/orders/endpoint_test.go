@@ -28,7 +28,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		now := time.Now()
 		projectID := testrand.UUID()
-		bucketname := "testbucket"
+		bucketname := metabase.BucketName("testbucket")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketname,
@@ -182,7 +182,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		now := time.Now()
 		projectID := testrand.UUID()
-		bucketname := "testbucket"
+		bucketname := metabase.BucketName("testbucket")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketname,
@@ -305,7 +305,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		now := time.Now()
 		projectID := testrand.UUID()
-		bucketname := "testbucket"
+		bucketname := metabase.BucketName("testbucket")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketname,

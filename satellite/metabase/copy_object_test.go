@@ -135,7 +135,7 @@ func TestBeginCopyObject(t *testing.T) {
 func TestFinishCopyObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		newBucketName := "New bucket name"
+		newBucketName := metabase.BucketName("New bucket name")
 
 		newStreamID := testrand.UUID()
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
@@ -1075,9 +1075,9 @@ func TestFinishCopyObject(t *testing.T) {
 			// - expected copy version
 
 			testCases := []struct {
-				Bucket                       string
+				Bucket                       metabase.BucketName
 				Key                          metabase.ObjectKey
-				NewBucket                    string
+				NewBucket                    metabase.BucketName
 				NewKey                       metabase.ObjectKey
 				sourcePendingVersions        []metabase.Version
 				sourceCommitVersion          metabase.Version

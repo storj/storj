@@ -464,7 +464,7 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, pageSize int, f
 			}
 
 			page[i].ProjectID = projectID
-			page[i].BucketName = string(row.Name)
+			page[i].BucketName = metabase.BucketName(row.Name)
 		}
 
 		if err := fn(page[:len(rows)]); err != nil {

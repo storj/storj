@@ -79,7 +79,7 @@ func (p *PostgresAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteBu
 		SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects
 	`
 
-	err = p.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize).Scan(&deletedObjectCount, &deletedSegmentCount)
+	err = p.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize).Scan(&deletedObjectCount, &deletedSegmentCount)
 	if err != nil {
 		return 0, 0, Error.Wrap(err)
 	}
@@ -107,7 +107,7 @@ func (c *CockroachAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteB
 		SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects
 	`
 
-	err = c.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize).Scan(&deletedObjectCount, &deletedSegmentCount)
+	err = c.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize).Scan(&deletedObjectCount, &deletedSegmentCount)
 	if err != nil {
 		return 0, 0, Error.Wrap(err)
 	}

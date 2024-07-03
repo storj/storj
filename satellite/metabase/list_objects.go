@@ -30,7 +30,7 @@ type ListObjectsCursor IterateCursor
 // For Pending = true, the versions are in ascending order.
 type ListObjects struct {
 	ProjectID             uuid.UUID
-	BucketName            string
+	BucketName            BucketName
 	Recursive             bool
 	Limit                 int
 	Prefix                ObjectKey
@@ -123,9 +123,9 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 
 	for repeat := 0; repeat < requeryLimit; repeat++ {
 		args := []any{
-			opts.ProjectID, []byte(opts.BucketName),
+			opts.ProjectID, opts.BucketName,
 			cursor.Key, cursor.Version,
-			batchSize, nextBucket([]byte(opts.BucketName)),
+			batchSize, nextBucket(opts.BucketName),
 		}
 		if opts.Prefix != "" {
 			args = append(args, len(opts.Prefix)+1, opts.stopKey())
@@ -315,7 +315,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 			"cursor_key":     cursor.Key,
 			"cursor_version": cursor.Version,
 			"limit":          batchSize,
-			"next_bucket":    nextBucket([]byte(opts.BucketName)),
+			"next_bucket":    nextBucket(opts.BucketName),
 		}
 		if opts.Prefix != "" {
 			args["prefix_len"] = len(opts.Prefix) + 1
@@ -341,7 +341,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				FROM objects
 				WHERE
 					` + opts.boundarySpanner() + `
-					AND ((project_id < @project_id) OR (project_id = @project_id AND bucket_name < CAST(@next_bucket AS STRING)))
+					AND ((project_id < @project_id) OR (project_id = @project_id AND bucket_name < @next_bucket))
 					AND ` + statusCondition + `
 					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 				ORDER BY ` + opts.orderBy() + `
@@ -503,17 +503,16 @@ func (opts *ListObjects) boundaryPostgres() string {
 }
 
 func (opts *ListObjects) boundarySpanner() string {
-	// TODO: why is it necessary to do `CAST(@bucket_name AS STRING)` here? bucket_name is already passed in as a string!?!?!
 	const prefixBoundaryCondition = `(
 		(project_id < @project_id)
-		OR (project_id = @project_id AND bucket_name < CAST(@bucket_name AS STRING))
+		OR (project_id = @project_id AND bucket_name < @bucket_name)
 		OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key < @stop_key)
 	)`
 
 	if opts.VersionAscending() {
 		const compare = `(
 			project_id > @project_id
-			OR (project_id = @project_id AND bucket_name > CAST(@bucket_name AS STRING))
+			OR (project_id = @project_id AND bucket_name > @bucket_name)
 			OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key > @cursor_key)
 			OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key = @cursor_key AND version > @cursor_version)
 		)`
@@ -525,7 +524,7 @@ func (opts *ListObjects) boundarySpanner() string {
 		const compare = `(
 			(
 				project_id > @project_id
-				OR (project_id = @project_id AND bucket_name > CAST(@bucket_name AS STRING))
+				OR (project_id = @project_id AND bucket_name > @bucket_name)
 				OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key > @cursor_key)
 			)
 			OR

@@ -5,7 +5,6 @@ package metabase_test
 
 import (
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -192,7 +191,7 @@ func TestIterateLoopObjects(t *testing.T) {
 
 		t.Run("recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateFullObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -243,7 +242,7 @@ func TestIterateLoopObjects(t *testing.T) {
 				p[0] = byte(i)
 				projects = append(projects, p)
 			}
-			bucketNames := strings.Split("abcde", "")
+			bucketNames := []metabase.BucketName{"a", "b", "c", "d", "e"}
 
 			expected := make([]metabase.LoopObjectEntry, 0, len(projects)*len(bucketNames))
 			for _, projectID := range projects {
@@ -280,7 +279,7 @@ func TestIterateLoopObjects(t *testing.T) {
 				p[0] = byte(i)
 				projects = append(projects, p)
 			}
-			bucketNames := strings.Split("abcde", "")
+			bucketNames := []metabase.BucketName{"a", "b", "c", "d", "e"}
 
 			expected := make([]metabase.LoopObjectEntry, 0, len(projects)*len(bucketNames))
 			for _, projectID := range projects {

@@ -234,7 +234,7 @@ func TestListObjects(t *testing.T) {
 
 		t.Run("recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -402,7 +402,7 @@ func TestListObjects(t *testing.T) {
 
 		t.Run("non-recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -610,7 +610,7 @@ func TestListObjects(t *testing.T) {
 
 func TestListObjectsSkipCursor(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		projectID, bucketName := uuid.UUID{1}, "bucky"
+		projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 		t.Run("no prefix", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -1837,7 +1837,7 @@ func TestListObjectsVersioned(t *testing.T) {
 
 		t.Run("list recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -2024,7 +2024,7 @@ func TestListObjectsVersioned(t *testing.T) {
 
 		t.Run("list non-recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -2247,7 +2247,7 @@ func TestListObjectsVersioned(t *testing.T) {
 
 		t.Run("ignore non-latest objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},

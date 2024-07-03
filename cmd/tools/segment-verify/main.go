@@ -342,7 +342,7 @@ func (service *Service) ParseBucketFile(path string) (_ BucketList, err error) {
 		if err != nil {
 			return BucketList{}, Error.New("unable to parse buckets file: %w", err)
 		}
-		bucketList.Add(projectId, strings.TrimSpace(entry[1]))
+		bucketList.Add(projectId, metabase.BucketName(strings.TrimSpace(entry[1])))
 	}
 	return bucketList, nil
 }

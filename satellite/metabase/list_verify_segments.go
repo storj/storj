@@ -251,7 +251,7 @@ type ListVerifyBucketList struct {
 }
 
 // Add adds a (projectID, bucketName) to the list of buckets to be checked.
-func (list *ListVerifyBucketList) Add(projectID uuid.UUID, bucketName string) {
+func (list *ListVerifyBucketList) Add(projectID uuid.UUID, bucketName BucketName) {
 	list.Buckets = append(list.Buckets, BucketLocation{
 		ProjectID:  projectID,
 		BucketName: bucketName,
@@ -327,7 +327,7 @@ func (p *PostgresAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBuc
 		LIMIT $3
 	`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNamesBytes),
 		opts.Limit,
-		opts.CursorBucket.ProjectID, []byte(opts.CursorBucket.BucketName), opts.CursorStreamID,
+		opts.CursorBucket.ProjectID, opts.CursorBucket.BucketName, opts.CursorStreamID,
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var streamID uuid.UUID
@@ -355,11 +355,11 @@ func (p *PostgresAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBuc
 func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error) {
 	projectsAndBuckets := make([]struct {
 		ProjectID  uuid.UUID
-		BucketName string
+		BucketName BucketName
 	}, len(projectIDs))
 	for i, projectID := range projectIDs {
 		projectsAndBuckets[i].ProjectID = projectID
-		projectsAndBuckets[i].BucketName = string(bucketNamesBytes[i])
+		projectsAndBuckets[i].BucketName = BucketName(bucketNamesBytes[i])
 	}
 
 	// get the list of stream_ids and segment counts from the objects table

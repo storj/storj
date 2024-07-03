@@ -279,7 +279,7 @@ func TestIterateBucketLocations_ProjectsWithMutipleBuckets(t *testing.T) {
 			for _, bucketName := range testBucketNames {
 				expectedBucketLocations = append(expectedBucketLocations, metabase.BucketLocation{
 					ProjectID:  project.ID,
-					BucketName: bucketName,
+					BucketName: metabase.BucketName(bucketName),
 				})
 
 				_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
@@ -312,7 +312,7 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 		for i := 1; i < 16; i++ {
 			location := metabase.BucketLocation{
 				ProjectID:  testrand.UUID(),
-				BucketName: "bucket" + strconv.Itoa(i),
+				BucketName: metabase.BucketName("bucket" + strconv.Itoa(i)),
 			}
 			expectedBucketLocations = append(expectedBucketLocations, location)
 
@@ -325,7 +325,7 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 			_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
 				ID:        testrand.UUID(),
 				ProjectID: project.ID,
-				Name:      location.BucketName,
+				Name:      string(location.BucketName),
 			})
 			require.NoError(t, err)
 		}

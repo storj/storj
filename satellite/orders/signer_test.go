@@ -42,13 +42,13 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 
 		project, err := uplink.GetProject(ctx, satellite)
 		require.NoError(t, err)
-		bucketName := "123456789012345678901234567890123456789012345678901234567890123"
+		bucketName := metabase.BucketName("123456789012345678901234567890123456789012345678901234567890123")
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  uplink.Projects[0].ID,
 			BucketName: bucketName,
 		}
 
-		_, err = project.EnsureBucket(ctx, bucketLocation.BucketName)
+		_, err = project.EnsureBucket(ctx, bucketLocation.BucketName.String())
 		require.NoError(t, err)
 
 		root := testrand.PieceID()

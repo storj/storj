@@ -210,7 +210,7 @@ func TestListPendingObjects(t *testing.T) {
 
 		t.Run("recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createPendingObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -378,7 +378,7 @@ func TestListPendingObjects(t *testing.T) {
 
 		t.Run("non-recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createPendingObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -567,7 +567,7 @@ func TestListPendingObjects(t *testing.T) {
 
 func TestListPendingObjectsSkipCursor(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		projectID, bucketName := uuid.UUID{1}, "bucky"
+		projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 		t.Run("no prefix", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -1060,7 +1060,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 
 		t.Run("list recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreatePendingObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -1228,7 +1228,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 
 		t.Run("list non-recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreatePendingObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -1417,7 +1417,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 func TestListPendingObjects_Limit(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		projectID := testrand.UUID()
-		bucketName := testrand.BucketName()
+		bucketName := metabase.BucketName(testrand.BucketName())
 
 		numberOfObjects := 0
 
@@ -1491,7 +1491,7 @@ func TestListPendingObjects_Limit(t *testing.T) {
 	})
 }
 
-func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName string) []metabase.RawObject {
+func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName metabase.BucketName) []metabase.RawObject {
 	objects := make([]metabase.RawObject, numberOfObjects)
 	for i := 0; i < numberOfObjects; i++ {
 		obj := metabasetest.RandObjectStream()
@@ -1515,7 +1515,7 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 	return objects
 }
 
-func createPendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.ObjectEntry {
+func createPendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for _, key := range keys {
 		obj := metabasetest.RandObjectStream()

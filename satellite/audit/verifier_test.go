@@ -1122,9 +1122,9 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 
 		var testData = testrand.Bytes(8 * memory.KiB)
-		bucket := "testbucket"
+		bucket := metabase.BucketName("testbucket")
 		// first, upload some remote data
-		err := uplinkPeer.Upload(ctx, satellite, bucket, "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, bucket.String(), "test/path", testData)
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, bucket)
@@ -1234,7 +1234,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 //
 //nolint:golint
 func getRemoteSegment(
-	ctx context.Context, t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName string,
+	ctx context.Context, t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName metabase.BucketName,
 ) (_ metabase.Segment, key metabase.SegmentKey) {
 	t.Helper()
 

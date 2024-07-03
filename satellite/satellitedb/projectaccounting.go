@@ -111,7 +111,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 		tallies = append(tallies, accounting.BucketTally{
 			BucketLocation: metabase.BucketLocation{
 				ProjectID:  projectID,
-				BucketName: string(dbxTally.BucketName),
+				BucketName: metabase.BucketName(dbxTally.BucketName),
 			},
 			ObjectCount:   int64(dbxTally.ObjectCount),
 			TotalSegments: int64(totalSegments),

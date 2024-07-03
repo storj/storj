@@ -155,7 +155,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
-				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], string(bucket.BucketName), filePath, expectedData)
 				require.NoError(t, err)
 
 				projectUsage.SetNow(func() time.Time {
@@ -166,7 +166,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
-				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucket.BucketName, filePath)
+				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], string(bucket.BucketName), filePath)
 				if testCase.expectedResource == "bandwidth" {
 					require.True(t, errors.Is(actualErr, testCase.expectedError))
 				} else {
@@ -636,15 +636,15 @@ func TestUsageRollups(t *testing.T) {
 			for j, bucket := range buckets {
 				bucketLoc1 := metabase.BucketLocation{
 					ProjectID:  project1,
-					BucketName: bucket,
+					BucketName: metabase.BucketName(bucket),
 				}
 				bucketLoc2 := metabase.BucketLocation{
 					ProjectID:  project2,
-					BucketName: bucket,
+					BucketName: metabase.BucketName(bucket),
 				}
 				bucketLoc3 := metabase.BucketLocation{
 					ProjectID:  project3,
-					BucketName: bucket,
+					BucketName: metabase.BucketName(bucket),
 				}
 				value1 := getValue(i, j, p1base) * 10
 				value2 := getValue(i, j, p2base) * 10

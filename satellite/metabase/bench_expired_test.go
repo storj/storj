@@ -20,12 +20,12 @@ import (
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyz")
 
-func randBucketname(n int) string {
+func randBucketname(n int) metabase.BucketName {
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letters[testrand.Intn(len(letters))]
 	}
-	return string(b)
+	return metabase.BucketName(b)
 }
 
 func BenchmarkExpiredDeletion(b *testing.B) {

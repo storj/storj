@@ -141,7 +141,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	opts := metabase.BeginObjectNextVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
+			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			StreamID:   streamID,
 			Version:    metabase.NextVersion,
@@ -279,7 +279,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	request := metabase.CommitObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
+			BucketName: metabase.BucketName(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    metabase.Version(streamID.Version),
@@ -469,7 +469,7 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 
 	objectStream := metabase.ObjectStream{
 		ProjectID:  keyInfo.ProjectID,
-		BucketName: bucket.Name,
+		BucketName: metabase.BucketName(bucket.Name),
 		ObjectKey:  metabase.ObjectKey(beginObjectReq.EncryptedObjectKey),
 		StreamID:   streamID,
 	}
@@ -508,7 +508,7 @@ func (endpoint *Endpoint) commitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, metabase.BucketLocation{
-		ProjectID: keyInfo.ProjectID, BucketName: string(beginObjectReq.Bucket),
+		ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(beginObjectReq.Bucket),
 	}, inlineUsed)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -572,7 +572,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	objectLocation := metabase.ObjectLocation{
 		ProjectID:  keyInfo.ProjectID,
-		BucketName: string(req.Bucket),
+		BucketName: metabase.BucketName(req.Bucket),
 		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 	}
 
@@ -700,7 +700,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		object, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
+				BucketName: metabase.BucketName(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
 		})
@@ -713,7 +713,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		object, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
+				BucketName: metabase.BucketName(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
 			Version: sv.Version(),
@@ -1171,7 +1171,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
 			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
+				BucketName: metabase.BucketName(req.Bucket),
 				Prefix:     prefix,
 				Cursor: metabase.IterateCursor{
 					Key:     cursorKey,
@@ -1205,7 +1205,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			err = endpoint.metabase.IterateObjectsAllVersionsWithStatusAscending(ctx,
 				metabase.IterateObjectsWithStatus{
 					ProjectID:  keyInfo.ProjectID,
-					BucketName: string(req.Bucket),
+					BucketName: metabase.BucketName(req.Bucket),
 					Prefix:     prefix,
 					Cursor: metabase.IterateCursor{
 						Key:     cursorKey,
@@ -1237,7 +1237,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			result, err := endpoint.metabase.ListObjects(ctx,
 				metabase.ListObjects{
 					ProjectID:  keyInfo.ProjectID,
-					BucketName: string(req.Bucket),
+					BucketName: metabase.BucketName(req.Bucket),
 					Prefix:     prefix,
 					Cursor: metabase.ListObjectsCursor{
 						Key:     cursorKey,
@@ -1269,7 +1269,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
 			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
+				BucketName: metabase.BucketName(req.Bucket),
 				Prefix:     prefix,
 				Cursor: metabase.IterateCursor{
 					Key:     cursorKey,
@@ -1357,7 +1357,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	options := metabase.IteratePendingObjectsByKey{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
+			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 		BatchSize: limit + 1,
@@ -1471,7 +1471,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 				deletedObjects, err = endpoint.DeletePendingObject(ctx,
 					metabase.ObjectStream{
 						ProjectID:  keyInfo.ProjectID,
-						BucketName: string(pbStreamID.Bucket),
+						BucketName: metabase.BucketName(pbStreamID.Bucket),
 						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
 						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
@@ -1495,7 +1495,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		if err != nil {
 			endpoint.log.Error("failed to construct deleted object information",
 				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.String("Bucket", string(req.Bucket)),
+				zap.Stringer("Bucket", metabase.BucketName(req.Bucket)),
 				zap.String("Encrypted Path", string(req.EncryptedObjectKey)),
 				zap.Error(err),
 			)
@@ -1549,7 +1549,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
+			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 	})
@@ -1660,7 +1660,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	err = endpoint.metabase.UpdateObjectLastCommittedMetadata(ctx, metabase.UpdateObjectLastCommittedMetadata{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
+			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 		StreamID:                      id,
@@ -1869,7 +1869,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 
 	req := metabase.ObjectLocation{
 		ProjectID:  projectID,
-		BucketName: bucket,
+		BucketName: metabase.BucketName(bucket),
 		ObjectKey:  object,
 	}
 
@@ -2045,7 +2045,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	result, err := endpoint.metabase.BeginMoveObject(ctx, metabase.BeginMoveObject{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
+			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 	})
@@ -2179,13 +2179,13 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	err = endpoint.metabase.FinishMoveObject(ctx, metabase.FinishMoveObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
+			BucketName: metabase.BucketName(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			Version:    metabase.Version(streamID.Version),
 			StreamID:   streamUUID,
 		},
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
-		NewBucket:                    string(req.NewBucket),
+		NewBucket:                    metabase.BucketName(req.NewBucket),
 		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
 		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
@@ -2287,7 +2287,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	result, err := endpoint.metabase.BeginCopyObject(ctx, metabase.BeginCopyObject{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
+			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 		Version: version,
@@ -2398,14 +2398,14 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	object, err := endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
+			BucketName: metabase.BucketName(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			Version:    metabase.Version(streamID.Version),
 			StreamID:   streamUUID,
 		},
 		NewStreamID:                  newStreamID,
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
-		NewBucket:                    string(req.NewBucket),
+		NewBucket:                    metabase.BucketName(req.NewBucket),
 		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
 		OverrideMetadata:             req.OverrideMetadata,
 		NewEncryptedMetadata:         req.NewEncryptedMetadata,

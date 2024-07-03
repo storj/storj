@@ -77,7 +77,7 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 	expiredObjects = make([]ObjectStream, 0, batchSize)
 
 	err = withRows(p.db.QueryContext(ctx, query,
-		startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
+		startAfter.ProjectID, startAfter.BucketName, []byte(startAfter.ObjectKey), startAfter.Version,
 		opts.ExpiredBefore,
 		batchSize),
 	)(func(rows tagsql.Rows) error {
@@ -93,7 +93,7 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 
 			p.log.Info("Deleting expired object",
 				zap.Stringer("Project", last.ProjectID),
-				zap.String("Bucket", last.BucketName),
+				zap.Stringer("Bucket", last.BucketName),
 				zap.String("Object Key", string(last.ObjectKey)),
 				zap.Int64("Version", int64(last.Version)),
 				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
@@ -148,7 +148,7 @@ func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpi
 
 		s.log.Info("Deleting expired object",
 			zap.Stringer("Project", object.ProjectID),
-			zap.String("Bucket", object.BucketName),
+			zap.Stringer("Bucket", object.BucketName),
 			zap.String("Object Key", string(object.ObjectKey)),
 			zap.Int64("Version", int64(object.Version)),
 			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
@@ -222,7 +222,7 @@ func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZomb
 	objects = make([]ObjectStream, 0, batchSize)
 
 	err = withRows(p.db.QueryContext(ctx, query,
-		startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
+		startAfter.ProjectID, startAfter.BucketName, []byte(startAfter.ObjectKey), startAfter.Version,
 		opts.DeadlineBefore,
 		batchSize),
 	)(func(rows tagsql.Rows) error {
@@ -235,7 +235,7 @@ func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZomb
 
 			p.log.Debug("selected zombie object for deleting it",
 				zap.Stringer("Project", last.ProjectID),
-				zap.String("Bucket", last.BucketName),
+				zap.Stringer("Bucket", last.BucketName),
 				zap.String("Object Key", string(last.ObjectKey)),
 				zap.Int64("Version", int64(last.Version)),
 				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
@@ -286,7 +286,7 @@ func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombi
 
 		s.log.Debug("selected zombie object for deleting it",
 			zap.Stringer("Project", object.ProjectID),
-			zap.String("Bucket", object.BucketName),
+			zap.Stringer("Bucket", object.BucketName),
 			zap.String("Object Key", string(object.ObjectKey)),
 			zap.Int64("Version", int64(object.Version)),
 			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
@@ -340,7 +340,7 @@ func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects 
 				)
 				DELETE FROM segments
 				WHERE segments.stream_id = $5::BYTEA
-			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID)
+			`, obj.ProjectID, obj.BucketName, []byte(obj.ObjectKey), obj.Version, obj.StreamID)
 		}
 
 		results := conn.SendBatch(ctx, &batch)
@@ -453,7 +453,7 @@ func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, 
 				)
 				DELETE FROM segments
 				WHERE segments.stream_id IN (SELECT stream_id FROM deleted_objects)
-			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID, opts.InactiveDeadline)
+			`, obj.ProjectID, obj.BucketName, []byte(obj.ObjectKey), obj.Version, obj.StreamID, opts.InactiveDeadline)
 		}
 
 		results := conn.SendBatch(ctx, &batch)

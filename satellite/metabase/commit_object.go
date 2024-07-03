@@ -180,7 +180,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 			RETURNING
 				created_at, expires_at,
 				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
 		len(finalSegments),
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
 		totalPlainSize,

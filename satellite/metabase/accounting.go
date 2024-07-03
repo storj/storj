@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -70,11 +69,7 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 
 	// only a merge sort should be strictly required here, but this is much easier to implement for now
 	slices.SortFunc(result, func(a, b BucketTally) int {
-		cmp := a.ProjectID.Compare(b.ProjectID)
-		if cmp != 0 {
-			return cmp
-		}
-		return strings.Compare(a.BucketName, b.BucketName)
+		return a.BucketLocation.Compare(b.BucketLocation)
 	})
 
 	return result, nil
@@ -93,7 +88,7 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 			(expires_at IS NULL OR expires_at > $5)
 			GROUP BY (project_id, bucket_name)
 			ORDER BY (project_id, bucket_name) ASC
-		`, opts.From.ProjectID, []byte(opts.From.BucketName), opts.To.ProjectID, []byte(opts.To.BucketName), opts.Now))(func(rows tagsql.Rows) error {
+		`, opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var bucketTally BucketTally
 

@@ -243,7 +243,7 @@ func TestEndpointAndCacheContextCanceled(t *testing.T) {
 				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 				require.NoError(t, err)
 
-				bucketname := "testbucket" + strconv.Itoa(i)
+				bucketname := metabase.BucketName("testbucket" + strconv.Itoa(i))
 
 				bucketLocation := metabase.BucketLocation{
 					ProjectID:  projectID,

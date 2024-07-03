@@ -50,7 +50,7 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (_ Begi
 // FinishCopyObject holds all data needed to finish object copy.
 type FinishCopyObject struct {
 	ObjectStream
-	NewBucket             string
+	NewBucket             BucketName
 	NewEncryptedObjectKey ObjectKey
 	NewStreamID           uuid.UUID
 
@@ -382,7 +382,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 			)
 			RETURNING
 				created_at`,
-		opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
+		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
 		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		encryptionParameters{&sourceObject.Encryption},
 		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
@@ -539,7 +539,7 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
 			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > now())`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,

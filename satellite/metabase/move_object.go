@@ -170,7 +170,7 @@ func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamI
 type FinishMoveObject struct {
 	ObjectStream
 
-	NewBucket             string
+	NewBucket             BucketName
 	NewSegmentKeys        []EncryptedKeyAndNonce
 	NewEncryptedObjectKey ObjectKey
 	// Optional. Required if object has metadata.
@@ -314,8 +314,8 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 				segment_count,
 				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
 				stream_id
-		`, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
-		opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName),
+		`, opts.NewBucket, opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
+		opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, opts.BucketName,
 		opts.ObjectKey, opts.Version, newStatus, nextVersion).
 		Scan(&oldStatus, &segmentsCount, &hasMetadata, &streamID)
 

@@ -22,7 +22,7 @@ import (
 func RandObjectStream() metabase.ObjectStream {
 	return metabase.ObjectStream{
 		ProjectID:  testrand.UUID(),
-		BucketName: testrand.BucketName(),
+		BucketName: metabase.BucketName(testrand.BucketName()),
 		ObjectKey:  RandObjectKey(),
 		Version:    12345,
 		StreamID:   testrand.UUID(),
@@ -112,7 +112,7 @@ func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 }
 
 // CreateFullObjectsWithKeys creates multiple objects with the specified keys.
-func CreateFullObjectsWithKeys(ctx *testcontext.Context, t testing.TB, db *metabase.DB, projectID uuid.UUID, bucketName string, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.LoopObjectEntry {
+func CreateFullObjectsWithKeys(ctx *testcontext.Context, t testing.TB, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.LoopObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.LoopObjectEntry, len(keys))
 	for _, key := range keys {
 		obj := RandObjectStream()
@@ -172,7 +172,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 
 // CreateVersionedObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to final versions.
-func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
 		for _, version := range versions {
@@ -201,7 +201,7 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 
 // CreatePendingObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to all versions.
-func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
 		for _, version := range versions {
@@ -231,7 +231,7 @@ func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *me
 
 // CreateVersionedObjectsWithKeysAll creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to a slice of all versions.
-func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version, sortDesc bool) map[metabase.ObjectKey][]metabase.ObjectEntry {
+func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version, sortDesc bool) map[metabase.ObjectKey][]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey][]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
 		items := []metabase.ObjectEntry{}

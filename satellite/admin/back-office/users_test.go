@@ -126,7 +126,7 @@ func TestGetUser(t *testing.T) {
 			for objNum := 0; objNum < projNum*10; objNum++ {
 				obj := metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
 					ProjectID:  proj.ID,
-					BucketName: bucket.Name,
+					BucketName: metabase.BucketName(bucket.Name),
 					ObjectKey:  metabasetest.RandObjectKey(),
 					Version:    12345,
 					StreamID:   testrand.UUID(),

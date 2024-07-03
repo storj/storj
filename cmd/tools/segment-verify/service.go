@@ -258,7 +258,7 @@ type BucketList struct {
 }
 
 // Add adds a bucket to the bucket list.
-func (list *BucketList) Add(projectID uuid.UUID, bucketName string) {
+func (list *BucketList) Add(projectID uuid.UUID, bucketName metabase.BucketName) {
 	list.Buckets = append(list.Buckets, metabase.BucketLocation{
 		ProjectID:  projectID,
 		BucketName: bucketName,

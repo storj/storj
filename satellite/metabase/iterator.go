@@ -20,7 +20,7 @@ type objectsIterator struct {
 	adapter Adapter
 
 	projectID             uuid.UUID
-	bucketName            []byte
+	bucketName            BucketName
 	pending               bool
 	prefix                ObjectKey
 	prefixLimit           ObjectKey
@@ -55,7 +55,7 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 		adapter: adapter,
 
 		projectID:             opts.ProjectID,
-		bucketName:            []byte(opts.BucketName),
+		bucketName:            opts.BucketName,
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
 		prefixLimit:           PrefixLimit(opts.Prefix),
@@ -87,7 +87,7 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 		adapter: adapter,
 
 		projectID:             opts.ProjectID,
-		bucketName:            []byte(opts.BucketName),
+		bucketName:            opts.BucketName,
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
 		prefixLimit:           PrefixLimit(opts.Prefix),
@@ -119,7 +119,7 @@ func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts Itera
 		adapter: adapter,
 
 		projectID:             opts.ProjectID,
-		bucketName:            []byte(opts.BucketName),
+		bucketName:            opts.BucketName,
 		prefix:                "",
 		prefixLimit:           "",
 		batchSize:             opts.BatchSize,
@@ -284,7 +284,7 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, 
 				ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
 			LIMIT $5
 			`, it.projectID, it.bucketName,
-			[]byte(it.cursor.Key), int(it.cursor.Version),
+			it.cursor.Key, int(it.cursor.Version),
 			it.batchSize,
 			nextBucket(it.bucketName),
 		)
@@ -314,8 +314,8 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, 
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
 		LIMIT $6
 		`, it.projectID, it.bucketName,
-		[]byte(it.cursor.Key), int(it.cursor.Version),
-		[]byte(it.prefixLimit),
+		it.cursor.Key, int(it.cursor.Version),
+		it.prefixLimit,
 		it.batchSize,
 		fromSubstring,
 	)
@@ -352,11 +352,11 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 			`,
 			Params: map[string]any{
 				"project_id":     it.projectID,
-				"bucket_name":    string(it.bucketName),
-				"cursor_key":     []byte(it.cursor.Key),
+				"bucket_name":    it.bucketName,
+				"cursor_key":     it.cursor.Key,
 				"cursor_version": it.cursor.Version,
 				"batch_size":     int64(it.batchSize),
-				"next_bucket":    string(nextBucket(it.bucketName)),
+				"next_bucket":    nextBucket(it.bucketName),
 			},
 		})
 		return newSpannerRows(rowIterator), nil
@@ -388,10 +388,10 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 		`,
 		Params: map[string]any{
 			"project_id":     it.projectID,
-			"bucket_name":    string(it.bucketName),
-			"cursor_key":     []byte(it.cursor.Key),
+			"bucket_name":    it.bucketName,
+			"cursor_key":     it.cursor.Key,
 			"cursor_version": it.cursor.Version,
-			"prefix_limit":   []byte(it.prefixLimit),
+			"prefix_limit":   it.prefixLimit,
 			"batch_size":     int64(it.batchSize),
 			"from_substring": int64(fromSubstring),
 		},
@@ -426,7 +426,7 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.
 				ORDER BY (project_id, bucket_name, object_key, version) ASC
 			LIMIT $5
 			`, it.projectID, it.bucketName,
-			[]byte(it.cursor.Key), int(it.cursor.Version),
+			it.cursor.Key, int(it.cursor.Version),
 			it.batchSize,
 			nextBucket(it.bucketName),
 		)
@@ -450,8 +450,8 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.
 			ORDER BY (project_id, bucket_name, object_key, version) ASC
 		LIMIT $6
 		`, it.projectID, it.bucketName,
-		[]byte(it.cursor.Key), int(it.cursor.Version),
-		[]byte(it.prefixLimit),
+		it.cursor.Key, int(it.cursor.Version),
+		it.prefixLimit,
 		it.batchSize,
 		fromSubstring,
 	)
@@ -488,11 +488,11 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 			`,
 			Params: map[string]any{
 				"project_id":     it.projectID,
-				"bucket_name":    string(it.bucketName),
-				"cursor_key":     []byte(it.cursor.Key),
+				"bucket_name":    it.bucketName,
+				"cursor_key":     it.cursor.Key,
 				"cursor_version": int64(it.cursor.Version),
 				"batch_size":     int64(it.batchSize),
-				"next_bucket":    string(nextBucket(it.bucketName)),
+				"next_bucket":    nextBucket(it.bucketName),
 			},
 		})
 		return newSpannerRows(rowIterator), nil
@@ -524,10 +524,10 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 		`,
 		Params: map[string]any{
 			"project_id":     it.projectID,
-			"bucket_name":    string(it.bucketName),
-			"cursor_key":     []byte(it.cursor.Key),
+			"bucket_name":    it.bucketName,
+			"cursor_key":     it.cursor.Key,
 			"cursor_version": int64(it.cursor.Version),
-			"prefix_limit":   []byte(it.prefixLimit),
+			"prefix_limit":   it.prefixLimit,
 			"batch_size":     int64(it.batchSize),
 			"from_substring": int64(fromSubstring),
 		},
@@ -624,10 +624,8 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 }
 
 // nextBucket returns the lexicographically next bucket.
-func nextBucket(b []byte) []byte {
-	xs := make([]byte, len(b)+1)
-	copy(xs, b)
-	return xs
+func nextBucket(b BucketName) BucketName {
+	return b + "\x00"
 }
 
 // doNextQuery executes query to fetch the next batch returning the rows.
@@ -649,7 +647,7 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 			ORDER BY stream_id ASC
 			LIMIT $5
 			`, it.projectID, it.bucketName,
-		[]byte(it.cursor.Key),
+		it.cursor.Key,
 		it.cursor.StreamID,
 		it.batchSize,
 	)
@@ -676,8 +674,8 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 		`,
 		Params: map[string]any{
 			"project_id":  it.projectID,
-			"bucket_name": string(it.bucketName),
-			"cursor_key":  []byte(it.cursor.Key),
+			"bucket_name": it.bucketName,
+			"cursor_key":  it.cursor.Key,
 			"stream_id":   it.cursor.StreamID,
 			"batch_size":  int64(it.batchSize),
 		},

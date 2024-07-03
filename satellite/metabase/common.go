@@ -66,7 +66,7 @@ type BucketPrefix string
 // BucketLocation defines a bucket that belongs to a project.
 type BucketLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 }
 
 // ParseBucketPrefix parses BucketPrefix.
@@ -83,7 +83,7 @@ func ParseBucketPrefix(prefix BucketPrefix) (BucketLocation, error) {
 
 	return BucketLocation{
 		ProjectID:  projectID,
-		BucketName: elements[1],
+		BucketName: BucketName(elements[1]),
 	}, nil
 }
 
@@ -106,13 +106,13 @@ func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
 
 	var loc BucketLocation
 	copy(loc.ProjectID[:], compactPrefix)
-	loc.BucketName = string(compactPrefix[len(loc.ProjectID):])
+	loc.BucketName = BucketName(compactPrefix[len(loc.ProjectID):])
 	return loc, nil
 }
 
 // Prefix converts bucket location into bucket prefix.
 func (loc BucketLocation) Prefix() BucketPrefix {
-	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)
+	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName.String())
 }
 
 // CompactPrefix converts bucket location into bucket prefix with compact project ID.
@@ -129,7 +129,49 @@ func (loc BucketLocation) Compare(other BucketLocation) int {
 	if cmp != 0 {
 		return cmp
 	}
-	return strings.Compare(loc.BucketName, other.BucketName)
+	return loc.BucketName.Compare(other.BucketName)
+}
+
+// BucketName is a plain-text string, however we should treat it as unsafe bytes to
+// avoid issues with any encoding.
+type BucketName string
+
+// String implements stringer func.
+func (b BucketName) String() string { return string(b) }
+
+// Compare implements comparison for bucket names.
+func (b BucketName) Compare(x BucketName) int {
+	return strings.Compare(b.String(), x.String())
+}
+
+// Value converts a BucketName to a database field.
+func (b BucketName) Value() (driver.Value, error) {
+	return []byte(b), nil
+}
+
+// Scan extracts a BucketName from a database field.
+func (b *BucketName) Scan(value interface{}) error {
+	switch value := value.(type) {
+	case []byte:
+		*b = BucketName(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into BucketName", value)
+	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (b BucketName) EncodeSpanner() (any, error) {
+	return string(b), nil
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (b *BucketName) DecodeSpanner(value any) error {
+	if x, ok := value.(string); ok {
+		*b = BucketName(x)
+		return nil
+	}
+	return Error.New("unable to scan %T into BucketName", value)
 }
 
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
@@ -173,7 +215,7 @@ func (o *ObjectKey) DecodeSpanner(value any) error {
 // ObjectLocation is decoded object key information.
 type ObjectLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 }
 
@@ -204,7 +246,7 @@ type SegmentKey []byte
 // SegmentLocation is decoded segment key information.
 type SegmentLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	Position   SegmentPosition
 }
@@ -255,7 +297,7 @@ func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 
 	return SegmentLocation{
 		ProjectID:  projectID,
-		BucketName: elements[2],
+		BucketName: BucketName(elements[2]),
 		Position:   position,
 		ObjectKey:  ObjectKey(elements[3]),
 	}, nil
@@ -270,7 +312,7 @@ func (seg SegmentLocation) Encode() SegmentKey {
 	return SegmentKey(storj.JoinPaths(
 		seg.ProjectID.String(),
 		segment,
-		seg.BucketName,
+		seg.BucketName.String(),
 		string(seg.ObjectKey),
 	))
 }
@@ -291,7 +333,7 @@ func (seg SegmentLocation) Verify() error {
 // ObjectStream uniquely defines an object and stream.
 type ObjectStream struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	Version    Version
 	StreamID   uuid.UUID
@@ -362,7 +404,7 @@ func (obj *ObjectStream) Location() ObjectLocation {
 // PendingObjectStream uniquely defines an pending object and stream.
 type PendingObjectStream struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	StreamID   uuid.UUID
 }

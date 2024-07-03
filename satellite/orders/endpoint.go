@@ -345,7 +345,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		// without bucket name and project ID because segments loop doesn't have access to it
 		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
 			log.Warn("decrypt order: bucketName or projectID not set",
-				zap.String("bucketName", bucketInfo.BucketName),
+				zap.Stringer("bucketName", bucketInfo.BucketName),
 				zap.String("projectID", bucketInfo.ProjectID.String()),
 			)
 			mon.Event("bucketinfo_from_orders_metadata_error_3")
@@ -354,7 +354,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		currentBucketIDAction := bucketIDAction{
 			projectID:  bucketInfo.ProjectID,
-			bucketname: bucketInfo.BucketName,
+			bucketname: string(bucketInfo.BucketName),
 			action:     orderLimit.Action,
 		}
 		bucketSettled[currentBucketIDAction] = bandwidthAmount{

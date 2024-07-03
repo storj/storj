@@ -10,7 +10,6 @@ import (
 	"net"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1546,7 +1545,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, objects, 3)
 			slices.SortFunc(objects, func(a, b metabase.Object) int {
-				return strings.Compare(a.BucketName, b.BucketName)
+				return a.BucketName.Compare(b.BucketName)
 			})
 
 			// verify that standard objects can be downloaded in an old way (index = -1 as last segment)
