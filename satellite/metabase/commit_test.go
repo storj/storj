@@ -193,7 +193,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("Invalid retention period", func(t *testing.T) {
+			t.Run("Invalid retention configuration", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
@@ -221,7 +221,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 
-			t.Run("Retention period with TTL", func(t *testing.T) {
+			t.Run("Retention configuration with TTL", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
@@ -661,7 +661,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("Invalid retention period", func(t *testing.T) {
+			t.Run("Invalid retention configuration", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
@@ -688,7 +688,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 
-			t.Run("Retention period with TTL", func(t *testing.T) {
+			t.Run("Retention configuration with TTL", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
@@ -4548,6 +4548,112 @@ func TestCommitInlineObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("retention", func(t *testing.T) {
+			commitInlineSeg := metabase.CommitInlineSegment{
+				EncryptedKey:      testrand.Bytes(32),
+				EncryptedKeyNonce: testrand.Bytes(32),
+				PlainSize:         512,
+				InlineData:        testrand.Bytes(100),
+			}
+
+			t.Run("success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+
+				retention := metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.CommitInlineObject{
+					Opts: metabase.CommitInlineObject{
+						ObjectStream:        obj,
+						Encryption:          metabasetest.DefaultEncryption,
+						CommitInlineSegment: commitInlineSeg,
+						Retention:           retention,
+					},
+					ExpectVersion: 1,
+				}.Check(ctx, t, db)
+
+				expectedObjStream := obj
+				expectedObjStream.Version = 1
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream: expectedObjStream,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+
+						SegmentCount:       1,
+						TotalPlainSize:     int64(commitInlineSeg.PlainSize),
+						TotalEncryptedSize: int64(len(commitInlineSeg.InlineData)),
+					}},
+					Segments: []metabase.RawSegment{{
+						StreamID:          obj.StreamID,
+						CreatedAt:         now,
+						EncryptedKeyNonce: commitInlineSeg.EncryptedKeyNonce,
+						EncryptedKey:      commitInlineSeg.EncryptedKey,
+						EncryptedSize:     int32(len(commitInlineSeg.InlineData)),
+						PlainSize:         commitInlineSeg.PlainSize,
+						InlineData:        commitInlineSeg.InlineData,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("invalid retention configuration", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
+					metabasetest.CommitInlineObject{
+						Opts: metabase.CommitInlineObject{
+							ObjectStream:        obj,
+							Encryption:          metabasetest.DefaultEncryption,
+							CommitInlineSegment: commitInlineSeg,
+							Retention: metabase.Retention{
+								Mode:        mode,
+								RetainUntil: retainUntil,
+							},
+						},
+						ErrClass: &metabase.ErrInvalidRequest,
+						ErrText:  errText,
+					}.Check(ctx, t, db)
+				}
+
+				now := time.Now()
+
+				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+
+			t.Run("retention configuration with TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.CommitInlineObject{
+					Opts: metabase.CommitInlineObject{
+						ObjectStream:        obj,
+						Encryption:          metabasetest.DefaultEncryption,
+						CommitInlineSegment: commitInlineSeg,
+						Retention: metabase.Retention{
+							Mode:        storj.ComplianceMode,
+							RetainUntil: now.Add(time.Minute),
+						},
+						ExpiresAt: &expires,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
 	})
 }
 

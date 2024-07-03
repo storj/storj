@@ -1447,6 +1447,8 @@ type CommitInlineObject struct {
 	EncryptedMetadataNonce        []byte // optional
 	EncryptedMetadataEncryptedKey []byte // optional
 
+	Retention Retention // optional
+
 	DisallowDelete bool
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
@@ -1472,6 +1474,15 @@ func (c *CommitInlineObject) Verify() error {
 	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
+
+	if err := c.Retention.Verify(); err != nil {
+		return ErrInvalidRequest.Wrap(err)
+	}
+
+	if c.Retention.Enabled() && c.ExpiresAt != nil {
+		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	}
+
 	return nil
 }
 
@@ -1512,6 +1523,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		object.EncryptedMetadata = opts.EncryptedMetadata
 		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
+		object.Retention = opts.Retention
 
 		segment := &Segment{
 			StreamID:          opts.StreamID,
@@ -1550,13 +1562,15 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 			status, segment_count, expires_at, encryption,
 			total_plain_size, total_encrypted_size,
 			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+			retention_mode, retain_until
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8, $9,
 			$10, $11,
 			$12,
-			$13, $14, $15
+			$13, $14, $15,
+			$16, $17
 		)
 		RETURNING created_at`,
 		object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
@@ -1564,6 +1578,7 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
 		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
+		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 	).Scan(&object.CreatedAt)
 	if err != nil {
 		return Error.New("failed to create object: %w", err)
@@ -1606,13 +1621,15 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 				status, segment_count, expires_at, encryption,
 				total_plain_size, total_encrypted_size,
 				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				retention_mode, retain_until
 			) VALUES (
 				@project_id, @bucket_name, @object_key, @version, @stream_id,
 				@status, @segment_count, @expires_at, @encryption_parameters,
 				@total_plain_size, @total_encrypted_size,
 				@zombie_deletion_deadline,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@retention_mode, @retain_until
 			)
 			THEN RETURN created_at
 		`,
@@ -1632,6 +1649,8 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			"encrypted_metadata":               object.EncryptedMetadata,
 			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
 			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
+			"retention_mode":                   retentionModeWrapper{&object.Retention.Mode},
+			"retain_until":                     timeWrapper{&object.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {
 		err := row.Columns(&object.CreatedAt)
