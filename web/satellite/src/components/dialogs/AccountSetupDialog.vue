@@ -36,7 +36,7 @@
                     <!-- Personal step -->
                     <v-window-item :value="OnboardingStep.PersonalAccountForm">
                         <personal-step
-                            :ref="stepInfos[OnboardingStep.BusinessAccountForm].ref"
+                            :ref="stepInfos[OnboardingStep.PersonalAccountForm].ref"
                             v-model:name="firstName"
                             v-model:use-case="useCase"
                             :loading="isLoading"
