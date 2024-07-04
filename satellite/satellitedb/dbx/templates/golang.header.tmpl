@@ -85,7 +85,11 @@ func makeErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	e := &Error{Err: err}
+	var e *Error
+	if errors.As(err, &e) {
+		return wrapErr(e)
+	}
+	e = &Error{Err: err}
 	switch err {
 	case sql.ErrNoRows:
 		e.Code = ErrorCode_NoRows
