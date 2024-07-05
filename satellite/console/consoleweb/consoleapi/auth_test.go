@@ -657,13 +657,27 @@ func TestRegistrationEmail(t *testing.T) {
 		register()
 		body, err := sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/activation")
+		if sat.Config.Console.SignupActivationCodeEnabled {
+			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.Contains(t, body, users[0].ActivationCode)
+		} else {
+			require.Contains(t, body, "/activation")
+		}
 
 		// Registration attempts using existing but unverified e-mail address should send activation e-mail.
 		register()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/activation")
+		if sat.Config.Console.SignupActivationCodeEnabled {
+			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.Contains(t, body, users[0].ActivationCode)
+		} else {
+			require.Contains(t, body, "/activation")
+		}
 
 		// Registration attempts using existing and verified e-mail address should send account already exists e-mail.
 		_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
@@ -826,7 +840,14 @@ func TestResendActivationEmail(t *testing.T) {
 		resendEmail()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/activation")
+		if sat.Config.Console.SignupActivationCodeEnabled {
+			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, user.Email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.Contains(t, body, users[0].ActivationCode)
+		} else {
+			require.Contains(t, body, "/activation")
+		}
 	})
 }
 

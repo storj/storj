@@ -320,7 +320,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.contact-info-url: https://forum.storj.io
 
 # indicates if user is allowed to add coupon codes to account from billing
-# console.coupon-code-billing-ui-enabled: false
+# console.coupon-code-billing-ui-enabled: true
 
 # indicates if user is allowed to add coupon codes to account from signup
 # console.coupon-code-signup-ui-enabled: false
@@ -341,7 +341,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.email-change-flow-enabled: false
 
 # whether emission impact view should be shown
-# console.emission-impact-view-enabled: false
+# console.emission-impact-view-enabled: true
 
 # whether to show region tag in UI
 # console.enable-region-tag: false
@@ -377,7 +377,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # indicates if generated console api should be used
-# console.generated-api-enabled: false
+# console.generated-api-enabled: true
 
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
@@ -449,7 +449,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.placement-edge-url-overrides: ""
 
 # whether to allow purchasing pricing packages
-# console.pricing-packages-enabled: false
+# console.pricing-packages-enabled: true
 
 # duration that project member invitations are valid for
 # console.project-invitation-expiration: 168h0m0s
@@ -500,7 +500,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.session.inactivity-timer-viewer-enabled: false
 
 # indicates whether the whether account activation is done using activation code
-# console.signup-activation-code-enabled: false
+# console.signup-activation-code-enabled: true
 
 # path to static resources
 # console.static-dir: ""

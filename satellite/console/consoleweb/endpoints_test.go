@@ -4,6 +4,7 @@
 package consoleweb_test
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -652,6 +653,9 @@ func TestWrongUser(t *testing.T) {
 		test := newTest(t, ctx, planet)
 		authorizedUser := test.defaultUser()
 		unauthorizedUser := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
+		if planet.Satellites[0].Config.Console.SignupActivationCodeEnabled {
+			test.activateUser(ctx, unauthorizedUser.email)
+		}
 
 		type endpointTest struct {
 			endpoint string
@@ -893,6 +897,18 @@ func (test *test) registerUser(email, password string) registeredUser {
 		email:    email,
 		password: password,
 	}
+}
+
+func (test *test) activateUser(ctx context.Context, email string) {
+	usersDB := test.planet.Satellites[0].DB.Console().Users()
+
+	_, users, err := usersDB.GetByEmailWithUnverified(ctx, email)
+	require.NoError(test.t, err)
+	require.Len(test.t, users, 1)
+
+	activeStatus := console.Active
+	err = usersDB.Update(ctx, users[0].ID, console.UpdateUserRequest{Status: &activeStatus})
+	require.NoError(test.t, err)
 }
 
 func findCookie(response Response, name string) *http.Cookie {

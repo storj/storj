@@ -87,23 +87,23 @@ type Config struct {
 	BetaSatelliteFeedbackURL        string        `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string        `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
 	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
 	LinksharingURL                  string        `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
 	PublicLinksharingURL            string        `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
-	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"false"`
+	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
-	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
-	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
+	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"true"`
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
