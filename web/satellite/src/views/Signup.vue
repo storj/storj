@@ -397,7 +397,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + ROUTES.Signup.path;
+            window.location.href = satellite.address + ROUTES.Signup.path + window.location.search;
         }
     },
 });
@@ -417,7 +417,7 @@ const satellites = computed(() => {
  * Returns true if signup activation code is enabled.
  */
 const codeActivationEnabled = computed((): boolean => {
-    return  configStore.state.config.signupActivationCodeEnabled;
+    return configStore.state.config.signupActivationCodeEnabled;
 });
 
 /**
