@@ -33,8 +33,8 @@
             select-strategy="page"
             show-select
             :loading="isFetching || loading"
-            :items-length="isPaginationEnabled ? totalObjectCount : allFiles.length"
-            :items-per-page-options="isPaginationEnabled ? tableSizeOptions(totalObjectCount, true) : undefined"
+            :items-length="totalObjectCount"
+            :items-per-page-options="tableSizeOptions(totalObjectCount, true)"
             :show-expand="showObjectVersions"
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
@@ -232,7 +232,6 @@ import { useNotify } from '@/utils/hooks';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -274,7 +273,6 @@ const emit = defineEmits<{
 }>();
 
 const analyticsStore = useAnalyticsStore();
-const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -329,8 +327,6 @@ const showObjectVersions = computed(() => {
     return obStore.state.showObjectVersions && props.bucket && props.bucket?.versioning !== Versioning.NotSupported;
 });
 
-const isPaginationEnabled = computed<boolean>(() => config.state.config.objectBrowserPaginationEnabled);
-
 const versionsCache = computed<Map<string, BrowserObject[]>>(() => obStore.state.objectVersions);
 
 const expandedFiles = computed<BrowserObject[]>({
@@ -362,8 +358,7 @@ const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
 
-    const objects = isPaginationEnabled.value ? obStore.displayedObjects : obStore.state.files;
-    return objects.map<BrowserObjectWrapper>(file => {
+    return obStore.displayedObjects.map<BrowserObjectWrapper>(file => {
 
         const { name, ext, typeInfo } = getFileInfo(file);
         return {
@@ -420,9 +415,7 @@ const tableFiles = computed<BrowserObjectWrapper[]>(() => {
         });
     }
 
-    if (opts.itemsPerPage === -1 || isPaginationEnabled.value) return files;
-
-    return files.slice((opts.page - 1) * opts.itemsPerPage, opts.page * opts.itemsPerPage);
+    return files;
 });
 
 /**
@@ -567,21 +560,15 @@ async function fetchFiles(): Promise<void> {
     try {
         const path = filePath.value ? filePath.value + '/' : '';
 
-        if (isPaginationEnabled.value) {
-            await obStore.initList(path);
-        } else {
-            await obStore.list(path);
-        }
+        await obStore.initList(path);
 
         selectedFiles.value = [];
 
-        if (isPaginationEnabled.value) {
-            const cachedPage = routePageCache.get(path);
-            if (cachedPage !== undefined) {
-                obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
-            } else {
-                obStore.setCursor({ limit: cursor.value.limit, page: 1 });
-            }
+        const cachedPage = routePageCache.get(path);
+        if (cachedPage !== undefined) {
+            obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+        } else {
+            obStore.setCursor({ limit: cursor.value.limit, page: 1 });
         }
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;

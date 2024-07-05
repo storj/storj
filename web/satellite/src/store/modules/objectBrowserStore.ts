@@ -24,7 +24,6 @@ import { SignatureV4 } from '@smithy/signature-v4';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DuplicateUploadError } from '@/utils/error';
 
@@ -137,8 +136,6 @@ declare global {
 
 export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
-
-    const config = useConfigStore();
 
     const sortedFiles = computed(() => {
         // key-specific sort cases
@@ -653,11 +650,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            if (config.state.config.objectBrowserPaginationEnabled) {
-                await initList();
-            } else {
-                await list();
-            }
+            await initList();
+
             if (state.versionsExpandedKeys.includes(item.Key)) {
                 listVersions(item.Key);
             }
@@ -694,11 +688,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: '',
         }));
 
-        if (config.state.config.objectBrowserPaginationEnabled) {
-            initList();
-        } else {
-            list();
-        }
+        initList();
     }
 
     async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false, shouldRefresh = true): Promise<void> {
@@ -718,11 +708,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         if (!isFolder) {
             if (shouldRefresh) {
-                if (config.state.config.objectBrowserPaginationEnabled) {
-                    await initList();
-                } else {
-                    await list();
-                }
+                await initList();
             }
 
             if (file['VersionId']) {
@@ -776,11 +762,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
 
         removeFile(file);
-        if (config.state.config.objectBrowserPaginationEnabled) {
-            await initList();
-        } else {
-            await list();
-        }
+
+        await initList();
     }
 
     async function deleteSelected(): Promise<void> {

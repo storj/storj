@@ -209,7 +209,6 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -231,7 +230,6 @@ const emit = defineEmits<{
 }>();
 
 const analyticsStore = useAnalyticsStore();
-const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -285,12 +283,7 @@ const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 /**
  * Returns total object count from store.
  */
-const isPaginationEnabled = computed<boolean>(() => config.state.config.objectBrowserPaginationEnabled);
-
-/**
- * Returns total object count from store.
- */
-const totalObjectCount = computed<number>(() => isPaginationEnabled.value ? obStore.state.totalObjectCount : allFiles.value.length);
+const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
 
 /**
  * Returns browser cursor from store.
@@ -311,8 +304,7 @@ const lastPage = computed<number>(() => {
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
 
-    const objects = isPaginationEnabled.value ? obStore.displayedObjects : obStore.state.files;
-    return objects.map<BrowserObjectWrapper>(file => {
+    return obStore.displayedObjects.map<BrowserObjectWrapper>(file => {
         const lowerName = file.Key.toLowerCase();
         const dotIdx = lowerName.lastIndexOf('.');
         const ext = dotIdx === -1 ? '' : file.Key.slice(dotIdx + 1);
@@ -348,33 +340,31 @@ const browserFiles = computed<BrowserObjectWrapper[]>(() => {
     if (sortBy.value.length) {
         const sort = sortBy.value[0];
 
-    type CompareFunc = (a: BrowserObjectWrapper, b: BrowserObjectWrapper) => number;
-    const compareFuncs: Record<SortKey, CompareFunc> = {
-        name: (a, b) => collator.compare(a.browserObject.Key, b.browserObject.Key),
-        type: (a, b) => collator.compare(a.typeInfo.title, b.typeInfo.title) || collator.compare(a.ext, b.ext),
-        size: (a, b) => a.browserObject.Size - b.browserObject.Size,
-        date: (a, b) => a.browserObject.LastModified.getTime() - b.browserObject.LastModified.getTime(),
-    };
+        type CompareFunc = (a: BrowserObjectWrapper, b: BrowserObjectWrapper) => number;
+        const compareFuncs: Record<SortKey, CompareFunc> = {
+            name: (a, b) => collator.compare(a.browserObject.Key, b.browserObject.Key),
+            type: (a, b) => collator.compare(a.typeInfo.title, b.typeInfo.title) || collator.compare(a.ext, b.ext),
+            size: (a, b) => a.browserObject.Size - b.browserObject.Size,
+            date: (a, b) => a.browserObject.LastModified.getTime() - b.browserObject.LastModified.getTime(),
+        };
 
-    files.sort((a, b) => {
-        const objA = a.browserObject, objB = b.browserObject;
-        if (sort.key !== 'type') {
-            if (objA.type === 'folder') {
-                if (objB.type !== 'folder') return -1;
-                if (sort.key === 'size' || sort.key === 'date') return 0;
-            } else if (objB.type === 'folder') {
-                return 1;
+        files.sort((a, b) => {
+            const objA = a.browserObject, objB = b.browserObject;
+            if (sort.key !== 'type') {
+                if (objA.type === 'folder') {
+                    if (objB.type !== 'folder') return -1;
+                    if (sort.key === 'size' || sort.key === 'date') return 0;
+                } else if (objB.type === 'folder') {
+                    return 1;
+                }
             }
-        }
 
-        const cmp = compareFuncs[sort.key](a, b);
-        return sort.order === 'asc' ? cmp : -cmp;
-    });
+            const cmp = compareFuncs[sort.key](a, b);
+            return sort.order === 'asc' ? cmp : -cmp;
+        });
     }
 
-    if (cursor.value.limit === -1 || isPaginationEnabled.value) return files;
-
-    return files.slice((cursor.value.page - 1) * cursor.value.limit, cursor.value.page * cursor.value.limit);
+    return files;
 });
 
 /**
@@ -468,21 +458,15 @@ async function fetchFiles(): Promise<void> {
     try {
         const path = filePath.value ? filePath.value + '/' : '';
 
-        if (isPaginationEnabled.value) {
-            await obStore.initList(path);
-        } else {
-            await obStore.list(path);
-        }
+        await obStore.initList(path);
 
         selected.value = [];
 
-        if (isPaginationEnabled.value) {
-            const cachedPage = routePageCache.get(path);
-            if (cachedPage !== undefined) {
-                obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
-            } else {
-                obStore.setCursor({ limit: cursor.value.limit, page: 1 });
-            }
+        const cachedPage = routePageCache.get(path);
+        if (cachedPage !== undefined) {
+            obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+        } else {
+            obStore.setCursor({ limit: cursor.value.limit, page: 1 });
         }
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;

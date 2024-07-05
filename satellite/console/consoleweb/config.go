@@ -48,7 +48,6 @@ type FrontendConfig struct {
 	PricingPackagesEnabled            bool                  `json:"pricingPackagesEnabled"`
 	GalleryViewEnabled                bool                  `json:"galleryViewEnabled"`
 	NeededTransactionConfirmations    int                   `json:"neededTransactionConfirmations"`
-	ObjectBrowserPaginationEnabled    bool                  `json:"objectBrowserPaginationEnabled"`
 	BillingFeaturesEnabled            bool                  `json:"billingFeaturesEnabled"`
 	StripePaymentElementEnabled       bool                  `json:"stripePaymentElementEnabled"`
 	UnregisteredInviteEmailsEnabled   bool                  `json:"unregisteredInviteEmailsEnabled"`

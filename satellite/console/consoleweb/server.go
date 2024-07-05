@@ -100,7 +100,6 @@ type Config struct {
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
-	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
@@ -863,7 +862,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PricingPackagesEnabled:            server.config.PricingPackagesEnabled,
 		GalleryViewEnabled:                server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
-		ObjectBrowserPaginationEnabled:    server.config.ObjectBrowserPaginationEnabled,
 		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
 		StripePaymentElementEnabled:       server.config.StripePaymentElementEnabled,
 		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
