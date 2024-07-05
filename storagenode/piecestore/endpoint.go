@@ -268,6 +268,13 @@ func (endpoint *Endpoint) Exists(
 	}, nil
 }
 
+var (
+	monUploadHandleMessage      = mon.TaskNamed("upload-handle-message")
+	monPieceWriterWrite         = mon.TaskNamed("piece-writer-write")
+	monUploadStremRecv          = mon.TaskNamed("upload-stream-recv")
+	monUploadStreamSendAndClose = mon.TaskNamed("upload-stream-send-and-close")
+)
+
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
 	ctx := stream.Context()
@@ -431,6 +438,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 
 	handleMessage := func(ctx context.Context, message *pb.PieceUploadRequest) (done bool, err error) {
+		defer monUploadHandleMessage(&ctx)(&err)
+
 		if message.Order != nil {
 			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
 				return true, err
@@ -455,7 +464,14 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if availableSpace < 0 {
 				return true, rpcstatus.Error(rpcstatus.Internal, "out of space")
 			}
-			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
+
+			err := func() (err error) {
+				defer monPieceWriterWrite(&ctx)(&err)
+
+				_, err = pieceWriter.Write(message.Chunk.Data)
+				return err
+			}()
+			if err != nil {
 				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
@@ -514,6 +530,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 
 		closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+			defer monUploadStreamSendAndClose(&ctx)(&err)
+
 			return stream.SendAndClose(&pb.PieceUploadResponse{
 				Done:          storageNodeHash,
 				NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity())})
@@ -544,7 +562,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		// TODO: reuse messages to avoid allocations
 		// N.B.: we are only allowed to use message if the returned error is nil. it would be
 		// a race condition otherwise as Run does not wait for the closure to exit.
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(ctx context.Context) (err error) {
+			defer monUploadStremRecv(&ctx)(&err)
+
 			message, err = stream.Recv()
 			return err
 		})
