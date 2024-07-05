@@ -345,6 +345,17 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectFinishDelete: response,
 				},
 			})
+		case *pb.BatchRequestItem_ObjectGetRetention:
+			singleRequest.ObjectGetRetention.Header = req.Header
+			response, err := endpoint.GetObjectRetention(ctx, singleRequest.ObjectGetRetention)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectGetRetention{
+					ObjectGetRetention: response,
+				},
+			})
 		// SEGMENT
 		case *pb.BatchRequestItem_SegmentBegin:
 			singleRequest.SegmentBegin.Header = req.Header

@@ -30,6 +30,11 @@ import (
 	"storj.io/storj/satellite/orders"
 )
 
+const (
+	projectNoLockErrMsg = "Object Lock is not enabled for this project"
+	bucketNoLockErrMsg  = "Object Lock is not enabled for this bucket"
+)
+
 // BeginObject begins object.
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -84,7 +89,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
@@ -442,7 +447,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
 
 	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
@@ -1776,6 +1781,87 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	mon.Meter("req_update_object_metadata").Mark(1)
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
+}
+
+// GetObjectRetention returns an object's Object Lock retention configuration.
+func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObjectRetentionRequest) (_ *pb.GetObjectRetentionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionLock,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedObjectKey,
+		Time:          now,
+	}, console.RateLimitHead)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	err = endpoint.validateBucketNameLength(req.Bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	if err := validateObjectVersion(req.ObjectVersion); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+	}
+
+	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", string(req.Bucket))
+		}
+		endpoint.log.Error("unable to get bucket's Object Lock configuration", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
+	}
+	if !bucketLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+	}
+
+	loc := metabase.ObjectLocation{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: metabase.BucketName(req.Bucket),
+		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+	}
+
+	var retention metabase.Retention
+	if len(req.ObjectVersion) == 0 {
+		retention, err = endpoint.metabase.GetObjectLastCommittedRetention(ctx, metabase.GetObjectLastCommittedRetention{
+			ObjectLocation: loc,
+		})
+	} else {
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
+		if err != nil {
+			return nil, endpoint.ConvertMetabaseErr(err)
+		}
+		retention, err = endpoint.metabase.GetObjectExactVersionRetention(ctx, metabase.GetObjectExactVersionRetention{
+			ObjectLocation: loc,
+			Version:        sv.Version(),
+		})
+	}
+	if err != nil {
+		return nil, endpoint.ConvertMetabaseErr(err)
+	}
+
+	if !retention.Enabled() {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "object does not have a retention configuration")
+	}
+
+	return &pb.GetObjectRetentionResponse{
+		Retention: &pb.Retention{
+			Mode:        pb.Retention_Mode(retention.Mode),
+			RetainUntil: retention.RetainUntil,
+		},
+	}, nil
 }
 
 func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object) (*pb.Object, error) {
