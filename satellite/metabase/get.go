@@ -100,7 +100,8 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
+			encryption,
+			retention_mode, retain_until
 		FROM objects
 		WHERE
 			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
@@ -114,12 +115,17 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
+			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+
+	if err = object.Retention.Verify(); err != nil {
+		return Object{}, Error.Wrap(err)
 	}
 
 	object.ProjectID = opts.ProjectID
@@ -140,7 +146,8 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 				segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encryption,
+				retention_mode, retain_until
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
@@ -165,6 +172,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
+			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 
@@ -173,6 +181,10 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+
+	if err = object.Retention.Verify(); err != nil {
+		return Object{}, Error.Wrap(err)
 	}
 
 	return object, nil
@@ -208,7 +220,8 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
+			encryption,
+			retention_mode, retain_until
 		FROM objects
 		WHERE
 			(project_id, bucket_name, object_key) = ($1, $2, $3) AND
@@ -224,12 +237,17 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 		encryptionParameters{&object.Encryption},
+		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 	)
 
 	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
 		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 	}
 	if err != nil {
+		return Object{}, Error.Wrap(err)
+	}
+
+	if err = object.Retention.Verify(); err != nil {
 		return Object{}, Error.Wrap(err)
 	}
 
@@ -246,7 +264,8 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 				segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encryption,
+				retention_mode, retain_until
 			FROM objects
 			WHERE
 				project_id = @project_id AND
@@ -273,6 +292,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
+			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 	if err != nil {
@@ -283,6 +303,10 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 	}
 	if object.Status.IsDeleteMarker() {
 		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+	}
+
+	if err = object.Retention.Verify(); err != nil {
+		return Object{}, Error.Wrap(err)
 	}
 
 	return object, nil

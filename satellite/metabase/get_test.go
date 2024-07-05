@@ -247,6 +247,37 @@ func TestGetObjectExactVersion(t *testing.T) {
 				metabase.RawObject(versioned),
 			}}.Check(ctx, t, db)
 		})
+
+		t.Run("Retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: now.Add(time.Hour),
+			}
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version,
+				},
+				Result: metabase.Object{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.CommittedUnversioned,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -320,7 +351,17 @@ func TestGetObjectLastCommitted(t *testing.T) {
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
 
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: now.Add(time.Hour),
+			}
+
 			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -342,6 +383,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					Retention:                     retention,
 				},
 			}.Check(ctx, t, db)
 
@@ -354,6 +396,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					Retention:                     retention,
 				},
 			}}.Check(ctx, t, db)
 		})
