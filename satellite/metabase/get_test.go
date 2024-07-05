@@ -1865,3 +1865,243 @@ func TestBucketEmpty(t *testing.T) {
 		})
 	})
 }
+
+func TestGetObjectExactVersionRetention(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+
+		t.Run("Success", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour),
+			}
+
+			objStream2 := objStream
+			objStream2.Version++
+			obj2, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream2,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream2,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: objStream2.Location(),
+					Version:        objStream2.Version,
+				},
+				Result: retention,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj1), metabase.RawObject(obj2)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version + 1,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestGetObjectLastCommittedRetention(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+		retention := metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour),
+		}
+
+		t.Run("Success", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: objStream.Location(),
+				},
+			}.Check(ctx, t, db)
+
+			objStream2 := objStream
+			objStream2.Version++
+			obj2, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream2,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream2,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream2, 0)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: objStream2.Location(),
+				},
+				Result: retention,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj1), metabase.RawObject(obj2)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: objStream.Location(),
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			loc := objStream.Location()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			committed, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			pendingObjStream := objStream
+			pendingObjStream.Version++
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: pendingObjStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
+			}.Check(ctx, t, db)
+		})
+	})
+}

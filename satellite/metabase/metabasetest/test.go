@@ -821,3 +821,37 @@ func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, d
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
+
+// GetObjectExactVersionRetention is for testing metabase.GetObjectExactVersionRetention.
+type GetObjectExactVersionRetention struct {
+	Opts     metabase.GetObjectExactVersionRetention
+	Result   metabase.Retention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectExactVersionRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectExactVersionRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// GetObjectLastCommittedRetention is for testing metabase.GetObjectLastCommittedRetention.
+type GetObjectLastCommittedRetention struct {
+	Opts     metabase.GetObjectLastCommittedRetention
+	Result   metabase.Retention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommittedRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}

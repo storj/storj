@@ -30,6 +30,9 @@ type Adapter interface {
 	CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error
 	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
+	GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error)
+	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
+
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 	UpdateTableStats(ctx context.Context) error
 	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
