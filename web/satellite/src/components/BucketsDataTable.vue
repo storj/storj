@@ -87,9 +87,11 @@
             </template>
             <template #item.versioning="{ item }">
                 <div class="text-no-wrap">
-                    <v-icon size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border">
-                        <v-tooltip activator="parent" location="top">{{ getVersioningInfo(item.versioning) }}</v-tooltip>
-                    </v-icon>
+                    <v-tooltip location="top" :text="getVersioningInfo(item.versioning)">
+                        <template #activator="{ props }">
+                            <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
+                        </template>
+                    </v-tooltip>
                     <v-chip variant="tonal" color="default" size="small">
                         {{ item.versioning }}
                     </v-chip>
