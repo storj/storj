@@ -3830,3 +3830,367 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 	})
 }
+
+func TestEndpoint_SetObjectRetention(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectLock = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		randObjectStream := func(bucketName string) metabase.ObjectStream {
+			return metabase.ObjectStream{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+				ObjectKey:  metabasetest.RandObjectKey(),
+				Version:    metabase.Version(1 + rand.Int63n(int64(metabase.MaxVersion)-10)),
+				StreamID:   testrand.UUID(),
+			}
+		}
+
+		randRetention := func() metabase.Retention {
+			randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
+			return metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour + randDur),
+			}
+		}
+
+		retentionToProto := func(retention metabase.Retention) *pb.Retention {
+			return &pb.Retention{
+				Mode:        pb.Retention_Mode(retention.Mode),
+				RetainUntil: retention.RetainUntil,
+			}
+		}
+
+		requireRetention := func(
+			t *testing.T, loc metabase.ObjectLocation, version metabase.Version, expectedRetention metabase.Retention,
+		) {
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, o := range objects {
+				if o.Location() == loc && o.Version == version {
+					require.Equal(t, expectedRetention.Mode, o.Retention.Mode)
+					require.WithinDuration(t, expectedRetention.RetainUntil, o.Retention.RetainUntil, time.Microsecond)
+					return
+				}
+			}
+			t.Fatal("object not found")
+		}
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
+			object, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return object
+		}
+
+		createBucket := func(t *testing.T, lockEnabled bool) string {
+			name := testrand.BucketName()
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:              name,
+				ProjectID:         project.ID,
+				Versioning:        buckets.VersioningEnabled,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+			return name
+		}
+
+		lockBucketName := createBucket(t, true)
+
+		t.Run("Set retention", func(t *testing.T) {
+			objStream := randObjectStream(lockBucketName)
+			obj1 := createObject(t, objStream, metabase.Retention{})
+			objStream.Version++
+			obj2 := createObject(t, objStream, metabase.Retention{})
+
+			// exact version
+			expectedRetention1 := randRetention()
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      obj1.StreamVersionID().Bytes(),
+				Retention:          retentionToProto(expectedRetention1),
+			})
+			require.NoError(t, err)
+
+			// Ensure that retention periods can be lengthened.
+			expectedRetention1.RetainUntil = expectedRetention1.RetainUntil.Add(time.Hour)
+			_, err = endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      obj1.StreamVersionID().Bytes(),
+				Retention:          retentionToProto(expectedRetention1),
+			})
+			require.NoError(t, err)
+
+			// last committed version
+			expectedRetention2 := randRetention()
+			_, err = endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				Retention:          retentionToProto(expectedRetention2),
+			})
+			require.NoError(t, err)
+
+			requireRetention(t, objStream.Location(), obj1.Version, expectedRetention1)
+			requireRetention(t, objStream.Location(), obj2.Version, expectedRetention2)
+		})
+
+		t.Run("Remove retention", func(t *testing.T) {
+			objStream := randObjectStream(lockBucketName)
+			obj := createObject(t, objStream, randRetention())
+
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+			})
+			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "an active retention configuration cannot be removed")
+			requireRetention(t, objStream.Location(), objStream.Version, obj.Retention)
+
+			objStream = randObjectStream(lockBucketName)
+			obj = createObject(t, objStream, metabase.Retention{})
+
+			_, err = endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+			})
+			require.NoError(t, err)
+			requireRetention(t, objStream.Location(), objStream.Version, metabase.Retention{})
+		})
+
+		t.Run("Shorten retention", func(t *testing.T) {
+			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			obj := createObject(t, objStream, retention)
+
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+				Retention: &pb.Retention{
+					Mode:        pb.Retention_COMPLIANCE,
+					RetainUntil: retention.RetainUntil.Add(-time.Minute),
+				},
+			})
+			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "retention period cannot be shortened")
+
+			requireRetention(t, objStream.Location(), objStream.Version, retention)
+		})
+
+		t.Run("Invalid retention", func(t *testing.T) {
+			objStream := randObjectStream(lockBucketName)
+			obj := createObject(t, objStream, metabase.Retention{})
+
+			check := func(retention *pb.Retention, errText string) {
+				_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:             []byte(objStream.BucketName),
+					EncryptedObjectKey: []byte(objStream.ObjectKey),
+					ObjectVersion:      obj.StreamVersionID().Bytes(),
+					Retention:          retention,
+				})
+				rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, errText)
+			}
+
+			check(&pb.Retention{}, "invalid retention mode 0, expected 1 (compliance)")
+
+			check(&pb.Retention{
+				Mode: pb.Retention_COMPLIANCE,
+			}, "retention period expiration time must be set if retention is set")
+
+			check(&pb.Retention{
+				Mode:        pb.Retention_COMPLIANCE,
+				RetainUntil: time.Now().Add(-time.Minute),
+			}, "retention period expiration time must not be in the past")
+
+			check(&pb.Retention{
+				Mode:        pb.Retention_COMPLIANCE + 1,
+				RetainUntil: time.Now().Add(time.Hour),
+			}, "invalid retention mode 2, expected 1 (compliance)")
+
+			requireRetention(t, objStream.Location(), objStream.Version, metabase.Retention{})
+		})
+
+		t.Run("Missing bucket", func(t *testing.T) {
+			objStream := randObjectStream(testrand.BucketName())
+			obj := createObject(t, objStream, metabase.Retention{})
+
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+				Retention:          retentionToProto(randRetention()),
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.NotFound, "bucket not found: "+string(objStream.BucketName))
+
+			requireRetention(t, objStream.Location(), objStream.Version, metabase.Retention{})
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			objStream := randObjectStream(lockBucketName)
+
+			req := &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				Retention:          retentionToProto(randRetention()),
+			}
+
+			// last committed version
+			_, err := endpoint.SetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+
+			createObject(t, objStream, metabase.Retention{})
+
+			// exact version
+			req.ObjectVersion = testrand.Bytes(16)
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+
+			requireRetention(t, objStream.Location(), objStream.Version, metabase.Retention{})
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			objStream := randObjectStream(lockBucketName)
+			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream: objStream,
+				Encryption:   metabasetest.DefaultEncryption,
+			})
+			require.NoError(t, err)
+
+			retention := randRetention()
+			req := &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      pending.StreamVersionID().Bytes(),
+				Retention:          retentionToProto(retention),
+			}
+
+			// exact version
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.FailedPrecondition, "Object Lock settings must only be placed on committed objects")
+
+			// last committed version
+			req.ObjectVersion = nil
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+
+			committed, err := db.CommitObject(ctx, metabase.CommitObject{ObjectStream: objStream})
+			require.NoError(t, err)
+
+			pendingObjStream := objStream
+			pendingObjStream.Version++
+			pending, err = db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream: pendingObjStream,
+				Encryption:   metabasetest.DefaultEncryption,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			require.NoError(t, err)
+
+			// Ensure that the pending object is skipped despite being newer
+			// than the committed one.
+			requireRetention(t, objStream.Location(), pending.Version, metabase.Retention{})
+			requireRetention(t, objStream.Location(), committed.Version, retention)
+		})
+
+		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
+			bucketName := createBucket(t, false)
+			obj := createObject(t, randObjectStream(bucketName), metabase.Retention{})
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(obj.BucketName),
+				EncryptedObjectKey: []byte(obj.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this bucket")
+			requireRetention(t, obj.Location(), obj.Version, metabase.Retention{})
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			endpoint.SetUseBucketLevelObjectLock(false)
+			defer endpoint.SetUseBucketLevelObjectLock(true)
+
+			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			obj := createObject(t, objStream, metabase.Retention{})
+
+			req := &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(obj.BucketName),
+				EncryptedObjectKey: []byte(obj.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+				Retention:          retentionToProto(retention),
+			}
+
+			_, err := endpoint.SetObjectRetention(ctx, req)
+			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+			requireRetention(t, obj.Location(), obj.Version, obj.Retention)
+
+			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			require.NoError(t, err)
+			requireRetention(t, obj.Location(), obj.Version, retention)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			obj := createObject(t, objStream, metabase.Retention{})
+
+			req := &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: oldApiKey.SerializeRaw()},
+				Bucket:             []byte(obj.BucketName),
+				EncryptedObjectKey: []byte(obj.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+				Retention:          retentionToProto(retention),
+			}
+
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			require.NoError(t, err)
+
+			req.Header.ApiKey = noLockApiKey.SerializeRaw()
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
+	})
+}
