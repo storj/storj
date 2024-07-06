@@ -468,10 +468,12 @@ func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *cons
 			zap.Error(err),
 		)
 	} else if exceeded {
-		endpoint.log.Warn("Monthly bandwidth limit exceeded",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
+		if limit > 0 {
+			endpoint.log.Warn("Monthly bandwidth limit exceeded",
+				zap.Stringer("Limit", limit),
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+			)
+		}
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
 	return nil
@@ -486,18 +488,22 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 ) error {
 	limit := endpoint.projectUsage.ExceedsUploadLimits(ctx, keyInfo.ProjectID, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo))
 	if limit.ExceedsSegments {
-		endpoint.log.Warn("Segment limit exceeded",
-			zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
+		if limit.SegmentsLimit > 0 {
+			endpoint.log.Warn("Segment limit exceeded",
+				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+			)
+		}
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
 	}
 
 	if limit.ExceedsStorage {
-		endpoint.log.Warn("Storage limit exceeded",
-			zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
+		if limit.StorageLimit > 0 {
+			endpoint.log.Warn("Storage limit exceeded",
+				zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+			)
+		}
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
 	}
 
