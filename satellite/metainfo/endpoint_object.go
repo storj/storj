@@ -628,6 +628,8 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	var allowLock bool
+
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
 		VerifyPermission{
@@ -645,6 +647,16 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &allowLock,
+			Optional:        true,
 		},
 	)
 	if err != nil {
@@ -703,6 +715,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	object, err := endpoint.objectToProto(ctx, mbObject)
+
 	// TODO this code is triggered only by very old uplink library (<1.4.2) and we will remove it eventually.
 	// note: for non-default RS schema it
 	if !req.RedundancySchemePerSegment && mbObject.SegmentCount > 0 {
@@ -747,6 +760,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
+	if !allowLock {
+		object.Retention = nil
+	}
+
 	endpoint.log.Debug("Object Get", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
 	mon.Meter("req_get_object").Mark(1)
 
@@ -769,12 +786,29 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionRead,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedObjectKey,
-		Time:          time.Now(),
-	}, console.RateLimitGet)
+	var allowLock bool
+
+	now := time.Now()
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitGet,
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &allowLock,
+			Optional:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -984,6 +1018,9 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	if err != nil {
 		endpoint.log.Error("unable to convert object to proto", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+	if !allowLock {
+		protoObject.Retention = nil
 	}
 
 	segmentList, err := convertSegmentListResults(segments)
