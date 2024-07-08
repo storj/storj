@@ -110,7 +110,8 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
 					encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-					fixed_segment_size, encryption
+					fixed_segment_size, encryption,
+					retention_mode, retain_until
 			), deleted_segments AS (
 				DELETE FROM segments
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
@@ -119,7 +120,8 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
 				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-				fixed_segment_size, encryption
+				fixed_segment_size, encryption,
+				retention_mode, retain_until
 			FROM deleted_objects`,
 			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version),
 	)(func(rows tagsql.Rows) error {
@@ -219,7 +221,8 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-					total_plain_size, total_encrypted_size, fixed_segment_size, encryption
+					total_plain_size, total_encrypted_size, fixed_segment_size, encryption,
+					retention_mode, retain_until
 			), deleted_segments AS (
 				DELETE FROM segments
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
@@ -228,7 +231,8 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size, encryption
+				total_plain_size, total_encrypted_size, fixed_segment_size, encryption,
+				retention_mode, retain_until
 			FROM deleted_objects
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
 		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
@@ -428,6 +432,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
+			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		)
 		if err != nil {
 			return nil, Error.New("unable to delete object: %w", err)
@@ -442,7 +447,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 const collectDeletedObjectsSpannerFields = " " +
 	`version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
 	encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-	fixed_segment_size, encryption`
+	fixed_segment_size, encryption, retention_mode, retain_until`
 
 // collectDeletedObjectsSpanner reads in the results of an object deletion from the database.
 func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, iter *spanner.RowIterator) (objects []Object, err error) {
@@ -456,6 +461,7 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				encryptionParameters{&object.Encryption},
+				retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 			)
 			if err != nil {
 				return Error.New("unable to delete object: %w", err)
@@ -581,7 +587,8 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, op
 					status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 					total_plain_size, total_encrypted_size, fixed_segment_size,
-					encryption
+					encryption,
+					retention_mode, retain_until
 			), deleted_segments AS (
 				DELETE FROM segments
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
@@ -590,7 +597,8 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, op
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
 				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-				fixed_segment_size, encryption
+				fixed_segment_size, encryption,
+				retention_mode, retain_until
 			FROM deleted_objects`,
 			opts.ProjectID, opts.BucketName, opts.ObjectKey),
 	)(func(rows tagsql.Rows) error {

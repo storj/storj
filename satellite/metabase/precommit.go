@@ -268,7 +268,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 				status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encryption,
+				retention_mode, retain_until
 		), deleted_segments AS (
 			DELETE FROM segments
 			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
@@ -288,6 +289,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			(SELECT total_encrypted_size FROM deleted_objects),
 			(SELECT fixed_segment_size FROM deleted_objects),
 			(SELECT encryption FROM deleted_objects),
+			(SELECT retention_mode FROM deleted_objects),
+			(SELECT retain_until FROM deleted_objects),
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments),
 			coalesce((SELECT version FROM highest_object), 0)
@@ -306,6 +309,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
+			retentionModeWrapper{&deleted.Retention.Mode},
+			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
 			&result.HighestVersion,
@@ -394,7 +399,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 				status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encryption,
+				retention_mode, retain_until
 		), deleted_segments AS (
 			DELETE FROM segments
 			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
@@ -414,6 +420,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			(SELECT total_encrypted_size FROM deleted_objects),
 			(SELECT fixed_segment_size FROM deleted_objects),
 			(SELECT encryption FROM deleted_objects),
+			(SELECT retention_mode FROM deleted_objects),
+			(SELECT retain_until FROM deleted_objects),
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments),
 			coalesce((SELECT version FROM highest_object), 0)
@@ -432,6 +440,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
+			retentionModeWrapper{&deleted.Retention.Mode},
+			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
 			&result.HighestVersion,
@@ -512,7 +522,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 				status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encryption,
+				retention_mode, retain_until
 		), deleted_segments AS (
 			DELETE FROM segments
 			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
@@ -532,6 +543,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			(SELECT total_encrypted_size FROM deleted_objects),
 			(SELECT fixed_segment_size FROM deleted_objects),
 			(SELECT encryption FROM deleted_objects),
+			(SELECT retention_mode FROM deleted_objects),
+			(SELECT retain_until FROM deleted_objects),
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments)
 	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
@@ -549,6 +562,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
+			retentionModeWrapper{&deleted.Retention.Mode},
+			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
 		)
