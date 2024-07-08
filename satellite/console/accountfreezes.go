@@ -889,7 +889,9 @@ func limitUpdatesFromLimits(limits UsageLimits) []Limit {
 
 	return []Limit{
 		{Kind: BandwidthLimit, Value: &limits.Bandwidth},
+		{Kind: UserSetBandwidthLimit, Value: limits.UserSetBandwidthLimit},
 		{Kind: StorageLimit, Value: &limits.Storage},
+		{Kind: UserSetStorageLimit, Value: limits.UserSetStorageLimit},
 		{Kind: SegmentLimit, Value: &limits.Segment},
 		{Kind: RateLimit, Value: toInt64Ptr(limits.RateLimit)},
 		{Kind: RateLimitGet, Value: toInt64Ptr(limits.RateLimitGet)},
@@ -953,8 +955,16 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 		if p.StorageLimit != nil {
 			projLimits.Storage = p.StorageLimit.Int64()
 		}
+		if p.UserSpecifiedStorageLimit != nil {
+			value := p.UserSpecifiedStorageLimit.Int64()
+			projLimits.UserSetStorageLimit = &value
+		}
 		if p.BandwidthLimit != nil {
 			projLimits.Bandwidth = p.BandwidthLimit.Int64()
+		}
+		if p.UserSpecifiedBandwidthLimit != nil {
+			value := p.UserSpecifiedBandwidthLimit.Int64()
+			projLimits.UserSetBandwidthLimit = &value
 		}
 		if p.SegmentLimit != nil {
 			projLimits.Segment = *p.SegmentLimit
@@ -1022,7 +1032,9 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 		zeroLimit := int64(0)
 		limits := []Limit{
 			{Kind: StorageLimit, Value: &zeroLimit},
+			{Kind: UserSetStorageLimit, Value: nil},
 			{Kind: BandwidthLimit, Value: &zeroLimit},
+			{Kind: UserSetBandwidthLimit, Value: nil},
 			{Kind: SegmentLimit, Value: &zeroLimit},
 		}
 
@@ -1041,9 +1053,6 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 			limits = append(limits, Limit{Kind: BurstLimitDelete, Value: &zeroLimit})
 			limits = append(limits, Limit{Kind: BurstLimitPut, Value: &zeroLimit})
 			limits = append(limits, Limit{Kind: BurstLimitList, Value: &zeroLimit})
-
-			limits = append(limits, Limit{Kind: UserSetStorageLimit, Value: nil})
-			limits = append(limits, Limit{Kind: UserSetBandwidthLimit, Value: nil})
 		}
 		err = tx.Projects().UpdateLimitsGeneric(ctx, proj.ID, limits)
 		if err != nil {

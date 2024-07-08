@@ -53,7 +53,7 @@ func getUserLimits(u *console.User) console.UsageLimits {
 }
 
 func getProjectLimits(p *console.Project) console.UsageLimits {
-	return console.UsageLimits{
+	limits := console.UsageLimits{
 		Storage:          p.StorageLimit.Int64(),
 		Bandwidth:        p.BandwidthLimit.Int64(),
 		Segment:          *p.SegmentLimit,
@@ -70,11 +70,27 @@ func getProjectLimits(p *console.Project) console.UsageLimits {
 		BurstLimitPut:    p.BurstLimitPut,
 		BurstLimitDelete: p.BurstLimitDelete,
 	}
+	if p.UserSpecifiedBandwidthLimit != nil {
+		value := p.UserSpecifiedBandwidthLimit.Int64()
+		limits.UserSetBandwidthLimit = &value
+	}
+	if p.UserSpecifiedStorageLimit != nil {
+		value := p.UserSpecifiedStorageLimit.Int64()
+		limits.UserSetStorageLimit = &value
+	}
+	return limits
 }
 
-func randUsageLimits(withRateAndBurst bool) console.UsageLimits {
-	usageLimits := console.UsageLimits{Storage: rand.Int63() + 1, Bandwidth: rand.Int63() + 1, Segment: rand.Int63() + 1}
-	if withRateAndBurst {
+func randUsageLimits(forProject bool) console.UsageLimits {
+	usageLimits := console.UsageLimits{
+		Storage:   rand.Int63() + 1,
+		Bandwidth: rand.Int63() + 1,
+		Segment:   rand.Int63() + 1,
+	}
+	if forProject {
+		usageLimits.UserSetBandwidthLimit = &usageLimits.Bandwidth
+		usageLimits.UserSetStorageLimit = &usageLimits.Storage
+
 		rate, burst := rand.Intn(100)+1, rand.Intn(100)+1
 		usageLimits.RateLimit = &rate
 		usageLimits.RateLimitHead = &rate
@@ -95,7 +111,9 @@ func randUsageLimits(withRateAndBurst bool) console.UsageLimits {
 func updateProjectLimits(ctx context.Context, db console.Projects, p *console.Project, limits console.UsageLimits) error {
 	limitUpdates := []console.Limit{
 		{Kind: console.BandwidthLimit, Value: &limits.Bandwidth},
+		{Kind: console.UserSetBandwidthLimit, Value: limits.UserSetBandwidthLimit},
 		{Kind: console.StorageLimit, Value: &limits.Storage},
+		{Kind: console.UserSetStorageLimit, Value: limits.UserSetStorageLimit},
 		{Kind: console.SegmentLimit, Value: &limits.Segment},
 	}
 	if limits.RateLimit != nil && limits.BurstLimit != nil {
@@ -143,6 +161,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
+			PaidTier: true,
 		}, 2)
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
@@ -177,9 +196,11 @@ func TestAccountBillingFreeze(t *testing.T) {
 		// segment, bandwidth and storage limits should be zeroed out.
 		require.NotNil(t, proj.BandwidthLimit)
 		require.Zero(t, proj.BandwidthLimit.Int64())
+		require.Nil(t, proj.UserSpecifiedBandwidthLimit)
 		require.NotNil(t, proj.StorageLimit)
 		require.Zero(t, proj.StorageLimit.Int64())
-		require.NotNil(t, proj.BandwidthLimit)
+		require.Nil(t, proj.UserSpecifiedStorageLimit)
+		require.NotNil(t, proj.SegmentLimit)
 		require.Zero(t, *proj.SegmentLimit)
 		// rate and burst limits should not be zeroed out.
 		require.NotNil(t, proj.RateLimit)
@@ -296,9 +317,11 @@ func TestAccountViolationFreeze(t *testing.T) {
 			// segment, bandwidth and storage limits should be zeroed out.
 			require.NotNil(t, proj.BandwidthLimit)
 			require.Zero(t, proj.BandwidthLimit.Int64())
+			require.Nil(t, proj.UserSpecifiedBandwidthLimit)
 			require.NotNil(t, proj.StorageLimit)
 			require.Zero(t, proj.StorageLimit.Int64())
-			require.NotNil(t, proj.BandwidthLimit)
+			require.Nil(t, proj.UserSpecifiedStorageLimit)
+			require.NotNil(t, proj.SegmentLimit)
 			require.Zero(t, *proj.SegmentLimit)
 			// rate and burst limits should not be zeroed out.
 			require.NotNil(t, proj.RateLimit)
@@ -582,9 +605,11 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 			// segment, bandwidth and storage limits should be zeroed out.
 			require.NotNil(t, proj2.BandwidthLimit)
 			require.Zero(t, proj2.BandwidthLimit.Int64())
+			require.Nil(t, proj2.UserSpecifiedBandwidthLimit)
 			require.NotNil(t, proj2.StorageLimit)
 			require.Zero(t, proj2.StorageLimit.Int64())
-			require.NotNil(t, proj2.BandwidthLimit)
+			require.Nil(t, proj2.UserSpecifiedStorageLimit)
+			require.NotNil(t, proj2.SegmentLimit)
 			require.Zero(t, *proj2.SegmentLimit)
 			// rate and burst limits should not be zeroed out.
 			require.NotNil(t, proj2.RateLimit)
@@ -663,6 +688,9 @@ func TestFreezeEffects(t *testing.T) {
 		user1, _, err := consoleService.GetUserByEmailWithUnverified(ctx, uplink1.User[sat.ID()].Email)
 		require.NoError(t, err)
 
+		userCtx, err := sat.UserContext(ctx, user1.ID)
+		require.NoError(t, err)
+
 		bucketName := "testbucket"
 		path := "test/path"
 
@@ -727,6 +755,14 @@ func TestFreezeEffects(t *testing.T) {
 
 			require.NoError(t, freezeService.BillingFreezeUser(ctx, user1.ID))
 
+			// can not update limits when frozen.
+			someSize := 1 * memory.KB
+			err = consoleService.UpdateUserSpecifiedLimits(userCtx, uplink1.Projects[0].ID, console.UpdateLimitsInfo{
+				StorageLimit:   &someSize,
+				BandwidthLimit: &someSize,
+			})
+			require.Error(t, err)
+
 			shouldNotUploadAndDownload(t)
 			shouldListAndDelete(t)
 
@@ -741,6 +777,14 @@ func TestFreezeEffects(t *testing.T) {
 
 			require.NoError(t, freezeService.ViolationFreezeUser(ctx, user1.ID))
 
+			// can not update limits when frozen.
+			someSize := 1 * memory.KB
+			err = consoleService.UpdateUserSpecifiedLimits(userCtx, uplink1.Projects[0].ID, console.UpdateLimitsInfo{
+				StorageLimit:   &someSize,
+				BandwidthLimit: &someSize,
+			})
+			require.Error(t, err)
+
 			shouldNotUploadAndDownload(t)
 			shouldListAndDelete(t)
 
@@ -754,6 +798,14 @@ func TestFreezeEffects(t *testing.T) {
 			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.LegalFreezeUser(ctx, user1.ID))
+
+			// can not update limits when frozen.
+			someSize := 1 * memory.KB
+			err = consoleService.UpdateUserSpecifiedLimits(userCtx, uplink1.Projects[0].ID, console.UpdateLimitsInfo{
+				StorageLimit:   &someSize,
+				BandwidthLimit: &someSize,
+			})
+			require.Error(t, err)
 
 			shouldNotUploadAndDownload(t)
 			shouldNotListAndDelete(t)
