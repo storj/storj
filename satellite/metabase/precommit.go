@@ -976,12 +976,19 @@ func (r *PrecommitConstraintWithNonPendingResult) submitMetrics() {
 }
 
 // PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
-func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := loc.Verify(); err != nil {
+func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, opts PrecommitDeleteUnversionedWithNonPending) (PrecommitConstraintWithNonPendingResult, error) {
+	if err := opts.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
+
+	if opts.UseObjectLock {
+		return ptx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
+	}
+	return ptx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
+}
+
+func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	var deleted Object
 
@@ -1101,13 +1108,169 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 	return result, nil
 }
 
-// PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
-func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+// precommitDeleteUnversionedWithNonPendingUsingObjectLock deletes the unversioned object at loc
+// and also returns the highest version and highest committed version. It returns an error if the
+// object's Object Lock configuration prohibits its deletion.
+func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := loc.Verify(); err != nil {
+	type versionAndRetention struct {
+		version   Version
+		retention Retention
+	}
+
+	var (
+		highestVersionScanned, highestNonPendingVersionScanned bool
+		objectToDelete                                         *versionAndRetention
+	)
+
+	err = withRows(ptx.tx.QueryContext(ctx, `
+		SELECT version, status, retention_mode, retain_until
+		FROM objects
+		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+		ORDER BY version DESC
+		`, loc.ProjectID, loc.BucketName, loc.ObjectKey,
+	))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var (
+				version   Version
+				status    ObjectStatus
+				retention Retention
+			)
+			err := rows.Scan(&version, &status, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			if !highestVersionScanned {
+				result.HighestVersion = version
+				highestVersionScanned = true
+			}
+
+			if !highestNonPendingVersionScanned && status != Pending {
+				result.HighestNonPendingVersion = version
+				highestNonPendingVersionScanned = true
+			}
+
+			if status.IsUnversioned() {
+				if objectToDelete != nil {
+					ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
+						zap.Stringer("Project ID", loc.ProjectID),
+						zap.Stringer("Bucket Name", loc.BucketName),
+						zap.ByteString("Object Key", []byte(loc.ObjectKey)),
+					)
+					mon.Meter("multiple_committed_versions").Mark(1)
+
+					return errs.New("internal error: multiple committed unversioned objects")
+				}
+				objectToDelete = &versionAndRetention{
+					version:   version,
+					retention: retention,
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return PrecommitConstraintWithNonPendingResult{}, nil
+		}
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
+	if objectToDelete == nil {
+		return result, nil
+	}
+
+	if err = objectToDelete.retention.Verify(); err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+	if objectToDelete.retention.Active() {
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	}
+
+	deleted := Object{
+		ObjectStream: ObjectStream{
+			ProjectID:  loc.ProjectID,
+			BucketName: loc.BucketName,
+			ObjectKey:  loc.ObjectKey,
+			Version:    objectToDelete.version,
+		},
+	}
+
+	err = ptx.tx.QueryRowContext(ctx, `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+			RETURNING
+				stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				retention_mode, retain_until
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT *, (SELECT count(*) FROM deleted_segments)
+		FROM deleted_objects
+		`, loc.ProjectID, loc.BucketName, loc.ObjectKey, objectToDelete.version,
+	).Scan(
+		&deleted.StreamID,
+		&deleted.CreatedAt,
+		&deleted.ExpiresAt,
+		&deleted.Status,
+		&deleted.SegmentCount,
+		&deleted.EncryptedMetadataNonce,
+		&deleted.EncryptedMetadata,
+		&deleted.EncryptedMetadataEncryptedKey,
+		&deleted.TotalPlainSize,
+		&deleted.TotalEncryptedSize,
+		&deleted.FixedSegmentSize,
+		encryptionParameters{&deleted.Encryption},
+		retentionModeWrapper{&deleted.Retention.Mode},
+		timeWrapper{&deleted.Retention.RetainUntil},
+		&result.DeletedSegmentCount,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// If this query returned no results, then the highest non-pending version
+			// was removed since the first query.
+			if result.HighestVersion == objectToDelete.version {
+				result.HighestVersion = 0
+			}
+			if result.HighestNonPendingVersion == objectToDelete.version {
+				result.HighestNonPendingVersion = 0
+			}
+
+			return result, nil
+		}
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+
+	result.Deleted = append(result.Deleted, deleted)
+	result.DeletedObjectCount = 1
+
+	return result, nil
+}
+
+// PrecommitDeleteUnversionedWithNonPending deletes the unversioned object at loc and also returns the highest version and highest committed version.
+func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(ctx context.Context, opts PrecommitDeleteUnversionedWithNonPending) (PrecommitConstraintWithNonPendingResult, error) {
+	if err := opts.Verify(); err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+
+	if opts.UseObjectLock {
+		return stx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
+	}
+	return stx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
+}
+
+func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	result, err = spannerutil.CollectRow(stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
@@ -1197,5 +1360,140 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 	if len(result.Deleted) == 0 {
 		result.Deleted = nil
 	}
+	return result, nil
+}
+
+func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	type versionAndRetention struct {
+		version   Version
+		retention Retention
+	}
+
+	var (
+		highestVersionScanned, highestNonPendingVersionScanned bool
+		objectToDelete                                         *versionAndRetention
+	)
+
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT version, status, retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+			ORDER BY version DESC
+		`,
+		Params: map[string]interface{}{
+			"project_id":  loc.ProjectID,
+			"bucket_name": loc.BucketName,
+			"object_key":  loc.ObjectKey,
+		},
+	}).Do(func(row *spanner.Row) error {
+		var (
+			version   Version
+			status    ObjectStatus
+			retention Retention
+		)
+		err := row.Columns(&version, &status, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		if !highestVersionScanned {
+			result.HighestVersion = version
+			highestVersionScanned = true
+		}
+
+		if !highestNonPendingVersionScanned && status != Pending {
+			result.HighestNonPendingVersion = version
+			highestNonPendingVersionScanned = true
+		}
+
+		if status.IsUnversioned() {
+			if objectToDelete != nil {
+				stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
+					zap.Stringer("Project ID", loc.ProjectID),
+					zap.Stringer("Bucket Name", loc.BucketName),
+					zap.ByteString("Object Key", []byte(loc.ObjectKey)),
+				)
+				mon.Meter("multiple_committed_versions").Mark(1)
+
+				return errs.New("internal error: multiple committed unversioned objects")
+			}
+			objectToDelete = &versionAndRetention{
+				version:   version,
+				retention: retention,
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+	if objectToDelete == nil {
+		return result, nil
+	}
+
+	if err = objectToDelete.retention.Verify(); err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+	if objectToDelete.retention.Active() {
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	}
+
+	// TODO(spanner): is there a better way to combine these deletes from different tables?
+	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc,
+		stx.tx.Query(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+				THEN RETURN ` + collectDeletedObjectsSpannerFields,
+			Params: map[string]interface{}{
+				"project_id":  loc.ProjectID,
+				"bucket_name": loc.BucketName,
+				"object_key":  loc.ObjectKey,
+				"version":     objectToDelete.version,
+			},
+		}),
+	)
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
+	}
+	if len(result.Deleted) == 0 {
+		// If this query returned no results, then the highest non-pending version
+		// was removed since the first query.
+		if result.HighestVersion == objectToDelete.version {
+			result.HighestVersion = 0
+		}
+		if result.HighestNonPendingVersion == objectToDelete.version {
+			result.HighestNonPendingVersion = 0
+		}
+
+		// match behavior of postgresTransactionAdapter, to appease a test
+		result.Deleted = nil
+
+		return result, nil
+	}
+
+	// TODO(spanner): make sure this is an efficient query
+	segmentDeletion := spanner.Statement{
+		SQL: `
+			DELETE FROM segments
+			WHERE stream_id = @stream_id
+		`,
+		Params: map[string]interface{}{
+			"stream_id": result.Deleted[0].StreamID,
+		},
+	}
+	segmentsDeleted, err := stx.tx.Update(ctx, segmentDeletion)
+	if err != nil {
+		return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
+	}
+
+	result.DeletedObjectCount = 1
+	result.DeletedSegmentCount = int(segmentsDeleted)
+
 	return result, nil
 }

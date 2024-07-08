@@ -325,6 +325,10 @@ type DeleteObjectLastCommitted struct {
 
 	Versioned bool
 	Suspended bool
+
+	// UseObjectLock, if enabled, prevents the deletion of committed object versions with
+	// active Object Lock configurations.
+	UseObjectLock bool
 }
 
 // Verify delete object last committed fields.
@@ -463,16 +467,29 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opt
 }
 
 type deleteTransactionAdapter interface {
-	PrecommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error)
+	PrecommitDeleteUnversionedWithNonPending(ctx context.Context, opts PrecommitDeleteUnversionedWithNonPending) (result PrecommitConstraintWithNonPendingResult, err error)
+}
+
+// PrecommitDeleteUnversionedWithNonPending contains arguments necessary for deleting an unversioned object
+// at a specified location and returning the highest non-pending version at that location.
+type PrecommitDeleteUnversionedWithNonPending struct {
+	ObjectLocation
+
+	// UseObjectLock, if enabled, prevents the deletion of committed object versions with
+	// active Object Lock configurations.
+	UseObjectLock bool
 }
 
 // DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
 func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
 	var precommit PrecommitConstraintWithNonPendingResult
 	err = p.WithTx(ctx, func(ctx context.Context, tx TransactionAdapter) (err error) {
-		precommit, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
+		precommit, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, PrecommitDeleteUnversionedWithNonPending{
+			ObjectLocation: opts.ObjectLocation,
+			UseObjectLock:  opts.UseObjectLock,
+		})
 		if err != nil {
-			return Error.Wrap(err)
+			return errs.Wrap(err)
 		}
 		if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
 			// an object didn't exist in the first place
@@ -523,9 +540,12 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 	err = s.WithTx(ctx, func(ctx context.Context, atx TransactionAdapter) error {
 		stx := atx.(*spannerTransactionAdapter)
 
-		precommit, err = stx.PrecommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
+		precommit, err = stx.PrecommitDeleteUnversionedWithNonPending(ctx, PrecommitDeleteUnversionedWithNonPending{
+			ObjectLocation: opts.ObjectLocation,
+			UseObjectLock:  opts.UseObjectLock,
+		})
 		if err != nil {
-			return Error.Wrap(err)
+			return errs.Wrap(err)
 		}
 		if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
 			// an object didn't exist in the first place

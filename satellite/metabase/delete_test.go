@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -1157,6 +1158,73 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					},
 				},
 			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object with retention", func(t *testing.T) {
+			createLockedObject := func(t *testing.T, retainUntil time.Time) (metabase.Object, []metabase.Segment) {
+				return metabasetest.CreateTestObject{
+					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention: metabase.Retention{
+							Mode:        storj.ComplianceMode,
+							RetainUntil: retainUntil,
+						},
+					},
+				}.Run(ctx, t, db, obj, 1)
+			}
+
+			t.Run("Suspended", func(t *testing.T) {
+				t.Run("Active retention", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, segments := createLockedObject(t, time.Now().Add(time.Hour))
+
+					metabasetest.DeleteObjectLastCommitted{
+						Opts: metabase.DeleteObjectLastCommitted{
+							ObjectLocation: object.Location(),
+							UseObjectLock:  true,
+							Suspended:      true,
+						},
+						ErrClass: &metabase.ErrObjectLock,
+						ErrText:  "object has an active retention period",
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects:  []metabase.RawObject{metabase.RawObject(object)},
+						Segments: metabasetest.SegmentsToRaw(segments),
+					}.Check(ctx, t, db)
+				})
+
+				t.Run("Expired retention", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, _ := createLockedObject(t, time.Now().Add(-time.Minute))
+
+					markerObjStream := obj
+					markerObjStream.Version++
+
+					deleted := metabasetest.DeleteObjectLastCommitted{
+						Opts: metabase.DeleteObjectLastCommitted{
+							ObjectLocation: object.Location(),
+							UseObjectLock:  true,
+							Suspended:      true,
+						},
+						Result: metabase.DeleteObjectResult{
+							Removed: []metabase.Object{object},
+							Markers: []metabase.Object{{
+								ObjectStream: markerObjStream,
+								CreatedAt:    time.Now(),
+								Status:       metabase.DeleteMarkerUnversioned,
+							}},
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects: []metabase.RawObject{metabase.RawObject(deleted.Markers[0])},
+					}.Check(ctx, t, db)
+				})
+			})
 		})
 	})
 }
