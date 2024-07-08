@@ -4,6 +4,8 @@
 package pieces_test
 
 import (
+	"database/sql"
+	"encoding/binary"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -23,12 +26,17 @@ func TestGCFilewalkerDB_GetInsert(t *testing.T) {
 		progress := pieces.GCFilewalkerProgress{
 			SatelliteID:              testrand.NodeID(),
 			BloomfilterCreatedBefore: time.Now().UTC(),
-			Prefix:                   "yf",
 		}
-
 		t.Run("insert", func(t *testing.T) {
-			err := gcFilewalkerDB.Store(ctx, progress)
-			require.NoError(t, err)
+			// inserting multiple prefixes to ensure flushing to trigger the insert
+			for i := uint16(0); i < 32*2; i++ {
+				var b [2]byte
+				binary.BigEndian.PutUint16(b[:], i<<6)
+				keyPrefix := filestore.PathEncoding.EncodeToString(b[:])[:2]
+				progress.Prefix = keyPrefix
+				err := gcFilewalkerDB.Store(ctx, progress)
+				require.NoError(t, err)
+			}
 		})
 
 		t.Run("get", func(t *testing.T) {
@@ -38,6 +46,12 @@ func TestGCFilewalkerDB_GetInsert(t *testing.T) {
 			require.Equal(t, result.SatelliteID, progress.SatelliteID)
 			require.Equal(t, result.BloomfilterCreatedBefore, progress.BloomfilterCreatedBefore)
 			require.Equal(t, result.Prefix, progress.Prefix)
+
+			// find progress for an unknown satellite; also ensures a cache miss
+			satellite2 := testrand.NodeID()
+			result, err = gcFilewalkerDB.Get(ctx, satellite2)
+			require.ErrorIs(t, err, sql.ErrNoRows)
+			require.Equal(t, pieces.GCFilewalkerProgress{SatelliteID: satellite2}, result)
 		})
 
 		t.Run("reset", func(t *testing.T) {
@@ -45,7 +59,7 @@ func TestGCFilewalkerDB_GetInsert(t *testing.T) {
 			require.NoError(t, err)
 
 			result, err := gcFilewalkerDB.Get(ctx, progress.SatelliteID)
-			require.Error(t, err)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 			require.Equal(t, pieces.GCFilewalkerProgress{SatelliteID: progress.SatelliteID}, result)
 		})
 	})

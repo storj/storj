@@ -68,7 +68,7 @@ func (db *gcFilewalkerProgressDB) Store(ctx context.Context, progress pieces.GCF
 	values := strings.TrimRight(strings.Repeat("(?,?,?),", len(args)/3), ",")
 	_, err = db.ExecContext(ctx, `
 		INSERT OR REPLACE INTO progress(satellite_id, bloomfilter_created_before, last_checked_prefix)
-	`+values, args...)
+		VALUES `+values, args...)
 
 	return ErrGCProgress.Wrap(err)
 }
