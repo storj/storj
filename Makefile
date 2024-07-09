@@ -1,4 +1,5 @@
 GO_VERSION ?= 1.22.5
+GO_VERSION_STORAGENODE_WINDOWS ?= 1.20.14
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -7,11 +8,11 @@ COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
 ifeq (${BRANCH_NAME},main)
-TAG    := ${GIT_TAG}-go${GO_VERSION}
+TAG    := ${GIT_TAG}
 TRACKED_BRANCH := true
 LATEST_TAG := latest
 else
-TAG    := ${GIT_TAG}-${BRANCH_NAME}-go${GO_VERSION}
+TAG    := ${GIT_TAG}-${BRANCH_NAME}
 ifneq (,$(findstring release-,$(BRANCH_NAME)))
 TRACKED_BRANCH := true
 LATEST_TAG := ${BRANCH_NAME}-latest
@@ -413,9 +414,15 @@ multinode_%: multinode-console
 .PHONY: satellite_%
 satellite_%: satellite-admin-ui
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: storagenode_windows_amd64
+storagenode_windows_amd64: storagenode-console
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS}
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: storagenode-updater_windows_amd64
+storagenode-updater_windows_amd64:
+	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS}
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
 	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
