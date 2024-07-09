@@ -230,6 +230,7 @@ type Peer struct {
 	Debug struct {
 		Listener net.Listener
 		Server   *debug.Server
+		Endpoint *debug.Endpoint
 	}
 
 	// services and endpoints
@@ -336,25 +337,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
 	}
 
-	{ // setup debug
-		var err error
-		if config.Debug.Addr != "" {
-			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Addr)
-			if err != nil {
-				withoutStack := errors.New(err.Error())
-				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-			}
-		}
-		debugConfig := config.Debug
-		debugConfig.ControlTitle = "Storage Node"
-		peer.Debug.Server = debug.NewServerWithAtomicLevel(process.NamedLog(log, "debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "debug",
-			Run:   peer.Debug.Server.Run,
-			Close: peer.Debug.Server.Close,
-		})
-	}
-
 	var err error
 
 	{ // version setup
@@ -384,7 +366,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{
-
 		peer.Healthcheck.Service = healthcheck.NewService(peer.DB.Reputation(), config.Healthcheck.Details)
 		peer.Healthcheck.Endpoint = healthcheck.NewEndpoint(peer.Healthcheck.Service)
 	}
@@ -431,6 +412,39 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Name: "trust",
 			Run:  peer.Storage2.Trust.Run,
 		})
+	}
+
+	{ // setup debug
+		var err error
+		if config.Debug.Addr != "" {
+			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Addr)
+			if err != nil {
+				withoutStack := errors.New(err.Error())
+				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+			}
+		}
+		debugConfig := config.Debug
+		debugConfig.ControlTitle = "Storage Node"
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(process.NamedLog(log, "debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
+		peer.Servers.Add(lifecycle.Item{
+			Name:  "debug",
+			Run:   peer.Debug.Server.Run,
+			Close: peer.Debug.Server.Close,
+		})
+
+		peer.Debug.Endpoint = debug.NewEndpoint(func(ctx context.Context) error {
+			sat, err := identity.PeerIdentityFromContext(ctx)
+			if err != nil {
+				return err
+			}
+			if !peer.Storage2.Trust.IsTrusted(ctx, sat.ID) {
+				return errs.New("untrusted peer")
+			}
+			return nil
+		})
+		if err := pb.DRPCRegisterDebug(peer.Server.DRPC(), peer.Debug.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{
@@ -483,8 +497,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
-	// setup bandwidth service
-	{
+	{ // setup bandwidth service
 		peer.Bandwidth.Cache = bandwidth.NewCache(peer.DB.Bandwidth())
 		peer.Bandwidth.Service = bandwidth.NewService(process.NamedLog(peer.Log, "bandwidth"), peer.Bandwidth.Cache, config.Bandwidth)
 		peer.Services.Add(lifecycle.Item{

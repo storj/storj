@@ -9,7 +9,7 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.7.0
-	storj.io/common v0.0.0-20240604134154-517cce55bb8c
+	storj.io/common v0.0.0-20240709184404-679f2e38b6f4
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
 	storj.io/uplink v1.12.3-0.20240417071044-72c1ade6e3bd
@@ -19,6 +19,7 @@ require (
 	cloud.google.com/go v0.115.0 // indirect
 	cloud.google.com/go/auth v0.6.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
+	cloud.google.com/go/bigquery v1.61.0 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.9 // indirect
 	cloud.google.com/go/longrunning v0.5.8 // indirect
@@ -29,6 +30,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/alicebob/miniredis/v2 v2.13.3 // indirect
+	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/apache/thrift v0.17.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -63,6 +65,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/glog v1.2.0 // indirect
@@ -128,6 +131,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.12.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7 // indirect
+	github.com/pierrec/lz4/v4 v4.1.18 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pquerna/otp v1.3.0 // indirect
@@ -172,6 +176,7 @@ require (
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
 	github.com/zeebo/sudo v1.0.2 // indirect
+	github.com/zeebo/xxh3 v1.0.2 // indirect
 	github.com/zyedidia/generic v1.2.1 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.opencensus.io v0.24.0 // indirect
@@ -204,7 +209,7 @@ require (
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/drpc v0.0.34 // indirect
+	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
