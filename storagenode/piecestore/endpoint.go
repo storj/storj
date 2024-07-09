@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,7 +29,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -271,7 +271,7 @@ func (endpoint *Endpoint) Exists(
 var (
 	monUploadHandleMessage      = mon.TaskNamed("upload-handle-message")
 	monPieceWriterWrite         = mon.TaskNamed("piece-writer-write")
-	monUploadStremRecv          = mon.TaskNamed("upload-stream-recv")
+	monUploadStreamRecv         = mon.TaskNamed("upload-stream-recv")
 	monUploadStreamSendAndClose = mon.TaskNamed("upload-stream-send-and-close")
 )
 
@@ -280,6 +280,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	cancelStream, ok := getCanceler(stream)
+	if !ok {
+		return rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
+	}
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
@@ -299,13 +304,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	// TODO: set maximum message size
 
-	// N.B.: we are only allowed to use message if the returned error is nil. it would be
-	// a race condition otherwise as Run does not wait for the closure to exit.
-	var message *pb.PieceUploadRequest
-	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-		message, err = stream.Recv()
-		return err
-	})
+	message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+		func(ctx context.Context) (_ *pb.PieceUploadRequest, err error) {
+			return stream.Recv()
+		})
 	switch {
 	case err != nil:
 		if errs2.IsCanceled(err) {
@@ -529,13 +531,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
-		closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			defer monUploadStreamSendAndClose(&ctx)(&err)
+		_, closeErr := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				defer monUploadStreamSendAndClose(&ctx)(&err)
 
-			return stream.SendAndClose(&pb.PieceUploadResponse{
-				Done:          storageNodeHash,
-				NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity())})
-		})
+				return nil, stream.SendAndClose(&pb.PieceUploadResponse{
+					Done:          storageNodeHash,
+					NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity()),
+				})
+			})
 		if errs.Is(closeErr, io.EOF) {
 			closeErr = nil
 		}
@@ -560,14 +564,13 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 
 		// TODO: reuse messages to avoid allocations
-		// N.B.: we are only allowed to use message if the returned error is nil. it would be
-		// a race condition otherwise as Run does not wait for the closure to exit.
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(ctx context.Context) (err error) {
-			defer monUploadStremRecv(&ctx)(&err)
 
-			message, err = stream.Recv()
-			return err
-		})
+		message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ *pb.PieceUploadRequest, err error) {
+				defer monUploadStreamRecv(&ctx)(&err)
+
+				return stream.Recv()
+			})
 		if errs.Is(err, io.EOF) {
 			return rpcstatus.Error(rpcstatus.InvalidArgument, "unexpected EOF")
 		} else if err != nil {
@@ -604,6 +607,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
+	cancelStream, ok := getCanceler(stream)
+	if !ok {
+		return rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
+	}
+
 	atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
@@ -613,13 +621,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	// TODO: set maximum message size
 
-	var message *pb.PieceDownloadRequest
-	// N.B.: we are only allowed to use message if the returned error is nil. it would be
-	// a race condition otherwise as Run does not wait for the closure to exit.
-	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-		message, err = stream.Recv()
-		return err
-	})
+	message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+		func(ctx context.Context) (_ *pb.PieceDownloadRequest, err error) {
+			return stream.Recv()
+		})
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -756,18 +761,26 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			return stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit, RestoredFromTrash: restoredFromTrash})
-		})
+		_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				return nil, stream.Send(&pb.PieceDownloadResponse{
+					Hash:              &pieceHash,
+					Limit:             &orderLimit,
+					RestoredFromTrash: restoredFromTrash,
+				})
+			})
 		if err != nil {
 			log.Error("error sending hash and order limit", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 	} else if restoredFromTrash {
 		// notify that the piece was restored from trash
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			return stream.Send(&pb.PieceDownloadResponse{RestoredFromTrash: restoredFromTrash})
-		})
+		_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				return nil, stream.Send(&pb.PieceDownloadResponse{
+					RestoredFromTrash: restoredFromTrash,
+				})
+			})
 		if err != nil {
 			log.Error("error sending response", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -851,12 +864,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		}
 
 		for {
-			// N.B.: we are only allowed to use message if the returned error is nil. it would be
-			// a race condition otherwise as Run does not wait for the closure to exit.
-			err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				message, err = stream.Recv()
-				return err
-			})
+			message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+				func(ctx context.Context) (_ *pb.PieceDownloadRequest, err error) {
+					return stream.Recv()
+				})
 			if errs.Is(err, io.EOF) {
 				// err is io.EOF or canceled when uplink closed the connection, no need to return error
 				return nil
@@ -885,6 +896,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream pb.DRPCPiecestore_DownloadStream, pieceReader *pieces.Reader, currentOffset int64, chunkSize int64) (result bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	cancelStream, ok := getCanceler(stream)
+	if !ok {
+		return true, rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
+	}
+
 	chunkData := make([]byte, chunkSize)
 	_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 	if err != nil {
@@ -899,14 +916,15 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
-	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-		return stream.Send(&pb.PieceDownloadResponse{
-			Chunk: &pb.PieceDownloadResponse_Chunk{
-				Offset: currentOffset,
-				Data:   chunkData,
-			},
+	_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+		func(ctx context.Context) (_ any, err error) {
+			return nil, stream.Send(&pb.PieceDownloadResponse{
+				Chunk: &pb.PieceDownloadResponse_Chunk{
+					Offset: currentOffset,
+					Data:   chunkData,
+				},
+			})
 		})
-	})
 	if errs.Is(err, io.EOF) {
 		// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
 		// no need to propagate it
@@ -1129,4 +1147,52 @@ func getRemoteAddr(ctx context.Context) string {
 		}
 	}
 	return ""
+}
+
+// getCanceler takes in a drpc.Stream and returns the first `Cancel(err) bool` method found during
+// unwrapping the stream with the `Stream() drpc.Stream` method.
+func getCanceler(stream drpc.Stream) (func(error) bool, bool) {
+	for {
+		canceler, ok := stream.(interface{ Cancel(err error) bool })
+		if ok {
+			return canceler.Cancel, true
+		}
+
+		// try to unwrap with GetStream if possible
+		streamer, ok := stream.(interface{ GetStream() drpc.Stream })
+		if ok {
+			stream = streamer.GetStream()
+			continue
+		}
+
+		// try to unwrap by looking for a Stream field
+		next, ok := func() (s drpc.Stream, ok bool) {
+			defer func() { _ = recover() }()
+			s, ok = reflect.ValueOf(stream).Elem().FieldByName("Stream").Interface().(drpc.Stream)
+			return s, ok
+		}()
+		if ok {
+			stream = next
+			continue
+		}
+
+		return nil, false
+	}
+}
+
+// withTimeout runs fn and calls cancel in its own goroutine after the timeout has passed or the
+// parent context is canceled. It only ever returns the error from fn.
+func withTimeout[T any](ctx context.Context, timeout time.Duration, cancel func(error) bool, fn func(context.Context) (T, error)) (T, error) {
+	ctx, cleanup := context.WithTimeout(ctx, timeout)
+	defer cleanup()
+
+	var once sync.Once
+	defer once.Do(func() {})
+
+	go func() {
+		<-ctx.Done()
+		once.Do(func() { cancel(ctx.Err()) })
+	}()
+
+	return fn(ctx)
 }
