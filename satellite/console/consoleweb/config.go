@@ -67,6 +67,7 @@ type FrontendConfig struct {
 	EmailChangeFlowEnabled            bool                  `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                  `json:"selfServeAccountDeleteEnabled"`
 	NoLimitsUiEnabled                 bool                  `json:"noLimitsUiEnabled"`
+	AltObjBrowserPagingEnabled        bool                  `json:"altObjBrowserPagingEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

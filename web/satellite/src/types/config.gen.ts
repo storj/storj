@@ -63,6 +63,7 @@ export class FrontendConfig {
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
     noLimitsUiEnabled: boolean;
+    altObjBrowserPagingEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
