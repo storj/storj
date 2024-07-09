@@ -20,9 +20,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useNotify } from '@/utils/hooks';
 
-const notify = useNotify();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();

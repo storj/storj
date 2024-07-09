@@ -68,6 +68,7 @@ type FrontendConfig struct {
 	SelfServeAccountDeleteEnabled     bool                  `json:"selfServeAccountDeleteEnabled"`
 	NoLimitsUiEnabled                 bool                  `json:"noLimitsUiEnabled"`
 	AltObjBrowserPagingEnabled        bool                  `json:"altObjBrowserPagingEnabled"`
+	AltObjBrowserPagingThreshold      int                   `json:"altObjBrowserPagingThreshold"`
 	DomainsPageEnabled                bool                  `json:"domainsPageEnabled"`
 	ActiveSessionsViewEnabled         bool                  `json:"activeSessionsViewEnabled"`
 }

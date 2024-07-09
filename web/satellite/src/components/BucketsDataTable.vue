@@ -223,6 +223,7 @@ import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconShare from '@/components/icons/IconShare.vue';
@@ -238,6 +239,7 @@ import IconForward from '@/components/icons/IconForward.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 
 const bucketsStore = useBucketsStore();
+const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 
@@ -503,6 +505,9 @@ function openBucket(bucketName: string): void {
                     return;
                 }
             }
+
+            const objCount = bucketsStore.state.page.buckets?.find((bucket) => bucket.name === bucketName)?.objectCount ?? 0;
+            obStore.setObjectCountOfSelectedBucket(objCount);
 
             await router.push({
                 name: ROUTES.Bucket.name,

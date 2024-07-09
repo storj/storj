@@ -111,15 +111,13 @@ import {
 } from 'vuetify/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 
 const obStore = useObjectBrowserStore();
-const appStore = useAppStore();
-const notify = useNotify();
 
+const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const model = defineModel<boolean>({ required: true });

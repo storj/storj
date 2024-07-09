@@ -232,6 +232,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether simplified native s3 pagination should be enabled for the huge buckets in the object browser
 # console.alt-obj-browser-paging-enabled: false
 
+# number of objects triggering simplified native S3 pagination
+# console.alt-obj-browser-paging-threshold: 10000
+
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
 

@@ -12,6 +12,7 @@ import {
     ListObjectsCommand,
     ListObjectsV2Command,
     ListObjectsV2CommandInput,
+    ListObjectsV2CommandOutput,
     ListObjectVersionsCommand,
     paginateListObjectsV2,
     PutObjectCommand,
@@ -27,8 +28,8 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DuplicateUploadError } from '@/utils/error';
-
-const listCache = new Map();
+import { useConfigStore } from '@/store/modules/configStore';
+import { LocalData } from '@/utils/localData';
 
 export type BrowserObject = {
     Key: string;
@@ -92,22 +93,21 @@ export class FilesState {
     activeObjectsRange: ObjectRange = { start: 1, end: 500 };
     uploadChain: Promise<void> = Promise.resolve();
     uploading: UploadingBrowserObject[] = [];
-    selectedAnchorFile: BrowserObject | null = null;
-    unselectedAnchorFile: BrowserObject | null = null;
     selectedFiles: BrowserObject[] = [];
-    shiftSelectedFiles: BrowserObject[] = [];
     filesToBeDeleted: BrowserObject[] = [];
     openedDropdown: null | string = null;
     headingSorted = 'name';
     orderBy: 'asc' | 'desc' = 'asc';
     openModalOnFirstUpload = false;
     objectPathForModal = '';
-    objectsCount = 0;
     cachedObjectPreviewURLs: Map<string, PreviewCache> = new Map<string, PreviewCache>();
     showObjectVersions: boolean = true;
     objectVersions: Map<string, BrowserObject[]> = new Map<string, BrowserObject[]>();
     // object keys for which we have expanded versions list.
     versionsExpandedKeys: string[] = [];
+    // Local storage data changes are not reactive.
+    // So we need to store this info here to make sure components rerender on changes.
+    objectCountOfSelectedBucket = LocalData.getObjectCountOfSelectedBucket() ?? 0;
 }
 
 type InitializedFilesState = FilesState & {
@@ -137,6 +137,14 @@ declare global {
 
 export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
+
+    const configStore = useConfigStore();
+
+    // TODO: replace a hard-coded value with a config value?
+    const isAltPagination = computed<boolean>(() => {
+        return configStore.state.config.altObjBrowserPagingEnabled &&
+            state.objectCountOfSelectedBucket > configStore.state.config.altObjBrowserPagingThreshold;
+    });
 
     const sortedFiles = computed(() => {
         // key-specific sort cases
@@ -259,24 +267,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.versionsExpandedKeys = keys;
     }
 
-    async function list(path = state.path): Promise<void> {
-        if (listCache.has(path)) {
-            updateFiles(path, listCache.get(path));
-        }
-
-        assertIsInitialized(state);
-
-        const response = await state.s3.send(new ListObjectsCommand({
-            Bucket: state.bucket,
-            Delimiter: '/',
-            Prefix: path,
-        }));
-
-        const { Contents, CommonPrefixes } = response;
-
-        processFetchedObjects(path, Contents, CommonPrefixes);
-    }
-
     async function listVersions(objectKey: string): Promise<void> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
@@ -362,6 +352,32 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.activeObjectsRange = { start: key - MAX_KEY_COUNT, end: key };
     }
 
+    async function listCustom(path = state.path, page: number, saveNextToken = false): Promise<void> {
+        assertIsInitialized(state);
+
+        const continuationToken = state.continuationTokens.get(page);
+
+        const input: ListObjectsV2CommandInput = {
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+            ContinuationToken: continuationToken,
+            MaxKeys: state.cursor.limit,
+        };
+
+        const response: ListObjectsV2CommandOutput = await state.s3.send(new ListObjectsV2Command(input));
+
+        const { Contents, CommonPrefixes } = response;
+
+        processFetchedObjects(path, Contents, CommonPrefixes);
+
+        if (saveNextToken && response.NextContinuationToken) {
+            state.continuationTokens.set(page + 1, response.NextContinuationToken);
+        }
+
+        state.cursor.page = page;
+    }
+
     function processFetchedObjects(path: string, Contents: _Object[] | undefined, CommonPrefixes: CommonPrefix[] | undefined): void {
         if (Contents === undefined) {
             Contents = [];
@@ -420,33 +436,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             ...Contents.map(makeFileRelative).filter(isFileVisible),
         ];
 
-        listCache.set(path, files);
         updateFiles(path, files);
-    }
-
-    async function back(): Promise<void> {
-        const getParentDirectory = (path: string) => {
-            let i = path.length - 2;
-
-            while (path[i - 1] !== '/' && i > 0) {
-                i--;
-            }
-
-            return path.slice(0, i);
-        };
-
-        list(getParentDirectory(state.path));
-    }
-
-    async function getObjectCount(): Promise<void> {
-        assertIsInitialized(state);
-
-        const response = await state.s3.send(new ListObjectsV2Command({
-            Bucket: state.bucket,
-            MaxKeys: 1, // We need to know if there is at least 1 decryptable object.
-        }));
-
-        state.objectsCount = (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
     async function restoreObject(obj: BrowserObject): Promise<void> {
@@ -556,17 +546,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function retryUpload(key: string): Promise<void> {
-        assertIsInitialized(state);
-
-        const item = state.uploading.find(file => file.Key === key);
-        if (!item) {
-            throw new Error(`No uploads found with key '${key}'`);
-        }
-
-        return await enqueueUpload(item.Key, item.Body);
-    }
-
     async function enqueueUpload(key: string, body: File): Promise<void> {
         assertIsInitialized(state);
 
@@ -662,7 +641,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            await initList();
+            if (isAltPagination.value) {
+                clearTokens();
+                await listCustom(state.path, 1, true);
+            } else {
+                await initList();
+            }
 
             if (state.versionsExpandedKeys.includes(item.Key)) {
                 listVersions(item.Key);
@@ -700,7 +684,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: '',
         }));
 
-        initList();
+        if (isAltPagination.value) {
+            clearTokens();
+            listCustom(state.path, 1, true);
+        } else {
+            initList();
+        }
     }
 
     async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false, shouldRefresh = true): Promise<void> {
@@ -720,7 +709,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         if (!isFolder) {
             if (shouldRefresh) {
-                await initList();
+                if (isAltPagination.value) {
+                    clearTokens();
+                    await listCustom(state.path, 1, true);
+                } else {
+                    await initList();
+                }
             }
 
             if (file['VersionId']) {
@@ -775,23 +769,19 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         removeFile(file);
 
-        await initList();
+        if (isAltPagination.value) {
+            clearTokens();
+            await listCustom(state.path, 1, true);
+        } else {
+            await initList();
+        }
     }
 
     async function deleteSelected(): Promise<void> {
-        const filesToDelete = [
-            ...state.selectedFiles,
-            ...state.shiftSelectedFiles,
-        ];
-
-        if (state.selectedAnchorFile) {
-            filesToDelete.push(state.selectedAnchorFile);
-        }
-
-        addFileToBeDeleted(filesToDelete);
+        addFileToBeDeleted(state.selectedFiles);
 
         await Promise.all(
-            filesToDelete.map(async (file) => {
+            state.selectedFiles.map(async (file) => {
                 if (file.type === 'file') {
                     await deleteObject(state.path, file, false, false);
                 } else {
@@ -799,8 +789,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 }
             }),
         );
-
-        clearAllSelectedFiles();
     }
 
     async function getDownloadLink(file: BrowserObject): Promise<string> {
@@ -829,10 +817,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.selectedFiles = [...files];
     }
 
-    function updateShiftSelectedFiles(files): void {
-        state.shiftSelectedFiles = files;
-    }
-
     function addFileToBeDeleted(file): void {
         state.filesToBeDeleted = [...state.filesToBeDeleted, file];
     }
@@ -844,28 +828,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.files = state.files.filter(
             singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
         );
-    }
-
-    function clearAllSelectedFiles(): void {
-        if (state.selectedAnchorFile || state.unselectedAnchorFile) {
-            state.selectedAnchorFile = null;
-            state.unselectedAnchorFile = null;
-            state.shiftSelectedFiles = [];
-            state.selectedFiles = [];
-        }
-    }
-
-    function openDropdown(id): void {
-        clearAllSelectedFiles();
-        state.openedDropdown = id;
-    }
-
-    function closeDropdown(): void {
-        state.openedDropdown = null;
-    }
-
-    function openFileBrowserDropdown(): void {
-        state.openedDropdown = 'FileBrowser';
     }
 
     function cancelUpload(key: string): void {
@@ -896,20 +858,21 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.cachedObjectPreviewURLs.delete(path);
     }
 
-    function setSelectedAnchorFile(file: BrowserObject | null): void {
-        state.selectedAnchorFile = file;
-    }
-
-    function setUnselectedAnchorFile(file: BrowserObject | null): void {
-        state.unselectedAnchorFile = file;
-    }
-
     function clearUploading(): void {
         state.uploading = [];
     }
 
+    function clearTokens(): void {
+        state.continuationTokens = new Map<number, string>();
+    }
+
     function toggleShowObjectVersions(): void {
         state.showObjectVersions = !state.showObjectVersions;
+    }
+
+    function setObjectCountOfSelectedBucket(count: number): void {
+        state.objectCountOfSelectedBucket = count;
+        LocalData.setObjectCountOfSelectedBucket(count);
     }
 
     function clear(): void {
@@ -925,10 +888,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.activeObjectsRange = { start: 1, end: 500 };
         state.uploadChain = Promise.resolve();
         state.uploading = [];
-        state.selectedAnchorFile = null;
-        state.unselectedAnchorFile = null;
         state.selectedFiles = [];
-        state.shiftSelectedFiles = [];
         state.filesToBeDeleted = [];
         state.openedDropdown = null;
         state.headingSorted = 'name';
@@ -939,6 +899,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.showObjectVersions = true;
         state.objectVersions = new Map<string, BrowserObject[]>();
         state.versionsExpandedKeys = [];
+        state.objectCountOfSelectedBucket = 0;
     }
 
     return {
@@ -947,20 +908,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         displayedObjects,
         isInitialized,
         uploadingLength,
+        isAltPagination,
         init,
         reinit,
-        list,
         initList,
         listByToken,
         listVersions,
-        back,
+        listCustom,
         setCursor,
         updateVersionsExpandedKeys,
         sort,
-        getObjectCount,
         upload,
         restoreObject,
-        retryUpload,
         createFolder,
         deleteObject,
         deleteFolder,
@@ -968,20 +927,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         getDownloadLink,
         download,
         updateSelectedFiles,
-        updateShiftSelectedFiles,
-        addFileToBeDeleted,
-        clearAllSelectedFiles,
         setObjectPathForModal,
-        openDropdown,
-        closeDropdown,
-        openFileBrowserDropdown,
-        setSelectedAnchorFile,
-        setUnselectedAnchorFile,
         cancelUpload,
         cacheObjectPreviewURL,
         removeFromObjectPreviewCache,
         clearUploading,
         toggleShowObjectVersions,
+        setObjectCountOfSelectedBucket,
         clear,
+        clearTokens,
     };
 });

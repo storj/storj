@@ -11,6 +11,16 @@ export class LocalData {
     private static projectTableViewEnabled = 'projectTableViewEnabled';
     private static browserCardViewEnabled = 'browserCardViewEnabled';
     private static sessionHasExpired = 'sessionHasExpired';
+    private static objectCountOfSelectedBucket = 'objectCountOfSelectedBucket';
+
+    public static setObjectCountOfSelectedBucket(count: number): void {
+        localStorage.setItem(LocalData.objectCountOfSelectedBucket, count.toString());
+    }
+
+    public static getObjectCountOfSelectedBucket(): number | null {
+        const count = localStorage.getItem(LocalData.objectCountOfSelectedBucket);
+        return count ? parseInt(count) : null;
+    }
 
     public static setBucketWasCreatedStatus(): void {
         localStorage.setItem(LocalData.bucketWasCreated, 'true');
