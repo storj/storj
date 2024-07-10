@@ -58,8 +58,6 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	totalsAtStart := service.usageCache.copyCacheTotals()
-
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		// recalculate the cache once
@@ -68,19 +66,30 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
+		satellites, err := service.store.getAllStoringSatellites(ctx)
 		if err != nil {
-			service.log.Error("error getting current used space: ", zap.Error(err))
+			service.log.Error("error getting all storing satellites: ", zap.Error(err))
 			return err
 		}
-		service.usageCache.recalculateUsage(
-			piecesTotal,
-			totalsAtStart.piecesTotal,
-			piecesContentSize,
-			totalsAtStart.trashTotal,
-			totalsBySatellite,
-			totalsAtStart.spaceUsedBySatellite,
-		)
+
+		totalsAtStart := service.usageCache.copyCacheTotals()
+		for _, id := range satellites {
+			piecesTotal, contentSize, err := service.store.WalkAndComputeSpaceUsedBySatellite(ctx, id, service.store.lazyFilewalkerEnabled())
+			if err != nil {
+				service.log.Error("encountered error while computing space used by satellite", zap.Error(err), zap.Stringer("SatelliteID", id))
+				continue
+			}
+			usage := SatelliteUsage{
+				Total:       piecesTotal,
+				ContentSize: contentSize,
+			}
+			service.usageCache.recalculateUsageForSatellite(
+				id,
+				usage,
+				totalsAtStart.spaceUsedBySatellite[id].Total,
+				totalsAtStart.spaceUsedBySatellite[id].ContentSize,
+			)
+		}
 
 		// TODO(clement): this walks the trash and doesn't use lazyfilewalker all this while???
 		//  See if we can avoid this completely, or make it faster
@@ -454,6 +463,22 @@ func (blobs *BlobsUsageCache) recalculateTrash(trashTotal, totalAtStart int64) {
 	blobs.mu.Lock()
 	blobs.trashTotal = estimate(trashTotal, totalAtStart, blobs.trashTotal)
 	blobs.mu.Unlock()
+}
+
+func (blobs *BlobsUsageCache) recalculateUsageForSatellite(satelliteID storj.NodeID, usage SatelliteUsage, totalAtStart, contentSizeAtStart int64) {
+
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
+
+	usageAtEnd := blobs.spaceUsedBySatellite[satelliteID]
+
+	var estimatedUsage SatelliteUsage
+	estimatedUsage.Total = estimate(usage.Total, totalAtStart, usageAtEnd.Total)
+	estimatedUsage.ContentSize = estimate(usage.ContentSize, contentSizeAtStart, usageAtEnd.ContentSize)
+
+	blobs.spaceUsedBySatellite[satelliteID] = estimatedUsage
+	blobs.piecesTotal = (blobs.piecesTotal - usageAtEnd.Total) + estimatedUsage.Total
+	blobs.piecesContentSize = (blobs.piecesContentSize - usageAtEnd.ContentSize) + estimatedUsage.ContentSize
 }
 
 func (blobs *BlobsUsageCache) recalculateUsage(piecesTotal, piecesTotalAtStart, piecesContentSize, piecesContentSizeAtStart int64, totalsBySatellite, totalsBySatelliteAtStart map[storj.NodeID]SatelliteUsage) {

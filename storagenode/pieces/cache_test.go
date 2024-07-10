@@ -262,9 +262,9 @@ func TestCacheServiceRun(t *testing.T) {
 		trashTotal, err = cache.SpaceUsedForTrash(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, int64(expBlobSize), piecesTotal)
-		assert.Equal(t, int64(expBlobSize-pieces.V1PieceHeaderReservedArea), piecesContentSize)
-		assert.True(t, trashTotal >= int64(expTrashSize))
+		assert.Equal(t, expBlobSize.Int64(), piecesTotal)
+		assert.Equal(t, expBlobSize.Int64()-int64(pieces.V1PieceHeaderReservedArea), piecesContentSize)
+		assert.True(t, trashTotal >= expTrashSize.Int64())
 
 		require.NoError(t, cacheService.Close())
 		require.NoError(t, eg.Wait())
@@ -354,9 +354,9 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		trashTotal, err = cache.SpaceUsedForTrash(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, int64(expBlobSize), piecesTotal)
-		assert.Equal(t, int64(expBlobSize-pieces.V1PieceHeaderReservedArea), piecesContentSize)
-		assert.True(t, trashTotal >= int64(expTrashSize))
+		assert.Equal(t, expBlobSize.Int64(), piecesTotal)
+		assert.Equal(t, expBlobSize.Int64()-int64(pieces.V1PieceHeaderReservedArea), piecesContentSize)
+		assert.True(t, trashTotal >= expTrashSize.Int64())
 
 		require.NoError(t, cacheService.Close())
 		require.NoError(t, eg.Wait())

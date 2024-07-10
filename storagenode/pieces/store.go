@@ -421,7 +421,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+	if store.lazyFilewalkerEnabled() {
 		bytesDeleted, _, err := store.lazyFilewalker.WalkCleanupTrash(ctx, satelliteID, trashedBefore)
 		// The lazy filewalker does not update the space used by the trash so we need to update it here.
 		if cache, ok := store.blobs.(*BlobsUsageCache); ok {
@@ -560,7 +560,7 @@ func (store *Store) WalkSatellitePiecesFromPrefix(ctx context.Context, satellite
 func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx, satelliteID, createdBefore)(&err)
 
-	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+	if store.lazyFilewalkerEnabled() {
 		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, trashFunc)
 		if err == nil {
 			return pieceIDs, piecesCount, piecesSkipped, nil
@@ -669,24 +669,51 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 		return cache.SpaceUsedBySatellite(ctx, satelliteID)
 	}
 
-	err = store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
-		pieceTotal, pieceContentSize, statErr := access.Size(ctx)
-		if statErr != nil {
-			if os.IsNotExist(statErr) {
-				return nil
-			}
-			store.log.Error("failed to stat", zap.Error(statErr), zap.Stringer("Piece ID", access.PieceID()), zap.Stringer("Satellite ID", satelliteID))
-			// keep iterating; we want a best effort total here.
-			return nil
+	return store.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID, false)
+}
+
+// WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
+func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID, lowerIOPriority bool) (piecesTotal, piecesContentSize int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var satPiecesTotal int64
+	var satPiecesContentSize int64
+
+	log := store.log.With(zap.Stringer("Satellite ID", satelliteID))
+
+	log.Info("used-space-filewalker started")
+
+	failover := true
+	if lowerIOPriority {
+		satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		if err != nil {
+			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", true), zap.Error(err))
+		} else {
+			failover = false
 		}
-		piecesTotal += pieceTotal
-		piecesContentSize += pieceContentSize
-		return nil
-	})
+	}
+
+	if failover {
+		satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		if err != nil {
+			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", false), zap.Error(err))
+		}
+	}
+
 	if err != nil {
 		return 0, 0, err
 	}
-	return piecesTotal, piecesContentSize, nil
+
+	log.Info("used-space-filewalker completed",
+		zap.Bool("Lazy File Walker", !failover),
+		zap.Int64("Total Pieces Size", satPiecesTotal),
+		zap.Int64("Total Pieces Content Size", satPiecesContentSize))
+
+	return satPiecesTotal, satPiecesContentSize, nil
+}
+
+func (store *Store) lazyFilewalkerEnabled() bool {
+	return store.config.EnableLazyFilewalker && store.lazyFilewalker != nil
 }
 
 // SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage.
@@ -702,37 +729,10 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 	var group errs.Group
 
 	for _, satelliteID := range satelliteIDs {
-		var satPiecesTotal int64
-		var satPiecesContentSize int64
-
-		log := store.log.With(zap.Stringer("Satellite ID", satelliteID))
-
-		log.Info("used-space-filewalker started")
-
-		failover := true
-		if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
-			satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
-			if err != nil {
-				log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", true), zap.Error(err))
-			} else {
-				failover = false
-			}
-		}
-
-		if failover {
-			satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
-			if err != nil {
-				log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", false), zap.Error(err))
-			}
-		}
-
+		satPiecesTotal, satPiecesContentSize, err := store.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID, store.lazyFilewalkerEnabled())
 		if err != nil {
 			group.Add(err)
-		} else {
-			log.Info("used-space-filewalker completed",
-				zap.Bool("Lazy File Walker", !failover),
-				zap.Int64("Total Pieces Size", satPiecesTotal),
-				zap.Int64("Total Pieces Content Size", satPiecesContentSize))
+			continue
 		}
 
 		piecesTotal += satPiecesTotal
