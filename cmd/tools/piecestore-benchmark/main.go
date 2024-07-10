@@ -121,7 +121,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	return endpoint, collectorService
 }
 
-func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity) *stream {
+func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity) (_ *stream, pieceID storj.PieceID) {
 	defer mon.Task()(&ctx)(nil)
 	piecePubKey, piecePrivKey := try.E2(storj.NewPieceKey())
 	rootPieceId := storj.NewPieceID()
@@ -174,6 +174,43 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity)
 					HashAlgorithm: algo,
 				})),
 			},
+		}}, limit.PieceId
+}
+
+func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storj.PieceID) *downloadStream {
+	defer mon.Task()(&ctx)(nil)
+	piecePubKey, piecePrivKey := try.E2(storj.NewPieceKey())
+
+	limit := try.E1(signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satIdent), &pb.OrderLimit{
+		SerialNumber:    try.E1(satorders.CreateSerial(time.Now().Add(time.Hour))),
+		SatelliteId:     satIdent.ID,
+		UplinkPublicKey: piecePubKey,
+		StorageNodeId:   snIdent.ID,
+
+		PieceId: pieceID,
+		Limit:   100 * (1 << 20),
+		Action:  pb.PieceAction_GET,
+
+		OrderCreation:   time.Now(),
+		OrderExpiration: time.Now().Add(time.Hour),
+
+		EncryptedMetadataKeyId: try.E1(io.ReadAll(io.LimitReader(rand.Reader, 16))),
+		EncryptedMetadata:      try.E1(io.ReadAll(io.LimitReader(rand.Reader, 32))),
+	}))
+
+	return &downloadStream{
+		messages: []*pb.PieceDownloadRequest{
+			{
+				Limit: limit,
+				Order: try.E1(signing.SignUplinkOrder(ctx, piecePrivKey, &pb.Order{
+					SerialNumber: limit.SerialNumber,
+					Amount:       int64(len(data)),
+				})),
+				Chunk: &pb.PieceDownloadRequest_Chunk{
+					Offset:    0,
+					ChunkSize: int64(len(data)),
+				},
+			},
 		}}
 }
 
@@ -189,6 +226,21 @@ func uploadPiece(ctx context.Context, endpoint *piecestore.Endpoint, upload *str
 		defer mon.TaskNamed("start-upload-piece")(&ctx)(nil)
 		upload.ctx = ctx
 		try.E(endpoint.Upload(upload))
+	})
+}
+
+func downloadPiece(ctx context.Context, endpoint *piecestore.Endpoint, download *downloadStream) []*collect.FinishedSpan {
+	defer mon.Task()(&ctx)(nil)
+
+	if *notrace {
+		try.E(endpoint.Download(download))
+		return nil
+	}
+
+	return collect.CollectSpans(ctx, func(ctx context.Context) {
+		defer mon.TaskNamed("start-download-piece")(&ctx)(nil)
+		download.ctx = ctx
+		try.E(endpoint.Download(download))
 	})
 }
 
@@ -218,17 +270,19 @@ func main() {
 	endpoint, collector := createEndpoint(ctx, satIdent, snIdent)
 
 	allUploads := make([]*stream, 0, *piecesToUpload)
+	allPieceIds := make([]storj.PieceID, 0, *piecesToUpload)
 	for i := 0; i < *piecesToUpload; i++ {
-		allUploads = append(allUploads, createUpload(ctx, satIdent, snIdent))
+		upload, pieceID := createUpload(ctx, satIdent, snIdent)
+		allUploads = append(allUploads, upload)
+		allPieceIds = append(allPieceIds, pieceID)
 	}
 
 	allSpans := make([][]*collect.FinishedSpan, 0, *piecesToUpload)
-	start := time.Now()
 
 	queue := make(chan *stream, 100)
 	spans := make(chan []*collect.FinishedSpan, 100)
 
-	profile("upload", func() {
+	duration := profile("upload", func() {
 		for i := 0; i < *workers; i++ {
 			go func() {
 				for upload := range queue {
@@ -248,19 +302,50 @@ func main() {
 		}
 	})
 
-	uploadDuration := time.Since(start)
-
 	fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-		*piecesToUpload, memory.Size(*pieceSize).Base10String(), uploadDuration,
-		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*uploadDuration.Seconds()),
-		float64(*piecesToUpload)/uploadDuration.Seconds())
+		*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
+		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
+		float64(*piecesToUpload)/duration.Seconds())
 
-	profile("collect", func() {
+	allDownloads := make([]*downloadStream, 0, len(allPieceIds))
+	for _, pieceID := range allPieceIds {
+		download := createDownload(ctx, satIdent, snIdent, pieceID)
+		allDownloads = append(allDownloads, download)
+	}
+
+	downloadQueue := make(chan *downloadStream, 100)
+
+	duration = profile("download", func() {
+		for i := 0; i < *workers; i++ {
+			go func() {
+				for download := range downloadQueue {
+					spans <- downloadPiece(ctx, endpoint, download)
+				}
+			}()
+		}
+		go func() {
+			for _, download := range allDownloads {
+				downloadQueue <- download
+			}
+			close(downloadQueue)
+		}()
+
+		for i := 0; i < *piecesToUpload; i++ {
+			allSpans = append(allSpans, <-spans)
+		}
+	})
+
+	fmt.Printf("downloaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
+		*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
+		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
+		float64(*piecesToUpload)/duration.Seconds())
+
+	duration = profile("collect", func() {
 		allSpans = append(allSpans, runCollector(ctx, collector))
 	})
 
-	collectDuration := time.Since(start) - uploadDuration
-	fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, collectDuration, float64((*pieceSize)*(*piecesToUpload))/(1024*1024*collectDuration.Seconds()))
+	fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, duration,
+		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()))
 
 	if !*notrace {
 		statsfh := try.E1(os.Create("stats.txt"))
@@ -310,13 +395,41 @@ func (s *stream) CloseSend() error                                  { panic("uni
 func (s *stream) Close() error                                      { panic("unimplemented") }
 func (s *stream) Cancel(err error) bool                             { panic("unimplemented") }
 
+type downloadStream struct {
+	ctx      context.Context
+	messages []*pb.PieceDownloadRequest
+}
+
+func (s *downloadStream) SendAndClose(resp *pb.PieceUploadResponse) error {
+	return nil
+}
+
+func (s *downloadStream) Send(*pb.PieceDownloadResponse) error { return nil }
+
+func (s *downloadStream) Recv() (*pb.PieceDownloadRequest, error) {
+	if len(s.messages) == 0 {
+		return nil, io.EOF
+	}
+	resp := s.messages[0]
+	s.messages = s.messages[1:]
+	return resp, nil
+}
+
+func (s *downloadStream) Context() context.Context { return s.ctx }
+
+func (s *downloadStream) MsgSend(msg drpc.Message, enc drpc.Encoding) error { panic("unimplemented") }
+func (s *downloadStream) MsgRecv(msg drpc.Message, enc drpc.Encoding) error { panic("unimplemented") }
+func (s *downloadStream) CloseSend() error                                  { panic("unimplemented") }
+func (s *downloadStream) Close() error                                      { panic("unimplemented") }
+func (s *downloadStream) Cancel(err error) bool                             { panic("unimplemented") }
+
 func setConfigStructDefaults(v interface{}) {
 	fs := pflag.NewFlagSet("defaults", pflag.ContinueOnError)
 	cfgstruct.Bind(fs, v, cfgstruct.ConfDir("."), cfgstruct.IdentityDir("."), cfgstruct.UseReleaseDefaults())
 	try.E(fs.Parse(nil))
 }
 
-func profile(suffix string, fn func()) {
+func profile(suffix string, fn func()) time.Duration {
 	if *memprofile != "" {
 		defer func() {
 			memfile := try.E1(os.Create(uniqueProfilePath(*memprofile, suffix)))
@@ -336,7 +449,9 @@ func profile(suffix string, fn func()) {
 		}()
 	}
 
+	start := time.Now()
 	fn()
+	return time.Since(start)
 }
 
 var startTime = time.Now()
