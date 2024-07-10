@@ -114,5 +114,5 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(300), allocated)
 
-	})
+	}, satellitedbtest.WithSpanner())
 }

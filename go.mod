@@ -3,6 +3,7 @@ module storj.io/storj
 go 1.20
 
 require (
+	cloud.google.com/go v0.115.0
 	cloud.google.com/go/secretmanager v1.13.3
 	cloud.google.com/go/spanner v1.64.0
 	github.com/alessio/shellescape v1.2.2
@@ -76,7 +77,6 @@ require (
 
 require (
 	cel.dev/expr v0.15.0 // indirect
-	cloud.google.com/go v0.115.0 // indirect
 	cloud.google.com/go/auth v0.7.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/bigquery v1.61.0 // indirect

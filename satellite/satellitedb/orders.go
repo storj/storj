@@ -7,10 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"reflect"
 	"sort"
 	"time"
 
+	"cloud.google.com/go/civil"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 
@@ -19,6 +21,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
 )
@@ -63,47 +66,109 @@ type BandwidthRollupKey struct {
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO I wanted to remove this implementation but it looks it's heavily used in tests
-	// we should do cleanup as a separate change (Michal)
+	dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 
-	return pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		// TODO I wanted to remove this implementation but it looks it's heavily used in tests
+		// we should do cleanup as a separate change (Michal)
 
-		// TODO decide if we need to have transaction here
-		batch.Queue(`START TRANSACTION`)
+		return pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+			var batch pgx.Batch
 
-		statement := db.db.Rebind(
-			`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+			// TODO decide if we need to have transaction here
+			batch.Queue(`START TRANSACTION`)
+
+			statement := db.db.Rebind(
+				`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
 					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 					ON CONFLICT(project_id, bucket_name, interval_start, action)
 					DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
-		)
-		batch.Queue(statement, projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
+			)
+			batch.Queue(statement, projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
 
-		if action == pb.PieceAction_GET {
-			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
-			statement = db.db.Rebind(
-				`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+			if action == pb.PieceAction_GET {
+				statement = db.db.Rebind(
+					`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
 				VALUES (?, ?, ?, ?, ?)
 				ON CONFLICT(project_id, interval_day)
 				DO UPDATE SET egress_allocated = project_bandwidth_daily_rollups.egress_allocated + EXCLUDED.egress_allocated::BIGINT`,
-			)
-			batch.Queue(statement, projectID[:], dailyInterval, uint64(amount), 0, 0)
-		}
+				)
+				batch.Queue(statement, projectID[:], dailyInterval, uint64(amount), 0, 0)
+			}
 
-		batch.Queue(`COMMIT TRANSACTION`)
+			batch.Queue(`COMMIT TRANSACTION`)
 
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
+			results := conn.SendBatch(ctx, &batch)
+			defer func() { err = errs.Combine(err, results.Close()) }()
 
-		var errlist errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			_, err := results.Exec()
-			errlist.Add(err)
-		}
+			var errlist errs.Group
+			for i := 0; i < batch.Len(); i++ {
+				_, err := results.Exec()
+				errlist.Add(err)
+			}
 
-		return errlist.Err()
-	})
+			return errlist.Err()
+		})
+	case dbutil.Spanner:
+		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			updateBBR := `
+				UPDATE bucket_bandwidth_rollups AS bbr
+				SET  bbr.allocated = bbr.allocated + ?  WHERE project_id = ? AND bucket_name = ? AND interval_start = ? AND action = ?
+			`
+			result, err := tx.Tx.ExecContext(ctx, updateBBR, uint64(amount), projectID[:], bucketName, intervalStart, int64(action))
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			if affected == 0 {
+				insertBDR := `
+				INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`
+				_, err := tx.Tx.ExecContext(ctx, insertBDR, projectID[:], bucketName, intervalStart, defaultIntervalSeconds, int64(action), 0, uint64(amount), 0)
+				if err != nil {
+					return errs.Wrap(err)
+				}
+			}
+
+			if action == pb.PieceAction_GET {
+				civilDailyIntervalDate := civil.DateOf(dailyInterval)
+				updatePBDR := `
+					UPDATE project_bandwidth_daily_rollups AS pbdr
+					SET pbdr.egress_allocated = pbdr.egress_allocated + ? WHERE project_id = ? AND interval_day = ?
+				`
+				result, err = tx.Tx.ExecContext(ctx, updatePBDR, uint64(amount), projectID[:], civilDailyIntervalDate)
+				if err != nil {
+					return err
+				}
+
+				affected, err = result.RowsAffected()
+				if err != nil {
+					return errs.Wrap(err)
+				}
+
+				if affected == 0 {
+					insertPBDR := `
+					INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+					VALUES (?, ?, ?, ?, ?)
+				`
+					_, err = tx.Tx.ExecContext(ctx, insertPBDR, projectID[:], civilDailyIntervalDate, uint64(amount), 0, 0)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return err
+		})
+	default:
+		return errs.Wrap(fmt.Errorf("unsupported database dialect: %s", db.db.impl))
+	}
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket.
