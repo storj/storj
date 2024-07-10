@@ -24,7 +24,8 @@
                     filter
                     multiple
                     selected-class="text-info font-weight-bold"
-                    class="mt-2 mb-3"
+                    class="mt-2"
+                    :class="{ 'mb-3': !invalid }"
                 >
                     <v-chip
                         :key="Permission.Read"
@@ -58,6 +59,7 @@
                         Delete
                     </v-chip>
                 </v-chip-group>
+                <span v-if="invalid" class="text-caption d-block text-error mb-3">No permission selected</span>
                 <v-alert variant="tonal" width="auto">
                     <p class="text-subtitle-2 font-weight-bold">
                         Important
@@ -82,6 +84,7 @@ const emit = defineEmits<{
     'permissionsChanged': [perms: Permission[]];
 }>();
 
+const invalid = ref<boolean>(false);
 const permissions = ref<Permission[]>([]);
 
 /**
@@ -98,5 +101,15 @@ function onAllClick(): void {
         ];
 }
 
-watch(permissions, value => emit('permissionsChanged', value.slice()), { deep: true });
+watch(permissions, value => {
+    invalid.value = value.length === 0;
+    emit('permissionsChanged', value.slice());
+}, { deep: true });
+
+defineExpose({
+    validate: () => {
+        invalid.value = permissions.value.length === 0;
+        return !invalid.value;
+    },
+});
 </script>
