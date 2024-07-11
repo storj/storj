@@ -67,7 +67,7 @@ require (
 	google.golang.org/grpc v1.64.0
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20240709184404-679f2e38b6f4
+	storj.io/common v0.0.0-20240711155019-3bfa00555ba3
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
