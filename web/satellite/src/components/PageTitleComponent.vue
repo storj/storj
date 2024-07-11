@@ -2,11 +2,25 @@
 // See LICENSE for copying information.
 
 <template>
-    <h1 class="text-h5 font-weight-bold my-3">{{ title }}</h1>
+    <v-row class="ma-0 align-center">
+        <h1 class="text-h5 font-weight-bold my-3">{{ title }}</h1>
+        <v-tooltip v-if="extraInfo" width="250" location="bottom">
+            <template #activator="activator">
+                <v-icon v-bind="activator.props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
+            </template>
+            <template #default>
+                <p>{{ extraInfo }}</p>
+            </template>
+        </v-tooltip>
+    </v-row>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+import { VIcon, VTooltip, VRow } from 'vuetify/components';
+import { mdiInformationOutline } from '@mdi/js';
+
+defineProps<{
     title: string;
+    extraInfo?: string;
 }>();
 </script>

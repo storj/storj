@@ -17,7 +17,10 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <PageTitleComponent title="Project dashboard" />
+                <PageTitleComponent
+                    title="Project dashboard"
+                    extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
+                />
                 <PageSubtitleComponent
                     subtitle="View your project statistics, check daily usage, and set project limits."
                     link="https://docs.storj.io/support/projects"
@@ -35,7 +38,13 @@
 
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Files" subtitle="Project total" :data="limits.objectCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent
+                    title="Files"
+                    subtitle="Project total"
+                    :data="limits.objectCount.toLocaleString()"
+                    :to="ROUTES.Buckets.path"
+                    extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
+                />
             </v-col>
             <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
                 <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
@@ -91,6 +100,7 @@
                     :available="storageAvailableTxt"
                     :cta="storageCTA"
                     :no-limit="noLimitsUiEnabled && isPaidTier && !limits.userSetStorageLimit"
+                    extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                     @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
                 />
             </v-col>
