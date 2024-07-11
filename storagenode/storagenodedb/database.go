@@ -2305,6 +2305,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`CREATE INDEX idx_piece_expirations_piece_expiration ON piece_expirations(piece_expiration);`,
 				},
 			},
+			{
+				DB:          &db.pieceSpaceUsedDB.DB,
+				Description: "Remove records with null satellite ID values from piece_space_used table",
+				Version:     61,
+				Action: migrate.SQL{
+					`DELETE FROM piece_space_used WHERE satellite_id IS NULL;`,
+				},
+			},
 		},
 	}
 }

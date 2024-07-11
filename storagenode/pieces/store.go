@@ -108,12 +108,13 @@ type PieceSpaceUsedDB interface {
 	Init(ctx context.Context) error
 	// GetPieceTotals returns the space used (total and contentSize) by all pieces stored
 	GetPieceTotals(ctx context.Context) (piecesTotal int64, piecesContentSize int64, err error)
-	// UpdatePieceTotals updates the record for aggregate spaced used for pieces (total and contentSize) with new values
-	UpdatePieceTotals(ctx context.Context, piecesTotal, piecesContentSize int64) error
-	// GetTotalsForAllSatellites returns how much total space used by pieces stored for each satelliteID
+	// GetPieceTotalsForAllSatellites returns how much total space used by pieces stored for each satelliteID
 	GetPieceTotalsForAllSatellites(ctx context.Context) (map[storj.NodeID]SatelliteUsage, error)
 	// UpdatePieceTotalsForAllSatellites updates each record for total spaced used with a new value for each satelliteID
 	UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]SatelliteUsage) error
+	// UpdatePieceTotalsForSatellite updates record with new values for a specific satelliteID.
+	// If the usage values are set to zero, the record is deleted.
+	UpdatePieceTotalsForSatellite(ctx context.Context, satelliteID storj.NodeID, usage SatelliteUsage) error
 	// GetTrashTotal returns the total space used by trash
 	GetTrashTotal(ctx context.Context) (int64, error)
 	// UpdateTrashTotal updates the record for total spaced used for trash with a new value
@@ -643,6 +644,8 @@ func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, erro
 	return piecesTotal + trashTotal, nil
 }
 
+// getAllStoringSatellites returns all the satellite IDs that have pieces stored in the blob store.
+// This does not exclude untrusted satellites.
 func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
 	namespaces, err := store.blobs.ListNamespaces(ctx)
 	if err != nil {
