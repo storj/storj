@@ -8,7 +8,7 @@
         min-width="320px"
         :max-width="maxWidth"
         transition="fade-transition"
-        :persistent="loading"
+        persistent
         :scrim="scrim"
     >
         <v-card ref="content">

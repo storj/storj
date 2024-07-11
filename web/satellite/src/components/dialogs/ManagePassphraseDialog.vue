@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" max-width="420" transition="fade-transition">
+    <v-dialog v-model="model" max-width="420" transition="fade-transition" persistent>
         <v-card ref="innerContent">
             <v-card-item class="pa-6">
                 <template #prepend>

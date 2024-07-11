@@ -8,7 +8,7 @@
         :model-value="model && !isUpgradeDialogShown"
         width="410px"
         transition="fade-transition"
-        :persistent="isLoading"
+        :persistent="isLoading || satelliteManagedEncryptionEnabled"
         :scrim="false"
         @update:model-value="v => model = v"
     >
@@ -333,13 +333,6 @@ const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.st
  */
 const isLimitIncreaseRequestEnabled = computed<boolean>(() => configStore.state.config.limitIncreaseRequestEnabled);
 
-function onModeChosen(mode: ManagePassphraseMode): void {
-    if (isLoading.value) {
-        return;
-    }
-    passphraseManageMode.value = mode;
-    onPrimaryClick();
-}
 /**
  * Handles primary button click.
  */

@@ -4,7 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
-        :persistent="isLoading"
+        persistent
         width="auto"
         max-width="460px"
         transition="fade-transition"

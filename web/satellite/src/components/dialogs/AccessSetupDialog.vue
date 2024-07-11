@@ -8,6 +8,7 @@
         max-width="450px"
         min-width="320px"
         transition="fade-transition"
+        persistent
     >
         <v-card ref="innerContent">
             <v-sheet>

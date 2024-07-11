@@ -99,8 +99,6 @@ import {
 } from 'vuetify/components';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -116,8 +114,6 @@ const emit = defineEmits<{
     (event: 'deleted'): void;
 }>();
 
-const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const pmStore = useProjectMembersStore();
 

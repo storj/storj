@@ -4,7 +4,7 @@
 <template>
     <v-dialog
         v-model="model"
-        :persistent="isLoading"
+        :persistent="isLoading || allowCreateVersionedBucket"
         width="auto"
         max-width="450px"
         transition="fade-transition"
