@@ -55,6 +55,21 @@
             </v-card-item>
 
             <v-card-item class="pl-6">
+                <h4>Amount stored</h4>
+                <p class="text-body-2">{{ bucket.storage.toFixed(2) + 'GB' }}</p>
+            </v-card-item>
+
+            <v-card-item v-if="showRegionTag" class="pl-6">
+                <h4>Location</h4>
+                <p class="text-body-2">{{ bucket.location || `unknown(${bucket.defaultPlacement})` }}</p>
+            </v-card-item>
+
+            <v-card-item v-if="versioningUIEnabled" class="pl-6">
+                <h4>Versioning</h4>
+                <p class="text-body-2">{{ bucket.versioning }}</p>
+            </v-card-item>
+
+            <v-card-item class="pl-6">
                 <h4>Date Created</h4>
                 <p class="text-body-2">{{ bucket.since.toUTCString() }}</p>
             </v-card-item>
@@ -95,14 +110,14 @@ import {
 
 import IconBucket from '../icons/IconBucket.vue';
 
-import { useLoading } from '@/composables/useLoading';
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
-const isLoading = useLoading();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 
@@ -111,6 +126,15 @@ const props = defineProps<{
 }>();
 
 const model = defineModel<boolean>({ required: true });
+
+/**
+ * Whether versioning has been enabled for current project.
+ */
+const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+
+const showRegionTag = computed<boolean>(() => {
+    return configStore.state.config.enableRegionTag;
+});
 
 function redirectToBucketsPage(): void {
     router.push({
