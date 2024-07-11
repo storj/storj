@@ -39,15 +39,16 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col v-if="hasManagedPassphrase" cols="12" lg="4">
+            <v-col cols="12" lg="4">
                 <v-card title="Project Encryption">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
-                            Automatic
+                            {{ hasManagedPassphrase ? 'Automatic' : 'Manual' }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" @click="goToDocs">
-                            Learn More
+                        <v-btn variant="outlined" color="default" size="small">
+                            Learn more
+                            <project-encryption-information-dialog @new-project="isCreateProjectDialogShown = true" />
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -190,6 +191,7 @@
         </v-row>
     </v-container>
 
+    <create-project-dialog v-model="isCreateProjectDialogShown" />
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
 </template>
@@ -219,13 +221,9 @@ import { decimalShift } from '@/utils/strings';
 import { useNotify } from '@/utils/hooks';
 import {
     AnalyticsErrorEventSource,
-    AnalyticsEvent,
-    PageVisitSource,
-    SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
 } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useTrialCheck } from '@/composables/useTrialCheck';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
@@ -233,7 +231,10 @@ import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import VersioningBetaDialog from '@/components/dialogs/VersioningBetaDialog.vue';
+import ProjectEncryptionInformationDialog from '@/components/dialogs/ProjectEncryptionInformationDialog.vue';
+import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 
+const isCreateProjectDialogShown = ref<boolean>(false);
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
 const isVersioningDialogShown = ref<boolean>(false);
@@ -241,7 +242,6 @@ const allowVersioningToggle = ref<boolean>(false);
 const fieldToChange = ref<FieldToChange>(FieldToChange.Name);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 
-const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
@@ -341,12 +341,6 @@ const paidBandwidthLimitFormatted = computed<string>(() => {
 const projectLimitsIncreaseRequestURL = computed((): string => {
     return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
-
-function goToDocs() {
-    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
-    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-    window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
-}
 
 function toggleUpgradeFlow(): void {
     appStore.toggleUpgradeFlow(true);
