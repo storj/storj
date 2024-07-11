@@ -188,8 +188,10 @@ func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context,
 func (db *ProjectAccounting) GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
-	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = $1 AND action = $2 AND interval_start >= $3;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from.UTC()).Scan(&sum)
+	// action uses int64 for compatibility with Spanner as Spanner does not support int32
+	actionGet := int64(pb.PieceAction_GET)
+	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start >= ?;`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], actionGet, from.UTC()).Scan(&sum)
 	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
 	}

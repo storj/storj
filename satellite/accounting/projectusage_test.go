@@ -452,7 +452,7 @@ func TestGetProjectSettledBandwidthTotal(t *testing.T) {
 		actualBandwidthTotal, err := pdb.GetProjectSettledBandwidthTotal(ctx, projectID, since)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, actualBandwidthTotal)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {

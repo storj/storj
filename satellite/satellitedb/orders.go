@@ -175,37 +175,102 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, settledAmount, deadAmount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		statement := tx.Rebind(
-			`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			statement := tx.Rebind(
+				`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(project_id, bucket_name, interval_start, action)
 			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
-		)
-		_, err = tx.Tx.ExecContext(ctx, statement,
-			projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(settledAmount), uint64(settledAmount),
-		)
-		if err != nil {
-			return ErrUpdateBucketBandwidthSettle.Wrap(err)
-		}
+			)
+			_, err = tx.Tx.ExecContext(ctx, statement,
+				projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(settledAmount), uint64(settledAmount),
+			)
+			if err != nil {
+				return ErrUpdateBucketBandwidthSettle.Wrap(err)
+			}
 
-		if action == pb.PieceAction_GET {
-			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
-			statement = tx.Rebind(
-				`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+			if action == pb.PieceAction_GET {
+				dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
+				statement = tx.Rebind(
+					`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
 				VALUES (?, ?, ?, ?, ?)
 				ON CONFLICT(project_id, interval_day)
 				DO UPDATE SET
 					egress_settled = project_bandwidth_daily_rollups.egress_settled + EXCLUDED.egress_settled::BIGINT,
 					egress_dead    = project_bandwidth_daily_rollups.egress_dead + EXCLUDED.egress_dead::BIGINT`,
-			)
-			_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], dailyInterval, 0, uint64(settledAmount), uint64(deadAmount))
-			if err != nil {
-				return err
+				)
+				_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], dailyInterval, 0, uint64(settledAmount), uint64(deadAmount))
+				if err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	})
+			return nil
+		})
+	case dbutil.Spanner:
+		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			updateBBRStatement := tx.Rebind(
+				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.settled = bbr.settled + ? WHERE project_id = ? AND bucket_name =? AND interval_start = ?  AND action = ?`,
+			)
+			result, err := tx.Tx.ExecContext(ctx, updateBBRStatement,
+				uint64(settledAmount), projectID[:], bucketName, intervalStart.UTC(), int64(action),
+			)
+			if err != nil {
+				return ErrUpdateBucketBandwidthSettle.Wrap(err)
+			}
+
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return ErrUpdateBucketBandwidthSettle.Wrap(err)
+			}
+
+			if affected == 0 {
+				insertBBRStatement := tx.Rebind(
+					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				)
+				_, err = tx.Tx.ExecContext(ctx, insertBBRStatement,
+					projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), 0, 0, uint64(settledAmount), uint64(settledAmount),
+				)
+				if err != nil {
+					return ErrUpdateBucketBandwidthSettle.Wrap(err)
+				}
+			}
+
+			if action == pb.PieceAction_GET {
+				dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
+				civilIntervalDate := civil.DateOf(dailyInterval)
+				updatePBDRStatement := tx.Rebind(
+					`UPDATE project_bandwidth_daily_rollups AS pbdr SET pbdr.egress_settled = pbdr.egress_settled + ?, pbdr.egress_dead = pbdr.egress_dead + ? 
+						WHERE (project_id = ? AND interval_day = ? )`,
+				)
+				_, err = tx.Tx.ExecContext(ctx, updatePBDRStatement, uint64(settledAmount), uint64(deadAmount), projectID[:], civilIntervalDate)
+				if err != nil {
+					return err
+				}
+
+				affected, err := result.RowsAffected()
+				if err != nil {
+					return ErrUpdateBucketBandwidthSettle.Wrap(err)
+				}
+
+				if affected > 0 {
+					insertPBDRStatement := tx.Rebind(
+						`INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+VALUES (?, ?, ?, ?, ?)`,
+					)
+					_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, projectID[:], civilIntervalDate, 0, uint64(settledAmount), uint64(deadAmount))
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+	default:
+		return ErrUpdateBucketBandwidthSettle.New("unsupported database dialect: %s", db.db.impl)
+	}
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket.
