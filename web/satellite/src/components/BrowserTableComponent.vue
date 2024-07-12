@@ -454,7 +454,7 @@ function onPageChange(page: number): void {
     obStore.updateSelectedFiles([]);
     const path = filePath.value ? filePath.value + '/' : '';
     routePageCache.set(path, page);
-    obStore.setCursor({ page, limit: options.value?.itemsPerPage ?? 10 });
+    obStore.setCursor({ page, limit: cursor.value.limit });
 
     const lastObjectOnPage = page * cursor.value.limit;
     const activeRange = obStore.state.activeObjectsRange;
