@@ -19,10 +19,13 @@ import (
 
 	"storj.io/storj/shared/dbutil/txutil"
 
-	_ "cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner"
+	sqldriver "database/sql/driver"
+	"encoding/base64"
 	_ "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
+	"math"
 )
 
 // Prevent conditional imports from causing build failures.
@@ -2447,7 +2450,7 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE TABLE project_bandwidth_daily_rollups (
 	project_id BYTES(MAX) NOT NULL,
-	interval_day TIMESTAMP NOT NULL,
+	interval_day DATE NOT NULL,
 	egress_allocated INT64 NOT NULL,
 	egress_settled INT64 NOT NULL,
 	egress_dead INT64 NOT NULL DEFAULT (0)
@@ -3525,8 +3528,6 @@ func (f AccountFreezeEvent_UserId_Field) value() any {
 	return f._value
 }
 
-func (AccountFreezeEvent_UserId_Field) _Column() string { return "user_id" }
-
 type AccountFreezeEvent_Event_Field struct {
 	_set   bool
 	_null  bool
@@ -3543,8 +3544,6 @@ func (f AccountFreezeEvent_Event_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountFreezeEvent_Event_Field) _Column() string { return "event" }
 
 type AccountFreezeEvent_Limits_Field struct {
 	_set   bool
@@ -3575,8 +3574,6 @@ func (f AccountFreezeEvent_Limits_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountFreezeEvent_Limits_Field) _Column() string { return "limits" }
 
 type AccountFreezeEvent_DaysTillEscalation_Field struct {
 	_set   bool
@@ -3610,8 +3607,6 @@ func (f AccountFreezeEvent_DaysTillEscalation_Field) value() any {
 	return f._value
 }
 
-func (AccountFreezeEvent_DaysTillEscalation_Field) _Column() string { return "days_till_escalation" }
-
 type AccountFreezeEvent_NotificationsCount_Field struct {
 	_set   bool
 	_null  bool
@@ -3629,8 +3624,6 @@ func (f AccountFreezeEvent_NotificationsCount_Field) value() any {
 	return f._value
 }
 
-func (AccountFreezeEvent_NotificationsCount_Field) _Column() string { return "notifications_count" }
-
 type AccountFreezeEvent_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -3647,8 +3640,6 @@ func (f AccountFreezeEvent_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountFreezeEvent_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup struct {
 	NodeId          []byte
@@ -3689,8 +3680,6 @@ func (f AccountingRollup_NodeId_Field) value() any {
 	return f._value
 }
 
-func (AccountingRollup_NodeId_Field) _Column() string { return "node_id" }
-
 type AccountingRollup_StartTime_Field struct {
 	_set   bool
 	_null  bool
@@ -3707,8 +3696,6 @@ func (f AccountingRollup_StartTime_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountingRollup_StartTime_Field) _Column() string { return "start_time" }
 
 type AccountingRollup_PutTotal_Field struct {
 	_set   bool
@@ -3727,8 +3714,6 @@ func (f AccountingRollup_PutTotal_Field) value() any {
 	return f._value
 }
 
-func (AccountingRollup_PutTotal_Field) _Column() string { return "put_total" }
-
 type AccountingRollup_GetTotal_Field struct {
 	_set   bool
 	_null  bool
@@ -3745,8 +3730,6 @@ func (f AccountingRollup_GetTotal_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountingRollup_GetTotal_Field) _Column() string { return "get_total" }
 
 type AccountingRollup_GetAuditTotal_Field struct {
 	_set   bool
@@ -3765,8 +3748,6 @@ func (f AccountingRollup_GetAuditTotal_Field) value() any {
 	return f._value
 }
 
-func (AccountingRollup_GetAuditTotal_Field) _Column() string { return "get_audit_total" }
-
 type AccountingRollup_GetRepairTotal_Field struct {
 	_set   bool
 	_null  bool
@@ -3783,8 +3764,6 @@ func (f AccountingRollup_GetRepairTotal_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountingRollup_GetRepairTotal_Field) _Column() string { return "get_repair_total" }
 
 type AccountingRollup_PutRepairTotal_Field struct {
 	_set   bool
@@ -3803,8 +3782,6 @@ func (f AccountingRollup_PutRepairTotal_Field) value() any {
 	return f._value
 }
 
-func (AccountingRollup_PutRepairTotal_Field) _Column() string { return "put_repair_total" }
-
 type AccountingRollup_AtRestTotal_Field struct {
 	_set   bool
 	_null  bool
@@ -3821,8 +3798,6 @@ func (f AccountingRollup_AtRestTotal_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountingRollup_AtRestTotal_Field) _Column() string { return "at_rest_total" }
 
 type AccountingRollup_IntervalEndTime_Field struct {
 	_set   bool
@@ -3856,8 +3831,6 @@ func (f AccountingRollup_IntervalEndTime_Field) value() any {
 	return f._value
 }
 
-func (AccountingRollup_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
-
 type AccountingTimestamps struct {
 	Name  string
 	Value time.Time
@@ -3886,8 +3859,6 @@ func (f AccountingTimestamps_Name_Field) value() any {
 	return f._value
 }
 
-func (AccountingTimestamps_Name_Field) _Column() string { return "name" }
-
 type AccountingTimestamps_Value_Field struct {
 	_set   bool
 	_null  bool
@@ -3904,8 +3875,6 @@ func (f AccountingTimestamps_Value_Field) value() any {
 	}
 	return f._value
 }
-
-func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
 
 type BillingBalance struct {
 	UserId      []byte
@@ -3936,8 +3905,6 @@ func (f BillingBalance_UserId_Field) value() any {
 	return f._value
 }
 
-func (BillingBalance_UserId_Field) _Column() string { return "user_id" }
-
 type BillingBalance_Balance_Field struct {
 	_set   bool
 	_null  bool
@@ -3955,8 +3922,6 @@ func (f BillingBalance_Balance_Field) value() any {
 	return f._value
 }
 
-func (BillingBalance_Balance_Field) _Column() string { return "balance" }
-
 type BillingBalance_LastUpdated_Field struct {
 	_set   bool
 	_null  bool
@@ -3973,8 +3938,6 @@ func (f BillingBalance_LastUpdated_Field) value() any {
 	}
 	return f._value
 }
-
-func (BillingBalance_LastUpdated_Field) _Column() string { return "last_updated" }
 
 type BillingTransaction struct {
 	Id          int64
@@ -4014,8 +3977,6 @@ func (f BillingTransaction_Id_Field) value() any {
 	return f._value
 }
 
-func (BillingTransaction_Id_Field) _Column() string { return "id" }
-
 type BillingTransaction_UserId_Field struct {
 	_set   bool
 	_null  bool
@@ -4032,8 +3993,6 @@ func (f BillingTransaction_UserId_Field) value() any {
 	}
 	return f._value
 }
-
-func (BillingTransaction_UserId_Field) _Column() string { return "user_id" }
 
 type BillingTransaction_Amount_Field struct {
 	_set   bool
@@ -4052,8 +4011,6 @@ func (f BillingTransaction_Amount_Field) value() any {
 	return f._value
 }
 
-func (BillingTransaction_Amount_Field) _Column() string { return "amount" }
-
 type BillingTransaction_Currency_Field struct {
 	_set   bool
 	_null  bool
@@ -4070,8 +4027,6 @@ func (f BillingTransaction_Currency_Field) value() any {
 	}
 	return f._value
 }
-
-func (BillingTransaction_Currency_Field) _Column() string { return "currency" }
 
 type BillingTransaction_Description_Field struct {
 	_set   bool
@@ -4090,8 +4045,6 @@ func (f BillingTransaction_Description_Field) value() any {
 	return f._value
 }
 
-func (BillingTransaction_Description_Field) _Column() string { return "description" }
-
 type BillingTransaction_Source_Field struct {
 	_set   bool
 	_null  bool
@@ -4108,8 +4061,6 @@ func (f BillingTransaction_Source_Field) value() any {
 	}
 	return f._value
 }
-
-func (BillingTransaction_Source_Field) _Column() string { return "source" }
 
 type BillingTransaction_Status_Field struct {
 	_set   bool
@@ -4128,8 +4079,6 @@ func (f BillingTransaction_Status_Field) value() any {
 	return f._value
 }
 
-func (BillingTransaction_Status_Field) _Column() string { return "status" }
-
 type BillingTransaction_Type_Field struct {
 	_set   bool
 	_null  bool
@@ -4146,8 +4095,6 @@ func (f BillingTransaction_Type_Field) value() any {
 	}
 	return f._value
 }
-
-func (BillingTransaction_Type_Field) _Column() string { return "type" }
 
 type BillingTransaction_Metadata_Field struct {
 	_set   bool
@@ -4166,8 +4113,6 @@ func (f BillingTransaction_Metadata_Field) value() any {
 	return f._value
 }
 
-func (BillingTransaction_Metadata_Field) _Column() string { return "metadata" }
-
 type BillingTransaction_TxTimestamp_Field struct {
 	_set   bool
 	_null  bool
@@ -4185,8 +4130,6 @@ func (f BillingTransaction_TxTimestamp_Field) value() any {
 	return f._value
 }
 
-func (BillingTransaction_TxTimestamp_Field) _Column() string { return "tx_timestamp" }
-
 type BillingTransaction_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -4203,8 +4146,6 @@ func (f BillingTransaction_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (BillingTransaction_CreatedAt_Field) _Column() string { return "created_at" }
 
 type BucketBandwidthRollup struct {
 	BucketName      []byte
@@ -4242,8 +4183,6 @@ func (f BucketBandwidthRollup_BucketName_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollup_BucketName_Field) _Column() string { return "bucket_name" }
-
 type BucketBandwidthRollup_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -4260,8 +4199,6 @@ func (f BucketBandwidthRollup_ProjectId_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollup_ProjectId_Field) _Column() string { return "project_id" }
 
 type BucketBandwidthRollup_IntervalStart_Field struct {
 	_set   bool
@@ -4280,8 +4217,6 @@ func (f BucketBandwidthRollup_IntervalStart_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
-
 type BucketBandwidthRollup_IntervalSeconds_Field struct {
 	_set   bool
 	_null  bool
@@ -4298,8 +4233,6 @@ func (f BucketBandwidthRollup_IntervalSeconds_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
 
 type BucketBandwidthRollup_Action_Field struct {
 	_set   bool
@@ -4318,8 +4251,6 @@ func (f BucketBandwidthRollup_Action_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollup_Action_Field) _Column() string { return "action" }
-
 type BucketBandwidthRollup_Inline_Field struct {
 	_set   bool
 	_null  bool
@@ -4336,8 +4267,6 @@ func (f BucketBandwidthRollup_Inline_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollup_Inline_Field) _Column() string { return "inline" }
 
 type BucketBandwidthRollup_Allocated_Field struct {
 	_set   bool
@@ -4356,8 +4285,6 @@ func (f BucketBandwidthRollup_Allocated_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
-
 type BucketBandwidthRollup_Settled_Field struct {
 	_set   bool
 	_null  bool
@@ -4374,8 +4301,6 @@ func (f BucketBandwidthRollup_Settled_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type BucketBandwidthRollupArchive struct {
 	BucketName      []byte
@@ -4413,8 +4338,6 @@ func (f BucketBandwidthRollupArchive_BucketName_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollupArchive_BucketName_Field) _Column() string { return "bucket_name" }
-
 type BucketBandwidthRollupArchive_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -4431,8 +4354,6 @@ func (f BucketBandwidthRollupArchive_ProjectId_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollupArchive_ProjectId_Field) _Column() string { return "project_id" }
 
 type BucketBandwidthRollupArchive_IntervalStart_Field struct {
 	_set   bool
@@ -4451,8 +4372,6 @@ func (f BucketBandwidthRollupArchive_IntervalStart_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollupArchive_IntervalStart_Field) _Column() string { return "interval_start" }
-
 type BucketBandwidthRollupArchive_IntervalSeconds_Field struct {
 	_set   bool
 	_null  bool
@@ -4469,8 +4388,6 @@ func (f BucketBandwidthRollupArchive_IntervalSeconds_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollupArchive_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
 
 type BucketBandwidthRollupArchive_Action_Field struct {
 	_set   bool
@@ -4489,8 +4406,6 @@ func (f BucketBandwidthRollupArchive_Action_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollupArchive_Action_Field) _Column() string { return "action" }
-
 type BucketBandwidthRollupArchive_Inline_Field struct {
 	_set   bool
 	_null  bool
@@ -4507,8 +4422,6 @@ func (f BucketBandwidthRollupArchive_Inline_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollupArchive_Inline_Field) _Column() string { return "inline" }
 
 type BucketBandwidthRollupArchive_Allocated_Field struct {
 	_set   bool
@@ -4527,8 +4440,6 @@ func (f BucketBandwidthRollupArchive_Allocated_Field) value() any {
 	return f._value
 }
 
-func (BucketBandwidthRollupArchive_Allocated_Field) _Column() string { return "allocated" }
-
 type BucketBandwidthRollupArchive_Settled_Field struct {
 	_set   bool
 	_null  bool
@@ -4545,8 +4456,6 @@ func (f BucketBandwidthRollupArchive_Settled_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketBandwidthRollupArchive_Settled_Field) _Column() string { return "settled" }
 
 type BucketStorageTally struct {
 	BucketName          []byte
@@ -4589,8 +4498,6 @@ func (f BucketStorageTally_BucketName_Field) value() any {
 	return f._value
 }
 
-func (BucketStorageTally_BucketName_Field) _Column() string { return "bucket_name" }
-
 type BucketStorageTally_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -4607,8 +4514,6 @@ func (f BucketStorageTally_ProjectId_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketStorageTally_ProjectId_Field) _Column() string { return "project_id" }
 
 type BucketStorageTally_IntervalStart_Field struct {
 	_set   bool
@@ -4627,8 +4532,6 @@ func (f BucketStorageTally_IntervalStart_Field) value() any {
 	return f._value
 }
 
-func (BucketStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
-
 type BucketStorageTally_TotalBytes_Field struct {
 	_set   bool
 	_null  bool
@@ -4645,8 +4548,6 @@ func (f BucketStorageTally_TotalBytes_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketStorageTally_TotalBytes_Field) _Column() string { return "total_bytes" }
 
 type BucketStorageTally_Inline_Field struct {
 	_set   bool
@@ -4665,8 +4566,6 @@ func (f BucketStorageTally_Inline_Field) value() any {
 	return f._value
 }
 
-func (BucketStorageTally_Inline_Field) _Column() string { return "inline" }
-
 type BucketStorageTally_Remote_Field struct {
 	_set   bool
 	_null  bool
@@ -4683,8 +4582,6 @@ func (f BucketStorageTally_Remote_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
 
 type BucketStorageTally_TotalSegmentsCount_Field struct {
 	_set   bool
@@ -4703,8 +4600,6 @@ func (f BucketStorageTally_TotalSegmentsCount_Field) value() any {
 	return f._value
 }
 
-func (BucketStorageTally_TotalSegmentsCount_Field) _Column() string { return "total_segments_count" }
-
 type BucketStorageTally_RemoteSegmentsCount_Field struct {
 	_set   bool
 	_null  bool
@@ -4721,8 +4616,6 @@ func (f BucketStorageTally_RemoteSegmentsCount_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketStorageTally_RemoteSegmentsCount_Field) _Column() string { return "remote_segments_count" }
 
 type BucketStorageTally_InlineSegmentsCount_Field struct {
 	_set   bool
@@ -4741,8 +4634,6 @@ func (f BucketStorageTally_InlineSegmentsCount_Field) value() any {
 	return f._value
 }
 
-func (BucketStorageTally_InlineSegmentsCount_Field) _Column() string { return "inline_segments_count" }
-
 type BucketStorageTally_ObjectCount_Field struct {
 	_set   bool
 	_null  bool
@@ -4760,8 +4651,6 @@ func (f BucketStorageTally_ObjectCount_Field) value() any {
 	return f._value
 }
 
-func (BucketStorageTally_ObjectCount_Field) _Column() string { return "object_count" }
-
 type BucketStorageTally_MetadataSize_Field struct {
 	_set   bool
 	_null  bool
@@ -4778,8 +4667,6 @@ func (f BucketStorageTally_MetadataSize_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketStorageTally_MetadataSize_Field) _Column() string { return "metadata_size" }
 
 type CoinpaymentsTransaction struct {
 	Id              string
@@ -4817,8 +4704,6 @@ func (f CoinpaymentsTransaction_Id_Field) value() any {
 	return f._value
 }
 
-func (CoinpaymentsTransaction_Id_Field) _Column() string { return "id" }
-
 type CoinpaymentsTransaction_UserId_Field struct {
 	_set   bool
 	_null  bool
@@ -4835,8 +4720,6 @@ func (f CoinpaymentsTransaction_UserId_Field) value() any {
 	}
 	return f._value
 }
-
-func (CoinpaymentsTransaction_UserId_Field) _Column() string { return "user_id" }
 
 type CoinpaymentsTransaction_Address_Field struct {
 	_set   bool
@@ -4855,8 +4738,6 @@ func (f CoinpaymentsTransaction_Address_Field) value() any {
 	return f._value
 }
 
-func (CoinpaymentsTransaction_Address_Field) _Column() string { return "address" }
-
 type CoinpaymentsTransaction_AmountNumeric_Field struct {
 	_set   bool
 	_null  bool
@@ -4873,8 +4754,6 @@ func (f CoinpaymentsTransaction_AmountNumeric_Field) value() any {
 	}
 	return f._value
 }
-
-func (CoinpaymentsTransaction_AmountNumeric_Field) _Column() string { return "amount_numeric" }
 
 type CoinpaymentsTransaction_ReceivedNumeric_Field struct {
 	_set   bool
@@ -4893,8 +4772,6 @@ func (f CoinpaymentsTransaction_ReceivedNumeric_Field) value() any {
 	return f._value
 }
 
-func (CoinpaymentsTransaction_ReceivedNumeric_Field) _Column() string { return "received_numeric" }
-
 type CoinpaymentsTransaction_Status_Field struct {
 	_set   bool
 	_null  bool
@@ -4911,8 +4788,6 @@ func (f CoinpaymentsTransaction_Status_Field) value() any {
 	}
 	return f._value
 }
-
-func (CoinpaymentsTransaction_Status_Field) _Column() string { return "status" }
 
 type CoinpaymentsTransaction_Key_Field struct {
 	_set   bool
@@ -4931,8 +4806,6 @@ func (f CoinpaymentsTransaction_Key_Field) value() any {
 	return f._value
 }
 
-func (CoinpaymentsTransaction_Key_Field) _Column() string { return "key" }
-
 type CoinpaymentsTransaction_Timeout_Field struct {
 	_set   bool
 	_null  bool
@@ -4950,8 +4823,6 @@ func (f CoinpaymentsTransaction_Timeout_Field) value() any {
 	return f._value
 }
 
-func (CoinpaymentsTransaction_Timeout_Field) _Column() string { return "timeout" }
-
 type CoinpaymentsTransaction_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -4968,8 +4839,6 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -5004,8 +4873,6 @@ func (f GracefulExitProgress_NodeId_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitProgress_NodeId_Field) _Column() string { return "node_id" }
-
 type GracefulExitProgress_BytesTransferred_Field struct {
 	_set   bool
 	_null  bool
@@ -5022,8 +4889,6 @@ func (f GracefulExitProgress_BytesTransferred_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitProgress_BytesTransferred_Field) _Column() string { return "bytes_transferred" }
 
 type GracefulExitProgress_PiecesTransferred_Field struct {
 	_set   bool
@@ -5042,8 +4907,6 @@ func (f GracefulExitProgress_PiecesTransferred_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitProgress_PiecesTransferred_Field) _Column() string { return "pieces_transferred" }
-
 type GracefulExitProgress_PiecesFailed_Field struct {
 	_set   bool
 	_null  bool
@@ -5061,8 +4924,6 @@ func (f GracefulExitProgress_PiecesFailed_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitProgress_PiecesFailed_Field) _Column() string { return "pieces_failed" }
-
 type GracefulExitProgress_UpdatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -5079,8 +4940,6 @@ func (f GracefulExitProgress_UpdatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitProgress_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type GracefulExitSegmentTransfer struct {
 	NodeId              []byte
@@ -5137,8 +4996,6 @@ func (f GracefulExitSegmentTransfer_NodeId_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_NodeId_Field) _Column() string { return "node_id" }
-
 type GracefulExitSegmentTransfer_StreamId_Field struct {
 	_set   bool
 	_null  bool
@@ -5155,8 +5012,6 @@ func (f GracefulExitSegmentTransfer_StreamId_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitSegmentTransfer_StreamId_Field) _Column() string { return "stream_id" }
 
 type GracefulExitSegmentTransfer_Position_Field struct {
 	_set   bool
@@ -5175,8 +5030,6 @@ func (f GracefulExitSegmentTransfer_Position_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_Position_Field) _Column() string { return "position" }
-
 type GracefulExitSegmentTransfer_PieceNum_Field struct {
 	_set   bool
 	_null  bool
@@ -5193,8 +5046,6 @@ func (f GracefulExitSegmentTransfer_PieceNum_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitSegmentTransfer_PieceNum_Field) _Column() string { return "piece_num" }
 
 type GracefulExitSegmentTransfer_RootPieceId_Field struct {
 	_set   bool
@@ -5228,8 +5079,6 @@ func (f GracefulExitSegmentTransfer_RootPieceId_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_RootPieceId_Field) _Column() string { return "root_piece_id" }
-
 type GracefulExitSegmentTransfer_DurabilityRatio_Field struct {
 	_set   bool
 	_null  bool
@@ -5247,8 +5096,6 @@ func (f GracefulExitSegmentTransfer_DurabilityRatio_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_DurabilityRatio_Field) _Column() string { return "durability_ratio" }
-
 type GracefulExitSegmentTransfer_QueuedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -5265,8 +5112,6 @@ func (f GracefulExitSegmentTransfer_QueuedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitSegmentTransfer_QueuedAt_Field) _Column() string { return "queued_at" }
 
 type GracefulExitSegmentTransfer_RequestedAt_Field struct {
 	_set   bool
@@ -5300,8 +5145,6 @@ func (f GracefulExitSegmentTransfer_RequestedAt_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_RequestedAt_Field) _Column() string { return "requested_at" }
-
 type GracefulExitSegmentTransfer_LastFailedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -5333,8 +5176,6 @@ func (f GracefulExitSegmentTransfer_LastFailedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitSegmentTransfer_LastFailedAt_Field) _Column() string { return "last_failed_at" }
 
 type GracefulExitSegmentTransfer_LastFailedCode_Field struct {
 	_set   bool
@@ -5368,8 +5209,6 @@ func (f GracefulExitSegmentTransfer_LastFailedCode_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_LastFailedCode_Field) _Column() string { return "last_failed_code" }
-
 type GracefulExitSegmentTransfer_FailedCount_Field struct {
 	_set   bool
 	_null  bool
@@ -5401,8 +5240,6 @@ func (f GracefulExitSegmentTransfer_FailedCount_Field) value() any {
 	}
 	return f._value
 }
-
-func (GracefulExitSegmentTransfer_FailedCount_Field) _Column() string { return "failed_count" }
 
 type GracefulExitSegmentTransfer_FinishedAt_Field struct {
 	_set   bool
@@ -5436,8 +5273,6 @@ func (f GracefulExitSegmentTransfer_FinishedAt_Field) value() any {
 	return f._value
 }
 
-func (GracefulExitSegmentTransfer_FinishedAt_Field) _Column() string { return "finished_at" }
-
 type GracefulExitSegmentTransfer_OrderLimitSendCount_Field struct {
 	_set   bool
 	_null  bool
@@ -5453,10 +5288,6 @@ func (f GracefulExitSegmentTransfer_OrderLimitSendCount_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (GracefulExitSegmentTransfer_OrderLimitSendCount_Field) _Column() string {
-	return "order_limit_send_count"
 }
 
 type Node struct {
@@ -5594,8 +5425,6 @@ func (f Node_Id_Field) value() any {
 	return f._value
 }
 
-func (Node_Id_Field) _Column() string { return "id" }
-
 type Node_Address_Field struct {
 	_set   bool
 	_null  bool
@@ -5613,8 +5442,6 @@ func (f Node_Address_Field) value() any {
 	return f._value
 }
 
-func (Node_Address_Field) _Column() string { return "address" }
-
 type Node_LastNet_Field struct {
 	_set   bool
 	_null  bool
@@ -5631,8 +5458,6 @@ func (f Node_LastNet_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_LastNet_Field) _Column() string { return "last_net" }
 
 type Node_LastIpPort_Field struct {
 	_set   bool
@@ -5664,8 +5489,6 @@ func (f Node_LastIpPort_Field) value() any {
 	return f._value
 }
 
-func (Node_LastIpPort_Field) _Column() string { return "last_ip_port" }
-
 type Node_CountryCode_Field struct {
 	_set   bool
 	_null  bool
@@ -5696,8 +5519,6 @@ func (f Node_CountryCode_Field) value() any {
 	return f._value
 }
 
-func (Node_CountryCode_Field) _Column() string { return "country_code" }
-
 type Node_Protocol_Field struct {
 	_set   bool
 	_null  bool
@@ -5714,8 +5535,6 @@ func (f Node_Protocol_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Protocol_Field) _Column() string { return "protocol" }
 
 type Node_Email_Field struct {
 	_set   bool
@@ -5734,8 +5553,6 @@ func (f Node_Email_Field) value() any {
 	return f._value
 }
 
-func (Node_Email_Field) _Column() string { return "email" }
-
 type Node_Wallet_Field struct {
 	_set   bool
 	_null  bool
@@ -5752,8 +5569,6 @@ func (f Node_Wallet_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Wallet_Field) _Column() string { return "wallet" }
 
 type Node_WalletFeatures_Field struct {
 	_set   bool
@@ -5772,8 +5587,6 @@ func (f Node_WalletFeatures_Field) value() any {
 	return f._value
 }
 
-func (Node_WalletFeatures_Field) _Column() string { return "wallet_features" }
-
 type Node_FreeDisk_Field struct {
 	_set   bool
 	_null  bool
@@ -5790,8 +5603,6 @@ func (f Node_FreeDisk_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_FreeDisk_Field) _Column() string { return "free_disk" }
 
 type Node_PieceCount_Field struct {
 	_set   bool
@@ -5810,8 +5621,6 @@ func (f Node_PieceCount_Field) value() any {
 	return f._value
 }
 
-func (Node_PieceCount_Field) _Column() string { return "piece_count" }
-
 type Node_Major_Field struct {
 	_set   bool
 	_null  bool
@@ -5828,8 +5637,6 @@ func (f Node_Major_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Major_Field) _Column() string { return "major" }
 
 type Node_Minor_Field struct {
 	_set   bool
@@ -5848,8 +5655,6 @@ func (f Node_Minor_Field) value() any {
 	return f._value
 }
 
-func (Node_Minor_Field) _Column() string { return "minor" }
-
 type Node_Patch_Field struct {
 	_set   bool
 	_null  bool
@@ -5866,8 +5671,6 @@ func (f Node_Patch_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Patch_Field) _Column() string { return "patch" }
 
 type Node_CommitHash_Field struct {
 	_set   bool
@@ -5886,8 +5689,6 @@ func (f Node_CommitHash_Field) value() any {
 	return f._value
 }
 
-func (Node_CommitHash_Field) _Column() string { return "commit_hash" }
-
 type Node_ReleaseTimestamp_Field struct {
 	_set   bool
 	_null  bool
@@ -5904,8 +5705,6 @@ func (f Node_ReleaseTimestamp_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_ReleaseTimestamp_Field) _Column() string { return "release_timestamp" }
 
 type Node_Release_Field struct {
 	_set   bool
@@ -5924,8 +5723,6 @@ func (f Node_Release_Field) value() any {
 	return f._value
 }
 
-func (Node_Release_Field) _Column() string { return "release" }
-
 type Node_Latency90_Field struct {
 	_set   bool
 	_null  bool
@@ -5942,8 +5739,6 @@ func (f Node_Latency90_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Latency90_Field) _Column() string { return "latency_90" }
 
 type Node_VettedAt_Field struct {
 	_set   bool
@@ -5975,8 +5770,6 @@ func (f Node_VettedAt_Field) value() any {
 	return f._value
 }
 
-func (Node_VettedAt_Field) _Column() string { return "vetted_at" }
-
 type Node_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -5993,8 +5786,6 @@ func (f Node_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Node_UpdatedAt_Field struct {
 	_set   bool
@@ -6013,8 +5804,6 @@ func (f Node_UpdatedAt_Field) value() any {
 	return f._value
 }
 
-func (Node_UpdatedAt_Field) _Column() string { return "updated_at" }
-
 type Node_LastContactSuccess_Field struct {
 	_set   bool
 	_null  bool
@@ -6032,8 +5821,6 @@ func (f Node_LastContactSuccess_Field) value() any {
 	return f._value
 }
 
-func (Node_LastContactSuccess_Field) _Column() string { return "last_contact_success" }
-
 type Node_LastContactFailure_Field struct {
 	_set   bool
 	_null  bool
@@ -6050,8 +5837,6 @@ func (f Node_LastContactFailure_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_LastContactFailure_Field) _Column() string { return "last_contact_failure" }
 
 type Node_Disqualified_Field struct {
 	_set   bool
@@ -6082,8 +5867,6 @@ func (f Node_Disqualified_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Disqualified_Field) _Column() string { return "disqualified" }
 
 type Node_DisqualificationReason_Field struct {
 	_set   bool
@@ -6117,8 +5900,6 @@ func (f Node_DisqualificationReason_Field) value() any {
 	return f._value
 }
 
-func (Node_DisqualificationReason_Field) _Column() string { return "disqualification_reason" }
-
 type Node_UnknownAuditSuspended_Field struct {
 	_set   bool
 	_null  bool
@@ -6148,8 +5929,6 @@ func (f Node_UnknownAuditSuspended_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_UnknownAuditSuspended_Field) _Column() string { return "unknown_audit_suspended" }
 
 type Node_OfflineSuspended_Field struct {
 	_set   bool
@@ -6181,8 +5960,6 @@ func (f Node_OfflineSuspended_Field) value() any {
 	return f._value
 }
 
-func (Node_OfflineSuspended_Field) _Column() string { return "offline_suspended" }
-
 type Node_UnderReview_Field struct {
 	_set   bool
 	_null  bool
@@ -6212,8 +5989,6 @@ func (f Node_UnderReview_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_UnderReview_Field) _Column() string { return "under_review" }
 
 type Node_ExitInitiatedAt_Field struct {
 	_set   bool
@@ -6245,8 +6020,6 @@ func (f Node_ExitInitiatedAt_Field) value() any {
 	return f._value
 }
 
-func (Node_ExitInitiatedAt_Field) _Column() string { return "exit_initiated_at" }
-
 type Node_ExitLoopCompletedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -6276,8 +6049,6 @@ func (f Node_ExitLoopCompletedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_ExitLoopCompletedAt_Field) _Column() string { return "exit_loop_completed_at" }
 
 type Node_ExitFinishedAt_Field struct {
 	_set   bool
@@ -6309,8 +6080,6 @@ func (f Node_ExitFinishedAt_Field) value() any {
 	return f._value
 }
 
-func (Node_ExitFinishedAt_Field) _Column() string { return "exit_finished_at" }
-
 type Node_ExitSuccess_Field struct {
 	_set   bool
 	_null  bool
@@ -6327,8 +6096,6 @@ func (f Node_ExitSuccess_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_ExitSuccess_Field) _Column() string { return "exit_success" }
 
 type Node_Contained_Field struct {
 	_set   bool
@@ -6360,8 +6127,6 @@ func (f Node_Contained_Field) value() any {
 	return f._value
 }
 
-func (Node_Contained_Field) _Column() string { return "contained" }
-
 type Node_LastOfflineEmail_Field struct {
 	_set   bool
 	_null  bool
@@ -6391,8 +6156,6 @@ func (f Node_LastOfflineEmail_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_LastOfflineEmail_Field) _Column() string { return "last_offline_email" }
 
 type Node_LastSoftwareUpdateEmail_Field struct {
 	_set   bool
@@ -6426,8 +6189,6 @@ func (f Node_LastSoftwareUpdateEmail_Field) value() any {
 	return f._value
 }
 
-func (Node_LastSoftwareUpdateEmail_Field) _Column() string { return "last_software_update_email" }
-
 type Node_NoiseProto_Field struct {
 	_set   bool
 	_null  bool
@@ -6457,8 +6218,6 @@ func (f Node_NoiseProto_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_NoiseProto_Field) _Column() string { return "noise_proto" }
 
 type Node_NoisePublicKey_Field struct {
 	_set   bool
@@ -6490,8 +6249,6 @@ func (f Node_NoisePublicKey_Field) value() any {
 	return f._value
 }
 
-func (Node_NoisePublicKey_Field) _Column() string { return "noise_public_key" }
-
 type Node_DebounceLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -6509,8 +6266,6 @@ func (f Node_DebounceLimit_Field) value() any {
 	return f._value
 }
 
-func (Node_DebounceLimit_Field) _Column() string { return "debounce_limit" }
-
 type Node_Features_Field struct {
 	_set   bool
 	_null  bool
@@ -6527,8 +6282,6 @@ func (f Node_Features_Field) value() any {
 	}
 	return f._value
 }
-
-func (Node_Features_Field) _Column() string { return "features" }
 
 type NodeApiVersion struct {
 	Id         []byte
@@ -6560,8 +6313,6 @@ func (f NodeApiVersion_Id_Field) value() any {
 	return f._value
 }
 
-func (NodeApiVersion_Id_Field) _Column() string { return "id" }
-
 type NodeApiVersion_ApiVersion_Field struct {
 	_set   bool
 	_null  bool
@@ -6578,8 +6329,6 @@ func (f NodeApiVersion_ApiVersion_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeApiVersion_ApiVersion_Field) _Column() string { return "api_version" }
 
 type NodeApiVersion_CreatedAt_Field struct {
 	_set   bool
@@ -6598,8 +6347,6 @@ func (f NodeApiVersion_CreatedAt_Field) value() any {
 	return f._value
 }
 
-func (NodeApiVersion_CreatedAt_Field) _Column() string { return "created_at" }
-
 type NodeApiVersion_UpdatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -6616,8 +6363,6 @@ func (f NodeApiVersion_UpdatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeApiVersion_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type NodeEvent struct {
 	Id            []byte
@@ -6661,8 +6406,6 @@ func (f NodeEvent_Id_Field) value() any {
 	return f._value
 }
 
-func (NodeEvent_Id_Field) _Column() string { return "id" }
-
 type NodeEvent_Email_Field struct {
 	_set   bool
 	_null  bool
@@ -6679,8 +6422,6 @@ func (f NodeEvent_Email_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeEvent_Email_Field) _Column() string { return "email" }
 
 type NodeEvent_LastIpPort_Field struct {
 	_set   bool
@@ -6712,8 +6453,6 @@ func (f NodeEvent_LastIpPort_Field) value() any {
 	return f._value
 }
 
-func (NodeEvent_LastIpPort_Field) _Column() string { return "last_ip_port" }
-
 type NodeEvent_NodeId_Field struct {
 	_set   bool
 	_null  bool
@@ -6730,8 +6469,6 @@ func (f NodeEvent_NodeId_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeEvent_NodeId_Field) _Column() string { return "node_id" }
 
 type NodeEvent_Event_Field struct {
 	_set   bool
@@ -6750,8 +6487,6 @@ func (f NodeEvent_Event_Field) value() any {
 	return f._value
 }
 
-func (NodeEvent_Event_Field) _Column() string { return "event" }
-
 type NodeEvent_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -6768,8 +6503,6 @@ func (f NodeEvent_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeEvent_CreatedAt_Field) _Column() string { return "created_at" }
 
 type NodeEvent_LastAttempted_Field struct {
 	_set   bool
@@ -6801,8 +6534,6 @@ func (f NodeEvent_LastAttempted_Field) value() any {
 	return f._value
 }
 
-func (NodeEvent_LastAttempted_Field) _Column() string { return "last_attempted" }
-
 type NodeEvent_EmailSent_Field struct {
 	_set   bool
 	_null  bool
@@ -6832,8 +6563,6 @@ func (f NodeEvent_EmailSent_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeEvent_EmailSent_Field) _Column() string { return "email_sent" }
 
 type NodeTags struct {
 	NodeId   []byte
@@ -6865,8 +6594,6 @@ func (f NodeTags_NodeId_Field) value() any {
 	return f._value
 }
 
-func (NodeTags_NodeId_Field) _Column() string { return "node_id" }
-
 type NodeTags_Name_Field struct {
 	_set   bool
 	_null  bool
@@ -6883,8 +6610,6 @@ func (f NodeTags_Name_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeTags_Name_Field) _Column() string { return "name" }
 
 type NodeTags_Value_Field struct {
 	_set   bool
@@ -6903,8 +6628,6 @@ func (f NodeTags_Value_Field) value() any {
 	return f._value
 }
 
-func (NodeTags_Value_Field) _Column() string { return "value" }
-
 type NodeTags_SignedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -6922,8 +6645,6 @@ func (f NodeTags_SignedAt_Field) value() any {
 	return f._value
 }
 
-func (NodeTags_SignedAt_Field) _Column() string { return "signed_at" }
-
 type NodeTags_Signer_Field struct {
 	_set   bool
 	_null  bool
@@ -6940,8 +6661,6 @@ func (f NodeTags_Signer_Field) value() any {
 	}
 	return f._value
 }
-
-func (NodeTags_Signer_Field) _Column() string { return "signer" }
 
 type OauthClient struct {
 	Id              []byte
@@ -6978,8 +6697,6 @@ func (f OauthClient_Id_Field) value() any {
 	return f._value
 }
 
-func (OauthClient_Id_Field) _Column() string { return "id" }
-
 type OauthClient_EncryptedSecret_Field struct {
 	_set   bool
 	_null  bool
@@ -6996,8 +6713,6 @@ func (f OauthClient_EncryptedSecret_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthClient_EncryptedSecret_Field) _Column() string { return "encrypted_secret" }
 
 type OauthClient_RedirectUrl_Field struct {
 	_set   bool
@@ -7016,8 +6731,6 @@ func (f OauthClient_RedirectUrl_Field) value() any {
 	return f._value
 }
 
-func (OauthClient_RedirectUrl_Field) _Column() string { return "redirect_url" }
-
 type OauthClient_UserId_Field struct {
 	_set   bool
 	_null  bool
@@ -7034,8 +6747,6 @@ func (f OauthClient_UserId_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthClient_UserId_Field) _Column() string { return "user_id" }
 
 type OauthClient_AppName_Field struct {
 	_set   bool
@@ -7054,8 +6765,6 @@ func (f OauthClient_AppName_Field) value() any {
 	return f._value
 }
 
-func (OauthClient_AppName_Field) _Column() string { return "app_name" }
-
 type OauthClient_AppLogoUrl_Field struct {
 	_set   bool
 	_null  bool
@@ -7072,8 +6781,6 @@ func (f OauthClient_AppLogoUrl_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthClient_AppLogoUrl_Field) _Column() string { return "app_logo_url" }
 
 type OauthCode struct {
 	ClientId        []byte
@@ -7115,8 +6822,6 @@ func (f OauthCode_ClientId_Field) value() any {
 	return f._value
 }
 
-func (OauthCode_ClientId_Field) _Column() string { return "client_id" }
-
 type OauthCode_UserId_Field struct {
 	_set   bool
 	_null  bool
@@ -7133,8 +6838,6 @@ func (f OauthCode_UserId_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthCode_UserId_Field) _Column() string { return "user_id" }
 
 type OauthCode_Scope_Field struct {
 	_set   bool
@@ -7153,8 +6856,6 @@ func (f OauthCode_Scope_Field) value() any {
 	return f._value
 }
 
-func (OauthCode_Scope_Field) _Column() string { return "scope" }
-
 type OauthCode_RedirectUrl_Field struct {
 	_set   bool
 	_null  bool
@@ -7171,8 +6872,6 @@ func (f OauthCode_RedirectUrl_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthCode_RedirectUrl_Field) _Column() string { return "redirect_url" }
 
 type OauthCode_Challenge_Field struct {
 	_set   bool
@@ -7191,8 +6890,6 @@ func (f OauthCode_Challenge_Field) value() any {
 	return f._value
 }
 
-func (OauthCode_Challenge_Field) _Column() string { return "challenge" }
-
 type OauthCode_ChallengeMethod_Field struct {
 	_set   bool
 	_null  bool
@@ -7209,8 +6906,6 @@ func (f OauthCode_ChallengeMethod_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthCode_ChallengeMethod_Field) _Column() string { return "challenge_method" }
 
 type OauthCode_Code_Field struct {
 	_set   bool
@@ -7229,8 +6924,6 @@ func (f OauthCode_Code_Field) value() any {
 	return f._value
 }
 
-func (OauthCode_Code_Field) _Column() string { return "code" }
-
 type OauthCode_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -7248,8 +6941,6 @@ func (f OauthCode_CreatedAt_Field) value() any {
 	return f._value
 }
 
-func (OauthCode_CreatedAt_Field) _Column() string { return "created_at" }
-
 type OauthCode_ExpiresAt_Field struct {
 	_set   bool
 	_null  bool
@@ -7266,8 +6957,6 @@ func (f OauthCode_ExpiresAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthCode_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type OauthCode_ClaimedAt_Field struct {
 	_set   bool
@@ -7298,8 +6987,6 @@ func (f OauthCode_ClaimedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthCode_ClaimedAt_Field) _Column() string { return "claimed_at" }
 
 type OauthToken struct {
 	ClientId  []byte
@@ -7334,8 +7021,6 @@ func (f OauthToken_ClientId_Field) value() any {
 	return f._value
 }
 
-func (OauthToken_ClientId_Field) _Column() string { return "client_id" }
-
 type OauthToken_UserId_Field struct {
 	_set   bool
 	_null  bool
@@ -7352,8 +7037,6 @@ func (f OauthToken_UserId_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthToken_UserId_Field) _Column() string { return "user_id" }
 
 type OauthToken_Scope_Field struct {
 	_set   bool
@@ -7372,8 +7055,6 @@ func (f OauthToken_Scope_Field) value() any {
 	return f._value
 }
 
-func (OauthToken_Scope_Field) _Column() string { return "scope" }
-
 type OauthToken_Kind_Field struct {
 	_set   bool
 	_null  bool
@@ -7390,8 +7071,6 @@ func (f OauthToken_Kind_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthToken_Kind_Field) _Column() string { return "kind" }
 
 type OauthToken_Token_Field struct {
 	_set   bool
@@ -7410,8 +7089,6 @@ func (f OauthToken_Token_Field) value() any {
 	return f._value
 }
 
-func (OauthToken_Token_Field) _Column() string { return "token" }
-
 type OauthToken_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -7429,8 +7106,6 @@ func (f OauthToken_CreatedAt_Field) value() any {
 	return f._value
 }
 
-func (OauthToken_CreatedAt_Field) _Column() string { return "created_at" }
-
 type OauthToken_ExpiresAt_Field struct {
 	_set   bool
 	_null  bool
@@ -7447,8 +7122,6 @@ func (f OauthToken_ExpiresAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (OauthToken_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type PeerIdentity struct {
 	NodeId           []byte
@@ -7481,8 +7154,6 @@ func (f PeerIdentity_NodeId_Field) value() any {
 	return f._value
 }
 
-func (PeerIdentity_NodeId_Field) _Column() string { return "node_id" }
-
 type PeerIdentity_LeafSerialNumber_Field struct {
 	_set   bool
 	_null  bool
@@ -7499,8 +7170,6 @@ func (f PeerIdentity_LeafSerialNumber_Field) value() any {
 	}
 	return f._value
 }
-
-func (PeerIdentity_LeafSerialNumber_Field) _Column() string { return "leaf_serial_number" }
 
 type PeerIdentity_Chain_Field struct {
 	_set   bool
@@ -7519,8 +7188,6 @@ func (f PeerIdentity_Chain_Field) value() any {
 	return f._value
 }
 
-func (PeerIdentity_Chain_Field) _Column() string { return "chain" }
-
 type PeerIdentity_UpdatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -7537,8 +7204,6 @@ func (f PeerIdentity_UpdatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (PeerIdentity_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type Project struct {
 	Id                          []byte
@@ -7654,8 +7319,6 @@ func (f Project_Id_Field) value() any {
 	return f._value
 }
 
-func (Project_Id_Field) _Column() string { return "id" }
-
 type Project_PublicId_Field struct {
 	_set   bool
 	_null  bool
@@ -7686,8 +7349,6 @@ func (f Project_PublicId_Field) value() any {
 	return f._value
 }
 
-func (Project_PublicId_Field) _Column() string { return "public_id" }
-
 type Project_Name_Field struct {
 	_set   bool
 	_null  bool
@@ -7705,8 +7366,6 @@ func (f Project_Name_Field) value() any {
 	return f._value
 }
 
-func (Project_Name_Field) _Column() string { return "name" }
-
 type Project_Description_Field struct {
 	_set   bool
 	_null  bool
@@ -7723,8 +7382,6 @@ func (f Project_Description_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_Description_Field) _Column() string { return "description" }
 
 type Project_UsageLimit_Field struct {
 	_set   bool
@@ -7756,8 +7413,6 @@ func (f Project_UsageLimit_Field) value() any {
 	return f._value
 }
 
-func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
-
 type Project_BandwidthLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -7787,8 +7442,6 @@ func (f Project_BandwidthLimit_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BandwidthLimit_Field) _Column() string { return "bandwidth_limit" }
 
 type Project_UserSpecifiedUsageLimit_Field struct {
 	_set   bool
@@ -7822,8 +7475,6 @@ func (f Project_UserSpecifiedUsageLimit_Field) value() any {
 	return f._value
 }
 
-func (Project_UserSpecifiedUsageLimit_Field) _Column() string { return "user_specified_usage_limit" }
-
 type Project_UserSpecifiedBandwidthLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -7856,10 +7507,6 @@ func (f Project_UserSpecifiedBandwidthLimit_Field) value() any {
 	return f._value
 }
 
-func (Project_UserSpecifiedBandwidthLimit_Field) _Column() string {
-	return "user_specified_bandwidth_limit"
-}
-
 type Project_SegmentLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -7889,8 +7536,6 @@ func (f Project_SegmentLimit_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_SegmentLimit_Field) _Column() string { return "segment_limit" }
 
 type Project_RateLimit_Field struct {
 	_set   bool
@@ -7922,8 +7567,6 @@ func (f Project_RateLimit_Field) value() any {
 	return f._value
 }
 
-func (Project_RateLimit_Field) _Column() string { return "rate_limit" }
-
 type Project_BurstLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -7953,8 +7596,6 @@ func (f Project_BurstLimit_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BurstLimit_Field) _Column() string { return "burst_limit" }
 
 type Project_RateLimitHead_Field struct {
 	_set   bool
@@ -7986,8 +7627,6 @@ func (f Project_RateLimitHead_Field) value() any {
 	return f._value
 }
 
-func (Project_RateLimitHead_Field) _Column() string { return "rate_limit_head" }
-
 type Project_BurstLimitHead_Field struct {
 	_set   bool
 	_null  bool
@@ -8017,8 +7656,6 @@ func (f Project_BurstLimitHead_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BurstLimitHead_Field) _Column() string { return "burst_limit_head" }
 
 type Project_RateLimitGet_Field struct {
 	_set   bool
@@ -8050,8 +7687,6 @@ func (f Project_RateLimitGet_Field) value() any {
 	return f._value
 }
 
-func (Project_RateLimitGet_Field) _Column() string { return "rate_limit_get" }
-
 type Project_BurstLimitGet_Field struct {
 	_set   bool
 	_null  bool
@@ -8081,8 +7716,6 @@ func (f Project_BurstLimitGet_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BurstLimitGet_Field) _Column() string { return "burst_limit_get" }
 
 type Project_RateLimitPut_Field struct {
 	_set   bool
@@ -8114,8 +7747,6 @@ func (f Project_RateLimitPut_Field) value() any {
 	return f._value
 }
 
-func (Project_RateLimitPut_Field) _Column() string { return "rate_limit_put" }
-
 type Project_BurstLimitPut_Field struct {
 	_set   bool
 	_null  bool
@@ -8145,8 +7776,6 @@ func (f Project_BurstLimitPut_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BurstLimitPut_Field) _Column() string { return "burst_limit_put" }
 
 type Project_RateLimitList_Field struct {
 	_set   bool
@@ -8178,8 +7807,6 @@ func (f Project_RateLimitList_Field) value() any {
 	return f._value
 }
 
-func (Project_RateLimitList_Field) _Column() string { return "rate_limit_list" }
-
 type Project_BurstLimitList_Field struct {
 	_set   bool
 	_null  bool
@@ -8209,8 +7836,6 @@ func (f Project_BurstLimitList_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BurstLimitList_Field) _Column() string { return "burst_limit_list" }
 
 type Project_RateLimitDel_Field struct {
 	_set   bool
@@ -8242,8 +7867,6 @@ func (f Project_RateLimitDel_Field) value() any {
 	return f._value
 }
 
-func (Project_RateLimitDel_Field) _Column() string { return "rate_limit_del" }
-
 type Project_BurstLimitDel_Field struct {
 	_set   bool
 	_null  bool
@@ -8273,8 +7896,6 @@ func (f Project_BurstLimitDel_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_BurstLimitDel_Field) _Column() string { return "burst_limit_del" }
 
 type Project_MaxBuckets_Field struct {
 	_set   bool
@@ -8306,8 +7927,6 @@ func (f Project_MaxBuckets_Field) value() any {
 	return f._value
 }
 
-func (Project_MaxBuckets_Field) _Column() string { return "max_buckets" }
-
 type Project_UserAgent_Field struct {
 	_set   bool
 	_null  bool
@@ -8338,8 +7957,6 @@ func (f Project_UserAgent_Field) value() any {
 	return f._value
 }
 
-func (Project_UserAgent_Field) _Column() string { return "user_agent" }
-
 type Project_OwnerId_Field struct {
 	_set   bool
 	_null  bool
@@ -8356,8 +7973,6 @@ func (f Project_OwnerId_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_OwnerId_Field) _Column() string { return "owner_id" }
 
 type Project_Salt_Field struct {
 	_set   bool
@@ -8389,8 +8004,6 @@ func (f Project_Salt_Field) value() any {
 	return f._value
 }
 
-func (Project_Salt_Field) _Column() string { return "salt" }
-
 type Project_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -8407,8 +8020,6 @@ func (f Project_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Project_DefaultPlacement_Field struct {
 	_set   bool
@@ -8440,8 +8051,6 @@ func (f Project_DefaultPlacement_Field) value() any {
 	return f._value
 }
 
-func (Project_DefaultPlacement_Field) _Column() string { return "default_placement" }
-
 type Project_DefaultVersioning_Field struct {
 	_set   bool
 	_null  bool
@@ -8459,8 +8068,6 @@ func (f Project_DefaultVersioning_Field) value() any {
 	return f._value
 }
 
-func (Project_DefaultVersioning_Field) _Column() string { return "default_versioning" }
-
 type Project_PromptedForVersioningBeta_Field struct {
 	_set   bool
 	_null  bool
@@ -8476,10 +8083,6 @@ func (f Project_PromptedForVersioningBeta_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (Project_PromptedForVersioningBeta_Field) _Column() string {
-	return "prompted_for_versioning_beta"
 }
 
 type Project_PassphraseEnc_Field struct {
@@ -8512,8 +8115,6 @@ func (f Project_PassphraseEnc_Field) value() any {
 	return f._value
 }
 
-func (Project_PassphraseEnc_Field) _Column() string { return "passphrase_enc" }
-
 type Project_PassphraseEncKeyId_Field struct {
 	_set   bool
 	_null  bool
@@ -8544,8 +8145,6 @@ func (f Project_PassphraseEncKeyId_Field) value() any {
 	return f._value
 }
 
-func (Project_PassphraseEncKeyId_Field) _Column() string { return "passphrase_enc_key_id" }
-
 type Project_PathEncryption_Field struct {
 	_set   bool
 	_null  bool
@@ -8562,8 +8161,6 @@ func (f Project_PathEncryption_Field) value() any {
 	}
 	return f._value
 }
-
-func (Project_PathEncryption_Field) _Column() string { return "path_encryption" }
 
 type ProjectBandwidthDailyRollup struct {
 	ProjectId       []byte
@@ -8602,8 +8199,6 @@ func (f ProjectBandwidthDailyRollup_ProjectId_Field) value() any {
 	return f._value
 }
 
-func (ProjectBandwidthDailyRollup_ProjectId_Field) _Column() string { return "project_id" }
-
 type ProjectBandwidthDailyRollup_IntervalDay_Field struct {
 	_set   bool
 	_null  bool
@@ -8622,8 +8217,6 @@ func (f ProjectBandwidthDailyRollup_IntervalDay_Field) value() any {
 	return f._value
 }
 
-func (ProjectBandwidthDailyRollup_IntervalDay_Field) _Column() string { return "interval_day" }
-
 type ProjectBandwidthDailyRollup_EgressAllocated_Field struct {
 	_set   bool
 	_null  bool
@@ -8640,8 +8233,6 @@ func (f ProjectBandwidthDailyRollup_EgressAllocated_Field) value() any {
 	}
 	return f._value
 }
-
-func (ProjectBandwidthDailyRollup_EgressAllocated_Field) _Column() string { return "egress_allocated" }
 
 type ProjectBandwidthDailyRollup_EgressSettled_Field struct {
 	_set   bool
@@ -8660,8 +8251,6 @@ func (f ProjectBandwidthDailyRollup_EgressSettled_Field) value() any {
 	return f._value
 }
 
-func (ProjectBandwidthDailyRollup_EgressSettled_Field) _Column() string { return "egress_settled" }
-
 type ProjectBandwidthDailyRollup_EgressDead_Field struct {
 	_set   bool
 	_null  bool
@@ -8678,8 +8267,6 @@ func (f ProjectBandwidthDailyRollup_EgressDead_Field) value() any {
 	}
 	return f._value
 }
-
-func (ProjectBandwidthDailyRollup_EgressDead_Field) _Column() string { return "egress_dead" }
 
 type RegistrationToken struct {
 	Secret       []byte
@@ -8715,8 +8302,6 @@ func (f RegistrationToken_Secret_Field) value() any {
 	return f._value
 }
 
-func (RegistrationToken_Secret_Field) _Column() string { return "secret" }
-
 type RegistrationToken_OwnerId_Field struct {
 	_set   bool
 	_null  bool
@@ -8747,8 +8332,6 @@ func (f RegistrationToken_OwnerId_Field) value() any {
 	return f._value
 }
 
-func (RegistrationToken_OwnerId_Field) _Column() string { return "owner_id" }
-
 type RegistrationToken_ProjectLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -8766,8 +8349,6 @@ func (f RegistrationToken_ProjectLimit_Field) value() any {
 	return f._value
 }
 
-func (RegistrationToken_ProjectLimit_Field) _Column() string { return "project_limit" }
-
 type RegistrationToken_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -8784,8 +8365,6 @@ func (f RegistrationToken_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
 
 type RepairQueue struct {
 	StreamId      []byte
@@ -8830,8 +8409,6 @@ func (f RepairQueue_StreamId_Field) value() any {
 	return f._value
 }
 
-func (RepairQueue_StreamId_Field) _Column() string { return "stream_id" }
-
 type RepairQueue_Position_Field struct {
 	_set   bool
 	_null  bool
@@ -8848,8 +8425,6 @@ func (f RepairQueue_Position_Field) value() any {
 	}
 	return f._value
 }
-
-func (RepairQueue_Position_Field) _Column() string { return "position" }
 
 type RepairQueue_AttemptedAt_Field struct {
 	_set   bool
@@ -8881,8 +8456,6 @@ func (f RepairQueue_AttemptedAt_Field) value() any {
 	return f._value
 }
 
-func (RepairQueue_AttemptedAt_Field) _Column() string { return "attempted_at" }
-
 type RepairQueue_UpdatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -8899,8 +8472,6 @@ func (f RepairQueue_UpdatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (RepairQueue_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type RepairQueue_InsertedAt_Field struct {
 	_set   bool
@@ -8919,8 +8490,6 @@ func (f RepairQueue_InsertedAt_Field) value() any {
 	return f._value
 }
 
-func (RepairQueue_InsertedAt_Field) _Column() string { return "inserted_at" }
-
 type RepairQueue_SegmentHealth_Field struct {
 	_set   bool
 	_null  bool
@@ -8937,8 +8506,6 @@ func (f RepairQueue_SegmentHealth_Field) value() any {
 	}
 	return f._value
 }
-
-func (RepairQueue_SegmentHealth_Field) _Column() string { return "segment_health" }
 
 type RepairQueue_Placement_Field struct {
 	_set   bool
@@ -8969,8 +8536,6 @@ func (f RepairQueue_Placement_Field) value() any {
 	}
 	return f._value
 }
-
-func (RepairQueue_Placement_Field) _Column() string { return "placement" }
 
 type Reputation struct {
 	Id                          []byte
@@ -9044,8 +8609,6 @@ func (f Reputation_Id_Field) value() any {
 	return f._value
 }
 
-func (Reputation_Id_Field) _Column() string { return "id" }
-
 type Reputation_AuditSuccessCount_Field struct {
 	_set   bool
 	_null  bool
@@ -9063,8 +8626,6 @@ func (f Reputation_AuditSuccessCount_Field) value() any {
 	return f._value
 }
 
-func (Reputation_AuditSuccessCount_Field) _Column() string { return "audit_success_count" }
-
 type Reputation_TotalAuditCount_Field struct {
 	_set   bool
 	_null  bool
@@ -9081,8 +8642,6 @@ func (f Reputation_TotalAuditCount_Field) value() any {
 	}
 	return f._value
 }
-
-func (Reputation_TotalAuditCount_Field) _Column() string { return "total_audit_count" }
 
 type Reputation_VettedAt_Field struct {
 	_set   bool
@@ -9114,8 +8673,6 @@ func (f Reputation_VettedAt_Field) value() any {
 	return f._value
 }
 
-func (Reputation_VettedAt_Field) _Column() string { return "vetted_at" }
-
 type Reputation_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -9133,8 +8690,6 @@ func (f Reputation_CreatedAt_Field) value() any {
 	return f._value
 }
 
-func (Reputation_CreatedAt_Field) _Column() string { return "created_at" }
-
 type Reputation_UpdatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -9151,8 +8706,6 @@ func (f Reputation_UpdatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (Reputation_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type Reputation_Disqualified_Field struct {
 	_set   bool
@@ -9183,8 +8736,6 @@ func (f Reputation_Disqualified_Field) value() any {
 	}
 	return f._value
 }
-
-func (Reputation_Disqualified_Field) _Column() string { return "disqualified" }
 
 type Reputation_DisqualificationReason_Field struct {
 	_set   bool
@@ -9218,8 +8769,6 @@ func (f Reputation_DisqualificationReason_Field) value() any {
 	return f._value
 }
 
-func (Reputation_DisqualificationReason_Field) _Column() string { return "disqualification_reason" }
-
 type Reputation_UnknownAuditSuspended_Field struct {
 	_set   bool
 	_null  bool
@@ -9251,8 +8800,6 @@ func (f Reputation_UnknownAuditSuspended_Field) value() any {
 	}
 	return f._value
 }
-
-func (Reputation_UnknownAuditSuspended_Field) _Column() string { return "unknown_audit_suspended" }
 
 type Reputation_OfflineSuspended_Field struct {
 	_set   bool
@@ -9286,8 +8833,6 @@ func (f Reputation_OfflineSuspended_Field) value() any {
 	return f._value
 }
 
-func (Reputation_OfflineSuspended_Field) _Column() string { return "offline_suspended" }
-
 type Reputation_UnderReview_Field struct {
 	_set   bool
 	_null  bool
@@ -9318,8 +8863,6 @@ func (f Reputation_UnderReview_Field) value() any {
 	return f._value
 }
 
-func (Reputation_UnderReview_Field) _Column() string { return "under_review" }
-
 type Reputation_OnlineScore_Field struct {
 	_set   bool
 	_null  bool
@@ -9336,8 +8879,6 @@ func (f Reputation_OnlineScore_Field) value() any {
 	}
 	return f._value
 }
-
-func (Reputation_OnlineScore_Field) _Column() string { return "online_score" }
 
 type Reputation_AuditHistory_Field struct {
 	_set   bool
@@ -9356,8 +8897,6 @@ func (f Reputation_AuditHistory_Field) value() any {
 	return f._value
 }
 
-func (Reputation_AuditHistory_Field) _Column() string { return "audit_history" }
-
 type Reputation_AuditReputationAlpha_Field struct {
 	_set   bool
 	_null  bool
@@ -9374,8 +8913,6 @@ func (f Reputation_AuditReputationAlpha_Field) value() any {
 	}
 	return f._value
 }
-
-func (Reputation_AuditReputationAlpha_Field) _Column() string { return "audit_reputation_alpha" }
 
 type Reputation_AuditReputationBeta_Field struct {
 	_set   bool
@@ -9394,8 +8931,6 @@ func (f Reputation_AuditReputationBeta_Field) value() any {
 	return f._value
 }
 
-func (Reputation_AuditReputationBeta_Field) _Column() string { return "audit_reputation_beta" }
-
 type Reputation_UnknownAuditReputationAlpha_Field struct {
 	_set   bool
 	_null  bool
@@ -9413,10 +8948,6 @@ func (f Reputation_UnknownAuditReputationAlpha_Field) value() any {
 	return f._value
 }
 
-func (Reputation_UnknownAuditReputationAlpha_Field) _Column() string {
-	return "unknown_audit_reputation_alpha"
-}
-
 type Reputation_UnknownAuditReputationBeta_Field struct {
 	_set   bool
 	_null  bool
@@ -9432,10 +8963,6 @@ func (f Reputation_UnknownAuditReputationBeta_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (Reputation_UnknownAuditReputationBeta_Field) _Column() string {
-	return "unknown_audit_reputation_beta"
 }
 
 type ResetPasswordToken struct {
@@ -9467,8 +8994,6 @@ func (f ResetPasswordToken_Secret_Field) value() any {
 	return f._value
 }
 
-func (ResetPasswordToken_Secret_Field) _Column() string { return "secret" }
-
 type ResetPasswordToken_OwnerId_Field struct {
 	_set   bool
 	_null  bool
@@ -9486,8 +9011,6 @@ func (f ResetPasswordToken_OwnerId_Field) value() any {
 	return f._value
 }
 
-func (ResetPasswordToken_OwnerId_Field) _Column() string { return "owner_id" }
-
 type ResetPasswordToken_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -9504,8 +9027,6 @@ func (f ResetPasswordToken_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ReverificationAudits struct {
 	NodeId        []byte
@@ -9547,8 +9068,6 @@ func (f ReverificationAudits_NodeId_Field) value() any {
 	return f._value
 }
 
-func (ReverificationAudits_NodeId_Field) _Column() string { return "node_id" }
-
 type ReverificationAudits_StreamId_Field struct {
 	_set   bool
 	_null  bool
@@ -9565,8 +9084,6 @@ func (f ReverificationAudits_StreamId_Field) value() any {
 	}
 	return f._value
 }
-
-func (ReverificationAudits_StreamId_Field) _Column() string { return "stream_id" }
 
 type ReverificationAudits_Position_Field struct {
 	_set   bool
@@ -9585,8 +9102,6 @@ func (f ReverificationAudits_Position_Field) value() any {
 	return f._value
 }
 
-func (ReverificationAudits_Position_Field) _Column() string { return "position" }
-
 type ReverificationAudits_PieceNum_Field struct {
 	_set   bool
 	_null  bool
@@ -9604,8 +9119,6 @@ func (f ReverificationAudits_PieceNum_Field) value() any {
 	return f._value
 }
 
-func (ReverificationAudits_PieceNum_Field) _Column() string { return "piece_num" }
-
 type ReverificationAudits_InsertedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -9622,8 +9135,6 @@ func (f ReverificationAudits_InsertedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (ReverificationAudits_InsertedAt_Field) _Column() string { return "inserted_at" }
 
 type ReverificationAudits_LastAttempt_Field struct {
 	_set   bool
@@ -9657,8 +9168,6 @@ func (f ReverificationAudits_LastAttempt_Field) value() any {
 	return f._value
 }
 
-func (ReverificationAudits_LastAttempt_Field) _Column() string { return "last_attempt" }
-
 type ReverificationAudits_ReverifyCount_Field struct {
 	_set   bool
 	_null  bool
@@ -9675,8 +9184,6 @@ func (f ReverificationAudits_ReverifyCount_Field) value() any {
 	}
 	return f._value
 }
-
-func (ReverificationAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
 
 type Revocation struct {
 	Revoked  []byte
@@ -9705,8 +9212,6 @@ func (f Revocation_Revoked_Field) value() any {
 	return f._value
 }
 
-func (Revocation_Revoked_Field) _Column() string { return "revoked" }
-
 type Revocation_ApiKeyId_Field struct {
 	_set   bool
 	_null  bool
@@ -9723,8 +9228,6 @@ func (f Revocation_ApiKeyId_Field) value() any {
 	}
 	return f._value
 }
-
-func (Revocation_ApiKeyId_Field) _Column() string { return "api_key_id" }
 
 type SegmentPendingAudits struct {
 	NodeId            []byte
@@ -9760,8 +9263,6 @@ func (f SegmentPendingAudits_NodeId_Field) value() any {
 	return f._value
 }
 
-func (SegmentPendingAudits_NodeId_Field) _Column() string { return "node_id" }
-
 type SegmentPendingAudits_StreamId_Field struct {
 	_set   bool
 	_null  bool
@@ -9778,8 +9279,6 @@ func (f SegmentPendingAudits_StreamId_Field) value() any {
 	}
 	return f._value
 }
-
-func (SegmentPendingAudits_StreamId_Field) _Column() string { return "stream_id" }
 
 type SegmentPendingAudits_Position_Field struct {
 	_set   bool
@@ -9798,8 +9297,6 @@ func (f SegmentPendingAudits_Position_Field) value() any {
 	return f._value
 }
 
-func (SegmentPendingAudits_Position_Field) _Column() string { return "position" }
-
 type SegmentPendingAudits_PieceId_Field struct {
 	_set   bool
 	_null  bool
@@ -9816,8 +9313,6 @@ func (f SegmentPendingAudits_PieceId_Field) value() any {
 	}
 	return f._value
 }
-
-func (SegmentPendingAudits_PieceId_Field) _Column() string { return "piece_id" }
 
 type SegmentPendingAudits_StripeIndex_Field struct {
 	_set   bool
@@ -9836,8 +9331,6 @@ func (f SegmentPendingAudits_StripeIndex_Field) value() any {
 	return f._value
 }
 
-func (SegmentPendingAudits_StripeIndex_Field) _Column() string { return "stripe_index" }
-
 type SegmentPendingAudits_ShareSize_Field struct {
 	_set   bool
 	_null  bool
@@ -9854,8 +9347,6 @@ func (f SegmentPendingAudits_ShareSize_Field) value() any {
 	}
 	return f._value
 }
-
-func (SegmentPendingAudits_ShareSize_Field) _Column() string { return "share_size" }
 
 type SegmentPendingAudits_ExpectedShareHash_Field struct {
 	_set   bool
@@ -9874,8 +9365,6 @@ func (f SegmentPendingAudits_ExpectedShareHash_Field) value() any {
 	return f._value
 }
 
-func (SegmentPendingAudits_ExpectedShareHash_Field) _Column() string { return "expected_share_hash" }
-
 type SegmentPendingAudits_ReverifyCount_Field struct {
 	_set   bool
 	_null  bool
@@ -9892,8 +9381,6 @@ func (f SegmentPendingAudits_ReverifyCount_Field) value() any {
 	}
 	return f._value
 }
-
-func (SegmentPendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
 
 type StoragenodeBandwidthRollup struct {
 	StoragenodeId   []byte
@@ -9932,8 +9419,6 @@ func (f StoragenodeBandwidthRollup_StoragenodeId_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_StoragenodeId_Field) _Column() string { return "storagenode_id" }
-
 type StoragenodeBandwidthRollup_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
@@ -9950,8 +9435,6 @@ func (f StoragenodeBandwidthRollup_IntervalStart_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollup_IntervalStart_Field) _Column() string { return "interval_start" }
 
 type StoragenodeBandwidthRollup_IntervalSeconds_Field struct {
 	_set   bool
@@ -9970,8 +9453,6 @@ func (f StoragenodeBandwidthRollup_IntervalSeconds_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
-
 type StoragenodeBandwidthRollup_Action_Field struct {
 	_set   bool
 	_null  bool
@@ -9988,8 +9469,6 @@ func (f StoragenodeBandwidthRollup_Action_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollup_Action_Field) _Column() string { return "action" }
 
 type StoragenodeBandwidthRollup_Allocated_Field struct {
 	_set   bool
@@ -10023,8 +9502,6 @@ func (f StoragenodeBandwidthRollup_Allocated_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollup_Allocated_Field) _Column() string { return "allocated" }
-
 type StoragenodeBandwidthRollup_Settled_Field struct {
 	_set   bool
 	_null  bool
@@ -10041,8 +9518,6 @@ func (f StoragenodeBandwidthRollup_Settled_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
 type StoragenodeBandwidthRollupArchive struct {
 	StoragenodeId   []byte
@@ -10083,10 +9558,6 @@ func (f StoragenodeBandwidthRollupArchive_StoragenodeId_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollupArchive_StoragenodeId_Field) _Column() string {
-	return "storagenode_id"
-}
-
 type StoragenodeBandwidthRollupArchive_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
@@ -10102,10 +9573,6 @@ func (f StoragenodeBandwidthRollupArchive_IntervalStart_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (StoragenodeBandwidthRollupArchive_IntervalStart_Field) _Column() string {
-	return "interval_start"
 }
 
 type StoragenodeBandwidthRollupArchive_IntervalSeconds_Field struct {
@@ -10125,10 +9592,6 @@ func (f StoragenodeBandwidthRollupArchive_IntervalSeconds_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollupArchive_IntervalSeconds_Field) _Column() string {
-	return "interval_seconds"
-}
-
 type StoragenodeBandwidthRollupArchive_Action_Field struct {
 	_set   bool
 	_null  bool
@@ -10145,8 +9608,6 @@ func (f StoragenodeBandwidthRollupArchive_Action_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollupArchive_Action_Field) _Column() string { return "action" }
 
 type StoragenodeBandwidthRollupArchive_Allocated_Field struct {
 	_set   bool
@@ -10180,8 +9641,6 @@ func (f StoragenodeBandwidthRollupArchive_Allocated_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollupArchive_Allocated_Field) _Column() string { return "allocated" }
-
 type StoragenodeBandwidthRollupArchive_Settled_Field struct {
 	_set   bool
 	_null  bool
@@ -10198,8 +9657,6 @@ func (f StoragenodeBandwidthRollupArchive_Settled_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollupArchive_Settled_Field) _Column() string { return "settled" }
 
 type StoragenodeBandwidthRollupPhase2 struct {
 	StoragenodeId   []byte
@@ -10240,8 +9697,6 @@ func (f StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) _Column() string { return "storagenode_id" }
-
 type StoragenodeBandwidthRollupPhase2_IntervalStart_Field struct {
 	_set   bool
 	_null  bool
@@ -10258,8 +9713,6 @@ func (f StoragenodeBandwidthRollupPhase2_IntervalStart_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollupPhase2_IntervalStart_Field) _Column() string { return "interval_start" }
 
 type StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field struct {
 	_set   bool
@@ -10278,10 +9731,6 @@ func (f StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) _Column() string {
-	return "interval_seconds"
-}
-
 type StoragenodeBandwidthRollupPhase2_Action_Field struct {
 	_set   bool
 	_null  bool
@@ -10298,8 +9747,6 @@ func (f StoragenodeBandwidthRollupPhase2_Action_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollupPhase2_Action_Field) _Column() string { return "action" }
 
 type StoragenodeBandwidthRollupPhase2_Allocated_Field struct {
 	_set   bool
@@ -10333,8 +9780,6 @@ func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeBandwidthRollupPhase2_Allocated_Field) _Column() string { return "allocated" }
-
 type StoragenodeBandwidthRollupPhase2_Settled_Field struct {
 	_set   bool
 	_null  bool
@@ -10351,8 +9796,6 @@ func (f StoragenodeBandwidthRollupPhase2_Settled_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeBandwidthRollupPhase2_Settled_Field) _Column() string { return "settled" }
 
 type StoragenodePayment struct {
 	Id        int64
@@ -10391,8 +9834,6 @@ func (f StoragenodePayment_Id_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePayment_Id_Field) _Column() string { return "id" }
-
 type StoragenodePayment_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -10409,8 +9850,6 @@ func (f StoragenodePayment_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePayment_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StoragenodePayment_NodeId_Field struct {
 	_set   bool
@@ -10429,8 +9868,6 @@ func (f StoragenodePayment_NodeId_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePayment_NodeId_Field) _Column() string { return "node_id" }
-
 type StoragenodePayment_Period_Field struct {
 	_set   bool
 	_null  bool
@@ -10448,8 +9885,6 @@ func (f StoragenodePayment_Period_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePayment_Period_Field) _Column() string { return "period" }
-
 type StoragenodePayment_Amount_Field struct {
 	_set   bool
 	_null  bool
@@ -10466,8 +9901,6 @@ func (f StoragenodePayment_Amount_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePayment_Amount_Field) _Column() string { return "amount" }
 
 type StoragenodePayment_Receipt_Field struct {
 	_set   bool
@@ -10499,8 +9932,6 @@ func (f StoragenodePayment_Receipt_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePayment_Receipt_Field) _Column() string { return "receipt" }
-
 type StoragenodePayment_Notes_Field struct {
 	_set   bool
 	_null  bool
@@ -10530,8 +9961,6 @@ func (f StoragenodePayment_Notes_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePayment_Notes_Field) _Column() string { return "notes" }
 
 type StoragenodePaystub struct {
 	Period         string
@@ -10580,8 +10009,6 @@ func (f StoragenodePaystub_Period_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_Period_Field) _Column() string { return "period" }
-
 type StoragenodePaystub_NodeId_Field struct {
 	_set   bool
 	_null  bool
@@ -10598,8 +10025,6 @@ func (f StoragenodePaystub_NodeId_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_NodeId_Field) _Column() string { return "node_id" }
 
 type StoragenodePaystub_CreatedAt_Field struct {
 	_set   bool
@@ -10618,8 +10043,6 @@ func (f StoragenodePaystub_CreatedAt_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_CreatedAt_Field) _Column() string { return "created_at" }
-
 type StoragenodePaystub_Codes_Field struct {
 	_set   bool
 	_null  bool
@@ -10636,8 +10059,6 @@ func (f StoragenodePaystub_Codes_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_Codes_Field) _Column() string { return "codes" }
 
 type StoragenodePaystub_UsageAtRest_Field struct {
 	_set   bool
@@ -10656,8 +10077,6 @@ func (f StoragenodePaystub_UsageAtRest_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_UsageAtRest_Field) _Column() string { return "usage_at_rest" }
-
 type StoragenodePaystub_UsageGet_Field struct {
 	_set   bool
 	_null  bool
@@ -10674,8 +10093,6 @@ func (f StoragenodePaystub_UsageGet_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_UsageGet_Field) _Column() string { return "usage_get" }
 
 type StoragenodePaystub_UsagePut_Field struct {
 	_set   bool
@@ -10694,8 +10111,6 @@ func (f StoragenodePaystub_UsagePut_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_UsagePut_Field) _Column() string { return "usage_put" }
-
 type StoragenodePaystub_UsageGetRepair_Field struct {
 	_set   bool
 	_null  bool
@@ -10712,8 +10127,6 @@ func (f StoragenodePaystub_UsageGetRepair_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_UsageGetRepair_Field) _Column() string { return "usage_get_repair" }
 
 type StoragenodePaystub_UsagePutRepair_Field struct {
 	_set   bool
@@ -10732,8 +10145,6 @@ func (f StoragenodePaystub_UsagePutRepair_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_UsagePutRepair_Field) _Column() string { return "usage_put_repair" }
-
 type StoragenodePaystub_UsageGetAudit_Field struct {
 	_set   bool
 	_null  bool
@@ -10750,8 +10161,6 @@ func (f StoragenodePaystub_UsageGetAudit_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_UsageGetAudit_Field) _Column() string { return "usage_get_audit" }
 
 type StoragenodePaystub_CompAtRest_Field struct {
 	_set   bool
@@ -10770,8 +10179,6 @@ func (f StoragenodePaystub_CompAtRest_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_CompAtRest_Field) _Column() string { return "comp_at_rest" }
-
 type StoragenodePaystub_CompGet_Field struct {
 	_set   bool
 	_null  bool
@@ -10788,8 +10195,6 @@ func (f StoragenodePaystub_CompGet_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_CompGet_Field) _Column() string { return "comp_get" }
 
 type StoragenodePaystub_CompPut_Field struct {
 	_set   bool
@@ -10808,8 +10213,6 @@ func (f StoragenodePaystub_CompPut_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_CompPut_Field) _Column() string { return "comp_put" }
-
 type StoragenodePaystub_CompGetRepair_Field struct {
 	_set   bool
 	_null  bool
@@ -10826,8 +10229,6 @@ func (f StoragenodePaystub_CompGetRepair_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_CompGetRepair_Field) _Column() string { return "comp_get_repair" }
 
 type StoragenodePaystub_CompPutRepair_Field struct {
 	_set   bool
@@ -10846,8 +10247,6 @@ func (f StoragenodePaystub_CompPutRepair_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_CompPutRepair_Field) _Column() string { return "comp_put_repair" }
-
 type StoragenodePaystub_CompGetAudit_Field struct {
 	_set   bool
 	_null  bool
@@ -10864,8 +10263,6 @@ func (f StoragenodePaystub_CompGetAudit_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_CompGetAudit_Field) _Column() string { return "comp_get_audit" }
 
 type StoragenodePaystub_SurgePercent_Field struct {
 	_set   bool
@@ -10884,8 +10281,6 @@ func (f StoragenodePaystub_SurgePercent_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_SurgePercent_Field) _Column() string { return "surge_percent" }
-
 type StoragenodePaystub_Held_Field struct {
 	_set   bool
 	_null  bool
@@ -10902,8 +10297,6 @@ func (f StoragenodePaystub_Held_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_Held_Field) _Column() string { return "held" }
 
 type StoragenodePaystub_Owed_Field struct {
 	_set   bool
@@ -10922,8 +10315,6 @@ func (f StoragenodePaystub_Owed_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_Owed_Field) _Column() string { return "owed" }
-
 type StoragenodePaystub_Disposed_Field struct {
 	_set   bool
 	_null  bool
@@ -10940,8 +10331,6 @@ func (f StoragenodePaystub_Disposed_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_Disposed_Field) _Column() string { return "disposed" }
 
 type StoragenodePaystub_Paid_Field struct {
 	_set   bool
@@ -10960,8 +10349,6 @@ func (f StoragenodePaystub_Paid_Field) value() any {
 	return f._value
 }
 
-func (StoragenodePaystub_Paid_Field) _Column() string { return "paid" }
-
 type StoragenodePaystub_Distributed_Field struct {
 	_set   bool
 	_null  bool
@@ -10978,8 +10365,6 @@ func (f StoragenodePaystub_Distributed_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodePaystub_Distributed_Field) _Column() string { return "distributed" }
 
 type StoragenodeStorageTally struct {
 	NodeId          []byte
@@ -11009,8 +10394,6 @@ func (f StoragenodeStorageTally_NodeId_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeStorageTally_NodeId_Field) _Column() string { return "node_id" }
-
 type StoragenodeStorageTally_IntervalEndTime_Field struct {
 	_set   bool
 	_null  bool
@@ -11028,8 +10411,6 @@ func (f StoragenodeStorageTally_IntervalEndTime_Field) value() any {
 	return f._value
 }
 
-func (StoragenodeStorageTally_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
-
 type StoragenodeStorageTally_DataTotal_Field struct {
 	_set   bool
 	_null  bool
@@ -11046,8 +10427,6 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() any {
 	}
 	return f._value
 }
-
-func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type StorjscanPayment struct {
 	ChainId        int64
@@ -11090,8 +10469,6 @@ func (f StorjscanPayment_ChainId_Field) value() any {
 	return f._value
 }
 
-func (StorjscanPayment_ChainId_Field) _Column() string { return "chain_id" }
-
 type StorjscanPayment_BlockHash_Field struct {
 	_set   bool
 	_null  bool
@@ -11108,8 +10485,6 @@ func (f StorjscanPayment_BlockHash_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanPayment_BlockHash_Field) _Column() string { return "block_hash" }
 
 type StorjscanPayment_BlockNumber_Field struct {
 	_set   bool
@@ -11128,8 +10503,6 @@ func (f StorjscanPayment_BlockNumber_Field) value() any {
 	return f._value
 }
 
-func (StorjscanPayment_BlockNumber_Field) _Column() string { return "block_number" }
-
 type StorjscanPayment_Transaction_Field struct {
 	_set   bool
 	_null  bool
@@ -11146,8 +10519,6 @@ func (f StorjscanPayment_Transaction_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanPayment_Transaction_Field) _Column() string { return "transaction" }
 
 type StorjscanPayment_LogIndex_Field struct {
 	_set   bool
@@ -11166,8 +10537,6 @@ func (f StorjscanPayment_LogIndex_Field) value() any {
 	return f._value
 }
 
-func (StorjscanPayment_LogIndex_Field) _Column() string { return "log_index" }
-
 type StorjscanPayment_FromAddress_Field struct {
 	_set   bool
 	_null  bool
@@ -11184,8 +10553,6 @@ func (f StorjscanPayment_FromAddress_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanPayment_FromAddress_Field) _Column() string { return "from_address" }
 
 type StorjscanPayment_ToAddress_Field struct {
 	_set   bool
@@ -11204,8 +10571,6 @@ func (f StorjscanPayment_ToAddress_Field) value() any {
 	return f._value
 }
 
-func (StorjscanPayment_ToAddress_Field) _Column() string { return "to_address" }
-
 type StorjscanPayment_TokenValue_Field struct {
 	_set   bool
 	_null  bool
@@ -11222,8 +10587,6 @@ func (f StorjscanPayment_TokenValue_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanPayment_TokenValue_Field) _Column() string { return "token_value" }
 
 type StorjscanPayment_UsdValue_Field struct {
 	_set   bool
@@ -11242,8 +10605,6 @@ func (f StorjscanPayment_UsdValue_Field) value() any {
 	return f._value
 }
 
-func (StorjscanPayment_UsdValue_Field) _Column() string { return "usd_value" }
-
 type StorjscanPayment_Status_Field struct {
 	_set   bool
 	_null  bool
@@ -11260,8 +10621,6 @@ func (f StorjscanPayment_Status_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanPayment_Status_Field) _Column() string { return "status" }
 
 type StorjscanPayment_BlockTimestamp_Field struct {
 	_set   bool
@@ -11280,8 +10639,6 @@ func (f StorjscanPayment_BlockTimestamp_Field) value() any {
 	return f._value
 }
 
-func (StorjscanPayment_BlockTimestamp_Field) _Column() string { return "block_timestamp" }
-
 type StorjscanPayment_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -11298,8 +10655,6 @@ func (f StorjscanPayment_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanPayment_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StorjscanWallet struct {
 	UserId        []byte
@@ -11329,8 +10684,6 @@ func (f StorjscanWallet_UserId_Field) value() any {
 	return f._value
 }
 
-func (StorjscanWallet_UserId_Field) _Column() string { return "user_id" }
-
 type StorjscanWallet_WalletAddress_Field struct {
 	_set   bool
 	_null  bool
@@ -11348,8 +10701,6 @@ func (f StorjscanWallet_WalletAddress_Field) value() any {
 	return f._value
 }
 
-func (StorjscanWallet_WalletAddress_Field) _Column() string { return "wallet_address" }
-
 type StorjscanWallet_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -11366,8 +10717,6 @@ func (f StorjscanWallet_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StorjscanWallet_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StripeCustomer struct {
 	UserId             []byte
@@ -11409,8 +10758,6 @@ func (f StripeCustomer_UserId_Field) value() any {
 	return f._value
 }
 
-func (StripeCustomer_UserId_Field) _Column() string { return "user_id" }
-
 type StripeCustomer_CustomerId_Field struct {
 	_set   bool
 	_null  bool
@@ -11427,8 +10774,6 @@ func (f StripeCustomer_CustomerId_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripeCustomer_CustomerId_Field) _Column() string { return "customer_id" }
 
 type StripeCustomer_BillingCustomerId_Field struct {
 	_set   bool
@@ -11462,8 +10807,6 @@ func (f StripeCustomer_BillingCustomerId_Field) value() any {
 	return f._value
 }
 
-func (StripeCustomer_BillingCustomerId_Field) _Column() string { return "billing_customer_id" }
-
 type StripeCustomer_PackagePlan_Field struct {
 	_set   bool
 	_null  bool
@@ -11493,8 +10836,6 @@ func (f StripeCustomer_PackagePlan_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripeCustomer_PackagePlan_Field) _Column() string { return "package_plan" }
 
 type StripeCustomer_PurchasedPackageAt_Field struct {
 	_set   bool
@@ -11528,8 +10869,6 @@ func (f StripeCustomer_PurchasedPackageAt_Field) value() any {
 	return f._value
 }
 
-func (StripeCustomer_PurchasedPackageAt_Field) _Column() string { return "purchased_package_at" }
-
 type StripeCustomer_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -11546,8 +10885,6 @@ func (f StripeCustomer_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripeCustomer_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StripecoinpaymentsInvoiceProjectRecord struct {
 	Id          []byte
@@ -11592,8 +10929,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Id_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsInvoiceProjectRecord_Id_Field) _Column() string { return "id" }
-
 type StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -11610,8 +10945,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field) _Column() string { return "project_id" }
 
 type StripecoinpaymentsInvoiceProjectRecord_Storage_Field struct {
 	_set   bool
@@ -11630,8 +10963,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Storage_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsInvoiceProjectRecord_Storage_Field) _Column() string { return "storage" }
-
 type StripecoinpaymentsInvoiceProjectRecord_Egress_Field struct {
 	_set   bool
 	_null  bool
@@ -11648,8 +10979,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Egress_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripecoinpaymentsInvoiceProjectRecord_Egress_Field) _Column() string { return "egress" }
 
 type StripecoinpaymentsInvoiceProjectRecord_Objects_Field struct {
 	_set   bool
@@ -11683,8 +11012,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsInvoiceProjectRecord_Objects_Field) _Column() string { return "objects" }
-
 type StripecoinpaymentsInvoiceProjectRecord_Segments_Field struct {
 	_set   bool
 	_null  bool
@@ -11717,8 +11044,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Segments_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsInvoiceProjectRecord_Segments_Field) _Column() string { return "segments" }
-
 type StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field struct {
 	_set   bool
 	_null  bool
@@ -11734,10 +11059,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field) _Column() string {
-	return "period_start"
 }
 
 type StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field struct {
@@ -11757,8 +11078,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field) _Column() string { return "period_end" }
-
 type StripecoinpaymentsInvoiceProjectRecord_State_Field struct {
 	_set   bool
 	_null  bool
@@ -11776,8 +11095,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_State_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsInvoiceProjectRecord_State_Field) _Column() string { return "state" }
-
 type StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -11794,8 +11111,6 @@ func (f StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StripecoinpaymentsTxConversionRate struct {
 	TxId        string
@@ -11827,8 +11142,6 @@ func (f StripecoinpaymentsTxConversionRate_TxId_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsTxConversionRate_TxId_Field) _Column() string { return "tx_id" }
-
 type StripecoinpaymentsTxConversionRate_RateNumeric_Field struct {
 	_set   bool
 	_null  bool
@@ -11846,8 +11159,6 @@ func (f StripecoinpaymentsTxConversionRate_RateNumeric_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsTxConversionRate_RateNumeric_Field) _Column() string { return "rate_numeric" }
-
 type StripecoinpaymentsTxConversionRate_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -11864,8 +11175,6 @@ func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripecoinpaymentsTxConversionRate_CreatedAt_Field) _Column() string { return "created_at" }
 
 type User struct {
 	Id                          []byte
@@ -12002,8 +11311,6 @@ func (f User_Id_Field) value() any {
 	return f._value
 }
 
-func (User_Id_Field) _Column() string { return "id" }
-
 type User_Email_Field struct {
 	_set   bool
 	_null  bool
@@ -12020,8 +11327,6 @@ func (f User_Email_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_Email_Field) _Column() string { return "email" }
 
 type User_NormalizedEmail_Field struct {
 	_set   bool
@@ -12040,8 +11345,6 @@ func (f User_NormalizedEmail_Field) value() any {
 	return f._value
 }
 
-func (User_NormalizedEmail_Field) _Column() string { return "normalized_email" }
-
 type User_FullName_Field struct {
 	_set   bool
 	_null  bool
@@ -12058,8 +11361,6 @@ func (f User_FullName_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_FullName_Field) _Column() string { return "full_name" }
 
 type User_ShortName_Field struct {
 	_set   bool
@@ -12091,8 +11392,6 @@ func (f User_ShortName_Field) value() any {
 	return f._value
 }
 
-func (User_ShortName_Field) _Column() string { return "short_name" }
-
 type User_PasswordHash_Field struct {
 	_set   bool
 	_null  bool
@@ -12109,8 +11408,6 @@ func (f User_PasswordHash_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_PasswordHash_Field) _Column() string { return "password_hash" }
 
 type User_NewUnverifiedEmail_Field struct {
 	_set   bool
@@ -12142,8 +11439,6 @@ func (f User_NewUnverifiedEmail_Field) value() any {
 	return f._value
 }
 
-func (User_NewUnverifiedEmail_Field) _Column() string { return "new_unverified_email" }
-
 type User_EmailChangeVerificationStep_Field struct {
 	_set   bool
 	_null  bool
@@ -12159,10 +11454,6 @@ func (f User_EmailChangeVerificationStep_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (User_EmailChangeVerificationStep_Field) _Column() string {
-	return "email_change_verification_step"
 }
 
 type User_Status_Field struct {
@@ -12181,8 +11472,6 @@ func (f User_Status_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_Status_Field) _Column() string { return "status" }
 
 type User_StatusUpdatedAt_Field struct {
 	_set   bool
@@ -12214,8 +11503,6 @@ func (f User_StatusUpdatedAt_Field) value() any {
 	return f._value
 }
 
-func (User_StatusUpdatedAt_Field) _Column() string { return "status_updated_at" }
-
 type User_FinalInvoiceGenerated_Field struct {
 	_set   bool
 	_null  bool
@@ -12232,8 +11519,6 @@ func (f User_FinalInvoiceGenerated_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_FinalInvoiceGenerated_Field) _Column() string { return "final_invoice_generated" }
 
 type User_UserAgent_Field struct {
 	_set   bool
@@ -12265,8 +11550,6 @@ func (f User_UserAgent_Field) value() any {
 	return f._value
 }
 
-func (User_UserAgent_Field) _Column() string { return "user_agent" }
-
 type User_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -12283,8 +11566,6 @@ func (f User_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_CreatedAt_Field) _Column() string { return "created_at" }
 
 type User_ProjectLimit_Field struct {
 	_set   bool
@@ -12303,8 +11584,6 @@ func (f User_ProjectLimit_Field) value() any {
 	return f._value
 }
 
-func (User_ProjectLimit_Field) _Column() string { return "project_limit" }
-
 type User_ProjectBandwidthLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -12321,8 +11600,6 @@ func (f User_ProjectBandwidthLimit_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_ProjectBandwidthLimit_Field) _Column() string { return "project_bandwidth_limit" }
 
 type User_ProjectStorageLimit_Field struct {
 	_set   bool
@@ -12341,8 +11618,6 @@ func (f User_ProjectStorageLimit_Field) value() any {
 	return f._value
 }
 
-func (User_ProjectStorageLimit_Field) _Column() string { return "project_storage_limit" }
-
 type User_ProjectSegmentLimit_Field struct {
 	_set   bool
 	_null  bool
@@ -12360,8 +11635,6 @@ func (f User_ProjectSegmentLimit_Field) value() any {
 	return f._value
 }
 
-func (User_ProjectSegmentLimit_Field) _Column() string { return "project_segment_limit" }
-
 type User_PaidTier_Field struct {
 	_set   bool
 	_null  bool
@@ -12378,8 +11651,6 @@ func (f User_PaidTier_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_PaidTier_Field) _Column() string { return "paid_tier" }
 
 type User_Position_Field struct {
 	_set   bool
@@ -12411,8 +11682,6 @@ func (f User_Position_Field) value() any {
 	return f._value
 }
 
-func (User_Position_Field) _Column() string { return "position" }
-
 type User_CompanyName_Field struct {
 	_set   bool
 	_null  bool
@@ -12442,8 +11711,6 @@ func (f User_CompanyName_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_CompanyName_Field) _Column() string { return "company_name" }
 
 type User_CompanySize_Field struct {
 	_set   bool
@@ -12475,8 +11742,6 @@ func (f User_CompanySize_Field) value() any {
 	return f._value
 }
 
-func (User_CompanySize_Field) _Column() string { return "company_size" }
-
 type User_WorkingOn_Field struct {
 	_set   bool
 	_null  bool
@@ -12507,8 +11772,6 @@ func (f User_WorkingOn_Field) value() any {
 	return f._value
 }
 
-func (User_WorkingOn_Field) _Column() string { return "working_on" }
-
 type User_IsProfessional_Field struct {
 	_set   bool
 	_null  bool
@@ -12525,8 +11788,6 @@ func (f User_IsProfessional_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_IsProfessional_Field) _Column() string { return "is_professional" }
 
 type User_EmployeeCount_Field struct {
 	_set   bool
@@ -12558,8 +11819,6 @@ func (f User_EmployeeCount_Field) value() any {
 	return f._value
 }
 
-func (User_EmployeeCount_Field) _Column() string { return "employee_count" }
-
 type User_HaveSalesContact_Field struct {
 	_set   bool
 	_null  bool
@@ -12577,8 +11836,6 @@ func (f User_HaveSalesContact_Field) value() any {
 	return f._value
 }
 
-func (User_HaveSalesContact_Field) _Column() string { return "have_sales_contact" }
-
 type User_MfaEnabled_Field struct {
 	_set   bool
 	_null  bool
@@ -12595,8 +11852,6 @@ func (f User_MfaEnabled_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_MfaEnabled_Field) _Column() string { return "mfa_enabled" }
 
 type User_MfaSecretKey_Field struct {
 	_set   bool
@@ -12628,8 +11883,6 @@ func (f User_MfaSecretKey_Field) value() any {
 	return f._value
 }
 
-func (User_MfaSecretKey_Field) _Column() string { return "mfa_secret_key" }
-
 type User_MfaRecoveryCodes_Field struct {
 	_set   bool
 	_null  bool
@@ -12659,8 +11912,6 @@ func (f User_MfaRecoveryCodes_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_MfaRecoveryCodes_Field) _Column() string { return "mfa_recovery_codes" }
 
 type User_SignupPromoCode_Field struct {
 	_set   bool
@@ -12692,8 +11943,6 @@ func (f User_SignupPromoCode_Field) value() any {
 	return f._value
 }
 
-func (User_SignupPromoCode_Field) _Column() string { return "signup_promo_code" }
-
 type User_VerificationReminders_Field struct {
 	_set   bool
 	_null  bool
@@ -12711,8 +11960,6 @@ func (f User_VerificationReminders_Field) value() any {
 	return f._value
 }
 
-func (User_VerificationReminders_Field) _Column() string { return "verification_reminders" }
-
 type User_TrialNotifications_Field struct {
 	_set   bool
 	_null  bool
@@ -12729,8 +11976,6 @@ func (f User_TrialNotifications_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_TrialNotifications_Field) _Column() string { return "trial_notifications" }
 
 type User_FailedLoginCount_Field struct {
 	_set   bool
@@ -12761,8 +12006,6 @@ func (f User_FailedLoginCount_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_FailedLoginCount_Field) _Column() string { return "failed_login_count" }
 
 type User_LoginLockoutExpiration_Field struct {
 	_set   bool
@@ -12796,8 +12039,6 @@ func (f User_LoginLockoutExpiration_Field) value() any {
 	return f._value
 }
 
-func (User_LoginLockoutExpiration_Field) _Column() string { return "login_lockout_expiration" }
-
 type User_SignupCaptcha_Field struct {
 	_set   bool
 	_null  bool
@@ -12827,8 +12068,6 @@ func (f User_SignupCaptcha_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_SignupCaptcha_Field) _Column() string { return "signup_captcha" }
 
 type User_DefaultPlacement_Field struct {
 	_set   bool
@@ -12860,8 +12099,6 @@ func (f User_DefaultPlacement_Field) value() any {
 	return f._value
 }
 
-func (User_DefaultPlacement_Field) _Column() string { return "default_placement" }
-
 type User_ActivationCode_Field struct {
 	_set   bool
 	_null  bool
@@ -12891,8 +12128,6 @@ func (f User_ActivationCode_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_ActivationCode_Field) _Column() string { return "activation_code" }
 
 type User_SignupId_Field struct {
 	_set   bool
@@ -12924,8 +12159,6 @@ func (f User_SignupId_Field) value() any {
 	return f._value
 }
 
-func (User_SignupId_Field) _Column() string { return "signup_id" }
-
 type User_TrialExpiration_Field struct {
 	_set   bool
 	_null  bool
@@ -12956,8 +12189,6 @@ func (f User_TrialExpiration_Field) value() any {
 	return f._value
 }
 
-func (User_TrialExpiration_Field) _Column() string { return "trial_expiration" }
-
 type User_UpgradeTime_Field struct {
 	_set   bool
 	_null  bool
@@ -12987,8 +12218,6 @@ func (f User_UpgradeTime_Field) value() any {
 	}
 	return f._value
 }
-
-func (User_UpgradeTime_Field) _Column() string { return "upgrade_time" }
 
 type UserSettings struct {
 	UserId           []byte
@@ -13037,8 +12266,6 @@ func (f UserSettings_UserId_Field) value() any {
 	return f._value
 }
 
-func (UserSettings_UserId_Field) _Column() string { return "user_id" }
-
 type UserSettings_SessionMinutes_Field struct {
 	_set   bool
 	_null  bool
@@ -13070,8 +12297,6 @@ func (f UserSettings_SessionMinutes_Field) value() any {
 	}
 	return f._value
 }
-
-func (UserSettings_SessionMinutes_Field) _Column() string { return "session_minutes" }
 
 type UserSettings_PassphrasePrompt_Field struct {
 	_set   bool
@@ -13105,8 +12330,6 @@ func (f UserSettings_PassphrasePrompt_Field) value() any {
 	return f._value
 }
 
-func (UserSettings_PassphrasePrompt_Field) _Column() string { return "passphrase_prompt" }
-
 type UserSettings_OnboardingStart_Field struct {
 	_set   bool
 	_null  bool
@@ -13124,8 +12347,6 @@ func (f UserSettings_OnboardingStart_Field) value() any {
 	return f._value
 }
 
-func (UserSettings_OnboardingStart_Field) _Column() string { return "onboarding_start" }
-
 type UserSettings_OnboardingEnd_Field struct {
 	_set   bool
 	_null  bool
@@ -13142,8 +12363,6 @@ func (f UserSettings_OnboardingEnd_Field) value() any {
 	}
 	return f._value
 }
-
-func (UserSettings_OnboardingEnd_Field) _Column() string { return "onboarding_end" }
 
 type UserSettings_OnboardingStep_Field struct {
 	_set   bool
@@ -13177,8 +12396,6 @@ func (f UserSettings_OnboardingStep_Field) value() any {
 	return f._value
 }
 
-func (UserSettings_OnboardingStep_Field) _Column() string { return "onboarding_step" }
-
 type UserSettings_NoticeDismissal_Field struct {
 	_set   bool
 	_null  bool
@@ -13195,8 +12412,6 @@ func (f UserSettings_NoticeDismissal_Field) value() any {
 	}
 	return f._value
 }
-
-func (UserSettings_NoticeDismissal_Field) _Column() string { return "notice_dismissal" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -13232,8 +12447,6 @@ func (f ValueAttribution_ProjectId_Field) value() any {
 	return f._value
 }
 
-func (ValueAttribution_ProjectId_Field) _Column() string { return "project_id" }
-
 type ValueAttribution_BucketName_Field struct {
 	_set   bool
 	_null  bool
@@ -13250,8 +12463,6 @@ func (f ValueAttribution_BucketName_Field) value() any {
 	}
 	return f._value
 }
-
-func (ValueAttribution_BucketName_Field) _Column() string { return "bucket_name" }
 
 type ValueAttribution_UserAgent_Field struct {
 	_set   bool
@@ -13283,8 +12494,6 @@ func (f ValueAttribution_UserAgent_Field) value() any {
 	return f._value
 }
 
-func (ValueAttribution_UserAgent_Field) _Column() string { return "user_agent" }
-
 type ValueAttribution_LastUpdated_Field struct {
 	_set   bool
 	_null  bool
@@ -13301,8 +12510,6 @@ func (f ValueAttribution_LastUpdated_Field) value() any {
 	}
 	return f._value
 }
-
-func (ValueAttribution_LastUpdated_Field) _Column() string { return "last_updated" }
 
 type VerificationAudits struct {
 	InsertedAt    time.Time
@@ -13339,8 +12546,6 @@ func (f VerificationAudits_InsertedAt_Field) value() any {
 	return f._value
 }
 
-func (VerificationAudits_InsertedAt_Field) _Column() string { return "inserted_at" }
-
 type VerificationAudits_StreamId_Field struct {
 	_set   bool
 	_null  bool
@@ -13358,8 +12563,6 @@ func (f VerificationAudits_StreamId_Field) value() any {
 	return f._value
 }
 
-func (VerificationAudits_StreamId_Field) _Column() string { return "stream_id" }
-
 type VerificationAudits_Position_Field struct {
 	_set   bool
 	_null  bool
@@ -13376,8 +12579,6 @@ func (f VerificationAudits_Position_Field) value() any {
 	}
 	return f._value
 }
-
-func (VerificationAudits_Position_Field) _Column() string { return "position" }
 
 type VerificationAudits_ExpiresAt_Field struct {
 	_set   bool
@@ -13411,8 +12612,6 @@ func (f VerificationAudits_ExpiresAt_Field) value() any {
 	return f._value
 }
 
-func (VerificationAudits_ExpiresAt_Field) _Column() string { return "expires_at" }
-
 type VerificationAudits_EncryptedSize_Field struct {
 	_set   bool
 	_null  bool
@@ -13429,8 +12628,6 @@ func (f VerificationAudits_EncryptedSize_Field) value() any {
 	}
 	return f._value
 }
-
-func (VerificationAudits_EncryptedSize_Field) _Column() string { return "encrypted_size" }
 
 type WebappSession struct {
 	Id        []byte
@@ -13465,8 +12662,6 @@ func (f WebappSession_Id_Field) value() any {
 	return f._value
 }
 
-func (WebappSession_Id_Field) _Column() string { return "id" }
-
 type WebappSession_UserId_Field struct {
 	_set   bool
 	_null  bool
@@ -13483,8 +12678,6 @@ func (f WebappSession_UserId_Field) value() any {
 	}
 	return f._value
 }
-
-func (WebappSession_UserId_Field) _Column() string { return "user_id" }
 
 type WebappSession_IpAddress_Field struct {
 	_set   bool
@@ -13503,8 +12696,6 @@ func (f WebappSession_IpAddress_Field) value() any {
 	return f._value
 }
 
-func (WebappSession_IpAddress_Field) _Column() string { return "ip_address" }
-
 type WebappSession_UserAgent_Field struct {
 	_set   bool
 	_null  bool
@@ -13521,8 +12712,6 @@ func (f WebappSession_UserAgent_Field) value() any {
 	}
 	return f._value
 }
-
-func (WebappSession_UserAgent_Field) _Column() string { return "user_agent" }
 
 type WebappSession_Status_Field struct {
 	_set   bool
@@ -13541,8 +12730,6 @@ func (f WebappSession_Status_Field) value() any {
 	return f._value
 }
 
-func (WebappSession_Status_Field) _Column() string { return "status" }
-
 type WebappSession_ExpiresAt_Field struct {
 	_set   bool
 	_null  bool
@@ -13559,8 +12746,6 @@ func (f WebappSession_ExpiresAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (WebappSession_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type ApiKey struct {
 	Id        []byte
@@ -13603,8 +12788,6 @@ func (f ApiKey_Id_Field) value() any {
 	return f._value
 }
 
-func (ApiKey_Id_Field) _Column() string { return "id" }
-
 type ApiKey_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -13621,8 +12804,6 @@ func (f ApiKey_ProjectId_Field) value() any {
 	}
 	return f._value
 }
-
-func (ApiKey_ProjectId_Field) _Column() string { return "project_id" }
 
 type ApiKey_Head_Field struct {
 	_set   bool
@@ -13641,8 +12822,6 @@ func (f ApiKey_Head_Field) value() any {
 	return f._value
 }
 
-func (ApiKey_Head_Field) _Column() string { return "head" }
-
 type ApiKey_Name_Field struct {
 	_set   bool
 	_null  bool
@@ -13660,8 +12839,6 @@ func (f ApiKey_Name_Field) value() any {
 	return f._value
 }
 
-func (ApiKey_Name_Field) _Column() string { return "name" }
-
 type ApiKey_Secret_Field struct {
 	_set   bool
 	_null  bool
@@ -13678,8 +12855,6 @@ func (f ApiKey_Secret_Field) value() any {
 	}
 	return f._value
 }
-
-func (ApiKey_Secret_Field) _Column() string { return "secret" }
 
 type ApiKey_UserAgent_Field struct {
 	_set   bool
@@ -13711,8 +12886,6 @@ func (f ApiKey_UserAgent_Field) value() any {
 	return f._value
 }
 
-func (ApiKey_UserAgent_Field) _Column() string { return "user_agent" }
-
 type ApiKey_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -13729,8 +12902,6 @@ func (f ApiKey_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ApiKey_CreatedBy_Field struct {
 	_set   bool
@@ -13762,8 +12933,6 @@ func (f ApiKey_CreatedBy_Field) value() any {
 	return f._value
 }
 
-func (ApiKey_CreatedBy_Field) _Column() string { return "created_by" }
-
 type ApiKey_Version_Field struct {
 	_set   bool
 	_null  bool
@@ -13780,8 +12949,6 @@ func (f ApiKey_Version_Field) value() any {
 	}
 	return f._value
 }
-
-func (ApiKey_Version_Field) _Column() string { return "version" }
 
 type BucketMetainfo struct {
 	Id                              []byte
@@ -13848,8 +13015,6 @@ func (f BucketMetainfo_Id_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_Id_Field) _Column() string { return "id" }
-
 type BucketMetainfo_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -13867,8 +13032,6 @@ func (f BucketMetainfo_ProjectId_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_ProjectId_Field) _Column() string { return "project_id" }
-
 type BucketMetainfo_Name_Field struct {
 	_set   bool
 	_null  bool
@@ -13885,8 +13048,6 @@ func (f BucketMetainfo_Name_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketMetainfo_Name_Field) _Column() string { return "name" }
 
 type BucketMetainfo_UserAgent_Field struct {
 	_set   bool
@@ -13918,8 +13079,6 @@ func (f BucketMetainfo_UserAgent_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_UserAgent_Field) _Column() string { return "user_agent" }
-
 type BucketMetainfo_Versioning_Field struct {
 	_set   bool
 	_null  bool
@@ -13936,8 +13095,6 @@ func (f BucketMetainfo_Versioning_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketMetainfo_Versioning_Field) _Column() string { return "versioning" }
 
 type BucketMetainfo_ObjectLockEnabled_Field struct {
 	_set   bool
@@ -13956,8 +13113,6 @@ func (f BucketMetainfo_ObjectLockEnabled_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_ObjectLockEnabled_Field) _Column() string { return "object_lock_enabled" }
-
 type BucketMetainfo_PathCipher_Field struct {
 	_set   bool
 	_null  bool
@@ -13974,8 +13129,6 @@ func (f BucketMetainfo_PathCipher_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketMetainfo_PathCipher_Field) _Column() string { return "path_cipher" }
 
 type BucketMetainfo_CreatedAt_Field struct {
 	_set   bool
@@ -13994,8 +13147,6 @@ func (f BucketMetainfo_CreatedAt_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_CreatedAt_Field) _Column() string { return "created_at" }
-
 type BucketMetainfo_DefaultSegmentSize_Field struct {
 	_set   bool
 	_null  bool
@@ -14013,8 +13164,6 @@ func (f BucketMetainfo_DefaultSegmentSize_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_DefaultSegmentSize_Field) _Column() string { return "default_segment_size" }
-
 type BucketMetainfo_DefaultEncryptionCipherSuite_Field struct {
 	_set   bool
 	_null  bool
@@ -14030,10 +13179,6 @@ func (f BucketMetainfo_DefaultEncryptionCipherSuite_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (BucketMetainfo_DefaultEncryptionCipherSuite_Field) _Column() string {
-	return "default_encryption_cipher_suite"
 }
 
 type BucketMetainfo_DefaultEncryptionBlockSize_Field struct {
@@ -14053,10 +13198,6 @@ func (f BucketMetainfo_DefaultEncryptionBlockSize_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_DefaultEncryptionBlockSize_Field) _Column() string {
-	return "default_encryption_block_size"
-}
-
 type BucketMetainfo_DefaultRedundancyAlgorithm_Field struct {
 	_set   bool
 	_null  bool
@@ -14072,10 +13213,6 @@ func (f BucketMetainfo_DefaultRedundancyAlgorithm_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (BucketMetainfo_DefaultRedundancyAlgorithm_Field) _Column() string {
-	return "default_redundancy_algorithm"
 }
 
 type BucketMetainfo_DefaultRedundancyShareSize_Field struct {
@@ -14095,10 +13232,6 @@ func (f BucketMetainfo_DefaultRedundancyShareSize_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_DefaultRedundancyShareSize_Field) _Column() string {
-	return "default_redundancy_share_size"
-}
-
 type BucketMetainfo_DefaultRedundancyRequiredShares_Field struct {
 	_set   bool
 	_null  bool
@@ -14114,10 +13247,6 @@ func (f BucketMetainfo_DefaultRedundancyRequiredShares_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (BucketMetainfo_DefaultRedundancyRequiredShares_Field) _Column() string {
-	return "default_redundancy_required_shares"
 }
 
 type BucketMetainfo_DefaultRedundancyRepairShares_Field struct {
@@ -14137,10 +13266,6 @@ func (f BucketMetainfo_DefaultRedundancyRepairShares_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_DefaultRedundancyRepairShares_Field) _Column() string {
-	return "default_redundancy_repair_shares"
-}
-
 type BucketMetainfo_DefaultRedundancyOptimalShares_Field struct {
 	_set   bool
 	_null  bool
@@ -14158,10 +13283,6 @@ func (f BucketMetainfo_DefaultRedundancyOptimalShares_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_DefaultRedundancyOptimalShares_Field) _Column() string {
-	return "default_redundancy_optimal_shares"
-}
-
 type BucketMetainfo_DefaultRedundancyTotalShares_Field struct {
 	_set   bool
 	_null  bool
@@ -14177,10 +13298,6 @@ func (f BucketMetainfo_DefaultRedundancyTotalShares_Field) value() any {
 		return nil
 	}
 	return f._value
-}
-
-func (BucketMetainfo_DefaultRedundancyTotalShares_Field) _Column() string {
-	return "default_redundancy_total_shares"
 }
 
 type BucketMetainfo_Placement_Field struct {
@@ -14213,8 +13330,6 @@ func (f BucketMetainfo_Placement_Field) value() any {
 	return f._value
 }
 
-func (BucketMetainfo_Placement_Field) _Column() string { return "placement" }
-
 type BucketMetainfo_CreatedBy_Field struct {
 	_set   bool
 	_null  bool
@@ -14244,8 +13359,6 @@ func (f BucketMetainfo_CreatedBy_Field) value() any {
 	}
 	return f._value
 }
-
-func (BucketMetainfo_CreatedBy_Field) _Column() string { return "created_by" }
 
 type ProjectInvitation struct {
 	ProjectId []byte
@@ -14282,8 +13395,6 @@ func (f ProjectInvitation_ProjectId_Field) value() any {
 	return f._value
 }
 
-func (ProjectInvitation_ProjectId_Field) _Column() string { return "project_id" }
-
 type ProjectInvitation_Email_Field struct {
 	_set   bool
 	_null  bool
@@ -14300,8 +13411,6 @@ func (f ProjectInvitation_Email_Field) value() any {
 	}
 	return f._value
 }
-
-func (ProjectInvitation_Email_Field) _Column() string { return "email" }
 
 type ProjectInvitation_InviterId_Field struct {
 	_set   bool
@@ -14335,8 +13444,6 @@ func (f ProjectInvitation_InviterId_Field) value() any {
 	return f._value
 }
 
-func (ProjectInvitation_InviterId_Field) _Column() string { return "inviter_id" }
-
 type ProjectInvitation_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -14353,8 +13460,6 @@ func (f ProjectInvitation_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (ProjectInvitation_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ProjectMember struct {
 	MemberId  []byte
@@ -14390,8 +13495,6 @@ func (f ProjectMember_MemberId_Field) value() any {
 	return f._value
 }
 
-func (ProjectMember_MemberId_Field) _Column() string { return "member_id" }
-
 type ProjectMember_ProjectId_Field struct {
 	_set   bool
 	_null  bool
@@ -14408,8 +13511,6 @@ func (f ProjectMember_ProjectId_Field) value() any {
 	}
 	return f._value
 }
-
-func (ProjectMember_ProjectId_Field) _Column() string { return "project_id" }
 
 type ProjectMember_Role_Field struct {
 	_set   bool
@@ -14428,8 +13529,6 @@ func (f ProjectMember_Role_Field) value() any {
 	return f._value
 }
 
-func (ProjectMember_Role_Field) _Column() string { return "role" }
-
 type ProjectMember_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -14446,8 +13545,6 @@ func (f ProjectMember_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (ProjectMember_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StripecoinpaymentsApplyBalanceIntent struct {
 	TxId      string
@@ -14480,8 +13577,6 @@ func (f StripecoinpaymentsApplyBalanceIntent_TxId_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsApplyBalanceIntent_TxId_Field) _Column() string { return "tx_id" }
-
 type StripecoinpaymentsApplyBalanceIntent_State_Field struct {
 	_set   bool
 	_null  bool
@@ -14499,8 +13594,6 @@ func (f StripecoinpaymentsApplyBalanceIntent_State_Field) value() any {
 	return f._value
 }
 
-func (StripecoinpaymentsApplyBalanceIntent_State_Field) _Column() string { return "state" }
-
 type StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -14517,8 +13610,6 @@ func (f StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) value() any {
 	}
 	return f._value
 }
-
-func (StripecoinpaymentsApplyBalanceIntent_CreatedAt_Field) _Column() string { return "created_at" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -16863,14 +15954,14 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrE
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16928,14 +16019,14 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interv
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16992,14 +16083,14 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_Gre
 				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -17057,14 +16148,14 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_
 				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -17215,14 +16306,14 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
 				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, bucket_bandwidth_rollup)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -17279,14 +16370,14 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterO
 				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
 				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, bucket_bandwidth_rollup_archive)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -18402,14 +17493,14 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 				node := &Node{}
 				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, node)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -20222,14 +19313,14 @@ func (obj *pgxImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx conte
 				row := &ProjectId_Name_Row{}
 				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, row)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -20586,6 +19677,9 @@ func (obj *pgxImpl) Get_User_Status_By_Project_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *Status_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.status FROM users  JOIN projects ON users.id = projects.owner_id WHERE projects.id = ?")
 
@@ -26531,14 +25625,14 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_G
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26596,14 +25690,14 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_A
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26660,14 +25754,14 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupArchive_By_Interval
 				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26725,14 +25819,14 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupPhase2_By_Storageno
 				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26883,14 +25977,14 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
 				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, bucket_bandwidth_rollup)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26947,14 +26041,14 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart
 				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
 				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, bucket_bandwidth_rollup_archive)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -28070,14 +27164,14 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 				node := &Node{}
 				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, node)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -29890,14 +28984,14 @@ func (obj *pgxcockroachImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(
 				row := &ProjectId_Name_Row{}
 				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, row)
 				next = &__continuation
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -30254,6 +29348,9 @@ func (obj *pgxcockroachImpl) Get_User_Status_By_Project_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *Status_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.status FROM users  JOIN projects ON users.id = projects.owner_id WHERE projects.id = ?")
 
@@ -34437,7 +33534,7 @@ func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	__interval_start_val := storagenode_bandwidth_rollup_interval_start.value()
 	__interval_seconds_val := storagenode_bandwidth_rollup_interval_seconds.value()
 	__action_val := storagenode_bandwidth_rollup_action.value()
-	__settled_val := storagenode_bandwidth_rollup_settled.value()
+	__settled_val := spannerConvertArgument(storagenode_bandwidth_rollup_settled.value())
 
 	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
@@ -34513,7 +33610,7 @@ func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 	}
 	__node_id_val := reverification_audits_node_id.value()
 	__stream_id_val := reverification_audits_stream_id.value()
-	__position_val := reverification_audits_position.value()
+	__position_val := spannerConvertArgument(reverification_audits_position.value())
 	__piece_num_val := reverification_audits_piece_num.value()
 	__last_attempt_val := optional.LastAttempt.value()
 
@@ -34695,7 +33792,7 @@ func (obj *spannerImpl) Create_BillingTransaction(ctx context.Context,
 	__source_val := billing_transaction_source.value()
 	__status_val := billing_transaction_status.value()
 	__type_val := billing_transaction_type.value()
-	__metadata_val := billing_transaction_metadata.value()
+	__metadata_val := spannerConvertJSON(billing_transaction_metadata.value())
 	__tx_timestamp_val := billing_transaction_tx_timestamp.value()
 	__created_at_val := __now
 
@@ -34722,7 +33819,7 @@ func (obj *spannerImpl) Create_BillingTransaction(ctx context.Context,
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -36439,7 +35536,7 @@ func (obj *spannerImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	}
 	__user_id_val := account_freeze_event_user_id.value()
 	__event_val := account_freeze_event_event.value()
-	__limits_val := optional.Limits.value()
+	__limits_val := spannerConvertJSON(optional.Limits.value())
 	__days_till_escalation_val := optional.DaysTillEscalation.value()
 
 	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, event, limits, days_till_escalation")}
@@ -36499,7 +35596,7 @@ func (obj *spannerImpl) Replace_AccountFreezeEvent(ctx context.Context,
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -36670,7 +35767,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND ((storagenode_bandwidth_rollups.storagenode_id) > ? OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) > ?) OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) = ? AND (storagenode_bandwidth_rollups.action) > ?)) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
@@ -36679,7 +35776,14 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+
+		__values = append(__values, start._value_storagenode_id)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -36687,41 +35791,29 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
+	var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, storagenode_bandwidth_rollup)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -36735,7 +35827,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? AND ((storagenode_bandwidth_rollups.storagenode_id) > ? OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) > ?) OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) = ? AND (storagenode_bandwidth_rollups.action) > ?)) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
@@ -36744,7 +35836,14 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+
+		__values = append(__values, start._value_storagenode_id)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -36752,41 +35851,29 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
+	var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, storagenode_bandwidth_rollup)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -36799,7 +35886,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND (storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND ((storagenode_bandwidth_rollup_archives.storagenode_id) > ? OR ((storagenode_bandwidth_rollup_archives.storagenode_id) = ? AND (storagenode_bandwidth_rollup_archives.interval_start) > ?) OR ((storagenode_bandwidth_rollup_archives.storagenode_id) = ? AND (storagenode_bandwidth_rollup_archives.interval_start) = ? AND (storagenode_bandwidth_rollup_archives.action) > ?)) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
@@ -36808,7 +35895,14 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+
+		__values = append(__values, start._value_storagenode_id)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -36816,41 +35910,29 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
+	var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, storagenode_bandwidth_rollup_archive)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -36864,7 +35946,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND (storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND ((storagenode_bandwidth_rollups_phase2.storagenode_id) > ? OR ((storagenode_bandwidth_rollups_phase2.storagenode_id) = ? AND (storagenode_bandwidth_rollups_phase2.interval_start) > ?) OR ((storagenode_bandwidth_rollups_phase2.storagenode_id) = ? AND (storagenode_bandwidth_rollups_phase2.interval_start) = ? AND (storagenode_bandwidth_rollups_phase2.action) > ?)) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
@@ -36873,7 +35955,14 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+
+		__values = append(__values, start._value_storagenode_id)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
+
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -36881,41 +35970,29 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
+	var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup_phase2)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, storagenode_bandwidth_rollup_phase2)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -37022,7 +36099,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND ((bucket_bandwidth_rollups.project_id) > ? OR ((bucket_bandwidth_rollups.project_id) = ? AND (bucket_bandwidth_rollups.bucket_name) > ?) OR ((bucket_bandwidth_rollups.project_id) = ? AND (bucket_bandwidth_rollups.bucket_name) = ? AND (bucket_bandwidth_rollups.interval_start) > ?) OR ((bucket_bandwidth_rollups.project_id) = ? AND (bucket_bandwidth_rollups.bucket_name) = ? AND (bucket_bandwidth_rollups.interval_start) = ? AND (bucket_bandwidth_rollups.action) > ?)) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
@@ -37031,7 +36108,16 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
+
+		__values = append(__values, start._value_project_id)
+
+		__values = append(__values, start._value_project_id, start._value_bucket_name)
+
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start)
+
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -37039,41 +36125,29 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
+	var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, bucket_bandwidth_rollup)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+		err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, bucket_bandwidth_rollup)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -37086,7 +36160,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND ((bucket_bandwidth_rollup_archives.bucket_name) > ? OR ((bucket_bandwidth_rollup_archives.bucket_name) = ? AND (bucket_bandwidth_rollup_archives.project_id) > ?) OR ((bucket_bandwidth_rollup_archives.bucket_name) = ? AND (bucket_bandwidth_rollup_archives.project_id) = ? AND (bucket_bandwidth_rollup_archives.interval_start) > ?) OR ((bucket_bandwidth_rollup_archives.bucket_name) = ? AND (bucket_bandwidth_rollup_archives.project_id) = ? AND (bucket_bandwidth_rollup_archives.interval_start) = ? AND (bucket_bandwidth_rollup_archives.action) > ?)) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
@@ -37095,7 +36169,16 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+
+		__values = append(__values, start._value_bucket_name)
+
+		__values = append(__values, start._value_bucket_name, start._value_project_id)
+
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start)
+
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -37103,41 +36186,29 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
+	var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
-				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, bucket_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+		err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, bucket_bandwidth_rollup_archive)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -37430,7 +36501,7 @@ func (obj *spannerImpl) Get_BillingTransaction_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	billing_transaction = &BillingTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
 	if err != nil {
 		return (*BillingTransaction)(nil), obj.makeErr(err)
 	}
@@ -37455,7 +36526,7 @@ func (obj *spannerImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	row = &Metadata_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Metadata)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(spannerConvertJSON(&row.Metadata))
 	if err != nil {
 		return (*Metadata_Row)(nil), obj.makeErr(err)
 	}
@@ -37489,7 +36560,7 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestam
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
-				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -37538,7 +36609,7 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
-				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+				err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -37593,7 +36664,7 @@ func (obj *spannerImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc
 			}
 
 			billing_transaction = &BillingTransaction{}
-			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+			err = __rows.Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
 			if err != nil {
 				return nil, err
 			}
@@ -38067,7 +37138,7 @@ func (obj *spannerImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_A
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), spannerConvertArgument(graceful_exit_segment_transfer_position.value()), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -38218,7 +37289,10 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_id, limit)
+
+		__values = append(__values, start._value_id)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -38226,41 +37300,29 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*Node, next *Paged_Node_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_Node_Continuation
-			__continuation._set = true
+	var __continuation Paged_Node_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, node)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, node)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -40030,7 +39092,7 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE (bucket_metainfos.project_id, bucket_metainfos.name) > (?, ?) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE ((bucket_metainfos.project_id) > ? OR ((bucket_metainfos.project_id) = ? AND (bucket_metainfos.name) > ?)) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
@@ -40038,7 +39100,12 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_project_id, start._value_name, limit)
+
+		__values = append(__values, start._value_project_id)
+
+		__values = append(__values, start._value_project_id, start._value_name)
+
+		__values = append(__values, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -40046,41 +39113,29 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 	}
 	obj.logStmt(__stmt, __values...)
 
-	for {
-		rows, next, err = func() (rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
 
-			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
-			__continuation._set = true
+	var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
+	__continuation._set = true
 
-			for __rows.Next() {
-				row := &ProjectId_Name_Row{}
-				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, row)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
+	for __rows.Next() {
+		row := &ProjectId_Name_Row{}
+		err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
 			return nil, nil, obj.makeErr(err)
 		}
-		return rows, next, nil
+		rows = append(rows, row)
+		next = &__continuation
 	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
 
 }
 
@@ -40425,6 +39480,9 @@ func (obj *spannerImpl) Get_User_Status_By_Project_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *Status_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT users.status FROM users  JOIN projects ON users.id = projects.owner_id WHERE projects.id = ?")
 
@@ -40639,7 +39697,7 @@ func (obj *spannerImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.C
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if err != nil {
 		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
 	}
@@ -40673,7 +39731,7 @@ func (obj *spannerImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 			for __rows.Next() {
 				account_freeze_event := &AccountFreezeEvent{}
-				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -40712,7 +39770,7 @@ func (obj *spannerImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -40782,12 +39840,10 @@ func (obj *spannerImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
 		__values = append(__values, update.BillingCustomerId.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("billing_customer_id = ?"))
 	}
-
 	if update.PackagePlan._set {
 		__values = append(__values, update.PackagePlan.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("package_plan = ?"))
 	}
-
 	if update.PurchasedPackageAt._set {
 		__values = append(__values, update.PurchasedPackageAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("purchased_package_at = ?"))
@@ -40923,9 +39979,8 @@ func (obj *spannerImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx c
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
-
 	if update.Metadata._set {
-		__values = append(__values, update.Metadata.value())
+		__values = append(__values, spannerConvertJSON(update.Metadata.value()))
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("metadata = ?"))
 	}
 
@@ -40969,7 +40024,6 @@ func (obj *spannerImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context
 		__values = append(__values, update.ReceivedNumeric.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("received_numeric = ?"))
 	}
-
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
@@ -41105,32 +40159,26 @@ func (obj *spannerImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And
 		__values = append(__values, update.DurabilityRatio.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
 	}
-
 	if update.RequestedAt._set {
 		__values = append(__values, update.RequestedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
 	}
-
 	if update.LastFailedAt._set {
 		__values = append(__values, update.LastFailedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
 	}
-
 	if update.LastFailedCode._set {
 		__values = append(__values, update.LastFailedCode.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
 	}
-
 	if update.FailedCount._set {
 		__values = append(__values, update.FailedCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
 	}
-
 	if update.FinishedAt._set {
 		__values = append(__values, update.FinishedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
 	}
-
 	if update.OrderLimitSendCount._set {
 		__values = append(__values, update.OrderLimitSendCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
@@ -41140,7 +40188,7 @@ func (obj *spannerImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And
 		return emptyUpdate()
 	}
 
-	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
+	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), spannerConvertArgument(graceful_exit_segment_transfer_position.value()), graceful_exit_segment_transfer_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -41176,7 +40224,6 @@ func (obj *spannerImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Contex
 		__values = append(__values, update.LeafSerialNumber.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
 	}
-
 	if update.Chain._set {
 		__values = append(__values, update.Chain.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
@@ -41223,177 +40270,142 @@ func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 		__values = append(__values, update.Address.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
 	}
-
 	if update.LastNet._set {
 		__values = append(__values, update.LastNet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
 	}
-
 	if update.LastIpPort._set {
 		__values = append(__values, update.LastIpPort.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
 	}
-
 	if update.CountryCode._set {
 		__values = append(__values, update.CountryCode.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country_code = ?"))
 	}
-
 	if update.Protocol._set {
 		__values = append(__values, update.Protocol.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
 	}
-
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
-
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
 	}
-
 	if update.WalletFeatures._set {
 		__values = append(__values, update.WalletFeatures.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
 	}
-
 	if update.FreeDisk._set {
 		__values = append(__values, update.FreeDisk.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
 	}
-
 	if update.PieceCount._set {
 		__values = append(__values, update.PieceCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
 	}
-
 	if update.Major._set {
 		__values = append(__values, update.Major.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
 	}
-
 	if update.Minor._set {
 		__values = append(__values, update.Minor.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
 	}
-
 	if update.Patch._set {
 		__values = append(__values, update.Patch.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
 	}
-
 	if update.CommitHash._set {
 		__values = append(__values, update.CommitHash.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("commit_hash = ?"))
 	}
-
 	if update.ReleaseTimestamp._set {
 		__values = append(__values, update.ReleaseTimestamp.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release_timestamp = ?"))
 	}
-
 	if update.Release._set {
 		__values = append(__values, update.Release.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
 	}
-
 	if update.Latency90._set {
 		__values = append(__values, update.Latency90.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
-
 	if update.LastContactSuccess._set {
 		__values = append(__values, update.LastContactSuccess.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
 	}
-
 	if update.LastContactFailure._set {
 		__values = append(__values, update.LastContactFailure.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
 	}
-
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
-
 	if update.DisqualificationReason._set {
 		__values = append(__values, update.DisqualificationReason.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
-
 	if update.UnknownAuditSuspended._set {
 		__values = append(__values, update.UnknownAuditSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
 	}
-
 	if update.OfflineSuspended._set {
 		__values = append(__values, update.OfflineSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
 	}
-
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
 	}
-
 	if update.ExitLoopCompletedAt._set {
 		__values = append(__values, update.ExitLoopCompletedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
 	}
-
 	if update.ExitFinishedAt._set {
 		__values = append(__values, update.ExitFinishedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
 	}
-
 	if update.ExitSuccess._set {
 		__values = append(__values, update.ExitSuccess.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
 	}
-
 	if update.Contained._set {
 		__values = append(__values, update.Contained.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
 	}
-
 	if update.LastOfflineEmail._set {
 		__values = append(__values, update.LastOfflineEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_offline_email = ?"))
 	}
-
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
 	}
-
 	if update.NoiseProto._set {
 		__values = append(__values, update.NoiseProto.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
 	}
-
 	if update.NoisePublicKey._set {
 		__values = append(__values, update.NoisePublicKey.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
-
 	if update.DebounceLimit._set {
 		__values = append(__values, update.DebounceLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debounce_limit = ?"))
 	}
-
 	if update.Features._set {
 		__values = append(__values, update.Features.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("features = ?"))
@@ -41463,177 +40475,142 @@ func (obj *spannerImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__values = append(__values, update.Address.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
 	}
-
 	if update.LastNet._set {
 		__values = append(__values, update.LastNet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
 	}
-
 	if update.LastIpPort._set {
 		__values = append(__values, update.LastIpPort.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
 	}
-
 	if update.CountryCode._set {
 		__values = append(__values, update.CountryCode.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country_code = ?"))
 	}
-
 	if update.Protocol._set {
 		__values = append(__values, update.Protocol.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
 	}
-
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
-
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
 	}
-
 	if update.WalletFeatures._set {
 		__values = append(__values, update.WalletFeatures.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
 	}
-
 	if update.FreeDisk._set {
 		__values = append(__values, update.FreeDisk.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
 	}
-
 	if update.PieceCount._set {
 		__values = append(__values, update.PieceCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
 	}
-
 	if update.Major._set {
 		__values = append(__values, update.Major.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
 	}
-
 	if update.Minor._set {
 		__values = append(__values, update.Minor.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
 	}
-
 	if update.Patch._set {
 		__values = append(__values, update.Patch.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
 	}
-
 	if update.CommitHash._set {
 		__values = append(__values, update.CommitHash.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("commit_hash = ?"))
 	}
-
 	if update.ReleaseTimestamp._set {
 		__values = append(__values, update.ReleaseTimestamp.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release_timestamp = ?"))
 	}
-
 	if update.Release._set {
 		__values = append(__values, update.Release.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
 	}
-
 	if update.Latency90._set {
 		__values = append(__values, update.Latency90.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
-
 	if update.LastContactSuccess._set {
 		__values = append(__values, update.LastContactSuccess.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
 	}
-
 	if update.LastContactFailure._set {
 		__values = append(__values, update.LastContactFailure.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
 	}
-
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
-
 	if update.DisqualificationReason._set {
 		__values = append(__values, update.DisqualificationReason.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
-
 	if update.UnknownAuditSuspended._set {
 		__values = append(__values, update.UnknownAuditSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
 	}
-
 	if update.OfflineSuspended._set {
 		__values = append(__values, update.OfflineSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
 	}
-
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
 	}
-
 	if update.ExitLoopCompletedAt._set {
 		__values = append(__values, update.ExitLoopCompletedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
 	}
-
 	if update.ExitFinishedAt._set {
 		__values = append(__values, update.ExitFinishedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
 	}
-
 	if update.ExitSuccess._set {
 		__values = append(__values, update.ExitSuccess.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
 	}
-
 	if update.Contained._set {
 		__values = append(__values, update.Contained.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
 	}
-
 	if update.LastOfflineEmail._set {
 		__values = append(__values, update.LastOfflineEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_offline_email = ?"))
 	}
-
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
 	}
-
 	if update.NoiseProto._set {
 		__values = append(__values, update.NoiseProto.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
 	}
-
 	if update.NoisePublicKey._set {
 		__values = append(__values, update.NoisePublicKey.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
-
 	if update.DebounceLimit._set {
 		__values = append(__values, update.DebounceLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debounce_limit = ?"))
 	}
-
 	if update.Features._set {
 		__values = append(__values, update.Features.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("features = ?"))
@@ -41680,177 +40657,142 @@ func (obj *spannerImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_E
 		__values = append(__values, update.Address.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
 	}
-
 	if update.LastNet._set {
 		__values = append(__values, update.LastNet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
 	}
-
 	if update.LastIpPort._set {
 		__values = append(__values, update.LastIpPort.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
 	}
-
 	if update.CountryCode._set {
 		__values = append(__values, update.CountryCode.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country_code = ?"))
 	}
-
 	if update.Protocol._set {
 		__values = append(__values, update.Protocol.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
 	}
-
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
-
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
 	}
-
 	if update.WalletFeatures._set {
 		__values = append(__values, update.WalletFeatures.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
 	}
-
 	if update.FreeDisk._set {
 		__values = append(__values, update.FreeDisk.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
 	}
-
 	if update.PieceCount._set {
 		__values = append(__values, update.PieceCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
 	}
-
 	if update.Major._set {
 		__values = append(__values, update.Major.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
 	}
-
 	if update.Minor._set {
 		__values = append(__values, update.Minor.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
 	}
-
 	if update.Patch._set {
 		__values = append(__values, update.Patch.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
 	}
-
 	if update.CommitHash._set {
 		__values = append(__values, update.CommitHash.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("commit_hash = ?"))
 	}
-
 	if update.ReleaseTimestamp._set {
 		__values = append(__values, update.ReleaseTimestamp.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release_timestamp = ?"))
 	}
-
 	if update.Release._set {
 		__values = append(__values, update.Release.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
 	}
-
 	if update.Latency90._set {
 		__values = append(__values, update.Latency90.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
-
 	if update.LastContactSuccess._set {
 		__values = append(__values, update.LastContactSuccess.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
 	}
-
 	if update.LastContactFailure._set {
 		__values = append(__values, update.LastContactFailure.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
 	}
-
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
-
 	if update.DisqualificationReason._set {
 		__values = append(__values, update.DisqualificationReason.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
-
 	if update.UnknownAuditSuspended._set {
 		__values = append(__values, update.UnknownAuditSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
 	}
-
 	if update.OfflineSuspended._set {
 		__values = append(__values, update.OfflineSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
 	}
-
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
 	}
-
 	if update.ExitLoopCompletedAt._set {
 		__values = append(__values, update.ExitLoopCompletedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
 	}
-
 	if update.ExitFinishedAt._set {
 		__values = append(__values, update.ExitFinishedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
 	}
-
 	if update.ExitSuccess._set {
 		__values = append(__values, update.ExitSuccess.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
 	}
-
 	if update.Contained._set {
 		__values = append(__values, update.Contained.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
 	}
-
 	if update.LastOfflineEmail._set {
 		__values = append(__values, update.LastOfflineEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_offline_email = ?"))
 	}
-
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
 	}
-
 	if update.NoiseProto._set {
 		__values = append(__values, update.NoiseProto.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
 	}
-
 	if update.NoisePublicKey._set {
 		__values = append(__values, update.NoisePublicKey.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
-
 	if update.DebounceLimit._set {
 		__values = append(__values, update.DebounceLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debounce_limit = ?"))
 	}
-
 	if update.Features._set {
 		__values = append(__values, update.Features.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("features = ?"))
@@ -41940,67 +40882,54 @@ func (obj *spannerImpl) Update_Reputation_By_Id(ctx context.Context,
 		__values = append(__values, update.AuditSuccessCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
 	}
-
 	if update.TotalAuditCount._set {
 		__values = append(__values, update.TotalAuditCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
 	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
-
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
-
 	if update.DisqualificationReason._set {
 		__values = append(__values, update.DisqualificationReason.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
-
 	if update.UnknownAuditSuspended._set {
 		__values = append(__values, update.UnknownAuditSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
 	}
-
 	if update.OfflineSuspended._set {
 		__values = append(__values, update.OfflineSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
 	}
-
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
-
 	if update.OnlineScore._set {
 		__values = append(__values, update.OnlineScore.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
 	}
-
 	if update.AuditHistory._set {
 		__values = append(__values, update.AuditHistory.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
 	}
-
 	if update.AuditReputationAlpha._set {
 		__values = append(__values, update.AuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
 	}
-
 	if update.AuditReputationBeta._set {
 		__values = append(__values, update.AuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
 	}
-
 	if update.UnknownAuditReputationAlpha._set {
 		__values = append(__values, update.UnknownAuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
 	}
-
 	if update.UnknownAuditReputationBeta._set {
 		__values = append(__values, update.UnknownAuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
@@ -42071,67 +41000,54 @@ func (obj *spannerImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Con
 		__values = append(__values, update.AuditSuccessCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
 	}
-
 	if update.TotalAuditCount._set {
 		__values = append(__values, update.TotalAuditCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
 	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
-
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
-
 	if update.DisqualificationReason._set {
 		__values = append(__values, update.DisqualificationReason.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
-
 	if update.UnknownAuditSuspended._set {
 		__values = append(__values, update.UnknownAuditSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
 	}
-
 	if update.OfflineSuspended._set {
 		__values = append(__values, update.OfflineSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
 	}
-
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
-
 	if update.OnlineScore._set {
 		__values = append(__values, update.OnlineScore.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
 	}
-
 	if update.AuditHistory._set {
 		__values = append(__values, update.AuditHistory.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
 	}
-
 	if update.AuditReputationAlpha._set {
 		__values = append(__values, update.AuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
 	}
-
 	if update.AuditReputationBeta._set {
 		__values = append(__values, update.AuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
 	}
-
 	if update.UnknownAuditReputationAlpha._set {
 		__values = append(__values, update.UnknownAuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
 	}
-
 	if update.UnknownAuditReputationBeta._set {
 		__values = append(__values, update.UnknownAuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
@@ -42201,67 +41117,54 @@ func (obj *spannerImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 		__values = append(__values, update.AuditSuccessCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
 	}
-
 	if update.TotalAuditCount._set {
 		__values = append(__values, update.TotalAuditCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
 	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
-
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
-
 	if update.DisqualificationReason._set {
 		__values = append(__values, update.DisqualificationReason.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
-
 	if update.UnknownAuditSuspended._set {
 		__values = append(__values, update.UnknownAuditSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
 	}
-
 	if update.OfflineSuspended._set {
 		__values = append(__values, update.OfflineSuspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
 	}
-
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
-
 	if update.OnlineScore._set {
 		__values = append(__values, update.OnlineScore.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
 	}
-
 	if update.AuditHistory._set {
 		__values = append(__values, update.AuditHistory.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
 	}
-
 	if update.AuditReputationAlpha._set {
 		__values = append(__values, update.AuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
 	}
-
 	if update.AuditReputationBeta._set {
 		__values = append(__values, update.AuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
 	}
-
 	if update.UnknownAuditReputationAlpha._set {
 		__values = append(__values, update.UnknownAuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
 	}
-
 	if update.UnknownAuditReputationBeta._set {
 		__values = append(__values, update.UnknownAuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
@@ -42308,17 +41211,14 @@ func (obj *spannerImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 		__values = append(__values, update.EncryptedSecret.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("encrypted_secret = ?"))
 	}
-
 	if update.RedirectUrl._set {
 		__values = append(__values, update.RedirectUrl.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redirect_url = ?"))
 	}
-
 	if update.AppName._set {
 		__values = append(__values, update.AppName.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_name = ?"))
 	}
-
 	if update.AppLogoUrl._set {
 		__values = append(__values, update.AppLogoUrl.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_logo_url = ?"))
@@ -42447,132 +41347,106 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 		__values = append(__values, update.Name.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
 	}
-
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
 	}
-
 	if update.UsageLimit._set {
 		__values = append(__values, update.UsageLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
 	}
-
 	if update.BandwidthLimit._set {
 		__values = append(__values, update.BandwidthLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bandwidth_limit = ?"))
 	}
-
 	if update.UserSpecifiedUsageLimit._set {
 		__values = append(__values, update.UserSpecifiedUsageLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_specified_usage_limit = ?"))
 	}
-
 	if update.UserSpecifiedBandwidthLimit._set {
 		__values = append(__values, update.UserSpecifiedBandwidthLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_specified_bandwidth_limit = ?"))
 	}
-
 	if update.SegmentLimit._set {
 		__values = append(__values, update.SegmentLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segment_limit = ?"))
 	}
-
 	if update.RateLimit._set {
 		__values = append(__values, update.RateLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit = ?"))
 	}
-
 	if update.BurstLimit._set {
 		__values = append(__values, update.BurstLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit = ?"))
 	}
-
 	if update.RateLimitHead._set {
 		__values = append(__values, update.RateLimitHead.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_head = ?"))
 	}
-
 	if update.BurstLimitHead._set {
 		__values = append(__values, update.BurstLimitHead.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_head = ?"))
 	}
-
 	if update.RateLimitGet._set {
 		__values = append(__values, update.RateLimitGet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_get = ?"))
 	}
-
 	if update.BurstLimitGet._set {
 		__values = append(__values, update.BurstLimitGet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_get = ?"))
 	}
-
 	if update.RateLimitPut._set {
 		__values = append(__values, update.RateLimitPut.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_put = ?"))
 	}
-
 	if update.BurstLimitPut._set {
 		__values = append(__values, update.BurstLimitPut.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_put = ?"))
 	}
-
 	if update.RateLimitList._set {
 		__values = append(__values, update.RateLimitList.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_list = ?"))
 	}
-
 	if update.BurstLimitList._set {
 		__values = append(__values, update.BurstLimitList.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_list = ?"))
 	}
-
 	if update.RateLimitDel._set {
 		__values = append(__values, update.RateLimitDel.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit_del = ?"))
 	}
-
 	if update.BurstLimitDel._set {
 		__values = append(__values, update.BurstLimitDel.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit_del = ?"))
 	}
-
 	if update.MaxBuckets._set {
 		__values = append(__values, update.MaxBuckets.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
 	}
-
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
-
 	if update.DefaultPlacement._set {
 		__values = append(__values, update.DefaultPlacement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_placement = ?"))
 	}
-
 	if update.DefaultVersioning._set {
 		__values = append(__values, update.DefaultVersioning.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_versioning = ?"))
 	}
-
 	if update.PromptedForVersioningBeta._set {
 		__values = append(__values, update.PromptedForVersioningBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("prompted_for_versioning_beta = ?"))
 	}
-
 	if update.PassphraseEnc._set {
 		__values = append(__values, update.PassphraseEnc.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc = ?"))
 	}
-
 	if update.PassphraseEncKeyId._set {
 		__values = append(__values, update.PassphraseEncKeyId.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_enc_key_id = ?"))
 	}
-
 	if update.PathEncryption._set {
 		__values = append(__values, update.PathEncryption.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("path_encryption = ?"))
@@ -42707,7 +41581,6 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 		__values = append(__values, update.InviterId.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inviter_id = ?"))
 	}
-
 	if update.CreatedAt._set {
 		__values = append(__values, update.CreatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
@@ -42818,62 +41691,50 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
-
 	if update.Versioning._set {
 		__values = append(__values, update.Versioning.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("versioning = ?"))
 	}
-
 	if update.ObjectLockEnabled._set {
 		__values = append(__values, update.ObjectLockEnabled.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("object_lock_enabled = ?"))
 	}
-
 	if update.DefaultSegmentSize._set {
 		__values = append(__values, update.DefaultSegmentSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
 	}
-
 	if update.DefaultEncryptionCipherSuite._set {
 		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
 	}
-
 	if update.DefaultEncryptionBlockSize._set {
 		__values = append(__values, update.DefaultEncryptionBlockSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
 	}
-
 	if update.DefaultRedundancyAlgorithm._set {
 		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
 	}
-
 	if update.DefaultRedundancyShareSize._set {
 		__values = append(__values, update.DefaultRedundancyShareSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
 	}
-
 	if update.DefaultRedundancyRequiredShares._set {
 		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
 	}
-
 	if update.DefaultRedundancyRepairShares._set {
 		__values = append(__values, update.DefaultRedundancyRepairShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
 	}
-
 	if update.DefaultRedundancyOptimalShares._set {
 		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
 	}
-
 	if update.DefaultRedundancyTotalShares._set {
 		__values = append(__values, update.DefaultRedundancyTotalShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
 	}
-
 	if update.Placement._set {
 		__values = append(__values, update.Placement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
@@ -42944,62 +41805,50 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
-
 	if update.Versioning._set {
 		__values = append(__values, update.Versioning.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("versioning = ?"))
 	}
-
 	if update.ObjectLockEnabled._set {
 		__values = append(__values, update.ObjectLockEnabled.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("object_lock_enabled = ?"))
 	}
-
 	if update.DefaultSegmentSize._set {
 		__values = append(__values, update.DefaultSegmentSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
 	}
-
 	if update.DefaultEncryptionCipherSuite._set {
 		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
 	}
-
 	if update.DefaultEncryptionBlockSize._set {
 		__values = append(__values, update.DefaultEncryptionBlockSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
 	}
-
 	if update.DefaultRedundancyAlgorithm._set {
 		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
 	}
-
 	if update.DefaultRedundancyShareSize._set {
 		__values = append(__values, update.DefaultRedundancyShareSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
 	}
-
 	if update.DefaultRedundancyRequiredShares._set {
 		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
 	}
-
 	if update.DefaultRedundancyRepairShares._set {
 		__values = append(__values, update.DefaultRedundancyRepairShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
 	}
-
 	if update.DefaultRedundancyOptimalShares._set {
 		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
 	}
-
 	if update.DefaultRedundancyTotalShares._set {
 		__values = append(__values, update.DefaultRedundancyTotalShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
 	}
-
 	if update.Placement._set {
 		__values = append(__values, update.Placement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
@@ -43070,62 +41919,50 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
-
 	if update.Versioning._set {
 		__values = append(__values, update.Versioning.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("versioning = ?"))
 	}
-
 	if update.ObjectLockEnabled._set {
 		__values = append(__values, update.ObjectLockEnabled.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("object_lock_enabled = ?"))
 	}
-
 	if update.DefaultSegmentSize._set {
 		__values = append(__values, update.DefaultSegmentSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
 	}
-
 	if update.DefaultEncryptionCipherSuite._set {
 		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
 	}
-
 	if update.DefaultEncryptionBlockSize._set {
 		__values = append(__values, update.DefaultEncryptionBlockSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
 	}
-
 	if update.DefaultRedundancyAlgorithm._set {
 		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
 	}
-
 	if update.DefaultRedundancyShareSize._set {
 		__values = append(__values, update.DefaultRedundancyShareSize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
 	}
-
 	if update.DefaultRedundancyRequiredShares._set {
 		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
 	}
-
 	if update.DefaultRedundancyRepairShares._set {
 		__values = append(__values, update.DefaultRedundancyRepairShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
 	}
-
 	if update.DefaultRedundancyOptimalShares._set {
 		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
 	}
-
 	if update.DefaultRedundancyTotalShares._set {
 		__values = append(__values, update.DefaultRedundancyTotalShares.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
 	}
-
 	if update.Placement._set {
 		__values = append(__values, update.Placement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
@@ -43260,177 +42097,142 @@ func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
 		__values = append(__values, update.Email.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
-
 	if update.NormalizedEmail._set {
 		__values = append(__values, update.NormalizedEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
 	}
-
 	if update.FullName._set {
 		__values = append(__values, update.FullName.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
 	}
-
 	if update.ShortName._set {
 		__values = append(__values, update.ShortName.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("short_name = ?"))
 	}
-
 	if update.PasswordHash._set {
 		__values = append(__values, update.PasswordHash.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
 	}
-
 	if update.NewUnverifiedEmail._set {
 		__values = append(__values, update.NewUnverifiedEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("new_unverified_email = ?"))
 	}
-
 	if update.EmailChangeVerificationStep._set {
 		__values = append(__values, update.EmailChangeVerificationStep.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email_change_verification_step = ?"))
 	}
-
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
-
 	if update.StatusUpdatedAt._set {
 		__values = append(__values, update.StatusUpdatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status_updated_at = ?"))
 	}
-
 	if update.FinalInvoiceGenerated._set {
 		__values = append(__values, update.FinalInvoiceGenerated.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("final_invoice_generated = ?"))
 	}
-
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
-
 	if update.ProjectLimit._set {
 		__values = append(__values, update.ProjectLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_limit = ?"))
 	}
-
 	if update.ProjectBandwidthLimit._set {
 		__values = append(__values, update.ProjectBandwidthLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_bandwidth_limit = ?"))
 	}
-
 	if update.ProjectStorageLimit._set {
 		__values = append(__values, update.ProjectStorageLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_storage_limit = ?"))
 	}
-
 	if update.ProjectSegmentLimit._set {
 		__values = append(__values, update.ProjectSegmentLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_segment_limit = ?"))
 	}
-
 	if update.PaidTier._set {
 		__values = append(__values, update.PaidTier.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("paid_tier = ?"))
 	}
-
 	if update.Position._set {
 		__values = append(__values, update.Position.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("position = ?"))
 	}
-
 	if update.CompanyName._set {
 		__values = append(__values, update.CompanyName.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_name = ?"))
 	}
-
 	if update.CompanySize._set {
 		__values = append(__values, update.CompanySize.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("company_size = ?"))
 	}
-
 	if update.WorkingOn._set {
 		__values = append(__values, update.WorkingOn.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("working_on = ?"))
 	}
-
 	if update.IsProfessional._set {
 		__values = append(__values, update.IsProfessional.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_professional = ?"))
 	}
-
 	if update.EmployeeCount._set {
 		__values = append(__values, update.EmployeeCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("employee_count = ?"))
 	}
-
 	if update.HaveSalesContact._set {
 		__values = append(__values, update.HaveSalesContact.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("have_sales_contact = ?"))
 	}
-
 	if update.MfaEnabled._set {
 		__values = append(__values, update.MfaEnabled.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
 	}
-
 	if update.MfaSecretKey._set {
 		__values = append(__values, update.MfaSecretKey.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
 	}
-
 	if update.MfaRecoveryCodes._set {
 		__values = append(__values, update.MfaRecoveryCodes.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
 	}
-
 	if update.SignupPromoCode._set {
 		__values = append(__values, update.SignupPromoCode.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_promo_code = ?"))
 	}
-
 	if update.VerificationReminders._set {
 		__values = append(__values, update.VerificationReminders.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_reminders = ?"))
 	}
-
 	if update.TrialNotifications._set {
 		__values = append(__values, update.TrialNotifications.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("trial_notifications = ?"))
 	}
-
 	if update.FailedLoginCount._set {
 		__values = append(__values, update.FailedLoginCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
 	}
-
 	if update.LoginLockoutExpiration._set {
 		__values = append(__values, update.LoginLockoutExpiration.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("login_lockout_expiration = ?"))
 	}
-
 	if update.DefaultPlacement._set {
 		__values = append(__values, update.DefaultPlacement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_placement = ?"))
 	}
-
 	if update.ActivationCode._set {
 		__values = append(__values, update.ActivationCode.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("activation_code = ?"))
 	}
-
 	if update.SignupId._set {
 		__values = append(__values, update.SignupId.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_id = ?"))
 	}
-
 	if update.TrialExpiration._set {
 		__values = append(__values, update.TrialExpiration.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("trial_expiration = ?"))
 	}
-
 	if update.UpgradeTime._set {
 		__values = append(__values, update.UpgradeTime.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("upgrade_time = ?"))
@@ -43499,7 +42301,6 @@ func (obj *spannerImpl) Update_WebappSession_By_Id(ctx context.Context,
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
-
 	if update.ExpiresAt._set {
 		__values = append(__values, update.ExpiresAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
@@ -43630,15 +42431,13 @@ func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 	var __args []any
 
 	if update.Limits._set {
-		__values = append(__values, update.Limits.value())
+		__values = append(__values, spannerConvertJSON(update.Limits.value()))
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("limits = ?"))
 	}
-
 	if update.DaysTillEscalation._set {
 		__values = append(__values, update.DaysTillEscalation.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("days_till_escalation = ?"))
 	}
-
 	if update.NotificationsCount._set {
 		__values = append(__values, update.NotificationsCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notifications_count = ?"))
@@ -43671,7 +42470,7 @@ func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -43707,29 +42506,24 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		__values = append(__values, update.SessionMinutes.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
 	}
-
 	if update.PassphrasePrompt._set {
 		__values = append(__values, update.PassphrasePrompt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
 	}
-
 	if update.OnboardingStart._set {
 		__values = append(__values, update.OnboardingStart.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_start = ?"))
 	}
-
 	if update.OnboardingEnd._set {
 		__values = append(__values, update.OnboardingEnd.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_end = ?"))
 	}
-
 	if update.OnboardingStep._set {
 		__values = append(__values, update.OnboardingStep.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("onboarding_step = ?"))
 	}
-
 	if update.NoticeDismissal._set {
-		__values = append(__values, update.NoticeDismissal.value())
+		__values = append(__values, spannerConvertJSON(update.NoticeDismissal.value()))
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("notice_dismissal = ?"))
 	}
 
@@ -43760,7 +42554,7 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal)
+	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -43788,7 +42582,7 @@ func (obj *spannerImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_P
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
 
 	var __values []any
-	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
+	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), spannerConvertArgument(reverification_audits_position.value()))
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -43881,7 +42675,7 @@ func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamI
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), spannerConvertArgument(graceful_exit_segment_transfer_position.value()), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -46007,4 +44801,82 @@ func openpgxcockroach(source string) (*sql.DB, error) {
 
 func openspanner(source string) (*sql.DB, error) {
 	return sql.Open("spanner", strings.TrimPrefix(source, "spanner://"))
+}
+
+func spannerConvertArgument(v any) any {
+	switch v := v.(type) {
+	case uint64:
+		return spannerUint64{val: v}
+	case *uint64:
+		return spannerPointerUint64{val: v}
+	default:
+		return v
+	}
+}
+
+func spannerConvertJSON(v any) any {
+	if v == nil {
+		return spanner.NullJSON{Value: nil, Valid: true}
+	}
+	if v, ok := v.([]byte); ok {
+		return spanner.NullJSON{Value: v, Valid: true}
+	}
+	if v, ok := v.(*[]byte); ok {
+		return &spannerJSON{data: v}
+	}
+	return v
+}
+
+type spannerJSON struct {
+	data *[]byte
+}
+
+func (s *spannerJSON) Scan(input any) error {
+	if input == nil {
+		*s.data = nil
+		return nil
+	}
+	if v, ok := input.(spanner.NullJSON); ok {
+		if !v.Valid || v.Value == nil {
+			*s.data = nil
+			return nil
+		}
+
+		if str, ok := v.Value.(string); ok {
+			bytesVal, err := base64.StdEncoding.DecodeString(str)
+			if err != nil {
+				return fmt.Errorf("expected base64 from spanner: %w", err)
+			}
+			*s.data = bytesVal
+			return nil
+		}
+
+		return fmt.Errorf("unable to decode spanner.NullJSON with type %T", v.Value)
+	}
+	return fmt.Errorf("unable to decode %T", input)
+}
+
+type spannerUint64 struct {
+	val uint64
+}
+
+func (s spannerUint64) Value() (sqldriver.Value, error) {
+	if s.val > math.MaxInt64 {
+		return nil, fmt.Errorf("value %v is larger than max supported INT64 column value", s.val)
+	}
+	return int64(s.val), nil
+}
+
+type spannerPointerUint64 struct {
+	val *uint64
+}
+
+func (s spannerPointerUint64) Value() (sqldriver.Value, error) {
+	if s.val == nil {
+		return nil, nil
+	}
+	if *s.val > math.MaxInt64 {
+		return nil, fmt.Errorf("value %v is larger than max supported INT64 column value", *s.val)
+	}
+	return int64(*s.val), nil
 }

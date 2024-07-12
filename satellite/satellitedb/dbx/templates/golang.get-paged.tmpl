@@ -41,14 +41,14 @@ Paged_{{ .Suffix }}({{ ctxarg .Args }}, limit, start)
 				{{ initnew .Row }}
 				err = __rows.Scan({{ .Row | flatten | addrof | comma }}{{ .Continuation | flatten | slice 0 -1 | addrof }})
 				if err != nil {
-					return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 				}
 				rows = append(rows, {{ arg .Row }})
 				next = {{ addrof .Continuation }}
 			}
 
 			if err := __rows.Err(); err != nil {
-				return nil, nil, err
+				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil

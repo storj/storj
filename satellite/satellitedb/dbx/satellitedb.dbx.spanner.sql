@@ -243,7 +243,7 @@ CREATE TABLE projects (
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id BYTES(MAX) NOT NULL,
-	interval_day TIMESTAMP NOT NULL,
+	interval_day DATE NOT NULL,
 	egress_allocated INT64 NOT NULL,
 	egress_settled INT64 NOT NULL,
 	egress_dead INT64 NOT NULL DEFAULT (0)

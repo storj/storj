@@ -62,7 +62,6 @@ Update{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
 	{{- else }}
 
 	{{ init .Return }}
-	{{- if .SupportsReturning }}
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -70,24 +69,6 @@ Update{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	{{- else }}
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	{{ embedsql .InfoGet "__embed_stmt_get" }}
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) " + __stmt_get, __args...)
-
-	err = obj.queryRowContext(ctx, __stmt_get, __args...).Scan({{ addrof (flatten .Return) }})
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	{{- end }}
 	return {{ arg .Return }}, nil
 	{{- end }}
 {{- end -}}
