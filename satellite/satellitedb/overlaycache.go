@@ -64,7 +64,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code
+		SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
@@ -107,7 +107,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		var vettedAt *time.Time
 		var noise noiseScanner
 		err = rows.Scan(&node.ID, &node.Address.Address, &email, &wallet, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode, &noise.Proto,
-			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode)
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.PieceCount)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -158,7 +158,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code,
+		SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count,
                exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended, vetted_at is not null as vetted
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
@@ -181,10 +181,10 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	for rows.Next() {
 		var node nodeselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
-		var lastIPPort, email, wallet sql.NullString
+		var lastIPPort sql.NullString
 		var noise noiseScanner
 		var err = rows.Scan(&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &noise.Proto,
-			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode,
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.PieceCount,
 			&node.Exiting, &node.Suspended, &node.Vetted)
 		if err != nil {
 			return nil, err
@@ -193,8 +193,6 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 			node.LastIPPort = lastIPPort.String
 		}
 		node.Address.NoiseInfo = noise.Convert()
-		node.Email = email.String
-		node.Wallet = wallet.String
 		// we consider all nodes in the download selection cache to be online.
 		node.Online = true
 		nodes = append(nodes, &node)
@@ -410,7 +408,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 	indexesToZero := []int{}
 
 	err = withRows(cache.db.Query(ctx, `
-		SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code,
+		SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count,
 			n.last_contact_success > $2 AS online,
 			(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
 			n.disqualified IS NOT NULL AS disqualified,
@@ -467,7 +465,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 	var nodes []*nodeselection.SelectedNode
 
 	err = withRows(cache.db.Query(ctx, `
-		SELECT id, address, email, wallet, last_net, last_ip_port, country_code,
+		SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count,
 			last_contact_success > $1 AS online,
 			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
 			false AS disqualified,
@@ -533,7 +531,7 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	var nodeID nullNodeID
 	var address, email, wallet, lastNet, lastIPPort, countryCode sql.NullString
 	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
+	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &node.PieceCount,
 		&online, &suspended, &disqualified, &exiting, &exited, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, err
@@ -573,13 +571,14 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	var nodeID nullNodeID
 	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
 	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
+	var pieceCount sql.NullInt64
 
 	var tag nodeselection.NodeTag
 	var name []byte
 	signedAt := &time.Time{}
 	signer := nullNodeID{}
 
-	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
+	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount,
 		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
@@ -602,6 +601,9 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	}
 	if countryCode.Valid {
 		node.CountryCode = location.ToCountryCode(countryCode.String)
+	}
+	if pieceCount.Valid {
+		node.PieceCount = pieceCount.Int64
 	}
 	node.Online = online.Bool
 	node.Suspended = suspended.Bool

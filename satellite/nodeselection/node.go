@@ -54,6 +54,7 @@ type SelectedNode struct {
 	Online      bool
 	Vetted      bool
 	Tags        NodeTags
+	PieceCount  int64
 }
 
 // Clone returns a deep clone of the selected node.
