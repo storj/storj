@@ -71,7 +71,7 @@
                             href="https://docs.storj.io/learn#what-happens-when-you-upload"
                             target="_blank"
                             rel="noopener noreferrer"
-                            :append-icon="mdiOpenInNew"
+                            :append-icon="SquareArrowOutUpRight"
                         >
                             Learn more
                         </v-btn>
@@ -96,7 +96,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { mdiOpenInNew } from '@mdi/js';
+import { SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';

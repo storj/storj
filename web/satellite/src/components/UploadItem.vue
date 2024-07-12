@@ -28,7 +28,7 @@
                     <v-icon
                         class="ml-2"
                         v-bind="activatorProps"
-                        :icon="mdiCloseCircle"
+                        :icon="CircleX"
                         @click="cancelUpload"
                     />
                 </template>
@@ -38,9 +38,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, FunctionalComponent } from 'vue';
 import { VListItem, VIcon, VProgressCircular, VTooltip } from 'vuetify/components';
-import { mdiCancel, mdiCheckboxMarkedCircle, mdiCloseCircle, mdiInformation } from '@mdi/js';
+import { Ban, CircleX, CircleCheck, Info } from 'lucide-vue-next';
 
 import {
     UploadingBrowserObject,
@@ -78,13 +78,13 @@ const uploadStatus = computed((): string => {
     }
 });
 
-const icon = computed((): string => {
+const icon = computed((): FunctionalComponent => {
     if (props.item.status === UploadingStatus.Finished) {
-        return mdiCheckboxMarkedCircle;
+        return CircleCheck;
     } else if (props.item.status === UploadingStatus.Failed) {
-        return mdiInformation;
+        return Info;
     } else if (props.item.status === UploadingStatus.Cancelled) {
-        return mdiCancel;
+        return Ban;
     } else {
         return '';
     }

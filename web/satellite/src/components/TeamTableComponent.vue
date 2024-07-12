@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -58,7 +58,7 @@
                     density="comfortable"
                     icon
                 >
-                    <v-icon :icon="mdiDotsHorizontal" />
+                    <v-icon :icon="Ellipsis" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
                             <v-list-item
@@ -174,7 +174,7 @@ import {
     VDivider,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
+import { Ellipsis, Search } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';

@@ -62,7 +62,7 @@
                                     v-if="!isDescriptionShown"
                                     variant="text"
                                     color="default"
-                                    :prepend-icon="mdiPlus"
+                                    :prepend-icon="Plus"
                                     @click="isDescriptionShown = true"
                                 >
                                     Add Description (Optional)
@@ -208,7 +208,7 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            :append-icon="mdiArrowRight"
+                            :append-icon="ArrowRight"
                             :disabled="!formValid"
                             @click="createStep = CreateSteps.ManageMode"
                         >
@@ -221,7 +221,7 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            :append-icon="isProjectLimitReached && billingEnabled ? mdiArrowRight : undefined"
+                            :append-icon="ArrowRight"
                             @click="onPrimaryClick"
                         >
                             {{ buttonTitle }}
@@ -261,7 +261,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { mdiArrowRight, mdiPlus } from '@mdi/js';
+import { ArrowRight, Plus } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';

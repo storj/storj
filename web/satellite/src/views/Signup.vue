@@ -232,22 +232,22 @@
                             </p>
 
                             <p class="mt-6">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
                                 Upload and download 25GB free for 30 days.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
                                 Integrate with any S3 compatible application.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
                                 Total set up takes less than 5 min.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
                                 No credit card required.
                             </p>
 
@@ -288,7 +288,7 @@ import {
 import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
-import { mdiCheckBold } from '@mdi/js';
+import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';

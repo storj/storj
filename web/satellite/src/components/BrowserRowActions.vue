@@ -48,7 +48,7 @@
             title="More Actions"
             icon
         >
-            <v-icon :icon="mdiDotsHorizontal" />
+            <v-icon :icon="Ellipsis" />
             <v-menu activator="parent">
                 <v-list class="pa-1">
                     <template v-if="file.type !== 'folder'">
@@ -118,7 +118,7 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { mdiDotsHorizontal } from '@mdi/js';
+import { Ellipsis } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';

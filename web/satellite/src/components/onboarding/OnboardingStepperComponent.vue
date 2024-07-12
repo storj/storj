@@ -62,9 +62,9 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCol, VRow } from 'vuetify/components';
-import { mdiArrowRight, mdiCheck } from '@mdi/js';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, FunctionalComponent, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { ArrowRight, Check } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -92,8 +92,8 @@ interface StepData {
     color: string;
     variant: string;
     disabled: boolean;
-    prependIcon?: string;
-    appendIcon?: string;
+    prependIcon?: FunctionalComponent;
+    appendIcon?: FunctionalComponent;
     onClick: () => void;
 }
 
@@ -141,7 +141,7 @@ const steps = computed<StepData[]>(() => {
                 title: 'Encryption Passphrase',
                 description: 'This passphrase will be used to encrypt all your data in this project.',
                 buttonTxt: 'Set a Passphrase',
-                prependIcon: isPassphraseDone.value ? mdiCheck : '',
+                prependIcon: isPassphraseDone.value ? Check : undefined,
                 onClick: onManagePassphrase,
             };
         case OnboardingStep.CreateBucket:
@@ -150,7 +150,7 @@ const steps = computed<StepData[]>(() => {
                 title : 'Create a Bucket',
                 description : 'Buckets are used to store and organize your data in this project.',
                 buttonTxt : 'Create a Bucket',
-                prependIcon : isBucketDone.value ? mdiCheck : '',
+                prependIcon : isBucketDone.value ? Check : undefined,
                 onClick : onCreateBucket,
             };
         case OnboardingStep.UploadFiles:
@@ -224,7 +224,7 @@ const accessStepInfo = computed(() => {
     const color = isRelevantStep ? 'primary' : 'default';
     const variant = isRelevantStep ? (onboardingInfo.value ? 'elevated' : 'outlined') : 'tonal';
     const disabled = !isRelevantStep;
-    const appendIcon = onboardingInfo.value ? '' : mdiArrowRight;
+    const appendIcon = onboardingInfo.value ? undefined : ArrowRight;
     return {
         color,
         variant,
@@ -243,7 +243,7 @@ const uploadStepInfo = computed(() => {
         color,
         variant,
         disabled,
-        appendIcon: mdiArrowRight,
+        appendIcon: ArrowRight,
     };
 });
 

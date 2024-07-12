@@ -86,7 +86,7 @@
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4" variant="outlined" color="default" size="small" rounded="md" :prepend-icon="mdiCalendar">
+                    <v-btn class="mt-4" variant="outlined" color="default" size="small" rounded="md" :prepend-icon="Calendar">
                         <detailed-usage-report-dialog :project-i-d="projectId" />
                         Detailed Project Report
                     </v-btn>
@@ -109,7 +109,7 @@ import {
     VRow,
     VTable,
 } from 'vuetify/components';
-import { mdiCalendar } from '@mdi/js';
+import { Calendar } from 'lucide-vue-next';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
 import { ProjectCharge, ProjectCharges, ProjectUsagePriceModel } from '@/types/payments';

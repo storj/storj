@@ -21,25 +21,20 @@
             </v-card-item>
 
             <v-card-item class="bottom">
-                <v-btn color="primary" @click="onSetup">
+                <v-btn color="primary" :append-icon="ArrowRight" @click="onSetup">
                     Setup
-                    <template #append>
-                        <v-icon :icon="mdiArrowRight" />
-                    </template>
                 </v-btn>
                 <v-btn
                     variant="outlined"
                     color="default"
                     class="ml-2"
                     :href="app.docs"
+                    :append-icon="SquareArrowOutUpRight"
                     target="_blank"
                     rel="noopener noreferrer"
                     @click="() => sendAnalytics(AnalyticsEvent.APPLICATIONS_DOCS_CLICKED)"
                 >
                     Docs
-                    <template #append>
-                        <v-icon :icon="mdiOpenInNew" />
-                    </template>
                 </v-btn>
             </v-card-item>
         </v-card>
@@ -58,7 +53,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
-import { mdiArrowRight, mdiOpenInNew } from '@mdi/js';
+import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { Application, UplinkApp } from '@/types/applications';
 import { AccessType, SetupStep } from '@/types/setupAccess';

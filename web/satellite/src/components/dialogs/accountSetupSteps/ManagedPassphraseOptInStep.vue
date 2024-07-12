@@ -47,7 +47,7 @@
                             @click="onModeChosen('auto')"
                         >
                             <template #append>
-                                <v-icon :icon="mdiArrowRight" />
+                                <v-icon :icon="ArrowRight" />
                             </template>
                             Automatic
                         </v-btn>
@@ -90,7 +90,7 @@
                         >
                             Manual
                             <template #append>
-                                <v-icon :icon="mdiArrowRight" />
+                                <v-icon :icon="ArrowRight" />
                             </template>
                         </v-btn>
                     </div>
@@ -103,7 +103,7 @@
                 <v-btn
                     :disabled="loading"
                     variant="text"
-                    :prepend-icon="mdiChevronLeft"
+                    :prepend-icon="ChevronLeft"
                     color="default" block
                     @click="emit('back')"
                 >
@@ -117,7 +117,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { ref } from 'vue';
-import { mdiArrowRight, mdiChevronLeft } from '@mdi/js';
+import { ArrowRight, ChevronLeft } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

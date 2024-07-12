@@ -55,7 +55,7 @@
                             aria-label="Toggle Light Theme"
                             @click="toggleTheme('light')"
                         >
-                            <v-icon :icon="mdiWeatherSunny" height="24" width="24" />
+                            <v-icon :icon="Sun" height="24" width="24" />
                         </v-btn>
                     </template>
                 </v-tooltip>
@@ -72,7 +72,7 @@
                             aria-label="Toggle Dark Theme"
                             @click="toggleTheme('dark')"
                         >
-                            <v-icon :icon="mdiWeatherNight" height="24" width="24" />
+                            <v-icon :icon="MoonStar" height="24" width="24" />
                         </v-btn>
                     </template>
                 </v-tooltip>
@@ -86,7 +86,7 @@ import { onBeforeMount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTheme } from 'vuetify';
 import { VAppBar, VBtn, VBtnToggle, VIcon, VTooltip } from 'vuetify/components';
-import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js';
+import { Sun, MoonStar } from 'lucide-vue-next';
 
 import { PartnerConfig } from '@/types/partners';
 import { ROUTES } from '@/router';

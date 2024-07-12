@@ -50,7 +50,7 @@
                                 <v-btn
                                     v-bind="darkProps"
                                     rounded="xl"
-                                    :icon="mdiWeatherSunny"
+                                    :icon="Sun"
                                     size="small"
                                     class="px-4"
                                     aria-label="Toggle Light Theme"
@@ -64,7 +64,7 @@
                                 <v-btn
                                     v-bind="lightProps"
                                     rounded="xl"
-                                    :icon="mdiWeatherNight"
+                                    :icon="MoonStar"
                                     size="small"
                                     class="px-4"
                                     aria-label="Toggle Dark Theme"
@@ -175,7 +175,6 @@
 import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDisplay, useTheme } from 'vuetify';
-import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js';
 import {
     VAppBar,
     VAppBarNavIcon,
@@ -192,6 +191,7 @@ import {
     VChip,
     VProgressLinear,
 } from 'vuetify/components';
+import { MoonStar, Sun } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { AuthHttpApi } from '@/api/auth';

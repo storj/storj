@@ -71,7 +71,7 @@
                         <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" rounded="md" :to="ROUTES.Billing.path">
                             View Billing
                         </v-btn>
-                        <v-btn v-else color="primary" size="small" rounded="md" :append-icon="mdiArrowRight" @click="appStore.toggleUpgradeFlow(true)">
+                        <v-btn v-else color="primary" size="small" rounded="md" :append-icon="ArrowRight" @click="appStore.toggleUpgradeFlow(true)">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -223,7 +223,7 @@ import {
     VTooltip,
     VChip,
 } from 'vuetify/components';
-import { mdiArrowRight } from '@mdi/js';
+import { ArrowRight } from 'lucide-vue-next';
 
 import { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';

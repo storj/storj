@@ -27,7 +27,7 @@
         Deposit Address
         <v-tooltip max-width="200px" location="top">
             <template #activator="{ props }">
-                <v-icon v-bind="props" :icon="mdiInformationOutline" size="16" />
+                <v-icon v-bind="props" :icon="Info" size="16" />
             </template>
             <p>
                 This is a Storj token deposit address generated just for you.
@@ -51,11 +51,9 @@
         <v-col cols="auto">
             <v-btn
                 density="compact"
+                :prepend-icon="Copy"
                 @click="onCopyAddressClick"
             >
-                <template #prepend>
-                    <v-icon :icon="mdiContentCopy" />
-                </template>
                 Copy
             </v-btn>
         </v-col>
@@ -84,7 +82,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
 import { VTooltip, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
-import { mdiContentCopy, mdiInformationOutline } from '@mdi/js';
+import { Copy, Info } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';

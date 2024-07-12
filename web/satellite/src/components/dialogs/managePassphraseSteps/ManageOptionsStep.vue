@@ -15,7 +15,7 @@
                     <p class="text-caption text-wrap text-break">{{ item.subtitle }}</p>
                 </v-list-item-subtitle>
                 <template #append>
-                    <v-icon size="24" :icon="mdiChevronRight" color="default" />
+                    <v-icon size="24" :icon="ChevronRight" color="default" />
                 </template>
             </v-list-item>
         </v-sheet>
@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { Component } from 'vue';
 import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
-import { mdiChevronRight } from '@mdi/js';
+import { ChevronRight } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { DialogStepComponent } from '@/types/common';

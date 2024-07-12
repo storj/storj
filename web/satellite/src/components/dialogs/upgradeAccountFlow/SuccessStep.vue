@@ -11,7 +11,7 @@
         @click="emit('continue')"
     >
         <template #append>
-            <v-icon :icon="mdiArrowRight" />
+            <v-icon :icon="ArrowRight" />
         </template>
         Continue
     </v-btn>
@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { VBtn, VIcon } from 'vuetify/components';
-import { mdiArrowRight } from '@mdi/js';
+import { ArrowRight } from 'lucide-vue-next';
 
 const emit = defineEmits<{
     continue: [];

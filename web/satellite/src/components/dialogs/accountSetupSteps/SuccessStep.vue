@@ -16,7 +16,7 @@
                     id="continue-btn"
                     class="mt-7"
                     size="large"
-                    :append-icon="mdiChevronRight"
+                    :append-icon="ChevronRight"
                     :loading="loading"
                     @click="finishSetup()"
                 >
@@ -29,9 +29,9 @@
 
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
-import { mdiChevronRight } from '@mdi/js';
 import { nextTick } from 'vue';
 import { useRouter } from 'vue-router';
+import { ChevronRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

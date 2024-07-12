@@ -48,7 +48,7 @@
                                             variant="text"
                                             density="comfortable"
                                             color="default"
-                                            :append-icon="isActive ? mdiMenuUp : mdiMenuDown"
+                                            :append-icon="isActive ? ChevronUp : ChevronDown"
                                             v-bind="slotProps"
                                             @mousedown.stop
                                             @click.stop
@@ -85,7 +85,7 @@
                                             variant="text"
                                             density="comfortable"
                                             color="default"
-                                            :append-icon="isActive ? mdiMenuUp : mdiMenuDown"
+                                            :append-icon="isActive ? ChevronUp : ChevronDown"
                                             v-bind="slotProps"
                                             @mousedown.stop
                                             @click.stop
@@ -164,7 +164,7 @@ import {
     VListItem,
     VAlert,
 } from 'vuetify/components';
-import { mdiMenuDown, mdiMenuUp } from '@mdi/js';
+import { ChevronDown, ChevronUp } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

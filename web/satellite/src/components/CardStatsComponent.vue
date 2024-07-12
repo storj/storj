@@ -8,7 +8,7 @@
                 <p class="v-card-title">{{ title }}</p>
                 <v-tooltip v-if="extraInfo" width="250" location="bottom">
                     <template #activator="activator">
-                        <v-icon v-bind="activator.props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
+                        <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
                     </template>
                     <template #default>
                         <p>{{ extraInfo }}</p>
@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import { VCard, VCardText, VChip, VIcon, VTooltip, VRow } from 'vuetify/components';
-import { mdiInformationOutline } from '@mdi/js';
+import { Info } from 'lucide-vue-next';
 
 withDefaults(defineProps<{
     title: string;

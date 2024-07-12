@@ -9,7 +9,7 @@
                 <v-chip color="info" size="small" variant="tonal" class="font-weight-bold">
                     Default
                     <span class="d-inline-flex ml-1">
-                        <v-icon class="text-cursor-pointer" :icon="mdiInformationOutline" />
+                        <v-icon class="text-cursor-pointer" :icon="Info" />
                         <v-tooltip
                             class="text-center"
                             activator="parent"
@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { mdiInformationOutline } from '@mdi/js';
+import { Info } from 'lucide-vue-next';
 
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

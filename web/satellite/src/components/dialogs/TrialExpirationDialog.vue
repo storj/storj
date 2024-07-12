@@ -44,7 +44,7 @@
                 <v-row>
                     <v-col>
                         <v-btn :color="expired ? 'error' : 'warning'" variant="flat" block @click="onUpgrade">
-                            Go To Upgrade<v-icon :icon="mdiArrowRight" class="ml-1" />
+                            Go To Upgrade<v-icon :icon="ArrowRight" class="ml-1" />
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -69,7 +69,7 @@ import {
     VBtn,
     VIcon,
 } from 'vuetify/components';
-import { mdiArrowRight } from '@mdi/js';
+import { ArrowRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

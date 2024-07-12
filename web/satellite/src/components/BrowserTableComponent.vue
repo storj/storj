@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -219,7 +219,7 @@ import {
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { mdiMagnify } from '@mdi/js';
+import { Search } from 'lucide-vue-next';
 
 import {
     BrowserObject,

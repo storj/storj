@@ -7,7 +7,7 @@
             {{ info }} Upgrade to continue using Storj for your own projects.<br>
             <strong>Note:</strong> You will continue to maintain access to projects that you are a member of.
         </p>
-        <v-btn :color="expired ? 'error' : 'warning'" :prepend-icon="mdiArrowUpCircleOutline" @click="onUpgrade">
+        <v-btn :color="expired ? 'error' : 'warning'" :prepend-icon="CircleArrowUp" @click="onUpgrade">
             Upgrade
         </v-btn>
     </v-alert>
@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VAlert, VBtn } from 'vuetify/components';
-import { mdiArrowUpCircleOutline } from '@mdi/js';
+import { CircleArrowUp } from 'lucide-vue-next';
 
 import { ExpirationInfo } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';

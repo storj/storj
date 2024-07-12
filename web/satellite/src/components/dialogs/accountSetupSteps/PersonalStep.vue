@@ -42,7 +42,7 @@
                     <v-btn
                         size="large"
                         variant="outlined"
-                        :prepend-icon="mdiChevronLeft"
+                        :prepend-icon="ChevronLeft"
                         color="default"
                         :disabled="loading"
                         block
@@ -54,7 +54,7 @@
                 <v-col cols="6" sm="4" md="3" lg="2">
                     <v-btn
                         size="large"
-                        :append-icon="mdiChevronRight"
+                        :append-icon="ChevronRight"
                         :loading="loading"
                         :disabled="!formValid"
                         block
@@ -71,7 +71,7 @@
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
-import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { AuthHttpApi } from '@/api/auth';

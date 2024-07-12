@@ -24,6 +24,7 @@
     "@stripe/stripe-js": "2.4.0",
     "bip39-english": "2.5.0",
     "chart.js": "4.4.1",
+    "lucide-vue-next": "0.408.0",
     "papaparse": "5.4.1",
     "pinia": "2.1.7",
     "qrcode": "1.5.3",
@@ -33,7 +34,6 @@
     "vuetify": "3.6.12"
   },
   "devDependencies": {
-    "@mdi/js": "7.4.47",
     "@stylistic/stylelint-plugin": "2.1.0",
     "@types/filesystem": "0.0.35",
     "@types/node": "20.10.0",

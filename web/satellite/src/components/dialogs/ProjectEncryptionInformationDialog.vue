@@ -118,7 +118,7 @@
                         <v-btn
                             variant="flat"
                             block
-                            :prepend-icon="mdiPlus"
+                            :prepend-icon="Plus"
                             @click="dialog = false; emit('newProject')"
                         >
                             New Project
@@ -148,7 +148,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { computed, ref } from 'vue';
-import { mdiPlus } from '@mdi/js';
+import { Plus } from 'lucide-vue-next';
 
 import {
     AnalyticsEvent,

@@ -9,7 +9,7 @@
             </v-col>
             <v-col class="px-0" cols="auto">
                 <v-btn density="compact" color="success" variant="tonal" icon>
-                    <v-icon :icon="mdiCheckOutline" />
+                    <v-icon :icon="Check" />
                 </v-btn>
             </v-col>
         </v-row>
@@ -52,7 +52,7 @@
                 @click="onActivateClick"
             >
                 <template v-if="plan.type !== 'free'" #prepend>
-                    <v-icon :icon="mdiLock" />
+                    <v-icon :icon="LockKeyhole" />
                 </template>
 
                 {{ plan.activationButtonText || ('Activate ' + plan.title) }}
@@ -76,7 +76,7 @@
         <v-row class="ma-0" justify="center" align="center">
             <v-col cols="auto">
                 <v-btn density="comfortable" color="success" variant="tonal" icon>
-                    <v-icon :icon="mdiCheckOutline" />
+                    <v-icon :icon="Check" />
                 </v-btn>
             </v-col>
         </v-row>
@@ -91,7 +91,7 @@
             variant="tonal"
         >
             <template #prepend>
-                <v-icon :icon="mdiCheckOutline" />
+                <v-icon :icon="Check" />
             </template>
             <template #text>
                 <p class="font-weight-bold">
@@ -119,7 +119,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VAlert, VBtn, VCol, VIcon, VRow } from 'vuetify/components';
 import { useTheme } from 'vuetify';
-import { mdiCheckOutline, mdiLock } from '@mdi/js';
+import { Check, LockKeyhole } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/utils/hooks';

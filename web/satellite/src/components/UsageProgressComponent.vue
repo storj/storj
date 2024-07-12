@@ -9,7 +9,7 @@
                 {{ title }}
                 <v-tooltip v-if="extraInfo || slots.extraInfo" width="250" location="bottom">
                     <template #activator="activator">
-                        <v-icon v-bind="activator.props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
+                        <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
                     </template>
                     <template #default>
                         <template v-if="slots.extraInfo">
@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
 import { Component, computed } from 'vue';
-import { mdiInformationOutline } from '@mdi/js';
+import { Info } from 'lucide-vue-next';
 
 import IconCloud from '@/components/icons/IconCloud.vue';
 import IconArrowDown from '@/components/icons/IconArrowDown.vue';

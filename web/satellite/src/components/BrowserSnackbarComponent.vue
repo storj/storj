@@ -24,9 +24,9 @@
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
                                 <v-row class="ma-0 align-center">
-                                    <v-icon v-if="!isExpanded" :icon="mdiChevronUp" class="mr-3" />
-                                    <v-icon v-else :icon="mdiChevronDown" class="mr-3" />
-                                    <v-btn variant="outlined" color="default" size="x-small" :icon="mdiClose" title="Close" @click="closeDialog" />
+                                    <v-icon v-if="!isExpanded" :icon="ChevronUp" class="mr-3" />
+                                    <v-icon v-else :icon="ChevronDown" class="mr-3" />
+                                    <v-btn variant="outlined" color="default" size="x-small" :icon="X" title="Close" @click="closeDialog" />
                                 </v-row>
                             </template>
                         </v-expansion-panel-title>
@@ -48,7 +48,7 @@
                                         <template #activator="{ props: activatorProps }">
                                             <v-icon
                                                 v-bind="activatorProps"
-                                                :icon="mdiCloseCircle"
+                                                :icon="CircleX"
                                                 @click="cancelAll"
                                             />
                                         </template>
@@ -98,7 +98,7 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { mdiChevronDown, mdiChevronUp, mdiClose, mdiCloseCircle } from '@mdi/js';
+import { ChevronDown, ChevronUp, CircleX, X } from 'lucide-vue-next';
 
 import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

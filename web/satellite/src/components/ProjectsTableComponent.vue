@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -82,7 +82,7 @@
                         density="comfortable"
                         :loading="decliningIds.has(item.id)"
                     >
-                        <v-icon :icon="mdiDotsHorizontal" size="18" />
+                        <v-icon :icon="Ellipsis" size="18" />
                         <v-menu activator="parent" location="bottom" transition="scale-transition">
                             <v-list class="pa-1">
                                 <template v-if="item.role === ProjectRole.Owner">
@@ -137,7 +137,7 @@ import {
     VDivider,
     VDataTable,
 } from 'vuetify/components';
-import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
+import { Ellipsis, Search } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';

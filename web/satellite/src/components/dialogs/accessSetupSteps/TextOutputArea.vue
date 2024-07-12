@@ -28,7 +28,7 @@
                         variant="outlined"
                         color="default"
                         size="small"
-                        :prepend-icon="mdiLockOutline"
+                        :prepend-icon="LockKeyhole"
                         @click="isBlurred = false"
                     >
                         Show
@@ -45,9 +45,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
 import { VTextarea, VFadeTransition, VBtn } from 'vuetify/components';
-import { mdiLockOutline } from '@mdi/js';
+import { LockKeyhole } from 'lucide-vue-next';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 

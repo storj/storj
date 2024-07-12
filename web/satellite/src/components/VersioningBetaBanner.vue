@@ -15,7 +15,7 @@
         <p class="text-body-2 mt-2 mb-3">Choose if you want to take part of the beta, and enable versioning for this project.</p>
         <v-btn
             color="default"
-            :append-icon="mdiArrowRight"
+            :append-icon="ArrowRight"
             class="mr-3"
             :disabled="isLoading"
         >
@@ -24,7 +24,7 @@
         </v-btn>
         <v-btn
             color="default"
-            :append-icon="mdiClose"
+            :append-icon="X"
             :loading="isLoading"
             @click="closeAlert"
         >
@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
 import { ref, watch } from 'vue';
-import { mdiArrowRight, mdiClose } from '@mdi/js';
+import { ArrowRight, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';

@@ -73,7 +73,7 @@
                                     {{ formattedAccountBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :prepend-icon="mdiPlus" @click="onAddTokensClicked">
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -116,7 +116,7 @@
                                     size="small"
                                     class="mr-2"
                                     rounded="md"
-                                    :prepend-icon="mdiPlus"
+                                    :prepend-icon="Plus"
                                     @click="isAddCouponDialogShown = true"
                                 >
                                     Add Coupon
@@ -143,7 +143,7 @@
                                     size="small"
                                     class="mr-2"
                                     rounded="md"
-                                    :prepend-icon="mdiPlus"
+                                    :prepend-icon="Plus"
                                     @click="isAddCouponDialogShown = true"
                                 >
                                     Apply New Coupon
@@ -157,7 +157,7 @@
                     <v-col>
                         <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." variant="flat">
                             <v-card-text>
-                                <v-btn variant="outlined" color="default" size="small" rounded="md" :prepend-icon="mdiCalendar">
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" :prepend-icon="Calendar">
                                     <detailed-usage-report-dialog />
                                     Detailed Account Report
                                 </v-btn>
@@ -226,7 +226,7 @@ import {
     VProgressLinear,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { mdiCalendar, mdiPlus } from '@mdi/js';
+import { Calendar, Plus } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';

@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -107,7 +107,7 @@
                     <template #activator="{ props: activatorProps }">
                         <v-btn
                             title="Bucket Actions"
-                            :icon="mdiDotsHorizontal"
+                            :icon="Ellipsis"
                             color="default"
                             variant="outlined"
                             size="small"
@@ -183,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, FunctionalComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -201,14 +201,14 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import {
-    mdiCheckCircleOutline,
-    mdiCloseCircleOutline,
-    mdiDotsHorizontal,
-    mdiHelpCircleOutline,
-    mdiMagnify,
-    mdiMinusCircleOutline,
-    mdiPauseCircleOutline,
-} from '@mdi/js';
+    CircleCheck,
+    CircleHelp,
+    CircleMinus,
+    CirclePause,
+    CircleX,
+    Ellipsis,
+    Search,
+} from 'lucide-vue-next';
 
 import { Bucket, BucketCursor, BucketMetadata, BucketPage } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -449,18 +449,18 @@ function getVersioningInfo(status: Versioning): string {
 /**
  * Returns icon based on versioning status.
  */
-function getVersioningIcon(status: Versioning): string {
+function getVersioningIcon(status: Versioning): FunctionalComponent {
     switch (status) {
     case Versioning.Enabled:
-        return mdiCheckCircleOutline;
+        return CircleCheck;
     case Versioning.Suspended:
-        return mdiPauseCircleOutline;
+        return CirclePause;
     case Versioning.NotSupported:
-        return mdiCloseCircleOutline;
+        return CircleX;
     case Versioning.Unversioned:
-        return mdiMinusCircleOutline;
+        return CircleMinus;
     default:
-        return mdiHelpCircleOutline;
+        return CircleHelp;
     }
 }
 

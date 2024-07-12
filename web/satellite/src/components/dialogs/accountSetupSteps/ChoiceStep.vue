@@ -31,7 +31,7 @@
                         </div>
                     </v-card-item>
                     <v-card-item>
-                        <v-btn :append-icon="mdiChevronRight">Continue</v-btn>
+                        <v-btn :append-icon="ChevronRight">Continue</v-btn>
                     </v-card-item>
                 </v-card>
             </v-col>
@@ -52,7 +52,7 @@
                         </div>
                     </v-card-item>
                     <v-card-item>
-                        <v-btn :append-icon="mdiChevronRight">Continue</v-btn>
+                        <v-btn :append-icon="ChevronRight">Continue</v-btn>
                     </v-card-item>
                 </v-card>
             </v-col>
@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCol, VContainer, VRow } from 'vuetify/components';
-import { mdiChevronRight } from '@mdi/js';
+import { ChevronRight } from 'lucide-vue-next';
 
 import { OnboardingStep } from '@/types/users';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

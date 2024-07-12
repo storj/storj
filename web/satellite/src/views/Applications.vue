@@ -40,7 +40,7 @@
                     <v-text-field
                         v-model="search"
                         label="Search"
-                        :prepend-inner-icon="mdiMagnify"
+                        :prepend-inner-icon="Search"
                         single-line
                         variant="solo-filled"
                         flat
@@ -56,8 +56,8 @@
                             <v-btn
                                 variant="text"
                                 color="default"
-                                :prepend-icon="mdiSort"
-                                :append-icon="mdiChevronDown"
+                                :prepend-icon="ArrowUpDown"
+                                :append-icon="ChevronDown"
                                 v-bind="props"
                                 class="mr-0 mr-sm-2 ml-n2"
                                 title="Sort by"
@@ -84,10 +84,10 @@
                         mandatory
                     >
                         <v-btn size="x-small" value="asc" title="Ascending" variant="text" rounded="xl">
-                            <v-icon :icon="mdiSortAscending" />
+                            <v-icon :icon="ArrowDownNarrowWide" />
                         </v-btn>
                         <v-btn size="x-small" value="desc" title="Descending" variant="text" rounded="xl">
-                            <v-icon :icon="mdiSortDescending" />
+                            <v-icon :icon="ArrowUpNarrowWide" />
                         </v-btn>
                     </v-btn-toggle>
                 </v-col>
@@ -133,7 +133,7 @@ import {
     VRow,
     VTextField,
 } from 'vuetify/components';
-import { mdiChevronDown, mdiMagnify, mdiSort, mdiSortAscending, mdiSortDescending } from '@mdi/js';
+import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
 
 import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
 import { useTrialCheck } from '@/composables/useTrialCheck';

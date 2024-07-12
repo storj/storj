@@ -9,9 +9,11 @@
         :type="isSuccess ? 'success' : 'warning'"
     >
         <template #prepend>
-            <v-icon v-if="isDefault" :icon="mdiInformationOutline" />
-            <v-icon v-if="isPending" :icon="mdiClockOutline" />
-            <v-icon v-if="isSuccess" :icon="mdiCheckCircleOutline" />
+            <v-icon>
+                <Info v-if="isDefault" />
+                <Clock v-if="isPending" />
+                <CircleCheck v-if="isSuccess" />
+            </v-icon>
         </template>
 
         <template #text>
@@ -42,7 +44,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VAlert, VIcon } from 'vuetify/components';
-import { mdiCheckCircleOutline, mdiClockOutline, mdiInformationOutline } from '@mdi/js';
+import { CircleCheck, Clock, Info } from 'lucide-vue-next';
 
 import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
 import { useConfigStore } from '@/store/modules/configStore';

@@ -72,7 +72,7 @@
                 <v-row>
                     <v-col>
                         <v-btn color="primary" variant="flat" block link href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer">
-                            Sustainability Whitepaper <v-icon :icon="mdiOpenInNew" class="ml-2" />
+                            Sustainability Whitepaper <v-icon :icon="SquareArrowOutUpRight" class="ml-2" />
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -98,7 +98,7 @@ import {
     VIcon,
     VDivider,
 } from 'vuetify/components';
-import { mdiOpenInNew } from '@mdi/js';
+import { SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { Emission } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

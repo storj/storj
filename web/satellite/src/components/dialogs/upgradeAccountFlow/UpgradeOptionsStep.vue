@@ -18,11 +18,9 @@
                 color="primary"
                 block
                 :loading="loading"
+                :prepend-icon="CreditCard"
                 @click="emit('addCard')"
             >
-                <template #prepend>
-                    <v-icon :icon="mdiCreditCard" />
-                </template>
                 Add Credit Card
             </v-btn>
         </v-col>
@@ -31,11 +29,9 @@
                 variant="flat"
                 block
                 :loading="loading"
+                :prepend-icon="CirclePlus"
                 @click="emit('addTokens')"
             >
-                <template #prepend>
-                    <v-icon :icon="mdiPlusCircle" />
-                </template>
                 Add STORJ Tokens
             </v-btn>
         </v-col>
@@ -44,8 +40,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VBtn, VCol, VIcon, VRow, VAlert } from 'vuetify/components';
-import { mdiCreditCard, mdiPlusCircle } from '@mdi/js';
+import { VBtn, VCol, VRow, VAlert } from 'vuetify/components';
+import { CreditCard, CirclePlus } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { User } from '@/types/users';

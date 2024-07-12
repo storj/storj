@@ -212,7 +212,7 @@
                                 Download
                                 <v-tooltip width="250" location="bottom">
                                     <template #activator="{ props }">
-                                        <v-icon v-bind="props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
+                                        <v-icon v-bind="props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
                                     </template>
                                     <template #default>
                                         <p>
@@ -303,7 +303,7 @@ import {
 } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
-import { mdiInformationOutline } from '@mdi/js';
+import { Info } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

@@ -45,7 +45,7 @@
                 </template>
                 <v-btn v-else color="primary" size="small" rounded="md" class="mr-2" @click="openProject">Open Project</v-btn>
                 <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" rounded="md" density="comfortable" icon>
-                    <v-icon :icon="mdiDotsHorizontal" />
+                    <v-icon :icon="Ellipsis" />
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
@@ -94,7 +94,7 @@ import {
     VCardSubtitle,
     VCardText,
 } from 'vuetify/components';
-import { mdiDotsHorizontal } from '@mdi/js';
+import { Ellipsis } from 'lucide-vue-next';
 
 import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';

@@ -70,7 +70,7 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="flat" color="primary" size="small" rounded="md" :append-icon="mdiArrowRight" @click="toggleUpgradeFlow">
+                        <v-btn variant="flat" color="primary" size="small" rounded="md" :append-icon="ArrowRight" @click="toggleUpgradeFlow">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -127,7 +127,7 @@
                             rounded="md"
                         >
                             Request Limits Increase
-                            <v-icon end :icon="mdiOpenInNew" />
+                            <v-icon end :icon="SquareArrowOutUpRight" />
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -157,7 +157,7 @@
                                 Learn More
                                 <versioning-beta-dialog v-model="isVersioningDialogShown" />
                             </v-btn>
-                            <v-btn v-else-if="versioningUIEnabled" :append-icon="mdiInformationOutline" color="primary" size="small">
+                            <v-btn v-else-if="versioningUIEnabled" :append-icon="Info" color="primary" size="small">
                                 Enabled
                                 <versioning-beta-dialog info />
                             </v-btn>
@@ -183,7 +183,7 @@
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" color="default" size="small" rounded="md" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
                             Learn More
-                            <v-icon end :icon="mdiOpenInNew" />
+                            <v-icon end :icon="SquareArrowOutUpRight" />
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -210,7 +210,7 @@ import {
     VIcon,
     VChip,
 } from 'vuetify/components';
-import { mdiOpenInNew, mdiArrowRight, mdiInformationOutline } from '@mdi/js';
+import { ArrowRight, SquareArrowOutUpRight, Info } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

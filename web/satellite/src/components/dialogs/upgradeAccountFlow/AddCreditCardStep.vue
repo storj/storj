@@ -33,11 +33,9 @@
                 block
                 color="success"
                 :loading="loading"
+                :prepend-icon="LockKeyhole"
                 @click="onSaveCardClick"
             >
-                <template #prepend>
-                    <v-icon :icon="mdiLock" />
-                </template>
                 Save card
             </v-btn>
         </v-col>
@@ -48,8 +46,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { VBtn, VIcon, VCol, VRow } from 'vuetify/components';
-import { mdiLock } from '@mdi/js';
+import { VBtn, VCol, VRow } from 'vuetify/components';
+import { LockKeyhole } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';

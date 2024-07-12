@@ -11,11 +11,13 @@
                     variant="outlined"
                     density="compact"
                     size="default"
-                    :prepend-icon="permissions.length === 4 ? mdiCheckBold : undefined"
                     class="mt-4 text-body-2"
                     rounded="md"
                     @click="onAllClick"
                 >
+                    <template v-if="permissions.length === 4" #prepend>
+                        <v-icon><Check :stroke-width="4" /></v-icon>
+                    </template>
                     All Permissions
                 </v-btn>
                 <v-chip-group
@@ -75,8 +77,8 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VBtn } from 'vuetify/components';
-import { mdiCheckBold } from '@mdi/js';
+import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VBtn, VIcon } from 'vuetify/components';
+import { Check } from 'lucide-vue-next';
 
 import { Permission } from '@/types/setupAccess';
 

@@ -92,7 +92,7 @@
                         <v-btn
                             :color="justCopied ? 'success' : 'primary'"
                             variant="flat"
-                            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
+                            :prepend-icon="justCopied ? Check : Copy"
                             :disabled="isLoading"
                             block
                             @click="onCopy"
@@ -120,11 +120,12 @@ import {
     VCol,
     VDialog,
     VDivider,
+    VIcon,
     VRow,
     VSheet,
     VTextarea,
 } from 'vuetify/components';
-import { mdiCheck, mdiContentCopy } from '@mdi/js';
+import { Check, Copy } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
