@@ -277,7 +277,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 			return rpcstatus.Error(rpcstatus.PermissionDenied, "All access disabled")
 		}
 		endpoint.log.Warn("too many requests for project",
-			zap.Stringer("Project ID", apiKeyInfo.ProjectID),
+			zap.Stringer("Project Public ID", apiKeyInfo.ProjectPublicID),
 			zap.Float64("rate limit", float64(limiter.Limit())),
 			zap.Float64("burst limit", float64(limiter.Burst())),
 			zap.Int("rate limit kind", int(rateKind)))
