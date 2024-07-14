@@ -33,6 +33,10 @@ var (
 type DeleteObjectExactVersion struct {
 	Version Version
 	ObjectLocation
+
+	// UseObjectLock, if enabled, prevents the deletion of committed object versions
+	// with active Object Lock configurations.
+	UseObjectLock bool
 }
 
 // Verify delete object fields.
@@ -74,7 +78,14 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 }
 
 // DeleteObjectExactVersion deletes an exact object version.
-func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
+	if opts.UseObjectLock {
+		return p.deleteObjectExactVersionUsingObjectLock(ctx, opts)
+	}
+	return p.deleteObjectExactVersion(ctx, opts)
+}
+
+func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(
@@ -106,8 +117,44 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 	return result, err
 }
 
+func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var retention Retention
+
+	err = p.db.QueryRowContext(ctx, `
+		SELECT retention_mode, retain_until
+		FROM objects
+		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+	).Scan(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return DeleteObjectResult{}, nil
+		}
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+
+	if err = retention.Verify(); err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+	if retention.Active() {
+		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	}
+
+	result, err = p.deleteObjectExactVersion(ctx, opts)
+	return result, errs.Wrap(err)
+}
+
 // DeleteObjectExactVersion deletes an exact object version.
-func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
+	if opts.UseObjectLock {
+		return s.deleteObjectExactVersion(ctx, opts)
+	}
+	return s.deleteObjectExactVersionUsingObjectLock(ctx, opts)
+}
+
+func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
@@ -145,6 +192,42 @@ func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts Dele
 		return Error.Wrap(err)
 	})
 	return result, err
+}
+
+func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	retention, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	}), func(row *spanner.Row, item *Retention) error {
+		return errs.Wrap(row.Columns(retentionModeWrapper{&item.Mode}, timeWrapper{&item.RetainUntil}))
+	})
+	if err != nil {
+		if errs.Is(err, iterator.Done) {
+			return DeleteObjectResult{}, nil
+		}
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+
+	if err = retention.Verify(); err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+	if retention.Active() {
+		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	}
+
+	result, err = s.deleteObjectExactVersion(ctx, opts)
+	return result, errs.Wrap(err)
 }
 
 // DeletePendingObject contains arguments necessary for deleting a pending object.

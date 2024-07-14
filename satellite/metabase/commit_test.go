@@ -4666,24 +4666,14 @@ func TestOverwriteLockedObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		objStream := metabasetest.RandObjectStream()
 
-		createLockedObject := func(t *testing.T, objStream metabase.ObjectStream, retainUntil time.Time) (metabase.Object, []metabase.Segment) {
-			return metabasetest.CreateTestObject{
-				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-					ObjectStream: objStream,
-					Encryption:   metabasetest.DefaultEncryption,
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: retainUntil,
-					},
-				},
-			}.Run(ctx, t, db, objStream, 1)
-		}
-
 		t.Run("CommitObject", func(t *testing.T) {
 			t.Run("Active retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, lockedSegs := createLockedObject(t, objStream, time.Now().Add(time.Hour))
+				lockedObj, lockedSegs := createLockedObject{
+					ObjectStream: objStream,
+					RetainUntil:  time.Now().Add(time.Hour),
+				}.Run(ctx, t, db)
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4712,7 +4702,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period - UseObjectLock disabled", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, _ := createLockedObject(t, objStream, time.Now().Add(time.Hour))
+				lockedObj, _ := createLockedObject{
+					ObjectStream: objStream,
+					RetainUntil:  time.Now().Add(time.Hour),
+				}.Run(ctx, t, db)
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4739,7 +4732,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Expired retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, _ := createLockedObject(t, objStream, time.Now().Add(-time.Minute))
+				lockedObj, _ := createLockedObject{
+					ObjectStream: objStream,
+					RetainUntil:  time.Now().Add(-time.Minute),
+				}.Run(ctx, t, db)
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4787,7 +4783,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, lockedSegs := createLockedObject(t, objStream, time.Now().Add(time.Hour))
+				lockedObj, lockedSegs := createLockedObject{
+					ObjectStream: objStream,
+					RetainUntil:  time.Now().Add(time.Hour),
+				}.Run(ctx, t, db)
 
 				metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
@@ -4809,7 +4808,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
-				lockedObj, _ := createLockedObject(t, objStream, now.Add(time.Hour))
+				lockedObj, _ := createLockedObject{
+					ObjectStream: objStream,
+					RetainUntil:  now.Add(time.Hour),
+				}.Run(ctx, t, db)
 
 				inlineObj := metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
@@ -4830,7 +4832,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				objStream := metabasetest.RandObjectStream()
-				lockedObj, _ := createLockedObject(t, objStream, time.Now().Add(-time.Minute))
+				lockedObj, _ := createLockedObject{
+					ObjectStream: objStream,
+					RetainUntil:  time.Now().Add(-time.Minute),
+				}.Run(ctx, t, db)
 
 				inlineObj := metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
