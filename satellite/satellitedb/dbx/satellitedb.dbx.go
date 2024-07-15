@@ -20,12 +20,10 @@ import (
 	"storj.io/storj/shared/dbutil/txutil"
 
 	"cloud.google.com/go/spanner"
-	sqldriver "database/sql/driver"
 	"encoding/base64"
 	_ "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
-	"math"
 )
 
 // Prevent conditional imports from causing build failures.
@@ -33534,7 +33532,7 @@ func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	__interval_start_val := storagenode_bandwidth_rollup_interval_start.value()
 	__interval_seconds_val := storagenode_bandwidth_rollup_interval_seconds.value()
 	__action_val := storagenode_bandwidth_rollup_action.value()
-	__settled_val := spannerConvertArgument(storagenode_bandwidth_rollup_settled.value())
+	__settled_val := storagenode_bandwidth_rollup_settled.value()
 
 	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
@@ -33610,7 +33608,7 @@ func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 	}
 	__node_id_val := reverification_audits_node_id.value()
 	__stream_id_val := reverification_audits_stream_id.value()
-	__position_val := spannerConvertArgument(reverification_audits_position.value())
+	__position_val := reverification_audits_position.value()
 	__piece_num_val := reverification_audits_piece_num.value()
 	__last_attempt_val := optional.LastAttempt.value()
 
@@ -37138,7 +37136,7 @@ func (obj *spannerImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_A
 	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), spannerConvertArgument(graceful_exit_segment_transfer_position.value()), graceful_exit_segment_transfer_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -40188,7 +40186,7 @@ func (obj *spannerImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And
 		return emptyUpdate()
 	}
 
-	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), spannerConvertArgument(graceful_exit_segment_transfer_position.value()), graceful_exit_segment_transfer_piece_num.value())
+	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -42582,7 +42580,7 @@ func (obj *spannerImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_P
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
 
 	var __values []any
-	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), spannerConvertArgument(reverification_audits_position.value()))
+	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -42675,7 +42673,7 @@ func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamI
 	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), spannerConvertArgument(graceful_exit_segment_transfer_position.value()), graceful_exit_segment_transfer_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -44803,17 +44801,6 @@ func openspanner(source string) (*sql.DB, error) {
 	return sql.Open("spanner", strings.TrimPrefix(source, "spanner://"))
 }
 
-func spannerConvertArgument(v any) any {
-	switch v := v.(type) {
-	case uint64:
-		return spannerUint64{val: v}
-	case *uint64:
-		return spannerPointerUint64{val: v}
-	default:
-		return v
-	}
-}
-
 func spannerConvertJSON(v any) any {
 	if v == nil {
 		return spanner.NullJSON{Value: nil, Valid: true}
@@ -44854,29 +44841,4 @@ func (s *spannerJSON) Scan(input any) error {
 		return fmt.Errorf("unable to decode spanner.NullJSON with type %T", v.Value)
 	}
 	return fmt.Errorf("unable to decode %T", input)
-}
-
-type spannerUint64 struct {
-	val uint64
-}
-
-func (s spannerUint64) Value() (sqldriver.Value, error) {
-	if s.val > math.MaxInt64 {
-		return nil, fmt.Errorf("value %v is larger than max supported INT64 column value", s.val)
-	}
-	return int64(s.val), nil
-}
-
-type spannerPointerUint64 struct {
-	val *uint64
-}
-
-func (s spannerPointerUint64) Value() (sqldriver.Value, error) {
-	if s.val == nil {
-		return nil, nil
-	}
-	if *s.val > math.MaxInt64 {
-		return nil, fmt.Errorf("value %v is larger than max supported INT64 column value", *s.val)
-	}
-	return int64(*s.val), nil
 }
