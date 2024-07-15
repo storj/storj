@@ -390,11 +390,13 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	fork.totalStats[segment.Placement].remoteSegmentsChecked++
 	stats.iterationAggregates.remoteSegmentsChecked++
 
+	log := fork.log.With(zap.Object("Segment", segment))
+
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	segmentsBelowMinReqCounter.Inc(0)
 	pieces := segment.Pieces
 	if len(pieces) == 0 {
-		fork.log.Debug("no pieces on remote segment")
+		log.Debug("no pieces on remote segment")
 		return nil
 	}
 
@@ -504,12 +506,16 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 			stats.iterationAggregates.newRemoteSegmentsNeedingRepair++
 		})
 		if err != nil {
-			fork.log.Error("error adding injured segment to queue", zap.Error(err))
+			log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
 		}
 
-		// monitor irreparable segments
-		if piecesCheck.Retrievable.Count() < required {
+		log := log.With(zap.Int("Repair Threshold", repairThreshold), zap.Int("Success Threshold", successThreshold),
+			zap.Int("Total Pieces", len(pieces)), zap.Int("Min Required", required))
+
+		switch {
+		case piecesCheck.Retrievable.Count() < required:
+			// monitor irreparable segments
 			if !slices.Contains(fork.totalStats[segment.Placement].objectsLost, segment.StreamID) {
 				fork.totalStats[segment.Placement].objectsLost = append(
 					fork.totalStats[segment.Placement].objectsLost, segment.StreamID,
@@ -535,9 +541,12 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 					missingNodes = append(missingNodes, piece.StorageNode.String())
 				}
 			}
-			fork.log.Warn("checker found irreparable segment", zap.String("Segment StreamID", segment.StreamID.String()), zap.Int("Segment Position",
-				int(segment.Position.Encode())), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.String("unavailable node IDs", strings.Join(missingNodes, ",")))
-		} else if piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > repairThreshold && piecesCheck.ForcingRepair.Count() == 0 {
+			log.Warn("checker found irreparable segment",
+				zap.String("Unavailable Node IDs", strings.Join(missingNodes, ",")))
+
+		case piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > repairThreshold &&
+			piecesCheck.ForcingRepair.Count() == 0:
+
 			// This segment is to be repaired because of clumping (it wouldn't need repair yet
 			// otherwise). Produce a brief report of where the clumping occurred so that we have
 			// a better understanding of the cause.
@@ -546,30 +555,35 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 				lastNets[i] = node.LastNet
 			}
 			clumpedNets := clumpingReport{lastNets: lastNets}
-			fork.log.Debug("segment needs repair only because of clumping", zap.Stringer("Segment StreamID", segment.StreamID), zap.Uint64("Segment Position", segment.Position.Encode()), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.Stringer("clumping", &clumpedNets))
-		}
-	} else {
-		if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(
-			fork.totalStats[segment.Placement].remoteSegmentsOverThreshold,
-		)) {
-			// record metrics for segments right above repair threshold
-			// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
-			for i := range fork.totalStats[segment.Placement].remoteSegmentsOverThreshold {
-				if numHealthy == (repairThreshold + i + 1) {
-					fork.totalStats[segment.Placement].remoteSegmentsOverThreshold[i]++
-					break
-				}
-			}
+			log.Debug("segment needs repair only because of clumping",
+				zap.Stringer("Clumping", &clumpedNets))
+		default:
+			log.Debug("segment requires repair", zap.Object("Classification", piecesCheck))
 		}
 
-		if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
-			// record metrics for segments right above repair threshold
-			// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
-			for i := range stats.iterationAggregates.remoteSegmentsOverThreshold {
-				if numHealthy == (repairThreshold + i + 1) {
-					stats.iterationAggregates.remoteSegmentsOverThreshold[i]++
-					break
-				}
+		return nil
+	}
+
+	if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(
+		fork.totalStats[segment.Placement].remoteSegmentsOverThreshold,
+	)) {
+		// record metrics for segments right above repair threshold
+		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
+		for i := range fork.totalStats[segment.Placement].remoteSegmentsOverThreshold {
+			if numHealthy == (repairThreshold + i + 1) {
+				fork.totalStats[segment.Placement].remoteSegmentsOverThreshold[i]++
+				break
+			}
+		}
+	}
+
+	if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
+		// record metrics for segments right above repair threshold
+		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
+		for i := range stats.iterationAggregates.remoteSegmentsOverThreshold {
+			if numHealthy == (repairThreshold + i + 1) {
+				stats.iterationAggregates.remoteSegmentsOverThreshold[i]++
+				break
 			}
 		}
 	}

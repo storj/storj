@@ -4,6 +4,8 @@
 package repair
 
 import (
+	"go.uber.org/zap/zapcore"
+
 	"storj.io/common/storj/location"
 	"storj.io/storj/private/intset"
 	"storj.io/storj/satellite/metabase"
@@ -148,4 +150,21 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	}
 
 	return result
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler.
+func (result PiecesCheckResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("Missing", result.Missing.Count())
+	enc.AddInt("Retrievable", result.Retrievable.Count())
+	enc.AddInt("Suspended", result.Suspended.Count())
+	enc.AddInt("Clumped", result.Clumped.Count())
+	enc.AddInt("Exiting", result.Exiting.Count())
+	enc.AddInt("ForcingRepair", result.ForcingRepair.Count())
+	enc.AddInt("Healthy", result.Healthy.Count())
+	enc.AddInt("OutOfPlacement", result.OutOfPlacement.Count())
+	enc.AddInt("Retrievable", result.Retrievable.Count())
+	enc.AddInt("Suspended", result.Suspended.Count())
+	enc.AddInt("Unhealthy", result.Unhealthy.Count())
+	enc.AddInt("UnhealthyRetrievable", result.UnhealthyRetrievable.Count())
+	return nil
 }
