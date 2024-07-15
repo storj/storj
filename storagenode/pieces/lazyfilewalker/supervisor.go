@@ -156,7 +156,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	stdout := newTrashHandler(log, trashFunc)
+	stdout := NewTrashHandler(log, trashFunc)
 	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
 	if err != nil {
 		return nil, 0, 0, err

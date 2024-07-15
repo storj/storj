@@ -19,7 +19,7 @@ type writer interface {
 
 // check that genericWriter and trashHandler implement the writer interface.
 var _ writer = (*genericWriter)(nil)
-var _ writer = (*trashHandler)(nil)
+var _ writer = (*TrashHandler)(nil)
 
 // genericWriter is a writer that processes the output of the lazyfilewalker subprocess.
 type genericWriter struct {
@@ -47,8 +47,8 @@ func (w *genericWriter) Write(b []byte) (n int, err error) {
 	return w.buf.Write(b)
 }
 
-// trashHandler is a writer that processes the output of the gc-filewalker subprocess.
-type trashHandler struct {
+// TrashHandler is a writer that processes the output of the gc-filewalker subprocess.
+type TrashHandler struct {
 	buf        *genericWriter
 	log        *zap.Logger
 	lineBuffer []byte
@@ -56,8 +56,9 @@ type trashHandler struct {
 	trashFunc func(pieceID storj.PieceID) error
 }
 
-func newTrashHandler(log *zap.Logger, trashFunc func(pieceID storj.PieceID) error) *trashHandler {
-	return &trashHandler{
+// NewTrashHandler creates new trash handler.
+func NewTrashHandler(log *zap.Logger, trashFunc func(pieceID storj.PieceID) error) *TrashHandler {
+	return &TrashHandler{
 		log:       log.Named("trash-handler"),
 		trashFunc: trashFunc,
 		buf:       newGenericWriter(log),
@@ -65,12 +66,12 @@ func newTrashHandler(log *zap.Logger, trashFunc func(pieceID storj.PieceID) erro
 }
 
 // Decode decodes the data from the buffer into the provided value.
-func (t *trashHandler) Decode(v interface{}) error {
+func (t *TrashHandler) Decode(v interface{}) error {
 	return t.buf.Decode(v)
 }
 
 // Write writes the provided bytes to the buffer.
-func (t *trashHandler) Write(b []byte) (n int, err error) {
+func (t *TrashHandler) Write(b []byte) (n int, err error) {
 	n = len(b)
 	t.lineBuffer = append(t.lineBuffer, b...)
 	for {
@@ -87,7 +88,7 @@ func (t *trashHandler) Write(b []byte) (n int, err error) {
 	return n, nil
 }
 
-func (t *trashHandler) writeLine(b []byte) (remaining []byte, err error) {
+func (t *TrashHandler) writeLine(b []byte) (remaining []byte, err error) {
 	idx := bytes.IndexByte(b, '\n')
 	if idx < 0 {
 		return b, nil
@@ -98,7 +99,7 @@ func (t *trashHandler) writeLine(b []byte) (remaining []byte, err error) {
 	return remaining, t.processTrashPiece(b)
 }
 
-func (t *trashHandler) processTrashPiece(b []byte) error {
+func (t *TrashHandler) processTrashPiece(b []byte) error {
 	var resp GCFilewalkerResponse
 	if err := json.Unmarshal(b, &resp); err != nil {
 		t.log.Error("failed to unmarshal data from subprocess", zap.Error(err))
