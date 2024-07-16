@@ -42,7 +42,7 @@
                     v-if="option === Options.Custom"
                     v-model="customRange"
                     header="Choose Dates"
-                    multiple
+                    multiple="range"
                     show-adjacent-months
                     border
                     elevation="0"
@@ -140,6 +140,7 @@ function setChooseDates(): void {
     since.value = undefined;
     before.value = undefined;
     option.value = Options.Custom;
+    customRange.value = [];
 }
 
 function downloadReport(): void {
@@ -157,19 +158,15 @@ function downloadReport(): void {
     }
 }
 
-watch(customRange, () => {
-    if (customRange.value.length > 2) {
-        customRange.value = customRange.value.slice(0, 2);
-        return;
-    }
-
-    if (customRange.value.length < 2) {
+watch(customRange, (newRange) => {
+    if (newRange.length < 2) {
         since.value = undefined;
         before.value = undefined;
         return;
     }
 
-    let [start, end] = customRange.value;
+    let start = newRange[0];
+    let end = newRange[newRange.length - 1];
     if (start.getTime() > end.getTime()) {
         [start, end] = [end, start];
     }

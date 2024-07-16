@@ -178,9 +178,20 @@
                 </p>
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
-                <v-btn prepend-icon="$calendar" variant="outlined" color="default" @click="isDatePicker = true">
-                    {{ dateRangeLabel }}
-                </v-btn>
+                <v-date-input
+                    v-model="chartDateRange"
+                    min-width="260px"
+                    multiple="range"
+                    prepend-icon=""
+                    density="comfortable"
+                    variant="outlined"
+                    :loading="isLoading"
+                    show-adjacent-months
+                    hide-details
+                    readonly
+                >
+                    <v-icon class="mr-2" size="20" icon="$calendar" />
+                </v-date-input>
             </v-col>
         </v-row>
 
@@ -274,17 +285,6 @@
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
     <create-bucket-dialog v-model="isCreateBucketDialogShown" />
     <CreateBucketDialog v-model="isCreateBucketDialogOpen" />
-
-    <v-overlay v-model="isDatePicker" class="align-center justify-center">
-        <v-date-picker
-            v-model="datePickerModel"
-            multiple
-            show-adjacent-months
-            title="Select Date Range"
-            header="Daily Usage"
-            :disabled="isLoading"
-        />
-    </v-overlay>
 </template>
 
 <script setup lang="ts">
@@ -298,9 +298,8 @@ import {
     VRow,
     VIcon,
     VTooltip,
-    VDatePicker,
-    VOverlay,
 } from 'vuetify/components';
+import { VDateInput } from 'vuetify/labs/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
 import { Info } from 'lucide-vue-next';
@@ -325,7 +324,6 @@ import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useTrialCheck } from '@/composables/useTrialCheck';
-import { Time } from '@/utils/time';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -374,7 +372,6 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogShown = ref<boolean>(false);
 const isCreateBucketDialogOpen = ref<boolean>(false);
-const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
 
 /**
@@ -396,17 +393,6 @@ const co2Saved = computed<string>(() => {
     const formatted = getValueAndUnit(value);
 
     return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
-});
-
-/**
- * Returns formatted date range string.
- */
-const dateRangeLabel = computed((): string => {
-    if (chartsSinceDate.value.getTime() === chartsBeforeDate.value.getTime()) {
-        return Time.formattedDate(chartsSinceDate.value);
-    }
-
-    return `${Time.formattedDate(chartsSinceDate.value)} - ${Time.formattedDate(chartsBeforeDate.value)}`;
 });
 
 /**
@@ -682,6 +668,40 @@ const chartsBeforeDate = computed((): Date => {
 });
 
 /**
+ * Return a new 7 days range if datePickerModel is empty.
+ */
+const chartDateRange = computed<Date[]>({
+    get: () => {
+        const dates: Date[] = datePickerModel.value;
+        if (!datePickerModel.value.length) {
+            const start = new Date();
+            start.setDate(start.getDate() - 7);
+            // Truncate dates to hours only.
+            start.setMinutes(0, 0, 0);
+            dates.push(start);
+            for (let i = 1; i < 8; i++) {
+                const d = new Date();
+                d.setDate(start.getDate() + i);
+                dates.push(d);
+            }
+        }
+        return dates;
+    },
+    set: newValue => {
+        const newRange = [...newValue];
+        if (newRange.length === 0) {
+            return;
+        }
+        if (newRange.length < 2) {
+            const d = new Date();
+            d.setDate(newRange[0].getDate() + 1);
+            newRange.push(d);
+        }
+        datePickerModel.value = newRange;
+    },
+});
+
+/**
  * Returns storage chart data from store.
  */
 const storageUsage = computed((): DataStamp[] => {
@@ -862,16 +882,8 @@ onMounted(async (): Promise<void> => {
     window.addEventListener('resize', recalculateChartWidth);
     recalculateChartWidth();
 
-    const now = new Date();
-    const past = new Date();
-    past.setDate(past.getDate() - 7);
-
-    // Truncate dates to hours only.
-    now.setMinutes(0, 0, 0);
-    past.setMinutes(0, 0, 0);
-
     const promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
-        projectsStore.getDailyProjectData({ since: past, before: now }),
+        projectsStore.getDailyProjectData({ since: chartDateRange.value[0], before: chartDateRange.value[chartDateRange.value.length - 1] }),
         pmStore.getProjectMembers(FIRST_PAGE, projectID),
         agStore.getAccessGrants(FIRST_PAGE, projectID),
         bucketsStore.getBuckets(FIRST_PAGE, projectID),
@@ -909,15 +921,12 @@ onBeforeUnmount((): void => {
     window.removeEventListener('resize', recalculateChartWidth);
 });
 
-watch(isDatePicker, () => {
-    datePickerModel.value = [];
-});
-
-watch(datePickerModel, async () => {
-    if (datePickerModel.value.length !== 2) return;
+watch(datePickerModel, async (newRange) => {
+    if (newRange.length < 2) return;
 
     await withLoading(async () => {
-        let [startDate, endDate] = datePickerModel.value;
+        let startDate = newRange[0];
+        let endDate = newRange[newRange.length - 1];
         if (startDate.getTime() > endDate.getTime()) {
             [startDate, endDate] = [endDate, startDate];
         }
@@ -932,7 +941,14 @@ watch(datePickerModel, async () => {
             notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
         }
     });
-
-    isDatePicker.value = false;
 });
 </script>
+<style scoped lang="scss">
+:deep(.v-field__input) {
+    cursor: pointer;
+
+    input {
+        cursor: pointer;
+    }
+}
+</style>
