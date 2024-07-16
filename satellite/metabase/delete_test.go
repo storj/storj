@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -1166,10 +1165,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				t.Run("Active retention", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, segments := createLockedObject{
-						ObjectStream: obj,
-						RetainUntil:  time.Now().Add(time.Hour),
-					}.Run(ctx, t, db)
+					object, segments := metabasetest.CreateObjectWithRetention(
+						ctx, t, db, obj, 1, time.Now().Add(time.Hour),
+					)
 
 					metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
@@ -1190,10 +1188,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				t.Run("Expired retention", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, _ := createLockedObject{
-						ObjectStream: obj,
-						RetainUntil:  time.Now().Add(-time.Minute),
-					}.Run(ctx, t, db)
+					object, _ := metabasetest.CreateObjectWithRetention(
+						ctx, t, db, obj, 1, time.Now().Add(-time.Minute),
+					)
 
 					markerObjStream := obj
 					markerObjStream.Version++
@@ -1224,10 +1221,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				t.Run("Active retention", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, segments := createLockedObject{
-						ObjectStream: obj,
-						RetainUntil:  time.Now().Add(time.Hour),
-					}.Run(ctx, t, db)
+					object, segments := metabasetest.CreateObjectWithRetention(
+						ctx, t, db, obj, 1, time.Now().Add(time.Hour),
+					)
 
 					metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
@@ -1247,10 +1243,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				t.Run("Expired retention", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, _ := createLockedObject{
-						ObjectStream: obj,
-						RetainUntil:  time.Now().Add(-time.Minute),
-					}.Run(ctx, t, db)
+					object, _ := metabasetest.CreateObjectWithRetention(
+						ctx, t, db, obj, 1, time.Now().Add(-time.Minute),
+					)
 
 					metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
@@ -1267,22 +1262,4 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 			})
 		})
 	})
-}
-
-type createLockedObject struct {
-	metabase.ObjectStream
-	RetainUntil time.Time
-}
-
-func (opts createLockedObject) Run(ctx *testcontext.Context, t *testing.T, db *metabase.DB) (metabase.Object, []metabase.Segment) {
-	return metabasetest.CreateTestObject{
-		BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-			ObjectStream: opts.ObjectStream,
-			Encryption:   metabasetest.DefaultEncryption,
-			Retention: metabase.Retention{
-				Mode:        storj.ComplianceMode,
-				RetainUntil: opts.RetainUntil,
-			},
-		},
-	}.Run(ctx, t, db, opts.ObjectStream, 1)
 }

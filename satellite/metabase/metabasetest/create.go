@@ -133,7 +133,8 @@ func CreateFullObjectsWithKeys(ctx *testcontext.Context, t testing.TB, db *metab
 }
 
 // CreateSegments creates multiple segments for the specified object.
-func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) {
+func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.Segment {
+	segments := make([]metabase.Segment, 0, numberOfSegments)
 	for i := byte(0); i < numberOfSegments; i++ {
 		BeginSegment{
 			Opts: metabase.BeginSegment{
@@ -147,27 +148,50 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 			},
 		}.Check(ctx, t, db)
 
+		commitSegmentOpts := metabase.CommitSegment{
+			ObjectStream: obj,
+			Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+			RootPieceID:  storj.PieceID{1},
+
+			ExpiresAt: expiresAt,
+
+			Pieces: metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+			EncryptedKey:      []byte{3},
+			EncryptedKeyNonce: []byte{4},
+			EncryptedETag:     []byte{5},
+
+			EncryptedSize: 1024,
+			PlainSize:     512,
+			PlainOffset:   0,
+			Redundancy:    DefaultRedundancy,
+		}
+
 		CommitSegment{
-			Opts: metabase.CommitSegment{
-				ObjectStream: obj,
-				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{1},
-
-				ExpiresAt: expiresAt,
-
-				Pieces: metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-
-				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
-				EncryptedETag:     []byte{5},
-
-				EncryptedSize: 1024,
-				PlainSize:     512,
-				PlainOffset:   0,
-				Redundancy:    DefaultRedundancy,
-			},
+			Opts: commitSegmentOpts,
 		}.Check(ctx, t, db)
+
+		segments = append(segments, metabase.Segment{
+			StreamID:    obj.StreamID,
+			Position:    commitSegmentOpts.Position,
+			RootPieceID: commitSegmentOpts.RootPieceID,
+
+			CreatedAt: time.Now(),
+			ExpiresAt: expiresAt,
+
+			Pieces: commitSegmentOpts.Pieces,
+
+			EncryptedKey:      commitSegmentOpts.EncryptedKey,
+			EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
+			EncryptedETag:     commitSegmentOpts.EncryptedETag,
+
+			EncryptedSize: commitSegmentOpts.EncryptedSize,
+			PlainSize:     commitSegmentOpts.PlainSize,
+			PlainOffset:   commitSegmentOpts.PlainOffset,
+			Redundancy:    commitSegmentOpts.Redundancy,
+		})
 	}
+	return segments
 }
 
 // CreateVersionedObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
@@ -456,6 +480,28 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	require.NoError(t, err)
 
 	return copyObj, expectedOriginalSegments, expectedCopySegments
+}
+
+// CreateObjectWithRetention creates an object with an Object Lock retention configuration.
+func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, retainUntil time.Time) (metabase.Object, []metabase.Segment) {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   DefaultEncryption,
+			Retention: metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: retainUntil,
+			},
+		},
+	}.Check(ctx, t, db)
+
+	segments := CreateSegments(ctx, t, db, obj, nil, numberOfSegments)
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+		},
+	}.Check(ctx, t, db), segments
 }
 
 // SegmentsToRaw converts a slice of Segment to a slice of RawSegment.
