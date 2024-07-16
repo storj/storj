@@ -115,16 +115,20 @@ func (store *blobStore) OpenWithStorageFormat(ctx context.Context, blobRef blobs
 	return newBlobReader(store.track.Child("blobReader", 1), file, formatVer), nil
 }
 
+var monBlobStoreStat = mon.Task()
+
 // Stat looks up disk metadata on the blob file.
 func (store *blobStore) Stat(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreStat(&ctx)(&err)
 	info, err := store.dir.Stat(ctx, ref)
 	return info, Error.Wrap(err)
 }
 
+var monBlobStoreStatWithStorageFormat = mon.Task()
+
 // StatWithStorageFormat looks up disk metadata on the blob file with the given storage format version.
 func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (_ blobstore.BlobInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreStatWithStorageFormat(&ctx)(&err)
 	info, err := store.dir.StatWithStorageFormat(ctx, ref, formatVer)
 	return info, Error.Wrap(err)
 }
@@ -161,9 +165,11 @@ func (store *blobStore) DeleteTrashNamespace(ctx context.Context, namespace []by
 	return Error.Wrap(err)
 }
 
+var monBlobStoreTrash = mon.Task()
+
 // Trash moves the ref to a trash directory.
 func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreTrash(&ctx)(&err)
 	return Error.Wrap(store.dir.Trash(ctx, ref, timestamp))
 }
 

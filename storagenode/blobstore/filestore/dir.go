@@ -380,12 +380,14 @@ func (dir *Dir) OpenWithStorageFormat(ctx context.Context, ref blobstore.BlobRef
 	return nil, Error.Wrap(err)
 }
 
+var monDirStat = mon.Task()
+
 // Stat looks up disk metadata on the blob file. It may need to check in more than one location
 // in order to find the blob, if it was stored with an older version of the storage node software.
 // In cases where the storage format version of a blob is already known, StatWithStorageFormat()
 // will generally be a better choice.
 func (dir *Dir) Stat(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monDirStat(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return nil, err
@@ -403,11 +405,13 @@ func (dir *Dir) Stat(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.Bl
 	return nil, os.ErrNotExist
 }
 
+var monStatWithStorageFormat = mon.Task()
+
 // StatWithStorageFormat looks up disk metadata on the blob file with the given storage format
 // version. This avoids the need for checking for the file in multiple different storage format
 // types.
 func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (_ blobstore.BlobInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monStatWithStorageFormat(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return nil, err
@@ -423,9 +427,11 @@ func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef
 	return nil, Error.New("unable to stat %q: %v", vPath, err)
 }
 
+var monTrash = mon.Task()
+
 // Trash moves the blob specified by ref to the trash for every format version.
 func (dir *Dir) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monTrash(&ctx)(&err)
 	return dir.iterateStorageFormatVersions(ctx, ref, func(ctx context.Context, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) error {
 		return dir.TrashWithStorageFormat(ctx, ref, formatVersion, timestamp)
 	})
@@ -713,6 +719,8 @@ func (dir *Dir) deleteTrashDayDir(ctx context.Context, namespace []byte, dirTime
 	return bytesEmptied, deletedKeys, errorsEncountered.Err()
 }
 
+var monIterateStorageFormatVersions = mon.Task()
+
 // iterateStorageFormatVersions executes f for all storage format versions,
 // starting with the oldest format version. It is more likely, in the general
 // case, that we will find the blob with the newest format version instead,
@@ -726,7 +734,7 @@ func (dir *Dir) deleteTrashDayDir(ctx context.Context, namespace []byte, dirTime
 // f will be executed for every storage format version regardless of the
 // result, and will aggregate errors into a single returned error.
 func (dir *Dir) iterateStorageFormatVersions(ctx context.Context, ref blobstore.BlobRef, f func(ctx context.Context, ref blobstore.BlobRef, i blobstore.FormatVersion) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monIterateStorageFormatVersions(&ctx)(&err)
 	var combinedErrors errs.Group
 	for i := MinFormatVersionSupported; i <= MaxFormatVersionSupported; i++ {
 		combinedErrors.Add(f(ctx, ref, i))

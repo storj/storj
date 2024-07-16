@@ -382,11 +382,13 @@ func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storj.No
 	return Error.Wrap(err)
 }
 
+var monTrash = mon.Task()
+
 // Trash moves the specified piece to the blob trash. If necessary, it converts
 // the v0 piece to a v1 piece. It also marks the item as "trashed" in the
 // pieceExpirationDB.
 func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monTrash(&ctx)(&err)
 
 	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
 	// this is an old piece version and attempt to migrate it.
@@ -833,9 +835,11 @@ func (access storedPieceAccess) Satellite() (storj.NodeID, error) {
 	return storj.NodeIDFromBytes(access.BlobRef().Namespace)
 }
 
+var monSize = mon.Task()
+
 // Size gives the size of the piece on disk, and the size of the content (not including the piece header, if applicable).
 func (access storedPieceAccess) Size(ctx context.Context) (size, contentSize int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monSize(&ctx)(&err)
 	stat, err := access.Stat(ctx)
 	if err != nil {
 		return 0, 0, err
@@ -877,11 +881,13 @@ func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Ti
 	return header.CreationTime, nil
 }
 
+var monModTime = mon.Task()
+
 // ModTime returns a less-precise piece creation time than CreationTime, but is generally
 // much faster. This gets the piece creation time from to the filesystem instead of the
 // piece header.
 func (access storedPieceAccess) ModTime(ctx context.Context) (mTime time.Time, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monModTime(&ctx)(&err)
 	stat, err := access.Stat(ctx)
 	if err != nil {
 		return time.Time{}, err
