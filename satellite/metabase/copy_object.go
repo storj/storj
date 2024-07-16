@@ -67,6 +67,9 @@ type FinishCopyObject struct {
 	// NewVersioned indicates that the object allows multiple versions.
 	NewVersioned bool
 
+	// Retention indicates retention settings of the object copy.
+	Retention Retention
+
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
 	// if it turns out completing the copy would exceed a limit.
 	// It will be called only once.
@@ -114,7 +117,11 @@ func (finishCopy FinishCopyObject) Verify() error {
 		}
 	}
 
-	return nil
+	if !finishCopy.NewVersioned && finishCopy.Retention.Enabled() {
+		return ErrMethodNotAllowed.New("cannot lock unversioned copies")
+	}
+
+	return finishCopy.Retention.Verify()
 }
 
 type transposedSegmentList struct {
@@ -187,6 +194,10 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy object: %w", err)
 		}
 
+		if err = checkExpiresAtWithRetention(sourceObject, newSegments, opts.Retention); err != nil {
+			return err
+		}
+
 		newSegments.EncryptedKeys = make([][]byte, len(opts.NewSegmentKeys))
 		newSegments.EncryptedKeyNonces = make([][]byte, len(opts.NewSegmentKeys))
 		for index, u := range opts.NewSegmentKeys {
@@ -230,6 +241,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	if !opts.NewEncryptedMetadataKeyNonce.IsZero() {
 		newObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
 	}
+	newObject.Retention = opts.Retention
 
 	precommit.submitMetrics()
 	mon.Meter("finish_copy_object").Mark(1)
@@ -372,13 +384,16 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 				encryption,
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				zombie_deletion_deadline
+				zombie_deletion_deadline,
+				retention_mode, retain_until
 			) VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
 				$9,
 				$10, $11, $12,
-				$13, $14, $15, null
+				$13, $14, $15,
+				null,
+				$16, $17
 			)
 			RETURNING
 				created_at`,
@@ -387,6 +402,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		encryptionParameters{&sourceObject.Encryption},
 		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
+		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
 	)
 
 	newObject = sourceObject
@@ -443,14 +459,16 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 				encryption,
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				zombie_deletion_deadline
+				zombie_deletion_deadline,
+				retention_mode, retain_until
 			) VALUES (
 				@project_id, @bucket_name, @object_key, @version, @stream_id,
 				@status, @expires_at, @segment_count,
 				@encryption,
 				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
-				NULL
+				NULL,
+				@retention_mode, @retain_until
 			)
 			THEN RETURN
 				created_at
@@ -471,6 +489,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"total_plain_size":                 sourceObject.TotalPlainSize,
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
 			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
+			"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
+			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {
 		err := row.Columns(&newObject.CreatedAt)
@@ -616,4 +636,19 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 	object.Version = opts.Version
 
 	return object, nil
+}
+
+func checkExpiresAtWithRetention(object Object, segments transposedSegmentList, retention Retention) error {
+	if !retention.Enabled() {
+		return nil
+	}
+	for _, e := range segments.ExpiresAts {
+		if e != nil {
+			return ErrInvalidRequest.New("retention cannot be applied to expiring segments")
+		}
+	}
+	if object.ExpiresAt != nil && !object.ExpiresAt.IsZero() {
+		return ErrInvalidRequest.New("retention cannot be applied to expiring objects")
+	}
+	return nil
 }
