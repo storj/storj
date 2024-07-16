@@ -2196,11 +2196,25 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
+	var bucketLockEnabled bool
+	if endpoint.config.ObjectLockEnabled(projectID) {
+		bucketLockEnabled, err = endpoint.buckets.GetBucketObjectLockEnabled(ctx, []byte(bucket), projectID)
+		if err != nil {
+			if buckets.ErrBucketNotFound.Has(err) {
+				return nil, nil
+			}
+			endpoint.log.Error("unable to get bucket's Object Lock configuration", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
+		}
+	}
+
 	var result metabase.DeleteObjectResult
 	if len(version) == 0 {
-		versioned := false
-		suspended := false
-		project, err := endpoint.projects.Get(ctx, projectID)
+		var (
+			project              *console.Project
+			versioned, suspended bool
+		)
+		project, err = endpoint.projects.Get(ctx, projectID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -2223,6 +2237,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			ObjectLocation: req,
 			Versioned:      versioned,
 			Suspended:      suspended,
+			UseObjectLock:  bucketLockEnabled,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -2236,6 +2251,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: req,
 			Version:        sv.Version(),
+			UseObjectLock:  bucketLockEnabled,
 		})
 	}
 	if err != nil {

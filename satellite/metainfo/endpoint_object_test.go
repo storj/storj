@@ -3596,16 +3596,6 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
 		require.NoError(t, err)
 
-		randObjectStream := func(bucketName string) metabase.ObjectStream {
-			return metabase.ObjectStream{
-				ProjectID:  project.ID,
-				BucketName: metabase.BucketName(bucketName),
-				ObjectKey:  metabasetest.RandObjectKey(),
-				Version:    metabase.Version(1 + rand.Int63n(int64(metabase.MaxVersion)-10)),
-				StreamID:   testrand.UUID(),
-			}
-		}
-
 		requireEqualRetention := func(t *testing.T, expected metabase.Retention, actual *pb.Retention) {
 			require.NotNil(t, actual)
 			require.EqualValues(t, expected.Mode, actual.Mode)
@@ -3642,7 +3632,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		lockBucketName := createBucket(t, true)
 
 		t.Run("Success", func(t *testing.T) {
-			objStream1, retention1 := randObjectStream(lockBucketName), randRetention()
+			objStream1, retention1 := randObjectStream(project.ID, lockBucketName), randRetention()
 			object1 := createObject(t, objStream1, retention1)
 
 			objStream2 := objStream1
@@ -3681,7 +3671,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Missing object", func(t *testing.T) {
-			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 
 			req := &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -3703,7 +3693,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Pending object", func(t *testing.T) {
-			objStream := randObjectStream(lockBucketName)
+			objStream := randObjectStream(project.ID, lockBucketName)
 			retention := randRetention()
 			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
@@ -3748,7 +3738,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Missing retention period", func(t *testing.T) {
-			object := createObject(t, randObjectStream(lockBucketName), metabase.Retention{})
+			object := createObject(t, randObjectStream(project.ID, lockBucketName), metabase.Retention{})
 
 			resp, err := endpoint.GetObjectRetention(ctx, &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -3775,7 +3765,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			endpoint.SetUseBucketLevelObjectLock(false)
 			defer endpoint.SetUseBucketLevelObjectLock(true)
 
-			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			object := createObject(t, objStream, retention)
 			req := &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -3801,7 +3791,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 			require.NoError(t, err)
 
-			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			object := createObject(t, objStream, retention)
 			req := &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: oldApiKey.SerializeRaw()},
@@ -3843,16 +3833,6 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
 		require.NoError(t, err)
-
-		randObjectStream := func(bucketName string) metabase.ObjectStream {
-			return metabase.ObjectStream{
-				ProjectID:  project.ID,
-				BucketName: metabase.BucketName(bucketName),
-				ObjectKey:  metabasetest.RandObjectKey(),
-				Version:    metabase.Version(1 + rand.Int63n(int64(metabase.MaxVersion)-10)),
-				StreamID:   testrand.UUID(),
-			}
-		}
 
 		retentionToProto := func(retention metabase.Retention) *pb.Retention {
 			return &pb.Retention{
@@ -3906,7 +3886,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		lockBucketName := createBucket(t, true)
 
 		t.Run("Set retention", func(t *testing.T) {
-			objStream := randObjectStream(lockBucketName)
+			objStream := randObjectStream(project.ID, lockBucketName)
 			obj1 := createObject(t, objStream, metabase.Retention{})
 			objStream.Version++
 			obj2 := createObject(t, objStream, metabase.Retention{})
@@ -3948,7 +3928,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Remove retention", func(t *testing.T) {
-			objStream := randObjectStream(lockBucketName)
+			objStream := randObjectStream(project.ID, lockBucketName)
 			obj := createObject(t, objStream, randRetention())
 
 			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
@@ -3960,7 +3940,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "an active retention configuration cannot be removed")
 			requireRetention(t, objStream.Location(), objStream.Version, obj.Retention)
 
-			objStream = randObjectStream(lockBucketName)
+			objStream = randObjectStream(project.ID, lockBucketName)
 			obj = createObject(t, objStream, metabase.Retention{})
 
 			_, err = endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
@@ -3974,7 +3954,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Shorten retention", func(t *testing.T) {
-			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			obj := createObject(t, objStream, retention)
 
 			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
@@ -3993,7 +3973,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Invalid retention", func(t *testing.T) {
-			objStream := randObjectStream(lockBucketName)
+			objStream := randObjectStream(project.ID, lockBucketName)
 			obj := createObject(t, objStream, metabase.Retention{})
 
 			check := func(retention *pb.Retention, errText string) {
@@ -4027,7 +4007,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Missing bucket", func(t *testing.T) {
-			objStream := randObjectStream(testrand.BucketName())
+			objStream := randObjectStream(project.ID, testrand.BucketName())
 			obj := createObject(t, objStream, metabase.Retention{})
 
 			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
@@ -4043,7 +4023,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Missing object", func(t *testing.T) {
-			objStream := randObjectStream(lockBucketName)
+			objStream := randObjectStream(project.ID, lockBucketName)
 
 			req := &pb.SetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -4067,7 +4047,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Pending object", func(t *testing.T) {
-			objStream := randObjectStream(lockBucketName)
+			objStream := randObjectStream(project.ID, lockBucketName)
 			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
 				Encryption:   metabasetest.DefaultEncryption,
@@ -4114,7 +4094,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
 			bucketName := createBucket(t, false)
-			obj := createObject(t, randObjectStream(bucketName), metabase.Retention{})
+			obj := createObject(t, randObjectStream(project.ID, bucketName), metabase.Retention{})
 			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte(obj.BucketName),
@@ -4129,7 +4109,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			endpoint.SetUseBucketLevelObjectLock(false)
 			defer endpoint.SetUseBucketLevelObjectLock(true)
 
-			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			obj := createObject(t, objStream, metabase.Retention{})
 
 			req := &pb.SetObjectRetentionRequest{
@@ -4156,7 +4136,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 			require.NoError(t, err)
 
-			objStream, retention := randObjectStream(lockBucketName), randRetention()
+			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			obj := createObject(t, objStream, metabase.Retention{})
 
 			req := &pb.SetObjectRetentionRequest{
@@ -4204,16 +4184,6 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 			require.WithinDuration(t, expected.RetainUntil, actual.RetainUntil, time.Microsecond)
 		}
 
-		randObjectStream := func(bucketName string) metabase.ObjectStream {
-			return metabase.ObjectStream{
-				ProjectID:  project.ID,
-				BucketName: metabase.BucketName(bucketName),
-				ObjectKey:  metabasetest.RandObjectKey(),
-				Version:    metabase.Version(1 + rand.Int31n(math.MaxInt32-10)),
-				StreamID:   testrand.UUID(),
-			}
-		}
-
 		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
 			object, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
@@ -4228,8 +4198,8 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 			return object
 		}
 
-		lockedObj := createObject(t, randObjectStream(testrand.BucketName()), randRetention())
-		plainObj := createObject(t, randObjectStream(testrand.BucketName()), metabase.Retention{})
+		lockedObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), randRetention())
+		plainObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), metabase.Retention{})
 
 		t.Run("GetObject", func(t *testing.T) {
 			getLockedObj := &pb.GetObjectRequest{
@@ -4311,10 +4281,189 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 	})
 }
 
+func TestEndpoint_TestEndpoint_DeleteLockedObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectLock = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const unauthorizedErrMsg = "Unauthorized API credentials"
+
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		getObject := func(bucketName, key string) metabase.Object {
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, o := range objects {
+				if o.Location() == (metabase.ObjectLocation{
+					ProjectID:  project.ID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(key),
+				}) {
+					return o
+				}
+			}
+			return metabase.Object{}
+		}
+
+		requireObject := func(t *testing.T, bucketName, key string) {
+			obj := getObject(bucketName, key)
+			require.NotZero(t, obj)
+		}
+
+		requireNoObject := func(t *testing.T, bucketName, key string) {
+			obj := getObject(bucketName, key)
+			require.Zero(t, obj)
+		}
+
+		createBucket := func(t *testing.T, name string, lockEnabled bool) {
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:              name,
+				ProjectID:         project.ID,
+				Versioning:        buckets.VersioningEnabled,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+		}
+
+		type testOpts struct {
+			bucketName        string
+			retentionDuration time.Duration
+			expectError       bool
+		}
+
+		test := func(t *testing.T, opts testOpts) {
+			fn := func(useExactVersion bool) {
+				objStream := randObjectStream(project.ID, opts.bucketName)
+
+				object, _ := metabasetest.CreateObjectWithRetention(
+					ctx, t, db, objStream, 0, time.Now().Add(opts.retentionDuration),
+				)
+
+				var version []byte
+				if useExactVersion {
+					version = object.StreamVersionID().Bytes()
+				}
+
+				_, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:             []byte(objStream.BucketName),
+					EncryptedObjectKey: []byte(objStream.ObjectKey),
+					ObjectVersion:      version,
+				})
+
+				if opts.expectError {
+					require.Error(t, err)
+					rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
+					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
+					return
+				}
+				require.NoError(t, err)
+				requireNoObject(t, opts.bucketName, string(objStream.ObjectKey))
+			}
+
+			t.Run("Exact version", func(t *testing.T) { fn(true) })
+			t.Run("Last committed version", func(t *testing.T) { fn(false) })
+		}
+
+		t.Run("Object Lock enabled for bucket", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			createBucket(t, bucketName, true)
+
+			t.Run("Active retention - Committed", func(t *testing.T) {
+				test(t, testOpts{
+					bucketName:        bucketName,
+					retentionDuration: time.Hour,
+					expectError:       true,
+				})
+			})
+
+			t.Run("Active retention - Pending", func(t *testing.T) {
+				objectKey := metabasetest.RandObjectKey()
+
+				beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:             []byte(bucketName),
+					EncryptedObjectKey: []byte(objectKey),
+					EncryptionParameters: &pb.EncryptionParameters{
+						CipherSuite: pb.CipherSuite_ENC_AESGCM,
+					},
+					Retention: &pb.Retention{
+						Mode:        pb.Retention_COMPLIANCE,
+						RetainUntil: time.Now().Add(time.Hour),
+					},
+				})
+				require.NoError(t, err)
+
+				_, err = endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:             []byte(bucketName),
+					EncryptedObjectKey: []byte(objectKey),
+					StreamId:           &beginResp.StreamId,
+					Status:             int32(metabase.Pending),
+				})
+				require.NoError(t, err)
+
+				requireNoObject(t, bucketName, string(objectKey))
+			})
+
+			t.Run("Expired retention", func(t *testing.T) {
+				test(t, testOpts{
+					bucketName:        bucketName,
+					retentionDuration: -time.Minute,
+				})
+			})
+		})
+
+		t.Run("Object Lock disabled for bucket", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			createBucket(t, bucketName, false)
+
+			t.Run("Active retention", func(t *testing.T) {
+				test(t, testOpts{
+					bucketName:        bucketName,
+					retentionDuration: time.Hour,
+				})
+			})
+
+			t.Run("Expired retention", func(t *testing.T) {
+				test(t, testOpts{
+					bucketName:        bucketName,
+					retentionDuration: -time.Minute,
+				})
+			})
+		})
+	})
+}
+
 func randRetention() metabase.Retention {
 	randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
 	return metabase.Retention{
 		Mode:        storj.ComplianceMode,
 		RetainUntil: time.Now().Add(time.Hour + randDur),
+	}
+}
+
+func randObjectStream(projectID uuid.UUID, bucketName string) metabase.ObjectStream {
+	return metabase.ObjectStream{
+		ProjectID:  projectID,
+		BucketName: metabase.BucketName(bucketName),
+		ObjectKey:  metabasetest.RandObjectKey(),
+		// math.MaxInt32-10 gives room for 10 subsequent versions to be
+		// created before reaching the limit of pb.Object.Version.
+		Version:  metabase.Version(1 + rand.Int31n(math.MaxInt32-10)),
+		StreamID: testrand.UUID(),
 	}
 }
