@@ -2664,7 +2664,9 @@ func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.O
 	}, nil
 }
 
-// FinishCopyObject accepts new encryption keys for object copy and updates the corresponding object ObjectKey and segments EncryptedKey.
+// FinishCopyObject accepts new encryption keys for object copy and
+// updates the corresponding object ObjectKey and segments EncryptedKey.
+// It optionally sets retention mode and period on the new object.
 func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFinishCopyRequest) (resp *pb.ObjectFinishCopyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2674,21 +2676,44 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	now := time.Now()
+
+	actions := []VerifyPermission{
+		{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedMetadataKey,
+				Time:          now,
+			},
+		},
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionWrite,
-		Time:          time.Now(),
-		Bucket:        req.NewBucket,
-		EncryptedPath: req.NewEncryptedMetadataKey,
-	}, console.RateLimitPut)
+	retention, err := protobufRetentionToMetabase(req.Retention)
+	if err != nil {
+		return nil, err
+	}
+
+	if retention.Enabled() {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionLock,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedMetadataKey,
+				Time:          now,
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, actions...)
 	if err != nil {
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	}
 
 	err = endpoint.validateBucketNameLength(req.NewBucket)
 	if err != nil {
@@ -2699,13 +2724,36 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, err
 	}
 
-	bucketVersioning, err := endpoint.buckets.GetBucketVersioningState(ctx, req.NewBucket, keyInfo.ProjectID)
-	if err != nil {
-		if buckets.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+	var versioningEnabled bool
+
+	if retention.Enabled() {
+		enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.NewBucket, keyInfo.ProjectID)
+		if err != nil {
+			if buckets.ErrBucketNotFound.Has(err) {
+				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+			}
+			endpoint.log.Error("unable to check whether bucket has Object Lock enabled", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
 		}
-		endpoint.log.Error("unable to check bucket versioning state", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
+		if !enabled {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+		}
+		versioningEnabled = true
+	} else {
+		state, err := endpoint.buckets.GetBucketVersioningState(ctx, req.NewBucket, keyInfo.ProjectID)
+		if err != nil {
+			if buckets.ErrBucketNotFound.Has(err) {
+				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+			}
+			endpoint.log.Error("unable to check bucket versioning state", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
+		}
+		versioningEnabled = state == buckets.VersioningEnabled
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	streamUUID, err := uuid.FromBytes(streamID.StreamId)
@@ -2738,7 +2786,9 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		// TODO(ver): currently we always allow deletion, to not change behaviour.
 		NewDisallowDelete: false,
 
-		NewVersioned: bucketVersioning == buckets.VersioningEnabled,
+		NewVersioned: versioningEnabled,
+
+		Retention: retention,
 
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
