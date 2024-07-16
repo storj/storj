@@ -93,6 +93,9 @@ async function onSubmit(): Promise<string> {
 
     return await stripe.value.createToken(cardElement.value).then((result: TokenResult) => {
         if (result.error) {
+            if (result.error.type === 'invalid_request_error') {
+                throw new Error('Unable to add card');
+            }
             throw result.error;
         }
 

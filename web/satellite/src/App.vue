@@ -124,7 +124,9 @@ async function setup() {
             abTestingStore.fetchValues(),
         ];
         if (configStore.state.config.billingFeaturesEnabled) {
-            promises.push(billingStore.setupAccount());
+            promises.push(billingStore.setupAccount().catch((e) => {
+                notify.notifyError(e, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }));
             promises.push(getPricingPlansAvailable());
         }
         await Promise.all(promises);

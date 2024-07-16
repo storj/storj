@@ -23,6 +23,9 @@ type Accounts interface {
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (CouponType, error)
 
+	// EnsureUserHasCustomer creates a stripe customer for userID if non exists.
+	EnsureUserHasCustomer(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) error
+
 	// SaveBillingAddress saves billing address for a user and returns the updated billing information.
 	SaveBillingAddress(ctx context.Context, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
 

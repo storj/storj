@@ -475,6 +475,11 @@ func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Ba
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
+	if err != nil {
+		return payments.Balance{}, Error.Wrap(err)
+	}
+
 	return payment.service.accounts.Balances().Get(ctx, user.ID)
 }
 
@@ -483,6 +488,11 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -514,6 +524,11 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 	defer mon.Task()(&ctx, pmID)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -623,6 +638,11 @@ func (payment Payments) ListCreditCards(ctx context.Context) (_ []payments.Credi
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "list credit cards")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

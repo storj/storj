@@ -67,6 +67,10 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 		customer, err := accounts.service.stripeClient.Customers().New(params)
 		if err != nil {
+			stripeErr := &stripe.Error{}
+			if errors.As(err, &stripeErr) {
+				err = errs.Wrap(errors.New(stripeErr.Msg))
+			}
 			return couponType, Error.Wrap(err)
 		}
 
@@ -98,11 +102,34 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 	customer, err := accounts.service.stripeClient.Customers().New(params)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return couponType, Error.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+}
+
+// EnsureUserHasCustomer creates a stripe customer for userID if non exists.
+func (accounts *accounts) EnsureUserHasCustomer(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	_, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		if !errors.Is(err, ErrNoCustomer) {
+			return Error.Wrap(err)
+		}
+
+		_, err = accounts.Setup(ctx, userID, email, signupPromoCode)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
 // ChangeEmail changes a customer's email address.

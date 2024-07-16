@@ -268,6 +268,31 @@ func TestService(t *testing.T) {
 				require.Equal(t, stripeLib.InvoiceStatusPaid, inv.Status)
 			})
 
+			t.Run("EnsureUserHasCustomer", func(t *testing.T) {
+				// test that a user without associated stripe customer can still
+				// add a credit card.
+				user, err := sat.API.DB.Console().Users().Insert(ctx, &console.User{
+					ID:           testrand.UUID(),
+					Email:        "credituser@storj.io",
+					PasswordHash: []byte("password"),
+				})
+				require.NoError(t, err)
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				customerID, err := sat.API.DB.StripeCoinPayments().Customers().GetCustomerID(userCtx, user.ID)
+				require.ErrorIs(t, err, stripe.ErrNoCustomer)
+				require.Empty(t, customerID)
+
+				// add a credit card to put the user in the paid tier
+				_, err = service.Payments().AddCreditCard(userCtx, "test-cc-token")
+				require.NoError(t, err)
+
+				customerID, err = sat.API.DB.StripeCoinPayments().Customers().GetCustomerID(userCtx, user.ID)
+				require.NoError(t, err)
+				require.NotEmpty(t, customerID)
+			})
+
 			t.Run("AddCreditCardByPaymentMethodID", func(t *testing.T) {
 				// user should be in free tier
 				user, userCtx3 := getOwnerAndCtx(ctx, up3Proj)
