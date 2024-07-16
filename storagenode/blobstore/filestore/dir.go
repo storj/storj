@@ -50,6 +50,13 @@ type Dir struct {
 	log  *zap.Logger
 	path string
 
+	// blobsdir is the sub-directory containing the blobs.
+	blobsdir string
+	// tempdir is used for temp files prior to being moved into blobsdir.
+	tempdir string
+	// trashdir contains files staged for deletion for a period of time.
+	trashdir string
+
 	mu   sync.Mutex
 	info atomic.Pointer[infoAge]
 }
@@ -63,25 +70,23 @@ type infoAge struct {
 
 // OpenDir opens existing folder for storing blobs.
 func OpenDir(log *zap.Logger, path string, now time.Time) (*Dir, error) {
-	dir := &Dir{
-		log:  log,
-		path: path,
-	}
+	dir := &Dir{log: log}
+	dir.setPath(path)
 
 	stat := func(path string) error {
 		_, err := os.Stat(path)
 		return err
 	}
 	err := errs.Combine(
-		stat(dir.blobsdir()),
-		stat(dir.tempdir()),
-		stat(dir.trashdir()),
+		stat(dir.blobsdir),
+		stat(dir.tempdir),
+		stat(dir.trashdir),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	indicatorFile := filepath.Join(dir.trashdir(), TrashUsesDayDirsIndicator)
+	indicatorFile := filepath.Join(dir.trashdir, TrashUsesDayDirsIndicator)
 	if stat(indicatorFile) != nil {
 		err = dir.migrateTrashToPerDayDirs(now)
 		if err != nil {
@@ -98,22 +103,20 @@ func OpenDir(log *zap.Logger, path string, now time.Time) (*Dir, error) {
 
 // NewDir returns folder for storing blobs.
 func NewDir(log *zap.Logger, path string) (dir *Dir, err error) {
-	dir = &Dir{
-		log:  log,
-		path: path,
-	}
+	dir = &Dir{log: log}
+	dir.setPath(path)
 
 	err = errs.Combine(
-		os.MkdirAll(dir.blobsdir(), dirPermission),
-		os.MkdirAll(dir.tempdir(), dirPermission),
-		os.MkdirAll(dir.trashdir(), dirPermission),
+		os.MkdirAll(dir.blobsdir, dirPermission),
+		os.MkdirAll(dir.tempdir, dirPermission),
+		os.MkdirAll(dir.trashdir, dirPermission),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	// this should fail if the file already exists; thus, O_EXCL, and we can't use os.WriteFile for it
-	f, err := os.OpenFile(filepath.Join(dir.trashdir(), TrashUsesDayDirsIndicator), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filepath.Join(dir.trashdir, TrashUsesDayDirsIndicator), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -127,20 +130,19 @@ func NewDir(log *zap.Logger, path string) (dir *Dir, err error) {
 // Path returns the directory path.
 func (dir *Dir) Path() string { return dir.path }
 
-// blobsdir is the sub-directory containing the blobs.
-func (dir *Dir) blobsdir() string { return filepath.Join(dir.path, "blobs") }
+func (dir *Dir) setPath(path string) {
+	dir.path = path
 
-// tempdir is used for temp files prior to being moved into blobsdir.
-func (dir *Dir) tempdir() string { return filepath.Join(dir.path, "temp") }
-
-// trashdir contains files staged for deletion for a period of time.
-func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
+	dir.blobsdir = filepath.Join(path, "blobs")
+	dir.tempdir = filepath.Join(path, "temp")
+	dir.trashdir = filepath.Join(path, "trash")
+}
 
 // trashPath returns the toplevel trash directory for the given namespace and timestamp.
 func (dir *Dir) trashPath(namespace []byte, forTime time.Time) string {
 	namespaceStr := PathEncoding.EncodeToString(namespace)
 	dayDirName := forTime.UTC().Format("2006-01-02")
-	return filepath.Join(dir.trashdir(), namespaceStr, dayDirName)
+	return filepath.Join(dir.trashdir, namespaceStr, dayDirName)
 }
 
 // refToTrashPath converts a blob reference to a filepath in the trash hierarchy with the given timestamp.
@@ -190,7 +192,7 @@ func (dir *Dir) Verify(ctx context.Context, id storj.NodeID) error {
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory.
 func (dir *Dir) CreateTemporaryFile(ctx context.Context) (_ *os.File, err error) {
-	file, err := os.CreateTemp(dir.tempdir(), "blob-*.partial")
+	file, err := os.CreateTemp(dir.tempdir, "blob-*.partial")
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +234,7 @@ func (dir *Dir) DeleteTemporary(ctx context.Context, file *os.File) (err error) 
 // part of the filepath is constant, and blobPathForFormatVersion may need to be called multiple
 // times with different storage.FormatVersion values.
 func (dir *Dir) blobToBasePath(ref blobstore.BlobRef) (string, error) {
-	return dir.refToDirPath(ref, dir.blobsdir())
+	return dir.refToDirPath(ref, dir.blobsdir)
 }
 
 // refToDirPath converts a blob reference to a filepath in the specified sub-directory.
@@ -567,7 +569,7 @@ func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err
 	})
 	errorsEncountered.Add(err)
 	namespaceEncoded := PathEncoding.EncodeToString(namespace)
-	namespaceTrashDir := filepath.Join(dir.trashdir(), namespaceEncoded)
+	namespaceTrashDir := filepath.Join(dir.trashdir, namespaceEncoded)
 	err = removeButIgnoreIfNotExist(namespaceTrashDir)
 	errorsEncountered.Add(err)
 	return errorsEncountered.Err()
@@ -609,7 +611,7 @@ func (dir *Dir) walkTrashDayDir(ctx context.Context, namespace []byte, dirTime t
 
 func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTimes []time.Time, err error) {
 	namespaceEncoded := PathEncoding.EncodeToString(namespace)
-	namespaceTrashDir := filepath.Join(dir.trashdir(), namespaceEncoded)
+	namespaceTrashDir := filepath.Join(dir.trashdir, namespaceEncoded)
 	openDir, err := os.Open(namespaceTrashDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -749,13 +751,13 @@ var monDeleteWithStorageFormat = mon.Task()
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
 	defer monDeleteWithStorageFormat(&ctx)(&err)
 
-	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)
+	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir, ref, formatVer)
 }
 
 // DeleteNamespace deletes blobs folder for a specific namespace.
 func (dir *Dir) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.deleteNamespace(ctx, dir.blobsdir(), ref)
+	return dir.deleteNamespace(ctx, dir.blobsdir, ref)
 }
 
 var monDeleteWithStorageFormatInPath = mon.Task()
@@ -791,14 +793,14 @@ const nameBatchSize = 1024
 // guaranteed to contain any blobs.
 func (dir *Dir) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.listNamespacesInPath(ctx, dir.blobsdir())
+	return dir.listNamespacesInPath(ctx, dir.blobsdir)
 }
 
 // listNamespacesInTrash lists all known the namespace IDs in use in the trash. They are
 // not guaranteed to contain any blobs, or to correspond to namespaces in main storage.
 func (dir *Dir) listNamespacesInTrash(ctx context.Context) (ids [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.listNamespacesInPath(ctx, dir.trashdir())
+	return dir.listNamespacesInPath(ctx, dir.trashdir)
 }
 
 func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]byte, err error) {
@@ -837,7 +839,7 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 // canceling iteration early.
 func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.walkNamespaceInPath(ctx, namespace, dir.blobsdir(), startFromPrefix, walkFunc)
+	return dir.walkNamespaceInPath(ctx, namespace, dir.blobsdir, startFromPrefix, walkFunc)
 }
 
 func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path, startPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
@@ -941,8 +943,8 @@ func (dir *Dir) migrateTrashToPerDayDirs(now time.Time) (err error) {
 	for _, ns := range namespaces {
 		nsEncoded := PathEncoding.EncodeToString(ns)
 		todayDirName := now.Format("2006-01-02")
-		nsPath := filepath.Join(dir.trashdir(), nsEncoded)
-		tempTodayDirPath := filepath.Join(dir.trashdir(), nsEncoded+"-"+todayDirName)
+		nsPath := filepath.Join(dir.trashdir, nsEncoded)
+		tempTodayDirPath := filepath.Join(dir.trashdir, nsEncoded+"-"+todayDirName)
 		dir.log.Info("migrating trash namespace to use per-day directories", zap.String("namespace", nsEncoded))
 		err = os.Rename(nsPath, tempTodayDirPath)
 		if err != nil {

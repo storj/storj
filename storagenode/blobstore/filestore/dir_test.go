@@ -207,7 +207,7 @@ func TestNewDirCreation(t *testing.T) {
 	dir, err := NewDir(log, storeDir)
 	require.NoError(t, err)
 
-	stat, err := os.Stat(filepath.Join(dir.trashdir(), TrashUsesDayDirsIndicator))
+	stat, err := os.Stat(filepath.Join(dir.trashdir, TrashUsesDayDirsIndicator))
 	require.NoError(t, err)
 	assert.False(t, stat.IsDir())
 	assert.Greater(t, stat.Size(), int64(0))
@@ -378,7 +378,7 @@ func BenchmarkDir_WalkNamespace(b *testing.B) {
 	for i := uint16(0); i < 32*32; i++ {
 		keyPrefix := numToBase32Prefix(i)
 		namespace := PathEncoding.EncodeToString(satelliteID.Bytes())
-		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir(), namespace, keyPrefix), 0700))
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir, namespace, keyPrefix), 0700))
 	}
 	b.Run("1024-prefixes", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -393,7 +393,7 @@ func BenchmarkDir_WalkNamespace(b *testing.B) {
 	for i := uint16(0); i < 32*2; i++ {
 		keyPrefix := numToBase32Prefix(i)
 		namespace := PathEncoding.EncodeToString(satelliteID2.Bytes())
-		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir(), namespace, keyPrefix), 0700))
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir, namespace, keyPrefix), 0700))
 	}
 	b.Run("64-prefixes", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -408,7 +408,7 @@ func BenchmarkDir_WalkNamespace(b *testing.B) {
 	for i := uint16(0); i < 32*16; i++ {
 		keyPrefix := numToBase32Prefix(i)
 		namespace := PathEncoding.EncodeToString(satelliteID3.Bytes())
-		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir(), namespace, keyPrefix), 0700))
+		require.NoError(b, os.MkdirAll(filepath.Join(dir.blobsdir, namespace, keyPrefix), 0700))
 	}
 	b.Run("512-prefixes", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
