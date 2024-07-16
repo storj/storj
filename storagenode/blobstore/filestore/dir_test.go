@@ -462,3 +462,34 @@ func numToBase32Prefix(n uint16) string {
 	binary.BigEndian.PutUint16(b[:], n<<6)
 	return PathEncoding.EncodeToString(b[:])[:2]
 }
+
+var sink string
+
+func BenchmarkDir_refTo(b *testing.B) {
+	ctx := testcontext.New(b)
+	log := zaptest.NewLogger(b)
+
+	root := ctx.Dir("store")
+	dir, err := NewDir(log, root)
+	require.NoError(b, err)
+
+	ref := blobstore.BlobRef{
+		Namespace: testrand.Bytes(32),
+		Key:       testrand.Bytes(32),
+	}
+	now := time.Now()
+
+	b.Run("DirPath", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			sink, _ = dir.refToDirPath(ref, "blobs")
+		}
+	})
+
+	b.Run("TrashPath", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			sink, _ = dir.refToTrashPath(ref, now)
+		}
+	})
+}

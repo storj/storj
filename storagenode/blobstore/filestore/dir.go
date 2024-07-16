@@ -17,6 +17,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -151,12 +152,12 @@ func (dir *Dir) refToTrashPath(ref blobstore.BlobRef, forTime time.Time) (string
 		return "", blobstore.ErrInvalidBlobRef.New("")
 	}
 
-	key := PathEncoding.EncodeToString(ref.Key)
-	if len(key) < 3 {
-		// ensure we always have enough characters to split [:2] and [2:]
-		key = "11" + key
-	}
-	return filepath.Join(dir.trashPath(ref.Namespace, forTime), key[:2], key[2:]), nil
+	r := make([]byte, 0, len(dir.trashdir)+trashSubdirLength(ref.Namespace)+encodedKeyPathLen(ref.Key))
+	r = append(r, []byte(dir.trashdir)...)
+	r = appendTrashSubdir(r, ref.Namespace, forTime)
+	r = appendEncodedKeyPath(r, ref.Key)
+
+	return unsafe.String(&r[0], len(r)), nil // using unsafe.String here to avoid an allocations.
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
@@ -243,13 +244,13 @@ func (dir *Dir) refToDirPath(ref blobstore.BlobRef, subDir string) (string, erro
 		return "", blobstore.ErrInvalidBlobRef.New("")
 	}
 
-	namespace := PathEncoding.EncodeToString(ref.Namespace)
-	key := PathEncoding.EncodeToString(ref.Key)
-	if len(key) < 3 {
-		// ensure we always have enough characters to split [:2] and [2:]
-		key = "11" + key
-	}
-	return filepath.Join(subDir, namespace, key[:2], key[2:]), nil
+	r := make([]byte, 0, len(subDir)+1+PathEncoding.EncodedLen(len(ref.Namespace))+encodedKeyPathLen(ref.Key))
+	r = append(r, []byte(subDir)...)
+	r = append(r, filepath.Separator)
+	r = base32AppendEncode(r, ref.Namespace)
+	r = appendEncodedKeyPath(r, ref.Key)
+
+	return unsafe.String(&r[0], len(r)), nil // using unsafe.String here to avoid an allocations.
 }
 
 func (dir *Dir) findBlobInTrash(ctx context.Context, ref blobstore.BlobRef) (dirTime time.Time, formatVer blobstore.FormatVersion, path string, err error) {
@@ -1157,4 +1158,59 @@ func isDigit(r byte) bool {
 
 func isLetter(r byte) bool {
 	return ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z')
+}
+
+func trashSubdirLength(namespace []byte) int {
+	return 1 + PathEncoding.EncodedLen(len(namespace)) + 1 + 10
+}
+
+// appendTrashSubdir appends the trash directory for the given namespace and timestamp.
+func appendTrashSubdir(r []byte, namespace []byte, forTime time.Time) []byte {
+	r = append(r, filepath.Separator)
+	r = base32AppendEncode(r, namespace)
+
+	r = append(r, filepath.Separator)
+	r = forTime.UTC().AppendFormat(r, "2006-01-02")
+
+	return r
+}
+
+func encodedKeyPathLen(key []byte) int {
+	n := PathEncoding.EncodedLen(len(key))
+	if n < 3 {
+		n += 2
+	}
+	return 2 + n
+}
+
+func appendEncodedKeyPath(r, key []byte) []byte {
+	r = append(r, filepath.Separator)
+
+	// The following implements creating subdirecotries,
+	// but without creating intermediate strings
+	//   key := PathEncoding.EncodeToString(ref.Key)
+	//   if len(key) <= 3 { key = "11' + key }
+	//   r = r + "/" + key[:2] + "/" + key[2:]
+
+	at := len(r)
+	r = append(r, 0) // sentinel
+	if PathEncoding.EncodedLen(len(key)) < 3 {
+		// ensure we always have enough characters to split [:2] and [2:]
+		r = append(r, '1', '1')
+	}
+	r = base32AppendEncode(r, key)
+
+	r[at] = r[at+1]
+	r[at+1] = r[at+2]
+	r[at+2] = filepath.Separator
+
+	return r
+}
+
+func base32AppendEncode(dst, src []byte) []byte {
+	// This duplicates PathEncoding.AppendEncode, which is available in Go 1.22+.
+	n := PathEncoding.EncodedLen(len(src))
+	dst = slices.Grow(dst, n)
+	PathEncoding.Encode(dst[len(dst):][:n], src)
+	return dst[:len(dst)+n]
 }
