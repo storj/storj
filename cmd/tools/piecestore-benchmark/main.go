@@ -308,6 +308,7 @@ func (s *stream) MsgSend(msg drpc.Message, enc drpc.Encoding) error { panic("uni
 func (s *stream) MsgRecv(msg drpc.Message, enc drpc.Encoding) error { panic("unimplemented") }
 func (s *stream) CloseSend() error                                  { panic("unimplemented") }
 func (s *stream) Close() error                                      { panic("unimplemented") }
+func (s *stream) Cancel(err error) bool                             { panic("unimplemented") }
 
 func setConfigStructDefaults(v interface{}) {
 	fs := pflag.NewFlagSet("defaults", pflag.ContinueOnError)
