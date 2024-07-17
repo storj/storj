@@ -203,7 +203,6 @@
                             Storage
                         </v-card-title>
                     </template>
-                    <h5 class="pl-4">{{ getDimension(storageUsage) }}</h5>
                     <StorageChart
                         :width="chartWidth"
                         :height="160"
@@ -241,7 +240,6 @@
                             </v-row>
                         </v-card-title>
                     </template>
-                    <h5 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h5>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="160"
@@ -780,15 +778,6 @@ function formattedValue(value: Size): string {
  */
 function recalculateChartWidth(): void {
     chartWidth.value = chartContainer.value?.$el.getBoundingClientRect().width - 16 || 0;
-}
-
-/**
- * Returns dimension for given data values.
- */
-function getDimension(dataStamps: DataStamp[]): Dimensions {
-    const filteredData = dataStamps.filter(s => !!s);
-    const maxValue = Math.max(...filteredData.map(s => s.value));
-    return new Size(maxValue).label;
 }
 
 /**

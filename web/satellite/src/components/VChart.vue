@@ -30,6 +30,7 @@ ChartJS.register(LineElement, PointElement, VTooltip, Filler, LineController, Ca
 const props = defineProps<{
     chartId: string,
     chartData: ChartData,
+    dataLabel: string,
     tooltipConstructor: (tooltipModel: TooltipModel<ChartType>) => void,
     width: number,
     height: number,
@@ -108,7 +109,8 @@ const chartOptions = computed((): ChartOptions => {
                         const numDigits = ticks[ticks.length - 2].value.toString().length;
 
                         const power = Math.floor((numDigits - 1) / 3);
-                        return (value as number) / Math.pow(1000, power);
+                        const val =  (value as number) / Math.pow(1000, power);
+                        return `${val}${props.dataLabel}`;
                     },
                 },
             },

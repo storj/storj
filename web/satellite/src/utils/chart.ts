@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { DataStamp } from '@/types/projects';
+import { Time } from '@/utils/time';
 
 export class ChartUtils {
     /**
@@ -58,14 +59,14 @@ export class ChartUtils {
 
         // If there is only one day chosen in date picker then we fill array with only one data point label.
         if (since.getTime() === to.getTime()) {
-            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
+            arr.push(Time.formattedDate(since, { day: 'numeric', month: 'short' }));
 
             return arr;
         }
 
         // Fill the data points array with correct data points labels.
         while (since <= to) {
-            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
+            arr.push(Time.formattedDate(since, { day: 'numeric', month: 'short' }));
             since.setDate(since.getDate() + 1);
         }
 

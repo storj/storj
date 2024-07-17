@@ -16,9 +16,10 @@ export class Time {
     /**
      * formattedDate formats given date into US string.
      * @param date
+     * @param options - date formatting options
      */
-    public static formattedDate(date: Date): string {
-        return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    public static formattedDate(date: Date, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
+        return date.toLocaleDateString('en-US', options);
     }
 }
 
