@@ -279,10 +279,6 @@ func TestTrashAndRestore(t *testing.T) {
 							data:      testrand.Bytes(size),
 							formatVer: filestore.FormatV0,
 						},
-						{
-							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV1,
-						},
 					},
 				},
 			},

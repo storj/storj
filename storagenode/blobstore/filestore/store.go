@@ -173,6 +173,11 @@ func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef, timest
 	return Error.Wrap(store.dir.Trash(ctx, ref, timestamp))
 }
 
+// TrashWithStorageFormat marks a blob with a specific storage format for pending deletion.
+func (store *blobStore) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
+	return Error.Wrap(store.dir.TrashWithStorageFormat(ctx, ref, formatVer, timestamp))
+}
+
 // RestoreTrash moves every blob in the trash back into the regular location.
 func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -98,6 +98,14 @@ func (slow *SlowBlobs) Trash(ctx context.Context, ref blobstore.BlobRef, timesta
 	return slow.blobs.Trash(ctx, ref, timestamp)
 }
 
+// TrashWithStorageFormat moves into trash the blob with the namespace, key and specific storage format.
+func (slow *SlowBlobs) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
+	if err := slow.sleep(ctx); err != nil {
+		return errs.Wrap(err)
+	}
+	return slow.blobs.TrashWithStorageFormat(ctx, ref, formatVer, timestamp)
+}
+
 // RestoreTrash restores all files in the trash.
 func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
 	if err := slow.sleep(ctx); err != nil {
