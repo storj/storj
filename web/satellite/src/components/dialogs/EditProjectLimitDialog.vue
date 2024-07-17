@@ -136,7 +136,7 @@
                     </v-col>
                     <v-col>
                         <v-btn color="primary" variant="flat" block :disabled="!hasChanged || !formValid" :loading="isLoading" @click="onSaveClick">
-                            Save
+                            {{ shouldContactSupport ? "Contact support" : "Save" }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -234,13 +234,14 @@ const hasChanged = computed(() => {
 });
 
 /**
- * Returns the maximum amount of bytes that the usage limit can be set to.
+ * If the user's preferred limit is greater than their project limit,
+ * they should contact support.
  */
-const availableUsage = computed<number>(() => {
-    if (props.limitType === LimitToChange.Storage) {
-        return currentLimits.value.storageLimit;
-    }
-    return currentLimits.value.bandwidthLimit;
+const shouldContactSupport = computed<boolean>(() => {
+    const projLimit = props.limitType === LimitToChange.Storage
+        ? currentLimits.value.storageLimit
+        : currentLimits.value.bandwidthLimit;
+    return input.value > projLimit;
 });
 
 /**
@@ -263,12 +264,10 @@ const currentLimitFormatted = computed<string>(() => {
  * Returns an array of validation rules applied to the text input.
  */
 const rules = computed<ValidationRule<string>[]>(() => {
-    const max = availableUsage.value / Memory[activeMeasurement.value];
     return [
         RequiredRule,
         v => v === NO_LIMIT || !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
         v => v === NO_LIMIT || (parseFloat(v) > 0) || 'Number must be positive',
-        v => v === NO_LIMIT || (parseFloat(v) <= max) || 'Number is too large',
     ];
 });
 
@@ -287,6 +286,10 @@ function unSetLimit(): void {
  * Updates project limit.
  */
 async function onSaveClick(): Promise<void> {
+    if (shouldContactSupport.value) {
+        window.open(configStore.state.config.projectLimitsIncreaseRequestURL, '_blank', 'noreferrer');
+        return;
+    }
     if (!formValid.value) return;
     await withLoading(async () => {
         try {

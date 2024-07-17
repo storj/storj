@@ -521,7 +521,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.bandwidth.free: 25.00 GB
 
 # the default paid-tier bandwidth usage limit
-# console.usage-limits.bandwidth.paid: 100.00 TB
+# console.usage-limits.bandwidth.paid: 150.00 TB
 
 # the default free-tier project limit
 # console.usage-limits.project.free: 1
@@ -539,7 +539,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.storage.free: 25.00 GB
 
 # the default paid-tier storage usage limit
-# console.usage-limits.storage.paid: 25.00 TB
+# console.usage-limits.storage.paid: 100.00 TB
 
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
