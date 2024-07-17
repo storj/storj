@@ -13,7 +13,8 @@ import (
 
 // SpannerConfig includes all the configuration required by using spanner.
 type SpannerConfig struct {
-	Database string `help:"Database definition for spanner connection in the form  projects/P/instances/I/databases/DB"`
+	Database        string `help:"Database definition for spanner connection in the form  projects/P/instances/I/databases/DB"`
+	ApplicationName string `help:"Application name to be used in spanner client as a tag for queries and transactions"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -29,7 +30,9 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 		spanner.ClientConfig{
 			Logger:               zap.NewStdLog(log.Named("stdlog")),
 			SessionPoolConfig:    spanner.DefaultSessionPoolConfig,
-			DisableRouteToLeader: false})
+			SessionLabels:        map[string]string{"application_name": cfg.ApplicationName},
+			DisableRouteToLeader: false,
+		})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
