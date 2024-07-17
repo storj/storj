@@ -157,6 +157,12 @@
                 </template>
             </navigation-item>
 
+            <navigation-item v-if="domainsPageEnabled" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
+                <template #prepend>
+                    <IconDomains />
+                </template>
+            </navigation-item>
+
             <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
                 <template #prepend>
                     <IconTeam size="18" />
@@ -268,6 +274,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconProject from '@/components/icons/IconProject.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -288,11 +295,13 @@ import IconFolder from '@/components/icons/IconFolder.vue';
 import IconApplications from '@/components/icons/IconApplications.vue';
 import EnterProjectPassphraseDialog
     from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
+import IconDomains from '@/components/icons/IconDomains.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -307,6 +316,8 @@ const model = computed<boolean>({
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isManagePassphraseDialogShown = ref<boolean>(false);
+
+const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
 
 /**
  * Returns the selected project from the store.
@@ -324,6 +335,8 @@ const accessURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Acces
 const bucketsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Buckets.path}`);
 
 const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Dashboard.path}`);
+
+const domainsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Domains.path}`);
 
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
 

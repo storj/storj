@@ -95,6 +95,10 @@ export function EmailRule(value: string, strict = false): string | boolean {
     return Validator.email(value, strict) || 'E-mail must be valid.';
 }
 
+export function DomainRule(value: string): string | boolean {
+    return Validator.domainName(value) || 'Domain must be valid.';
+}
+
 export function MaxNameLengthRule(value: string): string | boolean {
     const { maxNameCharacters } = useConfigStore().state.config;
 

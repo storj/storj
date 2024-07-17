@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            prepend-inner-icon="mdi-magnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -18,44 +18,48 @@
         />
 
         <v-data-table
-            v-model="selected"
             :sort-by="sortBy"
             :headers="headers"
             :items="domains"
             :search="search"
-            item-value="name"
-            show-select
-            hover
         >
             <template #item.name="{ item }">
                 <v-list-item class="font-weight-bold pl-0">
                     {{ item.name }}
                 </v-list-item>
             </template>
+            <template #item.createdAt="{ item }">
+                <span class="text-no-wrap">
+                    {{ Time.formattedDate(item.createdAt) }}
+                </span>
+            </template>
         </v-data-table>
     </v-card>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VDataTable,
     VCard,
     VTextField,
     VListItem,
 } from 'vuetify/components';
+import { Search } from 'lucide-vue-next';
 
 import { Domain } from '@/types/domains';
+import { useDomainsStore } from '@/store/modules/domainsStore';
+import { Time } from '@/utils/time';
 
 type SortItem = {
     key: keyof Domain;
     order: boolean | 'asc' | 'desc';
 }
 
+const domainsStore = useDomainsStore();
+
 const search = ref<string>('');
-const selected = ref<Domain[]>([]);
 const sortBy = ref<SortItem[] | undefined>([{ key: 'createdAt', order: 'asc' }]);
-const domains = ref<Domain[]>([]);
 
 const headers = [
     {
@@ -63,6 +67,8 @@ const headers = [
         align: 'start',
         key: 'name',
     },
-    { title: 'Date Created', align: '', key: 'date' },
+    { title: 'Date Created', align: '', key: 'createdAt' },
 ];
+
+const domains = computed<Domain[]>(() => domainsStore.state.domains);
 </script>

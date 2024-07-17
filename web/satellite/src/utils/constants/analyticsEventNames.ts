@@ -106,6 +106,7 @@ export enum AnalyticsErrorEventSource {
     EDIT_TIMEOUT_MODAL = 'Edit session timeout error',
     SKIP_PASSPHRASE_MODAL = 'Remember skip passphrase error',
     JOIN_PROJECT_MODAL = 'Join project modal',
+    NEW_DOMAIN_MODAL = 'New domain modal',
     PROJECT_INVITATION = 'Project invitation',
     DETAILED_USAGE_REPORT_MODAL = 'Detailed usage report modal',
     REMOVE_CC_MODAL = 'Remove credit card modal',

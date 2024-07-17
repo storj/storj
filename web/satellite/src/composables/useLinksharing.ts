@@ -75,16 +75,17 @@ export function useLinksharing() {
         return `${linksharingURL.value}/s/${creds.accessKeyId}/${encodeURIComponent(path.trim())}`;
     }
 
-    async function generateCredentials(cleanAPIKey: string, path: string, expiration: Date | null): Promise<EdgeCredentials> {
+    async function generateCredentials(cleanAPIKey: string, path: string, expiration: Date | null, passphrase?: string): Promise<EdgeCredentials> {
         if (!worker.value) throw new Error(WORKER_ERR_MSG);
 
         const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
         const salt = await projectsStore.getProjectSalt(selectedProject.value.id);
+        if (passphrase === undefined) passphrase = bucketsStore.state.passphrase;
 
         worker.value.postMessage({
             'type': 'GenerateAccess',
             'apiKey': cleanAPIKey,
-            'passphrase': bucketsStore.state.passphrase,
+            'passphrase': passphrase,
             'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
@@ -129,6 +130,8 @@ export function useLinksharing() {
     }
 
     return {
+        publicLinksharingURL,
+        generateCredentials,
         generateBucketShareURL,
         generateFileOrFolderShareURL,
         generateObjectPreviewAndMapURL,

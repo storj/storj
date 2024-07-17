@@ -4,13 +4,16 @@
 export class Domain {
     constructor(
         public id: string = '',
-        public name: number = 0,
+        public name: string = '',
         public createdAt: Date = new Date(),
     ) { }
 }
 
 export enum NewDomainFlowStep {
-    CustomDomain,
+    CustomDomain = 1,
+    SetupDomainAccess,
+    EnterNewPassphrase,
+    PassphraseGenerated,
     SetupCNAME,
     SetupTXT,
     VerifyDomain,
