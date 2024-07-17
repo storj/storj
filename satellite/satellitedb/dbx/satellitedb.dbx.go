@@ -33577,7 +33577,7 @@ func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -33664,7 +33664,7 @@ func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -33718,7 +33718,7 @@ func (obj *spannerImpl) Create_StripeCustomer(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -33812,7 +33812,7 @@ func (obj *spannerImpl) Create_BillingTransaction(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -33904,7 +33904,7 @@ func (obj *spannerImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -33967,7 +33967,7 @@ func (obj *spannerImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx contex
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34017,7 +34017,7 @@ func (obj *spannerImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Co
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34259,7 +34259,7 @@ func (obj *spannerImpl) Create_NodeEvent(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34528,7 +34528,7 @@ func (obj *spannerImpl) Create_Reputation(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34773,7 +34773,7 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34849,7 +34849,7 @@ func (obj *spannerImpl) Create_ProjectMember(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34901,7 +34901,7 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -34985,7 +34985,7 @@ func (obj *spannerImpl) Create_ApiKey(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35095,7 +35095,7 @@ func (obj *spannerImpl) Create_BucketMetainfo(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35147,7 +35147,7 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35349,7 +35349,7 @@ func (obj *spannerImpl) Create_User(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35403,7 +35403,7 @@ func (obj *spannerImpl) Create_WebappSession(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35455,7 +35455,7 @@ func (obj *spannerImpl) Create_RegistrationToken(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35505,7 +35505,7 @@ func (obj *spannerImpl) Create_ResetPasswordToken(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35589,7 +35589,7 @@ func (obj *spannerImpl) Replace_AccountFreezeEvent(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -35765,7 +35765,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND ((storagenode_bandwidth_rollups.storagenode_id) > ? OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) > ?) OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) = ? AND (storagenode_bandwidth_rollups.action) > ?)) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id > ? OR (storagenode_bandwidth_rollups.storagenode_id = ? AND (storagenode_bandwidth_rollups.interval_start > ? OR (storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action > ?)))) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
@@ -35774,14 +35774,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_storagenode_id)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_storagenode_id, start._value_storagenode_id, start._value_interval_start, start._value_interval_start, start._value_action,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -35789,29 +35785,41 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-	__continuation._set = true
+			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
-		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, storagenode_bandwidth_rollup)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -35825,7 +35833,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? AND ((storagenode_bandwidth_rollups.storagenode_id) > ? OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) > ?) OR ((storagenode_bandwidth_rollups.storagenode_id) = ? AND (storagenode_bandwidth_rollups.interval_start) = ? AND (storagenode_bandwidth_rollups.action) > ?)) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id > ? OR (storagenode_bandwidth_rollups.storagenode_id = ? AND (storagenode_bandwidth_rollups.interval_start > ? OR (storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action > ?)))) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
 
@@ -35834,14 +35842,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_storagenode_id)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_storagenode_id, start._value_storagenode_id, start._value_interval_start, start._value_interval_start, start._value_action,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -35849,29 +35853,41 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-	__continuation._set = true
+			var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
-		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, storagenode_bandwidth_rollup)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -35884,7 +35900,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND ((storagenode_bandwidth_rollup_archives.storagenode_id) > ? OR ((storagenode_bandwidth_rollup_archives.storagenode_id) = ? AND (storagenode_bandwidth_rollup_archives.interval_start) > ?) OR ((storagenode_bandwidth_rollup_archives.storagenode_id) = ? AND (storagenode_bandwidth_rollup_archives.interval_start) = ? AND (storagenode_bandwidth_rollup_archives.action) > ?)) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND (storagenode_bandwidth_rollup_archives.storagenode_id > ? OR (storagenode_bandwidth_rollup_archives.storagenode_id = ? AND (storagenode_bandwidth_rollup_archives.interval_start > ? OR (storagenode_bandwidth_rollup_archives.interval_start = ? AND storagenode_bandwidth_rollup_archives.action > ?)))) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
 
@@ -35893,14 +35909,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_storagenode_id)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_storagenode_id, start._value_storagenode_id, start._value_interval_start, start._value_interval_start, start._value_action,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -35908,29 +35920,41 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-	__continuation._set = true
+			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
-		err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+			for __rows.Next() {
+				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, storagenode_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, storagenode_bandwidth_rollup_archive)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -35944,7 +35968,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND ((storagenode_bandwidth_rollups_phase2.storagenode_id) > ? OR ((storagenode_bandwidth_rollups_phase2.storagenode_id) = ? AND (storagenode_bandwidth_rollups_phase2.interval_start) > ?) OR ((storagenode_bandwidth_rollups_phase2.storagenode_id) = ? AND (storagenode_bandwidth_rollups_phase2.interval_start) = ? AND (storagenode_bandwidth_rollups_phase2.action) > ?)) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND (storagenode_bandwidth_rollups_phase2.storagenode_id > ? OR (storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND (storagenode_bandwidth_rollups_phase2.interval_start > ? OR (storagenode_bandwidth_rollups_phase2.interval_start = ? AND storagenode_bandwidth_rollups_phase2.action > ?)))) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
 
@@ -35953,14 +35977,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_storagenode_id)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start)
-
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_storagenode_id, start._value_storagenode_id, start._value_interval_start, start._value_interval_start, start._value_action,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -35968,29 +35988,41 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-	__continuation._set = true
+			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
-		err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+			for __rows.Next() {
+				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, storagenode_bandwidth_rollup_phase2)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, storagenode_bandwidth_rollup_phase2)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -36097,7 +36129,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND ((bucket_bandwidth_rollups.project_id) > ? OR ((bucket_bandwidth_rollups.project_id) = ? AND (bucket_bandwidth_rollups.bucket_name) > ?) OR ((bucket_bandwidth_rollups.project_id) = ? AND (bucket_bandwidth_rollups.bucket_name) = ? AND (bucket_bandwidth_rollups.interval_start) > ?) OR ((bucket_bandwidth_rollups.project_id) = ? AND (bucket_bandwidth_rollups.bucket_name) = ? AND (bucket_bandwidth_rollups.interval_start) = ? AND (bucket_bandwidth_rollups.action) > ?)) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id > ? OR (bucket_bandwidth_rollups.project_id = ? AND (bucket_bandwidth_rollups.bucket_name > ? OR (bucket_bandwidth_rollups.bucket_name = ? AND (bucket_bandwidth_rollups.interval_start > ? OR (bucket_bandwidth_rollups.interval_start = ? AND bucket_bandwidth_rollups.action > ?)))))) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
@@ -36106,16 +36138,10 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_project_id)
-
-		__values = append(__values, start._value_project_id, start._value_bucket_name)
-
-		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start)
-
-		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_project_id, start._value_project_id, start._value_bucket_name, start._value_bucket_name, start._value_interval_start, start._value_interval_start, start._value_action,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -36123,29 +36149,41 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-	__continuation._set = true
+			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-		err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
+			for __rows.Next() {
+				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, bucket_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, bucket_bandwidth_rollup)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -36158,7 +36196,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND ((bucket_bandwidth_rollup_archives.bucket_name) > ? OR ((bucket_bandwidth_rollup_archives.bucket_name) = ? AND (bucket_bandwidth_rollup_archives.project_id) > ?) OR ((bucket_bandwidth_rollup_archives.bucket_name) = ? AND (bucket_bandwidth_rollup_archives.project_id) = ? AND (bucket_bandwidth_rollup_archives.interval_start) > ?) OR ((bucket_bandwidth_rollup_archives.bucket_name) = ? AND (bucket_bandwidth_rollup_archives.project_id) = ? AND (bucket_bandwidth_rollup_archives.interval_start) = ? AND (bucket_bandwidth_rollup_archives.action) > ?)) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name > ? OR (bucket_bandwidth_rollup_archives.bucket_name = ? AND (bucket_bandwidth_rollup_archives.project_id > ? OR (bucket_bandwidth_rollup_archives.project_id = ? AND (bucket_bandwidth_rollup_archives.interval_start > ? OR (bucket_bandwidth_rollup_archives.interval_start = ? AND bucket_bandwidth_rollup_archives.action > ?)))))) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
 
@@ -36167,16 +36205,10 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_bucket_name)
-
-		__values = append(__values, start._value_bucket_name, start._value_project_id)
-
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start)
-
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_bucket_name, start._value_bucket_name, start._value_project_id, start._value_project_id, start._value_interval_start, start._value_interval_start, start._value_action,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -36184,29 +36216,41 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-	__continuation._set = true
+			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
-		err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+			for __rows.Next() {
+				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, bucket_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, bucket_bandwidth_rollup_archive)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -37279,7 +37323,7 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.id > ? ORDER BY nodes.id LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
@@ -37287,10 +37331,10 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_id)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_id,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -37298,29 +37342,41 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*Node, next *Paged_Node_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_Node_Continuation
-	__continuation._set = true
+			var __continuation Paged_Node_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
+			for __rows.Next() {
+				node := &Node{}
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, node)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, node)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -39090,7 +39146,7 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE ((bucket_metainfos.project_id) > ? OR ((bucket_metainfos.project_id) = ? AND (bucket_metainfos.name) > ?)) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE (bucket_metainfos.project_id > ? OR (bucket_metainfos.project_id = ? AND bucket_metainfos.name > ?)) ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ?")
 
@@ -39098,12 +39154,10 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 
 	var __stmt string
 	if start != nil && start._set {
-
-		__values = append(__values, start._value_project_id)
-
-		__values = append(__values, start._value_project_id, start._value_name)
-
-		__values = append(__values, limit)
+		__values = append(__values,
+			start._value_project_id, start._value_project_id, start._value_name,
+			limit,
+		)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -39111,29 +39165,41 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 	}
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
+	for {
+		rows, next, err = func() (rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-	var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
-	__continuation._set = true
+			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
+			__continuation._set = true
 
-	for __rows.Next() {
-		row := &ProjectId_Name_Row{}
-		err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
+			for __rows.Next() {
+				row := &ProjectId_Name_Row{}
+				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
+				if err != nil {
+					return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, row)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
+
+			return rows, next, nil
+		}()
 		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, row)
-		next = &__continuation
+		return rows, next, nil
 	}
-	if err := __rows.Err(); err != nil {
-		return nil, nil, obj.makeErr(err)
-	}
-
-	return rows, next, nil
 
 }
 
@@ -39869,7 +39935,7 @@ func (obj *spannerImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -39935,7 +40001,7 @@ func (obj *spannerImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -40049,7 +40115,7 @@ func (obj *spannerImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -40113,7 +40179,7 @@ func (obj *spannerImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx 
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -40432,7 +40498,7 @@ func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -40956,7 +41022,7 @@ func (obj *spannerImpl) Update_Reputation_By_Id(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41074,7 +41140,7 @@ func (obj *spannerImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Con
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41472,7 +41538,7 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41537,7 +41603,7 @@ func (obj *spannerImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx conte
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41606,7 +41672,7 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41760,7 +41826,7 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41874,7 +41940,7 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -41988,7 +42054,7 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -42054,7 +42120,7 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -42258,7 +42324,7 @@ func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -42326,7 +42392,7 @@ func (obj *spannerImpl) Update_WebappSession_By_Id(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -42390,7 +42456,7 @@ func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -42463,7 +42529,7 @@ func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
@@ -42547,7 +42613,7 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		}
 		d = tx
 		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(sql.ErrTxDone, txErr) {
+			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()

@@ -18,7 +18,17 @@ Paged_{{ .Suffix }}({{ ctxarg .Args }}, limit, start)
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, {{ .Continuation | rename "start" | flatten | slice 0 -1 | value | comma }}limit)
+		{{- $cursor := .Continuation | rename "start" |  flatten | slice 0 -1 -}}
+		{{- if .SupportsTupleComparison }}
+		__values = append(__values, {{ $cursor | value | comma }}limit)
+		{{- else }}
+		__values = append(__values,
+			{{ range $index, $element := $cursor -}}
+			{{ value $element }}, {{ if ne (add $index 1) (len $cursor) }}{{ value $element }},{{ end }}
+			{{- end }}
+			limit,
+		)
+		{{- end }}
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
