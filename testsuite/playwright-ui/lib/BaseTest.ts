@@ -7,7 +7,6 @@ import { NavigationMenu } from '@pages/NavigationMenu';
 import { BucketsPage } from '@pages/BucketsPage';
 import { SignupPage } from '@pages/SignupPage';
 import { AllProjectsPage } from '@pages/AllProjectsPage';
-import { Common } from '@pages/Common';
 import { ObjectBrowserPage } from '@pages/ObjectBrowserPage';
 
 const test = baseTest.extend<{
@@ -17,7 +16,6 @@ const test = baseTest.extend<{
     bucketsPage: BucketsPage;
     signupPage: SignupPage;
     allProjectsPage: AllProjectsPage;
-    common: Common;
 }>({
     loginPage: async ({ page }, use) => {
         await use(new LoginPage(page));
@@ -36,9 +34,6 @@ const test = baseTest.extend<{
     },
     allProjectsPage: async ({ page }, use) => {
         await use(new AllProjectsPage(page));
-    },
-    common: async ({ page }, use) => {
-        await use(new Common(page));
     },
 });
 

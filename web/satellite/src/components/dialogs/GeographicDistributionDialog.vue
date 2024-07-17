@@ -25,7 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        id="Close"
+                        id="close-geo-distribution"
                         icon="$close"
                         variant="text"
                         size="small"

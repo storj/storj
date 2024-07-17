@@ -10,4 +10,5 @@ export class BucketsPageObjects {
     static SHARE_BUCKET_BUTTON_XPATH = `//div[div[div[text()=' Share Bucket ']]]`;
     static DELETE_BUCKET_BUTTON_XPATH = `//div[div[div[text()=' Delete Bucket ']]]`;
     static CONFIRM_BUTTON_DELETE_BUCKET_FLOW_XPATH = `//button[span[text()=' Delete ']]`;
+    static CLOSE_DETAILS_MODAL_BUTTON_XPATH = `//button[@id='close-bucket-details']`
 }

@@ -27,7 +27,7 @@
 
                 <template #append>
                     <v-btn
-                        id="Close"
+                        id="close-bucket-details"
                         icon="$close"
                         variant="text"
                         size="small"

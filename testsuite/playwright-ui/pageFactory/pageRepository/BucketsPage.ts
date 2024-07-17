@@ -4,7 +4,6 @@
 import { BucketsPageObjects } from '@objects/BucketsPageObjects';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { CommonObjects } from '@objects/CommonObjects';
 import { ObjectBrowserPageObjects } from '@objects/ObjectBrowserPageObjects';
 
 export class BucketsPage {
@@ -28,6 +27,7 @@ export class BucketsPage {
         await this.page.locator(BucketsPageObjects.VIEW_BUCKET_DETAILS_BUTTON_XPATH).click();
         const elems = await this.page.getByText(name).all();
         expect(elems).toHaveLength(2);
+        await this.page.locator(BucketsPageObjects.CLOSE_DETAILS_MODAL_BUTTON_XPATH).click();
     }
 
     async verifyShareBucket(): Promise<void> {
@@ -36,7 +36,7 @@ export class BucketsPage {
         await expect(loader).toBeHidden();
         await this.page.locator(ObjectBrowserPageObjects.COPY_LINK_BUTTON_XPATH).click();
         await this.page.locator('span').filter({ hasText: ObjectBrowserPageObjects.COPIED_TEXT }).isVisible();
-        await this.page.locator(CommonObjects.CLOSE_MODAL_BUTTON_XPATH).click();
+        await this.page.locator(ObjectBrowserPageObjects.CLOSE_SHARE_MODAL_BUTTON_XPATH).click();
     }
 
     async verifyDeleteBucket(name: string): Promise<void> {

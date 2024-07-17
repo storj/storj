@@ -2,5 +2,5 @@
 // See LICENSE for copying information.
 
 export class CommonObjects {
-    static CLOSE_MODAL_BUTTON_XPATH = `//button[@id='Close']`;
+    static CLOSE_ALERT_BUTTON_XPATH = `//button[@aria-label='Close']`
 }

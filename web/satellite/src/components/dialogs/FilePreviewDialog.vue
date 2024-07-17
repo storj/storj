@@ -82,7 +82,7 @@
                             </v-list>
                         </v-menu>
                     </v-btn>
-                    <v-btn id="Close" icon size="small" color="white" @click="model = false">
+                    <v-btn id="close-preview" icon size="small" color="white" @click="model = false">
                         <img src="@/assets/icon-close.svg" width="18" alt="Close">
                         <v-tooltip
                             activator="parent"

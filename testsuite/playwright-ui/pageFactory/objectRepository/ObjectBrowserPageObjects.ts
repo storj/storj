@@ -18,4 +18,7 @@ export class ObjectBrowserPageObjects {
     static CREATE_FOLDER_BUTTON_XPATH = `//button[span[text()=' New Folder ']]`;
     static FOLDER_NAME_INPUT_XPATH = `//input[@id='Folder Name']`;
     static CONFIRM_CREATE_FOLDER_BUTTON_XPATH = `//button[span[text()=' Create Folder ']]`;
+    static CLOSE_SHARE_MODAL_BUTTON_XPATH = `//button[@id='close-share']`
+    static CLOSE_GEO_DIST_MODAL_BUTTON_XPATH = `//button[@id='close-geo-distribution']`
+    static CLOSE_PREVIEW_MODAL_BUTTON_XPATH = `//button[@id='close-preview']`
 }
