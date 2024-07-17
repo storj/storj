@@ -144,6 +144,14 @@ func (bad *BadBlobs) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp
 	return bad.blobs.Trash(ctx, ref, timestamp)
 }
 
+// TrashWithStorageFormat moves into trash the blob with the namespace, key and specific storage format.
+func (bad *BadBlobs) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
+	if err := bad.err.Err(); err != nil {
+		return err
+	}
+	return bad.blobs.TrashWithStorageFormat(ctx, ref, formatVer, timestamp)
+}
+
 // RestoreTrash restores all files in the trash.
 func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
 	if err := bad.err.Err(); err != nil {

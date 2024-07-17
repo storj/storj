@@ -411,10 +411,11 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 		}
 	}
 
-	return Error.Wrap(store.blobs.Trash(ctx, blobstore.BlobRef{
+	// if V0 pieces was found we just migrated it so we can trash piece using specific storage format
+	return Error.Wrap(store.blobs.TrashWithStorageFormat(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}, timestamp))
+	}, filestore.MaxFormatVersionSupported, timestamp))
 }
 
 // EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval.
