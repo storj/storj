@@ -337,6 +337,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
+# whether domains page should be shown
+# console.domains-page-enabled: false
+
 # whether change user email flow is enabled
 # console.email-change-flow-enabled: false
 

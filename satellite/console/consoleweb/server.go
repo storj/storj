@@ -108,6 +108,7 @@ type Config struct {
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
 	AltObjBrowserPagingEnabled      bool          `help:"whether simplified native s3 pagination should be enabled for the huge buckets in the object browser" default:"false"`
+	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -883,6 +884,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
 		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
+		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

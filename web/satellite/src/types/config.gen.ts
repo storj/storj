@@ -64,6 +64,7 @@ export class FrontendConfig {
     selfServeAccountDeleteEnabled: boolean;
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
+    domainsPageEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
