@@ -46,9 +46,8 @@ type FileStore struct {
 	active   map[activeWindow]int
 
 	// mutex for unsent directory
-	unsentMu             sync.Mutex
-	unsentOrdersFileName string
-	unsentOrdersFile     ordersfile.Writable
+	unsentMu          sync.Mutex
+	unsentOrdersFiles map[string]ordersfile.Writable
 	// mutex for archive directory
 	archiveMu sync.Mutex
 
@@ -64,6 +63,7 @@ func NewFileStore(log *zap.Logger, ordersDir string, orderLimitGracePeriod time.
 		unsentDir:             filepath.Join(ordersDir, "unsent"),
 		archiveDir:            filepath.Join(ordersDir, "archive"),
 		active:                make(map[activeWindow]int),
+		unsentOrdersFiles:     make(map[string]ordersfile.Writable),
 		orderLimitGracePeriod: orderLimitGracePeriod,
 	}
 
@@ -76,16 +76,18 @@ func NewFileStore(log *zap.Logger, ordersDir string, orderLimitGracePeriod time.
 }
 
 // Close closes the file store.
-func (store *FileStore) Close() error {
+func (store *FileStore) Close() (err error) {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
 	store.activeMu.Lock()
 	defer store.activeMu.Unlock()
 
-	if store.unsentOrdersFile != nil {
-		return OrderError.Wrap(store.unsentOrdersFile.Close())
+	for fileName, file := range store.unsentOrdersFiles {
+		err = errs.Combine(err, OrderError.Wrap(file.Close()))
+		delete(store.unsentOrdersFiles, fileName)
 	}
-	return nil
+
+	return err
 }
 
 // BeginEnqueue returns a function that can be called to enqueue the passed in Info. If the Info
@@ -142,27 +144,20 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 }
 
 // getWritableUnsent retrieves an already open "unsent orders" file, or otherwise opens a new one.
-// Caller must guarantee to obtain the unset lock before calling this method.
+// Caller must guarantee to obtain the unsent lock before calling this method.
 func (store *FileStore) getWritableUnsent(unsentDir string, satelliteID storj.NodeID, creationTime time.Time) (of ordersfile.Writable, err error) {
 	fileName := ordersfile.UnsentFileName(satelliteID, creationTime, ordersfile.V1)
-	// check whether the active unsent orders file needs to be closed and a new one needs to be opened
-	if fileName != store.unsentOrdersFileName {
-		if store.unsentOrdersFile != nil {
-			err := store.unsentOrdersFile.Close()
-			if err != nil {
-				store.log.Warn("Unable to close unsent orders file", zap.Error(err))
-			}
-		}
+	file, ok := store.unsentOrdersFiles[fileName]
+	if !ok {
 		filePath := filepath.Join(unsentDir, fileName)
-		store.unsentOrdersFile, err = ordersfile.OpenWritableV1(filePath, satelliteID, creationTime)
+		file, err = ordersfile.OpenWritableV1(filePath, satelliteID, creationTime)
 		if err != nil {
 			return nil, OrderError.Wrap(err)
 		}
-		store.unsentOrdersFileName = fileName
+		store.unsentOrdersFiles[fileName] = file
 	}
 
-	// return the active unsent orders file
-	return store.unsentOrdersFile, nil
+	return file, nil
 }
 
 // enqueueStartedLocked records that there is an order pending to be written to the window.
@@ -251,7 +246,7 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 			return nil
 		}
 
-		newUnsentInfo, err := store.getUnsentInfoFromUnsentFile(filepath.Join(store.unsentDir, name), fileInfo)
+		newUnsentInfo, err := store.getUnsentInfoFromUnsentFile(store.unsentDir, name, fileInfo)
 		if err != nil {
 			errList.Add(OrderError.Wrap(err))
 			return nil
@@ -263,13 +258,21 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 	return infoMap, errList.Err()
 }
 
-func (store *FileStore) getUnsentInfoFromUnsentFile(path string, fileInfo *ordersfile.UnsentInfo) (UnsentInfo, error) {
+func (store *FileStore) getUnsentInfoFromUnsentFile(dir, fileName string, fileInfo *ordersfile.UnsentInfo) (UnsentInfo, error) {
 	newUnsentInfo := UnsentInfo{
 		CreatedAtHour: fileInfo.CreatedAtHour,
 		Version:       fileInfo.Version,
 	}
 
-	of, err := ordersfile.OpenReadable(path, fileInfo.Version)
+	// close writable file and delete from map since we are done with it.
+	if file, ok := store.unsentOrdersFiles[fileName]; ok {
+		if err := file.Close(); err != nil {
+			return UnsentInfo{}, OrderError.Wrap(err)
+		}
+		delete(store.unsentOrdersFiles, fileName)
+	}
+
+	of, err := ordersfile.OpenReadable(filepath.Join(dir, fileName), fileInfo.Version)
 	if err != nil {
 		return UnsentInfo{}, OrderError.Wrap(err)
 	}
