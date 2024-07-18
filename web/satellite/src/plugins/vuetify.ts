@@ -47,7 +47,6 @@ export default createVuetify({
             rounded: 'md',
             variant: 'outlined',
             color: 'secondary',
-            centerAffix: true, // Vertically align append and prepend in the center.
         },
         VList: {
             rounded: 'lg',
