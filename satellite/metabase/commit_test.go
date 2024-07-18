@@ -3034,7 +3034,7 @@ func TestCommitObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("commit with retention period", func(t *testing.T) {
+			t.Run("commit with retention configuration", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
@@ -3068,6 +3068,37 @@ func TestCommitObject(t *testing.T) {
 							Retention:    retention,
 						},
 					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("commit with retention configuration and expiration", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				future := time.Now().Add(time.Minute)
+
+				object := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention: metabase.Retention{
+							Mode:        storj.ComplianceMode,
+							RetainUntil: future,
+						},
+						ExpiresAt:           &future,
+						TestingBypassVerify: true,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream: obj,
+					},
+					ErrClass: &metabase.Error,
+					ErrText:  "object expiration must not be set if retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{metabase.RawObject(object)},
 				}.Check(ctx, t, db)
 			})
 		})

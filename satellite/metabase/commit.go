@@ -224,6 +224,11 @@ type BeginObjectExactVersion struct {
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
+
+	// TestingBypassVerify makes the (*DB).TestingBeginObjectExactVersion method skip
+	// validation of this struct's fields. This is useful for inserting intentionally
+	// malformed or unexpected data into the database and testing that we handle it properly.
+	TestingBypassVerify bool
 }
 
 // Verify verifies get object reqest fields.
@@ -258,8 +263,10 @@ func (opts *BeginObjectExactVersion) Verify() error {
 func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.Verify(); err != nil {
-		return Object{}, err
+	if !opts.TestingBypassVerify {
+		if err := opts.Verify(); err != nil {
+			return Object{}, err
+		}
 	}
 
 	if opts.ZombieDeletionDeadline == nil {
@@ -1261,6 +1268,9 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	if err := object.Retention.Verify(); err != nil {
 		return Error.Wrap(err)
 	}
+	if object.Retention.Enabled() && object.ExpiresAt != nil {
+		return Error.New("object expiration must not be set if retention is set")
+	}
 
 	return nil
 }
@@ -1321,6 +1331,9 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 	if err := object.Retention.Verify(); err != nil {
 		return Error.Wrap(err)
+	}
+	if object.Retention.Enabled() && object.ExpiresAt != nil {
+		return Error.New("object expiration must not be set if retention is set")
 	}
 
 	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
