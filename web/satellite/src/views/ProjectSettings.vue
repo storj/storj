@@ -39,7 +39,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" lg="4">
+            <v-col v-if="satelliteManagedEncryptionEnabled || hasManagedPassphrase" cols="12" lg="4">
                 <v-card title="Project Encryption">
                     <v-card-text>
                         <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
@@ -280,6 +280,11 @@ const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
  * whether this project has a satellite managed passphrase.
  */
 const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+
+/**
+ * Indicates if satellite managed encryption passphrase is enabled.
+ */
+const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
 
 /**
  * Returns user's paid tier status from store.
