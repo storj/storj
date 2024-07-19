@@ -145,6 +145,10 @@ pipeline {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
                     'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
+
+                SPANNER_EMULATOR_HOST= 'localhost:9010'
+                STORJ_TEST_SPANNER = 'spanner://projects/storj-build/instances/test-instance/databases/metabase'
+
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
@@ -154,6 +158,11 @@ pipeline {
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+
+                sh 'gcloud emulators spanner start &'
+
+                sh 'gcloud spanner instances create test-instance --config=emulator --description="Test Instance" --nodes=1'
+                sh 'gcloud spanner databases create metabase --instance=test-instance'
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
