@@ -94,7 +94,7 @@ export class FilesState {
     uploadChain: Promise<void> = Promise.resolve();
     uploading: UploadingBrowserObject[] = [];
     selectedFiles: BrowserObject[] = [];
-    filesToBeDeleted: BrowserObject[] = [];
+    filesToBeDeleted: Set<string> = new Set<string>();
     openedDropdown: null | string = null;
     headingSorted = 'name';
     orderBy: 'asc' | 'desc' = 'asc';
@@ -699,6 +699,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         assertIsInitialized(state);
 
+        if (!isFolder) {
+            addFileToBeDeleted(file);
+        }
         await state.s3.send(new DeleteObjectCommand({
             Bucket: state.bucket,
             Key: path + file.Key,
@@ -765,20 +768,24 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             }
         }
 
+        addFileToBeDeleted(file);
+
         await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
 
         removeFile(file);
 
-        if (isAltPagination.value) {
-            clearTokens();
-            await listCustom(state.path, 1, true);
-        } else {
-            await initList();
+        if (shouldRefresh) {
+            if (isAltPagination.value) {
+                clearTokens();
+                await listCustom(state.path, 1, true);
+            } else {
+                await initList();
+            }
         }
     }
 
     async function deleteSelected(): Promise<void> {
-        addFileToBeDeleted(state.selectedFiles);
+        addFileToBeDeleted(...state.selectedFiles);
 
         await Promise.all(
             state.selectedFiles.map(async (file) => {
@@ -789,6 +796,24 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 }
             }),
         );
+    }
+
+    /**
+     * This is an empty action for App.vue to subscribe to know the status of the delete object/folder requests.
+     *
+     * @param fileCount - number of files being deleted.
+     * @param fileTypes - file types being deleted.
+     * @param deleteRequest - the promise of the delete request.
+     */
+    function handleDeleteObjectRequest(fileCount: number, fileTypes: string, deleteRequest: Promise<void>): void {
+        /* empty */
+    }
+
+    /**
+     * Empty action for the file browser to refresh on files deleted.
+     */
+    function filesDeleted(): void {
+        /* empty */
     }
 
     async function getDownloadLink(file: BrowserObject): Promise<string> {
@@ -817,14 +842,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.selectedFiles = [...files];
     }
 
-    function addFileToBeDeleted(file): void {
-        state.filesToBeDeleted = [...state.filesToBeDeleted, file];
+    function addFileToBeDeleted(...files: (_Object & { path?: string, VersionId?: string })[] | BrowserObject[]): void {
+        for (const file of files) {
+            const key = (file.path ?? '') + file.Key + (file.VersionId ?? '');
+            state.filesToBeDeleted.add(key);
+        }
     }
 
-    function removeFile(file): void {
-        state.filesToBeDeleted = state.filesToBeDeleted.filter(
-            singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
-        );
+    function removeFile(file: _Object & { path?: string, VersionId?: string } | BrowserObject): void {
+        state.filesToBeDeleted.delete((file.path ?? '') + file.Key + (file.VersionId ?? ''));
         state.files = state.files.filter(
             singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
         );
@@ -889,7 +915,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.uploadChain = Promise.resolve();
         state.uploading = [];
         state.selectedFiles = [];
-        state.filesToBeDeleted = [];
+        state.filesToBeDeleted.clear();
         state.openedDropdown = null;
         state.headingSorted = 'name';
         state.orderBy = 'asc';
@@ -924,6 +950,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         deleteObject,
         deleteFolder,
         deleteSelected,
+        handleDeleteObjectRequest,
+        filesDeleted,
         getDownloadLink,
         download,
         updateSelectedFiles,

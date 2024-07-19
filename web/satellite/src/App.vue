@@ -37,6 +37,7 @@ import { User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { PricingPlanInfo } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -49,6 +50,7 @@ const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
+const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
 
@@ -222,6 +224,24 @@ bucketsStore.$onAction(({ name, after, args }) => {
             try {
                 await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
             } catch (error) {
+                notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
+        });
+    }
+});
+
+obStore.$onAction(({ name, after, args }) => {
+    if (name === 'handleDeleteObjectRequest') {
+        after(async (_) => {
+            const fileCount = args[0];
+            const fileTypes = args[1];
+            const request = args[2];
+            try {
+                await request;
+                notify.success(`${fileCount} ${fileTypes} deleted`);
+                obStore.filesDeleted();
+            } catch (error) {
+                error.message = `Error deleting ${fileTypes}. ${error.message}`;
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
         });

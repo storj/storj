@@ -149,7 +149,7 @@
         v-if="fileToDelete"
         v-model="isDeleteFileDialogShown"
         :files="[fileToDelete]"
-        @files-deleted="onDeleteComplete"
+        @content-removed="onDeleteFileDialogClose"
     />
 </template>
 
@@ -201,7 +201,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-    'fileDeleted': [],
+    'fileDeleteRequested': [],
 }>();
 
 const carousel = ref<VCarousel | null>(null);
@@ -361,12 +361,12 @@ function onDeleteFileClick(): void {
 }
 
 /**
- * Closes the preview on file delete.
+ * Closes the preview on file delete dialog close.
  */
-function onDeleteComplete(): void {
+function onDeleteFileDialogClose(): void {
     fileToDelete.value = null;
     model.value = false;
-    emit('fileDeleted');
+    emit('fileDeleteRequested');
 }
 
 watchEffect(async () => {

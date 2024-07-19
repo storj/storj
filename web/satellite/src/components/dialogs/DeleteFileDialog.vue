@@ -6,7 +6,6 @@
         v-model="model"
         max-width="420px"
         transition="fade-transition"
-        :persistent="isLoading"
     >
         <v-card ref="innerContent">
             <v-card-item class="pa-6">
@@ -27,7 +26,6 @@
                         variant="text"
                         size="small"
                         color="default"
-                        :disabled="isLoading"
                         @click="model = false"
                     />
                 </template>
@@ -49,12 +47,12 @@
             <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
-                        <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
+                        <v-btn variant="outlined" color="default" block @click="model = false">
                             Cancel
                         </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="error" variant="flat" block :loading="isLoading" @click="onDeleteClick">
+                        <v-btn color="error" variant="flat" block @click="onDeleteClick">
                             Delete
                         </v-btn>
                     </v-col>
@@ -80,10 +78,7 @@ import {
     VChip,
 } from 'vuetify/components';
 
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
@@ -94,16 +89,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     'contentRemoved': [],
-    'filesDeleted': [],
 }>();
 
 const model = defineModel<boolean>({ required: true });
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
-
-const { isLoading, withLoading } = useLoading();
-const notify = useNotify();
 
 const innerContent = ref<Component | null>(null);
 
@@ -140,25 +131,16 @@ const isFolder = computed<boolean>(() => {
     return folderCount.value > 0;
 });
 
-async function onDeleteClick(): Promise<void> {
-    await withLoading(async () => {
-        try {
-            if (props.files.length === 1) {
-                await deleteSingleFile(props.files[0]);
-            } else if (props.files.length > 1) {
-                // multiple files selected in the file browser.
-                await obStore.deleteSelected();
-            } else return;
-        } catch (error) {
-            error.message = `Error deleting ${fileTypes.value}. ${error.message}`;
-            notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
-            return;
-        }
-
-        emit('filesDeleted');
-        notify.success(`${fileCount.value + folderCount.value + versionsCount.value} ${fileTypes.value} deleted`);
-        model.value = false;
-    });
+function onDeleteClick(): void {
+    let deleteRequest: Promise<void>;
+    if (props.files.length === 1) {
+        deleteRequest = deleteSingleFile(props.files[0]);
+    } else if (props.files.length > 1) {
+        // multiple files selected in the file browser.
+        deleteRequest = obStore.deleteSelected();
+    } else return;
+    obStore.handleDeleteObjectRequest(fileCount.value + folderCount.value + versionsCount.value, fileTypes.value, deleteRequest);
+    model.value = false;
 }
 
 async function deleteSingleFile(file: BrowserObject): Promise<void> {

@@ -4,7 +4,7 @@
 <template>
     <v-card variant="flat" rounded="lg">
         <div class="h-100 d-flex flex-column justify-space-between">
-            <a role="button" class="h-100" @click="emit('previewClick', item.browserObject)">
+            <a role="button" class="h-100" @click="previewClicked">
                 <template v-if="previewType === PreviewType.Image">
                     <v-img
                         :src="objectPreviewUrl"
@@ -69,6 +69,7 @@
             <browser-row-actions
                 class="pl-3 pt-3"
                 :file="item.browserObject"
+                :deleting="filesBeingDeleted.has(item.browserObject.path + item.browserObject.Key)"
                 align="left"
                 @preview-click="emit('previewClick', item.browserObject)"
                 @delete-file-click="emit('deleteFileClick', item.browserObject)"
@@ -173,6 +174,11 @@ const previewType = computed<PreviewType>(() => {
 });
 
 /**
+ * Returns files being deleted from store.
+ */
+const filesBeingDeleted = computed((): Set<string> => obStore.state.filesToBeDeleted);
+
+/**
  * Updates current video time to show video thumbnail.
  */
 function captureVideoFrame(): void {
@@ -184,6 +190,13 @@ function captureVideoFrame(): void {
  */
 function getFormattedDate(file: BrowserObject): string {
     return Time.formattedDate(file.LastModified);
+}
+
+function previewClicked() {
+    if (filesBeingDeleted.value.has(props.item.browserObject.path + props.item.browserObject.Key)) {
+        return;
+    }
+    emit('previewClick', props.item.browserObject);
 }
 </script>
 

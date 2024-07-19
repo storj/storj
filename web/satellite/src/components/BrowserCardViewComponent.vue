@@ -151,13 +151,11 @@
         v-model:current-file="fileToPreview"
         :showing-versions="!!fileToPreview?.VersionId"
         video-autoplay
-        @file-deleted="onFilesDeleted"
     />
 
     <delete-file-dialog
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
-        @files-deleted="onFilesDeleted"
     />
     <share-dialog
         v-model="isShareDialogShown"
@@ -448,12 +446,6 @@ function getFileTypeInfo(ext: string, type: BrowserObject['type']): BrowserObjec
     return FILE_INFO;
 }
 
-function onFilesDeleted(): void {
-    fetchFiles();
-    filesToDelete.value = [];
-    obStore.updateSelectedFiles([]);
-}
-
 /**
  * Handles file click.
  */
@@ -601,6 +593,16 @@ async function processPreviewQueue() {
         processingPreview = false;
     }
 }
+
+obStore.$onAction(({ name, after }) => {
+    if (name === 'filesDeleted') {
+        after((_) => {
+            fetchFiles();
+            filesToDelete.value = [];
+            obStore.updateSelectedFiles([]);
+        });
+    }
+});
 
 watch(filePath, () => {
     obStore.clearTokens();

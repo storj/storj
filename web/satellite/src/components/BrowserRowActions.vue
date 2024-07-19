@@ -3,114 +3,120 @@
 
 <template>
     <div class="text-no-wrap" :class="alignClass">
-        <v-btn
-            v-if="file.type !== 'folder'"
-            :variant="isVersion ? 'outlined' : 'text'"
-            color="default"
-            size="small"
-            rounded="md"
-            class="mr-1 text-caption"
-            density="comfortable"
-            title="Download"
-            icon
-            :loading="isDownloading"
-            @click="onDownloadClick"
-        >
-            <icon-download />
-            <v-tooltip
-                activator="parent"
-                location="top"
+        <v-tooltip v-if="deleting" location="top" text="Deleting file">
+            <template #activator="{ props }">
+                <v-progress-circular class="text-right" width="2" size="22" color="error" indeterminate v-bind="props" />
+            </template>
+        </v-tooltip>
+        <template v-else>
+            <v-btn
+                v-if="file.type !== 'folder'"
+                :variant="isVersion ? 'outlined' : 'text'"
+                color="default"
+                size="small"
+                rounded="md"
+                class="mr-1 text-caption"
+                density="comfortable"
+                title="Download"
+                icon
+                :loading="isDownloading"
+                @click="onDownloadClick"
             >
-                Download
-            </v-tooltip>
-        </v-btn>
+                <icon-download />
+                <v-tooltip
+                    activator="parent"
+                    location="top"
+                >
+                    Download
+                </v-tooltip>
+            </v-btn>
 
-        <v-btn
-            v-if="!isVersion"
-            variant="text"
-            color="default"
-            size="small"
-            class="mr-1 text-caption"
-            density="comfortable"
-            title="Share"
-            icon
-            @click="emit('shareClick')"
-        >
-            <icon-share />
-        </v-btn>
+            <v-btn
+                v-if="!isVersion"
+                variant="text"
+                color="default"
+                size="small"
+                class="mr-1 text-caption"
+                density="comfortable"
+                title="Share"
+                icon
+                @click="emit('shareClick')"
+            >
+                <icon-share />
+            </v-btn>
 
-        <v-btn
-            :variant="isVersion ? 'outlined' : 'text'"
-            color="default"
-            size="small"
-            class="mr-1 text-caption"
-            density="comfortable"
-            title="More Actions"
-            icon
-        >
-            <v-icon :icon="Ellipsis" />
-            <v-menu activator="parent">
-                <v-list class="pa-1">
-                    <template v-if="file.type !== 'folder'">
-                        <v-list-item density="comfortable" link @click="emit('previewClick')">
-                            <template #prepend>
-                                <icon-preview />
-                            </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                Preview
-                            </v-list-item-title>
-                        </v-list-item>
-
-                        <v-list-item
-                            density="comfortable"
-                            :link="!isDownloading"
-                            @click="onDownloadClick"
-                        >
-                            <template #prepend>
-                                <icon-download />
-                            </template>
-                            <v-fade-transition>
-                                <v-list-item-title v-show="!isDownloading" class="ml-3 text-body-2 font-weight-medium">
-                                    Download
+            <v-btn
+                :variant="isVersion ? 'outlined' : 'text'"
+                color="default"
+                size="small"
+                class="mr-1 text-caption"
+                density="comfortable"
+                title="More Actions"
+                icon
+            >
+                <v-icon :icon="Ellipsis" />
+                <v-menu activator="parent">
+                    <v-list class="pa-1">
+                        <template v-if="file.type !== 'folder'">
+                            <v-list-item density="comfortable" link @click="emit('previewClick')">
+                                <template #prepend>
+                                    <icon-preview />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Preview
                                 </v-list-item-title>
-                            </v-fade-transition>
-                            <div v-if="isDownloading" class="browser_actions_menu__loader">
-                                <v-progress-circular indeterminate size="23" width="2" />
-                            </div>
-                        </v-list-item>
+                            </v-list-item>
 
-                        <v-list-item v-if="isVersion" density="comfortable" link @click="emit('restoreObjectClick')">
+                            <v-list-item
+                                density="comfortable"
+                                :link="!isDownloading"
+                                @click="onDownloadClick"
+                            >
+                                <template #prepend>
+                                    <icon-download />
+                                </template>
+                                <v-fade-transition>
+                                    <v-list-item-title v-show="!isDownloading" class="ml-3 text-body-2 font-weight-medium">
+                                        Download
+                                    </v-list-item-title>
+                                </v-fade-transition>
+                                <div v-if="isDownloading" class="browser_actions_menu__loader">
+                                    <v-progress-circular indeterminate size="23" width="2" />
+                                </div>
+                            </v-list-item>
+                            <v-list-item v-if="isVersion" density="comfortable" link @click="emit('restoreObjectClick')">
+                                <template #prepend>
+                                    <icon-restore />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Restore
+                                </v-list-item-title>
+                            </v-list-item>
+                        </template>
+
+                        <v-list-item v-if="!isVersion" density="comfortable" link @click="emit('shareClick')">
                             <template #prepend>
-                                <icon-restore />
+                                <icon-share />
                             </template>
                             <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                Restore
+                                Share
                             </v-list-item-title>
                         </v-list-item>
-                    </template>
 
-                    <v-list-item v-if="!isVersion" density="comfortable" link @click="emit('shareClick')">
-                        <template #prepend>
-                            <icon-share />
-                        </template>
-                        <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                            Share
-                        </v-list-item-title>
-                    </v-list-item>
+                        <v-divider class="my-1" />
 
-                    <v-divider class="my-1" />
-
-                    <v-list-item density="comfortable" link base-color="error" @click="emit('deleteFileClick')">
-                        <template #prepend>
-                            <icon-trash />
-                        </template>
-                        <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                            Delete
-                        </v-list-item-title>
-                    </v-list-item>
-                </v-list>
-            </v-menu>
-        </v-btn>
+                        <v-list-item density="comfortable" link base-color="error" @click="emit('deleteFileClick')">
+                            <template #prepend>
+                                <icon-trash />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Delete
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+            </v-btn>
+        </template>
     </div>
 </template>
 
@@ -150,6 +156,7 @@ const props = defineProps<{
     isVersion?: boolean;
     file: BrowserObject;
     align: 'left' | 'right';
+    deleting?: boolean;
 }>();
 
 const emit = defineEmits<{

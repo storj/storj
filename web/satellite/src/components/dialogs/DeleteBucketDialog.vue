@@ -82,13 +82,12 @@ import {
     VChip,
 } from 'vuetify/components';
 
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 
@@ -102,7 +101,6 @@ const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits(['deleted']);
 
-const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();

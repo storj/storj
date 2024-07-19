@@ -80,6 +80,7 @@
                     </td>
                     <td>
                         <browser-row-actions
+                            :deleting="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
                             :file="file"
                             is-version
                             align="right"
@@ -107,6 +108,7 @@
                             height="40"
                             color="default"
                             block
+                            :disabled="filesBeingDeleted.has(item.browserObject.path + item.browserObject.Key)"
                             @click="onFileClick(item.browserObject)"
                         >
                             <img :src="item.typeInfo.icon" :alt="item.typeInfo.title + 'icon'" class="mr-3">
@@ -143,6 +145,7 @@
 
                     <template #item.actions="{ item }: ItemSlotProps">
                         <browser-row-actions
+                            :deleting="filesBeingDeleted.has(item.browserObject.path + item.browserObject.Key)"
                             :file="item.browserObject"
                             align="right"
                             @preview-click="onFileClick(item.browserObject)"
@@ -184,7 +187,6 @@
             v-model="previewDialog"
             v-model:current-file="fileToPreview"
             :showing-versions="!!fileToPreview?.VersionId"
-            @file-deleted="onFilesDeleted"
         />
     </v-card>
 
@@ -221,7 +223,6 @@
     <delete-file-dialog
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
-        @files-deleted="onFilesDeleted"
         @content-removed="fileToDelete = null"
     />
     <share-dialog
@@ -392,6 +393,11 @@ const expandedFiles = computed<BrowserObject[]>({
 });
 
 /**
+ * Returns files being deleted from store.
+ */
+const filesBeingDeleted = computed((): Set<string> => obStore.state.filesToBeDeleted);
+
+/**
  * Returns total object count from store.
  */
 const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
@@ -513,12 +519,6 @@ function onPreviousPageClick(): void {
  */
 function onNextPageClick(): void {
     fetchFiles(cursor.value.page + 1, true);
-}
-
-function onFilesDeleted(): void {
-    fetchFiles();
-    fileToDelete.value = null;
-    obStore.updateSelectedFiles([]);
 }
 
 function onFileRestored(): void {
@@ -703,6 +703,16 @@ async function dismissFileGuide() {
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
     }
 }
+
+obStore.$onAction(({ name, after }) => {
+    if (name === 'filesDeleted') {
+        after((_) => {
+            fetchFiles();
+            fileToDelete.value = null;
+            obStore.updateSelectedFiles([]);
+        });
+    }
+});
 
 watch(filePath, () => {
     obStore.clearTokens();
