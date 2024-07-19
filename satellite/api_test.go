@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
@@ -59,7 +58,7 @@ func TestLoadAuthorities(t *testing.T) {
 		require.NoError(t, err)
 
 		tags := &pb.SignedNodeTagSets{}
-		err = proto.Unmarshal(decoded, tags)
+		err = pb.Unmarshal(decoded, tags)
 		require.NoError(t, err)
 
 		require.Len(t, tags.Tags, 1)

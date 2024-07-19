@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
@@ -124,7 +123,7 @@ func signTags(ctx context.Context, cfg Config, tagPairs []string) (string, error
 		},
 	}
 
-	raw, err := proto.Marshal(all)
+	raw, err := pb.Marshal(all)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
@@ -138,7 +137,7 @@ func inspect(ctx context.Context, s string) error {
 	}
 
 	sets := &pb.SignedNodeTagSets{}
-	err = proto.Unmarshal(raw, sets)
+	err = pb.Unmarshal(raw, sets)
 	if err != nil {
 		return errs.New("Input is not a protobuf encoded *pb.SignedNodeTagSets message")
 	}
@@ -154,7 +153,7 @@ func inspect(ctx context.Context, s string) error {
 		fmt.Println("Signature:         ", hex.EncodeToString(msg.Signature))
 
 		tags := &pb.NodeTagSet{}
-		err = proto.Unmarshal(msg.SerializedTag, tags)
+		err = pb.Unmarshal(msg.SerializedTag, tags)
 		if err != nil {
 			return err
 		}

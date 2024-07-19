@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -60,7 +59,7 @@ func (u *SignedTags) String() string {
 		return ""
 	}
 	p := pb.SignedNodeTagSets(*u)
-	raw, err := proto.Marshal(&p)
+	raw, err := pb.Marshal(&p)
 	if err != nil {
 		return err.Error()
 	}
@@ -81,7 +80,7 @@ func (u *SignedTags) Set(s string) error {
 		if err != nil {
 			return errs.New("signed tag configuration #%d is not base64 encoded: %s", i+1, s)
 		}
-		err = proto.Unmarshal(raw, &p)
+		err = pb.Unmarshal(raw, &p)
 		if err != nil {
 			return errs.New("signed tag configuration #%d is not a pb.SignedNodeTagSets{}: %s", i+1, s)
 		}

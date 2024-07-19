@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -78,7 +77,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		for _, response := range resp.Responses {
 			mon.IntVal("batch_response_sizes",
 				monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", response.Response)),
-			).Observe(int64(proto.Size(response)))
+			).Observe(int64(pb.Size(response)))
 		}
 	}()
 
@@ -91,7 +90,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 		mon.IntVal("batch_request_sizes",
 			monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", request.Request)),
-		).Observe(int64(proto.Size(request)))
+		).Observe(int64(pb.Size(request)))
 
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
