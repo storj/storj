@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
+const piecesBatchSize = 1000
+
 // NewGCFilewalkerCmd creates a new cobra command for running garbage collection filewalker.
 func NewGCFilewalkerCmd() *LazyFilewalkerCmd {
 	var cfg FilewalkerCfg
@@ -100,23 +102,48 @@ func gcCmdRun(g *RunOptions) (err error) {
 	log.Info("gc-filewalker started", zap.Time("createdBefore", req.CreatedBefore), zap.Int("bloomFilterSize", len(req.BloomFilter)))
 
 	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress())
+
+	encoder := json.NewEncoder(g.stdout)
 	numTrashed := 0
-	pieceIDs, piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
-		log.Debug("found a trash piece", zap.Stringer("pieceID", pieceID))
-		// we found a piece that needs to be trashed, so we notify the main process.
-		resp := lazyfilewalker.GCFilewalkerResponse{
-			PieceIDs: []storj.PieceID{pieceID},
+	pieceIDs := make([]storj.PieceID, 0, piecesBatchSize)
+
+	flushPiecesToTrash := func() error {
+		if len(pieceIDs) == 0 {
+			return nil
 		}
-		err := json.NewEncoder(g.stdout).Encode(resp)
+
+		resp := lazyfilewalker.GCFilewalkerResponse{
+			PieceIDs: pieceIDs,
+		}
+		err := encoder.Encode(resp)
 		if err != nil {
 			log.Debug("failed to notify main process", zap.Error(err))
 			return err
 		}
-		numTrashed++
+		numTrashed += len(pieceIDs)
+		pieceIDs = pieceIDs[:0]
+		return nil
+	}
+
+	pieceIDs, piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
+		log.Debug("found a trash piece", zap.Stringer("pieceID", pieceID))
+		// we found a piece that needs to be trashed, so we notify the main process.
+		// do it in batches to avoid sending too many messages.
+
+		pieceIDs = append(pieceIDs, pieceID)
+
+		if len(pieceIDs) >= piecesBatchSize {
+			return flushPiecesToTrash()
+		}
 		return nil
 	})
 	if err != nil {
 		log.Debug("gc-filewalker failed", zap.Error(err))
+		return err
+	}
+
+	if err := flushPiecesToTrash(); err != nil {
+		log.Debug("failed to notify main process about pieces to trash", zap.Error(err))
 		return err
 	}
 

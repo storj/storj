@@ -81,21 +81,38 @@ func main() {
 			trashed++
 			return piecesStore.Trash(ctx, satelliteID, pieceID, start)
 		}
+
+		trashHandler := lazyfilewalker.NewTrashHandler(log, trashFunc)
+		encoder := json.NewEncoder(trashHandler)
+		pieceIDs := make([]storj.PieceID, 0, 1000)
+
 		if *lazywalker {
 			fmt.Println("using lazy file walker")
 
-			trashHandler := lazyfilewalker.NewTrashHandler(log, trashFunc)
-
 			trashFunc = func(pieceID storj.PieceID) error {
-				resp := lazyfilewalker.GCFilewalkerResponse{
-					PieceIDs: []storj.PieceID{pieceID},
+				pieceIDs = append(pieceIDs, pieceID)
+
+				if len(pieceIDs) >= 1000 {
+					resp := lazyfilewalker.GCFilewalkerResponse{
+						PieceIDs: pieceIDs,
+					}
+					pieceIDs = pieceIDs[:0]
+					return encoder.Encode(resp)
 				}
-				return json.NewEncoder(trashHandler).Encode(resp)
+
+				return nil
 			}
 		}
 
 		_, _, _, err := filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, start.Add(time.Hour), filter, trashFunc)
 		try.E(err)
+
+		if *lazywalker {
+			resp := lazyfilewalker.GCFilewalkerResponse{
+				PieceIDs: pieceIDs,
+			}
+			try.E(encoder.Encode(resp))
+		}
 	})
 
 	walkDuration := time.Since(start)
