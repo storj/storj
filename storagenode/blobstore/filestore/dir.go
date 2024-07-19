@@ -454,15 +454,21 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRe
 
 	trashVerPath := blobPathForFormatVersion(trashBasePath, formatVer)
 
-	// ensure the dirs exist for trash path
-	err = os.MkdirAll(filepath.Dir(trashVerPath), dirPermission)
-	if err != nil && !os.IsExist(err) {
-		return err
-	}
-
 	// move to trash
 	err = rename(blobsVerPath, trashVerPath)
 	if os.IsNotExist(err) {
+		// ensure that trash dir is not what's missing
+		err = os.MkdirAll(filepath.Dir(trashVerPath), dirPermission)
+		if err != nil && !os.IsExist(err) {
+			return err
+		}
+
+		// try rename once again
+		err = rename(blobsVerPath, trashVerPath)
+		if !os.IsNotExist(err) {
+			return err
+		}
+
 		// no blob at that path; either it has a different storage format
 		// version or there was a concurrent call. (This function is expected
 		// by callers to return a nil error in the case of concurrent calls.)
