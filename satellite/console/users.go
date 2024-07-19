@@ -392,6 +392,7 @@ type SetUpAccountRequest struct {
 	EmployeeCount          *string `json:"employeeCount"`
 	StorageNeeds           *string `json:"storageNeeds"`
 	StorageUseCase         *string `json:"storageUseCase"`
+	OtherUseCase           *string `json:"otherUseCase"`
 	FunctionalArea         *string `json:"functionalArea"`
 	HaveSalesContact       bool    `json:"haveSalesContact"`
 	InterestedInPartnering bool    `json:"interestedInPartnering"`

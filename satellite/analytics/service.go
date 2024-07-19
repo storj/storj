@@ -281,6 +281,7 @@ type TrackOnboardingInfoFields struct {
 	StorageNeeds           string
 	JobTitle               string
 	StorageUseCase         string
+	OtherUseCase           string
 	FunctionalArea         string
 	HaveSalesContact       bool
 	InterestedInPartnering bool
@@ -422,6 +423,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 	props.Set("name", fields.FullName)
 	props.Set("account_type", fields.Type)
 	props.Set("storage_use", fields.StorageUseCase)
+	props.Set("other_use_case", fields.OtherUseCase)
 
 	if fields.Type == Professional {
 		props.Set("company_size", fields.EmployeeCount)

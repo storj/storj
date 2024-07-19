@@ -34,6 +34,14 @@
                         class="mt-2"
                         @update:model-value="(v) => analyticsStore.eventTriggered(AnalyticsEvent.USE_CASE_SELECTED, { useCase: v })"
                     />
+                    <v-text-field
+                        v-if="useCase === 'Other'"
+                        v-model="otherUseCase"
+                        label="Specify Other Use Case"
+                        variant="outlined"
+                        autofocus
+                        class="mt-2"
+                    />
                 </v-col>
             </v-row>
 
@@ -92,6 +100,7 @@ withDefaults(defineProps<{
 
 const name = defineModel<string>('name', { required: true });
 const useCase = defineModel<string | undefined>('useCase', { required: true });
+const otherUseCase = defineModel<string | undefined>('otherUseCase', { required: true });
 
 const emit = defineEmits<{
     (event: 'next'): void,
@@ -104,6 +113,7 @@ async function setupAccount() {
     await auth.setupAccount({
         fullName: name.value,
         storageUseCase: useCase.value,
+        otherUseCase: otherUseCase.value,
         haveSalesContact: false,
         interestedInPartnering: false,
         isProfessional: false,

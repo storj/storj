@@ -2381,6 +2381,9 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 
 	if requestData.StorageUseCase != nil {
 		onboardingFields.StorageUseCase = *requestData.StorageUseCase
+		if requestData.OtherUseCase != nil {
+			onboardingFields.OtherUseCase = *requestData.OtherUseCase
+		}
 	}
 
 	if requestData.IsProfessional {
