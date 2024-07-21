@@ -95,7 +95,7 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 		}
 
 		for _, schemaDDL := range db.Schema() {
-			if _, err := db.ExecContext(ctx, schemaDDL); err != nil {
+			if _, err := conn.ExecContext(ctx, schemaDDL); err != nil {
 				return err
 			}
 		}
