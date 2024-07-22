@@ -3347,16 +3347,16 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 			})
 
 			t.Run("Object Lock not globally supported", func(t *testing.T) {
-				endpoint.SetUseBucketLevelObjectLock(false)
-				defer endpoint.SetUseBucketLevelObjectLock(true)
+				endpoint.TestSetUseBucketLevelObjectLock(false)
+				defer endpoint.TestSetUseBucketLevelObjectLock(true)
 
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
 				_, err := endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 
-				endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
-				defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+				endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
+				defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
 				beginResp, err := endpoint.BeginObject(ctx, beginReq)
 				require.NoError(t, err)
@@ -3478,8 +3478,8 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 			})
 
 			t.Run("Object Lock not globally supported", func(t *testing.T) {
-				endpoint.SetUseBucketLevelObjectLock(false)
-				defer endpoint.SetUseBucketLevelObjectLock(true)
+				endpoint.TestSetUseBucketLevelObjectLock(false)
+				defer endpoint.TestSetUseBucketLevelObjectLock(true)
 
 				key := testrand.Path()
 
@@ -3487,8 +3487,8 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 
-				endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
-				defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+				endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
+				defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
 				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				require.NoError(t, err)
@@ -3762,8 +3762,8 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.SetUseBucketLevelObjectLock(false)
-			defer endpoint.SetUseBucketLevelObjectLock(true)
+			endpoint.TestSetUseBucketLevelObjectLock(false)
+			defer endpoint.TestSetUseBucketLevelObjectLock(true)
 
 			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			object := createObject(t, objStream, retention)
@@ -3777,8 +3777,8 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			require.Nil(t, resp)
 			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
 
-			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.NoError(t, err)
@@ -4106,8 +4106,8 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.SetUseBucketLevelObjectLock(false)
-			defer endpoint.SetUseBucketLevelObjectLock(true)
+			endpoint.TestSetUseBucketLevelObjectLock(false)
+			defer endpoint.TestSetUseBucketLevelObjectLock(true)
 
 			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			obj := createObject(t, objStream, metabase.Retention{})
@@ -4124,8 +4124,8 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
 			requireRetention(t, obj.Location(), obj.Version, obj.Retention)
 
-			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
 			_, err = endpoint.SetObjectRetention(ctx, req)
 			require.NoError(t, err)

@@ -191,21 +191,37 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 // Close closes resources.
 func (endpoint *Endpoint) Close() error { return nil }
 
-// SetUseBucketLevelObjectLock sets whether bucket-level Object Lock functionality should be globally enabled.
+// TestSetUseBucketLevelObjectLock sets whether bucket-level Object Lock functionality should be globally enabled.
 // Used for testing.
-func (endpoint *Endpoint) SetUseBucketLevelObjectLock(enabled bool) {
+func (endpoint *Endpoint) TestSetUseBucketLevelObjectLock(enabled bool) {
 	endpoint.config.UseBucketLevelObjectLock = enabled
 }
 
-// SetUseBucketLevelObjectLockByProjectID sets whether bucket-level Object Lock functionality should be enabled
+// TestSetUseBucketLevelObjectLockByProjectID sets whether bucket-level Object Lock functionality should be enabled
 // for a specific project. If Object Lock functionality is globally enabled, this will have no effect.
 // Used for testing.
-func (endpoint *Endpoint) SetUseBucketLevelObjectLockByProjectID(projectID uuid.UUID, enabled bool) {
+func (endpoint *Endpoint) TestSetUseBucketLevelObjectLockByProjectID(projectID uuid.UUID, enabled bool) {
 	if !enabled {
 		delete(endpoint.config.useBucketLevelObjectLockProjects, projectID)
 		return
 	}
 	endpoint.config.useBucketLevelObjectLockProjects[projectID] = struct{}{}
+}
+
+// TestSetUseBucketLevelVersioning sets whether bucket-level Object Versioning functionality should be globally enabled.
+// Used for testing.
+func (endpoint *Endpoint) TestSetUseBucketLevelVersioning(enabled bool) {
+	endpoint.config.UseBucketLevelObjectVersioning = enabled
+}
+
+// TestSetUseBucketLevelVersioningByProjectID sets whether bucket-level Object Versioning functionality should be enabled
+// for a specific project. Used for testing.
+func (endpoint *Endpoint) TestSetUseBucketLevelVersioningByProjectID(projectID uuid.UUID, enabled bool) {
+	if !enabled {
+		delete(endpoint.config.useBucketLevelObjectVersioningProjects, projectID)
+		return
+	}
+	endpoint.config.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
