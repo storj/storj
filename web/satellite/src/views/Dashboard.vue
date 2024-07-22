@@ -188,7 +188,6 @@
                     :loading="isLoading"
                     show-adjacent-months
                     hide-details
-                    readonly
                 >
                     <v-icon class="mr-2" size="20" icon="$calendar" />
                 </v-date-input>
