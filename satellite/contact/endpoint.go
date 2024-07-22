@@ -175,12 +175,12 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 	}
 
 	if nodeInfo.Capacity != nil {
-		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk)
+		tags = append(tags, eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk))
 	}
 
 	if nodeInfo.Version != nil {
-		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp)
-		eventkit.String("version", nodeInfo.Version.Version)
+		tags = append(tags, eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp))
+		tags = append(tags, eventkit.String("version", nodeInfo.Version.Version))
 	}
 
 	ek.Event("checkin", tags...)
