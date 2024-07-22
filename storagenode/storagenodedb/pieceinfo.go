@@ -163,7 +163,7 @@ func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, p
 }
 
 // GetExpired gets ExpiredInfo records for pieces that are expired.
-func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, cb func(context.Context, pieces.ExpiredInfo) bool) (err error) {
+func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time) (info []pieces.ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
@@ -174,22 +174,20 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, cb
 		ORDER BY satellite_id
 	`, expiredAt.UTC())
 	if err != nil {
-		return ErrPieceInfo.Wrap(err)
+		return nil, ErrPieceInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		info := pieces.ExpiredInfo{InPieceInfo: true}
-		err = rows.Scan(&info.SatelliteID, &info.PieceID)
+		expired := pieces.ExpiredInfo{InPieceInfo: true}
+		err = rows.Scan(&expired.SatelliteID, &expired.PieceID)
 		if err != nil {
-			return ErrPieceInfo.Wrap(err)
+			return nil, ErrPieceInfo.Wrap(err)
 		}
-		if !cb(ctx, info) {
-			return nil
-		}
+		info = append(info, expired)
 	}
 
-	return ErrPieceInfo.Wrap(rows.Err())
+	return info, ErrPieceInfo.Wrap(rows.Err())
 }
 
 func (db *v0PieceInfoDB) DeleteExpirations(ctx context.Context, expiredAt time.Time) (err error) {

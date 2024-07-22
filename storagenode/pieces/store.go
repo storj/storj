@@ -61,9 +61,11 @@ type PieceExpirationDB interface {
 	// SetExpiration sets an expiration time for the given piece ID on the given satellite
 	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) error
 	// GetExpired gets piece IDs that expire or have expired before the given time
-	GetExpired(ctx context.Context, expiresBefore time.Time, cb func(context.Context, ExpiredInfo) bool) error
+	GetExpired(ctx context.Context, expiresBefore time.Time, batchSize int) ([]ExpiredInfo, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
 	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
+	// DeleteExpirationsBatch deletes the pieces in the batch
+	DeleteExpirationsBatch(ctx context.Context, now time.Time, limit int) error
 }
 
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
@@ -78,7 +80,7 @@ type V0PieceInfoDB interface {
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// GetExpired gets piece IDs stored with storage format V0 that expire or have expired
 	// before the given time
-	GetExpired(ctx context.Context, expiredAt time.Time, cb func(context.Context, ExpiredInfo) bool) error
+	GetExpired(ctx context.Context, expiredAt time.Time) ([]ExpiredInfo, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
 	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
 	// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored
@@ -364,15 +366,19 @@ func (store *Store) DeleteSkipV0(ctx context.Context, satellite storj.NodeID, pi
 	return nil
 }
 
-// DeleteExpired deletes all pieces with an expiration earlier than the provided time.
-func (store *Store) DeleteExpired(ctx context.Context, expiresAt time.Time) (err error) {
+// DeleteExpiredV0 deletes all pieces with an expiration earlier than the provided time.
+func (store *Store) DeleteExpiredV0(ctx context.Context, expiresAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = store.expirationInfo.DeleteExpirations(ctx, expiresAt)
 	if store.v0PieceInfo != nil {
-		err = errs.Combine(err, store.v0PieceInfo.DeleteExpirations(ctx, expiresAt))
+		err = store.v0PieceInfo.DeleteExpirations(ctx, expiresAt)
 	}
 	return Error.Wrap(err)
+}
+
+// DeleteExpiredBatchSkipV0 deletes the pieces in the batch skipping V0 format and pieceinfo database.
+func (store *Store) DeleteExpiredBatchSkipV0(ctx context.Context, expireAt time.Time, limit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.expirationInfo.DeleteExpirationsBatch(ctx, expireAt, limit))
 }
 
 // DeleteSatelliteBlobs deletes blobs folder of specific satellite after successful GE.
@@ -574,17 +580,38 @@ func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID 
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.
-func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, cb func(context.Context, ExpiredInfo) bool) (err error) {
+func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time) (info []ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = store.expirationInfo.GetExpired(ctx, expiredAt, cb)
+	info, err = store.GetExpiredBatchSkipV0(ctx, expiredAt, 0)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	if store.v0PieceInfo != nil {
-		return Error.Wrap(store.v0PieceInfo.GetExpired(ctx, expiredAt, cb))
+		expired, err := store.v0PieceInfo.GetExpired(ctx, expiredAt)
+		if err != nil {
+			return nil, err
+		}
+
+		if expired != nil {
+			info = append(info, expired...)
+		}
 	}
-	return nil
+	return info, nil
+}
+
+// GetExpiredBatchSkipV0 gets piece IDs that are expired and were created before the given time
+// limiting the number of pieces returned to the batch size.
+// This method skips V0 pieces.
+func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Time, batchSize int) (batch []ExpiredInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	batch, err = store.expirationInfo.GetExpired(ctx, expiredAt, batchSize)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return batch, nil
 }
 
 // SetExpiration records an expiration time for the specified piece ID owned by the specified satellite.

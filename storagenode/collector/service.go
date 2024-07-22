@@ -23,6 +23,7 @@ var mon = monkit.Package()
 type Config struct {
 	Interval              time.Duration `help:"how frequently expired pieces are collected" default:"1h0m0s"`
 	ExpirationGracePeriod time.Duration `help:"how long should the collector wait before deleting expired pieces. Should not be less than 30 min since nodes are allowed to be 30 mins out of sync with the satellite." default:"1h0m0s"`
+	ExpirationBatchSize   int           `help:"how many expired pieces to delete in one batch. If <= 0, all expired pieces will be deleted in one batch." default:"1000"`
 }
 
 // Service implements collecting expired pieces on the storage node.
@@ -35,6 +36,7 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
+	batchSize             int
 	expirationGracePeriod time.Duration
 }
 
@@ -49,6 +51,7 @@ func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials *usedserials.
 		log:                   log,
 		pieces:                pieces,
 		usedSerials:           usedSerials,
+		batchSize:             config.ExpirationBatchSize,
 		expirationGracePeriod: config.ExpirationGracePeriod,
 		Loop:                  sync2.NewCycle(config.Interval),
 	}
@@ -82,26 +85,44 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 
 	service.usedSerials.DeleteExpired(now)
 
-	var count int64
-
-	err = service.pieces.GetExpired(ctx, now, func(ctx context.Context, ei pieces.ExpiredInfo) bool {
-		err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID)
+	service.log.Info("expired pieces collection started")
+	numCollected := 0
+	defer func() {
 		if err != nil {
-			service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID), zap.Error(err))
+			service.log.Error("error during expired pieces collection", zap.Int("count", numCollected), zap.Error(err))
 		} else {
-			service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID))
-			count++
+			service.log.Info("expired pieces collection completed", zap.Int("count", numCollected))
 		}
-		return true
-	})
+	}()
 
-	if count > 0 {
-		service.log.Info("collect", zap.Int64("count", count))
+	for {
+		batch, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.batchSize)
+		if err != nil {
+			return errs.Wrap(err)
+		}
 
-		if deleteErr := service.pieces.DeleteExpired(ctx, now); deleteErr != nil {
-			service.log.Error("error during deleting expired pieces: ", zap.Error(err))
-			err = errs.Combine(err, deleteErr)
+		count := len(batch)
+		if count == 0 {
+			service.log.Info("no expired pieces to collect")
+			return nil
+		}
+
+		for _, ei := range batch {
+			// delete the piece from the storage
+			err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID)
+			if err != nil {
+				service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID), zap.Error(err))
+			} else {
+				service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID))
+			}
+		}
+
+		numCollected += count
+
+		// delete the batch from the database
+		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.batchSize); deleteErr != nil {
+			service.log.Error("error during deleting expired pieces: ", zap.Error(deleteErr))
+			return errs.Wrap(deleteErr)
 		}
 	}
-	return errs.Wrap(err)
 }

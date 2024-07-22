@@ -4,7 +4,6 @@
 package pieces_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -129,19 +128,13 @@ func TestV0PieceInfo(t *testing.T) {
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
 
 		// getting no expired pieces
-		err = pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour), func(_ context.Context, ei pieces.ExpiredInfo) bool {
-			t.Fatal("should not be called")
-			return false
-		})
+		expired, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour))
 		assert.NoError(t, err)
+		require.Len(t, expired, 0)
 
 		// getting expired pieces
-		var expired []pieces.ExpiredInfo
 		exp := now.Add(8 * 24 * time.Hour)
-		err = pieceinfos.GetExpired(ctx, exp, func(_ context.Context, ei pieces.ExpiredInfo) bool {
-			expired = append(expired, ei)
-			return true
-		})
+		expired, err = pieceinfos.GetExpired(ctx, exp)
 		assert.NoError(t, err)
 		assert.Len(t, expired, 3)
 
@@ -194,9 +187,7 @@ func TestPieceinfo_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure GetExpired works at all
-			err := pieceinfos.GetExpired(ctx, time.Now(), func(_ context.Context, ei pieces.ExpiredInfo) bool {
-				return true
-			})
+			_, err := pieceinfos.GetExpired(ctx, time.Now())
 			require.NoError(t, err)
 		}
 	})

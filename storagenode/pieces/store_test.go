@@ -490,11 +490,14 @@ func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTe
 
 	// Require expiration to match expected
 	found := false
-	err = store.GetExpired(ctx, time.Now().Add(720*time.Hour), func(_ context.Context, ei pieces.ExpiredInfo) bool {
-		found = ei.SatelliteID == satelliteID && ei.PieceID == pieceID
-		return !found
-	})
+	expired, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour))
 	require.NoError(t, err)
+	for _, ei := range expired {
+		if ei.SatelliteID == satelliteID && ei.PieceID == pieceID {
+			found = true
+			break
+		}
+	}
 	if expiration.IsZero() {
 		require.False(t, found)
 	} else {
@@ -726,11 +729,7 @@ func TestGetExpired(t *testing.T) {
 		require.NoError(t, err)
 
 		// GetExpired with gives all results
-		var expired []pieces.ExpiredInfo
-		err = store.GetExpired(ctx, now, func(_ context.Context, ei pieces.ExpiredInfo) bool {
-			expired = append(expired, ei)
-			return true
-		})
+		expired, err := store.GetExpired(ctx, now)
 		require.NoError(t, err)
 		require.Len(t, expired, 2)
 		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
@@ -739,6 +738,14 @@ func TestGetExpired(t *testing.T) {
 		assert.Equal(t, testPieces[0].PieceID, expired[1].PieceID)
 		assert.Equal(t, testPieces[0].SatelliteID, expired[1].SatelliteID)
 		assert.True(t, expired[1].InPieceInfo)
+
+		// GetExpiredBatchSkipV0
+		expired, err = store.GetExpiredBatchSkipV0(ctx, now, 1)
+		require.NoError(t, err)
+		require.Len(t, expired, 1)
+		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
+		assert.Equal(t, testPieces[2].SatelliteID, expired[0].SatelliteID)
+		assert.False(t, expired[0].InPieceInfo)
 	})
 }
 
