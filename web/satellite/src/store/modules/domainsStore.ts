@@ -19,8 +19,8 @@ export const useDomainsStore = defineStore('domains', () => {
 
     const api = new DomainsHttpAPI();
 
-    async function checkDNSRecord(domain: string): Promise<void> {
-        await api.checkDNSRecord(domain);
+    async function checkDNSRecords(domain: string, cname: string, txt: string[]): Promise<void> {
+        await api.checkDNSRecords(domain, cname, txt);
     }
 
     async function generateDomainCredentials(accessName: string, bucket: string, passphrase: string): Promise<string> {
@@ -43,7 +43,7 @@ export const useDomainsStore = defineStore('domains', () => {
 
     return {
         state,
-        checkDNSRecord,
+        checkDNSRecords,
         generateDomainCredentials,
     };
 });

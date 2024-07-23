@@ -344,6 +344,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost, http.MethodOptions)
 
+	domainsController := consoleapi.NewDomains(logger, service)
+	domainsRouter := router.PathPrefix("/api/v0/domains").Subrouter()
+	domainsRouter.Use(server.withCORS)
+	domainsRouter.Use(server.withAuth)
+	domainsRouter.Handle("/check-dns", http.HandlerFunc(domainsController.CheckDNSRecords)).Methods(http.MethodPost, http.MethodOptions)
+
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
 		abRouter := router.PathPrefix("/api/v0/ab").Subrouter()

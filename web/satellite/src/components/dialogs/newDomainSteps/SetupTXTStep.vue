@@ -5,10 +5,26 @@
     <v-form class="pa-3" @submit.prevent>
         <v-card-text>
             In your DNS provider, create 3 TXT records.
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="TXT Hostname" :model-value="`txt-${domain}`" readonly hide-details />
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="TXT1 Content" :model-value="`storj-root:${bucket}`" readonly hide-details />
-            <v-textarea variant="solo-filled" flat class="my-4" density="comfortable" rows="2" auto-grow no-resize label="TXT2 Content" :model-value="`storj-access:${access}`" readonly hide-details />
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="TXT3 Content" model-value="storj-tls:true" readonly hide-details />
+            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="TXT Hostname" :model-value="`txt-${domain}`" readonly hide-details>
+                <template #append-inner>
+                    <input-copy-button :value="`txt-${domain}`" />
+                </template>
+            </v-text-field>
+            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="TXT1 Content" :model-value="storjRoot" readonly hide-details>
+                <template #append-inner>
+                    <input-copy-button :value="storjRoot" />
+                </template>
+            </v-text-field>
+            <v-textarea variant="solo-filled" flat class="my-4" density="comfortable" rows="2" auto-grow no-resize label="TXT2 Content" :model-value="storjAccess" readonly hide-details>
+                <template #append-inner>
+                    <input-copy-button :value="storjAccess" />
+                </template>
+            </v-textarea>
+            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="TXT3 Content" :model-value="storjTls" readonly hide-details>
+                <template #append-inner>
+                    <input-copy-button :value="storjTls" />
+                </template>
+            </v-text-field>
         </v-card-text>
     </v-form>
 </template>
@@ -16,9 +32,12 @@
 <script setup lang="ts">
 import { VCardText, VForm, VTextField, VTextarea } from 'vuetify/components';
 
+import InputCopyButton from '@/components/InputCopyButton.vue';
+
 defineProps<{
     domain: string
-    bucket: string | undefined
-    access: string
+    storjRoot: string
+    storjAccess: string
+    storjTls: string
 }>();
 </script>

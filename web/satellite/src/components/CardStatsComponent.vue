@@ -36,5 +36,6 @@ withDefaults(defineProps<{
 }>(), {
     color: 'default',
     to: undefined,
+    extraInfo: undefined,
 });
 </script>
