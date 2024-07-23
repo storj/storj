@@ -254,11 +254,13 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.enterPassphraseCallback = fn;
     }
 
-    async function createBucket(name: string, enableBucketVersioning: boolean): Promise<void> {
+    async function createBucket(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
             Bucket: name,
+            ObjectLockEnabledForBucket: enableObjectLock,
         }));
-        if (enableBucketVersioning) {
+        // If object lock is enabled, versioning is enabled implicitly.
+        if (enableBucketVersioning && !enableObjectLock) {
             await state.s3Client.send(new PutBucketVersioningCommand({
                 Bucket: name,
                 VersioningConfiguration: {
@@ -268,11 +270,13 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
     }
 
-    async function createBucketWithNoPassphrase(name: string, enableBucketVersioning: boolean): Promise<void> {
+    async function createBucketWithNoPassphrase(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3ClientForCreate.send(new CreateBucketCommand({
             Bucket: name,
+            ObjectLockEnabledForBucket: enableObjectLock,
         }));
-        if (enableBucketVersioning) {
+        // If object lock is enabled, versioning is enabled implicitly.
+        if (enableBucketVersioning && !enableObjectLock) {
             await state.s3ClientForCreate.send(new PutBucketVersioningCommand({
                 Bucket: name,
                 VersioningConfiguration: {
