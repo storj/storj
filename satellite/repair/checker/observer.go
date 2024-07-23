@@ -205,10 +205,11 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	for p, s := range observer.TotalStats {
 		t := monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(p), 10))
 
-		mon.IntVal("remote_files_checked", t).Observe(s.objectsChecked)                               //mon:locked
-		mon.IntVal("remote_segments_checked", t).Observe(s.remoteSegmentsChecked)                     //mon:locked
-		mon.IntVal("remote_segments_failed_to_check", t).Observe(s.remoteSegmentsFailedToCheck)       //mon:locked
-		mon.IntVal("remote_segments_needing_repair", t).Observe(s.remoteSegmentsNeedingRepair)        //mon:locked
+		mon.IntVal("remote_files_checked", t).Observe(s.objectsChecked)                         //mon:locked
+		mon.IntVal("remote_segments_checked", t).Observe(s.remoteSegmentsChecked)               //mon:locked
+		mon.IntVal("remote_segments_failed_to_check", t).Observe(s.remoteSegmentsFailedToCheck) //mon:locked
+		mon.IntVal("remote_segments_needing_repair", t).Observe(s.remoteSegmentsNeedingRepair)  //mon:locked
+		mon.IntVal("remote_segments_needing_repair_due_to_forcing", t).Observe(s.remoteSegmentsNeedingRepairDueToForcing)
 		mon.IntVal("new_remote_segments_needing_repair", t).Observe(s.newRemoteSegmentsNeedingRepair) //mon:locked
 		mon.IntVal("remote_segments_lost", t).Observe(s.remoteSegmentsLost)                           //mon:locked
 		mon.IntVal("remote_files_lost", t).Observe(int64(len(s.objectsLost)))                         //mon:locked
@@ -488,11 +489,20 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 	// separate case is when we find pieces which are outside segment placement. in such case we are putting segment
 	// into queue right away.
-	if (numHealthy <= repairThreshold && numHealthy < successThreshold) || piecesCheck.ForcingRepair.Count() > 0 {
+	repairDueToHealth := (numHealthy <= repairThreshold && numHealthy < successThreshold)
+	repairDueToForcing := piecesCheck.ForcingRepair.Count() > 0
+	if repairDueToHealth || repairDueToForcing {
+
 		injuredSegmentHealthFloatVal.Observe(segmentHealth)
 		stats.segmentStats.injuredSegmentHealth.Observe(segmentHealth)
 		fork.totalStats[segment.Placement].remoteSegmentsNeedingRepair++
 		stats.iterationAggregates.remoteSegmentsNeedingRepair++
+
+		if repairDueToForcing && !repairDueToHealth {
+			fork.totalStats[segment.Placement].remoteSegmentsNeedingRepairDueToForcing++
+			stats.iterationAggregates.remoteSegmentsNeedingRepairDueToForcing++
+		}
+
 		err := fork.repairQueue.Insert(ctx, &queue.InjuredSegment{
 			StreamID:      segment.StreamID,
 			Position:      segment.Position,
