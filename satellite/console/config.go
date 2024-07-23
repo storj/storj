@@ -29,7 +29,7 @@ type Config struct {
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled       bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
-	SignupActivationCodeEnabled       bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true"`
+	SignupActivationCodeEnabled       bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`
 	FreeTrialDuration                 time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
 	VarPartners                       []string                  `help:"list of partners whose users will not see billing UI." default:""`
 	ObjectBrowserKeyNamePrefix        string                    `help:"prefix for object browser API key names" default:".storj-web-file-browser-api-key-"`
