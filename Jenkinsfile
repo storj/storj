@@ -19,6 +19,7 @@ node('node') {
           env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
           env.STORJ_SIM_REDIS = 'redis:6379'
           env.STORJ_MIGRATION_DB = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable&options=--search_path=satellite/0/meta'
+          env.STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = "false"
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
@@ -56,6 +57,7 @@ node('node') {
           env.STORJ_SIM_REDIS='redis:6379'
           env.STORJ_MIGRATION_DB='cockroach://root@cockroach:26257/master?sslmode=disable'
           env.STORJ_SKIP_FIX_LAST_NETS=true
+          env.STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = "false"
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
