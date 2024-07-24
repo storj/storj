@@ -380,7 +380,7 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		message = strings.TrimPrefix(message, ": ")
 		// uplink expects a message that starts with the specified prefix
 		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
-	case metabase.ErrObjectLocked.Has(err):
+	case metabase.ErrObjectLock.Has(err):
 		return rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())

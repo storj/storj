@@ -764,7 +764,7 @@ func (db *DB) precommitDeleteUnversionedUsingObjectLock(ctx context.Context, ada
 		return PrecommitConstraintResult{}, Error.Wrap(err)
 	}
 	if objectToDelete.Retention.Active() {
-		return PrecommitConstraintResult{}, ErrObjectLocked.New(objectLockedErrMsg)
+		return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 
 	deleteResult, err := adapter.precommitDeleteObjectExactVersion(ctx, loc, objectToDelete.Version)

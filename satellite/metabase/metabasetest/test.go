@@ -855,3 +855,29 @@ func (step GetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t te
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
+
+// SetObjectExactVersionRetention is for testing metabase.SetObjectExactVersionRetention.
+type SetObjectExactVersionRetention struct {
+	Opts     metabase.SetObjectExactVersionRetention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectExactVersionRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectExactVersionRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// SetObjectLastCommittedRetention is for testing metabase.SetObjectLastCommittedRetention.
+type SetObjectLastCommittedRetention struct {
+	Opts     metabase.SetObjectLastCommittedRetention
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectLastCommittedRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}

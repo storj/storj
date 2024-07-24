@@ -417,3 +417,517 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 	})
 }
+
+func TestSetObjectExactVersionRetention(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+		loc := objStream.Location()
+
+		activeRetention := metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour),
+		}
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return obj
+		}
+
+		t.Run("Set retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			// obj1 and obj3 exist to ensure that SetObjectExactVersionRetention
+			// does not select the first or last version instead of the version
+			// it is given.
+			obj1 := createObject(t, objStream, metabase.Retention{})
+			objStream.Version++
+			obj2 := createObject(t, objStream, metabase.Retention{})
+			objStream.Version++
+			obj3 := createObject(t, objStream, metabase.Retention{})
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        obj2.Version,
+					Retention:      activeRetention,
+				},
+			}.Check(ctx, t, db)
+
+			// Ensure that retention periods can be extended.
+			extendedRetention := activeRetention
+			extendedRetention.RetainUntil = extendedRetention.RetainUntil.Add(time.Hour)
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        obj2.Version,
+					Retention:      extendedRetention,
+				},
+			}.Check(ctx, t, db)
+			obj2.Retention = extendedRetention
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(obj1),
+					metabase.RawObject(obj2),
+					metabase.RawObject(obj3),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Remove retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			noRetentionObj := createObject(t, objStream, metabase.Retention{})
+
+			objStream.Version++
+			expiredRetentionObj := createObject(t, objStream, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(-time.Minute),
+			})
+
+			objStream.Version++
+			activeRetentionObj := createObject(t, objStream, activeRetention)
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        noRetentionObj.Version,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        expiredRetentionObj.Version,
+				},
+			}.Check(ctx, t, db)
+			expiredRetentionObj.Retention = metabase.Retention{}
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        activeRetentionObj.Version,
+				},
+				ErrClass: &metabase.ErrObjectLock,
+				ErrText:  "an active retention configuration cannot be removed",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(noRetentionObj),
+					metabase.RawObject(expiredRetentionObj),
+					metabase.RawObject(activeRetentionObj),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Shorten retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := createObject(t, objStream, activeRetention)
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        obj.Version,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: activeRetention.RetainUntil.Add(-time.Minute),
+					},
+				},
+				ErrClass: &metabase.ErrObjectLock,
+				ErrText:  "retention period cannot be shortened",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Invalid retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := createObject(t, objStream, activeRetention)
+
+			check := func(retention metabase.Retention, errText string) {
+				metabasetest.SetObjectExactVersionRetention{
+					Opts: metabase.SetObjectExactVersionRetention{
+						ObjectLocation: loc,
+						Version:        obj.Version,
+						Retention:      retention,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  errText,
+				}.Check(ctx, t, db)
+			}
+
+			check(metabase.Retention{
+				Mode: storj.ComplianceMode,
+			}, "retention period expiration must be set if retention mode is set")
+
+			check(metabase.Retention{
+				RetainUntil: activeRetention.RetainUntil,
+			}, "retention period expiration must not be set if retention mode is not set")
+
+			check(metabase.Retention{
+				Mode:        storj.RetentionMode(2),
+				RetainUntil: activeRetention.RetainUntil,
+			}, "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        objStream.Version,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			obj := createObject(t, objStream, metabase.Retention{})
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        obj.Version + 1,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        pending.Version,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  "Object Lock settings must only be placed on committed objects",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Object with TTL", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expiresAt := time.Now().Add(time.Minute)
+
+			ttlObj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &expiresAt,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        ttlObj.Version,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestSetObjectLastCommittedRetention(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+		loc := objStream.Location()
+
+		activeRetention := metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour),
+		}
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return obj
+		}
+
+		t.Run("Set retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			obj1 := createObject(t, objStream, metabase.Retention{})
+			objStream.Version++
+			obj2 := createObject(t, objStream, metabase.Retention{})
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+					Retention:      activeRetention,
+				},
+			}.Check(ctx, t, db)
+
+			// Ensure that retention periods can be extended.
+			extendedRetention := activeRetention
+			extendedRetention.RetainUntil = extendedRetention.RetainUntil.Add(time.Hour)
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+					Retention:      extendedRetention,
+				},
+			}.Check(ctx, t, db)
+			obj2.Retention = extendedRetention
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj1), metabase.RawObject(obj2)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Remove retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			noRetentionObj := createObject(t, objStream, metabase.Retention{})
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+				},
+			}.Check(ctx, t, db)
+
+			objStream.Version++
+			expiredRetentionObj := createObject(t, objStream, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(-time.Minute),
+			})
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+				},
+			}.Check(ctx, t, db)
+			expiredRetentionObj.Retention = metabase.Retention{}
+
+			objStream.Version++
+			activeRetentionObj := createObject(t, objStream, activeRetention)
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+				},
+				ErrClass: &metabase.ErrObjectLock,
+				ErrText:  "an active retention configuration cannot be removed",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(noRetentionObj),
+					metabase.RawObject(expiredRetentionObj),
+					metabase.RawObject(activeRetentionObj),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Shorten retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := createObject(t, objStream, activeRetention)
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: activeRetention.RetainUntil.Add(-time.Minute),
+					},
+				},
+				ErrClass: &metabase.ErrObjectLock,
+				ErrText:  "retention period cannot be shortened",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Invalid retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := createObject(t, objStream, activeRetention)
+
+			check := func(retention metabase.Retention, errText string) {
+				metabasetest.SetObjectLastCommittedRetention{
+					Opts: metabase.SetObjectLastCommittedRetention{
+						ObjectLocation: loc,
+						Retention:      retention,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  errText,
+				}.Check(ctx, t, db)
+			}
+
+			check(metabase.Retention{
+				Mode: storj.ComplianceMode,
+			}, "retention period expiration must be set if retention mode is set")
+
+			check(metabase.Retention{
+				RetainUntil: activeRetention.RetainUntil,
+			}, "retention period expiration must not be set if retention mode is not set")
+
+			check(metabase.Retention{
+				Mode:        storj.RetentionMode(2),
+				RetainUntil: activeRetention.RetainUntil,
+			}, "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: objStream.Location(),
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			committed := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: pending.ObjectStream,
+				},
+			}.Check(ctx, t, db)
+
+			objStream.Version++
+			pending = metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+					Retention:      activeRetention,
+				},
+			}.Check(ctx, t, db)
+			committed.Retention = activeRetention
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(committed), metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Object with TTL", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expiresAt := time.Now().Add(time.Minute)
+
+			ttlObj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &expiresAt,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: objStream.Location(),
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
+			}.Check(ctx, t, db)
+		})
+	})
+}

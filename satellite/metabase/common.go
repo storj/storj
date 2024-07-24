@@ -621,6 +621,11 @@ func (status ObjectStatus) IsUnversioned() bool {
 	return status == DeleteMarkerUnversioned || status == CommittedUnversioned
 }
 
+// IsCommitted returns whether the status indicates that an object is committed.
+func (status ObjectStatus) IsCommitted() bool {
+	return status == CommittedUnversioned || status == CommittedVersioned
+}
+
 // String returns textual representation of status.
 func (status ObjectStatus) String() string {
 	switch status {

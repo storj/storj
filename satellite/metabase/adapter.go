@@ -32,6 +32,8 @@ type Adapter interface {
 
 	GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error)
 	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
+	SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) error
+	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 	UpdateTableStats(ctx context.Context) error

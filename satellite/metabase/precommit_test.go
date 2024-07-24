@@ -97,7 +97,7 @@ func TestObjectLockPrecommitDeleteMode(t *testing.T) {
 			}.Run(ctx, t, db, objStream, 3)
 
 			res, err := precommit(loc)
-			require.True(t, metabase.ErrObjectLocked.Has(err))
+			require.True(t, metabase.ErrObjectLock.Has(err))
 			require.Empty(t, res)
 
 			metabasetest.Verify{

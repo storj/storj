@@ -4700,7 +4700,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 						ObjectStream:  obj.ObjectStream,
 						UseObjectLock: true,
 					},
-					ErrClass: &metabase.ErrObjectLocked,
+					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{
@@ -4796,7 +4796,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 						CommitInlineSegment: commitInlineSeg,
 						UseObjectLock:       true,
 					},
-					ErrClass: &metabase.ErrObjectLocked,
+					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{

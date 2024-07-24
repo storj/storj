@@ -21,9 +21,9 @@ import (
 const objectLockedErrMsg = "object has an active retention period"
 
 var (
-	// ErrObjectLocked is used when an object's Object Lock configuration prevents
+	// ErrObjectLock is used when an object's Object Lock configuration prevents
 	// an operation from succeeding.
-	ErrObjectLocked = errs.Class("object locked")
+	ErrObjectLock = errs.Class("object lock")
 )
 
 // DeleteObjectExactVersion contains arguments necessary for deleting an exact version of object.

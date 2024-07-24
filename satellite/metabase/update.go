@@ -18,8 +18,21 @@ import (
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
-// ErrValueChanged is returned when the current value of the key does not match the oldValue in UpdateSegmentPieces.
-var ErrValueChanged = errs.Class("value changed")
+const (
+	noLockWithExpirationErrMsg = "Object Lock settings must not be placed on an object with an expiration date"
+	noLockOnUncommittedErrMsg  = "Object Lock settings must only be placed on committed objects"
+	noShortenRetentionErrMsg   = "retention period cannot be shortened"
+	noRemoveRetentionErrMsg    = "an active retention configuration cannot be removed"
+)
+
+var (
+	// ErrValueChanged is returned when the current value of the key does not match the oldValue in UpdateSegmentPieces.
+	ErrValueChanged = errs.Class("value changed")
+	// ErrObjectExpiration is used when an object's expiration prevents an operation from succeeding.
+	ErrObjectExpiration = errs.Class("object expiration")
+	// ErrObjectStatus is used when an object's status prevents an operation from succeeding.
+	ErrObjectStatus = errs.Class("object status")
+)
 
 // UpdateSegmentPieces contains arguments necessary for updating segment pieces.
 type UpdateSegmentPieces struct {
@@ -196,4 +209,332 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 		return nil, Error.Wrap(err)
 	}
 	return resultPieces, nil
+}
+
+// SetObjectExactVersionRetention contains arguments necessary for setting
+// the retention configuration of an exact version of an object.
+type SetObjectExactVersionRetention struct {
+	ObjectLocation
+	Version Version
+
+	Retention Retention
+}
+
+// Verify verifies the request fields.
+func (opts *SetObjectExactVersionRetention) Verify() (err error) {
+	if err = opts.ObjectLocation.Verify(); err != nil {
+		return err
+	}
+	if err = opts.Retention.Verify(); err != nil {
+		return ErrInvalidRequest.Wrap(err)
+	}
+	return nil
+}
+
+// SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
+func (db *DB) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return err
+	}
+
+	return db.ChooseAdapter(opts.ProjectID).SetObjectExactVersionRetention(ctx, opts)
+}
+
+// SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
+func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var info preUpdateRetentionInfo
+
+	err = p.db.QueryRowContext(ctx, `
+		SELECT status, expires_at, retention_mode, retain_until
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+	).Scan(
+		&info.Status,
+		&info.ExpiresAt,
+		retentionModeWrapper{&info.Retention.Mode},
+		timeWrapper{&info.Retention.RetainUntil},
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrObjectNotFound.New("")
+		}
+		return Error.New("unable to query object info before setting retention: %w", err)
+	}
+
+	if err = info.verify(opts.Retention); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return errs.Wrap(p.setObjectExactVersionRetention(ctx, opts))
+}
+
+func (p *PostgresAdapter) setObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	res, err := p.db.ExecContext(ctx, `
+		UPDATE objects
+		SET
+			retention_mode = $5,
+			retain_until   = $6
+		WHERE
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version,
+		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
+	)
+	if err != nil {
+		return Error.New("unable to update object retention configuration: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return Error.New("unable to get number of affected objects: %w", err)
+	}
+	if affected == 0 {
+		return ErrObjectNotFound.New("")
+	}
+
+	return nil
+}
+
+// SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
+func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT status, expires_at, retention_mode, retain_until
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	}), func(row *spanner.Row, item *preUpdateRetentionInfo) error {
+		return Error.Wrap(row.Columns(
+			&item.Status,
+			&item.ExpiresAt,
+			retentionModeWrapper{&item.Retention.Mode},
+			timeWrapper{&item.Retention.RetainUntil},
+		))
+	})
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return ErrObjectNotFound.New("")
+		}
+		return Error.New("unable to query object info before setting retention: %w", err)
+	}
+
+	if err = result.verify(opts.Retention); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return errs.Wrap(s.setObjectExactVersionRetention(ctx, opts))
+}
+
+func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var affected int64
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		affected, err = tx.Update(ctx, spanner.Statement{
+			SQL: `
+				UPDATE objects
+				SET
+					retention_mode = @retention_mode,
+					retain_until   = @retain_until
+				WHERE
+					(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+			`,
+			Params: map[string]interface{}{
+				"project_id":     opts.ProjectID,
+				"bucket_name":    opts.BucketName,
+				"object_key":     opts.ObjectKey,
+				"version":        opts.Version,
+				"retention_mode": retentionModeWrapper{&opts.Retention.Mode},
+				"retain_until":   timeWrapper{&opts.Retention.RetainUntil},
+			},
+		})
+		return errs.Wrap(err)
+	})
+	if err != nil {
+		return Error.New("unable to update object retention configuration: %w", err)
+	}
+
+	if affected == 0 {
+		return ErrObjectNotFound.New("")
+	}
+
+	return nil
+}
+
+// SetObjectLastCommittedRetention contains arguments necessary for setting
+// the retention configuration of the most recently committed version of an object.
+type SetObjectLastCommittedRetention struct {
+	ObjectLocation
+	Retention Retention
+}
+
+// Verify verifies the request fields.
+func (opts SetObjectLastCommittedRetention) Verify() (err error) {
+	if err = opts.ObjectLocation.Verify(); err != nil {
+		return err
+	}
+	if err = opts.Retention.Verify(); err != nil {
+		return ErrInvalidRequest.Wrap(err)
+	}
+	return nil
+}
+
+// SetObjectLastCommittedRetention sets the retention configuration
+// of the most recently committed version of an object.
+func (db *DB) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return err
+	}
+
+	return db.ChooseAdapter(opts.ProjectID).SetObjectLastCommittedRetention(ctx, opts)
+}
+
+// SetObjectLastCommittedRetention sets the retention configuration
+// of the most recently committed version of an object.
+func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var (
+		version Version
+		info    preUpdateRetentionInfo
+	)
+	err = p.db.QueryRowContext(ctx, `
+		SELECT version, expires_at, retention_mode, retain_until
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key) = ($1, $2, $3)
+			AND status IN `+statusesCommitted+`
+		ORDER BY version DESC
+		LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
+	).Scan(
+		&version,
+		&info.ExpiresAt,
+		retentionModeWrapper{&info.Retention.Mode},
+		timeWrapper{&info.Retention.RetainUntil},
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrObjectNotFound.New("")
+		}
+		return Error.New("unable to query object info before setting retention: %w", err)
+	}
+
+	if err = info.verifyWithoutStatus(opts.Retention); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return errs.Wrap(p.setObjectExactVersionRetention(ctx, SetObjectExactVersionRetention{
+		ObjectLocation: opts.ObjectLocation,
+		Version:        version,
+		Retention:      opts.Retention,
+	}))
+}
+
+// SetObjectLastCommittedRetention sets the retention configuration
+// of the most recently committed version of an object.
+func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	type info struct {
+		version Version
+		preUpdateRetentionInfo
+	}
+
+	result, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT version, expires_at, retention_mode, retain_until
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				AND status IN ` + statusesCommitted + `
+			ORDER BY version DESC
+			LIMIT 1
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+		},
+	}), func(row *spanner.Row, item *info) error {
+		return Error.Wrap(row.Columns(
+			&item.version,
+			&item.ExpiresAt,
+			retentionModeWrapper{&item.Retention.Mode},
+			timeWrapper{&item.Retention.RetainUntil},
+		))
+	})
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return ErrObjectNotFound.New("")
+		}
+		return Error.New("unable to query object info before setting retention: %w", err)
+	}
+
+	if err = result.verifyWithoutStatus(opts.Retention); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return Error.Wrap(s.setObjectExactVersionRetention(ctx, SetObjectExactVersionRetention{
+		ObjectLocation: opts.ObjectLocation,
+		Version:        result.version,
+		Retention:      opts.Retention,
+	}))
+}
+
+// preUpdateRetentionInfo contains information about an object that is collected
+// before updating the object's retention configuration.
+type preUpdateRetentionInfo struct {
+	Status    ObjectStatus
+	ExpiresAt *time.Time
+	Retention Retention
+}
+
+// verify returns an error if the object's retention shouldn't be updated.
+func (info *preUpdateRetentionInfo) verify(newRetention Retention) error {
+	if !info.Status.IsCommitted() {
+		return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
+	}
+	return errs.Wrap(info.verifyWithoutStatus(newRetention))
+}
+
+// verifyWithoutStatus returns an error if the object's retention shouldn't be updated,
+// ignoring the status.
+func (info *preUpdateRetentionInfo) verifyWithoutStatus(newRetention Retention) error {
+	if info.ExpiresAt != nil {
+		return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+	}
+
+	if err := info.Retention.Verify(); err != nil {
+		return errs.Wrap(err)
+	}
+
+	if info.Retention.Active() {
+		switch {
+		case !newRetention.Enabled():
+			return ErrObjectLock.New(noRemoveRetentionErrMsg)
+		case newRetention.RetainUntil.Before(info.Retention.RetainUntil):
+			return ErrObjectLock.New(noShortenRetentionErrMsg)
+		}
+	}
+
+	return nil
 }
