@@ -220,8 +220,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 			ExcludedCount /= 10
 		}
 
-		SelectNewCount := int(100 * newNodeFraction)
-
 		now := time.Now()
 		twoHoursAgo := now.Add(-2 * time.Hour)
 
@@ -240,7 +238,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		}
 
 		var excludedIDs []storj.NodeID
-		var excludedNets []string
 
 		for i := 0; i < Total/NodesPerNet; i++ {
 			for k := 0; k < NodesPerNet; k++ {
@@ -250,7 +247,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 				if i < ExcludedCount && k == 0 {
 					excludedIDs = append(excludedIDs, nodeID)
-					excludedNets = append(excludedNets, lastNet)
 				}
 
 				addr := address + ":12121"
@@ -307,72 +303,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 				}
 			}
 		}
-
-		criteria := &overlay.NodeCriteria{
-			FreeDisk:           0,
-			ExcludedIDs:        nil,
-			ExcludedNetworks:   nil,
-			MinimumVersion:     "v1.0.0",
-			OnlineWindow:       time.Hour,
-			AsOfSystemInterval: -time.Microsecond,
-		}
-		excludedCriteria := &overlay.NodeCriteria{
-			FreeDisk:           0,
-			ExcludedIDs:        excludedIDs,
-			ExcludedNetworks:   excludedNets,
-			MinimumVersion:     "v1.0.0",
-			OnlineWindow:       time.Hour,
-			AsOfSystemInterval: -time.Microsecond,
-		}
-
-		b.Run("SelectStorageNodes", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, 0, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectNewStorageNodes", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectCount, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, 0, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectNewStorageNodesExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectCount, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesBoth", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectNewCount, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesBothExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectNewCount, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
 		b.Run("GetNodesNetwork", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				excludedNetworks, err := overlaydb.GetNodesNetwork(ctx, excludedIDs)

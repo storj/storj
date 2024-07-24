@@ -51,8 +51,6 @@ type DB interface {
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
 	GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
-	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*nodeselection.SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading

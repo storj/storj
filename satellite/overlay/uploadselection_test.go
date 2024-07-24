@@ -763,11 +763,6 @@ func (m *mockdb) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []sto
 	panic("implement me")
 }
 
-// SelectStorageNodes satisfies nodeevents.DB interface.
-func (m *mockdb) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) ([]*nodeselection.SelectedNode, error) {
-	panic("implement me")
-}
-
 // SelectAllStorageNodesDownload satisfies nodeevents.DB interface.
 func (m *mockdb) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error) {
 	panic("implement me")
