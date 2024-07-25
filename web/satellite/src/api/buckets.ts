@@ -124,6 +124,7 @@ export class BucketsHttpApi implements BucketsApi {
                 bVersioning.placement.defaultPlacement,
                 bVersioning.placement.location,
             ),
+            bVersioning.objectLockEnabled,
         )) || [];
     }
 }

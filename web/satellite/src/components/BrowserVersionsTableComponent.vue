@@ -79,6 +79,7 @@
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
+                            @lock-object-click="onLockObjectClick(item.browserObject)"
                         />
                     </td>
                     <td />
@@ -217,8 +218,14 @@
     <restore-version-dialog
         v-model="isRestoreDialogShown"
         :file="fileToRestore || undefined"
-        @file-restored="onFileRestored"
+        @file-restored="refreshPage"
         @content-removed="fileToRestore = null"
+    />
+    <lock-object-dialog
+        v-model="isLockDialogShown"
+        :file="fileToLock"
+        @file-locked="refreshPage"
+        @content-removed="fileToLock = null"
     />
 </template>
 
@@ -236,7 +243,7 @@ import {
     VListItem,
     VRow,
     VSelect,
-    VSnackbar, VTooltip,
+    VSnackbar,
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
@@ -247,11 +254,9 @@ import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { BucketMetadata } from '@/types/buckets';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -261,6 +266,7 @@ import IconTrash from '@/components/icons/IconTrash.vue';
 import IconCurveRight from '@/components/icons/IconCurveRight.vue';
 import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue';
+import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 
 const props = defineProps<{
     forceEmpty?: boolean;
@@ -274,7 +280,6 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
-const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -285,11 +290,13 @@ const previewDialog = ref<boolean>(false);
 const fileToDelete = ref<BrowserObject | null>(null);
 const fileToRestore = ref<BrowserObject | null>(null);
 const fileToPreview = ref<BrowserObject | null>(null);
+const fileToLock = ref<BrowserObject | null>(null);
 const fileVersionsToPreview = ref<BrowserObject[]>();
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isRestoreDialogShown = ref<boolean>(false);
+const isLockDialogShown = ref<boolean>(false);
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 
@@ -316,11 +323,6 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
  * Returns the current path within the selected bucket.
  */
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
-
-/**
- * Returns whether the file guide is permanently dismissed.
- */
-const fileGuideDismissed = computed(() => userStore.noticeDismissal.fileGuide);
 
 const expandedFiles = computed<BrowserObject[]>({
     get: () => {
@@ -413,8 +415,8 @@ function onNextPageClick(): void {
     fetchFiles(cursor.value.page + 1);
 }
 
-function onFileRestored(): void {
-    fetchFiles(cursor.value.page);
+function refreshPage(): void {
+    fetchFiles(cursor.value.page, false);
     obStore.updateSelectedFiles([]);
 }
 
@@ -552,7 +554,6 @@ function onFileClick(file: BrowserObject): void {
     const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
     fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
     previewDialog.value = true;
-    dismissFileGuide();
 }
 
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
@@ -589,14 +590,12 @@ function onRestoreObjectClick(file: BrowserObject): void {
     isRestoreDialogShown.value = true;
 }
 
-async function dismissFileGuide() {
-    try {
-        const noticeDismissal = { ...userStore.state.settings.noticeDismissal };
-        noticeDismissal.fileGuide = true;
-        await userStore.updateSettings({ noticeDismissal });
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
-    }
+/**
+ * Handles lock button click event.
+ */
+function onLockObjectClick(file: BrowserObject): void {
+    fileToLock.value = file;
+    isLockDialogShown.value = true;
 }
 
 obStore.$onAction(({ name, after }) => {

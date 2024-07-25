@@ -85,6 +85,14 @@
                                     <v-progress-circular indeterminate size="23" width="2" />
                                 </div>
                             </v-list-item>
+                            <v-list-item v-if="objectLockEnabledForBucket" density="comfortable" link @click="emit('lockObjectClick')">
+                                <template #prepend>
+                                    <icon-lock :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Lock
+                                </v-list-item-title>
+                            </v-list-item>
                             <v-list-item v-if="isVersion && !isFileDeleted && !file.isLatest && !file.isDeleteMarker" density="comfortable" link @click="emit('restoreObjectClick')">
                                 <template #prepend>
                                     <component :is="Redo2" :size="18" />
@@ -143,7 +151,12 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { BucketMetadata } from '@/types/buckets';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
+import IconLock from '@/components/icons/IconLock.vue';
+
+const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 
@@ -162,12 +175,27 @@ const emit = defineEmits<{
     deleteFileClick: [];
     shareClick: [];
     restoreObjectClick: [];
+    lockObjectClick: [];
 }>();
 
 const isDownloading = ref<boolean>(false);
 
 const alignClass = computed<string>(() => {
     return 'text-' + props.align;
+});
+
+/**
+ * Returns metadata of the current bucket.
+ */
+const bucket = computed<BucketMetadata | undefined>(() => {
+    return bucketsStore.state.allBucketMetadata.find(b => b.name === bucketsStore.state.fileComponentBucketName);
+});
+
+/**
+ * Whether object lock is enabled for current bucket.
+ */
+const objectLockEnabledForBucket = computed<boolean>(() => {
+    return projectsStore.objectLockUIEnabled && !!bucket.value?.objectLockEnabled;
 });
 
 /**

@@ -88,5 +88,6 @@ export class BucketMetadata {
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
         public placement: Placement = new Placement(),
+        public objectLockEnabled: boolean = false,
     ) { }
 }

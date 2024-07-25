@@ -18,6 +18,8 @@ import {
     ListObjectVersionsCommandOutput,
     paginateListObjectsV2,
     PutObjectCommand,
+    PutObjectRetentionCommand,
+    ObjectLockRetentionMode,
     S3Client,
     S3ClientConfig,
 } from '@aws-sdk/client-s3';
@@ -786,6 +788,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
+    async function lockObject(file: BrowserObject, until: Date): Promise<void> {
+        assertIsInitialized(state);
+
+        await state.s3.send(new PutObjectRetentionCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
+            Retention: {
+                Mode: ObjectLockRetentionMode.COMPLIANCE,
+                RetainUntilDate: until,
+            },
+        }));
+    }
+
     async function deleteObjectWithVersions(path: string, file: BrowserObject): Promise<void> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
@@ -1128,6 +1144,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         upload,
         restoreObject,
         createFolder,
+        lockObject,
         deleteObject,
         deleteObjectWithVersions,
         deleteFolder,

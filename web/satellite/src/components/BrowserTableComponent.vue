@@ -96,6 +96,7 @@
                             @preview-click="onFileClick(item.browserObject)"
                             @delete-file-click="onDeleteFileClick(item.browserObject)"
                             @share-click="onShareClick(item.browserObject)"
+                            @lock-object-click="onLockObjectClick(item.browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -182,11 +183,11 @@
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
     />
-    <restore-version-dialog
-        v-model="isRestoreDialogShown"
-        :file="fileToRestore || undefined"
-        @file-restored="onFileRestored"
-        @content-removed="fileToRestore = null"
+    <lock-object-dialog
+        v-model="isLockDialogShown"
+        :file="fileToLock"
+        @file-locked="refreshPage"
+        @content-removed="fileToLock = null"
     />
 </template>
 
@@ -233,8 +234,8 @@ import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
-import RestoreVersionDialog from '@/components/dialogs/RestoreVersionDialog.vue';
 import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
+import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -273,12 +274,12 @@ const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
 const fileToDelete = ref<BrowserObject | null>(null);
-const fileToRestore = ref<BrowserObject | null>(null);
+const fileToLock = ref<BrowserObject | null>(null);
 const fileToPreview = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
-const isRestoreDialogShown = ref<boolean>(false);
+const isLockDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
@@ -457,8 +458,8 @@ function onNextPageClick(): void {
     fetchFiles(cursor.value.page + 1, true);
 }
 
-function onFileRestored(): void {
-    fetchFiles();
+function refreshPage(): void {
+    fetchFiles(cursor.value.page, false);
     obStore.updateSelectedFiles([]);
 }
 
@@ -501,15 +502,6 @@ function onLimitChange(newLimit: number): void {
         fetchFiles();
     } else {
         obStore.setCursor({ page: options.value?.page ?? 1, limit: newLimit });
-    }
-}
-
-function toggleSelectObjectVersion(isSelected: boolean, version: BrowserObject) {
-    const selected = obStore.state.selectedFiles;
-    if (isSelected) {
-        obStore.updateSelectedFiles([...selected, version]);
-    } else {
-        obStore.updateSelectedFiles(selected.filter(f => f.VersionId !== version.VersionId));
     }
 }
 
@@ -619,6 +611,14 @@ function onDeleteFileClick(file: BrowserObject): void {
 function onShareClick(file: BrowserObject): void {
     fileToShare.value = file;
     isShareDialogShown.value = true;
+}
+
+/**
+ * Handles restore button click event.
+ */
+function onLockObjectClick(file: BrowserObject): void {
+    fileToLock.value = file;
+    isLockDialogShown.value = true;
 }
 
 async function dismissFileGuide() {
