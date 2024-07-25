@@ -310,7 +310,7 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.Blob
 		return err
 	}
 	blobs.Update(ctx, satelliteID, -pieceTotal, -pieceContentSize, 0)
-	blobs.log.Debug("deleted piece", zap.String("Satellite ID", satelliteID.String()), zap.Int64("disk space freed in bytes", pieceContentSize))
+	blobs.log.Debug("deleted piece", zap.Stringer("Satellite ID", satelliteID), zap.Int64("disk space freed in bytes", pieceContentSize))
 	return nil
 }
 
@@ -332,7 +332,7 @@ func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref b
 	}
 
 	blobs.Update(ctx, satelliteID, -pieceTotal, -pieceContentSize, 0)
-	blobs.log.Debug("deleted piece", zap.String("Satellite ID", satelliteID.String()), zap.Any("Version", formatVer), zap.Int64("disk space freed in bytes", pieceContentSize))
+	blobs.log.Debug("deleted piece", zap.Stringer("Satellite ID", satelliteID), zap.Any("Version", formatVer), zap.Int64("disk space freed in bytes", pieceContentSize))
 	return nil
 }
 
