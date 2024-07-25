@@ -31,12 +31,9 @@ func TestFullMigration(t *testing.T) {
 	migration := func(ctx context.Context, db *metabase.DB) error {
 		return db.MigrateToLatest(ctx)
 	}
-	metabasetest.RunWithConfigAndMigration(t, metabase.Config{}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): implement Now for spanner.
-			t.Skip("not implemented for spanner")
-		}
-
+	metabasetest.RunWithConfigAndMigration(t, metabase.Config{
+		ApplicationName: "test-full-migration",
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		sysnow := time.Now()
 		now, err := db.Now(ctx)
 		require.NoError(t, err)

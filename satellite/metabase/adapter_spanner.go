@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"cloud.google.com/go/spanner"
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
@@ -19,12 +20,20 @@ type SpannerConfig struct {
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
 type SpannerAdapter struct {
-	log    *zap.Logger
-	client *spanner.Client
+	log         *zap.Logger
+	client      *spanner.Client
+	adminClient *database.DatabaseAdminClient
+
+	// database name  for spanner connection in the form  projects/P/instances/I/databases/DB
+	database string
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
 func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) (*SpannerAdapter, error) {
+	adminClient, err := database.NewDatabaseAdminClient(ctx)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
 	log = log.Named("spanner")
 	client, err := spanner.NewClientWithConfig(ctx, cfg.Database,
 		spanner.ClientConfig{
@@ -37,15 +46,17 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 		return nil, errs.Wrap(err)
 	}
 	return &SpannerAdapter{
-		client: client,
-		log:    log,
+		client:      client,
+		database:    cfg.Database,
+		adminClient: adminClient,
+		log:         log,
 	}, nil
 }
 
 // Close closes the internal client.
 func (s *SpannerAdapter) Close() error {
 	s.client.Close()
-	return nil
+	return s.adminClient.Close()
 }
 
 // Name returns the name of the adapter.

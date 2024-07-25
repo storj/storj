@@ -8,13 +8,14 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/mud"
-	"storj.io/storj/private/mud/mudtest"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -37,18 +38,17 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
-			mudtest.Run[*metabase.DB](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
-				TestModule(ball, dbinfo, config)
-			}), func(ctx context.Context, t *testing.T, db *metabase.DB) {
-				tctx := testcontext.New(t)
-				defer tctx.Cleanup()
+			tctx := testcontext.New(t)
+			defer tctx.Cleanup()
 
-				if err := migration(ctx, db); err != nil {
-					t.Fatal(err)
-				}
+			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
+			require.NoError(t, err)
 
-				fn(tctx, t, db)
-			})
+			if err := migration(tctx, db); err != nil {
+				t.Fatal(err)
+			}
+
+			fn(tctx, t, db)
 		})
 	}
 }
@@ -61,15 +61,14 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	)
 
 	RunWithConfig(t, metabase.Config{
-		ApplicationName:  "satellite-metabase-test",
-		MinPartSize:      config.MinPartSize,
-		MaxNumberOfParts: config.MaxNumberOfParts,
+		ApplicationName:          "satellite-metabase-test",
+		MinPartSize:              config.MinPartSize,
+		MaxNumberOfParts:         config.MaxNumberOfParts,
+		ServerSideCopy:           config.ServerSideCopy,
+		ServerSideCopyDisabled:   config.ServerSideCopyDisabled,
+		UseListObjectsIterator:   config.UseListObjectsIterator,
+		TestingUniqueUnversioned: true,
 
-		ServerSideCopy:         config.ServerSideCopy,
-		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
-		UseListObjectsIterator: config.UseListObjectsIterator,
-
-		TestingUniqueUnversioned:   true,
 		TestingPrecommitDeleteMode: metabase.PrecommitDeleteMode(config.TestingPrecommitDeleteMode),
 	}, fn, flags...)
 }
@@ -79,26 +78,23 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 	for _, dbinfo := range satellitedbtest.Databases() {
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
-			config := metabase.Config{
+			tctx := testcontext.New(b)
+			defer tctx.Cleanup()
+			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
 				ApplicationName:            "satellite-bench",
 				MinPartSize:                5 * memory.MiB,
 				MaxNumberOfParts:           10000,
 				TestingPrecommitDeleteMode: metabase.DefaultUnversionedPrecommitMode,
+			})
+			require.NoError(b, err)
+
+			if err := db.TestMigrateToLatest(tctx); err != nil {
+				b.Fatal(err)
 			}
 
-			mudtest.Run[*metabase.DB](b, mudtest.WithTestLogger(b, func(ball *mud.Ball) {
-				TestModule(ball, dbinfo, config)
-			}), func(ctx context.Context, b *testing.B, db *metabase.DB) {
-				tctx := testcontext.New(b)
-				defer tctx.Cleanup()
+			b.ResetTimer()
+			fn(tctx, b, db)
 
-				if err := db.TestMigrateToLatest(ctx); err != nil {
-					b.Fatal(err)
-				}
-
-				b.ResetTimer()
-				fn(tctx, b, db)
-			})
 		})
 	}
 }
@@ -125,7 +121,6 @@ func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, confi
 			ServerSideCopy:         config.ServerSideCopy,
 			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 
-			TestingUniqueUnversioned:   true,
 			TestingCommitSegmentMode:   config.TestingCommitSegmentMode,
 			TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 		}
