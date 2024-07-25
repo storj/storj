@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
@@ -17,7 +18,10 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-const objectLockedErrMsg = "object has an active retention period"
+const (
+	objectLockedErrMsg              = "object has an active retention period"
+	multipleCommittedVersionsErrMsg = "internal error: multiple committed unversioned objects"
+)
 
 var (
 	// ErrObjectLock is used when an object's Object Lock configuration prevents
@@ -382,7 +386,15 @@ func (db *DB) DeleteObjectLastCommitted(
 
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
-func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
+	if opts.UseObjectLock {
+		return p.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
+	}
+	return p.deleteObjectLastCommittedPlain(ctx, opts)
+}
+
+func (p *PostgresAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO(ver): do we need to pretend here that `expires_at` matters?
 	// TODO(ver): should this report an error when the object doesn't exist?
 	err = withRows(
@@ -420,9 +432,74 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, op
 	return result, err
 }
 
+func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var (
+		version   Version
+		retention Retention
+		scanned   bool
+	)
+
+	err = withRows(p.db.QueryContext(ctx, `
+		SELECT version, retention_mode, retain_until
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key) = ($1, $2, $3)
+			AND status = `+statusCommittedUnversioned+`
+			AND (expires_at IS NULL OR expires_at > now())
+		ORDER BY version DESC
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
+	))(func(rows tagsql.Rows) error {
+		if !rows.Next() {
+			return nil
+		}
+
+		err := rows.Scan(&version, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		scanned = true
+
+		if rows.Next() {
+			logMultipleCommittedVersionsError(p.log, opts.ObjectLocation)
+			return errs.New(multipleCommittedVersionsErrMsg)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+	if !scanned {
+		return DeleteObjectResult{}, nil
+	}
+
+	if err = retention.Verify(); err != nil {
+		return DeleteObjectResult{}, errs.Wrap(err)
+	}
+	if retention.Active() {
+		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	}
+
+	result, err = p.DeleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+		ObjectLocation: opts.ObjectLocation,
+		Version:        version,
+	})
+	return result, errs.Wrap(err)
+}
+
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
-func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
+	if opts.UseObjectLock {
+		return s.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
+	}
+	return s.deleteObjectLastCommittedPlain(ctx, opts)
+}
+
+func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO(ver): do we need to pretend here that `expires_at` matters?
 	// TODO(ver): should this report an error when the object doesn't exist?
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
@@ -464,6 +541,60 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opt
 		return Error.Wrap(err)
 	})
 	return result, err
+}
+
+func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	type versionAndRetention struct {
+		version   Version
+		retention Retention
+	}
+
+	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT version, retention_mode, retain_until
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				AND status = ` + statusCommittedUnversioned + `
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+			ORDER BY version DESC
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+		},
+	}), func(row *spanner.Row, item *versionAndRetention) error {
+		return errs.Wrap(row.Columns(
+			&item.version,
+			retentionModeWrapper{&item.retention.Mode},
+			timeWrapper{&item.retention.RetainUntil}))
+	})
+	switch {
+	case err == nil:
+	case errors.Is(err, iterator.Done):
+		return DeleteObjectResult{}, nil
+	case spannerutil.ErrMultipleRows.Has(err):
+		logMultipleCommittedVersionsError(s.log, opts.ObjectLocation)
+		return DeleteObjectResult{}, Error.New(multipleCommittedVersionsErrMsg)
+	default:
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+
+	if err = info.retention.Verify(); err != nil {
+		return DeleteObjectResult{}, errs.Wrap(err)
+	}
+	if info.retention.Active() {
+		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	}
+
+	result, err = s.DeleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+		ObjectLocation: opts.ObjectLocation,
+		Version:        info.version,
+	})
+	return result, errs.Wrap(err)
 }
 
 type deleteTransactionAdapter interface {
@@ -713,4 +844,13 @@ func generateDeleteMarkerStreamID() (uuid.UUID, error) {
 		v[i] = 0xFF
 	}
 	return v, nil
+}
+
+func logMultipleCommittedVersionsError(log *zap.Logger, loc ObjectLocation) {
+	log.Error("object with multiple committed versions were found!",
+		zap.Stringer("Project ID", loc.ProjectID),
+		zap.Stringer("Bucket Name", loc.BucketName),
+		zap.ByteString("Object Key", []byte(loc.ObjectKey)),
+	)
+	mon.Meter("multiple_committed_versions").Mark(1)
 }

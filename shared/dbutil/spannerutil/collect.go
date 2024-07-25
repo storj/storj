@@ -12,8 +12,13 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-// Error is error class for this package.
-var Error = errs.Class("spannerutil")
+var (
+	// Error is the default error class for this package.
+	Error = errs.Class("spannerutil")
+	// ErrMultipleRows is returned when multiple rows are returned from
+	// a query that expects no more than one.
+	ErrMultipleRows = errs.Class("more than 1 row returned")
+)
 
 // CollectRows scans each row into a slice.
 func CollectRows[T any](iter *spanner.RowIterator, scan func(row *spanner.Row, item *T) error) (rs []T, _ error) {
@@ -59,9 +64,13 @@ func CollectRow[T any](iter *spanner.RowIterator, scan func(row *spanner.Row, it
 	}
 
 	_, errCheck := iter.Next()
+	if errCheck == nil {
+		var zero T
+		return zero, ErrMultipleRows.New("")
+	}
 	if !errors.Is(errCheck, iterator.Done) {
 		var zero T
-		return zero, Error.New("more than 1 row returned: %w", errCheck)
+		return zero, Error.New("failed checking for remaining rows")
 	}
 
 	return r, nil

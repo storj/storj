@@ -380,7 +380,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
-		return result, Error.New("internal error: multiple committed unversioned objects")
+		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
 	if result.DeletedObjectCount > 0 {
@@ -500,7 +500,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
-		return result, Error.New("internal error: multiple committed unversioned objects")
+		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
 	if result.DeletedObjectCount > 0 {
@@ -618,7 +618,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
-		return result, Error.New("internal error: multiple committed unversioned objects")
+		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
 	if result.DeletedObjectCount > 0 {
@@ -691,7 +691,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
-		return result, Error.New("internal error: multiple committed unversioned objects")
+		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
 	if len(result.Deleted) == 1 {
@@ -743,14 +743,8 @@ func (db *DB) precommitDeleteUnversionedUsingObjectLock(ctx context.Context, ada
 	for _, info := range infos {
 		if info.Status.IsUnversioned() {
 			if objectToDelete != nil {
-				db.log.Error("object with multiple committed versions were found!",
-					zap.Stringer("Project ID", loc.ProjectID),
-					zap.Stringer("Bucket Name", loc.BucketName),
-					zap.ByteString("Object Key", []byte(loc.ObjectKey)),
-				)
-				mon.Meter("multiple_committed_versions").Mark(1)
-
-				return PrecommitConstraintResult{}, Error.New("internal error: multiple committed unversioned objects")
+				logMultipleCommittedVersionsError(db.log, loc)
+				return PrecommitConstraintResult{}, errs.New(multipleCommittedVersionsErrMsg)
 			}
 			info := info
 			objectToDelete = &info
@@ -1098,7 +1092,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
-		return result, Error.New("internal error: multiple committed unversioned objects")
+		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
 	if result.DeletedObjectCount > 0 {
@@ -1154,14 +1148,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 
 			if status.IsUnversioned() {
 				if objectToDelete != nil {
-					ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-						zap.Stringer("Project ID", loc.ProjectID),
-						zap.Stringer("Bucket Name", loc.BucketName),
-						zap.ByteString("Object Key", []byte(loc.ObjectKey)),
-					)
-					mon.Meter("multiple_committed_versions").Mark(1)
-
-					return errs.New("internal error: multiple committed unversioned objects")
+					logMultipleCommittedVersionsError(ptx.postgresAdapter.log, loc)
+					return errs.New(multipleCommittedVersionsErrMsg)
 				}
 				objectToDelete = &versionAndRetention{
 					version:   version,
@@ -1353,7 +1341,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
-		return result, Error.New("internal error: multiple committed unversioned objects")
+		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
 	// match behavior of postgresTransactionAdapter, to appease a test
@@ -1411,14 +1399,8 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 
 		if status.IsUnversioned() {
 			if objectToDelete != nil {
-				stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
-					zap.Stringer("Project ID", loc.ProjectID),
-					zap.Stringer("Bucket Name", loc.BucketName),
-					zap.ByteString("Object Key", []byte(loc.ObjectKey)),
-				)
-				mon.Meter("multiple_committed_versions").Mark(1)
-
-				return errs.New("internal error: multiple committed unversioned objects")
+				logMultipleCommittedVersionsError(stx.spannerAdapter.log, loc)
+				return errs.New(multipleCommittedVersionsErrMsg)
 			}
 			objectToDelete = &versionAndRetention{
 				version:   version,

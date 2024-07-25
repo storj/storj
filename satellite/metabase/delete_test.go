@@ -1225,6 +1225,46 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					}.Check(ctx, t, db)
 				})
 			})
+
+			t.Run("Unversioned", func(t *testing.T) {
+				t.Run("Active retention", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, segments := createLockedObject(t, time.Now().Add(time.Hour))
+
+					metabasetest.DeleteObjectLastCommitted{
+						Opts: metabase.DeleteObjectLastCommitted{
+							ObjectLocation: object.Location(),
+							UseObjectLock:  true,
+						},
+						ErrClass: &metabase.ErrObjectLock,
+						ErrText:  "object has an active retention period",
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects:  []metabase.RawObject{metabase.RawObject(object)},
+						Segments: metabasetest.SegmentsToRaw(segments),
+					}.Check(ctx, t, db)
+				})
+
+				t.Run("Expired retention", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, _ := createLockedObject(t, time.Now().Add(-time.Minute))
+
+					metabasetest.DeleteObjectLastCommitted{
+						Opts: metabase.DeleteObjectLastCommitted{
+							ObjectLocation: object.Location(),
+							UseObjectLock:  true,
+						},
+						Result: metabase.DeleteObjectResult{
+							Removed: []metabase.Object{object},
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{}.Check(ctx, t, db)
+				})
+			})
 		})
 	})
 }

@@ -118,6 +118,7 @@ func TestCollectRow(t *testing.T) {
 					return row.Columns(item)
 				})
 			require.Error(t, err)
+			require.True(t, spannerutil.ErrMultipleRows.Has(err))
 		}
 	})
 }
