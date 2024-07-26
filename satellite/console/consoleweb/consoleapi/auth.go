@@ -701,18 +701,26 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if data.Step < console.VerifyAccountPasswordStep || data.Step > console.DeleteAccountStep {
+	if data.Step < console.DeleteAccountInit || data.Step > console.DeleteAccountStep {
 		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
 		return
 	}
 
-	if data.Step != console.DeleteAccountStep && data.Data == "" {
+	if data.Step > console.DeleteAccountInit && data.Step != console.DeleteAccountStep && data.Data == "" {
 		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
 		return
 	}
 
-	if err = a.service.DeleteAccount(ctx, data.Step, data.Data); err != nil {
+	resp, err := a.service.DeleteAccount(ctx, data.Step, data.Data)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
+	}
+
+	if resp != nil {
+		w.WriteHeader(http.StatusConflict)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			a.log.Error("could not encode account deletion response", zap.Error(ErrAuthAPI.Wrap(err)))
+		}
 	}
 }
 

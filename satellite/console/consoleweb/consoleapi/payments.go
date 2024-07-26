@@ -832,7 +832,7 @@ func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		status := http.StatusInternalServerError
-		if stripe.ErrInvalidTaxID.Has(err) {
+		if payments.ErrInvalidTaxID.Has(err) {
 			status = http.StatusBadRequest
 		}
 		web.ServeCustomJSONError(ctx, p.log, w, status, err, errs.Unwrap(err).Error())

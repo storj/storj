@@ -16,9 +16,6 @@ import (
 	"storj.io/storj/satellite/payments"
 )
 
-// ErrInvalidTaxID is returned when a tax ID value is invalid.
-var ErrInvalidTaxID = errs.Class("Invalid tax ID value")
-
 // ensures that accounts implements payments.Accounts.
 var _ payments.Accounts = (*accounts)(nil)
 
@@ -217,7 +214,7 @@ func (accounts *accounts) AddTaxID(ctx context.Context, userID uuid.UUID, taxID 
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
 			if stripeErr.Code == stripe.ErrorCodeTaxIDInvalid {
-				err = Error.Wrap(ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
+				err = Error.Wrap(payments.ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
 			} else {
 				err = errs.Wrap(errors.New(stripeErr.Msg))
 			}
@@ -462,8 +459,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 }
 
 // CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error {
-	var err error
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	year, month, _ := accounts.service.nowFn().UTC().Date()
@@ -472,25 +468,25 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	// check current month usage and do not allow deletion if usage exists
 	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
 	if err != nil {
-		return err
+		return false, false, err
 	}
 	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-		return errs.New("usage for current month exists")
+		return true, false, payments.ErrUnbilledUsageCurrentMonth
 	}
 
 	// check usage for last month, if exists, ensure we have an invoice item created.
 	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 	if err != nil {
-		return err
+		return false, false, err
 	}
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if !errs.Is(err, ErrProjectRecordExists) {
-			return errs.New("usage for last month exist, but is not billed yet")
+			return false, true, payments.ErrUnbilledUsageLastMonth
 		}
 	}
 
-	return nil
+	return false, false, nil
 }
 
 // Charges returns list of all credit card charges related to account.

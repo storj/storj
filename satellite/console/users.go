@@ -404,6 +404,18 @@ type SetUpAccountRequest struct {
 	InterestedInPartnering bool    `json:"interestedInPartnering"`
 }
 
+// DeleteAccountResponse holds data for account deletion UI flow.
+type DeleteAccountResponse struct {
+	OwnedProjects       int   `json:"ownedProjects"`
+	Buckets             int   `json:"buckets"`
+	ApiKeys             int   `json:"apiKeys"`
+	UnpaidInvoices      int   `json:"unpaidInvoices"`
+	AmountOwed          int64 `json:"amountOwed"`
+	CurrentUsage        bool  `json:"currentUsage"`
+	InvoicingIncomplete bool  `json:"invoicingIncomplete"`
+	Success             bool  `json:"success"`
+}
+
 // TrialNotificationStatus is an enum representing a type of trial notification.
 type TrialNotificationStatus int
 
