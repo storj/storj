@@ -38,6 +38,7 @@ type pieceExpirationDB struct {
 var monGetExpired = mon.Task()
 
 // GetExpired gets piece IDs that expire or have expired before the given time.
+// If batchSize is less than or equal to 0, it will return all expired pieces in one batch.
 func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batchSize int) (info []pieces.ExpiredInfo, err error) {
 	defer monGetExpired(&ctx)(&err)
 
@@ -48,7 +49,6 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batc
 	for ei, exp := range db.buf {
 		if exp.Before(now) {
 			info = append(info, ei)
-
 			count++
 			if batchSize > 0 && count >= batchSize {
 				break
@@ -78,6 +78,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batc
 var monGetExpiredPaginated = mon.Task()
 
 // getExpiredPaginated returns a paginated list of expired pieces.
+// If limit is less than or equal to 0, it will return all expired pieces.
 func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.Time, limit int) (info []pieces.ExpiredInfo, err error) {
 	defer monGetExpiredPaginated(&ctx)(&err)
 
@@ -179,10 +180,13 @@ func (db *pieceExpirationDB) DeleteExpirations(ctx context.Context, now time.Tim
 	return ErrPieceExpiration.Wrap(err)
 }
 
-// DeleteExpirationsBatch removes expiration records for the given expired pieces.
-// The batch parameter is expected to be in the same order as the result of GetExpired.
+var monDeleteExpirationsBatch = mon.Task()
+
+// DeleteExpirationsBatch removes expiration records for pieces that have expired before the given time
+// and falls within the limit.
+// If limit is less than or equal to 0, it will delete all expired pieces.
 func (db *pieceExpirationDB) DeleteExpirationsBatch(ctx context.Context, now time.Time, limit int) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monDeleteExpirationsBatch(&ctx)(&err)
 
 	if limit <= 0 {
 		return db.DeleteExpirations(ctx, now)
