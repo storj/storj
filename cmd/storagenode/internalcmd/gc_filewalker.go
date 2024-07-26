@@ -125,12 +125,13 @@ func gcCmdRun(g *RunOptions) (err error) {
 		return nil
 	}
 
-	pieceIDs, piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
+	trashPiecesCount := 0
+	piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
 		log.Debug("found a trash piece", zap.Stringer("pieceID", pieceID))
 		// we found a piece that needs to be trashed, so we notify the main process.
 		// do it in batches to avoid sending too many messages.
-
 		pieceIDs = append(pieceIDs, pieceID)
+		trashPiecesCount++
 
 		if len(pieceIDs) >= piecesBatchSize {
 			return flushPiecesToTrash()
@@ -148,13 +149,12 @@ func gcCmdRun(g *RunOptions) (err error) {
 	}
 
 	resp := lazyfilewalker.GCFilewalkerResponse{
-		PieceIDs:           pieceIDs,
 		PiecesCount:        piecesCount,
 		PiecesSkippedCount: piecesSkippedCount,
 		Completed:          true,
 	}
 
-	log.Info("gc-filewalker completed", zap.Int64("piecesCount", piecesCount), zap.Int("trashPiecesCount", len(pieceIDs)), zap.Int("piecesTrashed", numTrashed), zap.Int64("piecesSkippedCount", piecesSkippedCount))
+	log.Info("gc-filewalker completed", zap.Int64("piecesCount", piecesCount), zap.Int("Total Pieces To Trash", trashPiecesCount), zap.Int("Trashed Pieces", numTrashed), zap.Int64("Pieces Skipped", piecesSkippedCount))
 
 	// encode the response struct and write it to stdout
 	err = json.NewEncoder(g.stdout).Encode(resp)

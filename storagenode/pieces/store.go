@@ -568,13 +568,13 @@ func (store *Store) WalkSatellitePiecesFromPrefix(ctx context.Context, satellite
 // If the lazy filewalker is enabled, it will be used to find the pieces to trash, otherwise
 // the regular filewalker will be used. If the lazy filewalker fails, the regular filewalker
 // will be used as a fallback.
-func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx, satelliteID, createdBefore)(&err)
 
 	if store.lazyFilewalkerEnabled() {
-		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, trashFunc)
+		piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, trashFunc)
 		if err == nil {
-			return pieceIDs, piecesCount, piecesSkipped, nil
+			return piecesCount, piecesSkipped, nil
 		}
 		store.log.Error("lazyfilewalker failed", zap.Error(err))
 	}

@@ -78,7 +78,7 @@ func TestFilewalker_Basic(t *testing.T) {
 
 		// WalkSatellitePiecesToTrash
 		trashPieceCount := 0
-		_, piecesCount, _, err := fw.WalkSatellitePiecesToTrash(ctx, satellite, time.Now(), filter, func(pieceID storj.PieceID) error {
+		piecesCount, _, err := fw.WalkSatellitePiecesToTrash(ctx, satellite, time.Now(), filter, func(pieceID storj.PieceID) error {
 			trashPieceCount++
 			return nil
 		})

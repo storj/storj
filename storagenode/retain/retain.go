@@ -376,15 +376,17 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		zap.Int64("Filter Size", filter.Size()),
 		zap.Stringer("Satellite ID", satelliteID))
 
-	pieceIDs, piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
+	piecesToDeleteCount := 0
+	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
 		s.log.Debug("About to move piece to trash",
 			zap.Stringer("Satellite ID", satelliteID),
 			zap.Stringer("Piece ID", pieceID),
-			zap.String("Status", s.config.Status.String()))
+			zap.Stringer("Status", &s.config.Status))
 
+		piecesToDeleteCount++
 		// if retain status is enabled, trash the piece
 		if s.config.Status == Enabled {
-			if err := s.trash(ctx, satelliteID, pieceID, startedAt); err != nil {
+			if err := s.store.Trash(ctx, satelliteID, pieceID, startedAt); err != nil {
 				s.log.Warn("failed to trash piece",
 					zap.Stringer("Satellite ID", satelliteID),
 					zap.Stringer("Piece ID", pieceID),
@@ -400,8 +402,6 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	piecesToDeleteCount := len(pieceIDs)
 
 	mon.IntVal("garbage_collection_pieces_count").Observe(piecesCount)
 	mon.IntVal("garbage_collection_pieces_skipped").Observe(piecesSkipped)
@@ -420,12 +420,6 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	)
 
 	return nil
-}
-
-// trash wraps retains piece deletion to monitor moving retained piece to trash error during garbage collection.
-func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, timestamp time.Time) (err error) {
-	defer mon.Task()(&ctx, satelliteID)(&err)
-	return s.store.Trash(ctx, satelliteID, pieceID, timestamp)
 }
 
 // TestingHowManyQueued peeks at the number of bloom filters queued.

@@ -142,11 +142,11 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 // nontrivial amount, mtimes on existing blobs should also be adjusted (by the same interval,
 // ideally, but just running "touch" on all blobs is sufficient to avoid incorrect deletion of
 // data).
-func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
-		return nil, 0, 0, Error.New("filter not specified")
+		return 0, 0, Error.New("filter not specified")
 	}
 
 	var curPrefix string
@@ -233,8 +233,6 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 			}
 		}
 
-		pieceIDs = append(pieceIDs, pieceID)
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -244,7 +242,7 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		return nil
 	})
 
-	return pieceIDs, piecesCount, piecesSkipped, errFileWalker.Wrap(err)
+	return piecesCount, piecesSkipped, errFileWalker.Wrap(err)
 }
 
 // WalkCleanupTrash looks at all trash per-day directories owned by the given satellite and

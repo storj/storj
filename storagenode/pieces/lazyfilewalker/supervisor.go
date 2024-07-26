@@ -97,10 +97,13 @@ type GCFilewalkerRequest struct {
 
 // GCFilewalkerResponse is the response struct for the gc-filewalker process.
 type GCFilewalkerResponse struct {
+	// PieceIDs is the list of trash pieces that were found.
+	// Final message will not return any pieceIDs.
 	PieceIDs           []storj.PieceID `json:"pieceIDs"`
 	PiecesSkippedCount int64           `json:"piecesSkippedCount"`
 	PiecesCount        int64           `json:"piecesCount"`
-	Completed          bool            `json:"completed"`
+	// Completed indicates if this is the final message.
+	Completed bool `json:"completed"`
 }
 
 // TrashCleanupRequest is the request struct for the trash-cleanup-filewalker process.
@@ -140,11 +143,11 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the trash using the trashFunc provided.
-func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
-		return
+		return 0, 0, nil
 	}
 
 	req := GCFilewalkerRequest{
@@ -159,14 +162,19 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	stdout := NewTrashHandler(log, trashFunc)
 	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
 	if err != nil {
-		return nil, 0, 0, err
+		return 0, 0, err
 	}
 
 	if err := stdout.Decode(&resp); err != nil {
-		return nil, 0, 0, err
+		return 0, 0, err
 	}
 
-	return resp.PieceIDs, resp.PiecesCount, resp.PiecesSkippedCount, nil
+	if !resp.Completed {
+		// Something went wrong. The filewalker did not complete
+		log.Warn("gc-filewalker did not complete")
+	}
+
+	return resp.PiecesCount, resp.PiecesSkippedCount, nil
 }
 
 // WalkCleanupTrash deletes per-day trash directories which are older than the given time.

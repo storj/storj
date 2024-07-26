@@ -106,7 +106,7 @@ func main() {
 			}
 		}
 
-		_, _, _, err := filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, start.Add(time.Hour), filter, trashFunc)
+		_, _, err := filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, start.Add(time.Hour), filter, trashFunc)
 		try.E(err)
 
 		if *lazywalker {
