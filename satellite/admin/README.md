@@ -55,6 +55,8 @@ Requires setting `Authorization` header for requests.
                 * [PUT /api/projects/{project-id}/limit?buckets={value}](#put-apiprojectsproject-idlimitbucketsvalue)
                 * [PUT /api/projects/{project-id}/limit?burst={value}](#put-apiprojectsproject-idlimitburstvalue)
                 * [PUT /api/projects/{project-id}/limit?segments={value}](#put-apiprojectsproject-idlimitsegmentsvalue)
+            * [PUT /api/projects/{project-id}/geofence?region={value}](#put-apiprojectsproject-idgeofenceregionvalue)
+            * [DELETE /api/projects/{project-id}/geofence](#delete-apiprojectsproject-idgeofence)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
             * [Geofencing](#geofencing)
@@ -490,6 +492,21 @@ Accepts -1 to set to `nil`.
 ##### PUT /api/projects/{project-id}/limit?segments={value}
 
 Updates number of segments limit for a project.
+
+#### PUT /api/projects/{project-id}/geofence?region={value}
+
+Updates the geofence configuration for the specified project.
+
+If the project's geofence isn't set yet, this method will set it. If the project's geofence is
+already set and you want to unset it, you must use the DELETE method.
+
+`value` must be one of the following `EU`, `EEA`, `US`, `DE`, or `NR`.
+
+#### DELETE /api/projects/{project-id}/geofence
+
+Unset the geofence configuration for the specified project.
+
+If the project's geofence isn't set yet, this method won't return an error and will do nothing.
 
 ### Bucket Management
 
