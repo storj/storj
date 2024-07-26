@@ -158,9 +158,22 @@ async function addCardToDB(res: string) {
         return;
     }
 
+    const frozenOrWarned = usersStore.state.user.freezeStatus?.frozen ||
+            usersStore.state.user.freezeStatus?.trialExpiredFrozen ||
+            usersStore.state.user.freezeStatus?.warned;
+    if (frozenOrWarned) {
+        try {
+            await billingStore.attemptPayments();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        }
+    }
+    const oldPaidTier = usersStore.state.user.paidTier;
+    if (oldPaidTier && !frozenOrWarned) {
+        return;
+    }
     try {
-        const oldPaidTier = usersStore.state.user.paidTier;
-        // We fetch User one more time to update their Paid Tier status.
+    // We fetch User one more time to update their Paid Tier and freeze status.
         await usersStore.getUser();
         const newPaidTier = usersStore.state.user.paidTier;
         if (!oldPaidTier && newPaidTier) {

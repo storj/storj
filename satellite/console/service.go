@@ -196,6 +196,9 @@ var (
 
 	// ErrLoginRestricted occurs when a user with PendingBotVerification or LegalHold status tries to log in.
 	ErrLoginRestricted = errs.Class("user can't be authenticated")
+
+	// ErrFailedToUpgrade occurs when a user can't be upgraded to paid tier.
+	ErrFailedToUpgrade = errs.Class("failed to upgrade user to paid tier")
 )
 
 // Service is handling accounts related logic.
@@ -518,13 +521,8 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	if !user.PaidTier {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
-			return payments.CreditCard{}, Error.Wrap(err)
+			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
 		}
-	}
-
-	err = payment.AttemptPayOverdueInvoices(ctx)
-	if err != nil {
-		payment.service.log.Warn("error attempting to pay invoices for user", zap.String("user_id", user.ID.String()), zap.Error(err))
 	}
 
 	return card, nil
@@ -556,11 +554,6 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		if err != nil {
 			return payments.CreditCard{}, Error.Wrap(err)
 		}
-	}
-
-	err = payment.AttemptPayOverdueInvoices(ctx)
-	if err != nil {
-		payment.service.log.Warn("error attempting to pay invoices for user", zap.String("user_id", user.ID.String()), zap.Error(err))
 	}
 
 	return card, nil

@@ -147,6 +147,25 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * Attempt to pay overdue invoices.
+     */
+    public async attemptPayments(): Promise<void> {
+        const path = `${this.ROOT_PATH}/attempt-payments`;
+        const response = await this.client.post(path, null);
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not attempt payments.',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Add credit card.
      *
      * @param token - stripe token used to add a credit card as a payment method

@@ -81,13 +81,12 @@ import {
     VSheet,
 } from 'vuetify/components';
 
-import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { CreditCard } from '@/types/payments';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
 import IconCard from '@/components/icons/IconCard.vue';
@@ -102,9 +101,8 @@ const emit = defineEmits<{
     'editDefault': [];
 }>();
 
-const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
-const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -117,11 +115,27 @@ async function onDelete(): Promise<void> {
             await billingStore.removeCreditCard(props.card.id);
             notify.success('Credit card was successfully removed');
             model.value = false;
+            attemptPayments();
         } catch (error) {
             error.message = `Error removing credit card. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.REMOVE_CC_MODAL);
         }
     });
+}
+
+async function attemptPayments() {
+    const frozenOrWarned = usersStore.state.user.freezeStatus?.frozen ||
+      usersStore.state.user.freezeStatus?.trialExpiredFrozen ||
+      usersStore.state.user.freezeStatus?.warned;
+    if (!frozenOrWarned) {
+        return;
+    }
+    try {
+        await billingStore.attemptPayments();
+        await usersStore.getUser();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
 }
 
 function onEditDefault(): void {

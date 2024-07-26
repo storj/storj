@@ -58,6 +58,11 @@ export interface PaymentsApi {
     addCardByPaymentMethodID(pmID: string): Promise<void>;
 
     /**
+     * Attempt to pay overdue invoices.
+     */
+    attemptPayments(): Promise<void>;
+
+    /**
      * Detach credit card from payment account.
      * @param cardId
      * @throws Error

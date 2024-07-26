@@ -373,6 +373,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
 		paymentsRouter.Use(varBlocker.withVarBlocker)
 
+		paymentsRouter.Handle("/attempt-payments", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.TriggerAttemptPayment))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)

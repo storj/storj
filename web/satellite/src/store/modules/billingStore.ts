@@ -113,6 +113,10 @@ export const useBillingStore = defineStore('billing', () => {
         await api.addCardByPaymentMethodID(pmID);
     }
 
+    async function attemptPayments(): Promise<void> {
+        await api.attemptPayments();
+    }
+
     function toggleCardSelection(id: string): void {
         state.creditCards = state.creditCards.map(card => {
             if (card.id === id) {
@@ -261,6 +265,7 @@ export const useBillingStore = defineStore('billing', () => {
         getCreditCards,
         addCreditCard,
         addCardByPaymentMethodID,
+        attemptPayments,
         toggleCardSelection,
         clearCardsSelection,
         makeCardDefault,

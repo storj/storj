@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -156,45 +157,51 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// triggerAttemptPayment attempts payment and unfreezes/unwarn user if needed.
-func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
+// TriggerAttemptPayment attempts payment of overdue invoices and unfreezes/unwarn user if needed.
+func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	userID, err := p.service.GetUserID(ctx)
 	if err != nil {
-		return err
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
 	}
 
 	freezes, err := p.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
-		return err
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
 	}
 
 	if freezes.ViolationFreeze != nil {
-		return nil
+		return
 	}
 
-	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil {
-		return nil
+	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil && freezes.TrialExpirationFreeze == nil {
+		return
 	}
 
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
 	if err != nil {
-		return err
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
 	}
 
 	if freezes.BillingFreeze != nil {
 		err = p.accountFreezeService.BillingUnfreezeUser(ctx, userID)
 		if err != nil {
-			return err
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, errors.New("failed to unfreeze account"))
+			return
 		}
 	} else if freezes.BillingWarning != nil {
 		err = p.accountFreezeService.BillingUnWarnUser(ctx, userID)
 		if err != nil {
-			return err
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, errors.New("failed to unfreeze account"))
+			return
 		}
 	}
-	return nil
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
@@ -224,12 +231,6 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
-		return
-	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -262,12 +263,6 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 		}
 
 		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
-		return
-	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -329,12 +324,6 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
 }
 
 // RemoveCreditCard is used to detach a credit card from payment account.
@@ -362,12 +351,6 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

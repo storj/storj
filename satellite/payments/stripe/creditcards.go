@@ -10,6 +10,7 @@ import (
 
 	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -99,6 +100,10 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err := creditCards.service.stripeClient.PaymentMethods().New(cardParams)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
@@ -145,16 +150,18 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		creditCards.service.log.Warn("failed to make new card default", zap.String("user_id", userID.String()), zap.Error(err))
+	}
 
-	// TODO: handle created but not attached card manually?
 	return payments.CreditCard{
 		ID:        card.ID,
 		ExpMonth:  int(card.Card.ExpMonth),
 		ExpYear:   int(card.Card.ExpYear),
 		Brand:     string(card.Card.Brand),
 		Last4:     card.Card.Last4,
-		IsDefault: true,
-	}, Error.Wrap(err)
+		IsDefault: err == nil,
+	}, nil
 }
 
 // AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
@@ -218,16 +225,18 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		creditCards.service.log.Warn("failed to make new card default", zap.String("user_id", userID.String()), zap.Error(err))
+	}
 
-	// TODO: handle created but not attached card manually?
 	return payments.CreditCard{
 		ID:        card.ID,
 		ExpMonth:  int(card.Card.ExpMonth),
 		ExpYear:   int(card.Card.ExpYear),
 		Brand:     string(card.Card.Brand),
 		Last4:     card.Card.Last4,
-		IsDefault: true,
-	}, Error.Wrap(err)
+		IsDefault: err == nil,
+	}, nil
 }
 
 // MakeDefault makes a credit card default payment method.
