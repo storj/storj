@@ -46,7 +46,7 @@
                 </p>
             </template>
             <template #item.status="{ item }">
-                <v-chip :color="getColor(item.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                <v-chip :color="getColor(item.status)" variant="tonal" size="small" class="font-weight-bold">
                     {{ item.status }}
                 </v-chip>
             </template>

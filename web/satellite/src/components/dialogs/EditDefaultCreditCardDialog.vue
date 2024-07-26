@@ -10,7 +10,17 @@
     >
         <v-card>
             <v-card-item class="pa-5 pl-6">
-                <v-card-title class="font-weight-bold">Edit Default Credit Card</v-card-title>
+                <template #prepend>
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <icon-card />
+                    </v-sheet>
+                </template>
+                <v-card-title class="font-weight-bold">Edit Default Card</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -65,6 +75,7 @@ import {
     VCol,
     VBtn,
     VRadioGroup,
+    VSheet,
 } from 'vuetify/components';
 
 import { useConfigStore } from '@/store/modules/configStore';
@@ -76,6 +87,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { CreditCard } from '@/types/payments';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
+import IconCard from '@/components/icons/IconCard.vue';
 
 const model = defineModel<boolean>({ required: true });
 

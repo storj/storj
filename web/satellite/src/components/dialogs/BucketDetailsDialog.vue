@@ -39,42 +39,32 @@
 
             <v-divider />
 
-            <v-card-item class="pl-6">
+            <v-card-item class="pa-6">
                 <h4>Name</h4>
-                <p class="text-body-2">{{ bucket.name }}</p>
-            </v-card-item>
+                <p class="text-body-2 mb-2">{{ bucket.name }}</p>
 
-            <v-card-item class="pl-6">
                 <h4>Files</h4>
-                <p class="text-body-2">{{ bucket.objectCount.toLocaleString() }}</p>
-            </v-card-item>
+                <p class="text-body-2 mb-2">{{ bucket.objectCount.toLocaleString() }}</p>
 
-            <v-card-item class="pl-6">
                 <h4>Segments</h4>
-                <p class="text-body-2">{{ bucket.segmentCount.toLocaleString() }}</p>
-            </v-card-item>
+                <p class="text-body-2 mb-2">{{ bucket.segmentCount.toLocaleString() }}</p>
 
-            <v-card-item class="pl-6">
-                <h4>Amount stored</h4>
-                <p class="text-body-2">{{ bucket.storage.toFixed(2) + 'GB' }}</p>
-            </v-card-item>
+                <h4>Storage</h4>
+                <p class="text-body-2 mb-2">{{ bucket.storage.toFixed(2) + 'GB' }}</p>
 
-            <v-card-item v-if="showRegionTag" class="pl-6">
-                <h4>Location</h4>
-                <p class="text-body-2">{{ bucket.location || `unknown(${bucket.defaultPlacement})` }}</p>
-            </v-card-item>
+                <div v-if="showRegionTag">
+                    <h4>Location</h4>
+                    <p class="text-body-2 mb-2">{{ bucket.location || `unknown(${bucket.defaultPlacement})` }}</p>
+                </div>
 
-            <v-card-item v-if="versioningUIEnabled" class="pl-6">
-                <h4>Versioning</h4>
-                <p class="text-body-2">{{ bucket.versioning }}</p>
-            </v-card-item>
+                <div v-if="versioningUIEnabled">
+                    <h4>Versioning</h4>
+                    <p class="text-body-2 mb-2">{{ bucket.versioning }}</p>
+                </div>
 
-            <v-card-item class="pl-6">
                 <h4>Date Created</h4>
-                <p class="text-body-2">{{ bucket.since.toUTCString() }}</p>
-            </v-card-item>
+                <p class="text-body-2 mb-2">{{ bucket.since.toUTCString() }}</p>
 
-            <v-card-item class="mb-4 pl-6">
                 <h4>Last Updated</h4>
                 <p class="text-body-2">{{ bucket.before.toUTCString() }}</p>
             </v-card-item>

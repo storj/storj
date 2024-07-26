@@ -29,10 +29,9 @@
                                 :items="satellites"
                                 item-title="satellite"
                                 :hint="satellite.hint"
-                                persistent-hint
                                 return-object
                                 chips
-                                class="mt-3 mb-2"
+                                class="my-3"
                             />
                             <v-text-field
                                 v-model="email"

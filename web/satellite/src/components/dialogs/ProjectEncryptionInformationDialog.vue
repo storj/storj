@@ -14,12 +14,12 @@
                 <v-card-item class="pa-6">
                     <template #prepend>
                         <v-sheet
-                            class="border-sm d-flex justify-center align-center text-error"
+                            class="border-sm d-flex justify-center align-center"
                             width="40"
                             height="40"
                             rounded="lg"
                         >
-                            <icon-lock />
+                            <icon-lock width="20" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
