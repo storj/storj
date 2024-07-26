@@ -212,7 +212,7 @@ function calculateRemainingTime(): void {
         return;
     }
 
-    remainingTimeString.value = new Duration(remainingNanoseconds).remainingFormatted;
+    remainingTimeString.value = `Estimated time remaining: ${new Duration(remainingNanoseconds).remainingFormatted}`;
 }
 
 /**
