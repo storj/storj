@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"cloud.google.com/go/civil"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
@@ -304,17 +305,18 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 	nowBeginningOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	fromBeginningOfDay := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
 	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
+	expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
 
 	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
 	settledBandwidth := make([]accounting.ProjectUsageByDay, 0)
 	storage := make([]accounting.ProjectUsageByDay, 0)
 
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+			var batch pgx.Batch
 
-		expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
-
-		storageQuery := db.db.Rebind(`
+			storageQuery := db.db.Rebind(`
 			WITH project_usage AS (
 			SELECT
 				interval_start,
@@ -344,9 +346,9 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			` + db.db.impl.AsOfSystemInterval(crdbInterval) + `
 			GROUP BY project_id, interval_day
 		`)
-		batch.Queue(storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
+			batch.Queue(storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
 
-		batch.Queue(db.db.Rebind(`
+			batch.Queue(db.db.Rebind(`
 			SELECT interval_day, egress_settled,
 				CASE WHEN interval_day < $1
 					THEN egress_settled
@@ -356,77 +358,209 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			WHERE project_id = $2 AND (interval_day BETWEEN $3 AND $4)
 		`), expiredSince, projectID, fromBeginningOfDay, toEndOfDay)
 
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
+			results := conn.SendBatch(ctx, &batch)
+			defer func() { err = errs.Combine(err, results.Close()) }()
 
-		storageRows, err := results.Query()
-		if err != nil {
-			if pgerrcode.FromError(err) == pgxerrcode.InvalidCatalogName {
-				// this error may happen if database is created in the last 5 minutes (`as of systemtime` points to a time before Genesis).
-				// in this case we can ignore the database not found error and return with no usage.
-				// if the database is really missing --> we have more serious problems than getting 0s from here.
-				return nil
-			}
-			return err
-		}
-
-		for storageRows.Next() {
-			var day time.Time
-			var amount int64
-
-			err = storageRows.Scan(&day, &amount)
+			storageRows, err := results.Query()
 			if err != nil {
-				storageRows.Close()
+				if pgerrcode.FromError(err) == pgxerrcode.InvalidCatalogName {
+					// this error may happen if database is created in the last 5 minutes (`as of systemtime` points to a time before Genesis).
+					// in this case we can ignore the database not found error and return with no usage.
+					// if the database is really missing --> we have more serious problems than getting 0s from here.
+					return nil
+				}
 				return err
 			}
 
-			storage = append(storage, accounting.ProjectUsageByDay{
-				Date:  day.UTC(),
-				Value: amount,
-			})
-		}
+			for storageRows.Next() {
+				var day time.Time
+				var amount int64
 
-		storageRows.Close()
-		err = storageRows.Err()
-		if err != nil {
-			return err
-		}
+				err = storageRows.Scan(&day, &amount)
+				if err != nil {
+					storageRows.Close()
+					return err
+				}
 
-		bandwidthRows, err := results.Query()
-		if err != nil {
-			return err
-		}
+				storage = append(storage, accounting.ProjectUsageByDay{
+					Date:  day.UTC(),
+					Value: amount,
+				})
+			}
 
-		for bandwidthRows.Next() {
-			var day time.Time
-			var settled int64
-			var allocated int64
-
-			err = bandwidthRows.Scan(&day, &settled, &allocated)
+			storageRows.Close()
+			err = storageRows.Err()
 			if err != nil {
-				bandwidthRows.Close()
 				return err
 			}
 
-			settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
-				Date:  day.UTC(),
-				Value: settled,
-			})
+			bandwidthRows, err := results.Query()
+			if err != nil {
+				return err
+			}
 
-			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
-				Date:  day.UTC(),
-				Value: allocated,
-			})
-		}
+			for bandwidthRows.Next() {
+				var day time.Time
+				var settled int64
+				var allocated int64
 
-		bandwidthRows.Close()
-		err = bandwidthRows.Err()
+				err = bandwidthRows.Scan(&day, &settled, &allocated)
+				if err != nil {
+					bandwidthRows.Close()
+					return err
+				}
+
+				settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
+					Date:  day.UTC(),
+					Value: settled,
+				})
+
+				allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
+					Date:  day.UTC(),
+					Value: allocated,
+				})
+			}
+
+			bandwidthRows.Close()
+			err = bandwidthRows.Err()
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+	case dbutil.Spanner:
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			storageQuery := `
+			WITH
+  				project_usage AS (
+  				SELECT
+    				interval_start,
+    				CAST(interval_start AS DATE) AS interval_day,
+    				project_id,
+    				bucket_name,
+    				total_bytes
+				FROM bucket_storage_tallies
+				WHERE
+					project_id = ? AND
+					interval_start >= ? AND
+					interval_start <= ?
+				),
+			project_usage_distinct AS (
+  			SELECT
+    			project_id,
+				bucket_name,
+				MAX(interval_start) AS interval_start
+			FROM project_usage
+			GROUP BY
+				project_id,
+				bucket_name,
+				interval_day
+			)
+			-- Sum all buckets usage in the same project.
+			SELECT
+				interval_day,
+				SUM(total_bytes) AS total_bytes
+			FROM (
+				SELECT
+					project_id,
+					bucket_name,
+					total_bytes,
+					interval_day,
+					interval_start
+				FROM project_usage
+				WHERE
+					(bucket_name, project_id, interval_start) IN (
+					SELECT
+						(bucket_name, project_id, interval_start)
+					FROM project_usage_distinct)
+			) pu
+			GROUP BY
+				project_id,
+				interval_day`
+
+			storageRows, err := tx.QueryContext(ctx, storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			for storageRows.Next() {
+				var day civil.Date
+				var amount int64
+
+				if err := storageRows.Scan(&day, &amount); err != nil {
+					err = errs.Combine(err, storageRows.Close())
+					return err
+				}
+
+				storage = append(storage, accounting.ProjectUsageByDay{
+					Date:  day.In(time.UTC),
+					Value: amount,
+				})
+			}
+
+			if err := storageRows.Err(); err != nil {
+				return err
+			}
+
+			if err := storageRows.Close(); err != nil {
+				return err
+			}
+
+			civilExpiredSince := civil.DateOf(expiredSince)
+			civilFromBeginningOfDay := civil.DateOf(fromBeginningOfDay)
+			civilToEndOfDay := civil.DateOf(toEndOfDay)
+
+			bandwidthQuery := `
+			SELECT interval_day, egress_settled,
+				CASE WHEN interval_day < ?
+				THEN egress_settled
+				ELSE egress_allocated-egress_dead
+            	END AS allocated
+        	FROM project_bandwidth_daily_rollups
+        	WHERE project_id = ? AND (interval_day >= ? AND interval_day <= ?)`
+
+			bandwidthRows, err := tx.QueryContext(ctx, bandwidthQuery, civilExpiredSince, projectID, civilFromBeginningOfDay, civilToEndOfDay)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			for bandwidthRows.Next() {
+				var day civil.Date
+				var settled int64
+				var allocated int64
+
+				if err := bandwidthRows.Scan(&day, &settled, &allocated); err != nil {
+					err = errs.Combine(err, bandwidthRows.Close())
+					return err
+				}
+
+				settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
+					Date:  day.In(time.UTC),
+					Value: settled,
+				})
+
+				allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
+					Date:  day.In(time.UTC),
+					Value: allocated,
+				})
+			}
+
+			if err := bandwidthRows.Err(); err != nil {
+				return err
+			}
+
+			if err := bandwidthRows.Close(); err != nil {
+				return err
+			}
+			return nil
+		})
 		if err != nil {
-			return err
+			return nil, Error.Wrap(err)
 		}
-
-		return nil
-	})
+	default:
+		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
 	if err != nil {
 		return nil, Error.New("unable to get project daily usage: %w", err)
 	}
@@ -682,9 +816,6 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		}
 
 		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, int64(pb.PieceAction_GET))
-		if err != nil {
-			return nil, err
-		}
 
 		var egress int64
 		if err = totalEgressRow.Scan(&egress); err != nil {
