@@ -213,6 +213,7 @@ export interface AccountSetupData {
     employeeCount?: string
     storageNeeds?: string
     storageUseCase?: string
+    otherUseCase?: string
     functionalArea?: string
 }
 

@@ -108,6 +108,16 @@
                     />
                 </v-col>
             </v-row>
+            <v-row v-if="useCase === 'Other'" justify="center">
+                <v-col cols="12" sm="10" md="8" lg="6">
+                    <v-text-field
+                        v-model="otherUseCase"
+                        label="Specify Other Use Case"
+                        variant="outlined"
+                        autofocus
+                    />
+                </v-col>
+            </v-row>
 
             <v-row justify="center">
                 <v-col cols="12" sm="6" md="5" lg="4">
@@ -185,6 +195,7 @@ const position = defineModel<string | undefined>('position', { required: true })
 const employeeCount = defineModel<string | undefined>('employeeCount', { required: true });
 const storageNeeds = defineModel<string | undefined>('storageNeeds', { required: true });
 const useCase = defineModel<string | undefined>('useCase', { required: true });
+const otherUseCase = defineModel<string | undefined>('otherUseCase', { required: true });
 const functionalArea = defineModel<string | undefined>('functionalArea', { required: true });
 const haveSalesContact = defineModel<boolean>('haveSalesContact', { required: true, default: false });
 const interestedInPartnering = defineModel<boolean>('interestedInPartnering', { required: true, default: false });
@@ -205,6 +216,7 @@ async function setupAccount() {
         employeeCount: employeeCount.value,
         storageNeeds: storageNeeds.value,
         storageUseCase: useCase.value,
+        otherUseCase: otherUseCase.value,
         functionalArea: functionalArea.value,
         isProfessional: true,
         haveSalesContact: haveSalesContact.value,
