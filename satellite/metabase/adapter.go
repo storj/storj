@@ -84,13 +84,17 @@ type Adapter interface {
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
 	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
+
+	// TestMigrateToLatest creates a database and applies all the migration for test purposes.
+	TestMigrateToLatest(ctx context.Context) error
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.
 type PostgresAdapter struct {
-	log  *zap.Logger
-	db   tagsql.DB
-	impl dbutil.Implementation
+	log                      *zap.Logger
+	db                       tagsql.DB
+	impl                     dbutil.Implementation
+	testingUniqueUnversioned bool
 }
 
 // Name returns the name of the adapter.
