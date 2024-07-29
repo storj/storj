@@ -80,6 +80,97 @@ func (db *webappSessions) GetAllByUserID(ctx context.Context, userID uuid.UUID) 
 	return sessions, nil
 }
 
+// GetPagedActiveByUserID gets all active webapp sessions by userID, offset and limit.
+func (db *webappSessions) GetPagedActiveByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+	expiresAt time.Time,
+	cursor consoleauth.WebappSessionsCursor,
+) (page *consoleauth.WebappSessionsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if cursor.Limit <= 0 {
+		return nil, errs.New("page cannot be 0 or negative")
+	}
+
+	if cursor.Page <= 0 {
+		return nil, errs.New("page cannot be 0 or negative")
+	}
+
+	page = &consoleauth.WebappSessionsPage{
+		Limit:          cursor.Limit,
+		Offset:         uint64((cursor.Page - 1) * cursor.Limit),
+		Order:          cursor.Order,
+		OrderDirection: cursor.OrderDirection,
+	}
+
+	err = db.db.QueryRowContext(ctx, db.db.Rebind(`
+		SELECT COUNT(*) FROM webapp_sessions
+		WHERE user_id = ? AND expires_at > ?
+	`), userID, expiresAt).Scan(&page.TotalCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, errs.New("page is out of range")
+	}
+
+	query := db.db.Rebind(`
+		SELECT id, user_agent, expires_at
+		FROM webapp_sessions
+		WHERE user_id = ? AND expires_at > ?
+		` + webappSessionsSortClause(cursor.Order, cursor.OrderDirection) + `
+		LIMIT ? OFFSET ?
+	`)
+
+	rows, err := db.db.QueryContext(ctx, query, userID[:], expiresAt, page.Limit, page.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var sessions []consoleauth.WebappSession
+	for rows.Next() {
+		s := consoleauth.WebappSession{}
+
+		err = rows.Scan(&s.ID, &s.UserAgent, &s.ExpiresAt)
+		if err != nil {
+			return nil, err
+		}
+
+		sessions = append(sessions, s)
+	}
+	if rows.Err() != nil {
+		return nil, err
+	}
+
+	page.Sessions = sessions
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+	page.CurrentPage = cursor.Page
+
+	return page, err
+}
+
+// webappSessionsSortClause returns what ORDER BY clause should be used when sorting webapp sessions results.
+func webappSessionsSortClause(order consoleauth.WebappSessionsOrder, direction consoleauth.OrderDirection) string {
+	dirStr := "ASC"
+	if direction == consoleauth.Descending {
+		dirStr = "DESC"
+	}
+
+	if order == consoleauth.ExpiresAt {
+		return "ORDER BY expires_at " + dirStr + ", user_agent, user_id"
+	}
+	return "ORDER BY LOWER(user_agent) " + dirStr + ", expires_at, user_id"
+}
+
 // DeleteBySessionID deletes a webapp session by ID.
 func (db *webappSessions) DeleteBySessionID(ctx context.Context, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)

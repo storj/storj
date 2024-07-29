@@ -18,6 +18,8 @@ type WebappSessions interface {
 	GetBySessionID(ctx context.Context, sessionID uuid.UUID) (WebappSession, error)
 	// GetAllByUserID gets all webapp sessions with userID.
 	GetAllByUserID(ctx context.Context, userID uuid.UUID) ([]WebappSession, error)
+	// GetPagedActiveByUserID gets all active webapp sessions by userID, offset and limit.
+	GetPagedActiveByUserID(ctx context.Context, userID uuid.UUID, expiresAt time.Time, cursor WebappSessionsCursor) (*WebappSessionsPage, error)
 	// DeleteBySessionID deletes a webapp session by ID.
 	DeleteBySessionID(ctx context.Context, sessionID uuid.UUID) error
 	// DeleteAllByUserID deletes all webapp sessions by user ID.
@@ -38,4 +40,45 @@ type WebappSession struct {
 	UserAgent string
 	Status    int
 	ExpiresAt time.Time
+}
+
+// WebappSessionsOrder is used for querying webapp sessions in specified order.
+type WebappSessionsOrder int8
+
+const (
+	// UserAgent indicates that we should order by user agent.
+	UserAgent WebappSessionsOrder = 1
+	// ExpiresAt indicates that we should order by expiration date.
+	ExpiresAt WebappSessionsOrder = 2
+)
+
+// OrderDirection is used for members in specific order direction.
+type OrderDirection uint8
+
+const (
+	// Ascending indicates that we should order ascending.
+	Ascending OrderDirection = 1
+	// Descending indicates that we should order descending.
+	Descending OrderDirection = 2
+)
+
+// WebappSessionsCursor holds info for webapp sessions cursor pagination.
+type WebappSessionsCursor struct {
+	Limit          uint
+	Page           uint
+	Order          WebappSessionsOrder
+	OrderDirection OrderDirection
+}
+
+// WebappSessionsPage represents a page of webapp sessions.
+type WebappSessionsPage struct {
+	Sessions []WebappSession
+
+	Limit          uint
+	Order          WebappSessionsOrder
+	OrderDirection OrderDirection
+	Offset         uint64
+	PageCount      uint
+	CurrentPage    uint
+	TotalCount     uint64
 }

@@ -5,6 +5,7 @@ package satellitedb_test
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -229,5 +231,86 @@ func TestDeleteExpired(t *testing.T) {
 		require.ErrorIs(t, err, sql.ErrNoRows)
 		_, err = sessionsDB.GetBySessionID(ctx, newSession.ID)
 		require.NoError(t, err)
+	})
+}
+
+func TestGetActivePagedByUserID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		sessionsDB := db.Console().WebappSessions()
+		now := time.Now()
+		ownerID := testrand.UUID()
+		traitorID := testrand.UUID()
+
+		_, err := sessionsDB.GetPagedActiveByUserID(ctx, ownerID, time.Time{}, consoleauth.WebappSessionsCursor{
+			Limit: 0,
+			Page:  1,
+		})
+		require.Error(t, err)
+		_, err = sessionsDB.GetPagedActiveByUserID(ctx, ownerID, time.Time{}, consoleauth.WebappSessionsCursor{
+			Limit: 10,
+			Page:  0,
+		})
+		require.Error(t, err)
+
+		userSessionsCount := 5
+		for i := 0; i < userSessionsCount; i++ {
+			_, err = sessionsDB.Create(ctx, testrand.UUID(), ownerID, "", fmt.Sprintf("%d", i), now.Add(time.Duration(i+1)*time.Hour))
+			require.NoError(t, err)
+		}
+		// Add a session for another user.
+		_, err = sessionsDB.Create(ctx, testrand.UUID(), traitorID, "", "", now.Add(time.Hour))
+		require.NoError(t, err)
+		// Add an expired session for the owner.
+		_, err = sessionsDB.Create(ctx, testrand.UUID(), ownerID, "", "", now.Add(-time.Hour))
+		require.NoError(t, err)
+
+		page, err := sessionsDB.GetPagedActiveByUserID(ctx, ownerID, now, consoleauth.WebappSessionsCursor{
+			Limit: 10,
+			Page:  1,
+		})
+		require.NoError(t, err)
+		require.Len(t, page.Sessions, userSessionsCount)
+
+		page, err = sessionsDB.GetPagedActiveByUserID(ctx, ownerID, now, consoleauth.WebappSessionsCursor{
+			Limit: uint(userSessionsCount - 1),
+			Page:  2,
+		})
+		require.NoError(t, err)
+		require.Len(t, page.Sessions, 1)
+
+		page, err = sessionsDB.GetPagedActiveByUserID(ctx, ownerID, now, consoleauth.WebappSessionsCursor{
+			Limit:          10,
+			Page:           1,
+			Order:          consoleauth.UserAgent,
+			OrderDirection: consoleauth.Ascending,
+		})
+		require.NoError(t, err)
+		for i, session := range page.Sessions {
+			require.Equal(t, fmt.Sprintf("%d", i), session.UserAgent)
+		}
+
+		page, err = sessionsDB.GetPagedActiveByUserID(ctx, ownerID, now, consoleauth.WebappSessionsCursor{
+			Limit:          10,
+			Page:           1,
+			Order:          consoleauth.ExpiresAt,
+			OrderDirection: consoleauth.Descending,
+		})
+		require.NoError(t, err)
+		for i, session := range page.Sessions {
+			hours := len(page.Sessions) - i
+			require.WithinDuration(t, now.Add(time.Duration(hours)*time.Hour), session.ExpiresAt, time.Minute)
+		}
+
+		for _, session := range page.Sessions {
+			err = sessionsDB.UpdateExpiration(ctx, session.ID, now.Add(-2*time.Hour))
+			require.NoError(t, err)
+		}
+
+		page, err = sessionsDB.GetPagedActiveByUserID(ctx, ownerID, now, consoleauth.WebappSessionsCursor{
+			Limit: 10,
+			Page:  1,
+		})
+		require.NoError(t, err)
+		require.Len(t, page.Sessions, 0)
 	})
 }
