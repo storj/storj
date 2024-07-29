@@ -1378,6 +1378,7 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				require.False(t, config.ObjectLockUIEnabled)
 				// versioning enabled for all projects
 				require.True(t, config.VersioningUIEnabled)
 
@@ -1396,6 +1397,7 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				require.False(t, config.ObjectLockUIEnabled)
 				// versioning disabled for all projects but this is true
 				// because project is in closed beta.
 				require.True(t, config.VersioningUIEnabled)
@@ -1411,6 +1413,7 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				require.False(t, config.ObjectLockUIEnabled)
 				// 1. versioning disabled for all projects.
 				// 2. project is not in closed beta
 				// 3. project owner has not being prompted for versioning opt in
@@ -1419,6 +1422,7 @@ func TestService(t *testing.T) {
 
 				config, err = service.GetProjectConfig(userCtx2, pr.ID)
 				require.NoError(t, err)
+				require.False(t, config.ObjectLockUIEnabled)
 				// member will not be prompted for versioning opt in
 				require.False(t, config.PromptForVersioningBeta)
 
@@ -1429,6 +1433,7 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				require.False(t, config.ObjectLockUIEnabled)
 				// 1. user prompted for versioning opt in
 				// 2. project default versioning is unversioned (user has opted project in)
 				require.True(t, config.VersioningUIEnabled)
@@ -1445,10 +1450,56 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				require.False(t, config.ObjectLockUIEnabled)
 				// 1. user prompted for versioning opt in
 				// 2. project default versioning is VersioningUnsupported (user has opted project out)
 				require.False(t, config.VersioningUIEnabled)
 				require.False(t, config.PromptForVersioningBeta)
+
+				versioningConfig.UseBucketLevelObjectVersioning = true
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				objectLockConfig := console.ObjectLockConfig{
+					UseBucketLevelObjectLock: true,
+				}
+				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.True(t, config.ObjectLockUIEnabled)
+
+				versioningConfig.UseBucketLevelObjectVersioning = false
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				// object lock is enabled but versioning is disabled
+				// so the UI should be disabled as object lock requires versioning.
+				require.False(t, config.ObjectLockUIEnabled)
+
+				versioningConfig.UseBucketLevelObjectVersioning = true
+				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+
+				objectLockConfig.UseBucketLevelObjectLock = false
+				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.False(t, config.ObjectLockUIEnabled)
+
+				objectLockConfig.UseBucketLevelObjectLockProjects = []string{pr.ID.String()}
+				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.True(t, config.ObjectLockUIEnabled)
+
+				objectLockConfig.UseBucketLevelObjectLockProjects = []string{}
+				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.False(t, config.ObjectLockUIEnabled)
 			})
 		})
 }

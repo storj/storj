@@ -820,8 +820,8 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.SetUseBucketLevelObjectLock(false)
-			defer endpoint.SetUseBucketLevelObjectLock(true)
+			endpoint.TestSetUseBucketLevelObjectLock(false)
+			defer endpoint.TestSetUseBucketLevelObjectLock(true)
 
 			bucketName := []byte(testrand.BucketName())
 			req := &pb.CreateBucketRequest{
@@ -834,8 +834,8 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 
-			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
 			_, err = endpoint.CreateBucket(ctx, req)
 			require.NoError(t, err)
@@ -873,6 +873,9 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 		})
 
 		t.Run("Object versioning disabled", func(t *testing.T) {
+			endpoint.TestSetUseBucketLevelVersioning(false)
+			defer endpoint.TestSetUseBucketLevelVersioning(true)
+
 			bucketName := []byte(testrand.BucketName())
 			req := &pb.CreateBucketRequest{
 				Header: &pb.RequestHeader{
@@ -882,13 +885,23 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 				ObjectLockEnabled: true,
 			}
 
-			require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.Unversioned))
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 
-			require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningUnsupported))
+			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, true)
+
+			_, err = endpoint.CreateBucket(ctx, req)
+			require.NoError(t, err)
+
+			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, false)
+
+			req.Name = []byte(testrand.BucketName())
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+
+			require.NoError(t, sat.API.Console.Service.UpdateVersioningOptInStatus(userCtx, project.ID, console.VersioningOptIn))
+			_, err = endpoint.CreateBucket(ctx, req)
+			require.NoError(t, err)
 		})
 	})
 }
@@ -957,8 +970,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			bucketName := []byte(testrand.BucketName())
 			createBucket(t, bucketName, true)
 
-			endpoint.SetUseBucketLevelObjectLock(false)
-			defer endpoint.SetUseBucketLevelObjectLock(true)
+			endpoint.TestSetUseBucketLevelObjectLock(false)
+			defer endpoint.TestSetUseBucketLevelObjectLock(true)
 
 			req := &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
@@ -969,8 +982,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 
-			endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.SetUseBucketLevelObjectLockByProjectID(project.ID, false)
+			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
+			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
 
 			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
 			require.NoError(t, err)

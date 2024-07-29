@@ -232,6 +232,7 @@ type Service struct {
 	paymentSourceChainIDs map[int64]string
 
 	versioningConfig VersioningConfig
+	objectLockConfig ObjectLockConfig
 
 	nowFn func() time.Time
 }
@@ -259,7 +260,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions,
-	versioning VersioningConfig, config Config) (*Service, error) {
+	versioning VersioningConfig, objectLock ObjectLockConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -301,6 +302,15 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		versioning.projectMap[projectID] = struct{}{}
 	}
 
+	objectLock.projectMap = make(map[uuid.UUID]struct{}, len(objectLock.UseBucketLevelObjectLockProjects))
+	for _, id := range objectLock.UseBucketLevelObjectLockProjects {
+		projectID, err := uuid.FromString(id)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		objectLock.projectMap[projectID] = struct{}{}
+	}
+
 	paymentSourceChainIDs := make(map[int64]string)
 	for source, IDs := range billing.SourceChainIDs {
 		for _, ID := range IDs {
@@ -334,6 +344,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		config:                     config,
 		varPartners:                partners,
 		versioningConfig:           versioning,
+		objectLockConfig:           objectLock,
 		paymentSourceChainIDs:      paymentSourceChainIDs,
 		nowFn:                      time.Now,
 	}, nil
@@ -2657,9 +2668,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	versioningUIEnabled := true
 	promptForVersioningBeta := false
 	if !s.versioningConfig.UseBucketLevelObjectVersioning {
-		if _, ok := s.versioningConfig.projectMap[project.ID]; ok {
-			versioningUIEnabled = true
-		} else {
+		if _, ok := s.versioningConfig.projectMap[project.ID]; !ok {
 			if !project.PromptedForVersioningBeta {
 				promptForVersioningBeta = true
 				versioningUIEnabled = false
@@ -2668,6 +2677,13 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 			} else {
 				versioningUIEnabled = false
 			}
+		}
+	}
+
+	objectLockUIEnabled := true
+	if !s.objectLockConfig.UseBucketLevelObjectLock {
+		if _, ok := s.objectLockConfig.projectMap[project.ID]; !ok {
+			objectLockUIEnabled = false
 		}
 	}
 
@@ -2689,6 +2705,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	return &ProjectConfig{
 		VersioningUIEnabled:     versioningUIEnabled,
+		ObjectLockUIEnabled:     objectLockUIEnabled && versioningUIEnabled,
 		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
 		Passphrase:              string(passphrase),
 	}, nil
@@ -5463,6 +5480,22 @@ func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
 	}
 
 	s.versioningConfig = versioning
+
+	return nil
+}
+
+// TestSetObjectLockConfig allows tests to switch the object lock config.
+func (s *Service) TestSetObjectLockConfig(objectLock ObjectLockConfig) error {
+	objectLock.projectMap = make(map[uuid.UUID]struct{}, len(objectLock.UseBucketLevelObjectLockProjects))
+	for _, id := range objectLock.UseBucketLevelObjectLockProjects {
+		projectID, err := uuid.FromString(id)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		objectLock.projectMap[projectID] = struct{}{}
+	}
+
+	s.objectLockConfig = objectLock
 
 	return nil
 }

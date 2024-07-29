@@ -691,6 +691,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 					UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
 					UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
 				},
+				console.ObjectLockConfig{
+					UseBucketLevelObjectLock:         config.Metainfo.UseBucketLevelObjectLock,
+					UseBucketLevelObjectLockProjects: config.Metainfo.UseBucketLevelObjectLockProjects,
+				},
 				consoleConfig.Config,
 			)
 			if err != nil {

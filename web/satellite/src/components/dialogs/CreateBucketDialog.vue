@@ -4,10 +4,10 @@
 <template>
     <v-dialog
         v-model="model"
-        :persistent="isLoading || allowCreateVersionedBucket"
         width="auto"
         max-width="450px"
         transition="fade-transition"
+        persistent
     >
         <v-card ref="innerContent">
             <v-sheet>
@@ -107,6 +107,24 @@
                         </v-row>
                     </v-form>
                 </v-window-item>
+                <v-window-item :value="CreateStep.Success">
+                    <div class="pa-7">
+                        <v-row>
+                            <v-col>
+                                <p><strong>Bucket successfully created.</strong></p>
+                                <v-chip
+                                    variant="tonal"
+                                    value="Disabled"
+                                    color="default"
+                                    class="my-4 font-weight-bold"
+                                >
+                                    {{ bucketName }}
+                                </v-chip>
+                                <p>You can choose to open the bucket and start uploading files, or close this dialog and get back to the buckets page.</p>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </v-window-item>
             </v-window>
             <v-divider />
 
@@ -114,12 +132,20 @@
                 <v-row>
                     <v-col>
                         <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="closeOrBack">
-                            {{ step === CreateStep.Name ? 'Cancel' : 'Back' }}
+                            {{ secondaryBtnText }}
                         </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn :disabled="!formValid" :loading="isLoading" color="primary" variant="flat" block @click="createOrNext">
-                            {{ !allowCreateVersionedBucket || step === CreateStep.Versioning ? 'Create Bucket' : 'Next' }}
+                        <v-btn
+                            :disabled="!formValid"
+                            :loading="isLoading"
+                            :append-icon="step === CreateStep.Success ? ArrowRight : undefined"
+                            color="primary"
+                            variant="flat"
+                            block
+                            @click="createOrNext"
+                        >
+                            {{ primaryBtnText }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -149,6 +175,8 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { ArrowRight } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -162,14 +190,17 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ValidationRule } from '@/types/common';
 import { Versioning } from '@/types/versioning';
+import { ROUTES } from '@/router';
 
 enum CreateStep {
     Name = 1,
     Versioning = 2,
+    Success = 3,
 }
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+const router = useRouter();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -198,8 +229,37 @@ const project = computed(() => projectsStore.state.selectedProject);
 /**
  * Whether versioning has been enabled for current project.
  */
-const allowCreateVersionedBucket = computed<boolean>(() => {
-    return projectsStore.versioningUIEnabled  && project.value.versioning !== Versioning.Enabled;
+const versioningUIEnabled = computed<boolean>(() => {
+    return projectsStore.versioningUIEnabled;
+});
+
+/**
+ * Whether the versioning step should be shown.
+ * Projects with versioning enabled as default should not have this step.
+ */
+const allowVersioningStep = computed<boolean>(() => {
+    return versioningUIEnabled.value  && project.value.versioning !== Versioning.Enabled;
+});
+
+const primaryBtnText = computed(() => {
+    switch (true) {
+    case step.value === CreateStep.Name && !allowVersioningStep.value:
+    case step.value === CreateStep.Versioning:
+        return 'Create Bucket';
+    case step.value === CreateStep.Success:
+        return 'Open Bucket';
+    }
+    return 'Next';
+});
+
+const secondaryBtnText = computed(() => {
+    switch (true) {
+    case step.value === CreateStep.Name:
+        return 'Cancel';
+    case step.value === CreateStep.Success:
+        return 'Close';
+    }
+    return 'Back';
 });
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {
@@ -285,22 +345,48 @@ function setWorker(): void {
  * Conditionally close dialog or go to previous step.
  */
 function closeOrBack() {
-    if (step.value === CreateStep.Name) {
+    switch (true) {
+    case step.value === CreateStep.Versioning:
+        step.value = CreateStep.Name;
+        break;
+    case step.value === CreateStep.Name:
+    case step.value === CreateStep.Success:
         model.value = false;
-        return;
     }
-    step.value = CreateStep.Name;
 }
 
 /**
  * Conditionally create bucket or go to next step.
  */
 function createOrNext() {
-    if (!allowCreateVersionedBucket.value || step.value === CreateStep.Versioning) {
+    switch (true) {
+    case step.value === CreateStep.Name && allowVersioningStep.value:
+        step.value = CreateStep.Versioning;
+        break;
+    case step.value === CreateStep.Name && !allowVersioningStep.value:
+    case step.value === CreateStep.Versioning:
         onCreate();
-        return;
+        break;
+    case step.value === CreateStep.Success:
+        model.value = false;
+        openBucket();
+        break;
     }
-    step.value = CreateStep.Versioning;
+}
+
+/**
+ * Navigates to bucket page.
+ */
+async function openBucket() {
+    bucketsStore.setFileComponentBucketName(bucketName.value);
+    await router.push({
+        name: ROUTES.Bucket.name,
+        params: {
+            browserPath: bucketsStore.state.fileComponentBucketName,
+            id: projectsStore.state.selectedProject.urlId,
+        },
+    });
+    return;
 }
 
 /**
@@ -330,7 +416,7 @@ function onCreate(): void {
                     LocalData.setBucketWasCreatedStatus();
                 }
 
-                model.value = false;
+                step.value = CreateStep.Success;
                 emit('created', bucketName.value);
                 return;
             }
@@ -343,7 +429,7 @@ function onCreate(): void {
                     LocalData.setBucketWasCreatedStatus();
                 }
 
-                model.value = false;
+                step.value = CreateStep.Success;
                 emit('created', bucketName.value);
 
                 return;
@@ -413,7 +499,7 @@ function onCreate(): void {
                 LocalData.setBucketWasCreatedStatus();
             }
 
-            model.value = false;
+            step.value = CreateStep.Success;
             emit('created', bucketName.value);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);

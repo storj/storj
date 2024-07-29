@@ -27,7 +27,7 @@
                     />
                     <v-select
                         v-model="useCase"
-                        :items="['Backup/Archive', 'Media Sharing & Collaboration', 'Large File Distribution', 'Video Streaming', 'Web3 Storage', 'Other']"
+                        :items="[ 'Active archive', 'Backup & recovery', 'CDN origin', 'Generative AI', 'Media workflows', 'Other']"
                         label="Use Case (optional)"
                         placeholder="Select your use case"
                         variant="outlined"
