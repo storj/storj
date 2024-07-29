@@ -19,8 +19,9 @@ func update(ctx context.Context, restartMethod, serviceName, binaryLocation stri
 		return errs.Wrap(err)
 	}
 
-	zap.L().Info("Current binary version",
-		zap.String("Service", serviceName),
+	log := zap.L().With(zap.String("Service", serviceName))
+
+	log.Info("Current binary version",
 		zap.String("Version", currentVersion.String()),
 	)
 
@@ -30,7 +31,7 @@ func update(ctx context.Context, restartMethod, serviceName, binaryLocation stri
 		return errs.Wrap(err)
 	}
 	if newVersion.IsZero() {
-		zap.L().Info(reason, zap.String("Service", serviceName))
+		log.Info(reason)
 		return nil
 	}
 
@@ -63,12 +64,31 @@ func update(ctx context.Context, restartMethod, serviceName, binaryLocation stri
 		backupPath = prependExtension(binaryLocation, "old."+currentVersion.String())
 	}
 
-	zap.L().Info("Restarting service.", zap.String("Service", serviceName))
-
-	if err = restartService(ctx, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
+	if err = restartAndCleanup(ctx, log, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
 		return errs.Wrap(err)
 	}
+	return nil
+}
 
-	zap.L().Info("Service restarted successfully.", zap.String("Service", serviceName))
+func restartAndCleanup(ctx context.Context, log *zap.Logger, restartMethod, service, binaryLocation, newVersionPath, backupPath string) error {
+	log.Info("Restarting service.")
+	exit, err := restartService(ctx, restartMethod, service, binaryLocation, newVersionPath, backupPath)
+	if err != nil {
+		return err
+	}
+
+	if !exit {
+		log.Info("Service restarted successfully.")
+	}
+
+	log.Info("Cleaning up old binary.", zap.String("Path", backupPath))
+	if err := os.Remove(backupPath); err != nil && !errs.Is(err, os.ErrNotExist) {
+		log.Error("Failed to remove backup binary. Consider removing manually.", zap.String("Path", backupPath), zap.Error(err))
+	}
+
+	if exit {
+		os.Exit(1)
+	}
+
 	return nil
 }

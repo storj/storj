@@ -45,13 +45,14 @@ func cmdRestart(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	return restartService(ctx, "", runCfg.ServiceName, runCfg.BinaryLocation, newVersionPath, backupPath)
+	_, err = restartService(ctx, "", runCfg.ServiceName, runCfg.BinaryLocation, newVersionPath, backupPath)
+	return err
 }
 
-func restartService(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (err error) {
+func restartService(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (exit bool, err error) {
 	srvc, err := openService(service)
 	if err != nil {
-		return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
+		return false, errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 	}
 	defer func() {
 		err = errs.Combine(err, errs.Wrap(srvc.Close()))
@@ -59,18 +60,18 @@ func restartService(ctx context.Context, restartMethod, service, binaryLocation,
 
 	status, err := srvc.Query()
 	if err != nil {
-		return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
+		return false, errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 	}
 
 	// stop service if it's not stopped
 	if status.State != svc.Stopped && status.State != svc.StopPending {
 		if err = serviceControl(ctx, srvc, svc.Stop, svc.Stopped, 10*time.Second); err != nil {
-			return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
+			return false, errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 		}
 		// if it is stopping wait for it to complete
 	} else if status.State == svc.StopPending {
 		if err = serviceWaitForState(ctx, srvc, svc.Stopped, 10*time.Second); err != nil {
-			return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
+			return false, errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 		}
 	}
 
@@ -91,7 +92,7 @@ func restartService(ctx context.Context, restartMethod, service, binaryLocation,
 		return nil
 	}()
 	if err != nil {
-		return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
+		return false, errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 	}
 
 	// successfully substituted binaries
@@ -104,13 +105,13 @@ func restartService(ctx context.Context, restartMethod, service, binaryLocation,
 	if err != nil {
 		if rerr := os.Rename(backupPath, binaryLocation); rerr != nil {
 			// unrecoverable error
-			return unrecoverableErr.Wrap(errs.Combine(err, rerr))
+			return false, unrecoverableErr.Wrap(errs.Combine(err, rerr))
 		}
 
-		return errs.Combine(err, srvc.Start())
+		return false, errs.Combine(err, srvc.Start())
 	}
 
-	return nil
+	return false, nil
 }
 
 func openService(name string) (_ *mgr.Service, err error) {

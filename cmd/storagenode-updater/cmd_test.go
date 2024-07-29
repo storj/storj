@@ -8,6 +8,7 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -109,6 +110,13 @@ func TestAutoUpdater(t *testing.T) {
 		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Process": "storagenode-updater", "Service": "storagenode-updater"}`) {
 			t.Log(logStr)
 		}
+		// check that backup binary was deleted
+		if !assert.Contains(t, logStr, `Cleaning up old binary.	{"Process": "storagenode-updater", "Service": "storagenode-updater", "Path": "`+ctx.File("fake", "storagenode-updater.old.exe")+`"}`) {
+			t.Log(logStr)
+		}
+		if !assert.Contains(t, logStr, `Cleaning up old binary.	{"Process": "storagenode-updater", "Service": "storagenode", "Path": "`+ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")+`"}`) {
+			t.Log(logStr)
+		}
 	} else {
 		t.Log(string(out))
 	}
@@ -118,15 +126,15 @@ func TestAutoUpdater(t *testing.T) {
 
 	oldStoragenode := ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")
 	oldStoragenodeInfo, err := os.Stat(oldStoragenode)
-	require.NoError(t, err)
-	require.NotNil(t, oldStoragenodeInfo)
-	require.NotZero(t, oldStoragenodeInfo.Size())
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	require.Nil(t, oldStoragenodeInfo)
 
 	backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
 	backupUpdaterInfo, err := os.Stat(backupUpdater)
-	require.NoError(t, err)
-	require.NotNil(t, backupUpdaterInfo)
-	require.NotZero(t, backupUpdaterInfo.Size())
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	require.Nil(t, backupUpdaterInfo)
 }
 
 // CompileWithVersion compiles the specified package with the version variables set
