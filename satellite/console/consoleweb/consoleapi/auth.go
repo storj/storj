@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
@@ -1307,6 +1309,81 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
+	}
+}
+
+// GetActiveSessions gets user's active sessions.
+func (a *Auth) GetActiveSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'limit' can't be empty"))
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'page' can't be empty"))
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	orderParam := query.Get("order")
+	if orderParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'order' can't be empty"))
+		return
+	}
+
+	order, err := strconv.ParseUint(orderParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	orderDirectionParam := query.Get("orderDirection")
+	if orderDirectionParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'orderDirection' can't be empty"))
+		return
+	}
+
+	orderDirection, err := strconv.ParseUint(orderDirectionParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	cursor := consoleauth.WebappSessionsCursor{
+		Limit:          uint(limit),
+		Page:           uint(page),
+		Order:          consoleauth.WebappSessionsOrder(order),
+		OrderDirection: consoleauth.OrderDirection(orderDirection),
+	}
+
+	sessionsPage, err := a.service.GetPagedActiveSessions(ctx, cursor)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(sessionsPage)
+	if err != nil {
+		a.log.Error("failed to write json paged active webapp sessions response", zap.Error(ErrAuthAPI.Wrap(err)))
 	}
 }
 

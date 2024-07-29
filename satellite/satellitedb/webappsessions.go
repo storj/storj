@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -90,11 +91,11 @@ func (db *webappSessions) GetPagedActiveByUserID(
 	defer mon.Task()(&ctx)(&err)
 
 	if cursor.Limit <= 0 {
-		return nil, errs.New("page cannot be 0 or negative")
+		return nil, console.ErrValidation.New("page cannot be 0 or negative")
 	}
 
 	if cursor.Page <= 0 {
-		return nil, errs.New("page cannot be 0 or negative")
+		return nil, console.ErrValidation.New("page cannot be 0 or negative")
 	}
 
 	page = &consoleauth.WebappSessionsPage{
@@ -116,7 +117,7 @@ func (db *webappSessions) GetPagedActiveByUserID(
 		return page, nil
 	}
 	if page.Offset > page.TotalCount-1 {
-		return nil, errs.New("page is out of range")
+		return nil, console.ErrValidation.New("page is out of range")
 	}
 
 	query := db.db.Rebind(`

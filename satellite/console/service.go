@@ -4915,6 +4915,23 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 	return ProjectMember{}, false
 }
 
+// GetPagedActiveSessions returns paged active webapp sessions list for given User.
+func (s *Service) GetPagedActiveSessions(ctx context.Context, cursor consoleauth.WebappSessionsCursor) (page *consoleauth.WebappSessionsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get active sessions")
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	page, err = s.store.WebappSessions().GetPagedActiveByUserID(ctx, user.ID, s.nowFn(), cursor)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return page, err
+}
+
 // DeleteSession removes the session from the database.
 func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
