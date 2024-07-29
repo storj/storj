@@ -26,7 +26,7 @@ import (
 )
 
 func TestDailyUsage(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
 				firstBucketName  = "testbucket0"
@@ -122,7 +122,7 @@ func TestDailyUsage(t *testing.T) {
 }
 
 func TestGetSingleBucketRollup(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
 				bucketName = "testbucket"
@@ -453,7 +453,7 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 }
 
 func TestGetProjectObjectsSegments(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
@@ -540,7 +540,7 @@ func TestGetProjectSettledBandwidth(t *testing.T) {
 
 func TestProjectUsageGap(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]

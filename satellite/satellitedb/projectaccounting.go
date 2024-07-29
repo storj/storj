@@ -52,35 +52,102 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	if len(bucketTallies) == 0 {
 		return nil
 	}
-	var bucketNames, projectIDs [][]byte
-	var totalBytes, metadataSizes []int64
-	var totalSegments, objectCounts []int64
-	for _, info := range bucketTallies {
-		bucketNames = append(bucketNames, []byte(info.BucketName))
-		projectIDs = append(projectIDs, info.ProjectID[:])
-		totalBytes = append(totalBytes, info.TotalBytes)
-		totalSegments = append(totalSegments, info.TotalSegments)
-		objectCounts = append(objectCounts, info.ObjectCount)
-		metadataSizes = append(metadataSizes, info.MetadataSize)
-	}
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(`
-		INSERT INTO bucket_storage_tallies (
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		var bucketNames, projectIDs [][]byte
+		var totalBytes, metadataSizes []int64
+		var totalSegments, objectCounts []int64
+		for _, info := range bucketTallies {
+			bucketNames = append(bucketNames, []byte(info.BucketName))
+			projectIDs = append(projectIDs, info.ProjectID[:])
+			totalBytes = append(totalBytes, info.TotalBytes)
+			totalSegments = append(totalSegments, info.TotalSegments)
+			objectCounts = append(objectCounts, info.ObjectCount)
+			metadataSizes = append(metadataSizes, info.MetadataSize)
+		}
+		_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(`
+       INSERT INTO bucket_storage_tallies (
+          interval_start,
+          bucket_name, project_id,
+          total_bytes, inline, remote,
+          total_segments_count, remote_segments_count, inline_segments_count,
+          object_count, metadata_size)
+       SELECT
+          $1,
+          unnest($2::bytea[]), unnest($3::bytea[]),
+          unnest($4::int8[]), $5, $6,
+          unnest($7::int8[]), $8, $9,
+          unnest($10::int8[]), unnest($11::int8[])`),
+			intervalStart,
+			pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
+			pgutil.Int8Array(totalBytes), 0, 0,
+			pgutil.Int8Array(totalSegments), 0, 0,
+			pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes))
+	case dbutil.Spanner:
+		type bucketTally struct {
+			BucketName          []byte
+			ProjectID           []byte
+			TotalBytes          int64
+			Inline              int64
+			Remote              int64
+			TotalSegmentsCount  int64
+			RemoteSegmentsCount int64
+			InlineSegmentsCount int64
+			ObjectCount         int64
+			MetadataSize        int64
+		}
+
+		var insertBucketTallies []bucketTally
+		for _, info := range bucketTallies {
+			insertBucketTallies = append(insertBucketTallies, bucketTally{
+				BucketName:          []byte(info.BucketName),
+				ProjectID:           info.ProjectID[:],
+				TotalBytes:          info.TotalBytes,
+				Inline:              0,
+				Remote:              0,
+				TotalSegmentsCount:  info.TotalSegments,
+				RemoteSegmentsCount: 0,
+				InlineSegmentsCount: 0,
+				ObjectCount:         info.ObjectCount,
+				MetadataSize:        info.MetadataSize,
+			})
+		}
+
+		query := `
+		INSERT INTO bucket_storage_tallies ( 
 			interval_start,
-			bucket_name, project_id,
-			total_bytes, inline, remote,
-			total_segments_count, remote_segments_count, inline_segments_count,
-			object_count, metadata_size)
+			bucket_name,
+			project_id,
+			total_bytes,
+			inline,
+			remote,
+			total_segments_count,
+			remote_segments_count,
+			inline_segments_count,
+			object_count,
+			metadata_size
+		)
 		SELECT
-			$1,
-			unnest($2::bytea[]), unnest($3::bytea[]),
-			unnest($4::int8[]), $5, $6,
-			unnest($7::int8[]), $8, $9,
-			unnest($10::int8[]), unnest($11::int8[])`),
-		intervalStart,
-		pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
-		pgutil.Int8Array(totalBytes), 0, 0,
-		pgutil.Int8Array(totalSegments), 0, 0,
-		pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes))
+			?,
+			BucketName,
+			ProjectID,
+			TotalBytes,
+			Inline,
+			Remote,
+			TotalSegmentsCount,
+			RemoteSegmentsCount,
+			InlineSegmentsCount,
+			ObjectCount,
+			MetadataSize,
+		FROM UNNEST(?) AS bucket_name
+       `
+		_, err = db.db.ExecContext(
+			ctx,
+			query,
+			intervalStart,
+			insertBucketTallies,
+		)
+	}
 
 	return Error.Wrap(err)
 }

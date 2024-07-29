@@ -44,7 +44,7 @@ func TestSaveBucketTallies(t *testing.T) {
 		for _, tally := range tallies {
 			require.Contains(t, expectedTallies, tally)
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestStorageNodeUsage(t *testing.T) {
