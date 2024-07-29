@@ -47,6 +47,7 @@
                     <v-list-item title="Storage" :subtitle="bucket.storage.toFixed(2) + 'GB'" class="px-0" />
                     <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0" />
                     <v-list-item v-if="versioningUIEnabled" title="Versioning" :subtitle="bucket.versioning" class="px-0" />
+                    <v-list-item v-if="objectLockUIEnabled" title="Object lock" :subtitle="bucket.objectLockEnabled ? 'Enabled' : 'Disabled'" class="px-0" />
                     <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0" />
                     <v-list-item title="Last Updated" :subtitle="bucket.before.toUTCString()" class="px-0" />
                 </v-list>
@@ -105,6 +106,11 @@ const model = defineModel<boolean>({ required: true });
  * Whether versioning has been enabled for current project.
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+
+/**
+ * Whether object lock has been enabled for current project.
+ */
+const objectLockUIEnabled = computed(() => projectsStore.objectLockUIEnabled);
 
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
