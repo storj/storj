@@ -65,6 +65,7 @@ export class FrontendConfig {
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
     domainsPageEnabled: boolean;
+    activeSessionsViewEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

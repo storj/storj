@@ -69,6 +69,7 @@ type FrontendConfig struct {
 	NoLimitsUiEnabled                 bool                  `json:"noLimitsUiEnabled"`
 	AltObjBrowserPagingEnabled        bool                  `json:"altObjBrowserPagingEnabled"`
 	DomainsPageEnabled                bool                  `json:"domainsPageEnabled"`
+	ActiveSessionsViewEnabled         bool                  `json:"activeSessionsViewEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
