@@ -1146,17 +1146,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
-
-		deleteMode := db.config.TestingPrecommitDeleteMode
-		if opts.UseObjectLock {
-			deleteMode = WithObjectLockUnversionedPrecommitMode
-		}
-
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:            opts.Location(),
-			Versioned:           opts.Versioned,
-			DisallowDelete:      opts.DisallowDelete,
-			PrecommitDeleteMode: deleteMode,
+			Location:                   opts.Location(),
+			Versioned:                  opts.Versioned,
+			DisallowDelete:             opts.DisallowDelete,
+			TestingPrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
 		}, adapter)
 		if err != nil {
 			return err
@@ -1453,10 +1447,6 @@ type CommitInlineObject struct {
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
-
-	// UseObjectLock, if enabled, prevents the deletion of committed object versions
-	// with active Object Lock configurations.
-	UseObjectLock bool
 }
 
 // Verify verifies reqest fields.
@@ -1501,16 +1491,10 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
-		var precommitMode PrecommitDeleteMode
-		if opts.UseObjectLock {
-			precommitMode = WithObjectLockUnversionedPrecommitMode
-		}
-
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:            opts.Location(),
-			Versioned:           opts.Versioned,
-			DisallowDelete:      opts.DisallowDelete,
-			PrecommitDeleteMode: precommitMode,
+			Location:       opts.Location(),
+			Versioned:      opts.Versioned,
+			DisallowDelete: opts.DisallowDelete,
 		}, adapter)
 		if err != nil {
 			return err

@@ -4701,7 +4701,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period - UseObjectLock disabled", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, _ := metabasetest.CreateObjectWithRetention(
+				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
 					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
 				)
 
@@ -4715,15 +4715,17 @@ func TestOverwriteLockedObject(t *testing.T) {
 					Version: lockedObj.Version + 1,
 				}.Check(ctx, t, db)
 
-				obj = metabasetest.CommitObject{
+				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
 						ObjectStream:  obj.ObjectStream,
 						UseObjectLock: false,
 					},
+					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{
-					Objects: []metabase.RawObject{metabase.RawObject(obj)},
+					Objects:  []metabase.RawObject{metabase.RawObject(lockedObj), metabase.RawObject(obj)},
+					Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
 				}.Check(ctx, t, db)
 			})
 
@@ -4789,7 +4791,6 @@ func TestOverwriteLockedObject(t *testing.T) {
 						ObjectStream:        objStream,
 						Encryption:          metabasetest.DefaultEncryption,
 						CommitInlineSegment: commitInlineSeg,
-						UseObjectLock:       true,
 					},
 					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
@@ -4804,22 +4805,22 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
-				lockedObj, _ := metabasetest.CreateObjectWithRetention(
+				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
 					ctx, t, db, objStream, 1, now.Add(time.Hour),
 				)
 
-				inlineObj := metabasetest.CommitInlineObject{
+				metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
 						ObjectStream:        objStream,
 						Encryption:          metabasetest.DefaultEncryption,
 						CommitInlineSegment: commitInlineSeg,
 					},
-					ExpectVersion: lockedObj.Version + 1,
+					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{
-					Objects:  []metabase.RawObject{metabase.RawObject(inlineObj)},
-					Segments: []metabase.RawSegment{getExpectedInlineSegment(inlineObj, commitInlineSeg)},
+					Objects:  []metabase.RawObject{metabase.RawObject(lockedObj)},
+					Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
 				}.Check(ctx, t, db)
 			})
 
@@ -4836,7 +4837,6 @@ func TestOverwriteLockedObject(t *testing.T) {
 						ObjectStream:        objStream,
 						Encryption:          metabasetest.DefaultEncryption,
 						CommitInlineSegment: commitInlineSeg,
-						UseObjectLock:       true,
 					},
 					ExpectVersion: lockedObj.Version + 1,
 				}.Check(ctx, t, db)

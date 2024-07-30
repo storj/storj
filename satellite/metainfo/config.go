@@ -199,7 +199,7 @@ type Config struct {
 	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
 	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
 	TestOptimizedInlineObjectUpload bool   `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
-	TestingPrecommitDeleteMode      int    `default:"1" help:"which code path to use for precommit delete step for unversioned objects, 1 is the default (old) code path."`
+	TestingPrecommitDeleteMode      int    `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -211,7 +211,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		ServerSideCopy:             c.ServerSideCopy,
 		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
 		TestingCommitSegmentMode:   c.TestCommitSegmentMode,
-		TestingPrecommitDeleteMode: metabase.PrecommitDeleteMode(c.TestingPrecommitDeleteMode),
+		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
 	}
 }
 

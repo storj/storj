@@ -67,10 +67,10 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:            opts.Location(),
-			Versioned:           opts.Versioned,
-			DisallowDelete:      opts.DisallowDelete,
-			PrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
+			Location:                   opts.Location(),
+			Versioned:                  opts.Versioned,
+			DisallowDelete:             opts.DisallowDelete,
+			TestingPrecommitDeleteMode: db.config.TestingPrecommitDeleteMode,
 		}, adapter)
 		if err != nil {
 			return err

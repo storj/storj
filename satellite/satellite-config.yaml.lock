@@ -934,8 +934,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enables optimization for uploading objects with single inline segment
 # metainfo.test-optimized-inline-object-upload: false
 
-# which code path to use for precommit delete step for unversioned objects, 1 is the default (old) code path.
-# metainfo.testing-precommit-delete-mode: 1
+# which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path.
+# metainfo.testing-precommit-delete-mode: 0
 
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000

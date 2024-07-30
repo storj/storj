@@ -155,8 +155,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if retention.Enabled() && !bucket.ObjectLockEnabled {
-		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	if retention.Enabled() {
+		if bucket.Versioning != buckets.VersioningEnabled {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
+		} else if !bucket.ObjectLockEnabled {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+		}
 	}
 
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
@@ -587,8 +591,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 		DisallowDelete: !allowDelete,
 
-		Versioned:     bucket.Versioning == buckets.VersioningEnabled,
-		UseObjectLock: bucket.ObjectLockEnabled,
+		Versioned: bucket.Versioning == buckets.VersioningEnabled,
 	})
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)

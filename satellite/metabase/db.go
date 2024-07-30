@@ -50,7 +50,7 @@ type Config struct {
 
 	TestingUniqueUnversioned   bool
 	TestingCommitSegmentMode   string
-	TestingPrecommitDeleteMode PrecommitDeleteMode
+	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
 }
 
 const commitSegmentModeTransaction = "transaction"
