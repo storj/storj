@@ -47,10 +47,16 @@ func TestDurabilityIntegration(t *testing.T) {
 			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, planet.StorageNodes[1].NodeURL().ID, location.Hungary.String()))
 		}
 
-		result := make(map[string]*durability.HealthStat)
+		result := map[int]map[int]durability.Bucket{}
+		for i := 0; i < 3; i++ {
+			result[i] = map[int]durability.Bucket{}
+		}
 		for _, observer := range planet.Satellites[0].RangedLoop.DurabilityReport.Observer {
-			observer.TestChangeReporter(func(n time.Time, class string, value string, stat *durability.HealthStat) {
-				result[value] = stat
+			if observer.Class != "email" {
+				continue
+			}
+			observer.TestChangeReporter(func(n time.Time, class string, missingProvider int, ix int, stat durability.Bucket, resolver func(id durability.ClassID) string) {
+				result[missingProvider][ix] = stat
 			})
 		}
 
@@ -62,11 +68,11 @@ func TestDurabilityIntegration(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Len(t, result, 14)
+		// normal distribution --> we have 3 pieces from each segment (10)
+		require.Equal(t, 10, result[0][3].SegmentCount)
 
-		// we used all 3 test@storj.io, and 6 pieces. Without test@storj.io, only 3 remained.
-		require.NotNil(t, result["test@storj.io"])
-		require.Equal(t, result["test@storj.io"].Min(), 3)
+		// we used all 3 test@storj.io, and 6 pieces. Without test@storj.io, only 3 remained --> which is RS=3 + 0 pieces
+		require.Equal(t, 10, result[1][0].SegmentCount)
 
 	})
 }
