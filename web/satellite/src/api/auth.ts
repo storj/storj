@@ -743,6 +743,7 @@ export class AuthHttpApi implements UsersApi {
             session.id,
             session.userAgent,
             new Date(session.expiresAt),
+            session.isRequesterCurrentSession,
         ));
 
         sessionsPage.limit = result.limit;
@@ -753,6 +754,26 @@ export class AuthHttpApi implements UsersApi {
         sessionsPage.totalCount = result.totalCount;
 
         return sessionsPage;
+    }
+
+    /**
+     * Used to invalidate active user session by ID.
+     *
+     * @throws Error
+     */
+    public async invalidateSession(sessionID: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/invalidate-session/${sessionID}`;
+        const response = await this.http.post(path, null);
+
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not invalidate session',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
     }
 
     /**

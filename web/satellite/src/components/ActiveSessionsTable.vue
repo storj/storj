@@ -15,6 +15,11 @@
             @update:page="onUpdatePage"
             @update:sortBy="onUpdateSortBy"
         >
+            <template #item.isCurrent="{ item }">
+                <v-chip :color="item.isCurrent ? 'success' : 'primary'" label>
+                    {{ item.isCurrent ? 'Yes' : 'No' }}
+                </v-chip>
+            </template>
             <template #item.expiresAt="{ item }">
                 <span class="text-no-wrap">
                     {{ Time.formattedDate(item.expiresAt) }}
@@ -27,9 +32,10 @@
                         color="default"
                         size="small"
                         class="mr-1 text-caption"
-                        @click="() => onLogout(item.id)"
+                        :loading="isLoading"
+                        @click="() => onInvalidate(item)"
                     >
-                        Logout
+                        {{ item.isCurrent ? 'Logout' : 'Invalidate' }}
                     </v-btn>
                 </div>
             </template>
@@ -38,20 +44,22 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VDataTableServer } from 'vuetify/components';
+import { VBtn, VCard, VDataTableServer, VChip } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 
 import { Session, SessionsCursor, SessionsOrderBy, SessionsPage } from '@/types/users';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { SortDirection, tableSizeOptions } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { Time } from '@/utils/time';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useLogout } from '@/composables/useLogout';
 
 const usersStore = useUsersStore();
 
+const { logout } = useLogout();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -62,6 +70,7 @@ const headers = [
         align: 'start',
         key: 'userAgent',
     },
+    { title: 'Current', key: 'isCurrent', sortable: false },
     { title: 'Expires', key: 'expiresAt' },
     { title: '', key: 'actions', align: 'end' },
 ];
@@ -102,10 +111,15 @@ function onUpdateSortBy(sortBy: {key: keyof SessionsOrderBy, order: keyof SortDi
     fetch(FIRST_PAGE, cursor.value.limit);
 }
 
-async function onLogout(sessionID: string): Promise<void> {
+async function onInvalidate(session: Session): Promise<void> {
     await withLoading(async () => {
         try {
-            // Invalidate session
+            if (session.isCurrent) {
+                await logout();
+            } else {
+                await usersStore.invalidateSession(session.id);
+                await fetch(cursor.value.page, cursor.value.limit);
+            }
         } catch (error) {
             notify.error(`Unable to invalidate session. ${error.message}`, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }

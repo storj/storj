@@ -173,7 +173,6 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { useDisplay, useTheme } from 'vuetify';
 import {
     VAppBar,
@@ -194,21 +193,12 @@ import {
 import { MoonStar, Sun } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
-import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
-import { useBillingStore } from '@/store/modules/billingStore';
-import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
+import { useLogout } from '@/composables/useLogout';
 
 import IconCard from '@/components/icons/IconCard.vue';
 import IconUpgrade from '@/components/icons/IconUpgrade.vue';
@@ -217,24 +207,15 @@ import IconLogout from '@/components/icons/IconLogout.vue';
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
 
-const analyticsStore = useAnalyticsStore();
-const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const agStore = useAccessGrantsStore();
-const pmStore = useProjectMembersStore();
-const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const notificationsStore = useNotificationsStore();
-const projectsStore = useProjectsStore();
-const obStore = useObjectBrowserStore();
 const configStore = useConfigStore();
 
 const theme = useTheme();
-const router = useRouter();
 const notify = useNotify();
 const { mdAndDown } = useDisplay();
+const { logout } = useLogout();
 
-const auth: AuthHttpApi = new AuthHttpApi();
 const settingsPath = ROUTES.Account.with(ROUTES.AccountSettings).path;
 const billingPath = ROUTES.Account.with(ROUTES.Billing).path;
 
@@ -295,27 +276,11 @@ function toggleUpgradeFlow(): void {
  * Logs out user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    await Promise.all([
-        pmStore.clear(),
-        projectsStore.clear(),
-        usersStore.clear(),
-        agStore.stopWorker(),
-        agStore.clear(),
-        notificationsStore.clear(),
-        bucketsStore.clear(),
-        appStore.clear(),
-        billingStore.clear(),
-        obStore.clear(),
-    ]);
-
     try {
-        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
-        await auth.logout();
+        await logout();
     } catch (error) {
         notify.error(error.message);
     }
-
-    await router.push(ROUTES.Login.path);
 }
 
 </script>

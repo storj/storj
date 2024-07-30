@@ -75,6 +75,10 @@ export const useUsersStore = defineStore('users', () => {
         return sessionsPage;
     }
 
+    async function invalidateSession(sessionID: string): Promise<void> {
+        await api.invalidateSession(sessionID);
+    }
+
     function setSessionsSortingBy(order: SessionsOrderBy): void {
         state.sessionsCursor.order = order;
     }
@@ -169,6 +173,7 @@ export const useUsersStore = defineStore('users', () => {
         userName,
         shouldOnboard,
         noticeDismissal,
+        invalidateSession,
         getSessions,
         setSessionsSortingBy,
         setSessionsSortingDirection,

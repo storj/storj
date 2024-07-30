@@ -8,17 +8,10 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
-import { useABTestingStore } from '@/store/modules/abTestingStore';
-import { useBillingStore } from '@/store/modules/billingStore';
-import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useAppStore } from '@/store/modules/appStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
+import { useLogout } from '@/composables/useLogout';
 
 export interface UseSessionTimeoutOptions {
     showEditSessionTimeoutModal: () => void;
@@ -40,18 +33,11 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
     const sessionExpiredModalShown = ref<boolean>(false);
 
     const configStore = useConfigStore();
-    const bucketsStore = useBucketsStore();
-    const pmStore = useProjectMembersStore();
     const usersStore = useUsersStore();
-    const abTestingStore = useABTestingStore();
-    const billingStore = useBillingStore();
-    const agStore = useAccessGrantsStore();
-    const appStore = useAppStore();
-    const projectsStore = useProjectsStore();
-    const notificationsStore = useNotificationsStore();
     const obStore = useObjectBrowserStore();
 
     const notify = useNotify();
+    const { clearStores } = useLogout();
 
     const auth: AuthHttpApi = new AuthHttpApi();
 
@@ -86,19 +72,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
      * and displays the session expired modal.
      */
     async function clearStoresAndTimers(): Promise<void> {
-        await Promise.all([
-            pmStore.clear(),
-            projectsStore.clear(),
-            usersStore.clear(),
-            agStore.stopWorker(),
-            agStore.clear(),
-            notificationsStore.clear(),
-            bucketsStore.clear(),
-            appStore.clear(),
-            billingStore.clear(),
-            abTestingStore.reset(),
-            obStore.clear(),
-        ]);
+        await clearStores();
 
         RESET_ACTIVITY_EVENTS.forEach((eventName: string) => {
             document.removeEventListener(eventName, onSessionActivity);

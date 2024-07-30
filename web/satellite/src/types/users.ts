@@ -50,6 +50,13 @@ export interface UsersApi {
     getSessions(cursor: SessionsCursor): Promise<SessionsPage>
 
     /**
+     * Used to invalidate active user session by ID.
+     *
+     * @throws Error
+     */
+    invalidateSession(sessionID: string): Promise<void>
+
+    /**
      * Changes user's settings.
      *
      * @param data
@@ -275,6 +282,7 @@ export class Session {
         public id: string = '',
         public userAgent: string = '',
         public expiresAt: Date = new Date(),
+        public isCurrent: boolean = false,
     ) {}
 }
 
