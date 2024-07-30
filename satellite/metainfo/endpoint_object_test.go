@@ -3686,7 +3686,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 
 			// exact version
 			createObject(t, objStream, retention)
-			req.ObjectVersion = testrand.Bytes(16)
+			req.ObjectVersion = metabase.NewStreamVersionID(randVersion(), testrand.UUID()).Bytes()
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.Nil(t, resp)
 			rpctest.RequireStatusContains(t, err, rpcstatus.NotFound, "object not found")
@@ -4039,7 +4039,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			createObject(t, objStream, metabase.Retention{})
 
 			// exact version
-			req.ObjectVersion = testrand.Bytes(16)
+			req.ObjectVersion = metabase.NewStreamVersionID(randVersion(), testrand.UUID()).Bytes()
 			_, err = endpoint.SetObjectRetention(ctx, req)
 			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
 
@@ -4456,14 +4456,18 @@ func randRetention() metabase.Retention {
 	}
 }
 
+func randVersion() metabase.Version {
+	// math.MaxInt32-10 gives room for 10 subsequent versions to be
+	// created before reaching the limit of pb.Object.Version.
+	return metabase.Version(1 + rand.Int31n(math.MaxInt32-10))
+}
+
 func randObjectStream(projectID uuid.UUID, bucketName string) metabase.ObjectStream {
 	return metabase.ObjectStream{
 		ProjectID:  projectID,
 		BucketName: metabase.BucketName(bucketName),
 		ObjectKey:  metabasetest.RandObjectKey(),
-		// math.MaxInt32-10 gives room for 10 subsequent versions to be
-		// created before reaching the limit of pb.Object.Version.
-		Version:  metabase.Version(1 + rand.Int31n(math.MaxInt32-10)),
-		StreamID: testrand.UUID(),
+		Version:    randVersion(),
+		StreamID:   testrand.UUID(),
 	}
 }

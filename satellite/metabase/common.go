@@ -540,7 +540,8 @@ func (s StreamVersionID) Bytes() []byte {
 	return s[:]
 }
 
-func newStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
+// NewStreamVersionID returns a new stream version id.
+func NewStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
 	var sv StreamVersionID
 	binary.BigEndian.PutUint64(sv[:8], uint64(version))
 	copy(sv[8:], streamID[8:])

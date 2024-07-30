@@ -35,7 +35,7 @@ func (obj *Object) IsMigrated() bool {
 
 // StreamVersionID returns byte representation of object stream version id.
 func (obj *Object) StreamVersionID() StreamVersionID {
-	return newStreamVersionID(obj.Version, obj.StreamID)
+	return NewStreamVersionID(obj.Version, obj.StreamID)
 }
 
 // Segment segment metadata.
