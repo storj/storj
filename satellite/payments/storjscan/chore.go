@@ -85,7 +85,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					} else {
 						status = payments.PaymentStatusPending
 					}
-
+					chore.log.Debug("received new payments from storjscan",
+						zap.Int64("Chain ID", payment.ChainID),
+						zap.String("Block Hash", payment.BlockHash.Hex()),
+						zap.String("Transaction Hash", payment.Transaction.Hex()),
+						zap.Int64("Block Number", payment.BlockNumber),
+						zap.Int("Log Index", payment.LogIndex),
+						zap.String("USD Value", payment.USDValue.AsDecimal().String()))
 					cachedPayments = append(cachedPayments, CachedPayment{
 						ChainID:     payment.ChainID,
 						From:        payment.From,

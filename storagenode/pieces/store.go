@@ -866,11 +866,9 @@ func (access storedPieceAccess) Satellite() (storj.NodeID, error) {
 	return storj.NodeIDFromBytes(access.BlobRef().Namespace)
 }
 
-var monSize = mon.Task()
-
 // Size gives the size of the piece on disk, and the size of the content (not including the piece header, if applicable).
 func (access storedPieceAccess) Size(ctx context.Context) (size, contentSize int64, err error) {
-	defer monSize(&ctx)(&err)
+	// mon.Task() isn't used here because this operation can be executed milions of times.
 	stat, err := access.Stat(ctx)
 	if err != nil {
 		return 0, 0, err
@@ -912,13 +910,11 @@ func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Ti
 	return header.CreationTime, nil
 }
 
-var monModTime = mon.Task()
-
 // ModTime returns a less-precise piece creation time than CreationTime, but is generally
 // much faster. This gets the piece creation time from to the filesystem instead of the
 // piece header.
 func (access storedPieceAccess) ModTime(ctx context.Context) (mTime time.Time, err error) {
-	defer monModTime(&ctx)(&err)
+	// mon.Task() isn't used here because this operation can be executed milions of times.
 	stat, err := access.Stat(ctx)
 	if err != nil {
 		return time.Time{}, err
