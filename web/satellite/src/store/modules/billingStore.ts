@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
@@ -50,6 +50,8 @@ export const useBillingStore = defineStore('billing', () => {
     const state = reactive<PaymentsState>(new PaymentsState());
 
     const api: PaymentsApi = new PaymentsHttpApi();
+
+    const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
 
     async function getBalance(): Promise<AccountBalance> {
         const balance: AccountBalance = await api.getBalance();
@@ -252,6 +254,7 @@ export const useBillingStore = defineStore('billing', () => {
 
     return {
         state,
+        defaultCard,
         getBalance,
         getWallet,
         getTaxCountries,

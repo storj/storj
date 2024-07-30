@@ -254,6 +254,20 @@ export class CreditCard {
         public last4: string = '0000',
         public isDefault: boolean = false,
     ) { }
+
+    public get isExpiring(): boolean {
+        const now = new Date();
+
+        return now.getFullYear() === this.expYear && now.getMonth() + 1 === this.expMonth;
+    }
+
+    public get isExpired(): boolean {
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+
+        return year > this.expYear || (year === this.expYear && month + 1 > this.expMonth);
+    }
 }
 
 /**

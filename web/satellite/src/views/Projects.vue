@@ -5,6 +5,8 @@
     <v-container>
         <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
+        <card-expire-banner />
+
         <low-token-balance-banner
             v-if="!isLoading && isLowBalance && billingEnabled"
             cta-label="Go to billing"
@@ -115,6 +117,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { AccountBalance, CreditCard } from '@/types/payments';
 
 import ProjectCard from '@/components/ProjectCard.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -127,6 +130,7 @@ import IconTableView from '@/components/icons/IconTableView.vue';
 import IconNew from '@/components/icons/IconNew.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+import CardExpireBanner from '@/components/CardExpireBanner.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -241,12 +245,13 @@ function formattedValue(value: Size): string {
 }
 
 onMounted(async () => {
-    if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
-        await Promise.all([
-            billingStore.getBalance(),
-            billingStore.getCreditCards(),
-            billingStore.getNativePaymentsHistory(),
-        ]).catch(_ => {});
+    if (billingEnabled.value) {
+        const promises: Promise<CreditCard[] | AccountBalance | void>[] = [billingStore.getCreditCards()];
+
+        if (configStore.state.config.nativeTokenPaymentsEnabled) {
+            promises.push(billingStore.getBalance(), billingStore.getNativePaymentsHistory());
+        }
+        await Promise.all(promises).catch(_ => {});
     }
 
     isLoading.value = false;
