@@ -72,11 +72,15 @@ func main() {
 		}))
 	}
 
-	filter := bloomfilter.NewOptimal(int64(*numberOfPieces), 0.1)
+	duration := profile("used-space", func() {
+		try.E2(filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID))
+	})
+	fmt.Printf("Walked (used space) %d pieces in %s \n", *numberOfPieces, duration)
 
-	start := time.Now()
+	filter := bloomfilter.NewOptimal(int64(*numberOfPieces), 0.1)
 	trashed := 0
-	profile("gc", func() {
+	duration = profile("gc", func() {
+		start := time.Now()
 		trashFunc := func(pieceID storj.PieceID) error {
 			trashed++
 			return piecesStore.Trash(ctx, satelliteID, pieceID, start)
@@ -87,8 +91,6 @@ func main() {
 		pieceIDs := make([]storj.PieceID, 0, 1000)
 
 		if *lazywalker {
-			fmt.Println("using lazy file walker")
-
 			trashFunc = func(pieceID storj.PieceID) error {
 				pieceIDs = append(pieceIDs, pieceID)
 
@@ -114,10 +116,14 @@ func main() {
 			try.E(encoder.Encode(resp))
 		}
 	})
+	fmt.Printf("GC %d pieces in %s, trashed %d\n", *numberOfPieces, duration, trashed)
 
-	walkDuration := time.Since(start)
+	duration = profile("trash", func() {
+		start := time.Now()
+		try.E2(filewalker.WalkCleanupTrash(ctx, satelliteID, start.Add(24*time.Hour)))
+	})
 
-	fmt.Printf("GC %d pieces in %s, trashed %d\n", *numberOfPieces, walkDuration, trashed)
+	fmt.Printf("Trashed %d pieces in %s\n", trashed, duration)
 }
 
 func setConfigStructDefaults(v interface{}) {
@@ -126,7 +132,7 @@ func setConfigStructDefaults(v interface{}) {
 	try.E(fs.Parse(nil))
 }
 
-func profile(suffix string, fn func()) {
+func profile(suffix string, fn func()) time.Duration {
 	if *memprofile != "" {
 		defer func() {
 			memfile := try.E1(os.Create(uniqueProfilePath(*memprofile, suffix)))
@@ -146,7 +152,9 @@ func profile(suffix string, fn func()) {
 		}()
 	}
 
+	start := time.Now()
 	fn()
+	return time.Since(start)
 }
 
 var startTime = time.Now()
