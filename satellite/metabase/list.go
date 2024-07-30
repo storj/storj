@@ -41,7 +41,7 @@ type ObjectEntry struct {
 
 // StreamVersionID returns byte representation of object stream version id.
 func (entry ObjectEntry) StreamVersionID() StreamVersionID {
-	return newStreamVersionID(entry.Version, entry.StreamID)
+	return NewStreamVersionID(entry.Version, entry.StreamID)
 }
 
 // Less implements sorting on object entries.
