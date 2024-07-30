@@ -76,15 +76,17 @@
                     <setup-c-n-a-m-e-step
                         :ref="stepInfos[NewDomainFlowStep.SetupCNAME].ref"
                         :domain="domain"
+                        :cname="cname"
                     />
                 </v-window-item>
 
                 <v-window-item :value="NewDomainFlowStep.SetupTXT">
                     <setup-t-x-t-step
                         :ref="stepInfos[NewDomainFlowStep.SetupTXT].ref"
-                        :access="accessKeyID"
-                        :bucket="bucket"
                         :domain="domain"
+                        :storj-root="storjRoot"
+                        :storj-access="storjAccess"
+                        :storj-tls="storjTLS"
                     />
                 </v-window-item>
 
@@ -92,6 +94,8 @@
                     <verify-domain-step
                         :ref="stepInfos[NewDomainFlowStep.VerifyDomain].ref"
                         :domain="domain"
+                        :cname="cname"
+                        :txt="txt"
                     />
                 </v-window-item>
 
@@ -170,6 +174,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { IDialogFlowStep } from '@/types/common';
 import { PassphraseOption } from '@/types/setupAccess';
+import { useLinksharing } from '@/composables/useLinksharing';
 
 import AccessEncryptionStep from '@/components/dialogs/accessSetupSteps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
@@ -205,6 +210,7 @@ const projectsStore = useProjectsStore();
 const domainsStore = useDomainsStore();
 
 const notify = useNotify();
+const { publicLinksharingURL } = useLinksharing();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -305,6 +311,12 @@ const stepInfos: Record<NewDomainFlowStep, StepInfo> = {
         NewDomainFlowStep.VerifyDomain,
     ),
 };
+
+const cname = computed<string>(() => `${publicLinksharingURL.value.split('//').pop() ?? ''}.`);
+const storjRoot = computed<string>(() => `storj-root:${bucket.value}`);
+const storjAccess = computed<string>(() => `storj-access:${accessKeyID.value}`);
+const storjTLS = 'storj-tls:true';
+const txt = computed<string[]>(() => [storjRoot.value, storjAccess.value, storjTLS]);
 
 const accessName = computed<string>(() => `custom-domain-access-${domain.value}`);
 

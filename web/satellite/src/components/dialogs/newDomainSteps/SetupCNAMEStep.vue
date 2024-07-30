@@ -5,8 +5,16 @@
     <v-form class="pa-3" @submit.prevent>
         <v-card-text>
             In your DNS provider, create CNAME record.
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="Hostname" :model-value="domain" readonly hide-details />
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="Content" :model-value="content" readonly hide-details />
+            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="Hostname" :model-value="domain" readonly hide-details>
+                <template #append-inner>
+                    <input-copy-button :value="domain" />
+                </template>
+            </v-text-field>
+            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="Content" :model-value="cname" readonly hide-details>
+                <template #append-inner>
+                    <input-copy-button :value="cname" />
+                </template>
+            </v-text-field>
             <v-alert type="info" variant="tonal" class="mb-4">Ensure you include the dot . at the end</v-alert>
             The next step is creating the TXT records.
         </v-card-text>
@@ -14,16 +22,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import { VAlert, VCardText, VForm, VTextField } from 'vuetify/components';
 
-import { useLinksharing } from '@/composables/useLinksharing';
+import InputCopyButton from '@/components/InputCopyButton.vue';
 
 defineProps<{
     domain: string
+    cname: string
 }>();
-
-const { publicLinksharingURL } = useLinksharing();
-
-const content = computed<string>(() => `${publicLinksharingURL.value.split('//').pop() ?? ''}.`);
 </script>

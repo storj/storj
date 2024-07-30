@@ -2680,13 +2680,6 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		}
 	}
 
-	objectLockUIEnabled := true
-	if !s.objectLockConfig.UseBucketLevelObjectLock {
-		if _, ok := s.objectLockConfig.projectMap[project.ID]; !ok {
-			objectLockUIEnabled = false
-		}
-	}
-
 	var passphrase []byte
 	passphraseEnc, encKeyID, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
 	if err != nil {
@@ -2705,10 +2698,21 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	return &ProjectConfig{
 		VersioningUIEnabled:     versioningUIEnabled,
-		ObjectLockUIEnabled:     objectLockUIEnabled && versioningUIEnabled,
+		ObjectLockUIEnabled:     s.GetObjectLockEnabledByProjectID(project.ID) && versioningUIEnabled,
 		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
 		Passphrase:              string(passphrase),
 	}, nil
+}
+
+// GetObjectLockEnabledByProjectID returns whether object lock is enabled for the project.
+func (s *Service) GetObjectLockEnabledByProjectID(projectID uuid.UUID) bool {
+	objectLockUIEnabled := true
+	if !s.objectLockConfig.UseBucketLevelObjectLock {
+		if _, ok := s.objectLockConfig.projectMap[projectID]; !ok {
+			objectLockUIEnabled = false
+		}
+	}
+	return objectLockUIEnabled
 }
 
 // GetUsersProjects is a method for querying all projects.
