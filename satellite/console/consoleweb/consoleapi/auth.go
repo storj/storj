@@ -172,7 +172,6 @@ func (a *Auth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
 
 // getSessionID gets the session ID from the request.
 func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
-
 	tokenInfo, err := a.cookieAuth.GetToken(r)
 	if err != nil {
 		return uuid.UUID{}, err
@@ -1381,9 +1380,46 @@ func (a *Auth) GetActiveSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currentSessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	for i, session := range sessionsPage.Sessions {
+		if session.ID == currentSessionID {
+			sessionsPage.Sessions[i].IsRequesterCurrentSession = true
+			break
+		}
+	}
+
 	err = json.NewEncoder(w).Encode(sessionsPage)
 	if err != nil {
 		a.log.Error("failed to write json paged active webapp sessions response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}
+
+// InvalidateSessionByID invalidates user session by ID.
+func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	sessionIDStr, ok := mux.Vars(r)["id"]
+	if !ok {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("id parameter is missing"))
+		return
+	}
+
+	sessionID, err := uuid.FromString(sessionIDStr)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	err = a.service.InvalidateSession(ctx, sessionID)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 	}
 }
 

@@ -4932,6 +4932,27 @@ func (s *Service) GetPagedActiveSessions(ctx context.Context, cursor consoleauth
 	return page, err
 }
 
+// InvalidateSession invalidates the session by ID.
+func (s *Service) InvalidateSession(ctx context.Context, sessionID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "invalidate session")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if session.UserID != user.ID {
+		return ErrUnauthorized.New("session does not belong to the user")
+	}
+
+	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, session.ID))
+}
+
 // DeleteSession removes the session from the database.
 func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)

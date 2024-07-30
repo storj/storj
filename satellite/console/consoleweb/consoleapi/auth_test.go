@@ -184,6 +184,43 @@ func TestAuth_ChangeEmail(t *testing.T) {
 	})
 }
 
+func TestAuth_InvalidateSession(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		sessionsDB := sat.DB.Console().WebappSessions()
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		id, err := uuid.New()
+		require.NoError(t, err)
+
+		session, err := sessionsDB.Create(ctx, id, user.ID, "", "test", time.Now().Add(time.Hour))
+		require.NoError(t, err)
+
+		traitor, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Invalidate Session",
+			Email:    "invalidate_session@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		_, status, err := doRequestWithAuth(ctx, t, sat, traitor, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusUnauthorized, status)
+
+		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		_, err = sessionsDB.GetBySessionID(ctx, session.ID)
+		require.Error(t, err)
+	})
+}
+
 func TestAuth_UpdateUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

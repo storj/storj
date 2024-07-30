@@ -34,12 +34,13 @@ type WebappSessions interface {
 
 // WebappSession represents a session on the satellite web app.
 type WebappSession struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"-"`
-	Address   string    `json:"-"`
-	UserAgent string    `json:"userAgent"`
-	Status    int       `json:"-"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	ID                        uuid.UUID `json:"id"`
+	UserID                    uuid.UUID `json:"-"`
+	Address                   string    `json:"-"`
+	UserAgent                 string    `json:"userAgent"`
+	Status                    int       `json:"-"`
+	ExpiresAt                 time.Time `json:"expiresAt"`
+	IsRequesterCurrentSession bool      `json:"isRequesterCurrentSession"`
 }
 
 // WebappSessionsOrder is used for querying webapp sessions in specified order.
