@@ -78,6 +78,7 @@ import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
@@ -99,6 +100,7 @@ interface StepData {
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
+const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 
@@ -323,6 +325,9 @@ async function openTrackedBucket(): Promise<void> {
                 return;
             }
         }
+
+        const objCount = bucketsStore.state.page.buckets?.find((bucket) => bucket.name === trackedBucketName.value)?.objectCount ?? 0;
+        obStore.setObjectCountOfSelectedBucket(objCount);
 
         await router.push({
             name: ROUTES.Bucket.name,

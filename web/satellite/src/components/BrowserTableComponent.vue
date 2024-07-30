@@ -4,6 +4,7 @@
 <template>
     <v-card>
         <v-text-field
+            v-if="!isAltPagination"
             v-model="search"
             label="Search"
             :prepend-inner-icon="Search"
@@ -24,17 +25,18 @@
             v-model:expanded="expandedFiles"
             :sort-by="sortBy"
             :headers="headers"
-            :items="tableFiles"
+            :items="isAltPagination ? allFiles : tableFiles"
             :search="search"
             :item-value="(item: BrowserObjectWrapper) => item.browserObject"
             :page="cursor.page"
             hover
-            must-sort
+            :must-sort="!isAltPagination"
+            :disable-sort="isAltPagination"
             select-strategy="page"
             show-select
             :loading="isFetching || loading"
-            :items-length="totalObjectCount"
-            :items-per-page-options="tableSizeOptions(totalObjectCount, true)"
+            :items-length="isAltPagination ? cursor.limit : totalObjectCount"
+            :items-per-page-options="isAltPagination ? [] : tableSizeOptions(totalObjectCount, true)"
             :show-expand="showObjectVersions"
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
@@ -150,6 +152,32 @@
                     </template>
                 </v-data-table-row>
             </template>
+
+            <template v-if="isAltPagination" #bottom>
+                <div class="v-data-table-footer">
+                    <v-row justify="end" align="center" class="pa-2">
+                        <v-col cols="auto">
+                            <span class="caption">Items per page:</span>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-select
+                                :model-value="cursor.limit"
+                                density="compact"
+                                :items="pageSizes"
+                                variant="outlined"
+                                hide-details
+                                @update:model-value="onLimitChange"
+                            />
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-btn-group density="compact">
+                                <v-btn :disabled="cursor.page <= 1" :icon="ChevronLeft" @click="onPreviousPageClick" />
+                                <v-btn :disabled="!hasNextPage" :icon="ChevronRight" @click="onNextPageClick" />
+                            </v-btn-group>
+                        </v-col>
+                    </v-row>
+                </div>
+            </template>
         </v-data-table-server>
 
         <file-preview-dialog
@@ -215,6 +243,7 @@ import { computed, ref, watch, WritableComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
+    VBtnGroup,
     VCard,
     VCheckboxBtn,
     VCol,
@@ -222,11 +251,12 @@ import {
     VDataTableServer,
     VListItem,
     VRow,
+    VSelect,
     VSnackbar,
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { Search } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-vue-next';
 
 import {
     BrowserObject,
@@ -247,6 +277,7 @@ import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { Versioning } from '@/types/versioning';
 import { BucketMetadata } from '@/types/buckets';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -303,19 +334,27 @@ const isRestoreDialogShown = ref<boolean>(false);
 const isFileGuideShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
+const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 const sortBy = [{ key: 'name', order: 'asc' }];
-const headers = [
-    {
-        title: 'Name',
-        align: 'start',
-        key: 'name',
-    },
-    { title: 'Type', key: 'type' },
-    { title: 'Size', key: 'size' },
-    { title: 'Date', key: 'date' },
-    { title: '', key: 'actions', sortable: false, width: 0 },
-];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
+
+/**
+ * Indicates if alternative pagination should be used.
+ */
+const isAltPagination = computed(() => obStore.isAltPagination);
+
+/**
+ * Returns table headers.
+ */
+const headers = computed(() => {
+    return [
+        { title: 'Name', align: 'start', key: 'name', sortable: !isAltPagination.value },
+        { title: 'Type', key: 'type', sortable: !isAltPagination.value },
+        { title: 'Size', key: 'size', sortable: !isAltPagination.value },
+        { title: 'Date', key: 'date', sortable: !isAltPagination.value },
+        { title: '', key: 'actions', sortable: false, width: 0 },
+    ];
+});
 
 /**
  * Returns the name of the selected bucket.
@@ -363,13 +402,23 @@ const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
 const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
 
 /**
+ * Indicates if alternative pagination has next page.
+ */
+const hasNextPage = computed<boolean>(() => {
+    const nextToken = obStore.state.continuationTokens.get(cursor.value.page + 1);
+
+    return nextToken !== undefined;
+});
+
+/**
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
 
-    return obStore.displayedObjects.map<BrowserObjectWrapper>(file => {
+    const objects = isAltPagination.value ? obStore.sortedFiles : obStore.displayedObjects;
 
+    return objects.map<BrowserObjectWrapper>(file => {
         const { name, ext, typeInfo } = getFileInfo(file);
         return {
             browserObject: file,
@@ -381,9 +430,10 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
 });
 
 /**
- * Returns every file under the current path that matchs the search query.
+ * Returns every file under the current path that matches the search query.
  */
 const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
+    if (isAltPagination.value) return [];
     if (!search.value) return allFiles.value;
     const searchLower = search.value.toLowerCase();
     return allFiles.value.filter(file => file.lowerName.includes(searchLower));
@@ -394,7 +444,7 @@ const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
  */
 const tableFiles = computed<BrowserObjectWrapper[]>(() => {
     const opts = options.value;
-    if (!opts) return [];
+    if (!opts || isAltPagination.value) return [];
 
     const files = [...filteredFiles.value];
 
@@ -451,6 +501,20 @@ const firstFile = computed<BrowserObject | null>(() => {
     return tableFiles.value.find(f => f.browserObject.type === 'file')?.browserObject || null;
 });
 
+/**
+ * Handles previous page click for alternative pagination.
+ */
+function onPreviousPageClick(): void {
+    fetchFiles(cursor.value.page - 1, false);
+}
+
+/**
+ * Handles next page click for alternative pagination.
+ */
+function onNextPageClick(): void {
+    fetchFiles(cursor.value.page + 1, true);
+}
+
 function onFilesDeleted(): void {
     fetchFiles();
     fileToDelete.value = null;
@@ -466,6 +530,8 @@ function onFileRestored(): void {
  * Handles page change event.
  */
 function onPageChange(page: number): void {
+    if (isAltPagination.value) return;
+
     obStore.updateSelectedFiles([]);
     const path = filePath.value ? filePath.value + '/' : '';
     routePageCache.set(path, page);
@@ -493,7 +559,13 @@ function onPageChange(page: number): void {
  * Handles items per page change event.
  */
 function onLimitChange(newLimit: number): void {
-    obStore.setCursor({ page: options.value?.page ?? 1, limit: newLimit });
+    if (isAltPagination.value) {
+        obStore.setCursor({ page: 1, limit: newLimit });
+        obStore.clearTokens();
+        fetchFiles();
+    } else {
+        obStore.setCursor({ page: options.value?.page ?? 1, limit: newLimit });
+    }
 }
 
 function toggleSelectObjectVersion(isSelected: boolean, version: BrowserObject) {
@@ -565,7 +637,7 @@ function onFileClick(file: BrowserObject): void {
 /**
  * Fetches all files in the current directory.
  */
-async function fetchFiles(): Promise<void> {
+async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     if (isFetching.value || props.forceEmpty) return;
 
     obStore.updateSelectedFiles([]);
@@ -575,15 +647,20 @@ async function fetchFiles(): Promise<void> {
     try {
         const path = filePath.value ? filePath.value + '/' : '';
 
-        await obStore.initList(path);
-
-        selectedFiles.value = [];
-
-        const cachedPage = routePageCache.get(path);
-        if (cachedPage !== undefined) {
-            obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+        if (isAltPagination.value) {
+            await obStore.listCustom(path, page, saveNextToken);
+            selectedFiles.value = [];
         } else {
-            obStore.setCursor({ limit: cursor.value.limit, page: 1 });
+            await obStore.initList(path);
+
+            selectedFiles.value = [];
+
+            const cachedPage = routePageCache.get(path);
+            if (cachedPage !== undefined) {
+                obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+            } else {
+                obStore.setCursor({ limit: cursor.value.limit, page: 1 });
+            }
         }
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;
@@ -627,7 +704,10 @@ async function dismissFileGuide() {
     }
 }
 
-watch(filePath, fetchFiles, { immediate: true });
+watch(filePath, () => {
+    obStore.clearTokens();
+    fetchFiles();
+}, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
 
 // watch which table rows are expanded and fetch their versions.

@@ -64,6 +64,7 @@ export class FrontendConfig {
     selfServeAccountDeleteEnabled: boolean;
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
+    altObjBrowserPagingThreshold: number;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
 }
