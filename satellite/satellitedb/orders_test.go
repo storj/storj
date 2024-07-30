@@ -5,13 +5,19 @@ package satellitedb_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestSortRollupKeys(t *testing.T) {
@@ -85,4 +91,28 @@ func TestSortRollupKeys(t *testing.T) {
 	assert.NotEqual(t, expRollups, rollups)
 	satellitedb.SortBandwidthRollupKeys(rollups)
 	assert.Empty(t, cmp.Diff(expRollups, rollups))
+}
+
+func TestUpdateBucketBandwidthAllocation(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+
+		projectID := testrand.UUID()
+
+		err := db.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte("bucket1"), pb.PieceAction_GET, 100, time.Date(2024, 01, 01, 12, 00, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte("bucket1"), pb.PieceAction_GET, 200, time.Date(2024, 01, 01, 12, 01, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte("bucket1"), pb.PieceAction_GET, 200, time.Date(2024, 01, 02, 13, 01, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		from := time.Date(2024, 01, 01, 00, 00, 0, 0, time.UTC)
+		to := time.Date(2024, 01, 02, 00, 00, 0, 0, time.UTC)
+
+		allocated, _, _, err := db.Orders().TestGetBucketBandwidth(ctx, projectID, []byte("bucket1"), from, to)
+		require.NoError(t, err)
+		require.Equal(t, int64(300), allocated)
+
+	})
 }

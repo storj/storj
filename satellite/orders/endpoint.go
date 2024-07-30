@@ -48,6 +48,9 @@ type DB interface {
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
 	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
+
+	// TestGetBucketBandwidth gets total bucket bandwidth (allocated,inline,settled)
+	TestGetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, int64, int64, error)
 }
 
 type noopDB struct {
@@ -79,6 +82,10 @@ func (noopDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, st
 
 func (noopDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error) {
 	return 0, nil
+}
+
+func (noopDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, int64, int64, error) {
+	return 0, 0, 0, nil
 }
 
 func (noopDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error) {

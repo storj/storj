@@ -194,6 +194,18 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 	return *sum, Error.Wrap(err)
 }
 
+// TestGetBucketBandwidth gets total bucket bandwidth (allocated,inline,settled).
+func (db *ordersDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (allocated int64, inline int64, settled int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT SUM(allocated),SUM(inline), SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], bucketName, from.UTC(), to.UTC()).Scan(&allocated, &inline, &settled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, 0, nil
+	}
+	return allocated, inline, settled, Error.Wrap(err)
+}
+
 // GetStorageNodeBandwidth gets total storage node bandwidth from period of time.
 func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
