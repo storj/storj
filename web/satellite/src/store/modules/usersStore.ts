@@ -8,6 +8,9 @@ import {
     ACCOUNT_SETUP_STEPS,
     DisableMFARequest,
     OnboardingStep,
+    SessionsCursor,
+    SessionsOrderBy,
+    SessionsPage,
     SetUserSettingsData,
     UpdatedUser,
     User,
@@ -17,6 +20,8 @@ import {
 import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
 
@@ -25,6 +30,8 @@ export class UsersState {
     public settings: DeepReadonly<UserSettings> = DEFAULT_USER_SETTINGS;
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
+    public sessionsCursor: SessionsCursor = new SessionsCursor();
+    public sessionsPage: SessionsPage = new SessionsPage();
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -55,6 +62,25 @@ export const useUsersStore = defineStore('users', () => {
 
     async function deleteAccount(step: DeleteAccountStep, data: string): Promise<void> {
         await api.deleteAccount(step, data);
+    }
+
+    async function getSessions(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<SessionsPage> {
+        state.sessionsCursor.page = pageNumber;
+        state.sessionsCursor.limit = limit;
+
+        const sessionsPage: SessionsPage = await api.getSessions(state.sessionsCursor);
+
+        state.sessionsPage = sessionsPage;
+
+        return sessionsPage;
+    }
+
+    function setSessionsSortingBy(order: SessionsOrderBy): void {
+        state.sessionsCursor.order = order;
+    }
+
+    function setSessionsSortingDirection(direction: SortDirection): void {
+        state.sessionsCursor.orderDirection = direction;
     }
 
     async function getUser(): Promise<void> {
@@ -143,6 +169,9 @@ export const useUsersStore = defineStore('users', () => {
         userName,
         shouldOnboard,
         noticeDismissal,
+        getSessions,
+        setSessionsSortingBy,
+        setSessionsSortingDirection,
         updateUser,
         changeEmail,
         deleteAccount,

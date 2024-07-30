@@ -7,6 +7,9 @@ import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
     AccountSetupData,
     FreezeStatus,
+    Session,
+    SessionsCursor,
+    SessionsPage,
     SetUserSettingsData,
     TokenInfo,
     UpdatedUser,
@@ -710,6 +713,46 @@ export class AuthHttpApi implements UsersApi {
             message: 'Unable to refresh session.',
             requestID: response.headers.get('x-request-id'),
         });
+    }
+
+    /**
+     * Used to fetch active user sessions.
+     *
+     * @throws Error
+     */
+    public async getSessions(cursor: SessionsCursor): Promise<SessionsPage> {
+        const path = `${this.ROOT_PATH}/sessions?limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
+        const response = await this.http.get(path);
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not get user sessions',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        if (!(result && result.sessions)) {
+            return new SessionsPage();
+        }
+
+        const sessionsPage: SessionsPage = new SessionsPage();
+
+        sessionsPage.sessions = result.sessions.map(session => new Session(
+            session.id,
+            session.userAgent,
+            new Date(session.expiresAt),
+        ));
+
+        sessionsPage.limit = result.limit;
+        sessionsPage.order = result.order;
+        sessionsPage.orderDirection = result.orderDirection;
+        sessionsPage.pageCount = result.pageCount;
+        sessionsPage.currentPage = result.currentPage;
+        sessionsPage.totalCount = result.totalCount;
+
+        return sessionsPage;
     }
 
     /**

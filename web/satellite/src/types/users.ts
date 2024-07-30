@@ -3,6 +3,8 @@
 
 import { Duration } from '@/utils/time';
 import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 /**
  * Exposes all user-related functionality.
@@ -39,6 +41,13 @@ export interface UsersApi {
      * @throws Error
      */
     getUserSettings(): Promise<UserSettings>;
+
+    /**
+     * Used to fetch active user sessions.
+     *
+     * @throws Error
+     */
+    getSessions(cursor: SessionsCursor): Promise<SessionsPage>
 
     /**
      * Changes user's settings.
@@ -256,6 +265,52 @@ export class UserSettings {
         }
         return null;
     }
+}
+
+/**
+ * User holds info for user session entity.
+ */
+export class Session {
+    public constructor(
+        public id: string = '',
+        public userAgent: string = '',
+        public expiresAt: Date = new Date(),
+    ) {}
+}
+
+/**
+ * Holds user sessions sorting parameters.
+ */
+export enum SessionsOrderBy {
+    userAgent = 1,
+    expiresAt = 2,
+}
+
+/**
+ * SessionsCursor is a type, used to describe paged user sessions pagination cursor.
+ */
+export class SessionsCursor {
+    public constructor(
+        public limit: number = DEFAULT_PAGE_LIMIT,
+        public page: number = 1,
+        public order: SessionsOrderBy = SessionsOrderBy.userAgent,
+        public orderDirection: SortDirection = SortDirection.asc,
+    ) {}
+}
+
+/**
+ * ActiveSessionsPage is a type, used to describe paged user sessions list.
+ */
+export class SessionsPage {
+    public constructor(
+        public sessions: Session[] = [],
+        public order: SessionsOrderBy = SessionsOrderBy.userAgent,
+        public orderDirection: SortDirection = SortDirection.asc,
+        public limit: number = 6,
+        public pageCount: number = 0,
+        public currentPage: number = 1,
+        public totalCount: number = 0,
+    ) {}
 }
 
 export interface NoticeDismissal {

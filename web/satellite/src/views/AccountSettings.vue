@@ -168,6 +168,13 @@
                 </v-col>
             </v-row>
         </template>
+
+        <v-row v-if="sessionsViewEnabled">
+            <v-col>
+                <h3 class="my-5">Active Sessions</h3>
+                <active-sessions-table />
+            </v-col>
+        </v-row>
     </v-container>
 
     <AccountEmailChangeDialog
@@ -246,6 +253,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import SetPassphrasePromptDialog from '@/components/dialogs/SetPassphrasePromptDialog.vue';
 import AccountEmailChangeDialog from '@/components/dialogs/AccountEmailChangeDialog.vue';
 import AccountDeleteDialog from '@/components/dialogs/AccountDeleteDialog.vue';
+import ActiveSessionsTable from '@/components/ActiveSessionsTable.vue';
 
 const appStore = useAppStore();
 const configStore = useConfigStore();
@@ -285,6 +293,11 @@ const changeEmailEnabled = computed<boolean>(() => configStore.state.config.emai
  * Whether delete account feature should be enabled
  */
 const deleteAccountEnabled = computed<boolean>(() => configStore.state.config.selfServeAccountDeleteEnabled);
+
+/**
+ * Whether active sessions table view should be enabled.
+ */
+const sessionsViewEnabled = computed<boolean>(() => configStore.state.config.activeSessionsViewEnabled);
 
 /**
  * Returns user settings from store.
