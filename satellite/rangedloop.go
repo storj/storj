@@ -131,23 +131,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
-	{ // setup
-		classes := map[string]func(node *nodeselection.SelectedNode) string{
-			"email": func(node *nodeselection.SelectedNode) string {
-				return node.Email
-			},
-			"wallet": func(node *nodeselection.SelectedNode) string {
-				return node.Wallet
-			},
-			"net": func(node *nodeselection.SelectedNode) string {
-				return node.LastNet
-			},
-		}
-		for class, f := range classes {
-			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, class, f, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
-		}
-	}
-
 	{ // setup overlay
 		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
@@ -163,6 +146,24 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
 		})
+	}
+
+	{ // setup
+		classes := map[string]func(node *nodeselection.SelectedNode) string{
+			"email": func(node *nodeselection.SelectedNode) string {
+				return node.Email
+			},
+			"wallet": func(node *nodeselection.SelectedNode) string {
+				return node.Wallet
+			},
+			"net": func(node *nodeselection.SelectedNode) string {
+				return node.LastNet
+			},
+		}
+		for class, f := range classes {
+			cache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness)
+			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, class, f, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
+		}
 	}
 
 	{ // setup repair
