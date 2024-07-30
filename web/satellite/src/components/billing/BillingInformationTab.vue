@@ -6,7 +6,7 @@
         <v-col cols="12" lg="4">
             <v-card :loading="isLoading" title="Address" variant="flat">
                 <v-card-text>
-                    <v-chip v-if="!billingAddress" rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                    <v-chip v-if="!billingAddress" color="default" variant="tonal" size="small" class="font-weight-bold">
                         No billing address added
                     </v-chip>
                     <template v-else>
@@ -28,7 +28,7 @@
         <v-col v-if="!taxIDs.length" cols="12" lg="4">
             <v-card :loading="isLoading" title="Tax Information" variant="flat">
                 <v-card-text>
-                    <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                    <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
                         No tax information added
                     </v-chip>
                     <v-divider class="my-4" />

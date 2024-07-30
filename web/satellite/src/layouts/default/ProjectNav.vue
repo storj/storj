@@ -42,7 +42,7 @@
                             <template v-if="project.isSelected" #prepend>
                                 <img src="@/assets/icon-check-color.svg" alt="Selected Project" width="18" height="18">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-7'">
+                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-9'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -73,7 +73,7 @@
                             <template v-if="project.isSelected" #prepend>
                                 <img src="@/assets/icon-check-color.svg" alt="Selected Project">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-7'">
+                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-9'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -195,10 +195,10 @@
                         <template #prepend>
                             <IconDocs />
                         </template>
-                        <v-list-item-title class="mx-3">
+                        <v-list-item-title class="mx-4">
                             Documentation
                         </v-list-item-title>
-                        <v-list-item-subtitle class="mx-3">
+                        <v-list-item-subtitle class="mx-4">
                             <small>Go to the Storj docs.</small>
                         </v-list-item-subtitle>
                     </v-list-item>
@@ -213,10 +213,10 @@
                         <template #prepend>
                             <IconForum />
                         </template>
-                        <v-list-item-title class="mx-3">
+                        <v-list-item-title class="mx-4">
                             Community Forum
                         </v-list-item-title>
-                        <v-list-item-subtitle class="mx-3">
+                        <v-list-item-subtitle class="mx-4">
                             <small>Join our global community.</small>
                         </v-list-item-subtitle>
                     </v-list-item>
@@ -231,10 +231,10 @@
                         <template #prepend>
                             <IconSupport />
                         </template>
-                        <v-list-item-title class="mx-3">
+                        <v-list-item-title class="mx-4">
                             Storj Support
                         </v-list-item-title>
-                        <v-list-item-subtitle class="mx-3">
+                        <v-list-item-subtitle class="mx-4">
                             <small>Need help? Get support.</small>
                         </v-list-item-subtitle>
                     </v-list-item>

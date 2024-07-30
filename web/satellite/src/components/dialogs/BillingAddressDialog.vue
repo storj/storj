@@ -25,7 +25,7 @@
 
             <v-divider />
 
-            <v-card-item class="px-6 pb-4">
+            <v-card-item class="px-5 py-6">
                 <stripe-address-element ref="stripeAddressForm" :initial="billingAddress" />
             </v-card-item>
             <v-divider />

@@ -31,7 +31,7 @@
                         </v-tooltip>
                     </v-btn>
                     <v-btn v-if="showingVersions" id="Delete" icon size="small" color="red" @click="onDeleteFileClick">
-                        <icon-trash />
+                        <icon-trash size="22" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"

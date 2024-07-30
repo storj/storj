@@ -18,7 +18,7 @@
                             open-delay="150"
                             close-delay="150"
                         >
-                            If the STORJ token balance runs out, the default credit card will be charged.
+                            If the STORJ token balance runs out, the default card will be charged.
                             <a class="link" href="https://docs.storj.io/support/account-management-billing/payment-methods" target="_blank" rel="noopener noreferrer">
                                 Learn more
                             </a>
@@ -47,7 +47,7 @@
             <v-divider class="mt-4 mb-2" />
             <v-btn v-if="wallet.address" variant="flat" color="success" size="small" rounded="md" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
             <v-btn v-else variant="flat" color="success" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="claimWalletClick">Create New Wallet</v-btn>
-            <v-btn v-if="wallet.address" variant="tonal" color="default" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
+            <v-btn v-if="wallet.address" variant="outlined" color="default" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
         </v-card-text>
     </v-card>
 

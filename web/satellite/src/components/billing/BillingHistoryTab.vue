@@ -23,7 +23,7 @@
                 </span>
             </template>
             <template #item.formattedStatus="{ item }">
-                <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" class="font-weight-bold">
                     {{ item.formattedStatus }}
                 </v-chip>
             </template>

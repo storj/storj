@@ -177,9 +177,10 @@
                     Select date range to view daily usage statistics.
                 </p>
             </v-col>
-            <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
+            <v-col cols="auto" class="pt-0 mt-0 pt-md-7">
                 <v-date-input
                     v-model="chartDateRange"
+                    label="Select Date Range"
                     min-width="260px"
                     multiple="range"
                     prepend-icon=""

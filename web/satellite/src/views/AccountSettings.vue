@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container class="pb-14">
         <v-row>
             <v-col>
                 <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
@@ -148,7 +148,7 @@
         <template v-if="deleteAccountEnabled">
             <v-row>
                 <v-col>
-                    <h3 class="mt-5">Danger</h3>
+                    <h3 class="mt-5">Danger Zone</h3>
                 </v-col>
             </v-row>
 
@@ -160,7 +160,7 @@
                         </v-card-subtitle>
                         <v-card-text>
                             <v-divider class="mb-4" />
-                            <v-btn variant="outlined" color="error" size="small" @click="isAccountDeleteDialogShown = true">
+                            <v-btn variant="outlined" color="error" size="small" rounded="md" @click="isAccountDeleteDialogShown = true">
                                 Delete
                             </v-btn>
                         </v-card-text>

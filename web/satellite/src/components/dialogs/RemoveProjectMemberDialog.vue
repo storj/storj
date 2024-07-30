@@ -41,7 +41,6 @@
                 <v-chip
                     v-for="email in firstThreeSelected"
                     :key="email"
-                    rounded
                     class="mb-4 mr-1"
                 >
                     <template #default>

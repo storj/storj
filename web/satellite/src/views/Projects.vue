@@ -12,7 +12,7 @@
         />
         <PageTitleComponent title="All Projects" />
 
-        <v-row>
+        <v-row class="mt-0">
             <v-col>
                 <v-btn
                     class="mr-3"

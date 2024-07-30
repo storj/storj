@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container class="pb-14">
         <v-row>
             <v-col>
                 <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
@@ -42,12 +42,12 @@
             <v-col v-if="satelliteManagedEncryptionEnabled || hasManagedPassphrase" cols="12" lg="4">
                 <v-card title="Project Encryption">
                     <v-card-text>
-                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" :prepend-icon="Check">
                             {{ hasManagedPassphrase ? 'Automatic' : 'Manual' }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small">
-                            Learn more
+                        <v-btn variant="outlined" color="default" rounded="md" size="small">
+                            View Details
                             <project-encryption-information-dialog @new-project="isCreateProjectDialogShown = true" />
                         </v-btn>
                     </v-card-text>
@@ -80,9 +80,9 @@
 
         <v-row v-else>
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Storage Limit">
+                <v-card title="Storage">
                     <v-card-subtitle>
-                        Storage Limit: {{ storageLimitFormatted }} <br>
+                        Limit: {{ storageLimitFormatted }} <br>
                         <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
                     </v-card-subtitle>
                     <v-card-text>
@@ -95,9 +95,9 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Download Limit">
+                <v-card title="Download">
                     <v-card-subtitle>
-                        Download Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
+                        Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
                         <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
                     </v-card-subtitle>
                     <v-card-text>
@@ -157,8 +157,8 @@
                                 Learn More
                                 <versioning-beta-dialog v-model="isVersioningDialogShown" />
                             </v-btn>
-                            <v-btn v-else-if="versioningUIEnabled" :append-icon="Info" color="primary" size="small">
-                                Enabled
+                            <v-btn v-else-if="versioningUIEnabled" variant="outlined" color="default" size="small" rounded="md">
+                                View Details
                                 <versioning-beta-dialog info />
                             </v-btn>
                         </v-card-text>
@@ -177,7 +177,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <v-card title="Delete Project">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" disabled>
+                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
                             Not Available
                         </v-chip>
                         <v-divider class="my-4" />
@@ -210,7 +210,7 @@ import {
     VIcon,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight, Info } from 'lucide-vue-next';
+import { ArrowRight, SquareArrowOutUpRight, Check } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

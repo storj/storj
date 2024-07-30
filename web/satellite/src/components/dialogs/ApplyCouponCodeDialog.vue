@@ -9,7 +9,7 @@
         :persistent="isLoading"
     >
         <v-card>
-            <v-card-item class="pl-6 py-4">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-green-coupon.svg" alt="Coupon">
                 </template>
