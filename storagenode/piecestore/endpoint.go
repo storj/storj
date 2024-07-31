@@ -682,13 +682,39 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
+		// NOTE: Check if the `switch` statement inside of this conditional block must be updated if you
+		// change this condition.
 		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_cancel_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_cancel_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			log.Info("download canceled")
+
+			var reason string
+
+			// NOTE: This switch must capture all the possible reasons for a download to be canceled and
+			// set the `reason` variable to an appropriate message in order of never reaching the
+			// `default` case.
+			switch {
+			case errs2.IsCanceled(err):
+				reason = "context canceled"
+			case drpc.ClosedError.Has(err):
+				reason = "stream closed by peer"
+			case (err == nil && chunk.ChunkSize != downloadSize):
+				reason = fmt.Sprintf(
+					"downloaded size (%d bytes) does not match received message size (%d bytes)", downloadSize, chunk.ChunkSize,
+				)
+			default:
+				// This counter should always be 0, if it's not, it means that there is a bug in the code.
+				// If we found that's greater than 0 and we change the code to potentially fix the bug, then
+				// we should increment the counter's name post fix vX as a way to reset back to 0 to see if
+				// the new changes fixed the bug.
+				mon.Counter("download_cancel_unknown_reason_v1", actionSeriesTag).Inc(1)
+				reason = "unknown reason bug in code, please report"
+			}
+
+			log.Info("download canceled", zap.String("reason", reason))
 		} else if err != nil {
 			mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_failure_byte_meter", actionSeriesTag).Mark64(downloadSize)
