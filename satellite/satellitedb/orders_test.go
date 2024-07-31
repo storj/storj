@@ -144,3 +144,29 @@ func TestUpdateBucketBandwidthSettle(t *testing.T) {
 
 	}, satellitedbtest.WithSpanner())
 }
+
+func TestUpdateBucketBandwidthInline(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+
+		projectID := testrand.UUID()
+
+		err := db.Orders().UpdateBucketBandwidthInline(ctx, projectID, []byte("bucket1"), pb.PieceAction_GET, 100, time.Date(2024, 01, 01, 12, 00, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		err = db.Orders().UpdateBucketBandwidthInline(ctx, projectID, []byte("bucket1"), pb.PieceAction_GET, 200, time.Date(2024, 01, 01, 12, 01, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		err = db.Orders().UpdateBucketBandwidthInline(ctx, projectID, []byte("bucket1"), pb.PieceAction_GET, 200, time.Date(2024, 01, 02, 13, 01, 0, 0, time.UTC))
+		require.NoError(t, err)
+
+		from := time.Date(2024, 01, 01, 00, 00, 0, 0, time.UTC)
+		to := time.Date(2024, 01, 02, 00, 00, 0, 0, time.UTC)
+
+		allocated, inline, settled, err := db.Orders().TestGetBucketBandwidth(ctx, projectID, []byte("bucket1"), from, to)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), allocated)
+		require.Equal(t, int64(300), inline)
+		require.Equal(t, int64(0), settled)
+
+	}, satellitedbtest.WithSpanner())
+}

@@ -277,19 +277,54 @@ VALUES (?, ?, ?, ?, ?)`,
 func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		statement := db.db.Rebind(
+			`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(project_id, bucket_name, interval_start, action)
 		DO UPDATE SET inline = bucket_bandwidth_rollups.inline + ?`,
-	)
-	_, err = db.db.ExecContext(ctx, statement,
-		projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
-	)
-	if err != nil {
-		return err
+		)
+		_, err = db.db.ExecContext(ctx, statement,
+			projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
+		)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		return nil
+	case dbutil.Spanner:
+		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			updateStatement := tx.Rebind(
+				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.inline = bbr.inline + ? WHERE project_id = ? AND bucket_name = ? AND interval_start = ? AND action = ?`,
+			)
+			result, err := tx.Tx.ExecContext(ctx, updateStatement,
+				uint64(amount), projectID[:], bucketName, intervalStart.UTC(), int64(action),
+			)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			if affected == 0 {
+				insertStatement := tx.Rebind(
+					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				)
+				_, err = tx.Tx.ExecContext(ctx, insertStatement,
+					projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), uint64(amount), 0, 0,
+				)
+				if err != nil {
+					return errs.Wrap(err)
+				}
+			}
+			return nil
+		})
+	default:
+		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
-	return nil
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time.
