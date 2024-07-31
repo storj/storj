@@ -9,42 +9,89 @@
         :persistent="isLoading"
     >
         <v-card>
-            <v-card-item class="pa-6">
-                <template #prepend>
-                    <v-sheet
-                        class="border-sm d-flex justify-center align-center"
-                        width="40"
-                        height="40"
-                        rounded="lg"
-                    >
-                        <icon-trash />
-                    </v-sheet>
-                </template>
-                <v-card-title class="font-weight-bold">Delete Bucket</v-card-title>
-                <template #append>
-                    <v-btn
-                        icon="$close"
-                        variant="text"
-                        size="small"
-                        color="default"
-                        :disabled="isLoading"
-                        @click="model = false"
-                    />
-                </template>
-            </v-card-item>
+            <v-sheet>
+                <v-card-item class="pa-6">
+                    <template #prepend>
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center text-error"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <icon-trash />
+                        </v-sheet>
+                    </template>
+                    <v-card-title class="font-weight-bold text-error">
+                        Delete Bucket
+                    </v-card-title>
+                    <template #append>
+                        <v-btn
+                            icon="$close"
+                            variant="text"
+                            size="small"
+                            color="default"
+                            @click="model = false"
+                        />
+                    </template>
+                </v-card-item>
+            </v-sheet>
 
             <v-divider />
 
-            <div class="pa-6">
+            <v-card-item class="pa-6">
                 <p class="mb-3">
-                    The following bucket and all of its data will be deleted. This action cannot be undone.
+                    <b>
+                        The following bucket and all of its data
+                        {{ bucket?.versioning !== Versioning.NotSupported ? "(including versions)" : '' }}
+                        will be deleted. Data will not be recoverable.
+                    </b>
                 </p>
-                <p class="mt-2">
-                    <v-chip :title="bucketName" class="font-weight-bold text-wrap h-100 py-2">
+
+                <p class="my-2">
+                    <v-chip
+                        variant="tonal"
+                        filter
+                        color="default"
+                        class="font-weight-bold text-wrap h-100 py-2 mr-2"
+                    >
                         {{ bucketName }}
                     </v-chip>
+                    <template v-if="bucket">
+                        <v-chip
+                            variant="tonal"
+                            filter
+                            color="default"
+                            class="text-wrap h-100 py-2 mr-2"
+                        >
+                            {{ Size.toBase10String(bucket.storage * Memory.GB) }}
+                        </v-chip>
+                        <v-chip
+                            variant="tonal"
+                            filter
+                            color="default"
+                            class="text-wrap h-100 py-2"
+                        >
+                            {{ bucket.objectCount.toLocaleString() }} object{{ (bucket?.objectCount ?? 0) > 1 ? 's' : '' }}
+                        </v-chip>
+                    </template>
                 </p>
-            </div>
+
+                <p class="mt-6 mb-4">Confirm deletion by typing 'DELETE' below:</p>
+
+                <v-text-field
+                    id="confirm-delete"
+                    v-model="confirmDelete"
+                    label="Type DELETE to confirm"
+                    outlined
+                    dense
+                    color="error"
+                />
+
+                <v-alert>
+                    Deletion is performed in the background and may take some time.
+                    Object count and statistics, might not reflect changes made in the past 24 hours.
+                </v-alert>
+            </v-card-item>
 
             <v-divider />
 
@@ -56,7 +103,14 @@
                         </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="error" variant="flat" block :loading="isLoading" @click="onDelete">
+                        <v-btn
+                            color="error"
+                            variant="flat"
+                            block
+                            :loading="isLoading"
+                            :disabled="confirmDelete?.toUpperCase() !== 'DELETE'"
+                            @click="onDelete"
+                        >
                             Delete
                         </v-btn>
                     </v-col>
@@ -67,21 +121,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
-    VDialog,
-    VCard,
-    VCardItem,
-    VSheet,
-    VCardTitle,
-    VDivider,
-    VCardActions,
-    VRow,
-    VCol,
+    VAlert,
     VBtn,
+    VCard,
+    VCardActions,
+    VCardItem,
+    VCardTitle,
     VChip,
+    VCol,
+    VDialog,
+    VDivider,
+    VRow,
+    VSheet,
+    VTextField,
 } from 'vuetify/components';
 
+import { Memory, Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -90,6 +147,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
+import { Bucket } from '@/types/buckets';
+import { Versioning } from '@/types/versioning';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 
@@ -110,6 +169,15 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
 const worker = ref<Worker| null>(null);
+
+const confirmDelete = ref<string>();
+
+/**
+ * The bucket to be deleted.
+ */
+const bucket = computed((): Bucket | undefined => {
+    return bucketsStore.state.page.buckets.find(b => b.name === props.bucketName);
+});
 
 /**
  * Returns API key from store.
@@ -204,7 +272,9 @@ async function onDelete(): Promise<void> {
  * Sets local worker with worker instantiated in store.
  */
 watch(model, shown => {
-    if (!shown) return;
+    if (!shown) {
+        confirmDelete.value = '';
+    }
     worker.value = agStore.state.accessGrantsWebWorker;
     if (!worker.value) return;
     worker.value.onerror = (error: ErrorEvent) => {

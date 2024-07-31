@@ -52,7 +52,7 @@
             </template>
             <template #item.storage="{ item }">
                 <span>
-                    {{ item.storage.toFixed(2) + 'GB' }}
+                    {{ Size.toBase10String(item.storage * Memory.GB) }}
                 </span>
             </template>
             <template #item.egress="{ item }">
@@ -210,6 +210,7 @@ import {
     Search,
 } from 'lucide-vue-next';
 
+import { Memory, Size } from '@/utils/bytesSize';
 import { Bucket, BucketCursor, BucketMetadata, BucketPage } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
