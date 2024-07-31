@@ -331,19 +331,52 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled)
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		statement := db.db.Rebind(
+			`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
-	)
-	_, err = db.db.ExecContext(ctx, statement,
-		storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), uint64(amount),
-	)
-	if err != nil {
-		return err
+		)
+		_, err = db.db.ExecContext(ctx, statement,
+			storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), uint64(amount),
+		)
+		if err != nil {
+			return err
+		}
+		return nil
+	case dbutil.Spanner:
+		updateStatement := db.db.Rebind(
+			`UPDATE storagenode_bandwidth_rollups AS sbr SET  sbr.settled = sbr.settled + ?  WHERE storagenode_id = ? AND interval_start = ? AND action = ?`,
+		)
+		result, err := db.db.ExecContext(ctx, updateStatement,
+			uint64(amount), storageNode.Bytes(), intervalStart.UTC(), uint64(action),
+		)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		if affected == 0 {
+			insertStatement := db.db.Rebind(
+				`INSERT OR IGNORE INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled) VALUES (?, ?, ?, ?, ?)`,
+			)
+			_, err = db.db.ExecContext(ctx, insertStatement,
+				storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, uint64(action), uint64(amount),
+			)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+		}
+		return nil
+	default:
+		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
-	return nil
 }
 
 // GetBucketBandwidth gets total bucket bandwidth from period of time.
