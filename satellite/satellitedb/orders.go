@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
+	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -24,6 +26,7 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
@@ -60,6 +63,29 @@ type BandwidthRollupKey struct {
 	ProjectID     uuid.UUID
 	IntervalStart int64
 	Action        pb.PieceAction
+}
+
+// BucketBandwidthRollup is a type to encapsulate the values to insert into a record
+// for the bucket_bandwidth_rollups table.
+type BucketBandwidthRollup struct {
+	BucketName      []byte
+	ProjectID       uuid.UUID
+	IntervalStart   time.Time
+	IntervalSeconds int64
+	Action          int64
+	Inline          int64
+	Allocated       int64
+	Settled         int64
+}
+
+// ProjectBandwidthDailyRollup is a type to encapsulate the values to insert into a record
+// for the project_bandwidth_daily_rollups table.
+type ProjectBandwidthDailyRollup struct {
+	ProjectID       uuid.UUID
+	IntervalStart   civil.Date
+	EgressAllocated int64
+	EgressSettled   int64
+	EgressDead      int64
 }
 
 // UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket.
@@ -481,7 +507,9 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		emptyAllocatedSlice := make([]int64, len(projectIDs))
 
 		if len(projectIDs) > 0 {
-			_, err = tx.Tx.ExecContext(ctx, `
+			switch db.db.impl {
+			case dbutil.Postgres, dbutil.Cockroach:
+				_, err = tx.Tx.ExecContext(ctx, `
 				INSERT INTO bucket_bandwidth_rollups (
 					project_id, bucket_name,
 					interval_start, interval_seconds,
@@ -495,10 +523,86 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 					inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
 					settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled
 			`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNames), pgutil.TimestampTZArray(intervalStartSlice),
-				defaultIntervalSeconds,
-				pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
-			if err != nil {
-				return errs.New("bucket bandwidth rollup batch flush failed: %+v", err)
+					defaultIntervalSeconds,
+					pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
+				if err != nil {
+					return errs.New("bucket bandwidth rollup batch flush failed: %w", err)
+				}
+			case dbutil.Spanner:
+				// This is a two-phased approach instead of just a single query like Postgres/Cockroach since
+				// Spanner does not support updating only a subset of a tables columns when inserting and updating rows
+				// at the same time (using INSERT OR UPDATE). First, we update the subset of columns for the existing rows,
+				// and then second we insert the data into the table ignoring rows that already exist.
+				bbrValue := spanner.GenericColumnValue{
+					Type: spannerutil.ArrayOf(
+						spannerutil.StructOf(
+							spannerutil.FieldOf("project_id", spannerutil.BytesType()),
+							spannerutil.FieldOf("bucket_name", spannerutil.BytesType()),
+							spannerutil.FieldOf("interval_start", spannerutil.TimestampType()),
+							spannerutil.FieldOf("interval_seconds", spannerutil.Int64Type()),
+							spannerutil.FieldOf("action", spannerutil.Int64Type()),
+							spannerutil.FieldOf("inline", spannerutil.Int64Type()),
+							spannerutil.FieldOf("allocated", spannerutil.Int64Type()),
+							spannerutil.FieldOf("settled", spannerutil.Int64Type()),
+						),
+					),
+				}
+				bbrValues := make([]*structpb.Value, 0, len(projectIDs))
+				for i := range projectIDs {
+					str := structpb.NewListValue(&structpb.ListValue{
+						Values: []*structpb.Value{
+							spannerutil.EncodeBytesToValue(projectIDs[i].Bytes()),
+							spannerutil.EncodeBytesToValue(bucketNames[i]),
+							spannerutil.EncodeTimeToValue(intervalStartSlice[i]),
+							spannerutil.EncodeIntToValue(defaultIntervalSeconds),
+							spannerutil.EncodeIntToValue(actionSlice[i]),
+							spannerutil.EncodeIntToValue(inlineSlice[i]),
+							spannerutil.EncodeIntToValue(emptyAllocatedSlice[i]),
+							spannerutil.EncodeIntToValue(settledSlice[i]),
+						},
+					})
+					bbrValues = append(bbrValues, str)
+				}
+				bbrValue.Value = structpb.NewListValue(&structpb.ListValue{Values: bbrValues})
+
+				// TODO(spanner): this is a candidate for performance optimization from application performance testing
+				// This is currently executed as a single update for each row as a single query to update all rows would
+				// first need to have a WHERE clause utilizing INNER JOIN and UNNEST in a similar structure as the
+				// INSERT OR IGNORE statement below, and second would need to combine the input query parameter slices
+				// for each column (inline and settled) in order to update the columns for a row with the correct values.
+				// Doing so is a much more complex query that is prone to errors, and it is not yet clear whether that
+				// query would perform better in production-like use cases.
+				updateBBRStatement := tx.Rebind(
+					`UPDATE bucket_bandwidth_rollups bbr
+				SET bbr.inline = bbr.inline + ?,
+					bbr.settled = bbr.settled + ?
+				WHERE bbr.project_id = ? AND bbr.bucket_name = ? AND bbr.interval_start = ? AND bbr.action = ?`,
+				)
+
+				for i := range projectIDs {
+					spannerAction := int(actionSlice[i])
+					spannerProjectID := projectIDs[i].Bytes()
+
+					_, err = tx.Tx.ExecContext(ctx, updateBBRStatement,
+						inlineSlice[i], settledSlice[i], spannerProjectID, bucketNames[i], intervalStartSlice[i], spannerAction)
+					if err != nil {
+						return errs.New("bucket bandwidth rollup batch update failed: %w", err)
+					}
+				}
+
+				insertBBRStatement := tx.Rebind(
+					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (
+					project_id, bucket_name,
+					interval_start, interval_seconds,
+					action, inline, allocated, settled)
+				(SELECT project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled FROM UNNEST(?))`,
+				)
+				_, err = tx.Tx.ExecContext(ctx, insertBBRStatement, bbrValue)
+				if err != nil {
+					return errs.New("bucket bandwidth rollup batch insert failed: %w", err)
+				}
+			default:
+				return errs.New("unsupported database dialect: %s", db.db.impl)
 			}
 		}
 
@@ -530,8 +634,10 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		}
 
 		if len(projectIDs) > 0 {
-			// TODO: explore updating project_bandwidth_daily_rollups table to use "timestamp with time zone" for interval_day
-			_, err = tx.Tx.ExecContext(ctx, `
+			switch db.db.impl {
+			case dbutil.Postgres, dbutil.Cockroach:
+				// TODO: explore updating project_bandwidth_daily_rollups table to use "timestamp with time zone" for interval_day
+				_, err = tx.Tx.ExecContext(ctx, `
 				INSERT INTO project_bandwidth_daily_rollups(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
 					SELECT unnest($1::bytea[]), unnest($2::date[]), unnest($3::bigint[]), unnest($4::bigint[]), unnest($5::bigint[])
 				ON CONFLICT(project_id, interval_day)
@@ -540,8 +646,81 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 					egress_settled   = project_bandwidth_daily_rollups.egress_settled   + EXCLUDED.egress_settled::bigint,
 					egress_dead      = project_bandwidth_daily_rollups.egress_dead      + EXCLUDED.egress_dead::bigint
 			`, pgutil.UUIDArray(projectIDs), pgutil.DateArray(intervalStartSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice), pgutil.Int8Array(deadSlice))
-			if err != nil {
-				return errs.New("project bandwidth daily rollup batch flush failed: %+v", err)
+				if err != nil {
+					return errs.New("project bandwidth daily rollup batch flush failed: %w", err)
+				}
+			case dbutil.Spanner:
+				// This is a two-phased approach instead of just a single query like Postgres/Cockroach since
+				// Spanner does not support updating only a subset of a tables columns when inserting and updating rows
+				// at the same time (using INSERT OR UPDATE). First, we update the subset of columns for the existing rows,
+				// and then second we insert the data into the table ignoring rows that already exist.
+				spannerIntervalDateSlice := make([]civil.Date, len(intervalStartSlice))
+				for i, intervalStart := range intervalStartSlice {
+					spannerIntervalDateSlice[i] = civil.DateOf(intervalStart)
+				}
+				spannerProjectIDs := make([][]byte, len(projectIDs))
+				for i, projectID := range projectIDs {
+					spannerProjectIDs[i] = projectID.Bytes()
+				}
+				pdbrValue := spanner.GenericColumnValue{
+					Type: spannerutil.ArrayOf(
+						spannerutil.StructOf(
+							spannerutil.FieldOf("project_id", spannerutil.BytesType()),
+							spannerutil.FieldOf("interval_day", spannerutil.DateType()),
+							spannerutil.FieldOf("egress_allocated", spannerutil.Int64Type()),
+							spannerutil.FieldOf("egress_settled", spannerutil.Int64Type()),
+							spannerutil.FieldOf("egress_dead", spannerutil.Int64Type()),
+						),
+					),
+				}
+				pdbrValues := make([]*structpb.Value, 0, len(projectIDs))
+				for i := range projectIDs {
+					str := structpb.NewListValue(&structpb.ListValue{
+						Values: []*structpb.Value{
+							spannerutil.EncodeBytesToValue(projectIDs[i].Bytes()),
+							spannerutil.EncodeDateToValue(spannerIntervalDateSlice[i]),
+							spannerutil.EncodeIntToValue(allocatedSlice[i]),
+							spannerutil.EncodeIntToValue(settledSlice[i]),
+							spannerutil.EncodeIntToValue(deadSlice[i]),
+						},
+					})
+					pdbrValues = append(pdbrValues, str)
+				}
+				pdbrValue.Value = structpb.NewListValue(&structpb.ListValue{Values: pdbrValues})
+
+				// TODO(spanner): this is a candidate for performance optimization from application performance testing
+				// This is currently executed as a single update for each row as a single query to update all rows would
+				// first need to have a WHERE clause utilizing INNER JOIN and UNNEST in a similar structure as the
+				// INSERT OR IGNORE statement below, and second would need to combine the input query parameter slices
+				// for each column (inline and settled) in order to update the columns for a row with the correct values.
+				// Doing so is a much more complex query that is prone to errors, and it is not yet clear whether that
+				// query would perform better in production-like use cases.
+				updatePBDRRStatement := tx.Rebind(
+					`UPDATE project_bandwidth_daily_rollups pbdr
+					SET pbdr.egress_allocated = pbdr.egress_allocated + ?,
+						pbdr.egress_settled = pbdr.egress_settled + ?,
+						pbdr.egress_dead = pbdr.egress_dead + ?
+					WHERE project_id = ? AND interval_day = ?`,
+				)
+
+				for i := range projectIDs {
+					_, err = tx.Tx.ExecContext(ctx, updatePBDRRStatement,
+						allocatedSlice[i], settledSlice[i], deadSlice[i], spannerProjectIDs[i], spannerIntervalDateSlice[i])
+					if err != nil {
+						return errs.New("project bandwidth daily rollup batch update failed: %w", err)
+					}
+				}
+
+				insertPBDRStatement := tx.Rebind(
+					`INSERT OR IGNORE INTO project_bandwidth_daily_rollups(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+				(SELECT project_id,interval_day,egress_allocated,egress_settled,egress_dead FROM UNNEST(?))`,
+				)
+				_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, pdbrValue)
+				if err != nil {
+					return errs.New("project bandwidth daily rollup batch insert failed: %w", err)
+				}
+			default:
+				return errs.New("unsupported database dialect: %s", db.db.impl)
 			}
 		}
 		return nil

@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -192,6 +193,110 @@ func TestUpdateStoragenodeBandwidthSettle(t *testing.T) {
 		res, err := db.Orders().GetStorageNodeBandwidth(ctx, nodeID, from, to)
 		require.NoError(t, err)
 		require.Equal(t, int64(300), res)
+
+	}, satellitedbtest.WithSpanner())
+}
+
+func TestUpdateBandwidthBatch(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+
+		from := time.Date(2024, 01, 01, 00, 00, 0, 0, time.UTC)
+		to := time.Date(2024, 01, 02, 00, 00, 0, 0, time.UTC)
+
+		var rollups []orders.BucketBandwidthRollup
+
+		projectID := uuid.UUID{1}
+		bucketName := "a"
+
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucketName,
+			Action:        pb.PieceAction_GET,
+			IntervalStart: from.Add(1 * time.Hour),
+			Inline:        100,
+			Allocated:     0,
+			Settled:       20,
+			Dead:          0,
+		})
+
+		err := db.Orders().UpdateBandwidthBatch(ctx, rollups)
+		require.NoError(t, err)
+
+		allocated, inline, settled, err := db.Orders().TestGetBucketBandwidth(ctx, projectID, []byte(bucketName), from, to)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), allocated)
+		require.Equal(t, int64(100), inline)
+		require.Equal(t, int64(20), settled)
+
+	}, satellitedbtest.WithSpanner())
+}
+
+func TestUpdateBandwidthBatch_partialUpdate(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+
+		from := time.Date(2024, 01, 01, 00, 00, 0, 0, time.UTC)
+		to := time.Date(2024, 01, 02, 00, 00, 0, 0, time.UTC)
+
+		var rollups []orders.BucketBandwidthRollup
+
+		projectID := uuid.UUID{1}
+		bucketName1 := "a"
+		bucketName2 := "b"
+
+		// first let's insert one record
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucketName1,
+			Action:        pb.PieceAction_GET,
+			IntervalStart: from.Add(1 * time.Hour),
+			Inline:        100,
+			Allocated:     0,
+			Settled:       13,
+			Dead:          0,
+		})
+
+		err := db.Orders().UpdateBandwidthBatch(ctx, rollups)
+		require.NoError(t, err)
+
+		rollups = rollups[:0]
+		// now, insert two records. One which updates the previous one, one which is new
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucketName1,
+			Action:        pb.PieceAction_GET,
+			IntervalStart: from.Add(1 * time.Hour),
+			Inline:        200,
+			Allocated:     0,
+			Settled:       20,
+			Dead:          0,
+		})
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucketName2,
+			Action:        pb.PieceAction_GET,
+			IntervalStart: from.Add(1 * time.Hour),
+			Inline:        55,
+			Allocated:     0,
+			Settled:       10,
+			Dead:          0,
+		})
+
+		err = db.Orders().UpdateBandwidthBatch(ctx, rollups)
+		require.NoError(t, err)
+
+		// first record
+		allocated, inline, settled, err := db.Orders().TestGetBucketBandwidth(ctx, projectID, []byte(bucketName1), from, to)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), allocated)
+		require.Equal(t, int64(300), inline)
+		require.Equal(t, int64(33), settled)
+
+		// second record
+		allocated, inline, settled, err = db.Orders().TestGetBucketBandwidth(ctx, projectID, []byte(bucketName2), from, to)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), allocated)
+		require.Equal(t, int64(55), inline)
+		require.Equal(t, int64(10), settled)
 
 	}, satellitedbtest.WithSpanner())
 }
