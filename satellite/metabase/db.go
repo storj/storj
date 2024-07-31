@@ -117,9 +117,10 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	switch impl {
 	case dbutil.Postgres:
 		db.adapters = []Adapter{&PostgresAdapter{
-			log:  log,
-			db:   rawdb,
-			impl: impl,
+			log:                      log,
+			db:                       rawdb,
+			impl:                     impl,
+			testingUniqueUnversioned: config.TestingUniqueUnversioned,
 		}}
 	case dbutil.Cockroach:
 		db.adapters = []Adapter{&CockroachAdapter{
