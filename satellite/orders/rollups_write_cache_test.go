@@ -139,6 +139,7 @@ func TestRollupsWriteCacheBatchChore(t *testing.T) {
 func TestUpdateBucketBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		EnableSpanner:  true,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			// don't let the loop flush our cache while we're checking it
