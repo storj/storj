@@ -670,16 +670,11 @@ const chartsBeforeDate = computed((): Date => {
  */
 const chartDateRange = computed<Date[]>({
     get: () => {
-        const dates: Date[] = datePickerModel.value;
-        if (!datePickerModel.value.length) {
-            const start = new Date();
-            start.setDate(start.getDate() - 7);
-            // Truncate dates to hours only.
-            start.setMinutes(0, 0, 0);
-            dates.push(start);
-            for (let i = 1; i < 8; i++) {
+        const dates: Date[] = [...datePickerModel.value];
+        if (!dates.length) {
+            for (let i = 6; i >= 0; i--) {
                 const d = new Date();
-                d.setDate(start.getDate() + i);
+                d.setDate(d.getDate() - i);
                 dates.push(d);
             }
         }
