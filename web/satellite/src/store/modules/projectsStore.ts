@@ -194,6 +194,10 @@ export const useProjectsStore = defineStore('projects', () => {
         state.selectedProject = selected;
     }
 
+    function deselectProject(): void {
+        state.selectedProject = DEFAULT_PROJECT;
+    }
+
     async function getProjectConfig(): Promise<ProjectConfig> {
         state.selectedProjectConfig = await api.getConfig(state.selectedProject.id);
         return state.selectedProjectConfig;
@@ -338,6 +342,7 @@ export const useProjectsStore = defineStore('projects', () => {
         createProject,
         createDefaultProject,
         selectProject,
+        deselectProject,
         getProjectConfig,
         setVersioningOptInStatus,
         updateProjectName,

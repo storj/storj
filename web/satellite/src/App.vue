@@ -38,6 +38,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { PricingPlanInfo } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { ProjectConfig } from '@/types/projects';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -265,14 +266,17 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
         return;
     }
     try {
-        const config = await projectsStore.getProjectConfig();
+        const results = await Promise.all([
+            projectsStore.getProjectLimits(project.id),
+            projectsStore.getProjectConfig(),
+        ]);
+        const config = results[1] as ProjectConfig;
         if (config.passphrase) {
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
             bucketsStore.setPassphrase(config.passphrase);
             bucketsStore.setPromptForPassphrase(false);
+            return;
         }
-        await projectsStore.getProjectLimits(project.id);
-        return;
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }

@@ -89,8 +89,10 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { UserSettings } from '@/types/users';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -109,12 +111,18 @@ const userSettings = computed((): UserSettings => {
  */
 async function togglePassphrasePrompt(): Promise<void> {
     await withLoading(async () => {
+        const newPassphrasePrompt = !userSettings.value.passphrasePrompt;
         try {
             await usersStore.updateSettings({
-                passphrasePrompt: !userSettings.value.passphrasePrompt,
+                passphrasePrompt: newPassphrasePrompt,
             });
             notify.success(`Passphrase prompt ${userSettings.value.passphrasePrompt ? 'enabled' : 'disabled'} successfully`);
             model.value = false;
+            if (newPassphrasePrompt) {
+                // deselect current project so user is prompted for passphrase when
+                // they open it again.
+                projectsStore.deselectProject();
+            }
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
