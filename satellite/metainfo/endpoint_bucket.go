@@ -198,7 +198,12 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
+	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabledByProject(project) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
 	}
 
@@ -215,10 +220,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
 	}
 
-	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, err
-	}
 	maxBuckets := project.MaxBuckets
 	if maxBuckets == nil {
 		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
@@ -338,17 +339,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	var (
-		bucket      buckets.MinimalBucket
-		lockEnabled bool
-	)
-	if endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		var fullBucket buckets.Bucket
-		fullBucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
-		lockEnabled = fullBucket.ObjectLockEnabled
-	} else {
-		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
-	}
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -356,6 +347,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket")
 	}
+	lockEnabled := bucket.ObjectLockEnabled
 
 	if !keyInfo.CreatedBy.IsZero() {
 		member, err := endpoint.projectMembers.GetByMemberIDAndProjectID(ctx, keyInfo.CreatedBy, keyInfo.ProjectID)
@@ -375,7 +367,16 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	var convBucket *pb.Bucket
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
+		convBucket, err = convertMinimalBucketToProto(
+			buckets.MinimalBucket{
+				Name:      []byte(bucket.Name),
+				Placement: bucket.Placement,
+				CreatedBy: bucket.CreatedBy,
+				CreatedAt: bucket.Created,
+			},
+			endpoint.getRSProto(bucket.Placement),
+			endpoint.config.MaxSegmentSize,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -551,8 +552,8 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Name, keyInfo.ProjectID)

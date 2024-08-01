@@ -493,13 +493,10 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			placement,
-			console.VersioningConfig{
+			console.ObjectLockAndVersioningConfig{
+				ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
 				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
 				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
-			},
-			console.ObjectLockConfig{
-				UseBucketLevelObjectLock:         config.Metainfo.UseBucketLevelObjectLock,
-				UseBucketLevelObjectLockProjects: config.Metainfo.UseBucketLevelObjectLockProjects,
 			},
 			consoleConfig.Config,
 		)

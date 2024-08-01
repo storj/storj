@@ -1307,10 +1307,10 @@ func TestService(t *testing.T) {
 				require.False(t, pr.PromptedForVersioningBeta)
 				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
 
-				versioningConfig := console.VersioningConfig{
+				versioningConfig := console.ObjectLockAndVersioningConfig{
 					UseBucketLevelObjectVersioning: true,
 				}
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				// Getting project config as a non-member should not work
 				config, err := service.GetProjectConfig(userCtx2, pr.ID)
@@ -1345,7 +1345,7 @@ func TestService(t *testing.T) {
 				versioningConfig.UseBucketLevelObjectVersioning = false
 				// add project to closed beta
 				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{pr.ID.String()}
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
@@ -1358,7 +1358,7 @@ func TestService(t *testing.T) {
 
 				// disable closed beta
 				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{}
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				require.False(t, pr.PromptedForVersioningBeta)
 				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
@@ -1410,19 +1410,15 @@ func TestService(t *testing.T) {
 				require.False(t, config.PromptForVersioningBeta)
 
 				versioningConfig.UseBucketLevelObjectVersioning = true
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
-
-				objectLockConfig := console.ObjectLockConfig{
-					UseBucketLevelObjectLock: true,
-				}
-				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+				versioningConfig.ObjectLockEnabled = true
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.True(t, config.ObjectLockUIEnabled)
 
 				versioningConfig.UseBucketLevelObjectVersioning = false
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
@@ -1431,24 +1427,24 @@ func TestService(t *testing.T) {
 				require.False(t, config.ObjectLockUIEnabled)
 
 				versioningConfig.UseBucketLevelObjectVersioning = true
-				require.NoError(t, service.TestSetVersioningConfig(versioningConfig))
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
-				objectLockConfig.UseBucketLevelObjectLock = false
-				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+				versioningConfig.ObjectLockEnabled = false
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.False(t, config.ObjectLockUIEnabled)
 
-				objectLockConfig.UseBucketLevelObjectLockProjects = []string{pr.ID.String()}
-				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+				versioningConfig.ObjectLockEnabled = true
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.True(t, config.ObjectLockUIEnabled)
 
-				objectLockConfig.UseBucketLevelObjectLockProjects = []string{}
-				require.NoError(t, service.TestSetObjectLockConfig(objectLockConfig))
+				versioningConfig.ObjectLockEnabled = false
+				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)

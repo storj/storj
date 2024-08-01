@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	projectNoLockErrMsg = "Object Lock is not enabled for this project"
-	bucketNoLockErrMsg  = "Object Lock is not enabled for this bucket"
+	projectNoLockErrMsg      = "Object Lock is not enabled for this project"
+	objectLockDisabledErrMsg = "Object Lock feature is not enabled"
+	bucketNoLockErrMsg       = "Object Lock is not enabled for this bucket"
 )
 
 // BeginObject begins object.
@@ -89,8 +90,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
@@ -445,8 +446,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
@@ -1823,8 +1824,8 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -1899,8 +1900,8 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	retention := protobufRetentionToMetabase(req.Retention)
@@ -2156,39 +2157,27 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
-	objectLockEnabledForProject := endpoint.config.ObjectLockEnabled(projectID)
+	// TODO(ver): for production we need to avoid somehow additional GetBucket call
+	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, nil
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket state")
+	}
 
 	var result metabase.DeleteObjectResult
 	if len(version) == 0 {
-		var (
-			project              *console.Project
-			versioned, suspended bool
-		)
-		project, err = endpoint.projects.Get(ctx, projectID)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
-			// TODO(ver): for production we need to avoid somehow additional GetBucket call
-			bucket, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
-			if err != nil {
-				if buckets.ErrBucketNotFound.Has(err) {
-					return nil, nil
-				}
-				endpoint.log.Error("unable to check bucket", zap.Error(err))
-				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket versioning state")
-			}
-
-			versioned = bucket.Versioning == buckets.VersioningEnabled
-			suspended = bucket.Versioning == buckets.VersioningSuspended
-		}
+		versioned := bucketData.Versioning == buckets.VersioningEnabled
+		suspended := bucketData.Versioning == buckets.VersioningSuspended
 
 		result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
 			ObjectLocation: req,
 			Versioned:      versioned,
 			Suspended:      suspended,
 
-			ObjectLockEnabledForProject: objectLockEnabledForProject,
+			ObjectLockEnabledForProject: bucketData.ObjectLockEnabled,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -2203,7 +2192,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			ObjectLocation: req,
 			Version:        sv.Version(),
 
-			ObjectLockEnabledForProject: objectLockEnabledForProject,
+			ObjectLockEnabledForProject: bucketData.ObjectLockEnabled,
 		})
 	}
 	if err != nil {
@@ -2472,8 +2461,8 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	var versioningEnabled bool
@@ -2721,8 +2710,8 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
 	if err := endpoint.checkEncryptedMetadataSize(req.NewEncryptedMetadata, req.NewEncryptedMetadataKey); err != nil {

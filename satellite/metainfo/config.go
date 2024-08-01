@@ -193,8 +193,7 @@ type Config struct {
 	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
-	UseBucketLevelObjectLock         bool     `help:"enable the use of bucket-level Object Lock" default:"false"`
-	UseBucketLevelObjectLockProjects []string `help:"list of project IDs for which bucket-level Object Lock functionality is enabled" default:"" hidden:"true"`
+	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"false"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
@@ -224,7 +223,6 @@ type ExtendedConfig struct {
 	Config
 
 	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
-	useBucketLevelObjectLockProjects       map[uuid.UUID]struct{}
 	spannerProjects                        []uuid.UUID
 }
 
@@ -233,7 +231,6 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 	extendedConfig := ExtendedConfig{
 		Config:                                 config,
 		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
-		useBucketLevelObjectLockProjects:       make(map[uuid.UUID]struct{}),
 	}
 	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(projectIDString)
@@ -241,13 +238,6 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 			return ExtendedConfig{}, err
 		}
 		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
-	}
-	for _, projectIDString := range config.UseBucketLevelObjectLockProjects {
-		projectID, err := uuid.FromString(projectIDString)
-		if err != nil {
-			return ExtendedConfig{}, err
-		}
-		extendedConfig.useBucketLevelObjectLockProjects[projectID] = struct{}{}
 	}
 	for _, projectIDString := range config.TestingSpannerProjects {
 		projectID, err := uuid.FromString(projectIDString)
@@ -280,15 +270,14 @@ func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *consol
 	return true
 }
 
-// ObjectLockEnabled checks if bucket-level Object Lock functionality
+// ObjectLockEnabledByProject checks if bucket-level Object Lock functionality
 // should be enabled for a specific project.
-func (ec ExtendedConfig) ObjectLockEnabled(projectID uuid.UUID) bool {
+func (ec ExtendedConfig) ObjectLockEnabledByProject(project *console.Project) bool {
 	// if its globally enabled don't look at projects
-	if ec.UseBucketLevelObjectLock {
-		return true
+	if !ec.ObjectLockEnabled {
+		return false
 	}
-	_, ok := ec.useBucketLevelObjectLockProjects[projectID]
-	return ok
+	return ec.UseBucketLevelObjectVersioningByProject(project)
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
