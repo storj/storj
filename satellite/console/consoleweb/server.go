@@ -155,6 +155,8 @@ type Server struct {
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
 
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
+
 	AnalyticsConfig analytics.Config
 
 	packagePlans paymentsconfig.PackagePlans
@@ -219,7 +221,10 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
+	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener,
+	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig,
+	analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -237,6 +242,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
+		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -898,6 +904,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
+		ObjectLockEnabled:                 server.objectLockAndVersioningConfig.ObjectLockEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

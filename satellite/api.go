@@ -711,6 +711,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.StripeCoinPayments.StripePublicKey,
 				config.Payments.Storjscan.Confirmations,
 				peer.URL(),
+				console.ObjectLockAndVersioningConfig{
+					ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
+					UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
+					UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				},
 				config.Analytics,
 				config.Payments.PackagePlans,
 			)
