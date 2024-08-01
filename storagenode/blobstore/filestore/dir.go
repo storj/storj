@@ -337,12 +337,15 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, sync bool, ref blobst
 	return nil
 }
 
+var monOpen = mon.Task()
+
 // Open opens the file with the specified ref. It may need to check in more than one location in
 // order to find the blob, if it was stored with an older version of the storage node software.
 // In cases where the storage format version of a blob is already known, OpenWithStorageFormat()
 // will generally be a better choice.
 func (dir *Dir) Open(ctx context.Context, ref blobstore.BlobRef) (_ *os.File, _ blobstore.FormatVersion, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monOpen(&ctx)(&err)
+
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return nil, FormatV0, err

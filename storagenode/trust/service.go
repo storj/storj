@@ -124,18 +124,22 @@ func (pool *Pool) Run(ctx context.Context) error {
 	}
 }
 
+var monVerifySatelliteID = mon.Task()
+
 // VerifySatelliteID checks whether id corresponds to a trusted satellite.
 func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monVerifySatelliteID(&ctx)(&err)
 
 	_, err = pool.getInfo(id)
 	return err
 }
 
+var monGetSignee = mon.Task()
+
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monGetSignee(&ctx)(&err)
 
 	info, err := pool.getInfo(id)
 	if err != nil {

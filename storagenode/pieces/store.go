@@ -299,9 +299,12 @@ func (store *StoreForTest) ReaderWithStorageFormat(ctx context.Context, satellit
 	return reader, Error.Wrap(err)
 }
 
+var monReader = mon.Task()
+
 // Reader returns a new piece reader.
 func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Reader, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monReader(&ctx)(&err)
+
 	blob, err := store.blobs.Open(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),

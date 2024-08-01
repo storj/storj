@@ -35,9 +35,11 @@ type bandwidthDB struct {
 	dbContainerImpl
 }
 
+var monAdd = mon.Task()
+
 // Add adds bandwidth usage to the table.
 func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monAdd(&ctx)(&err)
 
 	var usage bandwidth.Usage
 	usage.Include(action, amount)

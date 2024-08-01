@@ -936,9 +936,11 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 	return false, nil
 }
 
+var monBeginSaveOrder = mon.Task()
+
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
 func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBeginSaveOrder(&ctx)(&err)
 
 	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
 	if err != nil {

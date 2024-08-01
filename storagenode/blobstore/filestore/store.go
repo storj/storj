@@ -88,9 +88,12 @@ func OpenAt(log *zap.Logger, path string, config Config) (blobstore.Blobs, error
 // Close closes the store.
 func (store *blobStore) Close() error { return store.track.Close() }
 
+var monBlobStoreOpen = mon.Task()
+
 // Open loads blob with the specified hash.
 func (store *blobStore) Open(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobReader, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreOpen(&ctx)(&err)
+
 	file, formatVer, err := store.dir.Open(ctx, ref)
 	if err != nil {
 		if os.IsNotExist(err) {
