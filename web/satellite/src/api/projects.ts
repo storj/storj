@@ -111,6 +111,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.passphrase ?? '',
                 result.isOwnerPaidTier,
                 result.role,
+                result.objectLockUIEnabled,
             );
         }
 
