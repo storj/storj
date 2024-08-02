@@ -149,6 +149,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
+import { UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import IconTrash from '@/components/icons/IconTrash.vue';
 
@@ -164,6 +165,7 @@ const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
+const obStore = useObjectBrowserStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -191,6 +193,11 @@ const apiKey = computed((): string => {
  * when Delete button has been clicked.
  */
 async function onDelete(): Promise<void> {
+    if (obStore.state.uploading.some(u => u.Bucket === props.bucketName && u.status === UploadingStatus.InProgress)) {
+        notify.error('There is an ongoing upload in this bucket.', AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        return;
+    }
+
     await withLoading(async () => {
         const projectID = projectsStore.state.selectedProject.id;
 
