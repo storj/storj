@@ -53,7 +53,7 @@ func TestTransactionsDB(t *testing.T) {
 			require.Len(t, txs, 1)
 			compareTransactions(t, createTx, txs[0])
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func requireSaneTimestamp(t *testing.T, when time.Time) {
@@ -115,7 +115,7 @@ func TestTransactionsDBList(t *testing.T) {
 					}
 				}
 			}
-		})
+		}, satellitedbtest.WithSpanner())
 	})
 }
 
@@ -135,7 +135,7 @@ func TestTransactionsDBRates(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, val, rate)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 // compareTransactions is a helper method to compare tx used to create db entry,
