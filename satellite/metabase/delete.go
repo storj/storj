@@ -137,7 +137,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 	if err = retention.Verify(); err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
-	if retention.Active() {
+	if retention.ActiveNow() {
 		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 
@@ -221,7 +221,7 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 	if err = retention.Verify(); err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
-	if retention.Active() {
+	if retention.ActiveNow() {
 		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 
@@ -559,7 +559,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 	if err = retention.Verify(); err != nil {
 		return DeleteObjectResult{}, errs.Wrap(err)
 	}
-	if retention.Active() {
+	if retention.ActiveNow() {
 		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 
@@ -667,7 +667,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 	if err = info.retention.Verify(); err != nil {
 		return DeleteObjectResult{}, errs.Wrap(err)
 	}
-	if info.retention.Active() {
+	if info.retention.ActiveNow() {
 		return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 

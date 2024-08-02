@@ -270,7 +270,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
 			}
 		}
-		if lockInfo.retention.Active() {
+		if lockInfo.retention.ActiveNow() {
 			return ErrObjectLock.New(objectLockedErrMsg)
 		}
 		if lockInfo.objectExpiresAt != nil && opts.Retention.Enabled() {
