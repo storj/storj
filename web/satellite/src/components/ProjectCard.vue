@@ -103,6 +103,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconProject from '@/components/icons/IconProject.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -119,6 +120,7 @@ const emit = defineEmits<{
 }>();
 
 const analyticsStore = useAnalyticsStore();
+const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
@@ -131,6 +133,7 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
+    bucketsStore.clearS3Data();
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },

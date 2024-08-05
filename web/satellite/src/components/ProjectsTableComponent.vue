@@ -147,6 +147,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconSettings from '@/components/icons/IconSettings.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
@@ -165,6 +166,7 @@ const search = ref<string>('');
 const decliningIds = ref(new Set<string>());
 
 const analyticsStore = useAnalyticsStore();
+const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 
 const router = useRouter();
@@ -186,6 +188,7 @@ const headers = [
  */
 function openProject(item: ProjectItemModel): void {
     projectsStore.selectProject(item.id);
+    bucketsStore.clearS3Data();
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },
