@@ -199,7 +199,7 @@
                             :disabled="isLoading"
                             @click="onBackOrCancel"
                         >
-                            Cancel
+                            {{ createStep === CreateSteps.ManageMode ? 'Back' : 'Cancel' }}
                         </v-btn>
                     </v-col>
                     <v-col v-if="(!billingEnabled || !isProjectLimitReached) && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
