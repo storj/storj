@@ -14,6 +14,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -133,15 +134,38 @@ func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, s
 func (db *invoiceProjectRecords) GetUnappliedByProjectIDs(ctx context.Context, projectIDs []uuid.UUID, start, end time.Time) (records []stripe.ProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = withRows(db.db.QueryContext(ctx, db.db.Rebind(`
-		SELECT
-			id, project_id, storage, egress, segments, period_start, period_end, state
-		FROM
-			stripecoinpayments_invoice_project_records
-		WHERE
-			project_id IN ( SELECT unnest(?::bytea[]))
-			AND period_start = ? AND period_end = ? AND state = ?
-	`), pgutil.UUIDArray(projectIDs), start, end, invoiceProjectRecordStateUnapplied))(func(rows tagsql.Rows) error {
+	var query string
+	var rows tagsql.Rows
+
+	switch db.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		query = db.db.Rebind(`SELECT
+					id, project_id, storage, egress, segments, period_start, period_end, state
+			FROM
+					stripecoinpayments_invoice_project_records
+			WHERE
+					project_id IN ( SELECT unnest(?::bytea[]))
+					AND period_start = ? AND period_end = ? AND state = ?`)
+
+		rows, err = db.db.QueryContext(ctx, query, pgutil.UUIDArray(projectIDs), start, end, invoiceProjectRecordStateUnapplied)
+
+	case dbutil.Spanner:
+		pids := make([][]byte, len(projectIDs))
+		for i, v := range projectIDs {
+			pids[i] = v.Bytes()
+		}
+		query = `SELECT
+				id, project_id, storage, egress, segments, period_start, period_end, state
+			FROM
+				stripecoinpayments_invoice_project_records
+			WHERE
+				project_id IN ( SELECT project_id
+			FROM UNNEST(?) AS project_id)
+				AND period_start = ? AND period_end = ? AND state = ?`
+
+		rows, err = db.db.QueryContext(ctx, query, pids, start, end, int(invoiceProjectRecordStateUnapplied))
+	}
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var record stripe.ProjectRecord
 			err := rows.Scan(&record.ID, &record.ProjectID, &record.Storage, &record.Egress, &record.Segments, &record.PeriodStart, &record.PeriodEnd, &record.State)

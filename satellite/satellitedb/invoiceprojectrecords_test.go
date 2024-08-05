@@ -79,5 +79,5 @@ func TestGetUnappliedByProjectIDs(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, records, 1)
 		require.Equal(t, idsToRequest[1], records[0].ProjectID)
-	})
+	}, satellitedbtest.WithSpanner())
 }
