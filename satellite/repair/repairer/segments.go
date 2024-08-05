@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -247,8 +246,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		stats.repairerNodesUnavailable.Mark(1)
 
 		log.Warn("irreparable segment",
-			zap.Int("piecesAvailable", piecesCheck.Retrievable.Count()),
-			zap.Int16("piecesRequired", newRedundancy.RequiredShares),
+			zap.Int("Pieces Available", piecesCheck.Retrievable.Count()),
+			zap.Int16("Pieces Required", newRedundancy.RequiredShares),
+			zap.Uint16("Placement", uint16(segment.Placement)),
 		)
 		return false, nil
 	}
@@ -330,8 +330,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			stats.repairerNodesUnavailable.Mark(1)
 
 			log.Warn("irreparable segment: too many nodes offline",
-				zap.Int("piecesAvailable", len(retrievablePieces)),
-				zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
+				zap.Int("Pieces Available", len(retrievablePieces)),
+				zap.Int16("Pieces Required", segment.Redundancy.RequiredShares),
+				zap.Uint16("Placement", uint16(segment.Placement)),
 				zap.Error(err),
 			)
 		}
@@ -455,18 +456,18 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			}
 			stats.repairTooManyNodesFailed.Mark(1)
 
-			failedNodeIDs := make([]string, 0, len(piecesReport.Failed))
-			offlineNodeIDs := make([]string, 0, len(piecesReport.Offline))
-			timedOutNodeIDs := make([]string, 0, len(piecesReport.Contained))
+			failedNodeIDs := make([]storj.NodeID, 0, len(piecesReport.Failed))
+			offlineNodeIDs := make([]storj.NodeID, 0, len(piecesReport.Offline))
+			timedOutNodeIDs := make([]storj.NodeID, 0, len(piecesReport.Contained))
 			unknownErrs := make([]string, 0, len(piecesReport.Unknown))
 			for _, outcome := range piecesReport.Failed {
-				failedNodeIDs = append(failedNodeIDs, outcome.Piece.StorageNode.String())
+				failedNodeIDs = append(failedNodeIDs, outcome.Piece.StorageNode)
 			}
 			for _, outcome := range piecesReport.Offline {
-				offlineNodeIDs = append(offlineNodeIDs, outcome.Piece.StorageNode.String())
+				offlineNodeIDs = append(offlineNodeIDs, outcome.Piece.StorageNode)
 			}
 			for _, outcome := range piecesReport.Contained {
-				timedOutNodeIDs = append(timedOutNodeIDs, outcome.Piece.StorageNode.String())
+				timedOutNodeIDs = append(timedOutNodeIDs, outcome.Piece.StorageNode)
 			}
 			for _, outcome := range piecesReport.Unknown {
 				// We are purposefully using the error's string here, as opposed
@@ -477,15 +478,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			}
 
 			log.Warn("irreparable segment: could not acquire enough shares",
-				zap.Int32("piecesAvailable", irreparableErr.piecesAvailable),
-				zap.Int32("piecesRequired", irreparableErr.piecesRequired),
-				zap.Int("numFailedNodes", len(failedNodeIDs)),
-				zap.Stringer("failedNodes", commaSeparatedArray(failedNodeIDs)),
-				zap.Int("numOfflineNodes", len(offlineNodeIDs)),
-				zap.Stringer("offlineNodes", commaSeparatedArray(offlineNodeIDs)),
-				zap.Int("numTimedOutNodes", len(timedOutNodeIDs)),
-				zap.Stringer("timedOutNodes", commaSeparatedArray(timedOutNodeIDs)),
-				zap.Stringer("unknownErrors", commaSeparatedArray(unknownErrs)),
+				zap.Int32("Pieces Available", irreparableErr.piecesAvailable),
+				zap.Int32("Pieces Required", irreparableErr.piecesRequired),
+				zap.Int("Failed Nodes", len(failedNodeIDs)),
+				zap.Stringers("Failed Nodes List", failedNodeIDs),
+				zap.Int("Offline Nodes", len(offlineNodeIDs)),
+				zap.Stringers("Offline Nodes List", offlineNodeIDs),
+				zap.Int("Timed Out Nodes", len(timedOutNodeIDs)),
+				zap.Stringers("Timed Out Nodes List", timedOutNodeIDs),
+				zap.Strings("Unknown Errors List", unknownErrs),
+				zap.Uint16("Placement", uint16(segment.Placement)),
 			)
 			// repair will be attempted again if the segment remains unhealthy.
 			return false, nil
@@ -821,12 +823,4 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 	limiter.Wait()
 
 	return pieceInfos, nil
-}
-
-// commaSeparatedArray concatenates an array into a comma-separated string,
-// lazily.
-type commaSeparatedArray []string
-
-func (c commaSeparatedArray) String() string {
-	return strings.Join(c, ", ")
 }
