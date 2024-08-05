@@ -46,15 +46,31 @@
                 <v-row>
                     <v-col cols="12" sm="4">
                         <v-card
-                            title="Total Cost"
-                            :subtitle="`Estimated for ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
+                            :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
                             variant="flat"
                         >
+                            <template #title>
+                                <v-row class="align-center">
+                                    <v-col>
+                                        <span>Estimated Total Cost</span>
+                                        <span class="ml-2">
+                                            <v-icon class="text-cursor-pointer" size="15" :icon="Info" />
+                                            <v-tooltip
+                                                class="text-center"
+                                                activator="parent"
+                                                location="top"
+                                            >
+                                                Expected charges for current billing period.
+                                            </v-tooltip>
+                                        </span>
+                                    </v-col>
+                                </v-row>
+                            </template>
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip color="success" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="warning" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -64,7 +80,24 @@
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card title="Account Balance" subtitle="Your STORJ account balance" variant="flat">
+                        <v-card subtitle="Your Storj account balance" variant="flat">
+                            <template #title>
+                                <v-row class="align-center">
+                                    <v-col>
+                                        <span>Available Funds</span>
+                                        <span class="ml-2">
+                                            <v-icon class="text-cursor-pointer" size="15" :icon="Info" />
+                                            <v-tooltip
+                                                class="text-center"
+                                                activator="parent"
+                                                location="top"
+                                            >
+                                                Prepaid balance for upcoming account usage.
+                                            </v-tooltip>
+                                        </span>
+                                    </v-col>
+                                </v-row>
+                            </template>
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
@@ -224,9 +257,11 @@ import {
     VBtn,
     VProgressCircular,
     VProgressLinear,
+    VTooltip,
+    VIcon,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Plus } from 'lucide-vue-next';
+import { Calendar, Info, Plus } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
