@@ -43,12 +43,12 @@ func (m *MockRepairQueue) InsertBatch(ctx context.Context, segments []*InjuredSe
 }
 
 // Select implements RepairQueue.
-func (m *MockRepairQueue) Select(context.Context, []storj.PlacementConstraint, []storj.PlacementConstraint) (*InjuredSegment, error) {
+func (m *MockRepairQueue) Select(context.Context, int, []storj.PlacementConstraint, []storj.PlacementConstraint) ([]InjuredSegment, error) {
 	panic("implement me")
 }
 
 // Delete implements RepairQueue.
-func (m *MockRepairQueue) Delete(ctx context.Context, s *InjuredSegment) error {
+func (m *MockRepairQueue) Delete(ctx context.Context, s InjuredSegment) error {
 	panic("implement me")
 }
 

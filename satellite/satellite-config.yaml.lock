@@ -1246,6 +1246,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether the audit score of nodes should be updated as a part of repair
 # repairer.reputation-update-enabled: false
 
+# how many injured segments will be read from repair queue in single request
+# repairer.segments-select-batch-size: 1
+
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
 
