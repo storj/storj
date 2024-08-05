@@ -327,7 +327,7 @@ function hasInviteActionItem(item: RenderedItem): boolean {
  * Handles update table rows limit event.
  */
 async function onUpdateLimit(limit: number): Promise<void> {
-    await fetch(page.value.currentPage, limit);
+    await fetch(FIRST_PAGE, limit);
 }
 
 /**

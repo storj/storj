@@ -471,7 +471,7 @@ function getVersioningIcon(status: Versioning): FunctionalComponent {
  * Handles update table rows limit event.
  */
 function onUpdateLimit(limit: number): void {
-    fetchBuckets(page.value.currentPage, limit);
+    fetchBuckets(FIRST_PAGE, limit);
 }
 
 /**

@@ -198,7 +198,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
  * Handles update table rows limit event.
  */
 function onUpdateLimit(limit: number): void {
-    fetch(page.value.currentPage, limit);
+    fetch(FIRST_PAGE, limit);
 }
 
 /**

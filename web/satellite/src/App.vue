@@ -222,7 +222,7 @@ bucketsStore.$onAction(({ name, after, args }) => {
             }
 
             try {
-                await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
+                await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id, bucketsStore.state.cursor.limit);
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }

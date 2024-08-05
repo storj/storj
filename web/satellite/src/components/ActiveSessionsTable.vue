@@ -93,7 +93,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
 }
 
 function onUpdateLimit(limit: number): void {
-    fetch(page.value.currentPage, limit);
+    fetch(FIRST_PAGE, limit);
 }
 
 function onUpdatePage(page: number): void {
