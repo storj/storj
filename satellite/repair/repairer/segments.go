@@ -184,7 +184,7 @@ func NewSegmentRepairer(
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 // note that shouldDelete is used even in the case where err is not null
 // note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading.
-func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue.InjuredSegment) (shouldDelete bool, err error) {
+func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.InjuredSegment) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, queueSegment.StreamID.String(), queueSegment.Position.Encode())(&err)
 
 	log := repairer.log.With(zap.Stringer("Stream ID", queueSegment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()))
