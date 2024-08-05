@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="wallet-area" :class="{'with-wallet-features': isZkSyncEnabled}">
+    <div class="wallet-area" :class="{'with-wallet-features': isZkSyncEraEnabled}">
         <WalletIcon
             class="wallet-area__image"
             alt="wallet image"
@@ -12,7 +12,7 @@
             <p class="wallet-area__wallet-address-section__bold-text">{{ walletAddress }}</p>
         </div>
         <a
-            v-if="(!isZkSyncEnabled && !isZkSyncEraEnabled)"
+            v-if="(!isZkSyncEraEnabled)"
             class="wallet-area__button"
             :href="`https://etherscan.io/address/${walletAddress}#tokentxns`"
             target="_blank"
@@ -20,28 +20,6 @@
         >
             <b class="wallet-area-button-label">View on Etherscan</b>
         </a>
-        <div v-else-if="isZkSyncEnabled" class="wallet-area__buttons-area">
-            <a
-                class="wallet-area__button"
-                :href="`https://zkscan.io/explorer/accounts/${walletAddress}`"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <b class="wallet-area-button-label">View on zkScan</b>
-            </a>
-            <a
-                class="wallet-area__button"
-                :href="`https://etherscan.io/address/${walletAddress}#tokentxns`"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <b class="wallet-area-button-label">View on Etherscan</b>
-            </a>
-            <div class="wallet-area__buttons-area__active-wallet-area">
-                <CheckIcon class="wallet-area__buttons-area__active-wallet-area__icon" />
-                <p class="wallet-area__buttons-area__active-wallet-area__label">zkSync is opted-in</p>
-            </div>
-        </div>
         <div v-else-if="isZkSyncEraEnabled" class="wallet-area__buttons-area">
             <a
                 class="wallet-area__button"
@@ -49,7 +27,7 @@
                 target="_blank"
                 rel="noopener noreferrer"
             >
-                <b class="wallet-area-button-label">View on ZkSync Era explorer</b>
+                <b class="wallet-area-button-label">View on zkSync Era Explorer</b>
             </a>
             <a
                 class="wallet-area__button"
@@ -87,10 +65,6 @@ export default class WalletArea extends Vue {
     private readonly walletAddress: string;
     @Prop({ default: () => [] })
     private readonly walletFeatures: string[];
-
-    public get isZkSyncEnabled(): boolean {
-        return this.walletFeatures.includes('zksync') && !this.isZkSyncEraEnabled;
-    }
 
     public get isZkSyncEraEnabled(): boolean {
         return this.walletFeatures.includes('zksync-era');

@@ -23,13 +23,13 @@ describe('WalletArea', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with no wallet features', (): void => {
+    it('renders correctly with zksync-era wallet features', (): void => {
 
         const wrapper = shallowMount(WalletArea, {
             localVue,
             propsData: {
                 walletAddress: '0x0123456789012345678901234567890123456789',
-                walletFeatures: [ 'zksync' ],
+                walletFeatures: [ 'zksync-era' ],
                 label: 'Wallet address',
             },
         });
