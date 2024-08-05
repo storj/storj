@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ensures that projectMembers implements console.ProjectMembers.
@@ -21,7 +24,8 @@ var _ console.ProjectMembers = (*projectMembers)(nil)
 
 // ProjectMembers exposes db to manage ProjectMembers table in database.
 type projectMembers struct {
-	db dbx.DriverMethods
+	db   dbx.DriverMethods
+	impl dbutil.Implementation
 }
 
 // GetByMemberID is a method for querying project member from the database by memberID.
@@ -89,7 +93,11 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		OrderDirection: cursor.OrderDirection,
 	}
 
-	countQuery := `
+	var countRow *sql.Row
+
+	switch pm.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		countQuery := `
 		SELECT (
 			SELECT COUNT(*)
 			FROM project_members pm
@@ -107,10 +115,37 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			AND email ILIKE $2
 		)`
 
-	countRow := pm.db.QueryRowContext(ctx,
-		countQuery,
-		projectID[:],
-		search)
+		countRow = pm.db.QueryRowContext(ctx,
+			countQuery,
+			projectID[:],
+			search)
+
+	case dbutil.Spanner:
+		countQuery := `
+			WITH pm_cte AS (
+				SELECT COUNT(*) AS cnt
+				FROM project_members pm
+				INNER JOIN users u ON pm.member_id = u.id
+				WHERE pm.project_id = @project_id
+				AND (
+						lower(u.email) LIKE lower(@search) OR
+						lower(u.full_name) LIKE lower(@search) OR
+						lower(u.short_name) LIKE lower(@search)
+				)
+			),
+			pi_cte AS (
+				SELECT COUNT(*) as cnt
+				FROM project_invitations
+				WHERE project_id = @project_id
+				AND lower(email) LIKE lower(@search)
+			)
+			SELECT pi_cte.cnt + pm_cte.cnt FROM pm_cte,pi_cte;`
+
+		countRow = pm.db.QueryRowContext(ctx,
+			countQuery,
+			sql.Named("project_id", projectID.Bytes()),
+			sql.Named("search", search))
+	}
 
 	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
@@ -123,7 +158,11 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		return nil, errs.New("page is out of range")
 	}
 
-	membersQuery := `
+	var rows tagsql.Rows
+
+	switch pm.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		membersQuery := `
 		SELECT member_id, project_id, role, created_at, email, inviter_id FROM (
 			(
 				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, NULL as inviter_id
@@ -145,13 +184,43 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		` + projectMembersSortClause(cursor.Order, page.OrderDirection) + `
 		LIMIT $3 OFFSET $4`
 
-	rows, err := pm.db.QueryContext(ctx,
-		membersQuery,
-		projectID[:],
-		search,
-		page.Limit,
-		page.Offset,
-	)
+		rows, err = pm.db.QueryContext(ctx,
+			membersQuery,
+			projectID[:],
+			search,
+			page.Limit,
+			page.Offset,
+		)
+	case dbutil.Spanner:
+		membersQuery := `SELECT member_id, project_id, role, created_at, email, inviter_id FROM (
+                        (
+                                SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, NULL as inviter_id
+                                FROM project_members pm
+                                INNER JOIN users u ON pm.member_id = u.id
+                                WHERE pm.project_id = @project_id
+                                AND (
+                                        LOWER(u.email) LIKE LOWER(@search) OR
+                                        LOWER(u.full_name) LIKE LOWER(@search) OR
+                                        LOWER(u.short_name) LIKE LOWER(@search)
+                                )
+                        ) UNION ALL (
+                                SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT(email, '@')[OFFSET(0)]) as full_name, inviter_id
+                                FROM project_invitations pi
+                                WHERE project_id = @project_id
+                                AND LOWER(email) LIKE LOWER(@search)
+                        )
+                ) results
+				` + projectMembersSortClause(cursor.Order, page.OrderDirection) + `
+                LIMIT @limit OFFSET @offset`
+
+		rows, err = pm.db.QueryContext(ctx, membersQuery,
+			sql.Named("project_id", projectID),
+			sql.Named("search", search),
+			sql.Named("limit", page.Limit),
+			sql.Named("offset", page.Offset),
+		)
+	}
+
 	if err != nil {
 		return nil, err
 	}
