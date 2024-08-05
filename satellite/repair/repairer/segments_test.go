@@ -129,7 +129,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 				t.Log("starting repair")
-				_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+				_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 					StreamID: segments[0].StreamID,
 					Position: segments[0].Position,
 				})
@@ -182,7 +182,7 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 
 		require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(segments[0].Pieces[0].StorageNode)))
 
-		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 			StreamID: segments[0].StreamID,
 			Position: segments[0].Position,
 		})
@@ -322,7 +322,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 		{
 			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
-			_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+			_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 				StreamID: segments[0].StreamID,
 				Position: segments[0].Position,
 			})
@@ -410,7 +410,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 
 		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
 
-		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 			StreamID: segments[0].StreamID,
 			Position: segments[0].Position,
 		})
@@ -466,7 +466,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 
 		// we have bucket geofenced to EU but now all nodes are in US, repairing should fail because
 		// not enough nodes are available but segment shouldn't be deleted from repair queue
-		shouldDelete, err := planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+		shouldDelete, err := planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 			StreamID: segments[0].StreamID,
 			Position: segments[0].Position,
 		})

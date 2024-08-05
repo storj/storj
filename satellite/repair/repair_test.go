@@ -3343,12 +3343,12 @@ func TestRepairClumpedPieces(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		injuredSegment, err := satellite.DB.RepairQueue().Select(ctx, nil, nil)
+		injuredSegments, err := satellite.DB.RepairQueue().Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		if !queue.ErrEmpty.Has(err) {
 			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
 		}
-		require.Nil(t, injuredSegment)
+		require.Empty(t, injuredSegments)
 
 		// pieces list has not changed
 		segment = getRemoteSegment(ctx, t, satellite)
@@ -3454,12 +3454,12 @@ placements:
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		injuredSegment, err := satellite.DB.RepairQueue().Select(ctx, nil, nil)
+		injuredSegments, err := satellite.DB.RepairQueue().Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		if !queue.ErrEmpty.Has(err) {
 			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
 		}
-		require.Nil(t, injuredSegment)
+		require.Nil(t, injuredSegments)
 
 		// pieces list has not changed
 		segment = getRemoteSegment(ctx, t, satellite)
