@@ -97,20 +97,6 @@
                 </v-card>
             </v-col>
         </v-row>
-
-        <v-row justify="center" class="mt-3">
-            <v-col cols="6" sm="4" md="3" lg="2">
-                <v-btn
-                    :disabled="loading"
-                    variant="text"
-                    :prepend-icon="ChevronLeft"
-                    color="default" block
-                    @click="emit('back')"
-                >
-                    Back
-                </v-btn>
-            </v-col>
-        </v-row>
     </v-container>
 </template>
 
@@ -139,7 +125,6 @@ defineProps<{
 
 const emit = defineEmits<{
     next: [];
-    back: [];
 }>();
 
 const selectedMode = ref<ManagePassphraseMode>();

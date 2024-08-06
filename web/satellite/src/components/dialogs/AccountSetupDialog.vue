@@ -27,6 +27,7 @@
                             v-model:have-sales-contact="haveSalesContact"
                             v-model:interested-in-partnering="interestedInPartnering"
                             v-model:use-case="useCase"
+                            v-model:other-use-case="otherUseCase"
                             :loading="isLoading"
                             @back="toPrevStep"
                             @next="toNextStep"
@@ -39,16 +40,7 @@
                             :ref="stepInfos[OnboardingStep.PersonalAccountForm].ref"
                             v-model:name="firstName"
                             v-model:use-case="useCase"
-                            :loading="isLoading"
-                            @back="toPrevStep"
-                            @next="toNextStep"
-                        />
-                    </v-window-item>
-
-                    <v-window-item v-if="satelliteManagedEncryptionEnabled" :value="OnboardingStep.ManagedPassphraseOptIn">
-                        <managed-passphrase-opt-in-step
-                            :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
-                            v-model:manage-mode="passphraseManageMode"
+                            v-model:other-use-case="otherUseCase"
                             :loading="isLoading"
                             @back="toPrevStep"
                             @next="toNextStep"
@@ -104,6 +96,15 @@
                                 </v-col>
                             </v-row>
                         </v-container>
+                    </v-window-item>
+
+                    <v-window-item v-if="satelliteManagedEncryptionEnabled" :value="OnboardingStep.ManagedPassphraseOptIn">
+                        <managed-passphrase-opt-in-step
+                            :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
+                            v-model:manage-mode="passphraseManageMode"
+                            :loading="isLoading"
+                            @next="toNextStep"
+                        />
                     </v-window-item>
 
                     <!-- Final step -->
@@ -197,14 +198,15 @@ const stepInfos = {
         const info = new StepInfo(
             OnboardingStep.AccountTypeSelection,
             () => {
-                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
         );
         info.beforeNext =  async () => {
-            await userStore.updateSettings({ onboardingStep: info.next.value });
-            await info.ref.value?.setup?.();
+            await Promise.all([
+                userStore.updateSettings({ onboardingStep: info.next.value }),
+                info.ref.value?.setup?.(),
+            ]);
         };
         return info;
     })(),
@@ -212,43 +214,24 @@ const stepInfos = {
         const info = new StepInfo(
             OnboardingStep.AccountTypeSelection,
             () => {
-                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
         );
         info.beforeNext =  async () => {
-            await userStore.updateSettings({ onboardingStep: info.next.value });
-            await info.ref.value?.setup?.();
-        };
-        return info;
-    })(),
-    [OnboardingStep.ManagedPassphraseOptIn]: (() => {
-        const info = new StepInfo(
-            () => accountType.value || OnboardingStep.AccountTypeSelection,
-            () => {
-                if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-                return OnboardingStep.PlanTypeSelection;
-            },
-        );
-        info.beforeNext =  async () => {
-            await userStore.updateSettings({ onboardingStep: info.next.value });
-            await info.ref.value?.setup?.();
+            await Promise.all([
+                userStore.updateSettings({ onboardingStep: info.next.value }),
+                info.ref.value?.setup?.(),
+            ]);
         };
         return info;
     })(),
     [OnboardingStep.PricingPlanSelection]: new StepInfo(
-        () => {
-            if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
-            return accountType.value || OnboardingStep.AccountTypeSelection;
-        },
+        () => accountType.value || OnboardingStep.AccountTypeSelection,
         OnboardingStep.PricingPlan,
     ),
     [OnboardingStep.PlanTypeSelection]: new StepInfo(
-        () => {
-            if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
-            return accountType.value || OnboardingStep.AccountTypeSelection;
-        },
+        () => accountType.value || OnboardingStep.AccountTypeSelection,
         OnboardingStep.PricingPlan,
     ),
     [OnboardingStep.PricingPlan]: (() => {
@@ -257,10 +240,26 @@ const stepInfos = {
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
-            OnboardingStep.SetupComplete,
+            () => {
+                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                return OnboardingStep.SetupComplete;
+            },
         );
         info.beforeNext =  async () => {
             await userStore.updateSettings({ onboardingStep: info.next.value });
+        };
+        return info;
+    })(),
+    [OnboardingStep.ManagedPassphraseOptIn]: (() => {
+        const info = new StepInfo(
+            undefined,
+            OnboardingStep.SetupComplete,
+        );
+        info.beforeNext =  async () => {
+            await Promise.all([
+                userStore.updateSettings({ onboardingStep: info.next.value }),
+                info.ref.value?.setup?.(),
+            ]);
         };
         return info;
     })(),
@@ -286,6 +285,7 @@ const position = ref<string | undefined>(undefined);
 const employeeCount = ref<string | undefined>(undefined);
 const storageNeeds = ref<string | undefined>(undefined);
 const useCase = ref<string | undefined>(undefined);
+const otherUseCase = ref<string | undefined>(undefined);
 const functionalArea = ref<string | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 const interestedInPartnering = ref<boolean>(false);
@@ -370,7 +370,7 @@ onBeforeMount(() => {
         if (userSettings.value.onboardingStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value) {
             step.value = OnboardingStep.SetupComplete;
         } else if (userSettings.value.onboardingStep === OnboardingStep.PricingPlanSelection && !pkgAvailable.value) {
-            step.value = OnboardingStep.SetupComplete;
+            step.value = allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
         } else if (ACCOUNT_SETUP_STEPS.find(s => s === userSettings.value.onboardingStep)) {
             step.value = userSettings.value.onboardingStep as OnboardingStep;
         } else if (!userStore.userName) {
