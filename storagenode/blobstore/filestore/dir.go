@@ -899,7 +899,7 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 		if startPrefix != "" && startPrefix > keyPrefix {
 			continue
 		}
-		err := walkNamespaceWithPrefix(ctx, dir.log, namespace, nsDir, keyPrefix, walkFunc)
+		err := walkNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, walkFunc)
 		if err != nil {
 			return err
 		}
@@ -981,8 +981,8 @@ func (dir *Dir) migrateTrashToPerDayDirs(now time.Time) (err error) {
 	return nil
 }
 
-func decodeBlobInfo(namespace []byte, keyPrefix, keyDir, name string) (info blobstore.BlobInfo, ok bool) {
-	blobFileName := name
+// decodeBlobInfo expects keyPrefix, keyDir and blobFilename all to be clean.
+func decodeBlobInfo(namespace []byte, keyPrefix, keyDir, blobFileName string) (info *blobInfo, ok bool) {
 	encodedKey := keyPrefix + blobFileName
 	formatVer := FormatV0
 	if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
@@ -999,10 +999,10 @@ func decodeBlobInfo(namespace []byte, keyPrefix, keyDir, name string) (info blob
 		Namespace: namespace,
 		Key:       key,
 	}
-	return newBlobInfo(ref, filepath.Join(keyDir, blobFileName), nil, formatVer), true
+	return newBlobInfo(ref, keyDir+string(filepath.Separator)+blobFileName, nil, formatVer), true
 }
 
-func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []byte, nsDir, keyPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func walkNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	keyDir := filepath.Join(nsDir, keyPrefix)
 	openDir, err := os.Open(keyDir)
 	if err != nil {
@@ -1074,7 +1074,7 @@ type blobInfo struct {
 	formatVersion blobstore.FormatVersion
 }
 
-func newBlobInfo(ref blobstore.BlobRef, path string, fileInfo os.FileInfo, formatVer blobstore.FormatVersion) blobstore.BlobInfo {
+func newBlobInfo(ref blobstore.BlobRef, path string, fileInfo os.FileInfo, formatVer blobstore.FormatVersion) *blobInfo {
 	return &blobInfo{
 		ref:           ref,
 		path:          path,
