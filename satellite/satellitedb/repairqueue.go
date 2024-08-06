@@ -114,9 +114,31 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 			SET segment_health=$3, updated_at=current_timestamp, placement=$4
 			RETURNING (SELECT alreadyInserted FROM inserted)
 		`
+	case dbutil.Spanner:
+		query = `UPDATE repair_queue SET segment_health = ?, updated_at = current_timestamp(), placement=? WHERE stream_id=? AND position=?`
+		err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			result, txErr := tx.Tx.ExecContext(ctx, query, seg.SegmentHealth, seg.Placement, seg.StreamID, seg.Position)
+			if txErr != nil {
+				return Error.Wrap(txErr)
+			}
+			if rows, txErr := result.RowsAffected(); txErr != nil {
+				return Error.Wrap(txErr)
+			} else {
+				alreadyInserted = rows > 0
+			}
+			if !alreadyInserted {
+				query = `INSERT OR IGNORE INTO repair_queue (stream_id, position, segment_health, placement) VALUES (?, ?, ?, ?)`
+				if _, txErr = tx.Tx.ExecContext(ctx, query, seg.StreamID, seg.Position.Encode(), seg.SegmentHealth, seg.Placement); txErr != nil {
+					return Error.Wrap(err)
+				}
+			}
+			return nil
+		})
+		return alreadyInserted, err
 	default:
 		return false, Error.New("unsupported database: %v", r.db.impl)
 	}
+
 	rows, err := r.db.QueryContext(ctx, query, seg.StreamID, seg.Position.Encode(), seg.SegmentHealth, seg.Placement)
 	if err != nil {
 		return false, err
@@ -201,6 +223,33 @@ func (r *repairQueue) InsertBatch(
 				ON to_insert.stream_id = repair_queue.stream_id
 				AND to_insert.position = repair_queue.position
 		`
+
+	case dbutil.Spanner:
+		err := r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			for _, s := range segments {
+				res, err := tx.ExecContext(ctx, "UPDATE repair_queue SET segment_health = ?, placement = ?, updated_at = current_timestamp() where stream_id = ? AND position = ?", s.SegmentHealth, s.Placement, s.StreamID, s.Position.Encode())
+				if err != nil {
+					return errs.Wrap(err)
+				}
+
+				affected, err := res.RowsAffected()
+				if err != nil {
+					return errs.Wrap(err)
+				}
+
+				if affected == 0 {
+					_, err = tx.ExecContext(ctx, "INSERT OR IGNORE INTO repair_queue (stream_id, position, segment_health, placement, updated_at) VALUES (?, ?, ?, ?, current_timestamp())", s.StreamID, s.Position.Encode(), s.SegmentHealth, s.Placement)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					newlyInsertedSegments = append(newlyInsertedSegments, s)
+				}
+			}
+			return nil
+		})
+		return newlyInsertedSegments, err
+
 	default:
 		return nil, Error.New("unsupported database: %v", r.db.impl)
 	}
@@ -248,6 +297,7 @@ func (r *repairQueue) InsertBatch(
 	}
 
 	return newlyInsertedSegments, rows.Err()
+
 }
 
 func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (segments []queue.InjuredSegment, err error) {
@@ -269,6 +319,21 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 		restriction += fmt.Sprintf(" AND placement NOT IN (%s)", placementsToString(excludedPlacements))
 	}
 
+	scanSegments := func(rows tagsql.Rows) error {
+		return withRows(rows, err)(func(rows tagsql.Rows) error {
+			for rows.Next() {
+				var segment queue.InjuredSegment
+				err := rows.Scan(&segment.StreamID, &segment.Position, &segment.AttemptedAt,
+					&segment.UpdatedAt, &segment.InsertedAt, &segment.SegmentHealth, &segment.Placement)
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				segments = append(segments, segment)
+			}
+			return nil
+		})
+	}
+
 	var rows tagsql.Rows
 	switch r.db.impl {
 	case dbutil.Postgres:
@@ -279,7 +344,12 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 				ORDER BY segment_health ASC, attempted_at NULLS FIRST FOR UPDATE SKIP LOCKED
 				LIMIT ?
 			) RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
+
 		`), n)
+		if err == nil {
+			err = scanSegments(rows)
+		}
+
 	case dbutil.Cockroach:
 		rows, err = r.db.QueryContext(ctx, r.db.Rebind(`
 			UPDATE repair_queue SET attempted_at = now()
@@ -287,26 +357,39 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 			ORDER BY segment_health ASC, attempted_at NULLS FIRST
 			LIMIT ?
 			RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
-		`), n)
-	case dbutil.Spanner:
-		// TODO(spanner): this makes it possible to run testplanet tests with spanner. Later we need proper implementation.
-		return nil, queue.ErrEmpty.New("")
-	default:
-		return segments, errs.New("unhandled database: %v", r.db.impl)
-	}
 
-	err = withRows(rows, err)(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var segment queue.InjuredSegment
-			err := rows.Scan(&segment.StreamID, &segment.Position, &segment.AttemptedAt,
-				&segment.UpdatedAt, &segment.InsertedAt, &segment.SegmentHealth, &segment.Placement)
+		`), n)
+
+		if err == nil {
+			err = scanSegments(rows)
+		}
+	case dbutil.Spanner:
+		err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			rows, err = tx.QueryContext(ctx, `UPDATE repair_queue
+				SET attempted_at = CURRENT_TIMESTAMP()
+				WHERE (stream_id, position) IN (
+					SELECT (stream_id, position)
+					FROM (
+						SELECT stream_id, position
+						FROM repair_queue
+						WHERE (attempted_at IS NULL OR attempted_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR)) `+restriction+`
+						ORDER BY segment_health ASC, (attempted_at IS NULL) DESC, attempted_at
+						LIMIT ?
+					) AS target_row
+				)
+				THEN RETURN stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement`, n)
 			if err != nil {
 				return errs.Wrap(err)
 			}
-			segments = append(segments, segment)
-		}
-		return nil
-	})
+			err = scanSegments(rows)
+			if err != nil {
+				return err
+			}
+			return err
+		})
+	default:
+		return segments, errs.New("unhandled database: %v", r.db.impl)
+	}
 	if err != nil {
 		return nil, err
 	}
