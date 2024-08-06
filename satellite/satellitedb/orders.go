@@ -81,20 +81,20 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 
 			statement := db.db.Rebind(
 				`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-					ON CONFLICT(project_id, bucket_name, interval_start, action)
-					DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT(project_id, bucket_name, interval_start, action)
+				DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
 			)
-			batch.Queue(statement, projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
+			batch.Queue(statement, projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
 
 			if action == pb.PieceAction_GET {
 				statement = db.db.Rebind(
 					`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-				VALUES (?, ?, ?, ?, ?)
-				ON CONFLICT(project_id, interval_day)
-				DO UPDATE SET egress_allocated = project_bandwidth_daily_rollups.egress_allocated + EXCLUDED.egress_allocated::BIGINT`,
+					VALUES (?, ?, ?, ?, ?)
+					ON CONFLICT(project_id, interval_day)
+					DO UPDATE SET egress_allocated = project_bandwidth_daily_rollups.egress_allocated + EXCLUDED.egress_allocated::BIGINT`,
 				)
-				batch.Queue(statement, projectID[:], dailyInterval, uint64(amount), 0, 0)
+				batch.Queue(statement, projectID, dailyInterval, uint64(amount), 0, 0)
 			}
 
 			batch.Queue(`COMMIT TRANSACTION`)
@@ -116,7 +116,7 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 				UPDATE bucket_bandwidth_rollups AS bbr
 				SET  bbr.allocated = bbr.allocated + ?  WHERE project_id = ? AND bucket_name = ? AND interval_start = ? AND action = ?
 			`
-			result, err := tx.Tx.ExecContext(ctx, updateBBR, uint64(amount), projectID[:], bucketName, intervalStart, int64(action))
+			result, err := tx.Tx.ExecContext(ctx, updateBBR, uint64(amount), projectID, bucketName, intervalStart, int64(action))
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -128,10 +128,10 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 
 			if affected == 0 {
 				insertBDR := `
-				INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			`
-				_, err := tx.Tx.ExecContext(ctx, insertBDR, projectID[:], bucketName, intervalStart, defaultIntervalSeconds, int64(action), 0, uint64(amount), 0)
+					INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`
+				_, err := tx.Tx.ExecContext(ctx, insertBDR, projectID, bucketName, intervalStart, defaultIntervalSeconds, int64(action), 0, uint64(amount), 0)
 				if err != nil {
 					return errs.Wrap(err)
 				}
@@ -143,7 +143,7 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 					UPDATE project_bandwidth_daily_rollups AS pbdr
 					SET pbdr.egress_allocated = pbdr.egress_allocated + ? WHERE project_id = ? AND interval_day = ?
 				`
-				result, err = tx.Tx.ExecContext(ctx, updatePBDR, uint64(amount), projectID[:], civilDailyIntervalDate)
+				result, err = tx.Tx.ExecContext(ctx, updatePBDR, uint64(amount), projectID, civilDailyIntervalDate)
 				if err != nil {
 					return err
 				}
@@ -155,10 +155,10 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 
 				if affected == 0 {
 					insertPBDR := `
-					INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-					VALUES (?, ?, ?, ?, ?)
-				`
-					_, err = tx.Tx.ExecContext(ctx, insertPBDR, projectID[:], civilDailyIntervalDate, uint64(amount), 0, 0)
+						INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+						VALUES (?, ?, ?, ?, ?)
+					`
+					_, err = tx.Tx.ExecContext(ctx, insertPBDR, projectID, civilDailyIntervalDate, uint64(amount), 0, 0)
 					if err != nil {
 						return err
 					}
@@ -180,12 +180,12 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			statement := tx.Rebind(
 				`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(project_id, bucket_name, interval_start, action)
-			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT (project_id, bucket_name, interval_start, action)
+				DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
 			)
 			_, err = tx.Tx.ExecContext(ctx, statement,
-				projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(settledAmount), uint64(settledAmount),
+				projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(settledAmount), uint64(settledAmount),
 			)
 			if err != nil {
 				return ErrUpdateBucketBandwidthSettle.Wrap(err)
@@ -195,13 +195,13 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 				dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 				statement = tx.Rebind(
 					`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-				VALUES (?, ?, ?, ?, ?)
-				ON CONFLICT(project_id, interval_day)
-				DO UPDATE SET
-					egress_settled = project_bandwidth_daily_rollups.egress_settled + EXCLUDED.egress_settled::BIGINT,
-					egress_dead    = project_bandwidth_daily_rollups.egress_dead + EXCLUDED.egress_dead::BIGINT`,
+					VALUES (?, ?, ?, ?, ?)
+					ON CONFLICT (project_id, interval_day)
+					DO UPDATE SET
+						egress_settled = project_bandwidth_daily_rollups.egress_settled + EXCLUDED.egress_settled::BIGINT,
+						egress_dead    = project_bandwidth_daily_rollups.egress_dead + EXCLUDED.egress_dead::BIGINT`,
 				)
-				_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], dailyInterval, 0, uint64(settledAmount), uint64(deadAmount))
+				_, err = tx.Tx.ExecContext(ctx, statement, projectID, dailyInterval, 0, uint64(settledAmount), uint64(deadAmount))
 				if err != nil {
 					return err
 				}
@@ -214,7 +214,7 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.settled = bbr.settled + ? WHERE project_id = ? AND bucket_name =? AND interval_start = ?  AND action = ?`,
 			)
 			result, err := tx.Tx.ExecContext(ctx, updateBBRStatement,
-				uint64(settledAmount), projectID[:], bucketName, intervalStart.UTC(), int64(action),
+				uint64(settledAmount), projectID, bucketName, intervalStart.UTC(), int64(action),
 			)
 			if err != nil {
 				return ErrUpdateBucketBandwidthSettle.Wrap(err)
@@ -228,10 +228,10 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 			if affected == 0 {
 				insertBBRStatement := tx.Rebind(
 					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 				_, err = tx.Tx.ExecContext(ctx, insertBBRStatement,
-					projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), 0, 0, uint64(settledAmount), uint64(settledAmount),
+					projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), 0, 0, uint64(settledAmount), uint64(settledAmount),
 				)
 				if err != nil {
 					return ErrUpdateBucketBandwidthSettle.Wrap(err)
@@ -242,10 +242,10 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 				dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 				civilIntervalDate := civil.DateOf(dailyInterval)
 				updatePBDRStatement := tx.Rebind(
-					`UPDATE project_bandwidth_daily_rollups AS pbdr SET pbdr.egress_settled = pbdr.egress_settled + ?, pbdr.egress_dead = pbdr.egress_dead + ? 
-						WHERE (project_id = ? AND interval_day = ? )`,
+					`UPDATE project_bandwidth_daily_rollups AS pbdr SET pbdr.egress_settled = pbdr.egress_settled + ?, pbdr.egress_dead = pbdr.egress_dead + ?
+					WHERE (project_id = ? AND interval_day = ? )`,
 				)
-				_, err = tx.Tx.ExecContext(ctx, updatePBDRStatement, uint64(settledAmount), uint64(deadAmount), projectID[:], civilIntervalDate)
+				_, err = tx.Tx.ExecContext(ctx, updatePBDRStatement, uint64(settledAmount), uint64(deadAmount), projectID, civilIntervalDate)
 				if err != nil {
 					return err
 				}
@@ -258,9 +258,9 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 				if affected > 0 {
 					insertPBDRStatement := tx.Rebind(
 						`INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-VALUES (?, ?, ?, ?, ?)`,
+						VALUES (?, ?, ?, ?, ?)`,
 					)
-					_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, projectID[:], civilIntervalDate, 0, uint64(settledAmount), uint64(deadAmount))
+					_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, projectID, civilIntervalDate, 0, uint64(settledAmount), uint64(deadAmount))
 					if err != nil {
 						return err
 					}
@@ -281,12 +281,12 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 	case dbutil.Postgres, dbutil.Cockroach:
 		statement := db.db.Rebind(
 			`INSERT INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(project_id, bucket_name, interval_start, action)
-		DO UPDATE SET inline = bucket_bandwidth_rollups.inline + ?`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(project_id, bucket_name, interval_start, action)
+			DO UPDATE SET inline = bucket_bandwidth_rollups.inline + ?`,
 		)
 		_, err = db.db.ExecContext(ctx, statement,
-			projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
+			projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
 		)
 		if err != nil {
 			return errs.Wrap(err)
@@ -298,7 +298,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.inline = bbr.inline + ? WHERE project_id = ? AND bucket_name = ? AND interval_start = ? AND action = ?`,
 			)
 			result, err := tx.Tx.ExecContext(ctx, updateStatement,
-				uint64(amount), projectID[:], bucketName, intervalStart.UTC(), int64(action),
+				uint64(amount), projectID, bucketName, intervalStart.UTC(), int64(action),
 			)
 			if err != nil {
 				return errs.Wrap(err)
@@ -314,7 +314,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 				)
 				_, err = tx.Tx.ExecContext(ctx, insertStatement,
-					projectID[:], bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), uint64(amount), 0, 0,
+					projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), uint64(amount), 0, 0,
 				)
 				if err != nil {
 					return errs.Wrap(err)
@@ -335,12 +335,12 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	case dbutil.Postgres, dbutil.Cockroach:
 		statement := db.db.Rebind(
 			`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(storagenode_id, interval_start, action)
-		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(storagenode_id, interval_start, action)
+			DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
 		)
 		_, err = db.db.ExecContext(ctx, statement,
-			storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), uint64(amount),
+			storageNode, intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), uint64(amount),
 		)
 		if err != nil {
 			return err
@@ -351,7 +351,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 			`UPDATE storagenode_bandwidth_rollups AS sbr SET  sbr.settled = sbr.settled + ?  WHERE storagenode_id = ? AND interval_start = ? AND action = ?`,
 		)
 		result, err := db.db.ExecContext(ctx, updateStatement,
-			uint64(amount), storageNode.Bytes(), intervalStart.UTC(), uint64(action),
+			uint64(amount), storageNode, intervalStart.UTC(), uint64(action),
 		)
 		if err != nil {
 			return errs.Wrap(err)
@@ -367,7 +367,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 				`INSERT OR IGNORE INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled) VALUES (?, ?, ?, ?, ?)`,
 			)
 			_, err = db.db.ExecContext(ctx, insertStatement,
-				storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, uint64(action), uint64(amount),
+				storageNode, intervalStart.UTC(), defaultIntervalSeconds, uint64(action), uint64(amount),
 			)
 			if err != nil {
 				return errs.Wrap(err)
@@ -385,7 +385,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], bucketName, from.UTC(), to.UTC()).Scan(&sum)
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&sum)
 	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
 	}
@@ -397,7 +397,7 @@ func (db *ordersDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.U
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT SUM(allocated),SUM(inline), SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], bucketName, from.UTC(), to.UTC()).Scan(&allocated, &inline, &settled)
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&allocated, &inline, &settled)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, 0, nil
 	}
@@ -414,17 +414,17 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 		SELECT COALESCE(SUM(settled), 0)
 		FROM storagenode_bandwidth_rollups
 		WHERE storagenode_id = ?
-		  AND interval_start > ?
-		  AND interval_start <= ?
-	`), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum1)
+			AND interval_start > ?
+			AND interval_start <= ?
+	`), nodeID, from.UTC(), to.UTC()).Scan(&sum1)
 
 	err2 := db.db.QueryRow(ctx, db.db.Rebind(`
 		SELECT COALESCE(SUM(settled), 0)
 		FROM storagenode_bandwidth_rollups_phase2
 		WHERE storagenode_id = ?
-		  AND interval_start > ?
-		  AND interval_start <= ?
-	`), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum2)
+			AND interval_start > ?
+			AND interval_start <= ?
+	`), nodeID, from.UTC(), to.UTC()).Scan(&sum2)
 
 	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
 		return 0, err1
