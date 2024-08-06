@@ -58,6 +58,12 @@ export const useProjectsStore = defineStore('projects', () => {
     const versioningUIEnabled: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.versioningUIEnabled);
     const promptForVersioningBeta: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.promptForVersioningBeta);
 
+    const usersFirstProject = computed<Project>(() => {
+        return state.projects.reduce((earliest, current) => {
+            return new Date(current.createdAt).getTime() < new Date(earliest.createdAt).getTime() ? current : earliest;
+        }, state.projects[0]);
+    });
+
     function getUsageReportLink(startUTC: Date, endUTC: Date, projectID = ''): string {
         const since = Time.toUnixTimestamp(startUTC);
         const before = Time.toUnixTimestamp(endUTC);
@@ -329,6 +335,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state,
         versioningUIEnabled,
         promptForVersioningBeta,
+        usersFirstProject,
         getProjects,
         getOwnedProjects,
         getDailyProjectData,

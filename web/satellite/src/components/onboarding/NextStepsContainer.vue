@@ -37,7 +37,6 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { PricingPlanInfo } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import PartnerUpgradeNoticeBanner from '@/components/onboarding/PartnerUpgradeNoticeBanner.vue';
@@ -45,7 +44,6 @@ import OnboardingComponent from '@/components/onboarding/OnboardingStepperCompon
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
@@ -67,9 +65,13 @@ const planInfo = computed<PricingPlanInfo | null>(() => billingStore.state.prici
 const partnerBannerVisible = computed(() => !usersStore.noticeDismissal.partnerUpgradeBanner && billingStore.state.pricingPlansAvailable);
 
 const shouldShowOnboardStepper = computed<boolean>(() => {
-    if (selectedProject.value.ownerId !== user.value.id) {
+    const isNotOwner = selectedProject.value.ownerId !== user.value.id;
+    const isNotFirstProject = selectedProject.value.id !== projectsStore.usersFirstProject.id;
+
+    if (isNotOwner || isNotFirstProject) {
         return false;
     }
+
     const hasOnboardStep = !!ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep);
     return !userSettings.value.onboardingEnd && hasOnboardStep;
 });
