@@ -41,6 +41,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 
 	var canDelete, canLock bool
@@ -65,10 +69,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		},
 	}
 
-	retention, err := protobufRetentionToMetabase(req.Retention)
-	if err != nil {
-		return nil, err
-	}
+	retention := protobufRetentionToMetabase(req.Retention)
 
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
@@ -124,12 +125,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument,
 				"cannot specify Object Lock settings and an object expiration time")
 		}
-	}
-
-	// we can do just basic name validation because later we are checking bucket in DB
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	objectKeyLength := len(req.EncryptedObjectKey)
@@ -405,8 +400,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 ) {
 	defer mon.Task()(&ctx)(&err)
 
-	retention, err := protobufRetentionToMetabase(beginObjectReq.Retention)
-	if err != nil {
+	if err = validateRequestSimple(beginObjectReq); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -431,6 +425,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 			Optional:        true,
 		},
 	}
+
+	retention := protobufRetentionToMetabase(beginObjectReq.Retention)
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
@@ -480,12 +476,6 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	} else if maxObjectTTL != nil {
 		ttl := now.Add(*maxObjectTTL)
 		expiresAt = &ttl
-	}
-
-	// we can do just basic name validation because later we are checking bucket in DB
-	err = endpoint.validateBucketNameLength(beginObjectReq.Bucket)
-	if err != nil {
-		return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	objectKeyLength := len(beginObjectReq.EncryptedObjectKey)
@@ -635,6 +625,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	var allowLock bool
 
 	now := time.Now()
@@ -671,15 +665,6 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	objectLocation := metabase.ObjectLocation{
 		ProjectID:  keyInfo.ProjectID,
@@ -788,6 +773,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		// N.B. jeff thinks this is a bad idea but jt convinced him
@@ -820,15 +809,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
@@ -1219,6 +1199,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
@@ -1229,11 +1213,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
 	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
@@ -1453,6 +1432,10 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
@@ -1463,11 +1446,6 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -1551,6 +1529,10 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 
 	var canRead, canList, canLock bool
@@ -1600,15 +1582,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	var deletedObjects []*pb.Object
 
@@ -1677,6 +1650,10 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
 		VerifyPermission{
@@ -1700,11 +1677,6 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	// TODO we may need custom metabase request to avoid two DB calls
 	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
@@ -1782,6 +1754,10 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
@@ -1792,11 +1768,6 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	if err := endpoint.checkEncryptedMetadataSize(req.EncryptedMetadata, req.EncryptedMetadataEncryptedKey); err != nil {
 		return nil, err
@@ -1844,6 +1815,10 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
@@ -1856,15 +1831,6 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
@@ -1926,6 +1892,10 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
@@ -1939,23 +1909,11 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	err = endpoint.validateBucketNameLength(req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
 	if !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
 	}
 
-	retention, err := protobufRetentionToMetabase(req.Retention)
-	if err != nil {
-		return nil, err
-	}
+	retention := protobufRetentionToMetabase(req.Retention)
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -2322,6 +2280,10 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
@@ -2345,13 +2307,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
-		err = endpoint.validateBucketNameLength(bucket)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-	}
 
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
@@ -2479,6 +2434,10 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	var (
 		now       = time.Now()
 		canDelete bool
@@ -2505,11 +2464,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		},
 	}
 
-	retention, err := protobufRetentionToMetabase(req.Retention)
-	if err != nil {
-		return nil, err
-	}
-
+	retention := protobufRetentionToMetabase(req.Retention)
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
@@ -2530,11 +2485,6 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
-	}
-
-	err = endpoint.validateBucketNameLength(req.NewBucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	var versioningEnabled bool
@@ -2616,6 +2566,10 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
@@ -2639,17 +2593,6 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
-		err = endpoint.validateBucketNameLength(bucket)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-	}
-
-	if err := validateObjectVersion(req.ObjectVersion); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
 
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
@@ -2754,6 +2697,10 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 
 	actions := []VerifyPermission{
@@ -2767,11 +2714,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		},
 	}
 
-	retention, err := protobufRetentionToMetabase(req.Retention)
-	if err != nil {
-		return nil, err
-	}
-
+	retention := protobufRetentionToMetabase(req.Retention)
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
@@ -2792,11 +2735,6 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 	if retention.Enabled() && !endpoint.config.ObjectLockEnabled(keyInfo.ProjectID) {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
-	}
-
-	err = endpoint.validateBucketNameLength(req.NewBucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	if err := endpoint.checkEncryptedMetadataSize(req.NewEncryptedMetadata, req.NewEncryptedMetadataKey); err != nil {
