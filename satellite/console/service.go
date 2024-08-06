@@ -2658,6 +2658,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	project := isMember.project
 
+	isOwnerPaidTier, err := s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	versioningUIEnabled := true
 	promptForVersioningBeta := false
 	if !s.versioningConfig.UseBucketLevelObjectVersioning {
@@ -2694,6 +2699,8 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		ObjectLockUIEnabled:     s.GetObjectLockEnabledByProjectID(project.ID) && versioningUIEnabled,
 		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
 		Passphrase:              string(passphrase),
+		IsOwnerPaidTier:         isOwnerPaidTier,
+		Role:                    isMember.membership.Role,
 	}, nil
 }
 
@@ -3059,12 +3066,25 @@ func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.
 		return Error.Wrap(err)
 	}
 
-	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrNoMembership.Wrap(err)
+	}
+	project := isMember.project
+
+	if isMember.membership.Role != RoleAdmin && project.OwnerID != user.ID {
+		return ErrUnauthorized.New("Only project owner or admin may update project limits")
 	}
 
-	if !user.PaidTier {
+	isPaidTier := user.PaidTier
+	if project.OwnerID != user.ID {
+		isPaidTier, err = s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	if !isPaidTier {
 		return ErrNotPaidTier.New("Only Pro users may update project limits")
 	}
 

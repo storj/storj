@@ -241,10 +241,12 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled     bool   `json:"versioningUIEnabled"`
-	ObjectLockUIEnabled     bool   `json:"objectLockUIEnabled"`
-	PromptForVersioningBeta bool   `json:"promptForVersioningBeta"`
-	Passphrase              string `json:"passphrase,omitempty"`
+	VersioningUIEnabled     bool              `json:"versioningUIEnabled"`
+	ObjectLockUIEnabled     bool              `json:"objectLockUIEnabled"`
+	PromptForVersioningBeta bool              `json:"promptForVersioningBeta"`
+	Passphrase              string            `json:"passphrase,omitempty"`
+	IsOwnerPaidTier         bool              `json:"isOwnerPaidTier"`
+	Role                    ProjectMemberRole `json:"role"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

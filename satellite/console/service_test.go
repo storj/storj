@@ -1322,6 +1322,8 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.NotNil(t, config)
+				require.True(t, config.IsOwnerPaidTier)
+				require.Equal(t, console.RoleAdmin, config.Role)
 				require.False(t, config.ObjectLockUIEnabled)
 				// versioning enabled for all projects
 				require.True(t, config.VersioningUIEnabled)
@@ -1329,8 +1331,16 @@ func TestService(t *testing.T) {
 				// add userCtx2 as member
 				member, err := service.GetUser(ctx, up2Proj.OwnerID)
 				require.NoError(t, err)
+				require.False(t, member.PaidTier)
+
 				_, err = service.AddProjectMembers(userCtx1, pr.ID, []string{member.Email})
 				require.NoError(t, err)
+
+				config, err = service.GetProjectConfig(userCtx2, pr.ID)
+				require.NoError(t, err)
+				require.Equal(t, console.RoleMember, config.Role)
+				// member is not paid tier, but project owner is.
+				require.True(t, config.IsOwnerPaidTier)
 
 				// disable for all projects
 				versioningConfig.UseBucketLevelObjectVersioning = false
