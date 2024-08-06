@@ -122,6 +122,7 @@ async function addCardToDB(res: string): Promise<void> {
         usersStore.getUser().catch((_) => {});
 
         if (route.name === ROUTES.Dashboard.name) {
+            projectsStore.getProjectConfig().catch((_) => {});
             projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
         }
 

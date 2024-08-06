@@ -83,6 +83,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
 import { VTooltip, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
 import { Copy, Info } from 'lucide-vue-next';
+import { useRoute } from 'vue-router';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -90,6 +91,8 @@ import { useNotify } from '@/utils/hooks';
 import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { ROUTES } from '@/router';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import AddTokensStepBanner from '@/components/dialogs/upgradeAccountFlow/AddTokensStepBanner.vue';
 
@@ -101,8 +104,10 @@ enum ViewState {
 
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
+const route = useRoute();
 
 const canvas = ref<HTMLCanvasElement>();
 const intervalID = ref<NodeJS.Timer>();
@@ -189,6 +194,10 @@ watch(() => pendingPayments.value, async () => {
 
     // we redirect to success step only if user status was updated to Paid Tier.
     if (isPaidTier.value) {
+        if (route.name === ROUTES.Dashboard.name) {
+            projectsStore.getProjectConfig().catch((_) => {});
+            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
+        }
         // arbitrary delay to allow for user to read success banner.
         await new Promise(resolve => setTimeout(resolve, 2000));
         emit('success');

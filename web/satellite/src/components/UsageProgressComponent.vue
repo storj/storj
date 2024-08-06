@@ -38,7 +38,7 @@
                 </v-col>
                 <v-col>
                     <h4 class="text-right">{{ available }}</h4>
-                    <p class="text-right text-medium-emphasis"><a class="link" role="button" @click="emit('ctaClick')"><small>{{ cta }}</small></a></p>
+                    <p v-if="!hideCta" class="text-right text-medium-emphasis"><a class="link" role="button" @click="emit('ctaClick')"><small>{{ cta }}</small></a></p>
                 </v-col>
             </v-row>
         </v-card-item>
@@ -63,6 +63,7 @@ const props = defineProps<{
     limit: string;
     available: string;
     cta: string;
+    hideCta?: boolean;
     icon?: keyof typeof iconComponents;
     extraInfo?: string;
     noLimit?: boolean;

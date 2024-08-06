@@ -109,6 +109,8 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.versioningUIEnabled,
                 result.promptForVersioningBeta,
                 result.passphrase ?? '',
+                result.isOwnerPaidTier,
+                result.role,
             );
         }
 

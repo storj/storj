@@ -55,8 +55,9 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const api: ProjectsApi = new ProjectsHttpApi();
 
-    const versioningUIEnabled: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.versioningUIEnabled);
-    const promptForVersioningBeta: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.promptForVersioningBeta);
+    const selectedProjectConfig: ComputedRef<ProjectConfig> = computed(() => state.selectedProjectConfig);
+    const versioningUIEnabled: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.versioningUIEnabled);
+    const promptForVersioningBeta: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.promptForVersioningBeta);
 
     const usersFirstProject = computed<Project>(() => {
         return state.projects.reduce((earliest, current) => {
@@ -333,6 +334,7 @@ export const useProjectsStore = defineStore('projects', () => {
 
     return {
         state,
+        selectedProjectConfig,
         versioningUIEnabled,
         promptForVersioningBeta,
         usersFirstProject,

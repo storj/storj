@@ -61,7 +61,7 @@
             </v-col>
         </v-row>
 
-        <v-row v-if="!isPaidTier && billingEnabled">
+        <v-row v-if="!isProjectOwnerPaidTier && billingEnabled">
             <v-col cols="12">
                 <v-card title="Free Trial">
                     <v-card-subtitle>
@@ -121,10 +121,8 @@
                             variant="outlined"
                             color="default"
                             size="small"
-                            :href="projectLimitsIncreaseRequestURL"
-                            target="_blank"
-                            rel="noopener noreferrer"
                             rounded="md"
+                            @click="openRequestUrl"
                         >
                             Request Limits Increase
                             <v-icon end :icon="SquareArrowOutUpRight" />
@@ -224,6 +222,7 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { ProjectRole } from '@/types/projectMembers';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
@@ -269,6 +268,16 @@ const project = computed<Project>(() => {
     return projectsStore.state.selectedProject;
 });
 
+/**
+ * Returns whether this project is owned by the current user
+ * or whether they're an admin.
+ */
+const isProjectOwnerOrAdmin = computed(() => {
+    const isOwner = project.value.ownerId === usersStore.state.user.id;
+    const isAdmin = projectsStore.selectedProjectConfig.role === ProjectRole.Admin;
+    return isOwner || isAdmin;
+});
+
 const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForVersioningBeta);
 
 /**
@@ -287,11 +296,9 @@ const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjec
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
 
 /**
- * Returns user's paid tier status from store.
+ * Returns whether this project is owned by a paid tier user.
  */
-const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier;
-});
+const isProjectOwnerPaidTier = computed(() => projectsStore.selectedProjectConfig.isOwnerPaidTier);
 
 /**
  * Returns the current project limits from store.
@@ -302,7 +309,7 @@ const currentLimits = computed(() => projectsStore.state.currentLimits);
  * Returns formatted storage limit.
  */
 const storageLimitFormatted = computed<string>(() => {
-    if (isPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetStorageLimit) {
+    if (isProjectOwnerPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetStorageLimit) {
         return 'No Limit';
     }
     return formatLimit(currentLimits.value.userSetStorageLimit || currentLimits.value.storageLimit);
@@ -312,7 +319,7 @@ const storageLimitFormatted = computed<string>(() => {
  * Returns formatted bandwidth limit.
  */
 const bandwidthLimitFormatted = computed<string>(() => {
-    if (isPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetBandwidthLimit) {
+    if (isProjectOwnerPaidTier.value && noLimitsUiEnabled.value && !currentLimits.value.userSetBandwidthLimit) {
         return 'No Limit';
     }
     return formatLimit(currentLimits.value.userSetBandwidthLimit || currentLimits.value.bandwidthLimit);
@@ -379,6 +386,10 @@ function showEditDescriptionDialog(): void {
  * Displays the Storage Limit dialog.
  */
 function showStorageLimitDialog(): void {
+    if (!isProjectOwnerOrAdmin.value) {
+        notify.notify('Contact project owner or admin to request increase');
+        return;
+    }
     limitToChange.value = LimitToChange.Storage;
     isEditLimitDialogShown.value = true;
 }
@@ -387,8 +398,20 @@ function showStorageLimitDialog(): void {
  * Displays the Bandwidth Limit dialog.
  */
 function showBandwidthLimitDialog(): void {
+    if (!isProjectOwnerOrAdmin.value) {
+        notify.notify('Contact project owner or admin to request increase');
+        return;
+    }
     limitToChange.value = LimitToChange.Bandwidth;
     isEditLimitDialogShown.value = true;
+}
+
+function openRequestUrl(): void {
+    if (!isProjectOwnerOrAdmin.value) {
+        notify.notify('Contact project owner or admin to request increase');
+        return;
+    }
+    window.open(projectLimitsIncreaseRequestURL.value, '_blank', 'noreferrer');
 }
 
 /**
