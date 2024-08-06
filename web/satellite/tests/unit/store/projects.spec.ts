@@ -18,7 +18,6 @@ const projects = [
         'descr',
         '23',
         'testOwnerId',
-        false,
     ),
     new Project(
         randomUUID(),
@@ -26,7 +25,6 @@ const projects = [
         'descr2',
         '24',
         'testOwnerId1',
-        false,
     ),
 ];
 

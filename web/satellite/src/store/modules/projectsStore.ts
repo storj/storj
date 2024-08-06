@@ -25,9 +25,8 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { hexToBase64 } from '@/utils/strings';
 import { Duration, Time } from '@/utils/time';
 import { useConfigStore } from '@/store/modules/configStore';
-import { Versioning } from '@/types/versioning';
 
-const DEFAULT_PROJECT = new Project('', '', '', '', '', true, 0);
+const DEFAULT_PROJECT = new Project('', '', '', '', '', 0);
 const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
 const MAXIMUM_URL_ID_LENGTH = 22; // UUID (16 bytes) is 22 base64 characters
 
@@ -317,13 +316,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     const projects = computed(() => {
-        return state.projects.map((project: Project) => {
-            if (project.id === state.selectedProject.id) {
-                project.isSelected = true;
-            }
-
-            return project;
-        });
+        return state.projects;
     });
 
     const projectsWithoutSelected = computed(() => {

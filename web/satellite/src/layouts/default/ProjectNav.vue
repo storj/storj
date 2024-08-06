@@ -36,13 +36,13 @@
                         <v-list-item
                             v-for="project in ownProjects"
                             :key="project.id"
-                            :active="project.isSelected"
+                            :active="selectedProject.id === project.id"
                             @click="() => onProjectSelected(project)"
                         >
-                            <template v-if="project.isSelected" #prepend>
+                            <template v-if="selectedProject.id === project.id" #prepend>
                                 <img src="@/assets/icon-check-color.svg" alt="Selected Project" width="18" height="18">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-9'">
+                            <v-list-item-title :class="selectedProject.id === project.id ? 'ml-4' : 'ml-9'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -67,13 +67,13 @@
                         <v-list-item
                             v-for="project in sharedProjects"
                             :key="project.id"
-                            :active="project.isSelected"
+                            :active="selectedProject.id === project.id"
                             @click="() => onProjectSelected(project)"
                         >
-                            <template v-if="project.isSelected" #prepend>
+                            <template v-if="selectedProject.id === project.id" #prepend>
                                 <img src="@/assets/icon-check-color.svg" alt="Selected Project">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-4' : 'ml-9'">
+                            <v-list-item-title :class="selectedProject.id === project.id ? 'ml-4' : 'ml-9'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -414,8 +414,8 @@ function onCreateProject() {
  * This comparator is used to sort projects by isSelected.
  */
 function compareProjects(a: Project, b: Project): number {
-    if (a.isSelected) return -1;
-    if (b.isSelected) return 1;
+    if (selectedProject.value.id === a.id) return -1;
+    if (selectedProject.value.id === b.id) return 1;
     return 0;
 }
 

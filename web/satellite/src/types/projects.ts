@@ -158,7 +158,6 @@ export class Project {
         public description: string = '',
         public createdAt: string = '',
         public ownerId: string = '',
-        public isSelected: boolean = false,
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
         public versioning: Versioning = Versioning.NotSupported,
