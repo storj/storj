@@ -401,6 +401,27 @@ func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobR
 	return nil
 }
 
+// TrashWithStorageFormat marks a blob with a specific storage format for pending deletion.
+func (blobs *BlobsUsageCache) TrashWithStorageFormat(ctx context.Context, blobRef blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
+	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = blobs.Blobs.TrashWithStorageFormat(ctx, blobRef, formatVer, timestamp)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	satelliteID, err := storj.NodeIDFromBytes(blobRef.Namespace)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	blobs.Update(ctx, satelliteID, -pieceTotal, -pieceContentSize, pieceTotal)
+	return nil
+}
+
 // EmptyTrash empties the trash and updates the cache.
 func (blobs *BlobsUsageCache) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	satelliteID, err := storj.NodeIDFromBytes(namespace)
