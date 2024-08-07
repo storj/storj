@@ -34,7 +34,7 @@ import (
 func TestRetainPieces(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		log := zaptest.NewLogger(t)
-		blobs := db.Pieces()
+		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
@@ -109,6 +109,10 @@ func TestRetainPieces(t *testing.T) {
 				}
 			}
 		}
+
+		usedForTrash, err := blobs.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+		require.Zero(t, usedForTrash)
 
 		retainCachePath := ctx.Dir("retain")
 
@@ -201,13 +205,17 @@ func TestRetainPieces(t *testing.T) {
 		cancel()
 		err = group.Wait()
 		require.True(t, errs2.IsCanceled(err))
+
+		usedForTrash, err = blobs.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+		require.NotZero(t, usedForTrash)
 	})
 }
 
 func TestRetainPieces_lazyFilewalker(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		log := zaptest.NewLogger(t)
-		blobs := db.Pieces()
+		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		cfg := pieces.DefaultConfig
@@ -291,6 +299,10 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 				}
 			}
 		}
+
+		usedForTrash, err := blobs.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+		require.Zero(t, usedForTrash)
 
 		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
 			Status:      retain.Enabled,
@@ -346,13 +358,17 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 		cancel()
 		err = group.Wait()
 		require.True(t, errs2.IsCanceled(err))
+
+		usedForTrash, err = blobs.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+		require.NotZero(t, usedForTrash)
 	})
 }
 
 func TestRetainPieces_fromStore(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		log := zaptest.NewLogger(t)
-		blobs := db.Pieces()
+		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
 		cfg := pieces.DefaultConfig
@@ -437,6 +453,10 @@ func TestRetainPieces_fromStore(t *testing.T) {
 			}
 		}
 
+		usedForTrash, err := blobs.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+		require.Zero(t, usedForTrash)
+
 		retainDir := ctx.Dir("retain")
 		req := retain.Request{
 			SatelliteID:   satellite0.ID,
@@ -445,7 +465,7 @@ func TestRetainPieces_fromStore(t *testing.T) {
 		}
 
 		// save the request to the store
-		err := retain.SaveRequest(retainDir, req.GetFilename(), &pb.RetainRequest{
+		err = retain.SaveRequest(retainDir, req.GetFilename(), &pb.RetainRequest{
 			CreationDate: req.CreatedBefore,
 			Filter:       req.Filter.Bytes(),
 		})
@@ -497,6 +517,10 @@ func TestRetainPieces_fromStore(t *testing.T) {
 		cancel()
 		err = group.Wait()
 		require.True(t, errs2.IsCanceled(err))
+
+		usedForTrash, err = blobs.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+		require.NotZero(t, usedForTrash)
 	})
 }
 
