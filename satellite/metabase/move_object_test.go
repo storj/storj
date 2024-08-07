@@ -949,7 +949,7 @@ func TestFinishMoveObject(t *testing.T) {
 				Opts: metabase.FinishMoveObject{
 					ObjectStream:          unversionedObject.ObjectStream,
 					NewBucket:             unversionedObject.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+					NewEncryptedObjectKey: newEncryptedObjectKey,
 
 					NewDisallowDelete: true,
 
@@ -987,13 +987,11 @@ func TestFinishMoveObject(t *testing.T) {
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}
 
-			newEncryptedObjectKey := metabase.ObjectKey("new key")
-
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					ObjectStream:          obj2.ObjectStream,
 					NewBucket:             obj2.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+					NewEncryptedObjectKey: obj2.ObjectKey,
 
 					NewDisallowDelete: true,
 
@@ -1003,9 +1001,7 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			obj2.ObjectKey = newEncryptedObjectKey
-			obj2.Version = 1
-			obj2.Status = metabase.CommittedVersioned
+			obj2.Version = 4
 			obj2.Retention = expectedRetention
 
 			metabasetest.Verify{
@@ -1013,6 +1009,58 @@ func TestFinishMoveObject(t *testing.T) {
 					metabase.RawObject(obj1),
 					metabase.RawObject(obj2),
 					metabase.RawObject(obj3),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("attempt to move locked object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			nowPlusHour := time.Now().Add(time.Hour)
+
+			withCurrentLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, nowPlusHour)
+			withExpiredLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, now)
+
+			newEncryptedObjectKey := metabase.ObjectKey("new key")
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          withExpiredLock.ObjectStream,
+					NewBucket:             withExpiredLock.BucketName,
+					NewEncryptedObjectKey: newEncryptedObjectKey,
+
+					NewDisallowDelete: true,
+				},
+			}.Check(ctx, t, db)
+
+			withExpiredLock.ObjectKey = newEncryptedObjectKey
+			withExpiredLock.Version = 1
+			withExpiredLock.Retention = metabase.Retention{}
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          withCurrentLock.ObjectStream,
+					NewBucket:             withCurrentLock.BucketName,
+					NewEncryptedObjectKey: newEncryptedObjectKey,
+
+					NewDisallowDelete: true,
+
+					NewVersioned: true,
+
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+					},
+				},
+				ErrClass: &metabase.ErrObjectLock,
+				ErrText:  "object has an active retention period",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(withCurrentLock),
+					metabase.RawObject(withExpiredLock),
 				},
 			}.Check(ctx, t, db)
 		})
