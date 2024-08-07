@@ -71,7 +71,7 @@ require (
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
-	storj.io/uplink v1.13.1-0.20240711151718-608581a81048
+	storj.io/uplink v1.13.1-0.20240807153000-dbed543f3669
 )
 
 require (

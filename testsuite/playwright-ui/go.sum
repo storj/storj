@@ -2720,7 +2720,7 @@ storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd h1:XkLxAvogynNQu/1gM/F
 storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd/go.mod h1:nwyyJiAFAPRu81qBfAE5cBGkVXROYSNJu9pGXLtStHE=
 storj.io/picobuf v0.0.3 h1:xAUPB5ZUGfxkqd3bnw3zp01kkWb9wlhg4vtZWUs2S9A=
 storj.io/picobuf v0.0.3/go.mod h1:4V4xelV1RSCck5GgmkL/Txw9l6IfX3XcBzegmL5Kudo=
-storj.io/uplink v1.13.1-0.20240711151718-608581a81048 h1:SQJ8GI3PW5gXjZfHAbFO1J3z4KpFB8S35DU/z8RkeaE=
-storj.io/uplink v1.13.1-0.20240711151718-608581a81048/go.mod h1:MT8+V7qddgn1ra09piq3Idy4IUva2S90S7me7U8n6cE=
+storj.io/uplink v1.13.1-0.20240807153000-dbed543f3669 h1:NIseoASRfd42Z4GCFnMrnsuJiscpk6ocmzK8x5g/EiM=
+storj.io/uplink v1.13.1-0.20240807153000-dbed543f3669/go.mod h1:MT8+V7qddgn1ra09piq3Idy4IUva2S90S7me7U8n6cE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=
