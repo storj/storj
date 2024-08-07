@@ -834,5 +834,187 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("move with TTL and retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			nowPlusHour := now.Add(time.Hour)
+
+			unversionedObject := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 0, nowPlusHour)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          unversionedObject.ObjectStream,
+					NewBucket:             unversionedObject.BucketName,
+					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+
+					NewDisallowDelete: true,
+
+					NewVersioned: true,
+
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: now,
+					},
+				},
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move unversioned without version and with retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          unversionedObject.ObjectStream,
+					NewBucket:             unversionedObject.BucketName,
+					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+
+					NewDisallowDelete: true,
+
+					NewVersioned: false,
+
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+					},
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  "Object Lock settings must not be placed on unversioned objects",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(unversionedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move versioned without version and with retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = metabase.DefaultVersion
+			obj1 := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 2
+			obj2 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+			obj.Version = 3
+			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          obj2.ObjectStream,
+					NewBucket:             obj2.BucketName,
+					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+
+					NewDisallowDelete: true,
+
+					NewVersioned: false,
+
+					Retention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+					},
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  "Object Lock settings must not be placed on unversioned objects",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(obj1),
+					metabase.RawObject(obj2),
+					metabase.RawObject(obj3),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move unversioned with version and with retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
+
+			expectedRetention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}
+
+			newEncryptedObjectKey := metabase.ObjectKey("new key")
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          unversionedObject.ObjectStream,
+					NewBucket:             unversionedObject.BucketName,
+					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+
+					NewDisallowDelete: true,
+
+					NewVersioned: true,
+
+					Retention: expectedRetention,
+				},
+			}.Check(ctx, t, db)
+
+			unversionedObject.ObjectKey = newEncryptedObjectKey
+			unversionedObject.Version = 1
+			unversionedObject.Status = metabase.CommittedVersioned
+			unversionedObject.Retention = expectedRetention
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(unversionedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move versioned with version and with retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = metabase.DefaultVersion
+			obj1 := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 2
+			obj2 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+			obj.Version = 3
+			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			expectedRetention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}
+
+			newEncryptedObjectKey := metabase.ObjectKey("new key")
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          obj2.ObjectStream,
+					NewBucket:             obj2.BucketName,
+					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+
+					NewDisallowDelete: true,
+
+					NewVersioned: true,
+
+					Retention: expectedRetention,
+				},
+			}.Check(ctx, t, db)
+
+			obj2.ObjectKey = newEncryptedObjectKey
+			obj2.Version = 1
+			obj2.Status = metabase.CommittedVersioned
+			obj2.Retention = expectedRetention
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(obj1),
+					metabase.RawObject(obj2),
+					metabase.RawObject(obj3),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
