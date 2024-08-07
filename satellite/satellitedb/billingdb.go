@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // ensures that *billingDB implements billing.TransactionsDB.
@@ -73,12 +74,15 @@ func (db billingDB) Insert(ctx context.Context, primaryTx billing.Transaction, s
 		return nil, Error.New("Cannot insert more than %d supplemental txs (tried %d)", supplementalTxLimit, len(supplementalTxs))
 	}
 
-	for retryCount := 0; retryCount < 5; retryCount++ {
+	backoff := 10 * time.Millisecond
+	for retryCount := 0; retryCount < 8; retryCount++ {
 		txIDs, err := db.tryInsert(ctx, primaryTx, supplementalTxs)
 		switch {
 		case err == nil:
 			return txIDs, nil
-		case pgerrcode.IsConstraintViolation(err):
+		case pgerrcode.IsConstraintViolation(err), spannerutil.IsAlreadyExists(err):
+			time.Sleep(backoff)
+			backoff *= 2
 		default:
 			return nil, err
 		}
