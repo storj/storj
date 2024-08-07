@@ -903,7 +903,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
 
 		// Update the current bandwidth cache value incrementing the SegmentSize.
-		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, downloadSizes.encryptedSize)
+		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), downloadSizes.encryptedSize)
 		if err != nil {
 			if errs2.IsCanceled(err) {
 				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)

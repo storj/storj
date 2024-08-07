@@ -161,7 +161,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projectUsage.SetNow(func() time.Time {
 					return now
 				})
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID, accounting.ProjectLimits{})
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: bucket.ProjectID})
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
@@ -964,7 +964,7 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 				return tt.now
 			})
 
-			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID, accounting.ProjectLimits{})
+			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: bucket.ProjectID})
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
 		}
@@ -1042,7 +1042,7 @@ func TestProjectUsage_BandwidthCache(t *testing.T) {
 
 		badwidthUsed := int64(42)
 
-		err := projectUsage.UpdateProjectBandwidthUsage(ctx, project.ID, badwidthUsed)
+		err := projectUsage.UpdateProjectBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, badwidthUsed)
 		require.NoError(t, err)
 
 		// verify cache key creation.
@@ -1052,7 +1052,7 @@ func TestProjectUsage_BandwidthCache(t *testing.T) {
 
 		// verify cache key increment.
 		increment := int64(10)
-		err = projectUsage.UpdateProjectBandwidthUsage(ctx, project.ID, increment)
+		err = projectUsage.UpdateProjectBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, increment)
 		require.NoError(t, err)
 		fromCache, err = projectUsage.GetProjectBandwidthUsage(ctx, project.ID)
 		require.NoError(t, err)

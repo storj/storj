@@ -5,6 +5,7 @@ package accounting
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -15,6 +16,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
+
+const noLimits = -1
 
 var mon = monkit.Package()
 
@@ -67,29 +70,34 @@ func NewService(log *zap.Logger, projectAccountingDB ProjectAccounting, liveAcco
 // Among others,it can return one of the following errors returned by
 // storj.io/storj/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
 // by ErrProjectUsage.
-func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, limits ProjectLimits) (_ bool, limit memory.Size, err error) {
+func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, limits ProjectLimits) (exceeds bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limit = usage.defaultMaxBandwidth
 	if limits.Bandwidth != nil {
+		// project is configured to have no download limits
+		if unlimitedDownloads(limits.Bandwidth) {
+			return false, 0, nil
+		}
+
 		limit = memory.Size(*limits.Bandwidth)
 	}
 
 	// Get the current bandwidth usage from cache.
-	bandwidthUsage, err := usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
+	bandwidthUsage, err := usage.liveAccounting.GetProjectBandwidthUsage(ctx, limits.ProjectID, usage.nowFn())
 	if err != nil {
 		// Verify If the cache key was not found
 		if ErrKeyNotFound.Has(err) {
 
 			// Get current bandwidth value from database.
 			now := usage.nowFn()
-			bandwidthUsage, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+			bandwidthUsage, err = usage.GetProjectBandwidth(ctx, limits.ProjectID, now.Year(), now.Month(), now.Day())
 			if err != nil {
 				return false, 0, ErrProjectUsage.Wrap(err)
 			}
 
 			// Create cache key with database value.
-			_, err = usage.liveAccounting.InsertProjectBandwidthUsage(ctx, projectID, bandwidthUsage, usage.bandwidthCacheTTL, usage.nowFn())
+			_, err = usage.liveAccounting.InsertProjectBandwidthUsage(ctx, limits.ProjectID, bandwidthUsage, usage.bandwidthCacheTTL, usage.nowFn())
 			if err != nil {
 				return false, 0, ErrProjectUsage.Wrap(err)
 			}
@@ -299,8 +307,11 @@ func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uu
 // It can return one of the following errors returned by
 // storj.io/storj/satellite/accounting.Cache.UpdateProjectBandwidthUsage, wrapped
 // by ErrProjectUsage.
-func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
-	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
+func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, limits ProjectLimits, increment int64) (err error) {
+	if unlimitedDownloads(limits.Bandwidth) {
+		return nil
+	}
+	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, limits.ProjectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
 }
 
 // GetProjectStorageAndSegmentUsage get the current storage and segment usage from cache.
@@ -325,4 +336,11 @@ func (usage *Service) SetNow(now func() time.Time) {
 // TestSetAsOfSystemInterval allows tests to set Service asOfSystemInterval value.
 func (usage *Service) TestSetAsOfSystemInterval(asOfSystemInterval time.Duration) {
 	usage.asOfSystemInterval = asOfSystemInterval
+}
+
+func unlimitedDownloads(limit *int64) bool {
+	if limit == nil {
+		return false
+	}
+	return *limit == int64(noLimits) || *limit == math.MaxInt64
 }

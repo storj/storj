@@ -510,7 +510,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 }
 
 func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *console.APIKeyInfo) error {
-	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, keyInfoToLimits(keyInfo)); err != nil {
+	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfoToLimits(keyInfo)); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
@@ -652,6 +652,7 @@ func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
 	}
 
 	return accounting.ProjectLimits{
+		ProjectID: keyInfo.ProjectID,
 		Bandwidth: keyInfo.ProjectBandwidthLimit,
 		Usage:     keyInfo.ProjectStorageLimit,
 		Segments:  keyInfo.ProjectSegmentsLimit,

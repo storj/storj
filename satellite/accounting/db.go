@@ -90,6 +90,7 @@ type ProjectObjectsSegments struct {
 
 // ProjectLimits contains the project limits.
 type ProjectLimits struct {
+	ProjectID        uuid.UUID
 	Usage            *int64
 	UserSetUsage     *int64
 	Bandwidth        *int64
