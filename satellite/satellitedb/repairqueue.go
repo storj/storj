@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -269,22 +268,22 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 	var rows tagsql.Rows
 	switch r.db.impl {
 	case dbutil.Postgres:
-		rows, err = r.db.QueryContext(ctx, `
+		rows, err = r.db.QueryContext(ctx, r.db.Rebind(`
 			UPDATE repair_queue SET attempted_at = now() WHERE (stream_id, position) IN (
 				SELECT stream_id, position FROM repair_queue
 				WHERE (attempted_at IS NULL OR attempted_at < now() - interval '6 hours') `+restriction+`
 				ORDER BY segment_health ASC, attempted_at NULLS FIRST FOR UPDATE SKIP LOCKED
-				LIMIT `+strconv.Itoa(n)+`
+				LIMIT ?
 			) RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
-		`)
+		`), n)
 	case dbutil.Cockroach:
-		rows, err = r.db.QueryContext(ctx, `
+		rows, err = r.db.QueryContext(ctx, r.db.Rebind(`
 			UPDATE repair_queue SET attempted_at = now()
 			WHERE (attempted_at IS NULL OR attempted_at < now() - interval '6 hours') `+restriction+`
 			ORDER BY segment_health ASC, attempted_at NULLS FIRST
-			LIMIT `+strconv.Itoa(n)+`
+			LIMIT ?
 			RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
-		`)
+		`), n)
 	case dbutil.Spanner:
 		// TODO(spanner): this makes it possible to run testplanet tests with spanner. Later we need proper implementation.
 		return nil, queue.ErrEmpty.New("")
