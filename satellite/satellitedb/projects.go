@@ -734,6 +734,8 @@ func ProjectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		DefaultVersioning:           console.DefaultVersioning(project.DefaultVersioning),
 		PromptedForVersioningBeta:   project.PromptedForVersioningBeta,
 		PathEncryption:              &project.PathEncryption,
+		PassphraseEnc:               project.PassphraseEnc,
+		PassphraseEncKeyID:          project.PassphraseEncKeyId,
 	}, nil
 }
 

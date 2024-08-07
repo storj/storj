@@ -2679,15 +2679,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	var passphrase []byte
-	passphraseEnc, encKeyID, err := s.store.Projects().GetEncryptedPassphrase(ctx, project.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if passphraseEnc != nil && s.kmsService != nil {
-		if encKeyID == nil {
+	if project.PassphraseEnc != nil && s.kmsService != nil {
+		if project.PassphraseEncKeyID == nil {
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
-		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *encKeyID, passphraseEnc)
+		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
 		if err != nil {
 			s.log.Error("failed to decrypt passphrase", zap.Error(err))
 			return nil, Error.New("Failed to retrieve passphrase")
