@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 )
 
 // reverifyQueue implements storj.io/storj/satellite/audit.ReverifyQueue.
@@ -54,9 +55,10 @@ func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) 
 // call to GetNextJob() within a given satellite cluster.
 func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Duration) (job *audit.ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	job = &audit.ReverificationJob{}
-	err = rq.db.QueryRowContext(ctx, `
+	switch rq.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		job = &audit.ReverificationJob{}
+		err = rq.db.QueryRowContext(ctx, `
 		WITH next_entry AS (
 			SELECT *
 			FROM reverification_audits
@@ -73,16 +75,23 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Dura
 			AND ra.position = next_entry.position
 		RETURNING ra.node_id, ra.stream_id, ra.position, ra.piece_num, ra.inserted_at, ra.reverify_count
 	`, retryInterval.Microseconds()).Scan(
-		&job.Locator.NodeID,
-		&job.Locator.StreamID,
-		&job.Locator.Position,
-		&job.Locator.PieceNum,
-		&job.InsertedAt,
-		&job.ReverifyCount,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, audit.ErrEmptyQueue.Wrap(err)
+			&job.Locator.NodeID,
+			&job.Locator.StreamID,
+			&job.Locator.Position,
+			&job.Locator.PieceNum,
+			&job.InsertedAt,
+			&job.ReverifyCount,
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, audit.ErrEmptyQueue.Wrap(err)
+		}
+	case dbutil.Spanner:
+		// TODO(spanner): this makes it possible to run testplanet tests with spanner. Later we need proper implementation.
+		return nil, audit.ErrEmptyQueue.New("TODO")
+	default:
+		panic("unsupported database")
 	}
+
 	return job, err
 }
 

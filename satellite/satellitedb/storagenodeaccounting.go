@@ -593,7 +593,9 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		row := db.db.DB.QueryRow(ctx, storagenodeStatement, before)
 		err = row.Scan(&nodeRollupsDeleted)
 		return nodeRollupsDeleted, err
-
+	case dbutil.Spanner:
+		// TODO(spanner): this makes it possible to run testplanet tests with spanner. Later we need proper implementation.
+		return 0, nil
 	default:
 		return 0, Error.New("unsupported database: %v", db.db.impl)
 	}

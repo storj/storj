@@ -285,6 +285,9 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 			LIMIT `+strconv.Itoa(n)+`
 			RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
 		`)
+	case dbutil.Spanner:
+		// TODO(spanner): this makes it possible to run testplanet tests with spanner. Later we need proper implementation.
+		return nil, queue.ErrEmpty.New("")
 	default:
 		return segments, errs.New("unhandled database: %v", r.db.impl)
 	}
