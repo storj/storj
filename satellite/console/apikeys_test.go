@@ -373,7 +373,7 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, createdKey3)
 
-			query := "UPDATE api_keys SET created_at = $1 WHERE id = $2"
+			query := db.Testing().Rebind("UPDATE api_keys SET created_at = ? WHERE id = ?")
 
 			_, err = db.Testing().RawDB().ExecContext(ctx, query, now.Add(-24*time.Hour), createdKey1.ID)
 			assert.NoError(t, err)

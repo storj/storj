@@ -147,6 +147,8 @@ type DB interface {
 
 // TestingDB defines access to database testing facilities.
 type TestingDB interface {
+	// Rebind adapts a query's syntax for a database dialect.
+	Rebind(query string) string
 	// RawDB returns the underlying database connection to the primary database.
 	RawDB() tagsql.DB
 	// Schema returns the full schema for the database.

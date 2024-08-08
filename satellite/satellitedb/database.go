@@ -344,6 +344,11 @@ func (db *satelliteDB) Testing() satellite.TestingDB {
 
 type satelliteDBTesting struct{ *satelliteDB }
 
+// Rebind adapts a query's syntax for a database dialect.
+func (db *satelliteDBTesting) Rebind(query string) string {
+	return db.satelliteDB.Rebind(query)
+}
+
 // RawDB returns the underlying database connection to the primary database.
 func (db *satelliteDBTesting) RawDB() tagsql.DB {
 	return db.satelliteDB.DB
@@ -370,6 +375,11 @@ func (dbc *satelliteDBCollection) Testing() satellite.TestingDB {
 }
 
 type satelliteDBCollectionTesting struct{ *satelliteDBCollection }
+
+// Rebind adapts a query's syntax for a database dialect.
+func (dbc *satelliteDBCollectionTesting) Rebind(query string) string {
+	return dbc.getByName("").Rebind(query)
+}
 
 // RawDB returns the underlying database connection to the primary database.
 func (dbc *satelliteDBCollectionTesting) RawDB() tagsql.DB {
