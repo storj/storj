@@ -52,7 +52,6 @@ type Adapter interface {
 	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
 	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)
 	ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error)
-	ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error)
 	ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error)
 
 	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)

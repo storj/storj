@@ -335,23 +335,6 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
-// ListVerifySegments is for testing metabase.ListVerifySegments.
-type ListVerifySegments struct {
-	Opts     metabase.ListVerifySegments
-	Result   metabase.ListVerifySegmentsResult
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step ListVerifySegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.ListVerifySegments(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
-	require.Zero(t, diff)
-}
-
 // ListObjects is for testing metabase.ListObjects.
 type ListObjects struct {
 	Opts     metabase.ListObjects
