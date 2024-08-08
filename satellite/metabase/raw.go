@@ -760,3 +760,32 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 	})
 	return rowsAffected, Error.Wrap(err)
 }
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	for _, a := range db.adapters {
+		err = a.TestingSetPlacementAllSegments(ctx, placement)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	_, err = p.db.Exec(ctx, "UPDATE segments SET placement = $1", placement)
+	return Error.Wrap(err)
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		_, err := tx.Update(ctx, spanner.Statement{
+			SQL:    "UPDATE segments SET placement = @placement",
+			Params: map[string]interface{}{"placement": placement},
+		})
+		return err
+	})
+	return Error.Wrap(err)
+}

@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
@@ -85,6 +86,7 @@ type Adapter interface {
 	TestingDeleteAll(ctx context.Context) (err error)
 	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
 	TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error)
+	TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error)
 
 	// TestMigrateToLatest creates a database and applies all the migration for test purposes.
 	TestMigrateToLatest(ctx context.Context) error
