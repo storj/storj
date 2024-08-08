@@ -402,16 +402,14 @@ func TestIterateLoopSegments(t *testing.T) {
 
 			metabasetest.IterateLoopSegments{
 				Opts: metabase.IterateLoopSegments{
-					BatchSize:      10,
-					AsOfSystemTime: time.Now(),
+					BatchSize: 10,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
 
 			metabasetest.IterateLoopSegments{
 				Opts: metabase.IterateLoopSegments{
-					BatchSize:      10,
-					AsOfSystemTime: time.Now(),
+					BatchSize: 10,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -428,10 +426,9 @@ func TestIterateLoopSegments(t *testing.T) {
 
 			metabasetest.IterateLoopSegments{
 				Opts: metabase.IterateLoopSegments{
-					BatchSize:      10,
-					AsOfSystemTime: time.Now(),
-					StartStreamID:  startStreamID,
-					EndStreamID:    endStreamID,
+					BatchSize:     10,
+					StartStreamID: startStreamID,
+					EndStreamID:   endStreamID,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -496,8 +493,7 @@ func TestIterateLoopSegments(t *testing.T) {
 
 			metabasetest.IterateLoopSegments{
 				Opts: metabase.IterateLoopSegments{
-					BatchSize:      1,
-					AsOfSystemTime: time.Now(),
+					BatchSize: 1,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -612,19 +608,17 @@ func TestIterateLoopSegments(t *testing.T) {
 			{ // StartStreamID and EndStreamID set
 				metabasetest.IterateLoopSegments{
 					Opts: metabase.IterateLoopSegments{
-						AsOfSystemTime: time.Now(),
-						StartStreamID:  expectedObjects[0].StreamID,
-						EndStreamID:    expectedObjects[5].StreamID,
+						StartStreamID: expectedObjects[0].StreamID,
+						EndStreamID:   expectedObjects[5].StreamID,
 					},
 					Result: expected[numberOfSegmentsPerObject : 6*numberOfSegmentsPerObject],
 				}.Check(ctx, t, db)
 
 				metabasetest.IterateLoopSegments{
 					Opts: metabase.IterateLoopSegments{
-						BatchSize:      1,
-						AsOfSystemTime: time.Now(),
-						StartStreamID:  expectedObjects[0].StreamID,
-						EndStreamID:    expectedObjects[5].StreamID,
+						BatchSize:     1,
+						StartStreamID: expectedObjects[0].StreamID,
+						EndStreamID:   expectedObjects[5].StreamID,
 					},
 					Result: expected[numberOfSegmentsPerObject : 6*numberOfSegmentsPerObject],
 				}.Check(ctx, t, db)
@@ -679,8 +673,7 @@ func TestIterateLoopSegmentsWithSpanner(t *testing.T) {
 
 				metabasetest.IterateLoopSegments{
 					Opts: metabase.IterateLoopSegments{
-						BatchSize:      limit,
-						AsOfSystemTime: time.Now(),
+						BatchSize: limit,
 					},
 					Result: expected,
 				}.Check(ctx, t, db)
@@ -697,8 +690,7 @@ func TestIterateLoopSegmentsWithSpanner(t *testing.T) {
 
 				metabasetest.IterateLoopSegments{
 					Opts: metabase.IterateLoopSegments{
-						BatchSize:      limit,
-						AsOfSystemTime: time.Now(),
+						BatchSize: limit,
 					},
 					Result: expected,
 				}.Check(ctx, t, db)

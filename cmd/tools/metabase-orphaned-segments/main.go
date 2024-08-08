@@ -169,8 +169,7 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 	streamIDs := make(map[uuid.UUID]struct{})
 	numberOfElements := 0
 	err = metabaseDB.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
-		BatchSize:      config.LoopBatchSize,
-		AsOfSystemTime: startingTime,
+		BatchSize: config.LoopBatchSize,
 	}, func(ctx context.Context, it metabase.LoopSegmentsIterator) error {
 		var entry metabase.LoopSegmentEntry
 		for it.Next(ctx, &entry) {

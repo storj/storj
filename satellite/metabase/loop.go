@@ -230,7 +230,6 @@ type LoopSegmentsIterator interface {
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
 	BatchSize          int
-	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
 	StartStreamID      uuid.UUID
 	EndStreamID        uuid.UUID
@@ -272,7 +271,6 @@ func (p *PostgresAdapter) IterateLoopSegments(ctx context.Context, aliasCache *N
 		db:         p,
 		aliasCache: aliasCache,
 
-		asOfSystemTime:     opts.AsOfSystemTime,
 		asOfSystemInterval: opts.AsOfSystemInterval,
 		batchSize:          opts.BatchSize,
 		batchPieces:        make([]Pieces, opts.BatchSize),
@@ -322,7 +320,6 @@ type postgresLoopSegmentIterator struct {
 	// batchPieces are reused between result pages to reduce memory consumption
 	batchPieces []Pieces
 
-	asOfSystemTime     time.Time
 	asOfSystemInterval time.Duration
 
 	curIndex int
