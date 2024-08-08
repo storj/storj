@@ -334,10 +334,24 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		return Segment{}, err
 	}
 
-	segment, aliasPieces, err := db.ChooseAdapter(uuid.UUID{}).GetSegmentByPosition(ctx, opts)
-	if err != nil {
-		return Segment{}, err
+	// check all adapters until a match is found
+	var aliasPieces AliasPieces
+	found := false
+	for _, adapter := range db.adapters {
+		segment, aliasPieces, err = adapter.GetSegmentByPosition(ctx, opts)
+		if err != nil {
+			if ErrSegmentNotFound.Has(err) {
+				continue
+			}
+			return Segment{}, err
+		}
+		found = true
+		break
 	}
+	if !found {
+		return Segment{}, ErrSegmentNotFound.New("segment missing")
+	}
+
 	if len(aliasPieces) > 0 {
 		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
