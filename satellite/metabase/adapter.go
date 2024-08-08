@@ -97,6 +97,7 @@ type PostgresAdapter struct {
 	log                      *zap.Logger
 	db                       tagsql.DB
 	impl                     dbutil.Implementation
+	connstr                  string
 	testingUniqueUnversioned bool
 }
 

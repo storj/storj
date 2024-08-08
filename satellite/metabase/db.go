@@ -120,6 +120,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			log:                      log,
 			db:                       rawdb,
 			impl:                     impl,
+			connstr:                  connstr,
 			testingUniqueUnversioned: config.TestingUniqueUnversioned,
 		}}
 	case dbutil.Cockroach:
@@ -128,6 +129,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				log:                      log,
 				db:                       rawdb,
 				impl:                     impl,
+				connstr:                  connstr,
 				testingUniqueUnversioned: config.TestingUniqueUnversioned,
 			},
 		}}
@@ -232,42 +234,15 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 }
 
 // TestMigrateToLatest replaces the migration steps with only one step to create metabase db.
+// It is applied to all db adapters.
 func (db *DB) TestMigrateToLatest(ctx context.Context) error {
-	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
-	// will need to create any schemas specified in the search path, and cockroach
-	// will need to create the database it was told to connect to. These things should
-	// not really be here, and instead should be assumed to exist.
-	// This is tracked in jira ticket SM-200
-	switch db.impl {
-	case dbutil.Postgres:
-		schema, err := pgutil.ParseSchemaFromConnstr(db.connstr)
+	for _, a := range db.adapters {
+		err := a.TestMigrateToLatest(ctx)
 		if err != nil {
-			return errs.New("error parsing schema: %+v", err)
+			return Error.Wrap(err)
 		}
-
-		if schema != "" {
-			err = pgutil.CreateSchema(ctx, db.db, schema)
-			if err != nil {
-				return errs.New("error creating schema: %+v", err)
-			}
-		}
-
-	case dbutil.Cockroach:
-		var dbName string
-		if err := db.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
-			return errs.New("error querying current database: %+v", err)
-		}
-
-		_, err := db.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
-			pgutil.QuoteIdentifier(dbName)))
-		if err != nil {
-			return errs.Wrap(err)
-		}
-	case dbutil.Spanner:
-	// NOOP
-	default:
 	}
-	return db.ChooseAdapter(uuid.UUID{}).TestMigrateToLatest(ctx)
+	return nil
 }
 
 // MigrateToLatest migrates database to the latest version.

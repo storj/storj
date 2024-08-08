@@ -5,16 +5,33 @@ package metabase
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // TestMigrateToLatest creates a database and applies all the migration for test purposes.
 func (p *PostgresAdapter) TestMigrateToLatest(ctx context.Context) error {
+	schema, err := pgutil.ParseSchemaFromConnstr(p.connstr)
+	if err != nil {
+		return errs.New("error parsing schema: %+v", err)
+	}
+
+	if schema != "" {
+		err = pgutil.CreateSchema(ctx, p.db, schema)
+		if err != nil {
+			return errs.New("error creating schema: %+v", err)
+		}
+	}
+	return p.testMigrateToLatest(ctx)
+}
+
+func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 	migration := &migrate.Migration{
 		Table: "metabase_versions",
 		Steps: []*migrate.Step{
@@ -167,7 +184,18 @@ func (p *PostgresAdapter) TestMigrateToLatest(ctx context.Context) error {
 
 // TestMigrateToLatest creates a database and applies all the migration for test purposes.
 func (c *CockroachAdapter) TestMigrateToLatest(ctx context.Context) error {
-	return c.PostgresAdapter.TestMigrateToLatest(ctx)
+	var dbName string
+	if err := c.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		return errs.New("error querying current database: %+v", err)
+	}
+
+	_, err := c.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		pgutil.QuoteIdentifier(dbName)))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return c.PostgresAdapter.testMigrateToLatest(ctx)
 }
 
 // TestMigrateToLatest creates a database and applies all the migration for test purposes.
