@@ -723,7 +723,6 @@ func (pq postgresRebind) Rebind(sql string) string {
 }
 
 // Now returns the current time according to the first database adapter.
-// TODO(spanner): require callers to specify a projectID or adapter name to select which adapter they care about.
 func (db *DB) Now(ctx context.Context) (time.Time, error) {
 	return db.adapters[0].Now(ctx)
 }

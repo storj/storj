@@ -161,6 +161,9 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 	}
 	defer func() { err = errs.Combine(err, metabaseDB.Close()) }()
 
+	// NOTE: this is the current time according to the first database adapter,
+	// not necessarily the current time according to others. This mismatch is
+	// probably acceptable for this tool.
 	startingTime, err := metabaseDB.Now(ctx)
 	if err != nil {
 		return nil, err
