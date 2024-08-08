@@ -556,7 +556,7 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	var streamID, rootPieceID []byte
 	var aliasPieces AliasPieces
 	if err := it.curRow.Columns(&streamID, &position,
-		&createdAt, &repairedAt, &expiresAt,
+		&createdAt, &expiresAt, &repairedAt,
 		&rootPieceID,
 		&encryptedSize, &plainOffset, &plainSize,
 		redundancyScheme{&item.Redundancy},
@@ -578,9 +578,13 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	}
 	if repairedAt.Valid {
 		item.RepairedAt = &repairedAt.Time
+	} else {
+		item.RepairedAt = nil
 	}
 	if expiresAt.Valid {
 		item.ExpiresAt = &expiresAt.Time
+	} else {
+		item.ExpiresAt = nil
 	}
 	item.EncryptedSize = int32(encryptedSize)
 	item.PlainOffset = plainOffset

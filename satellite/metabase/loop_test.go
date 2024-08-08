@@ -324,11 +324,6 @@ func TestIterateLoopObjects(t *testing.T) {
 
 func TestIterateLoopSegments(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): seems to be flaky
-			t.Skip("not correct for spanner")
-		}
-
 		now := time.Now()
 
 		t.Run("Limit is negative", func(t *testing.T) {
@@ -626,77 +621,6 @@ func TestIterateLoopSegments(t *testing.T) {
 
 			metabasetest.Verify{
 				Objects:  expectedObjects,
-				Segments: expectedRaw,
-			}.Check(ctx, t, db)
-		})
-	})
-}
-
-// TODO(spanner) only single test was migrated to spanner using TestingBatchInsertSegments
-// because we need upload methods to run rest of tests without bigger modifications.
-func TestIterateLoopSegmentsWithSpanner(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		t.Run("batch size", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			numberOfSegments := 5
-
-			committed := metabasetest.RandObjectStream()
-			expected := make([]metabase.LoopSegmentEntry, numberOfSegments)
-			expectedRaw := make([]metabase.RawSegment, numberOfSegments)
-			for i := 0; i < numberOfSegments; i++ {
-				rawSegment := metabasetest.DefaultRawSegment(committed, metabase.SegmentPosition{0, uint32(i)})
-				expected[i] = metabase.LoopSegmentEntry{
-					StreamID:      rawSegment.StreamID,
-					Position:      rawSegment.Position,
-					RootPieceID:   rawSegment.RootPieceID,
-					Pieces:        rawSegment.Pieces,
-					CreatedAt:     rawSegment.CreatedAt,
-					EncryptedSize: rawSegment.EncryptedSize,
-					PlainSize:     rawSegment.PlainSize,
-					PlainOffset:   rawSegment.PlainOffset,
-					Redundancy:    rawSegment.Redundancy,
-				}
-				expectedRaw[i] = rawSegment
-			}
-
-			err := db.TestingBatchInsertSegments(ctx, expectedRaw)
-			require.NoError(t, err)
-
-			{ // less segments than limit
-				limit := 10
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize: limit,
-					},
-					Result: expected,
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize: limit,
-					},
-					Result: expected,
-				}.Check(ctx, t, db)
-			}
-
-			{ // more segments than limit
-				limit := 3
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize: limit,
-					},
-					Result: expected,
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize: limit,
-					},
-					Result: expected,
-				}.Check(ctx, t, db)
-			}
-
-			metabasetest.Verify{
 				Segments: expectedRaw,
 			}.Check(ctx, t, db)
 		})
