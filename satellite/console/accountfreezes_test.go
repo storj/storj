@@ -981,7 +981,7 @@ func TestTrailExpirationFreeze(t *testing.T) {
 
 func TestGetAllEvents(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		freezeDB := sat.DB.Console().AccountFreezeEvents()

@@ -235,8 +235,8 @@ func (events *accountFreezeEvents) IncrementNotificationsCount(ctx context.Conte
 	_, err = events.db.ExecContext(ctx, events.db.Rebind(`
 		UPDATE account_freeze_events
 		SET notifications_count = notifications_count + 1
-		WHERE user_id = $1
-		AND event = $2
+		WHERE user_id = ?
+		AND event = ?
 	`), userID.Bytes(), int(eventType))
 
 	return err

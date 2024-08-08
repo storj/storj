@@ -138,5 +138,5 @@ func TestAccountFreezeEvents(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, dbEvent.NotificationsCount)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
