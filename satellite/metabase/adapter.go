@@ -84,6 +84,7 @@ type Adapter interface {
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
 	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
+	TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error)
 
 	// TestMigrateToLatest creates a database and applies all the migration for test purposes.
 	TestMigrateToLatest(ctx context.Context) error

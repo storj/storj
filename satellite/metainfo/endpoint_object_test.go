@@ -1492,14 +1492,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			committedObject := objects[0]
 			randomVersion := metabase.Version(2 + testrand.Intn(9))
 
-			// atm there's no better way to change object's version
-			res, err := planet.Satellites[0].Metabase.DB.UnderlyingTagSQL().Exec(ctx,
-				"UPDATE objects SET version = $1 WHERE project_id = $2 AND bucket_name = $3 AND object_key = $4 AND stream_id = $5",
-				randomVersion, committedObject.ProjectID, committedObject.BucketName, committedObject.ObjectKey, committedObject.StreamID,
-			)
-			require.NoError(t, err)
-
-			affected, err := res.RowsAffected()
+			affected, err := planet.Satellites[0].Metabase.DB.TestingSetObjectVersion(ctx, committedObject.ObjectStream, randomVersion)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, affected)
 
