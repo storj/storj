@@ -513,19 +513,6 @@ func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterat
 	return nil
 }
 
-// LoopIterateCollector is for testing metabase.LoopIterateCollector.
-type LoopIterateCollector []metabase.LoopObjectEntry
-
-// Add adds object entries from iterator to the collection.
-func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjectsIterator) error {
-	var item metabase.LoopObjectEntry
-
-	for it.Next(ctx, &item) {
-		*coll = append(*coll, item)
-	}
-	return nil
-}
-
 // PendingObjectsCollector is for testing metabase.PendingObjectsCollector.
 type PendingObjectsCollector []metabase.PendingObjectEntry
 
@@ -598,26 +585,6 @@ func (step IterateObjectsWithStatusAscending) Check(ctx *testcontext.Context, t 
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
-	require.Zero(t, diff)
-}
-
-// IterateLoopObjects is for testing metabase.IterateLoopObjects.
-type IterateLoopObjects struct {
-	Opts metabase.IterateLoopObjects
-
-	Result   []metabase.LoopObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateLoopObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var result LoopIterateCollector
-
-	err := db.IterateLoopObjects(ctx, step.Opts, result.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 

@@ -111,27 +111,6 @@ func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	}.Check(ctx, t, db)
 }
 
-// CreateFullObjectsWithKeys creates multiple objects with the specified keys.
-func CreateFullObjectsWithKeys(ctx *testcontext.Context, t testing.TB, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.LoopObjectEntry {
-	objects := make(map[metabase.ObjectKey]metabase.LoopObjectEntry, len(keys))
-	for _, key := range keys {
-		obj := RandObjectStream()
-		obj.ProjectID = projectID
-		obj.BucketName = bucketName
-		obj.ObjectKey = key
-
-		CreateObject(ctx, t, db, obj, 0)
-
-		objects[key] = metabase.LoopObjectEntry{
-			ObjectStream: obj,
-			Status:       metabase.CommittedUnversioned,
-			CreatedAt:    time.Now(),
-		}
-	}
-
-	return objects
-}
-
 // CreateSegments creates multiple segments for the specified object.
 func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.Segment {
 	segments := make([]metabase.Segment, 0, numberOfSegments)

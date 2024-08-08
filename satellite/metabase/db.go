@@ -719,10 +719,6 @@ func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
 	)
 }
 
-func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
-	return LimitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
-}
-
 // LimitedAsOfSystemTime returns a SQL query clause for AS OF SYSTEM TIME.
 func LimitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
 	if baseline.IsZero() || now.IsZero() {
