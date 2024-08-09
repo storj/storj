@@ -58,10 +58,8 @@ const commitSegmentModeNoCheck = "no-pending-object-check"
 
 // DB implements a database for storing objects and segments.
 type DB struct {
-	log     *zap.Logger
-	db      tagsql.DB
-	connstr string
-	impl    dbutil.Implementation
+	log *zap.Logger
+	db  tagsql.DB
 
 	aliasCache *NodeAliasCache
 
@@ -74,80 +72,88 @@ type DB struct {
 
 // Open opens a connection to metabase.
 func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (*DB, error) {
-	var driverName string
-	_, source, impl, err := dbutil.SplitConnStr(connstr)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	switch impl {
-	case dbutil.Postgres:
-		driverName = "pgx"
-	case dbutil.Cockroach:
-		driverName = "cockroach"
-	case dbutil.Spanner:
-		driverName = ""
-	default:
-		return nil, Error.New("unsupported implementation: %s", connstr)
-	}
-
-	connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	var rawdb tagsql.DB
-	if driverName != "" {
-		rawdb, err = tagsql.Open(ctx, driverName, connstr)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		dbutil.Configure(ctx, rawdb, "metabase", mon)
-		rawdb = postgresRebind{rawdb}
-	}
-
 	db := &DB{
 		log:         log,
-		db:          rawdb,
-		connstr:     connstr,
-		impl:        impl,
 		testCleanup: func() error { return nil },
 		config:      config,
 	}
 	db.aliasCache = NewNodeAliasCache(db, config.NodeAliasCacheFullRefresh)
-	switch impl {
-	case dbutil.Postgres:
-		db.adapters = []Adapter{&PostgresAdapter{
-			log:                      log,
-			db:                       rawdb,
-			impl:                     impl,
-			connstr:                  connstr,
-			testingUniqueUnversioned: config.TestingUniqueUnversioned,
-		}}
-	case dbutil.Cockroach:
-		db.adapters = []Adapter{&CockroachAdapter{
-			PostgresAdapter{
+
+	connStrs := strings.Split(connstr, ";")
+	if len(connStrs) == 0 {
+		return nil, Error.New("no connection strings provided")
+	}
+
+	db.adapters = make([]Adapter, len(connStrs))
+
+	for i, connstr := range connStrs {
+		var driverName string
+		_, source, impl, err := dbutil.SplitConnStr(connstr)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		switch impl {
+		case dbutil.Postgres:
+			driverName = "pgx"
+		case dbutil.Cockroach:
+			driverName = "cockroach"
+		case dbutil.Spanner:
+			driverName = ""
+		default:
+			return nil, Error.New("unsupported implementation: %s", connstr)
+		}
+
+		connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		var rawdb tagsql.DB
+		if driverName != "" {
+			rawdb, err = tagsql.Open(ctx, driverName, connstr)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			dbutil.Configure(ctx, rawdb, "metabase", mon)
+		}
+
+		switch impl {
+		case dbutil.Postgres:
+			db.db = postgresRebind{rawdb}
+			db.adapters[i] = &PostgresAdapter{
 				log:                      log,
-				db:                       rawdb,
+				db:                       db.db,
 				impl:                     impl,
 				connstr:                  connstr,
 				testingUniqueUnversioned: config.TestingUniqueUnversioned,
-			},
-		}}
-	case dbutil.Spanner:
-		adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
-			Database:        spannerutil.DSNFromURL(source),
-			ApplicationName: config.ApplicationName,
-		}, log)
-		if err != nil {
-			return nil, err
+			}
+		case dbutil.Cockroach:
+			db.db = postgresRebind{rawdb}
+			db.adapters[i] = &CockroachAdapter{
+				PostgresAdapter{
+					log:                      log,
+					db:                       db.db,
+					impl:                     impl,
+					connstr:                  connstr,
+					testingUniqueUnversioned: config.TestingUniqueUnversioned,
+				},
+			}
+		case dbutil.Spanner:
+			adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
+				Database:        spannerutil.DSNFromURL(source),
+				ApplicationName: config.ApplicationName,
+			}, log)
+			if err != nil {
+				return nil, err
+			}
+			db.adapters[i] = adapter
+		default:
+			return nil, Error.New("unsupported implementation: %s", connstr)
 		}
-		db.adapters = []Adapter{adapter}
-	default:
-		return nil, Error.New("unsupported implementation: %s", connstr)
-	}
 
-	if log.Level() == zap.DebugLevel {
-		log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)))
+		if log.Level() == zap.DebugLevel {
+			log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)), zap.Int("db adapter ordinal", i))
+		}
 	}
 
 	return db, nil
@@ -161,9 +167,6 @@ func (db *DB) Implementation() dbutil.Implementation {
 
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
-	if len(db.adapters) != 1 {
-		panic("Multiple or zero adapter is not yet supported")
-	}
 	return db.adapters[0]
 }
 
