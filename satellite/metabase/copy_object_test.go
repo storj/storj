@@ -1581,8 +1581,8 @@ func TestFinishCopyObject(t *testing.T) {
 						RetainUntil: now,
 					},
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "retention cannot be applied to expiring objects",
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
 			}.Check(ctx, t, db)
 		})
 
@@ -1610,8 +1610,8 @@ func TestFinishCopyObject(t *testing.T) {
 						RetainUntil: now,
 					},
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "retention cannot be applied to expiring segments",
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with segments having an expiration date",
 			}.Check(ctx, t, db)
 		})
 
@@ -1634,8 +1634,8 @@ func TestFinishCopyObject(t *testing.T) {
 						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 					},
 				},
-				ErrClass: &metabase.ErrMethodNotAllowed,
-				ErrText:  "cannot lock unversioned copies",
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  "Object Lock settings must not be placed on unversioned objects",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1670,8 +1670,8 @@ func TestFinishCopyObject(t *testing.T) {
 						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 					},
 				},
-				ErrClass: &metabase.ErrMethodNotAllowed,
-				ErrText:  "cannot lock unversioned copies",
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  "Object Lock settings must not be placed on unversioned objects",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{

@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	noLockWithExpirationErrMsg = "Object Lock settings must not be placed on an object with an expiration date"
-	noLockOnUncommittedErrMsg  = "Object Lock settings must only be placed on committed objects"
-	noShortenRetentionErrMsg   = "retention period cannot be shortened"
-	noRemoveRetentionErrMsg    = "an active retention configuration cannot be removed"
+	noLockWithExpirationErrMsg         = "Object Lock settings must not be placed on an object with an expiration date"
+	noLockWithExpirationSegmentsErrMsg = "Object Lock settings must not be placed on an object with segments having an expiration date"
+	noLockOnUncommittedErrMsg          = "Object Lock settings must only be placed on committed objects"
+	noShortenRetentionErrMsg           = "retention period cannot be shortened"
+	noRemoveRetentionErrMsg            = "an active retention configuration cannot be removed"
 )
 
 var (
