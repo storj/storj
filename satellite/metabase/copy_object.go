@@ -121,7 +121,7 @@ func (finishCopy FinishCopyObject) Verify() error {
 		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
 	}
 
-	return finishCopy.Retention.Verify()
+	return ErrInvalidRequest.Wrap(finishCopy.Retention.Verify())
 }
 
 type transposedSegmentList struct {
