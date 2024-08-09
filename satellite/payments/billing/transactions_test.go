@@ -86,7 +86,7 @@ func TestTransactionsDBList(t *testing.T) {
 				exp := txs[len(txs)-i-1]
 				compareTransactions(t, exp, act)
 			}
-		}, satellitedbtest.WithSpanner())
+		})
 	})
 }
 
