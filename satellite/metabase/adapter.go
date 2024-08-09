@@ -22,6 +22,9 @@ type Adapter interface {
 	Name() string
 	Now(ctx context.Context) (time.Time, error)
 	Ping(ctx context.Context) error
+	MigrateToLatest(ctx context.Context) error
+	CheckVersion(ctx context.Context) error
+	Implementation() dbutil.Implementation
 
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)
@@ -108,6 +111,11 @@ func (p *PostgresAdapter) Name() string {
 // UnderlyingDB returns a handle to the underlying DB.
 func (p *PostgresAdapter) UnderlyingDB() tagsql.DB {
 	return p.db
+}
+
+// Implementation returns the dbutil.Implementation code for this adapter.
+func (p *PostgresAdapter) Implementation() dbutil.Implementation {
+	return p.impl
 }
 
 var _ Adapter = &PostgresAdapter{}

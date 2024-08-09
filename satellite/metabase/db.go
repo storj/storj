@@ -153,8 +153,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	return db, nil
 }
 
-// Implementation rturns the database implementation.
-func (db *DB) Implementation() dbutil.Implementation { return db.impl }
+// Implementation returns the implementation for the first db adapter.
+// TODO: remove this.
+func (db *DB) Implementation() dbutil.Implementation {
+	return db.adapters[0].Implementation()
+}
 
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
@@ -247,85 +250,107 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 
 // MigrateToLatest migrates database to the latest version.
 func (db *DB) MigrateToLatest(ctx context.Context) error {
+	for _, a := range db.adapters {
+		err := a.MigrateToLatest(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// MigrateToLatest migrates database to the latest version.
+func (p *PostgresAdapter) MigrateToLatest(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
 	// This is tracked in jira ticket SM-200
-	switch db.impl {
-	case dbutil.Postgres:
-		schema, err := pgutil.ParseSchemaFromConnstr(db.connstr)
-		if err != nil {
-			return errs.New("error parsing schema: %+v", err)
-		}
-
-		if schema != "" {
-			err = pgutil.CreateSchema(ctx, db.db, schema)
-			if err != nil {
-				return errs.New("error creating schema: %+v", err)
-			}
-		}
-		migration := db.PostgresMigration()
-		return migration.Run(ctx, db.log.Named("migrate"))
-
-	case dbutil.Cockroach:
-		var dbName string
-		if err := db.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
-			return errs.New("error querying current database: %+v", err)
-		}
-
-		_, err := db.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
-			pgutil.QuoteIdentifier(dbName)))
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		migration := db.PostgresMigration()
-		return migration.Run(ctx, db.log.Named("migrate"))
-	case dbutil.Spanner:
-		dbConn := strings.TrimPrefix(db.connstr, "spanner://")
-		req := &databasepb.UpdateDatabaseDdlRequest{
-			Database: strings.Split(dbConn, "?")[0],
-		}
-
-		for _, ddl := range strings.Split(spannerDDL, ";") {
-			if strings.TrimSpace(ddl) != "" {
-				req.Statements = append(req.Statements, ddl)
-			}
-		}
-		adminClient, err := database.NewDatabaseAdminClient(ctx)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-
-		resp, err := adminClient.UpdateDatabaseDdl(ctx, req)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-
-		return errs.Wrap(resp.Wait(ctx))
+	schema, err := pgutil.ParseSchemaFromConnstr(p.connstr)
+	if err != nil {
+		return errs.New("error parsing schema: %+v", err)
 	}
-	return errs.New("Unsupported database migration: %s", db.impl)
 
+	if schema != "" {
+		err = pgutil.CreateSchema(ctx, p.db, schema)
+		if err != nil {
+			return errs.New("error creating schema: %+v", err)
+		}
+	}
+	migration := p.PostgresMigration()
+	return migration.Run(ctx, p.log.Named("migrate"))
+}
+
+// MigrateToLatest migrates database to the latest version.
+func (c *CockroachAdapter) MigrateToLatest(ctx context.Context) error {
+	var dbName string
+	if err := c.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		return errs.New("error querying current database: %+v", err)
+	}
+
+	_, err := c.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		pgutil.QuoteIdentifier(dbName)))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	migration := c.PostgresMigration()
+	return migration.Run(ctx, c.log.Named("migrate"))
+}
+
+// MigrateToLatest migrates database to the latest version.
+func (s *SpannerAdapter) MigrateToLatest(ctx context.Context) error {
+	dbConn := strings.TrimPrefix(s.database, "spanner://")
+	req := &databasepb.UpdateDatabaseDdlRequest{
+		Database: strings.Split(dbConn, "?")[0],
+	}
+
+	for _, ddl := range strings.Split(spannerDDL, ";") {
+		if strings.TrimSpace(ddl) != "" {
+			req.Statements = append(req.Statements, ddl)
+		}
+	}
+	adminClient, err := database.NewDatabaseAdminClient(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	resp, err := adminClient.UpdateDatabaseDdl(ctx, req)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// TODO(spanner): create a Migration and run it here
+
+	return errs.Wrap(resp.Wait(ctx))
 }
 
 // CheckVersion checks the database is the correct version.
 func (db *DB) CheckVersion(ctx context.Context) error {
-	// TODO(spanner): migration version is not yet supported
-	if db.impl == dbutil.Spanner {
-		return nil
+	for _, a := range db.adapters {
+		err := a.CheckVersion(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
-	migration := db.PostgresMigration()
-	return migration.ValidateVersions(ctx, db.log)
+	return nil
+}
+
+// CheckVersion checks the database is the correct version.
+func (p *PostgresAdapter) CheckVersion(ctx context.Context) error {
+	migration := p.PostgresMigration()
+	return migration.ValidateVersions(ctx, p.log)
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
-func (db *DB) PostgresMigration() *migrate.Migration {
+func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
+	var db tagsql.DB = postgresRebind{p.db}
+
 	// TODO: merge this with satellite migration code or a way to keep them in sync.
 	return &migrate.Migration{
 		Table: "metabase_versions",
 		Steps: []*migrate.Step{
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "initial setup",
 				Version:     1,
 				Action: migrate.SQL{
@@ -378,7 +403,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "change total_plain_size and total_encrypted_size to INT8",
 				Version:     2,
 				Action: migrate.SQL{
@@ -387,7 +412,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add node aliases table",
 				Version:     3,
 				Action: migrate.SQL{
@@ -404,7 +429,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add remote_alias_pieces column",
 				Version:     4,
 				Action: migrate.SQL{
@@ -412,7 +437,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "drop remote_pieces from segments table",
 				Version:     6,
 				Action: migrate.SQL{
@@ -420,7 +445,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add created_at and repaired_at columns to segments table",
 				Version:     7,
 				Action: migrate.SQL{
@@ -429,7 +454,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "change default of created_at column in segments table to now()",
 				Version:     8,
 				Action: migrate.SQL{
@@ -437,7 +462,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add encrypted_etag column to segments table",
 				Version:     9,
 				Action: migrate.SQL{
@@ -445,13 +470,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add index on pending objects",
 				Version:     10,
 				Action:      migrate.SQL{},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "drop pending_index on objects",
 				Version:     11,
 				Action: migrate.SQL{
@@ -459,7 +484,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add expires_at column to segments",
 				Version:     12,
 				Action: migrate.SQL{
@@ -467,7 +492,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add NOT NULL constraint to created_at column in segments table",
 				Version:     13,
 				Action: migrate.SQL{
@@ -475,7 +500,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "ADD placement to the segments table",
 				Version:     14,
 				Action: migrate.SQL{
@@ -483,7 +508,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add table for segment copies",
 				Version:     15,
 				Action: migrate.SQL{
@@ -497,7 +522,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add database comments",
 				Version:     16,
 				Action: migrate.SQL{`
@@ -564,7 +589,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add pending_objects table",
 				Version:     17,
 				Action: migrate.SQL{`
@@ -607,7 +632,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "change objects.version from INT4 to INT8",
 				Version:     18,
 				Action: migrate.SQL{`
@@ -617,7 +642,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "add retention_mode and retain_until columns to objects table",
 				Version:     19,
 				Action: migrate.SQL{
@@ -629,7 +654,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          &db.db,
+				DB:          &db,
 				Description: "drop tables, pending_objects and segment_copies",
 				Version:     20,
 				Action: migrate.SQL{

@@ -10,6 +10,8 @@ import (
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/storj/shared/dbutil"
 )
 
 // SpannerConfig includes all the configuration required by using spanner.
@@ -67,6 +69,17 @@ func (s *SpannerAdapter) Name() string {
 // UnderlyingDB returns a handle to the underlying DB.
 func (s *SpannerAdapter) UnderlyingDB() *spanner.Client {
 	return s.client
+}
+
+// Implementation returns the dbutil.Implementation code for the adapter.
+func (s *SpannerAdapter) Implementation() dbutil.Implementation {
+	return dbutil.Spanner
+}
+
+// CheckVersion checks the database is the correct version.
+func (s *SpannerAdapter) CheckVersion(ctx context.Context) error {
+	// TODO(spanner): implement this
+	return nil
 }
 
 var _ Adapter = &SpannerAdapter{}
