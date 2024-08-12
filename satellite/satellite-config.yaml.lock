@@ -607,6 +607,9 @@ contact.external-address: ""
 # provide the name of the peer to enable continuous cpu/mem profiling for
 # debug.profilername: ""
 
+# provide the google project id for continuous profiling (required only for non-k8s environments
+# debug.profilerproject: ""
+
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
