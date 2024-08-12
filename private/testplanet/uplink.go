@@ -263,14 +263,14 @@ func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket s
 func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, key string, data []byte, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &uplink.UploadOptions{
+	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &metaclient.UploadOptions{
 		Expires: expiration,
 	})
 	return errs.Wrap(err)
 }
 
 // UploadWithOptions uploads data to specific satellite, with defined options.
-func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *uplink.UploadOptions) (obj *object.VersionedObject, err error) {
+func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *metaclient.UploadOptions) (obj *object.VersionedObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, found := testuplink.GetMaxSegmentSize(ctx)

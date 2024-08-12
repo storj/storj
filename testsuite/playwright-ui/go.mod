@@ -2,7 +2,8 @@ module storj.io/storj/testsuite/playwright-ui
 
 go 1.21.4
 
-replace storj.io/storj => ../../
+// TODO enable after adjusting storj/gateway
+// replace storj.io/storj => ../../
 
 require (
 	github.com/spacemonkeygo/monkit/v3 v3.0.23
@@ -12,7 +13,7 @@ require (
 	go.uber.org/zap v1.27.0
 	storj.io/common v0.0.0-20240812101423-26b53789c348
 	storj.io/edge v1.79.1-0.20240529152256-bcccced4faab
-	storj.io/storj v1.91.0-alpha.0.20240320150624-bf817ece68fd
+	storj.io/storj v1.91.0-alpha.0.20240812173752-22c2ac885b39
 )
 
 require (
