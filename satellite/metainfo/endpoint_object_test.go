@@ -2613,6 +2613,48 @@ func TestEndpoint_Object_MoveObject(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
+		err = project.MoveObject(ctx, "multipleversions", "objectA", "multipleversions", "objectB", nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_Object_MoveObjectWithDisallowedDeletes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		oldAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		unrestrictedAccess, err := uplink.RequestAccessWithPassphrase(ctx, planet.Satellites[0].URL(), oldAPIKey.Serialize(), "")
+		require.NoError(t, err)
+
+		apiKey, err := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Restrict(macaroon.Caveat{
+			DisallowDeletes: true,
+		})
+		require.NoError(t, err)
+
+		restrictedAccess, err := uplink.RequestAccessWithPassphrase(ctx, planet.Satellites[0].URL(), apiKey.Serialize(), "")
+		require.NoError(t, err)
+
+		planet.Uplinks[0].Access[planet.Satellites[0].ID()] = unrestrictedAccess
+
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		// upload objectA twice to have to have version different than 1
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectB", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		planet.Uplinks[0].Access[planet.Satellites[0].ID()] = restrictedAccess
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
 		// move is not possible because we have committed object under target location
 		err = project.MoveObject(ctx, "multipleversions", "objectA", "multipleversions", "objectB", nil)
 		require.Error(t, err)
