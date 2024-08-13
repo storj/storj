@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"errors"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
@@ -82,7 +81,7 @@ func (rpt *resetPasswordTokens) Delete(ctx context.Context, secret console.Reset
 func resetPasswordTokenFromDBX(ctx context.Context, resetToken *dbx.ResetPasswordToken) (_ *console.ResetPasswordToken, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if resetToken == nil {
-		return nil, errors.New("token parameter is nil")
+		return nil, Error.New("token parameter is nil")
 	}
 
 	var secret [32]byte

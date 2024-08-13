@@ -129,7 +129,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 
 		rows, err = cache.db.Query(ctx, query, args...)
 	default:
-		err = errors.New("error: Unsupported implementation")
+		return nil, nil, Error.New("unsupported implementation")
 	}
 
 	if err != nil {
@@ -273,8 +273,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	case dbutil.Spanner:
 		query = `SELECT last_net FROM nodes WHERE id IN UNNEST(?)`
 	default:
-		err = errors.New("error: unsupported implementation")
-		return nil, err
+		return nil, Error.New("unsupported implementation")
 	}
 
 	for {
@@ -340,7 +339,7 @@ func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.
 	case dbutil.Spanner:
 		rows, err = cache.db.Query(ctx, cache.db.Rebind(query), storj.NodeIDList(nodeIDs).Bytes())
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return nil, err
@@ -420,7 +419,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 				AND last_contact_success > ?
 		`), storj.NodeIDList(nodeIDs).Bytes(), time.Now().Add(-onlineWindow))
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return nil, err
@@ -484,7 +483,7 @@ func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineW
 			LIMIT ?
 		`, now.Add(-offlineWindow), now.Add(-cutoff), now.Add(-cooldown), limit)
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -524,11 +523,11 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 		_, err = cache.db.ExecContext(ctx, `
 			UPDATE nodes
 			SET last_offline_email = ?
-	                WHERE id IN (SELECT node_id FROM unnest(?) AS node_id)
+				WHERE id IN (SELECT node_id FROM unnest(?) AS node_id)
 			`, timestamp, nodeIDs.Bytes())
 
 	default:
-		err = errors.New("error: unsupported implementation")
+		return Error.New("unsupported implementation")
 	}
 
 	return err
@@ -630,7 +629,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 			return nil
 		})
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -700,7 +699,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 			return nil
 		})
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 
 	if err != nil {
@@ -1194,7 +1193,7 @@ func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeI
 			WHERE id = ?
 		`), nodeID.Bytes())
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 
 	if err != nil {
@@ -1507,7 +1506,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 			THEN RETURN id, email, last_contact_success;
 		`), overlay.DisqualificationReasonNodeOffline, storj.NodeIDList(nodeIDs).Bytes(), cutoff)
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, 0, Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return nil, 0, err
@@ -1557,8 +1556,7 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 			LIMIT ?
 		`), cutoff, limit)
 	default:
-		err = errors.New("error: unsupported implementation")
-
+		return nil, Error.New("unsupported implementation")
 	}
 
 	if err != nil {
@@ -1702,7 +1700,7 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 		)
 
 	default:
-		err = errs.New("Error: Implementation not supported")
+		return false, Error.New("unsupported implementation")
 	}
 
 	if err != nil {
@@ -1902,7 +1900,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			)
 		}
 	default:
-		err = errors.New("error: Implementation not supported")
+		return Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return Error.Wrap(err)
@@ -1951,7 +1949,7 @@ func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.No
 		}
 		_, err = cache.db.DB.ExecContext(ctx, query, nodeID[:])
 	default:
-		err = errors.New("error: unsupported implementation")
+		return Error.New("unsupported implementation")
 	}
 
 	return Error.Wrap(err)
@@ -2029,7 +2027,7 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 	case dbutil.Spanner:
 		_, err = cache.db.Exec(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = ?;`, nodeID.Bytes())
 	default:
-		err = errors.New("error: unsupported implementation")
+		return Error.New("unsupported implementation")
 	}
 	if err != nil {
 		return err
@@ -2263,7 +2261,7 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 				AND n.last_ip_port IS NOT NULL;
 		`), ids.Bytes(), tagNames)
 	default:
-		err = errors.New("error: unsupported implementation")
+		return nil, Error.New("unsupported implementation")
 	}
 
 	if err != nil {

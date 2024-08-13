@@ -327,7 +327,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 				0,
 			)
 		default:
-			return bucketList, errors.New("unknown list direction")
+			return bucketList, Error.New("unknown list direction")
 		}
 		if err != nil {
 			return bucketList, buckets.ErrBucket.Wrap(err)
