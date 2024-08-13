@@ -2,8 +2,7 @@ module storj.io/storj/testsuite/playwright-ui
 
 go 1.21.4
 
-// TODO enable after adjusting storj/gateway
-// replace storj.io/storj => ../../
+replace storj.io/storj => ../../
 
 require (
 	github.com/spacemonkeygo/monkit/v3 v3.0.23
@@ -13,7 +12,7 @@ require (
 	go.uber.org/zap v1.27.0
 	storj.io/common v0.0.0-20240812101423-26b53789c348
 	storj.io/edge v1.79.1-0.20240529152256-bcccced4faab
-	storj.io/storj v1.91.0-alpha.0.20240812173752-22c2ac885b39
+	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )
 
 require (
@@ -264,10 +263,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 // indirect
-	storj.io/gateway v1.9.1-0.20240517132048-2aaa6fd6d33e // indirect
+	storj.io/gateway v1.9.1-0.20240813150042-0216ed6fafd7 // indirect
 	storj.io/infectious v0.0.2 // indirect
-	storj.io/minio v0.0.0-20240517005305-6bf61e2db47a // indirect
+	storj.io/minio v0.0.0-20240620235917-ab8893f67859 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
-	storj.io/uplink v1.13.1-0.20240806115944-7fd31b329e3e // indirect
+	storj.io/uplink v1.13.1-0.20240813112806-9c782c9201df // indirect
 )
