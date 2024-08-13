@@ -135,7 +135,7 @@ type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 	HubSpot         HubSpotConfig
-	Plausible       PlausibleConfig
+	Plausible       plausibleConfig
 }
 
 // FreezeTracker is an interface for account freeze event tracking methods.
@@ -183,7 +183,7 @@ type Service struct {
 
 	segment   segment.Client
 	hubspot   *HubSpotEvents
-	plausible *PlausibleService
+	plausible *plausibleService
 }
 
 // NewService creates new service for creating sending analytics.
@@ -195,7 +195,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		clientEvents:  make(map[string]bool),
 		sources:       make(map[string]interface{}),
 		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
-		plausible:     NewPlausibleService(log.Named("plausibleservice"), config.Plausible),
+		plausible:     newPlausibleService(log.Named("plausibleservice"), config.Plausible),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
@@ -798,7 +798,7 @@ func (service *Service) PageViewEvent(ctx context.Context, pv PageViewBody) erro
 		return nil
 	}
 
-	return service.plausible.PageViewEvent(ctx, pv)
+	return service.plausible.pageViewEvent(ctx, pv)
 }
 
 // TrackProjectLimitError sends an "Project Limit Error" event to Segment.

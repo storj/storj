@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// PlausibleConfig is a configuration struct for plausible analytics.
-type PlausibleConfig struct {
+// plausibleConfig is a configuration struct for plausible analytics.
+type plausibleConfig struct {
 	Domain         string        `help:"the domain set up on plausible for the satellite" default:""`
 	ApiUrl         string        `help:"the url of the plausible API" releaseDefault:"https://plausible.io/api/event" devDefault:""`
 	DefaultTimeout time.Duration `help:"the default timeout for the plausible http client" default:"10s"`
@@ -33,15 +33,15 @@ type PageViewBody struct {
 }
 
 // PlausibleService is a configuration struct for sending data to Plausible.
-type PlausibleService struct {
+type plausibleService struct {
 	log        *zap.Logger
-	config     PlausibleConfig
+	config     plausibleConfig
 	httpClient *http.Client
 }
 
-// NewPlausibleService for sending events to Plausible.
-func NewPlausibleService(log *zap.Logger, config PlausibleConfig) *PlausibleService {
-	return &PlausibleService{
+// newPlausibleService for sending events to Plausible.
+func newPlausibleService(log *zap.Logger, config plausibleConfig) *plausibleService {
+	return &plausibleService{
 		log:    log,
 		config: config,
 		httpClient: &http.Client{
@@ -50,8 +50,8 @@ func NewPlausibleService(log *zap.Logger, config PlausibleConfig) *PlausibleServ
 	}
 }
 
-// PageViewEvent sends a page view event to plausible.
-func (pS *PlausibleService) PageViewEvent(ctx context.Context, pv PageViewBody) error {
+// pageViewEvent sends a page view event to plausible.
+func (pS *plausibleService) pageViewEvent(ctx context.Context, pv PageViewBody) error {
 	if pS.config.Domain == "" || pS.config.ApiUrl == "" {
 		return nil
 	}
