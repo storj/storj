@@ -4281,7 +4281,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 	})
 }
 
-func TestEndpoint_TestEndpoint_DeleteLockedObject(t *testing.T) {
+func TestEndpoint_DeleteLockedObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -4435,6 +4435,7 @@ func TestEndpoint_TestEndpoint_DeleteLockedObject(t *testing.T) {
 				test(t, testOpts{
 					bucketName:        bucketName,
 					retentionDuration: time.Hour,
+					expectError:       true,
 				})
 			})
 

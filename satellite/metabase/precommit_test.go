@@ -63,8 +63,8 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 		precommit := func(loc metabase.ObjectLocation) (result metabase.PrecommitConstraintWithNonPendingResult, err error) {
 			err = db.ChooseAdapter(loc.ProjectID).WithTx(ctx, func(ctx context.Context, tx metabase.TransactionAdapter) (err error) {
 				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, metabase.PrecommitDeleteUnversionedWithNonPending{
-					ObjectLocation: loc,
-					UseObjectLock:  true,
+					ObjectLocation:              loc,
+					ObjectLockEnabledForProject: true,
 				})
 				return
 			})

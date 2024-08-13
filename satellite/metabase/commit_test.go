@@ -4686,8 +4686,8 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:  obj.ObjectStream,
-						UseObjectLock: true,
+						ObjectStream:                obj.ObjectStream,
+						ObjectLockEnabledForProject: true,
 					},
 					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
@@ -4698,7 +4698,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("Active retention period - UseObjectLock disabled", func(t *testing.T) {
+			t.Run("Active retention period - ObjectLockEnabledForProject disabled", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
@@ -4717,8 +4717,8 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:  obj.ObjectStream,
-						UseObjectLock: false,
+						ObjectStream:                obj.ObjectStream,
+						ObjectLockEnabledForProject: false,
 					},
 					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
@@ -4748,8 +4748,8 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				obj = metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:  obj.ObjectStream,
-						UseObjectLock: true,
+						ObjectStream:                obj.ObjectStream,
+						ObjectLockEnabledForProject: true,
 					},
 				}.Check(ctx, t, db)
 
@@ -4801,7 +4801,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("Active retention period - UseObjectLock disabled", func(t *testing.T) {
+			t.Run("Active retention period - ObjectLockEnabledForProject disabled", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()

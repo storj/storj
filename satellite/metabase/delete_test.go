@@ -1171,9 +1171,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 
 					metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation: object.Location(),
-							UseObjectLock:  true,
-							Suspended:      true,
+							ObjectLocation:              object.Location(),
+							ObjectLockEnabledForProject: true,
+							Suspended:                   true,
 						},
 						ErrClass: &metabase.ErrObjectLock,
 						ErrText:  "object has an active retention period",
@@ -1197,9 +1197,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 
 					deleted := metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation: object.Location(),
-							UseObjectLock:  true,
-							Suspended:      true,
+							ObjectLocation:              object.Location(),
+							ObjectLockEnabledForProject: true,
+							Suspended:                   true,
 						},
 						Result: metabase.DeleteObjectResult{
 							Removed: []metabase.Object{object},
@@ -1227,8 +1227,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 
 					metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation: object.Location(),
-							UseObjectLock:  true,
+							ObjectLocation:              object.Location(),
+							ObjectLockEnabledForProject: true,
 						},
 						ErrClass: &metabase.ErrObjectLock,
 						ErrText:  "object has an active retention period",
@@ -1249,8 +1249,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 
 					metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation: object.Location(),
-							UseObjectLock:  true,
+							ObjectLocation:              object.Location(),
+							ObjectLockEnabledForProject: true,
 						},
 						Result: metabase.DeleteObjectResult{
 							Removed: []metabase.Object{object},
