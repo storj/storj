@@ -433,7 +433,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
+	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, segmentSize); err != nil {
 		return nil, err
 	}
 
@@ -542,7 +542,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to update PUT inline order")
 	}
 
-	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
+	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed); err != nil {
 		return nil, err
 	}
 

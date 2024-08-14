@@ -34,9 +34,8 @@ type DeleteObjectExactVersion struct {
 	Version Version
 	ObjectLocation
 
-	// UseObjectLock, if enabled, prevents the deletion of committed object versions
-	// with active Object Lock configurations.
-	UseObjectLock bool
+	// ObjectLockEnabledForProject ensures that locked objects are not deleted.
+	ObjectLockEnabledForProject bool
 }
 
 // Verify delete object fields.
@@ -79,7 +78,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 
 // DeleteObjectExactVersion deletes an exact object version.
 func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
-	if opts.UseObjectLock {
+	if opts.ObjectLockEnabledForProject {
 		return p.deleteObjectExactVersionUsingObjectLock(ctx, opts)
 	}
 	return p.deleteObjectExactVersion(ctx, opts)
@@ -148,10 +147,10 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 
 // DeleteObjectExactVersion deletes an exact object version.
 func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
-	if opts.UseObjectLock {
-		return s.deleteObjectExactVersion(ctx, opts)
+	if opts.ObjectLockEnabledForProject {
+		return s.deleteObjectExactVersionUsingObjectLock(ctx, opts)
 	}
-	return s.deleteObjectExactVersionUsingObjectLock(ctx, opts)
+	return s.deleteObjectExactVersion(ctx, opts)
 }
 
 func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
@@ -413,9 +412,8 @@ type DeleteObjectLastCommitted struct {
 	Versioned bool
 	Suspended bool
 
-	// UseObjectLock, if enabled, prevents the deletion of committed object versions with
-	// active Object Lock configurations.
-	UseObjectLock bool
+	// ObjectLockEnabledForProject ensures that object lock configuration is respected.
+	ObjectLockEnabledForProject bool
 }
 
 // Verify delete object last committed fields.
@@ -470,7 +468,7 @@ func (db *DB) DeleteObjectLastCommitted(
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
 func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
-	if opts.UseObjectLock {
+	if opts.ObjectLockEnabledForProject {
 		return p.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
 	}
 	return p.deleteObjectLastCommittedPlain(ctx, opts)
@@ -575,7 +573,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
 func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
-	if opts.UseObjectLock {
+	if opts.ObjectLockEnabledForProject {
 		return s.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
 	}
 	return s.deleteObjectLastCommittedPlain(ctx, opts)
@@ -689,9 +687,8 @@ type deleteTransactionAdapter interface {
 type PrecommitDeleteUnversionedWithNonPending struct {
 	ObjectLocation
 
-	// UseObjectLock, if enabled, prevents the deletion of committed object versions with
-	// active Object Lock configurations.
-	UseObjectLock bool
+	// ObjectLockEnabledForProject ensures that locked objects are not deleted.
+	ObjectLockEnabledForProject bool
 }
 
 // DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
@@ -699,8 +696,8 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 	var precommit PrecommitConstraintWithNonPendingResult
 	err = p.WithTx(ctx, func(ctx context.Context, tx TransactionAdapter) (err error) {
 		precommit, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, PrecommitDeleteUnversionedWithNonPending{
-			ObjectLocation: opts.ObjectLocation,
-			UseObjectLock:  opts.UseObjectLock,
+			ObjectLocation:              opts.ObjectLocation,
+			ObjectLockEnabledForProject: opts.ObjectLockEnabledForProject,
 		})
 		if err != nil {
 			return errs.Wrap(err)
@@ -755,8 +752,8 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 		stx := atx.(*spannerTransactionAdapter)
 
 		precommit, err = stx.PrecommitDeleteUnversionedWithNonPending(ctx, PrecommitDeleteUnversionedWithNonPending{
-			ObjectLocation: opts.ObjectLocation,
-			UseObjectLock:  opts.UseObjectLock,
+			ObjectLocation:              opts.ObjectLocation,
+			ObjectLockEnabledForProject: opts.ObjectLockEnabledForProject,
 		})
 		if err != nil {
 			return errs.Wrap(err)

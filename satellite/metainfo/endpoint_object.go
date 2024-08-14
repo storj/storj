@@ -347,8 +347,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		DisallowDelete: !allowDelete,
 
-		Versioned:     streamID.Versioned,
-		UseObjectLock: endpoint.config.ObjectLockEnabled(keyInfo.ProjectID),
+		Versioned: streamID.Versioned,
+
+		ObjectLockEnabledForProject: endpoint.config.ObjectLockEnabled(keyInfo.ProjectID),
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -605,7 +606,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to update PUT inline order")
 	}
 
-	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
+	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -2199,17 +2200,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
-	var bucketLockEnabled bool
-	if endpoint.config.ObjectLockEnabled(projectID) {
-		bucketLockEnabled, err = endpoint.buckets.GetBucketObjectLockEnabled(ctx, []byte(bucket), projectID)
-		if err != nil {
-			if buckets.ErrBucketNotFound.Has(err) {
-				return nil, nil
-			}
-			endpoint.log.Error("unable to get bucket's Object Lock configuration", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
-		}
-	}
+	objectLockEnabledForProject := endpoint.config.ObjectLockEnabled(projectID)
 
 	var result metabase.DeleteObjectResult
 	if len(version) == 0 {
@@ -2240,7 +2231,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			ObjectLocation: req,
 			Versioned:      versioned,
 			Suspended:      suspended,
-			UseObjectLock:  bucketLockEnabled,
+
+			ObjectLockEnabledForProject: objectLockEnabledForProject,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -2254,7 +2246,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: req,
 			Version:        sv.Version(),
-			UseObjectLock:  bucketLockEnabled,
+
+			ObjectLockEnabledForProject: objectLockEnabledForProject,
 		})
 	}
 	if err != nil {

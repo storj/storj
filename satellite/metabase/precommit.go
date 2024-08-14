@@ -748,7 +748,7 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	if opts.UseObjectLock {
+	if opts.ObjectLockEnabledForProject {
 		return ptx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
 	}
 	return ptx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
@@ -1024,7 +1024,7 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	if opts.UseObjectLock {
+	if opts.ObjectLockEnabledForProject {
 		return stx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
 	}
 	return stx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
