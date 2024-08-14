@@ -80,7 +80,7 @@ func checkError(t require.TestingT, err error, errClass *errs.Class, errText str
 		require.True(t, errClass.Has(err), "expected an error %q got %q", *errClass, err)
 	}
 	if errText != "" {
-		require.EqualError(t, err, errClass.New(errText).Error())
+		require.EqualError(t, err, errClass.New("%v", errText).Error())
 	}
 	if errClass == nil && errText == "" {
 		require.NoError(t, err)
