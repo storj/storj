@@ -104,11 +104,14 @@ func TestDurability(t *testing.T) {
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)
 
-	segment1 := segment(storageNodes, 3, 6, 9, 1)
 	{
+		special := segment(storageNodes, 3, 6, 9, 1)
+		special.Placement = storj.PlacementConstraint(5)
+
 		// first batch
 		err = fork.Process(ctx, []rangedloop.Segment{
-			segment1,
+			special,
+			segment(storageNodes, 3, 6, 9, 1),
 		})
 		require.NoError(t, err)
 
@@ -124,17 +127,21 @@ func TestDurability(t *testing.T) {
 	}
 
 	// without removing biggest provider
-	require.Equal(t, 0, c.healthStat[0].Buckets[0].SegmentCount)
-	require.Equal(t, 2, c.healthStat[0].Buckets[1].SegmentCount)
-	require.Equal(t, 0, c.healthStat[0].Buckets[2].SegmentCount)
-	require.Equal(t, 0, c.healthStat[0].Buckets[3].SegmentCount)
-	require.Equal(t, 1, c.healthStat[0].Buckets[4].SegmentCount)
+	require.Equal(t, 0, c.healthStat[0][0].Buckets[0].SegmentCount)
+	require.Equal(t, 2, c.healthStat[0][0].Buckets[1].SegmentCount)
+	require.Equal(t, 0, c.healthStat[0][0].Buckets[2].SegmentCount)
+	require.Equal(t, 0, c.healthStat[0][0].Buckets[3].SegmentCount)
+	require.Equal(t, 1, c.healthStat[0][0].Buckets[4].SegmentCount)
 
 	// with removing biggest provider
-	require.Equal(t, 1, c.healthStat[1].NegativeBuckets[1].SegmentCount)
-	require.Equal(t, 1, c.healthStat[1].NegativeBuckets[2].SegmentCount)
-	require.Equal(t, 0, c.healthStat[1].Buckets[0].SegmentCount)
-	require.Equal(t, 1, c.healthStat[1].Buckets[1].SegmentCount)
+	require.Equal(t, 1, c.healthStat[1][0].NegativeBuckets[1].SegmentCount)
+	require.Equal(t, 1, c.healthStat[1][0].NegativeBuckets[2].SegmentCount)
+	require.Equal(t, 0, c.healthStat[1][0].Buckets[0].SegmentCount)
+	require.Equal(t, 1, c.healthStat[1][0].Buckets[1].SegmentCount)
+
+	// placement 5
+	require.Equal(t, 0, c.healthStat[0][5].Buckets[0].SegmentCount)
+	require.Equal(t, 1, c.healthStat[0][5].Buckets[1].SegmentCount)
 
 	// usually called with c.Start()
 	c.resetStat()
@@ -143,7 +150,7 @@ func TestDurability(t *testing.T) {
 	require.NoError(t, err)
 	err = c.Join(ctx, fork)
 	require.NoError(t, err)
-	require.Equal(t, 0, c.healthStat[0].Buckets[1].SegmentCount)
+	require.Equal(t, 0, c.healthStat[0][0].Buckets[1].SegmentCount)
 
 }
 
