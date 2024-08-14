@@ -1274,7 +1274,7 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 				require.Nil(t, impact)
 
-				err = sat.API.Accounting.ProjectUsage.UpdateProjectStorageAndSegmentUsage(userCtx1, pr.ID, (2 * memory.TB).Int64(), 0)
+				err = sat.API.Accounting.ProjectUsage.UpdateProjectStorageAndSegmentUsage(userCtx1, accounting.ProjectLimits{ProjectID: pr.ID}, (2 * memory.TB).Int64(), 0)
 				require.NoError(t, err)
 
 				now := time.Now().UTC()
