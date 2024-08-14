@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -55,7 +56,7 @@ func TestDurabilityIntegration(t *testing.T) {
 			if observer.Class != "email" {
 				continue
 			}
-			observer.TestChangeReporter(func(n time.Time, class string, missingProvider int, ix int, stat durability.Bucket, resolver func(id durability.ClassID) string) {
+			observer.TestChangeReporter(func(n time.Time, class string, missingProvider int, ix int, p storj.PlacementConstraint, stat durability.Bucket, resolver func(id durability.ClassID) string) {
 				result[missingProvider][ix] = stat
 			})
 		}
