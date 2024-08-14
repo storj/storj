@@ -25,6 +25,23 @@ var ek = eventkit.Package()
 
 const maxExemplars = 3
 
+// HistogramByPlacement contains multiple Histogram for each Placement.
+type HistogramByPlacement []Histogram // placement -> Histogram
+
+// Reset will reset all the included Histograms.
+func (p *HistogramByPlacement) Reset() {
+	for _, h := range *p {
+		h.Reset()
+	}
+}
+
+// Extend will make sure the placement has an initialized Histogram.
+func (p *HistogramByPlacement) Extend(size int) {
+	if len(*p) <= size {
+		*p = append(*p, make([]Histogram, size-len(*p)+1)...)
+	}
+}
+
 // Histogram stores the number of segments (and some exemplars) for each piece count.
 type Histogram struct {
 	// pieceCount -> {number of segments, exemplars}
@@ -130,13 +147,13 @@ type ReportConfig struct {
 //	in this case this reporter will return 38 for the class "country:DE" (assuming all the other segments are more lucky).
 type Report struct {
 	// histogram shows the piece distribution -> by default, 1 -> with removing the biggest owner from each piece, 2-> with removing the second biggest owner from each piece, etc.
-	healthStat         []Histogram
+	healthStat         []HistogramByPlacement
 	classifier         NodeClassifier
 	aliasMap           *metabase.NodeAliasMap
 	nodes              []nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
-	reporter           func(n time.Time, class string, missingProviders int, ix int, stat Bucket, classResolver func(id ClassID) string)
+	reporter           func(n time.Time, class string, missingProviders int, ix int, placement storj.PlacementConstraint, stat Bucket, classResolver func(id ClassID) string)
 	asOfSystemInterval time.Duration
 
 	// map between classes (like "country:hu" and integer IDs)
@@ -153,7 +170,7 @@ type Report struct {
 // NewDurability creates the new instance.
 func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter, class string, classifier NodeClassifier, maxPieceCount int, asOfSystemInterval time.Duration) *Report {
 	return &Report{
-		healthStat:         make([]Histogram, 3),
+		healthStat:         make([]HistogramByPlacement, 3),
 		nodeGetter:         nodeGetter,
 		Class:              class,
 		db:                 db,
@@ -216,7 +233,7 @@ func (c *Report) classifyNodeAliases() {
 func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 	d := &ObserverFork{
 		nodesCache:             c.nodeGetter,
-		healthStat:             make([]Histogram, 3),
+		healthStat:             make([]HistogramByPlacement, 3),
 		controlledByClassCache: make([]int32, len(c.className)),
 		classified:             c.classified,
 	}
@@ -227,11 +244,14 @@ func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	fork := partial.(*ObserverFork)
-	for ix, h := range fork.healthStat {
+	for ix := range fork.healthStat {
 		if len(c.healthStat) <= ix {
-			c.healthStat = append(c.healthStat, Histogram{})
+			c.healthStat = append(c.healthStat, HistogramByPlacement{})
 		}
-		c.healthStat[ix].Merge(h)
+		for placement, hs := range fork.healthStat[ix] {
+			c.healthStat[ix].Extend(placement)
+			c.healthStat[ix][placement].Merge(hs)
+		}
 	}
 	return nil
 }
@@ -243,19 +263,21 @@ func (c *Report) resolveClass(id ClassID) string {
 // Finish implements rangedloop.Observer.
 func (c *Report) Finish(ctx context.Context) error {
 	reportTime := time.Now()
-	for group, histogram := range c.healthStat {
-		for ix, stat := range histogram.Buckets {
-			c.reporter(reportTime, c.Class, group, ix, *stat, c.resolveClass)
-		}
-		for ix, stat := range histogram.NegativeBuckets {
-			c.reporter(reportTime, c.Class, group, ix*-1, *stat, c.resolveClass)
+	for group, healthStat := range c.healthStat {
+		for placement, histogram := range healthStat {
+			for ix, stat := range histogram.Buckets {
+				c.reporter(reportTime, c.Class, group, ix, storj.PlacementConstraint(placement), *stat, c.resolveClass)
+			}
+			for ix, stat := range histogram.NegativeBuckets {
+				c.reporter(reportTime, c.Class, group, ix*-1, storj.PlacementConstraint(placement), *stat, c.resolveClass)
+			}
 		}
 	}
 	return nil
 }
 
 // TestChangeReporter modifies the reporter for unit tests.
-func (c *Report) TestChangeReporter(r func(n time.Time, class string, missingProvider int, ix int, stat Bucket, resolver func(id ClassID) string)) {
+func (c *Report) TestChangeReporter(r func(n time.Time, class string, missingProvider int, ix int, placement storj.PlacementConstraint, stat Bucket, resolver func(id ClassID) string)) {
 	c.reporter = r
 }
 
@@ -270,7 +292,7 @@ type ClassID int32
 // ObserverFork is the durability calculator for each segment range.
 type ObserverFork struct {
 	controlledByClassCache []int32
-	healthStat             []Histogram
+	healthStat             []HistogramByPlacement
 
 	nodesCache NodeGetter
 
@@ -346,7 +368,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 
 		// calculate normal distribution + distribution without the biggest class(es)
 		healthyPiceces := healthyPieceCount
-		for i := 0; i < 2; i++ {
+		for i := 0; i < len(c.healthStat); i++ {
 			var maxClass ClassID
 			maxCount := 0
 			maxIndex := -1
@@ -360,7 +382,8 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			if maxIndex == -1 {
 				break
 			}
-			c.healthStat[i].AddPieceCount(healthyPiceces-int(s.Redundancy.RequiredShares), s.StreamID, s.Position, maxClass)
+			c.healthStat[i].Extend(int(s.Placement))
+			c.healthStat[i][s.Placement].AddPieceCount(healthyPiceces-int(s.Redundancy.RequiredShares), s.StreamID, s.Position, maxClass)
 			healthyPiceces -= counters.Counters[maxIndex].Counter
 			counters.Counters[maxIndex].Counter = 0
 		}
@@ -369,7 +392,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 	return nil
 }
 
-func reportToEventkit(n time.Time, class string, missingProviders int, ix int, stat Bucket, classResolver func(id ClassID) string) {
+func reportToEventkit(n time.Time, class string, missingProviders int, ix int, placement storj.PlacementConstraint, stat Bucket, classResolver func(id ClassID) string) {
 	var classExemplars []string
 	for _, ex := range stat.ClassExemplars {
 		classExemplars = append(classExemplars, classResolver(ex))
@@ -379,6 +402,7 @@ func reportToEventkit(n time.Time, class string, missingProviders int, ix int, s
 		eventkit.Int64("healthy_pieces", int64(ix)),
 		eventkit.Int64("count", int64(stat.SegmentCount)),
 		eventkit.Int64("missing_providers", int64(missingProviders)),
+		eventkit.Int64("placement", int64(placement)),
 		eventkit.String("segment_exemplars", strings.Join(stat.SegmentExemplars, ",")),
 		eventkit.String("class_exemplars", strings.Join(classExemplars, ",")),
 		eventkit.Timestamp("report_time", n),
