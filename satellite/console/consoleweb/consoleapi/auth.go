@@ -619,10 +619,11 @@ func loadSession(req *http.Request) string {
 // GetFreezeStatus checks to see if an account is frozen or warned.
 func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
-		Frozen             bool `json:"frozen"`
-		Warned             bool `json:"warned"`
-		ViolationFrozen    bool `json:"violationFrozen"`
-		TrialExpiredFrozen bool `json:"trialExpiredFrozen"`
+		Frozen                     bool `json:"frozen"`
+		Warned                     bool `json:"warned"`
+		ViolationFrozen            bool `json:"violationFrozen"`
+		TrialExpiredFrozen         bool `json:"trialExpiredFrozen"`
+		TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
 	}
 
 	ctx := r.Context()
@@ -641,13 +642,21 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(FrozenResult{
+	result := FrozenResult{
 		Frozen:             freezes.BillingFreeze != nil,
 		Warned:             freezes.BillingWarning != nil,
 		ViolationFrozen:    freezes.ViolationFreeze != nil,
 		TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
-	})
+	}
+	if result.TrialExpiredFrozen {
+		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
+		if days != nil && *days > 0 {
+			result.TrialExpirationGracePeriod = *days
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
 		return

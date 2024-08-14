@@ -149,6 +149,34 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 	return &page, rows.Err()
 }
 
+// GetTrialExpirationFreezesToEscalate is a method that gets free trial expiration freezes that correspond to users
+// that are not pending deletion (have not been escalated).
+func (events *accountFreezeEvents) GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *console.FreezeEventsByEventAndUserStatusCursor) (_ []console.AccountFreezeEvent, next *console.FreezeEventsByEventAndUserStatusCursor, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	evs, next, err := events.db.Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event(
+		ctx,
+		// where user.status != pending_deletion
+		dbx.User_Status(int(console.PendingDeletion)),
+		// and event = trial_expiration_freeze
+		dbx.AccountFreezeEvent_Event(int(console.TrialExpirationFreeze)),
+		limit,
+		cursor,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	eventsToReturn := make([]console.AccountFreezeEvent, 0, len(evs))
+	for _, ev := range evs {
+		event, err := fromDBXAccountFreezeEvent(ev)
+		if err != nil {
+			return nil, nil, err
+		}
+		eventsToReturn = append(eventsToReturn, *event)
+	}
+	return eventsToReturn, next, nil
+}
+
 // GetAll is a method for querying all account freeze events from the database by user ID.
 func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID) (freezes *console.UserFreezeEvents, err error) {
 	defer mon.Task()(&ctx)(&err)

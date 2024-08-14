@@ -220,6 +220,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # How long to wait between a billing warning event and billing freezing an account.
 # console.account-freeze.billing-warn-grace-period: 360h0m0s
 
+# How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
+# console.account-freeze.trial-expiration-freeze-grace-period: 0s
+
 # whether active sessions table view should be shown
 # console.active-sessions-view-enabled: false
 

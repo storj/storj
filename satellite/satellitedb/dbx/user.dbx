@@ -140,6 +140,13 @@ read one (
 	where user.id = ?
 )
 
+read paged (
+	select account_freeze_event
+	join account_freeze_event.user_id = user.id
+	where user.status != ?
+	where account_freeze_event.event = ?
+)
+
 read one (
 	select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
 	where user.id = ?

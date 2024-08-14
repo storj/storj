@@ -37,7 +37,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		216 * time.Hour,
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
@@ -53,6 +53,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		invoicesDB := sat.Core.Payments.Accounts.Invoices()
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
+		projectMembersDB := sat.DB.Console().ProjectMembers()
 		accFreezeDB := sat.DB.Console().AccountFreezeEvents()
 		service := console.NewAccountFreezeService(sat.DB.Console(), newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
 		chore := sat.Core.Payments.AccountFreeze
@@ -740,6 +741,62 @@ func TestAutoFreezeChore(t *testing.T) {
 			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
 			require.NoError(t, err)
 			require.False(t, frozen)
+
+			paidTier = false
+			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
+				PaidTier: &paidTier,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.True(t, frozen)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(50 * 24 * time.Hour)
+			})
+
+			chore.Loop.TriggerWait()
+
+			// user should be marked for deletion after the grace period
+			// (trial freeze event escalated).
+			userPD, err := usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.PendingDeletion, userPD.Status)
+
+			// test disabled trial expiration freeze escalation.
+			service.TestSetTrialExpirationFreezeGracePeriod(0)
+
+			status := console.Active
+			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			// event not escalated because grace period is 0
+			// (escalation disabled).
+			userPD, err = usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, status, userPD.Status)
+
+			// enable trial freeze escalation.
+			service.TestSetTrialExpirationFreezeGracePeriod(24 * time.Hour)
+
+			// test that trial frozen users that are part of
+			// projects will not be marked for deletion.
+			uplinkProject := planet.Uplinks[0].Projects[0]
+			_, err = projectMembersDB.Insert(ctx, freeUser.ID, uplinkProject.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			userPD, err = usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, status, userPD.Status)
 		})
 
 		t.Run("Email notifications for events", func(t *testing.T) {
