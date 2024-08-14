@@ -65,6 +65,6 @@ func (c *cmdRb) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Bucket %q has been deleted.\n", bucket)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Bucket %q has been deleted.\n", bucket)
 	return nil
 }

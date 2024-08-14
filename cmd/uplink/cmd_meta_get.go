@@ -67,12 +67,12 @@ func (c *cmdMetaGet) Execute(ctx context.Context) (err error) {
 			return errs.New("entry %q does not exist", *c.entry)
 		}
 
-		fmt.Fprintln(clingy.Stdout(ctx), value)
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), value)
 		return nil
 	}
 
 	if object.Custom == nil {
-		fmt.Fprintln(clingy.Stdout(ctx), "{}")
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "{}")
 		return nil
 	}
 
@@ -81,6 +81,6 @@ func (c *cmdMetaGet) Execute(ctx context.Context) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), string(data))
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), string(data))
 	return nil
 }

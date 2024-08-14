@@ -47,7 +47,7 @@ func (c *cmdAccessRemove) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
 
 	return nil
 }

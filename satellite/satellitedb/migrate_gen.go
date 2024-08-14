@@ -44,11 +44,11 @@ func main() {
 	data := sections.LookupSection(dbschema.Main)
 
 	var buffer bytes.Buffer
-	fmt.Fprintf(&buffer, testMigrationFormat, version, data)
+	_, _ = fmt.Fprintf(&buffer, testMigrationFormat, version, data)
 
 	formatted, err := format.Source(buffer.Bytes())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", formatted)
+		_, _ = fmt.Fprintf(os.Stderr, "%s\n", formatted)
 		panic(err)
 	}
 
@@ -65,7 +65,7 @@ func parseTestdataVersion(path string) int {
 
 	v, err := strconv.Atoi(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid testdata path %q\n", path)
+		_, _ = fmt.Fprintf(os.Stderr, "invalid testdata path %q\n", path)
 		return -1
 	}
 	return v

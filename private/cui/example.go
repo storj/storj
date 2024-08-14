@@ -34,8 +34,8 @@ func main() {
 	counter := 0
 	for ctx.Err() == nil {
 		width, _ := screen.Size()
-		fmt.Fprintf(screen, "%2d\n", counter)
-		fmt.Fprintf(screen, "%s\n", strings.Repeat("=", width))
+		_, _ = fmt.Fprintf(screen, "%2d\n", counter)
+		_, _ = fmt.Fprintf(screen, "%s\n", strings.Repeat("=", width))
 		screen.Flush()
 
 		counter++
