@@ -384,14 +384,13 @@ func (dir *Dir) OpenWithStorageFormat(ctx context.Context, ref blobstore.BlobRef
 	return nil, Error.Wrap(err)
 }
 
-var monDirStat = mon.Task()
-
 // Stat looks up disk metadata on the blob file. It may need to check in more than one location
 // in order to find the blob, if it was stored with an older version of the storage node software.
 // In cases where the storage format version of a blob is already known, StatWithStorageFormat()
 // will generally be a better choice.
 func (dir *Dir) Stat(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobInfo, err error) {
-	defer monDirStat(&ctx)(&err)
+	// not monkit monitoring because of performance reasons
+
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return nil, err
@@ -760,14 +759,12 @@ func (dir *Dir) Delete(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	return dir.iterateStorageFormatVersions(ctx, ref, dir.DeleteWithStorageFormat)
 }
 
-var monDeleteWithStorageFormat = mon.Task()
-
 // DeleteWithStorageFormat deletes the blob with the specified ref for one
 // specific format version.
 //
 // It doesn't return an error if the blob isn't found for any reason.
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer monDeleteWithStorageFormat(&ctx)(&err)
+	// not monkit monitoring because of performance reasons
 
 	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir, ref, formatVer)
 }
@@ -778,10 +775,8 @@ func (dir *Dir) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
 	return dir.deleteNamespace(ctx, dir.blobsdir, ref)
 }
 
-var monDeleteWithStorageFormatInPath = mon.Task()
-
 func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer monDeleteWithStorageFormatInPath(&ctx)(&err)
+	// not monkit monitoring because of performance reasons
 
 	pathBase, err := dir.refToDirPath(ref, path)
 	if err != nil {

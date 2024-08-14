@@ -118,11 +118,10 @@ func (store *blobStore) OpenWithStorageFormat(ctx context.Context, blobRef blobs
 	return newBlobReader(store.track.Child("blobReader", 1), file, formatVer), nil
 }
 
-var monBlobStoreStat = mon.Task()
-
 // Stat looks up disk metadata on the blob file.
 func (store *blobStore) Stat(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobInfo, err error) {
-	defer monBlobStoreStat(&ctx)(&err)
+	// not monkit monitoring because of performance reasons
+
 	info, err := store.dir.Stat(ctx, ref)
 	return info, Error.Wrap(err)
 }
@@ -145,11 +144,10 @@ func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err 
 	return Error.Wrap(err)
 }
 
-var monBlobStoreDeleteWithStorageFormat = mon.Task()
-
 // DeleteWithStorageFormat deletes blobs with the specified ref and storage format version.
 func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer monBlobStoreDeleteWithStorageFormat(&ctx)(&err)
+	// not monkit monitoring because of performance reasons
+
 	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)
 	return Error.Wrap(err)
 }
