@@ -206,11 +206,11 @@ func networkTest(flags *Flags, command string, args []string) error {
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
+		_, _ = fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
 	errRun := cmd.Run()
 	if errRun != nil {
-		fmt.Fprintf(processes.Output, "test command failed: %v\n", errRun)
+		_, _ = fmt.Fprintf(processes.Output, "test command failed: %v\n", errRun)
 	}
 
 	cancel()

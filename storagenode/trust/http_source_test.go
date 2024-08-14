@@ -84,13 +84,13 @@ func TestHTTPSourceFetchEntries(t *testing.T) {
 		case r.Method != "GET":
 			http.Error(w, fmt.Sprintf("%s method not allowed", r.Method), http.StatusMethodNotAllowed)
 		case r.URL.Path == "/good":
-			fmt.Fprintf(w, `
+			_, _ = fmt.Fprintf(w, `
 				# Some comment
 				%s
 				%s
 			`, url1.String(), url2.String())
 		case r.URL.Path == "/bad":
-			fmt.Fprintln(w, "BAD")
+			_, _ = fmt.Fprintln(w, "BAD")
 		case r.URL.Path == "/ugly":
 			http.Error(w, "OHNO", http.StatusInternalServerError)
 		}

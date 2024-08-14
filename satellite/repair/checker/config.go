@@ -59,7 +59,7 @@ func (ros *RepairOverrides) String() string {
 		if i > 0 {
 			s.WriteString(",")
 		}
-		fmt.Fprintf(&s, "%d-%d", k, v)
+		_, _ = fmt.Fprintf(&s, "%d-%d", k, v)
 		i++
 	}
 	return s.String()

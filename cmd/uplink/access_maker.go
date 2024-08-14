@@ -71,7 +71,7 @@ func (am *accessMaker) Execute(ctx context.Context, name string, access *uplink.
 			return nil, errs.Wrap(err)
 		}
 
-		fmt.Fprintf(clingy.Stdout(ctx), "Imported access %q to %q\n", name, am.ex.AccessInfoFile())
+		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Imported access %q to %q\n", name, am.ex.AccessInfoFile())
 	}
 
 	return access, nil

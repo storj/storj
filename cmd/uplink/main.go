@@ -38,7 +38,7 @@ func main() {
 		commands(cmds, ex)
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
 	}
 	if !ok || err != nil {
 		os.Exit(1)

@@ -36,7 +36,7 @@ func main() {
 
 	data, err := hex.DecodeString(hexinput)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid hex input %q: %v\n", hexinput, err)
+		_, _ = fmt.Fprintf(os.Stderr, "invalid hex input %q: %v\n", hexinput, err)
 		os.Exit(1)
 	}
 
@@ -53,7 +53,7 @@ func main() {
 
 	err = errs.Combine(errFailed, errCompleted)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -70,21 +70,21 @@ func handleExitFailed(ctx context.Context, satelliteurl string, data []byte) err
 		return fmt.Errorf("unable to encode %#v as json: %w", exit, err)
 	}
 
-	fmt.Fprintln(os.Stdout, string(pretty))
+	_, _ = fmt.Fprintln(os.Stdout, string(pretty))
 
 	if satelliteurl != "" {
 		signee, err := fetchSigneeFromSatellite(ctx, satelliteurl, exit.SatelliteId)
 		if err != nil {
-			fmt.Fprintf(os.Stdout, "UNABLE TO FETCH SIGNEE %q: %v\n", satelliteurl, err)
+			_, _ = fmt.Fprintf(os.Stdout, "UNABLE TO FETCH SIGNEE %q: %v\n", satelliteurl, err)
 		} else {
 			if err := signing.VerifyExitFailed(ctx, signee, &exit); err != nil {
-				fmt.Fprintf(os.Stdout, "SIGNATURE INVALID: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stdout, "SIGNATURE INVALID: %v\n", err)
 			} else {
-				fmt.Fprintf(os.Stdout, "SIGNATURE VALID\n")
+				_, _ = fmt.Fprintf(os.Stdout, "SIGNATURE VALID\n")
 			}
 		}
 	} else {
-		fmt.Fprintf(os.Stdout, "UNABLE TO VERIFY SIGNATURE, SIGNEE MISSING\n")
+		_, _ = fmt.Fprintf(os.Stdout, "UNABLE TO VERIFY SIGNATURE, SIGNEE MISSING\n")
 	}
 
 	return nil
@@ -102,21 +102,21 @@ func handleExitCompleted(ctx context.Context, satelliteurl string, data []byte) 
 		return fmt.Errorf("unable to encode %#v as json: %w", exit, err)
 	}
 
-	fmt.Fprintln(os.Stdout, string(pretty))
+	_, _ = fmt.Fprintln(os.Stdout, string(pretty))
 
 	if satelliteurl != "" {
 		signee, err := fetchSigneeFromSatellite(ctx, satelliteurl, exit.SatelliteId)
 		if err != nil {
-			fmt.Fprintf(os.Stdout, "UNABLE TO FETCH SIGNEE %q: %v\n", satelliteurl, err)
+			_, _ = fmt.Fprintf(os.Stdout, "UNABLE TO FETCH SIGNEE %q: %v\n", satelliteurl, err)
 		} else {
 			if err := signing.VerifyExitCompleted(ctx, signee, &exit); err != nil {
-				fmt.Fprintf(os.Stdout, "SIGNATURE INVALID: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stdout, "SIGNATURE INVALID: %v\n", err)
 			} else {
-				fmt.Fprintf(os.Stdout, "SIGNATURE VALID\n")
+				_, _ = fmt.Fprintf(os.Stdout, "SIGNATURE VALID\n")
 			}
 		}
 	} else {
-		fmt.Fprintf(os.Stdout, "UNABLE TO VERIFY SIGNATURE, SIGNEE MISSING\n")
+		_, _ = fmt.Fprintf(os.Stdout, "UNABLE TO VERIFY SIGNATURE, SIGNEE MISSING\n")
 	}
 	return nil
 }
