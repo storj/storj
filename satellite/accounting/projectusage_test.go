@@ -497,11 +497,12 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 		// Setup: add data to live accounting to exceed new limit
-		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, expectedLimit, 0)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, expectedLimit, 0)
 		require.NoError(t, err)
 
-		limit := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, accounting.ProjectLimits{
-			Usage: &expectedLimit,
+		limit := projectUsage.ExceedsUploadLimits(ctx, 1, 1, accounting.ProjectLimits{
+			ProjectID: project.ID,
+			Usage:     &expectedLimit,
 		})
 		require.True(t, limit.ExceedsStorage)
 		require.Equal(t, expectedLimit, limit.StorageLimit.Int64())
@@ -1074,7 +1075,7 @@ func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 		require.Zero(t, storage)
 		require.Zero(t, segments)
 
-		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, 0, segmentsUsed)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, 0, segmentsUsed)
 		require.NoError(t, err)
 
 		// verify cache key creation.
@@ -1084,7 +1085,7 @@ func TestProjectUsage_StorageSegmentCache(t *testing.T) {
 
 		// verify cache key increment.
 		increment := int64(10)
-		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, 0, increment)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, 0, increment)
 		require.NoError(t, err)
 		_, fromCache, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
 		require.NoError(t, err)
@@ -1107,7 +1108,7 @@ func TestProjectUsage_UpdateStorageAndSegmentCache(t *testing.T) {
 		storageUsed := int64(100)
 		segmentsUsed := int64(2)
 
-		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, storageUsed, segmentsUsed)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, storageUsed, segmentsUsed)
 		require.NoError(t, err)
 
 		storage, segments, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
@@ -1117,7 +1118,7 @@ func TestProjectUsage_UpdateStorageAndSegmentCache(t *testing.T) {
 
 		increment := int64(10)
 
-		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, project.ID, increment, increment)
+		err = projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, accounting.ProjectLimits{ProjectID: project.ID}, increment, increment)
 		require.NoError(t, err)
 
 		storage, segments, err = projectUsage.GetProjectStorageAndSegmentUsage(ctx, project.ID)
