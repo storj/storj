@@ -99,7 +99,7 @@ func (c *cmdAccessInspect) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), string(bs))
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), string(bs))
 
 	return nil
 }

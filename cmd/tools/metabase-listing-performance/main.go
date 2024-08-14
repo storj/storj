@@ -77,11 +77,11 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "could not create CPU profile: ", err)
+			_, _ = fmt.Fprintln(os.Stderr, "could not create CPU profile: ", err)
 		} else {
 			defer func() { _ = f.Close() }()
 			if err := pprof.StartCPUProfile(f); err != nil {
-				fmt.Fprintln(os.Stderr, "could not start CPU profile: ", err)
+				_, _ = fmt.Fprintln(os.Stderr, "could not start CPU profile: ", err)
 			}
 			defer pprof.StopCPUProfile()
 		}
@@ -105,7 +105,7 @@ func main() {
 
 	_ = log.Sync()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
 }
 
@@ -309,7 +309,7 @@ func benchmarkListObjects(ctx context.Context, log *zap.Logger, db *metabase.DB,
 
 		line := fmt.Sprintf("Benchmark%v\t1\t%v ns/op", testName, duration.Nanoseconds())
 		fmt.Println(line)
-		fmt.Fprintln(out, line)
+		_, _ = fmt.Fprintln(out, line)
 
 		if totalTime > maxTimePerBenchmark {
 			break
@@ -354,7 +354,7 @@ func benchmarkIterator(ctx context.Context, log *zap.Logger, db *metabase.DB, te
 
 		line := fmt.Sprintf("Benchmark%v\t1\t%v ns/op", testName, duration.Nanoseconds())
 		fmt.Println(line)
-		fmt.Fprintln(out, line)
+		_, _ = fmt.Fprintln(out, line)
 
 		if totalTime > maxTimePerBenchmark {
 			break

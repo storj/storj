@@ -84,7 +84,7 @@ func (c *cmdRm) Execute(ctx context.Context) (err error) {
 			return err
 		}
 
-		fmt.Fprintln(clingy.Stdout(ctx), "removed", c.location)
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "removed", c.location)
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func (c *cmdRm) Execute(ctx context.Context) (err error) {
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintln(w, args...)
+		_, _ = fmt.Fprintln(w, args...)
 	}
 
 	addError := func(err error) {

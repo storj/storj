@@ -152,10 +152,10 @@ func checkIDs(satelliteID storj.NodeID, providedSNID storj.NodeID, receiptSatell
 
 func writeVerificationMessage(succeeded bool, satelliteID storj.NodeID, snID storj.NodeID, timestamp time.Time) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
-	fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)
-	fmt.Fprintf(w, "Storage Node ID:\t%v\n", snID)
-	fmt.Fprintf(w, "Timestamp:\t%v\n", timestamp)
+	_, _ = fmt.Fprintf(w, "Succeeded:\t%v\n", succeeded)
+	_, _ = fmt.Fprintf(w, "Satellite ID:\t%v\n", satelliteID)
+	_, _ = fmt.Fprintf(w, "Storage Node ID:\t%v\n", snID)
+	_, _ = fmt.Fprintf(w, "Timestamp:\t%v\n", timestamp)
 
 	return errs.Wrap(w.Flush())
 }

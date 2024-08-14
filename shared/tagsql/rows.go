@@ -59,10 +59,10 @@ func (s *sqlRows) Close() error {
 	var errCalling error
 	if !s.errcalled {
 		var x strings.Builder
-		fmt.Fprintf(&x, "--- rows.Err() was not called, for rows started at ---\n")
-		fmt.Fprintf(&x, "%s", s.tracker.StartStack())
-		fmt.Fprintf(&x, "--- Closing the rows at ---\n")
-		fmt.Fprintf(&x, "%s", string(debug.Stack()))
+		_, _ = fmt.Fprintf(&x, "--- rows.Err() was not called, for rows started at ---\n")
+		_, _ = fmt.Fprintf(&x, "%s", s.tracker.StartStack())
+		_, _ = fmt.Fprintf(&x, "--- Closing the rows at ---\n")
+		_, _ = fmt.Fprintf(&x, "%s", string(debug.Stack()))
 		errCalling = errors.New(x.String())
 	}
 	return errs.Combine(errCalling, s.tracker.Close(), s.rows.Close())

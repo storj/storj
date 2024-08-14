@@ -24,7 +24,7 @@ func main() {
 		outFile = os.Args[1]
 	}
 	if err := run(context.Background(), outFile); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to generate snapshot database: %+v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to generate snapshot database: %+v\n", err)
 		os.Exit(1)
 	}
 }
