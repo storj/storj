@@ -148,7 +148,7 @@ func updateProjectLimits(ctx context.Context, db console.Projects, p *console.Pr
 
 func TestAccountBillingFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -233,7 +233,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 
 func TestAccountBillingUnFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -285,7 +285,7 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 
 func TestAccountViolationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -391,7 +391,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 
 func TestAccountLegalFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -499,7 +499,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 func TestRemoveAccountBillingWarning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
@@ -564,7 +564,7 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 
 func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -678,7 +678,7 @@ func TestFreezeEffects(t *testing.T) {
 				// disable limit caching
 				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
-		},
+		}, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		consoleService := sat.API.Console.Service
@@ -820,7 +820,7 @@ func TestFreezeEffects(t *testing.T) {
 
 func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -910,7 +910,7 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 
 func TestTrailExpirationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
