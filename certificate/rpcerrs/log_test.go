@@ -112,7 +112,7 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 			if s.wrapper == nil {
 				require.Contains(t, sanitizedErr.Error(), msg)
 			} else {
-				require.Equal(t, wrapper.New(msg).Error(), sanitizedErr.Error())
+				require.Equal(t, wrapper.New("%v", msg).Error(), sanitizedErr.Error())
 			}
 
 			if s.log != nil {
