@@ -16,10 +16,9 @@
 
         <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
-                <v-col cols="12" sm="6" md="5" lg="4" class="py-0">
-                    <p>Fields marked with an * are required</p>
+                <v-col class="text-center pt-0">
+                    <p class="text-caption">Fields marked with * are required.</p>
                 </v-col>
-                <v-col cols="12" sm="4" md="3" lg="2" />
             </v-row>
 
             <v-row justify="center">

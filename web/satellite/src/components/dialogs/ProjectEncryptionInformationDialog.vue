@@ -64,7 +64,7 @@
                                     Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
                                 </p>
                                 <p class="text-body-2 my-2">
-                                    Your team members would automatically have access to your project's data.
+                                    The team members you invite will automatically have access to your project's data.
                                 </p>
                                 <p class="text-body-2 mt-2">
                                     <a class="link" @click="goToDocs">Learn more in the documentation.</a>

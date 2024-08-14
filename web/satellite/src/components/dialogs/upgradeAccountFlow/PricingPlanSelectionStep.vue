@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row :align="smAndDown ? 'center' : 'start'" :justify="smAndDown ? 'start' : 'space-between'" :class="{'flex-column': smAndDown}">
-        <v-col v-for="(plan, index) in plans" :key="index" :cols="smAndDown ? 10 : 6" class="select-item">
+    <v-row :align="mdAndDown ? 'center' : 'start'" :justify="mdAndDown ? 'start' : 'space-between'" :class="{'flex-column': mdAndDown}">
+        <v-col v-for="(plan, index) in plans" :key="index" :cols="mdAndDown ? 10 : 4" class="select-item">
             <PricingPlanContainer
                 :plan="plan"
                 @select="(p) => emit('select', p)"
@@ -27,7 +27,7 @@ import PricingPlanContainer from '@/components/billing/pricingPlans/PricingPlanC
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
-const { smAndDown } = useDisplay();
+const { mdAndDown } = useDisplay();
 
 const props = withDefaults(defineProps<{
     // the upgrade dialog for example will not show the free plan.
@@ -64,9 +64,3 @@ onBeforeMount(async () => {
     plans.value.unshift(plan);
 });
 </script>
-
-<style scoped lang="scss">
-.select-item {
-    height: 450px;
-}
-</style>

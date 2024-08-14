@@ -5,7 +5,7 @@
     <v-container>
         <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
-                <v-col class="text-center pt-10 pb-4">
+                <v-col class="text-center py-4">
                     <icon-personal />
                     <p class="text-overline mt-2 mb-1">
                         Personal Account
