@@ -254,7 +254,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	}
 
 	if _, ok := process.Arguments[command]; !ok {
-		fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
+		_, _ = fmt.Fprintf(process.processes.Output, "%s running: %s\n", process.Name, command)
 		//TODO: This doesn't look right, but keeping the same behaviour as before.
 		return nil
 	}
@@ -289,9 +289,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	processgroup.Setup(cmd)
 
 	if printCommands {
-		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
+		_, _ = fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
 		defer func() {
-			fmt.Fprintf(process.processes.Output, "%s exited (code:%d): %v\n", process.Name, cmd.ProcessState.ExitCode(), err)
+			_, _ = fmt.Fprintf(process.processes.Output, "%s exited (code:%d): %v\n", process.Name, cmd.ProcessState.ExitCode(), err)
 		}()
 	}
 
@@ -312,7 +312,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 			err := process.waitForAddress(process.processes.MaxStartupWait)
 			if err != nil {
-				fmt.Fprintf(process.processes.Output, "failed to wait startup: %v", err)
+				_, _ = fmt.Fprintf(process.processes.Output, "failed to wait startup: %v", err)
 				cancelProcess()
 			}
 		}()

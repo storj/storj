@@ -232,7 +232,7 @@ func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, de
 	dest = joinDestWith(dest, base)
 
 	if !dest.Std() {
-		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
 	}
 
 	var bar *mpb.Bar
@@ -275,13 +275,13 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintln(w, args...)
+		_, _ = fmt.Fprintln(w, args...)
 	}
 	fprintf := func(w io.Writer, format string, args ...interface{}) {
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintf(w, format, args...)
+		_, _ = fmt.Fprintf(w, format, args...)
 	}
 
 	addError := func(err error) {

@@ -381,38 +381,38 @@ func {{ .Name }}LogStmt(stmt string, args ...any) {
 type pretty []any
 
 func (p pretty) Format(f fmt.State, c rune) {
-	fmt.Fprint(f, "[")
+	_, _ = fmt.Fprint(f, "[")
 nextval:
 	for i, val := range p {
 		if i > 0 {
-			fmt.Fprint(f, ", ")
+			_, _ = fmt.Fprint(f, ", ")
 		}
 		rv := reflect.ValueOf(val)
 		if rv.Kind() == reflect.Ptr {
 			if rv.IsNil() {
-				fmt.Fprint(f, "NULL")
+				_, _ = fmt.Fprint(f, "NULL")
 				continue
 			}
 			val = rv.Elem().Interface()
 		}
 		switch v := val.(type) {
 		case string:
-			fmt.Fprintf(f, "%q", v)
+			_, _ = fmt.Fprintf(f, "%q", v)
 		case time.Time:
-			fmt.Fprintf(f, "%s", v.Format(time.RFC3339Nano))
+			_, _ = fmt.Fprintf(f, "%s", v.Format(time.RFC3339Nano))
 		case []byte:
 			for _, b := range v {
 				if !unicode.IsPrint(rune(b)) {
-					fmt.Fprintf(f, "%#x", v)
+					_, _ = fmt.Fprintf(f, "%#x", v)
 					continue nextval
 				}
 			}
-			fmt.Fprintf(f, "%q", v)
+			_, _ = fmt.Fprintf(f, "%q", v)
 		default:
-			fmt.Fprintf(f, "%v", v)
+			_, _ = fmt.Fprintf(f, "%v", v)
 		}
 	}
-	fmt.Fprint(f, "]")
+	_, _ = fmt.Fprint(f, "]")
 }
 
 {{ range .Structs }}

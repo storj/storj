@@ -43,7 +43,7 @@ func (ki *KeyInfos) String() string {
 		if i > 0 {
 			s.WriteString(";")
 		}
-		fmt.Fprintf(&s, "%d:%s,%d", k, v.SecretVersion, v.SecretChecksum)
+		_, _ = fmt.Fprintf(&s, "%d:%s,%d", k, v.SecretVersion, v.SecretChecksum)
 		i++
 	}
 	return s.String()

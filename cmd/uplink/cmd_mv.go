@@ -136,7 +136,7 @@ func (c *cmdMv) moveRecursive(ctx context.Context, fs ulfs.Filesystem) (err erro
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintln(w, args...)
+		_, _ = fmt.Fprintln(w, args...)
 	}
 
 	addError := func(err error) {

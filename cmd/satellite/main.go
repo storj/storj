@@ -674,11 +674,11 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
+	_, _ = fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
 
 	// populate the row fields
 	for _, v := range list {
-		fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
+		_, _ = fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
 	}
 
 	// display the data

@@ -315,7 +315,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		}
 		defer func() { _ = fh.Close() }()
 		defer monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
-			fmt.Fprintf(fh, "%v\t%v\t%v\n", key, field, val)
+			_, _ = fmt.Fprintf(fh, "%v\t%v\t%v\n", key, field, val)
 		})
 	}
 
@@ -477,7 +477,7 @@ func (ex *external) PromptInput(ctx context.Context, prompt string) (input strin
 	if !ex.interactive {
 		return "", errs.New("required user input in non-interactive setting")
 	}
-	fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
+	_, _ = fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 	var buf []byte
 	var tmp [1]byte
 	for {
@@ -509,25 +509,25 @@ func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret str
 	fd := int(fh.Fd())
 
 	for {
-		fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
+		_, _ = fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 
 		first, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(clingy.Stdout(ctx))
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 
-		fmt.Fprint(clingy.Stdout(ctx), "Again: ")
+		_, _ = fmt.Fprint(clingy.Stdout(ctx), "Again: ")
 
 		second, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(clingy.Stdout(ctx))
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 
 		if string(first) != string(second) {
-			fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
-			fmt.Fprintln(clingy.Stdout(ctx))
+			_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
+			_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 			continue
 		}
 
