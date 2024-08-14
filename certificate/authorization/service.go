@@ -34,7 +34,7 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 
 	if userID == "" {
 		msg := "missing user ID"
-		err = ErrService.New(msg)
+		err = ErrService.New("%v", msg)
 		return nil, err
 	}
 
