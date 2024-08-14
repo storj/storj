@@ -539,7 +539,7 @@ func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, keyInfo *consol
 func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	ctx context.Context, keyInfo *console.APIKeyInfo, newObjectSize int64, newObjectSegmentCount int64,
 ) error {
-	limit := endpoint.projectUsage.ExceedsUploadLimits(ctx, keyInfo.ProjectID, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo))
+	limit := endpoint.projectUsage.ExceedsUploadLimits(ctx, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo))
 	if limit.ExceedsSegments {
 		if limit.SegmentsLimit > 0 {
 			endpoint.log.Warn("Segment limit exceeded",
@@ -563,12 +563,12 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	return nil
 }
 
-func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
-	return endpoint.addToUploadLimits(ctx, projectID, segmentSize, 1)
+func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, segmentSize int64) error {
+	return endpoint.addToUploadLimits(ctx, keyInfo, segmentSize, 1)
 }
 
-func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size, segmentCount int64) error {
-	if err := endpoint.projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, projectID, size, segmentCount); err != nil {
+func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, size, segmentCount int64) error {
+	if err := endpoint.projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, keyInfoToLimits(keyInfo), size, segmentCount); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
@@ -577,7 +577,7 @@ func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth and storage limits.
 		endpoint.log.Error("Could not track new project's storage and segment usage",
-			zap.Stringer("Project ID", projectID),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
 	}

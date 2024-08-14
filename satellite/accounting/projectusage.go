@@ -123,8 +123,15 @@ type UploadLimit struct {
 // ExceedsUploadLimits returns combined checks for storage and segment limits.
 // Supply nonzero headroom parameters to check if there is room for a new object.
 func (usage *Service) ExceedsUploadLimits(
-	ctx context.Context, projectID uuid.UUID, storageSizeHeadroom int64, segmentCountHeadroom int64, limits ProjectLimits) (limit UploadLimit) {
+	ctx context.Context, storageSizeHeadroom int64, segmentCountHeadroom int64, limits ProjectLimits) (limit UploadLimit) {
 	defer mon.Task()(&ctx)(nil)
+
+	// Check for unlimited uploads before setting limits
+	if unlimitedUploads(limits.Usage, limits.Segments) {
+		limit.ExceedsSegments = false
+		limit.ExceedsStorage = false
+		return limit
+	}
 
 	limit.SegmentsLimit = usage.defaultMaxSegments
 	if limits.Segments != nil {
@@ -136,7 +143,7 @@ func (usage *Service) ExceedsUploadLimits(
 		limit.StorageLimit = memory.Size(*limits.Usage)
 	}
 
-	storageUsage, segmentUsage, err := usage.GetProjectStorageAndSegmentUsage(ctx, projectID)
+	storageUsage, segmentUsage, err := usage.GetProjectStorageAndSegmentUsage(ctx, limits.ProjectID)
 	if err != nil {
 		usage.log.Error("error while getting storage/segments usage", zap.Error(err))
 	}
@@ -323,9 +330,12 @@ func (usage *Service) GetProjectStorageAndSegmentUsage(ctx context.Context, proj
 }
 
 // UpdateProjectStorageAndSegmentUsage increments the storage and segment cache keys for a specific project.
-func (usage *Service) UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncr, segmentIncr int64) (err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, projectID, storageIncr, segmentIncr)
+func (usage *Service) UpdateProjectStorageAndSegmentUsage(ctx context.Context, limits ProjectLimits, storageIncr, segmentIncr int64) (err error) {
+	defer mon.Task()(&ctx, limits.ProjectID)(&err)
+	if unlimitedUploads(limits.Usage, limits.Segments) {
+		return nil
+	}
+	return usage.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, limits.ProjectID, storageIncr, segmentIncr)
 }
 
 // SetNow allows tests to have the Service act as if the current time is whatever they want.
@@ -343,4 +353,11 @@ func unlimitedDownloads(limit *int64) bool {
 		return false
 	}
 	return *limit == int64(noLimits) || *limit == math.MaxInt64
+}
+
+func unlimitedUploads(storageLimit *int64, segmentLimit *int64) bool {
+	if storageLimit == nil || segmentLimit == nil {
+		return false
+	}
+	return (*storageLimit == int64(noLimits) || *storageLimit == math.MaxInt64) && (*segmentLimit == int64(noLimits) || *segmentLimit == math.MaxInt64)
 }
