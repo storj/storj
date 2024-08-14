@@ -363,6 +363,7 @@ export class FreezeStatus {
         public frozen = false,
         public warned = false,
         public trialExpiredFrozen = false,
+        public trialExpirationGracePeriod = 0,
     ) { }
 }
 

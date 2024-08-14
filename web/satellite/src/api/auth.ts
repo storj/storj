@@ -417,6 +417,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.frozen,
                 responseData.warned,
                 responseData.trialExpiredFrozen,
+                responseData.trialExpirationGracePeriod,
             );
         }
 
