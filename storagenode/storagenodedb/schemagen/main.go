@@ -33,7 +33,7 @@ func main() {
 	out, err := runSchemaGen(ctx, log)
 	if err != nil {
 		printWithLines(os.Stderr, out)
-		fmt.Fprintf(os.Stderr, "%v", err)
+		_, _ = fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
 
@@ -42,7 +42,7 @@ func main() {
 	} else {
 		err := os.WriteFile(*outfile, out, 0644)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v", err)
+			_, _ = fmt.Fprintf(os.Stderr, "%v", err)
 			os.Exit(1)
 		}
 	}
@@ -50,7 +50,7 @@ func main() {
 
 func printWithLines(w io.Writer, data []byte) {
 	for i, line := range strings.Split(string(data), "\n") {
-		fmt.Fprintf(w, "%3d: %s\n", i, line)
+		_, _ = fmt.Fprintf(w, "%3d: %s\n", i, line)
 	}
 }
 

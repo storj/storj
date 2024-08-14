@@ -32,17 +32,17 @@ func (t *tabbedWriter) Done() {
 func (t *tabbedWriter) WriteLine(parts ...interface{}) {
 	if !t.wrote {
 		if len(t.headers) > 0 {
-			fmt.Fprintln(t.tw, strings.Join(t.headers, "\t"))
+			_, _ = fmt.Fprintln(t.tw, strings.Join(t.headers, "\t"))
 		}
 		t.wrote = true
 	}
 	for i, part := range parts {
 		if i > 0 {
-			fmt.Fprint(t.tw, "\t")
+			_, _ = fmt.Fprint(t.tw, "\t")
 		}
-		fmt.Fprint(t.tw, toString(part))
+		_, _ = fmt.Fprint(t.tw, toString(part))
 	}
-	fmt.Fprintln(t.tw)
+	_, _ = fmt.Fprintln(t.tw)
 }
 
 func toString(x interface{}) string {

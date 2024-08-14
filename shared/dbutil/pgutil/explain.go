@@ -62,7 +62,7 @@ func (e *Explanation) Without(keys ...string) Explanation {
 func (e Explanation) String() string {
 	var b strings.Builder
 	for _, e := range e.Entries {
-		fmt.Fprintf(&b, "%v: %v\n", e.Key, e.Value)
+		_, _ = fmt.Fprintf(&b, "%v: %v\n", e.Key, e.Value)
 	}
 	return b.String()
 }

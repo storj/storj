@@ -46,7 +46,7 @@ func (c *cmdAccessRevoke) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Revoked access %q\n", c.revokee)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Revoked access %q\n", c.revokee)
 
 	return nil
 }

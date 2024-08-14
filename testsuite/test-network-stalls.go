@@ -222,7 +222,7 @@ func main() {
 	flag.Parse()
 
 	if err := runTest(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	fmt.Println("SUCCESS")

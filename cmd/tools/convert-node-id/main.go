@@ -14,7 +14,7 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: %s <nodeid>\n", os.Args[0])
+	_, _ = fmt.Fprintf(os.Stderr, "usage: %s <nodeid>\n", os.Args[0])
 	os.Exit(1)
 }
 
@@ -24,7 +24,7 @@ func output(id storj.NodeID) {
 	fmt.Printf("version: %d\n", id.Version().Number)
 	diff, err := id.Difficulty()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error getting difficulty: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "error getting difficulty: %v\n", err)
 	} else {
 		fmt.Printf("difficulty: %d\n", diff)
 	}
@@ -61,6 +61,6 @@ func main() {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "unknown argument: %q", os.Args[1])
+	_, _ = fmt.Fprintf(os.Stderr, "unknown argument: %q", os.Args[1])
 	usage()
 }

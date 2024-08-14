@@ -200,6 +200,6 @@ func (ex *external) ExportAccess(ctx context.Context, access *uplink.Access, fil
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), "Exported access to:", filename)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Exported access to:", filename)
 	return nil
 }

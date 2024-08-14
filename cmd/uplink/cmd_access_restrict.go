@@ -59,6 +59,6 @@ func (c *cmdAccessRestrict) Execute(ctx context.Context) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), serialized)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), serialized)
 	return nil
 }
