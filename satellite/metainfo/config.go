@@ -64,11 +64,14 @@ func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
 	}
 	if o.Total > 0 {
 		ro.Total = o.Total
-		// we don't use override for repair (yet)
+		// for legacy configuration that does not define repair.
 		// we need to adjust to avoid validation error
 		if ro.Repair > ro.Total {
 			ro.Repair = ro.Total
 		}
+	}
+	if o.Repair > 0 {
+		ro.Repair = o.Repair
 	}
 	return ro
 }

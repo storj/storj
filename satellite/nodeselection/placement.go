@@ -43,6 +43,7 @@ type ECParameters struct {
 	Minimum int
 	Success int
 	Total   int
+	Repair  int
 }
 
 // Match implements NodeFilter.
