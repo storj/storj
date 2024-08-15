@@ -37,7 +37,7 @@ func TestProjectsGetByPublicID(t *testing.T) {
 		prj, err = projects.GetByPublicID(ctx, pubID)
 		require.NoError(t, err)
 		require.Equal(t, pubID, prj.PublicID)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestProjectsGetSalt(t *testing.T) {
@@ -56,7 +56,7 @@ func TestProjectsGetSalt(t *testing.T) {
 
 		_, err = uuid.FromBytes(salt)
 		require.NoError(t, err)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateProjectUsageLimits(t *testing.T) {
@@ -76,7 +76,7 @@ func TestUpdateProjectUsageLimits(t *testing.T) {
 		require.Equal(t, limits.Bandwidth, proj.BandwidthLimit.Int64())
 		require.Equal(t, limits.Storage, proj.StorageLimit.Int64())
 		require.Equal(t, limits.Segment, *proj.SegmentLimit)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetProjectsByUserID(t *testing.T) {
@@ -120,7 +120,7 @@ func TestGetProjectsByUserID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, projects, 1)
 		require.Equal(t, 2, projects[0].MemberCount)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateAllProjectLimits(t *testing.T) {
@@ -193,7 +193,7 @@ func TestUpdateAllProjectLimits(t *testing.T) {
 		require.Nil(t, p.MaxBuckets)
 		require.Nil(t, p.RateLimit)
 		require.Nil(t, p.BurstLimit)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateLimitsGeneric(t *testing.T) {
@@ -366,5 +366,5 @@ func TestUpdateLimitsGeneric(t *testing.T) {
 		require.NoError(t, err)
 		// valid limitkind should not have been updated
 		require.Nil(t, proj.SegmentLimit)
-	})
+	}, satellitedbtest.WithSpanner())
 }

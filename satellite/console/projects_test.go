@@ -176,7 +176,7 @@ func TestProjectsRepository(t *testing.T) {
 				require.Equal(t, 2, len(allProjects))
 			})
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestProjectsList(t *testing.T) {
@@ -243,7 +243,7 @@ func TestProjectsList(t *testing.T) {
 				})
 				return rs
 			})))
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestProjectsListByOwner(t *testing.T) {
@@ -379,7 +379,7 @@ func TestProjectsListByOwner(t *testing.T) {
 				require.Equal(t, originalProjects[i].MemberCount, p.MemberCount)
 			}
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetMaxBuckets(t *testing.T) {
@@ -392,7 +392,7 @@ func TestGetMaxBuckets(t *testing.T) {
 		max, err := projectsDB.GetMaxBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, maxCount, *max)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestValidateNameAndDescription(t *testing.T) {
@@ -425,7 +425,7 @@ func TestValidateNameAndDescription(t *testing.T) {
 func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
@@ -461,7 +461,7 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 func TestBurstLimit_ProjectBurstLimitZero(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
