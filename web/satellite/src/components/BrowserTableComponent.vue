@@ -98,7 +98,7 @@
                     {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
-            <template #item="{ props: rowProps }">
+            <template #item="{ index, props: rowProps }">
                 <v-data-table-row v-bind="rowProps">
                     <template v-if="rowProps.item.raw.browserObject.type === 'folder'" #item.data-table-expand />
                     <template #item.name="{ item }: ItemSlotProps">
@@ -113,8 +113,8 @@
                         >
                             <img :src="item.typeInfo.icon" :alt="item.typeInfo.title + 'icon'" class="mr-3">
                             <v-tooltip
-                                v-if="firstFile && item.browserObject.Key === firstFile.Key"
-                                :model-value="isFileGuideShown"
+                                v-if="index === 0 && !fileGuideDismissed"
+                                :model-value="true"
                                 persistent
                                 no-click-animation
                                 location="bottom"
@@ -331,7 +331,6 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isRestoreDialogShown = ref<boolean>(false);
-const isFileGuideShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
@@ -390,6 +389,11 @@ const expandedFiles = computed<BrowserObject[]>({
     },
     set: (files: BrowserObject[]) => obStore.updateVersionsExpandedKeys(files.map(f => f.path + f.Key)),
 });
+
+/**
+ * Returns whether the file guide is permanently dismissed.
+ */
+const fileGuideDismissed = computed(() => userStore.noticeDismissal.fileGuide);
 
 /**
  * Returns files being deleted from store.
@@ -497,13 +501,6 @@ const selectedFiles: WritableComputedRef<BrowserObject[]> = computed({
 const filesToDelete = computed<BrowserObject[]>(() => {
     if (fileToDelete.value) return [fileToDelete.value];
     return obStore.state.selectedFiles;
-});
-
-/**
- * Returns the first browser object in the table that is a file.
- */
-const firstFile = computed<BrowserObject | null>(() => {
-    return tableFiles.value.find(f => f.browserObject.type === 'file')?.browserObject || null;
 });
 
 /**
@@ -736,13 +733,6 @@ watch(() => obStore.state.showObjectVersions, showObjectVersions => {
         obStore.updateVersionsExpandedKeys([]);
     }
 });
-
-if (!userStore.noticeDismissal.fileGuide) {
-    const unwatch = watch(firstFile, () => {
-        isFileGuideShown.value = true;
-        unwatch();
-    });
-}
 </script>
 
 <style scoped lang="scss">

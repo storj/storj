@@ -138,11 +138,10 @@ async function onRestoreObjectClick(): Promise<void> {
             notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
             return;
         }
+        emit('fileRestored');
+        notify.success(`Previous version restored.`);
+        model.value = false;
     });
-
-    emit('fileRestored');
-    notify.success(`Previous version restored.`);
-    model.value = false;
 }
 
 watch(innerContent, comp => !comp && emit('contentRemoved'));
