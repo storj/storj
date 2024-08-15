@@ -7,8 +7,8 @@
             <div>
                 <div class="d-flex justify-center align-center ma-0">
                     <div>
-                        <v-badge v-if="isPartner" label="Best Value" rounded="lg" content="Best Value" color="success">
-                            <v-btn v-if="isPartner" density="comfortable" color="success" variant="outlined" icon>
+                        <v-badge v-if="isPartner" label="Best Value" rounded="lg" content="Best Value" color="secondary">
+                            <v-btn v-if="isPartner" density="comfortable" color="default" variant="outlined" icon>
                                 <v-icon :icon="Cloud" />
                             </v-btn>
                         </v-badge>
@@ -42,7 +42,7 @@
                         <v-icon :icon="ArrowRight" />
                     </template>
 
-                    {{ plan.activationButtonText || ('Activate ' + plan.title) }}
+                    {{ plan.activationButtonText || plan.title }}
                 </v-btn>
             </div>
         </div>

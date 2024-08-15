@@ -3,31 +3,13 @@
 
 <template>
     <template v-if="!isSuccess">
-        <v-row class="ma-0" justify="space-between" align="center">
-            <v-col class="px-0" cols="auto">
-                <span class="font-weight-bold">Activate your plan</span>
-            </v-col>
-            <v-col class="px-0" cols="auto">
-                <v-btn density="compact" color="success" variant="tonal" icon>
-                    <v-icon :icon="Check" />
-                </v-btn>
-            </v-col>
-        </v-row>
-
         <v-row class="ma-0" align="center">
-            <v-col class="px-0" cols="9">
-                <div class="pt-4">
-                    <p class="font-weight-bold">{{ plan.title }} <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span></p>
-                </div>
-
-                <div>
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <p v-html="plan.activationDescriptionHTML" />
-                </div>
-            </v-col>
-            <v-col v-if="plan.activationPriceHTML" class="px-0" cols="3">
+            <v-col class="px-0">
+                <p class="font-weight-bold">{{ plan.title }} <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span></p>
                 <!-- eslint-disable-next-line vue/no-v-html -->
-                <p class="font-weight-bold" v-html="plan.activationPriceHTML" />
+                <p v-html="plan.activationDescriptionHTML" />
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <v-chip v-if="plan.activationPriceHTML" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
             </v-col>
         </v-row>
 
@@ -62,8 +44,9 @@
         <div class="pb-4">
             <v-btn
                 block
-                variant="outlined"
-                color="grey-lighten-1"
+                variant="text"
+                color="default"
+                :prepend-icon="ChevronLeft"
                 :disabled="loading"
                 @click="emit('back')"
             >
@@ -117,9 +100,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { VAlert, VBtn, VCol, VIcon, VRow } from 'vuetify/components';
+import { VAlert, VBtn, VCol, VIcon, VRow, VChip } from 'vuetify/components';
 import { useTheme } from 'vuetify';
-import { Check, LockKeyhole } from 'lucide-vue-next';
+import { Check, LockKeyhole, ChevronLeft } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/utils/hooks';

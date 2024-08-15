@@ -58,7 +58,7 @@
                     <v-window-item :value="OnboardingStep.PricingPlanSelection">
                         <v-container>
                             <v-row justify="center">
-                                <v-col class="text-center pt-10 pb-4">
+                                <v-col class="text-center py-4">
                                     <icon-storj-logo />
                                     <div class="text-overline mt-2 mb-1">
                                         Pricing Plan
@@ -78,12 +78,12 @@
                     <v-window-item :value="OnboardingStep.PricingPlan">
                         <v-container>
                             <v-row justify="center">
-                                <v-col class="text-center pt-10 pb-4">
+                                <v-col class="text-center py-4">
                                     <icon-storj-logo />
                                     <div class="text-overline mt-2 mb-1">
-                                        Account Type
+                                        Account Setup
                                     </div>
-                                    <h2>Activate your account.</h2>
+                                    <h2>Activate your account</h2>
                                 </v-col>
                             </v-row>
                             <v-row justify="center" align="center">

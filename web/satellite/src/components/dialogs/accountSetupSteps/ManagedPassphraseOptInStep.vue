@@ -4,7 +4,7 @@
 <template>
     <v-container>
         <v-row justify="center">
-            <v-col class="text-center pt-10 pb-4">
+            <v-col class="text-center py-4">
                 <img height="50" width="50" src="@/assets/icon-change-password.svg" alt="Change password">
                 <div class="text-overline mt-2 mb-1">
                     Project Encryption
@@ -14,7 +14,7 @@
         </v-row>
 
         <v-row justify="center">
-            <v-col cols="12" sm="8" md="6" lg="4">
+            <v-col cols="12" sm="10" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
                     <div class="d-flex flex-column justify-space-between pa-6">
                         <h3 class="font-weight-black">Automatic</h3>
@@ -33,7 +33,7 @@
 
                         <p class="text-body-2 my-2">
                             <b>Easy team management</b><br>
-                            Your team members would automatically have access to your project's data.
+                            The team members you invite will automatically have access to your project's data.
                         </p>
 
                         <p class="text-body-2 my-2">
@@ -55,7 +55,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" sm="8" md="6" lg="4">
+            <v-col cols="12" sm="10" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
                     <div class="d-flex flex-column justify-space-between pa-6">
                         <h3 class="font-weight-black primary">Manual</h3>

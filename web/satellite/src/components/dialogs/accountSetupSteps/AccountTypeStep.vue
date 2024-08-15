@@ -4,7 +4,7 @@
 <template>
     <v-container>
         <v-row justify="center">
-            <v-col class="text-center pt-10 pb-4">
+            <v-col class="text-center py-4">
                 <icon-storj-logo />
                 <div class="text-overline mt-2 mb-1">
                     Account Type
@@ -26,6 +26,8 @@
                         <v-btn
                             id="free-plan"
                             class="mt-4 mb-4"
+                            color="text-secondary"
+                            variant="outlined"
                             @click="emit('select', FREE_PLAN_INFO)"
                         >
                             <template #append>
@@ -66,7 +68,7 @@
 
                         <v-btn
                             variant="flat"
-                            color="secondary"
+                            color="primary"
                             class="mt-4 mb-4"
                             @click="emit('select', PRO_PLAN_INFO)"
                         >
@@ -131,7 +133,7 @@
 
         <v-row justify="center" class="mt-8">
             <v-col cols="6" sm="4" md="3" lg="2">
-                <v-btn size="small" variant="text" :prepend-icon="ChevronLeft" color="default" block @click="emit('back')">Back</v-btn>
+                <v-btn variant="text" :prepend-icon="ChevronLeft" color="default" block @click="emit('back')">Back</v-btn>
             </v-col>
         </v-row>
     </v-container>
