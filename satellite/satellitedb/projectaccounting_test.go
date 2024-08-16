@@ -495,7 +495,7 @@ func TestGetProjectObjectsSegments(t *testing.T) {
 }
 
 func TestGetProjectSettledBandwidth(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			projectID := planet.Uplinks[0].Projects[0].ID
 			sat := planet.Satellites[0]
