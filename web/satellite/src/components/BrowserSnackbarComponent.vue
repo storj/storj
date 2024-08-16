@@ -76,7 +76,6 @@
     <file-preview-dialog
         v-model="previewDialog"
         v-model:current-file="fileToPreview"
-        :showing-versions="!!fileToPreview?.VersionId"
     />
 </template>
 

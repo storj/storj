@@ -14,6 +14,8 @@ import {
     ListObjectsV2CommandInput,
     ListObjectsV2CommandOutput,
     ListObjectVersionsCommand,
+    ListObjectVersionsCommandInput,
+    ListObjectVersionsCommandOutput,
     paginateListObjectsV2,
     PutObjectCommand,
     S3Client,
@@ -37,11 +39,14 @@ export type BrowserObject = {
     Size: number;
     LastModified: Date;
     type?: 'file' | 'folder';
+    isDeleteMarker?: boolean;
+    isLatest?: boolean;
     progress?: number;
     upload?: {
         abort: () => void;
     };
     path?: string;
+    Versions?: BrowserObject[];
 };
 
 export enum FailedUploadMessage {
@@ -101,8 +106,7 @@ export class FilesState {
     openModalOnFirstUpload = false;
     objectPathForModal = '';
     cachedObjectPreviewURLs: Map<string, PreviewCache> = new Map<string, PreviewCache>();
-    showObjectVersions: boolean = true;
-    objectVersions: Map<string, BrowserObject[]> = new Map<string, BrowserObject[]>();
+    showObjectVersions: boolean = false;
     // object keys for which we have expanded versions list.
     versionsExpandedKeys: string[] = [];
     // Local storage data changes are not reactive.
@@ -267,7 +271,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.versionsExpandedKeys = keys;
     }
 
-    async function listVersions(objectKey: string): Promise<void> {
+    async function listVersions(objectKey: string): Promise<BrowserObject[]> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
             Bucket: state.bucket,
@@ -280,16 +284,137 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         const { Versions } = response;
         const versions = Versions ?? [];
 
-        const files = versions.map(file => ({
+        return versions.map(file => ({
             ...file,
             Key,
             path,
             type: 'file',
         })) as BrowserObject[];
-        // remove the first element which is the current version of the object
-        files.shift();
+    }
 
-        state.objectVersions.set(objectKey, files);
+    const isFileVisible = (file) =>
+        file.Key.length > 0 && file.Key !== '.file_placeholder';
+
+    type DefinedCommonPrefix = CommonPrefix & {
+        Prefix: string;
+    };
+    const isPrefixDefined = (
+        value: CommonPrefix,
+    ): value is DefinedCommonPrefix => value.Prefix !== undefined;
+
+    function prefixToFolder(path: string) {
+        return ({
+            Prefix,
+        }: {
+            Prefix: string;
+        }): BrowserObject => ({
+            Key: Prefix.slice(path.length, -1),
+            path: path,
+            LastModified: new Date(),
+            Size: 0,
+            type: 'folder',
+        });
+    }
+
+    function makeFileRelative(path: string) {
+        return (file) => ({
+            ...file,
+            Key: file.Key.slice(path.length),
+            path: path,
+            type: 'file',
+        });
+    }
+
+    async function listAllVersions(path = state.path, page = state.cursor.page, saveNextToken = false) {
+        assertIsInitialized(state);
+
+        const continuationToken = state.continuationTokens.get(page);
+        let nextKey: string = '';
+        let nextVersion: string = '';
+        if (continuationToken) {
+            [nextKey, nextVersion] = continuationToken.split('::');
+        }
+
+        state.cursor.page = page;
+        const input: ListObjectVersionsCommandInput = {
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+            KeyMarker: nextKey,
+            VersionIdMarker: nextVersion,
+            MaxKeys: state.cursor.limit,
+        };
+
+        const response: ListObjectVersionsCommandOutput = await state.s3.send(new ListObjectVersionsCommand(input));
+
+        const versions = response.Versions ?? [];
+        const deleteMarkers = response.DeleteMarkers ?? [];
+        const allItems = [...versions, ...deleteMarkers];
+        const groupedItems = new Map<string, BrowserObject[]>();
+
+        for (let item of allItems) {
+            item = makeFileRelative(path)(item);
+            if (!isFileVisible(item)) {
+                continue;
+            }
+
+            if (!groupedItems.has(item.Key ?? '')) {
+                groupedItems.set(item.Key ?? '', []);
+            }
+
+            let size = 0;
+            let isDeleteMarker = true;
+            let isLatest = false;
+            if ('Size' in item) {
+                size = (item.Size as number) ?? 0;
+                isDeleteMarker = false;
+                isLatest = item.IsLatest ?? false;
+            }
+            const browserObject: BrowserObject = {
+                Key: item.Key ?? '',
+                path: path,
+                VersionId: item.VersionId,
+                Size: size,
+                LastModified: item.LastModified ?? new Date(),
+                isLatest: isLatest,
+                type: 'file',
+                isDeleteMarker,
+            };
+
+            groupedItems.get(item.Key ?? '')?.push(browserObject);
+        }
+
+        const latestObjects: BrowserObject[] = [];
+        const keys: string[] = [];
+        for (const [key, items] of groupedItems.entries()) {
+            items.sort((a, b) => new Date(b.LastModified ?? 0).getTime() - new Date(a.LastModified ?? 0).getTime());
+            const item = items[0];
+            keys.push(item.path + item.Key);
+            latestObjects.push({
+                Key: key,
+                Size: item.Size,
+                path: item.path,
+                type: item.type,
+                Versions: items,
+                LastModified: item.LastModified,
+                isDeleteMarker: item.isDeleteMarker,
+            });
+        }
+        updateVersionsExpandedKeys(keys);
+
+        if (saveNextToken) {
+            const nextToken = `${response.NextKeyMarker ?? ''}::${response.NextVersionIdMarker ?? ''}`;
+            if (nextToken !== '::') {
+                state.continuationTokens.set(page + 1, nextToken);
+            }
+        }
+
+        state.path = path;
+        const folders = response.CommonPrefixes ?? [];
+        updateFiles(path, [
+            ...folders.filter(isPrefixDefined).map(prefixToFolder(path)),
+            ...latestObjects,
+        ]);
     }
 
     async function initList(path = state.path): Promise<void> {
@@ -401,39 +526,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             return a.LastModified < b.LastModified ? -1 : 1;
         });
 
-        type DefinedCommonPrefix = CommonPrefix & {
-            Prefix: string;
-        };
-
-        const isPrefixDefined = (
-            value: CommonPrefix,
-        ): value is DefinedCommonPrefix => value.Prefix !== undefined;
-
-        const prefixToFolder = ({
-            Prefix,
-        }: {
-            Prefix: string;
-        }): BrowserObject => ({
-            Key: Prefix.slice(path.length, -1),
-            path: path,
-            LastModified: new Date(),
-            Size: 0,
-            type: 'folder',
-        });
-
-        const makeFileRelative = (file) => ({
-            ...file,
-            Key: file.Key.slice(path.length),
-            path: path,
-            type: 'file',
-        });
-
-        const isFileVisible = (file) =>
-            file.Key.length > 0 && file.Key !== '.file_placeholder';
-
         const files: BrowserObject[] = [
-            ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder),
-            ...Contents.map(makeFileRelative).filter(isFileVisible),
+            ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder(path)),
+            ...Contents.map(makeFileRelative(path)).filter(isFileVisible),
         ];
 
         updateFiles(path, files);
@@ -641,15 +736,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            if (isAltPagination.value) {
+            if (state.showObjectVersions) {
+                clearTokens();
+                await listAllVersions(state.path, 1, true);
+            } else if (isAltPagination.value) {
                 clearTokens();
                 await listCustom(state.path, 1, true);
             } else {
                 await initList();
-            }
-
-            if (state.versionsExpandedKeys.includes(item.Key)) {
-                listVersions(item.Key);
             }
 
             const uploadedFiles = state.files.filter(f => f.type === 'file');
@@ -684,7 +778,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: '',
         }));
 
-        if (isAltPagination.value) {
+        if (state.showObjectVersions) {
+            clearTokens();
+            await listAllVersions(state.path, 1, true);
+        } else if (isAltPagination.value) {
             clearTokens();
             listCustom(state.path, 1, true);
         } else {
@@ -712,19 +809,16 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         if (!isFolder) {
             if (shouldRefresh) {
-                if (isAltPagination.value) {
+                if (state.showObjectVersions) {
+                    clearTokens();
+                    await listAllVersions(state.path, 1, true);
+                } else if (isAltPagination.value) {
                     clearTokens();
                     await listCustom(state.path, 1, true);
                 } else {
                     await initList();
                 }
             }
-
-            if (file['VersionId']) {
-                // versioned object
-                await listVersions(state.path + file.Key);
-            }
-
             removeFile(file);
         }
     }
@@ -775,7 +869,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         removeFile(file);
 
         if (shouldRefresh) {
-            if (isAltPagination.value) {
+            if (state.showObjectVersions) {
+                clearTokens();
+                await listAllVersions(state.path, 1, true);
+            } else if (isAltPagination.value) {
                 clearTokens();
                 await listCustom(state.path, 1, true);
             } else {
@@ -828,7 +925,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     async function download(file: BrowserObject): Promise<void> {
         const url = await getDownloadLink(file);
-        const downloadURL = function(data: string, fileName: string) {
+        const downloadURL = function (data: string, fileName: string) {
             const a = document.createElement('a');
             a.href = data;
             a.download = fileName;
@@ -893,6 +990,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     function toggleShowObjectVersions(): void {
+        clearTokens();
+        updateVersionsExpandedKeys([]);
+        updateSelectedFiles([]);
+        updateFiles(state.path, []);
         state.showObjectVersions = !state.showObjectVersions;
     }
 
@@ -922,8 +1023,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.openModalOnFirstUpload = false;
         state.objectPathForModal = '';
         state.cachedObjectPreviewURLs = new Map<string, PreviewCache>();
-        state.showObjectVersions = true;
-        state.objectVersions = new Map<string, BrowserObject[]>();
+        state.showObjectVersions = false;
         state.versionsExpandedKeys = [];
         state.objectCountOfSelectedBucket = 0;
     }
@@ -940,6 +1040,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         initList,
         listByToken,
         listVersions,
+        listAllVersions,
         listCustom,
         setCursor,
         updateVersionsExpandedKeys,

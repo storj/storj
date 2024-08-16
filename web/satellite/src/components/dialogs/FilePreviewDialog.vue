@@ -194,10 +194,10 @@ const notify = useNotify();
 
 const props = withDefaults(defineProps<{
     videoAutoplay?: boolean
-    showingVersions?: boolean
+    versions?: BrowserObject[]
 }>(), {
     videoAutoplay: false,
-    showingVersions: false,
+    versions: () => [],
 });
 
 const emit = defineEmits<{
@@ -219,9 +219,11 @@ const currentFile = defineModel<BrowserObject | null>('currentFile', { required:
 const constCarouselIndex = computed(() => carouselIndex.value);
 const carouselIndex = ref(0);
 
+const showingVersions = computed(() => props.versions.length > 0);
+
 const files = computed((): BrowserObject[] => {
-    if (props.showingVersions) {
-        return obStore.state.objectVersions.get(filePath.value) ?? [];
+    if (showingVersions.value) {
+        return props.versions;
     }
     return obStore.sortedFiles;
 });
@@ -230,9 +232,9 @@ const files = computed((): BrowserObject[] => {
  * Retrieve the file index that the modal is set to from the store.
  */
 const fileIndex = computed((): number => {
-    if (props.showingVersions) {
-        return files.value.findIndex((file) => {
-            return file.path + file.Key === filePath.value && file.VersionId === currentFile.value?.VersionId;
+    if (showingVersions.value) {
+        return props.versions.findIndex((file) => {
+            return file.VersionId === currentFile.value?.VersionId;
         });
     }
     return files.value.findIndex(f => f.Key === filePath.value.split('/').pop());
