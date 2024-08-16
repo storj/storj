@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-// sortComponents returns components in order to start/run/close them.
+// sortedComponents returns components in order to start/run/close them.
 // it implements a simple topology sorting based on Kahn's algorithm:  https://en.wikipedia.org/wiki/Topological_sorting
 func sortedComponents(ball *Ball) (sorted []*Component) {
 	// key should be initialized before the values

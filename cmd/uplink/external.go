@@ -494,7 +494,7 @@ func (ex *external) PromptInput(ctx context.Context, prompt string) (input strin
 	return string(bytes.TrimSpace(buf)), nil
 }
 
-// PromptInput gets a line of secret input from the user twice to ensure that
+// PromptSecret gets a line of secret input from the user twice to ensure that
 // it is the same value, and returns an error if interactive mode is disabled
 // or if the prompt cannot be put into a mode where the typing is not echoed.
 func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret string, err error) {
