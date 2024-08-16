@@ -565,7 +565,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	}
 
 	if !enabled {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, bucketNoLockErrMsg)
 	}
 
 	return &pb.GetBucketObjectLockConfigurationResponse{

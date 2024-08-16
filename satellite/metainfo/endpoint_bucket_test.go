@@ -963,7 +963,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 				},
 				Name: bucketName,
 			})
-			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+			rpctest.RequireCode(t, err, rpcstatus.Unimplemented)
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
