@@ -14,7 +14,7 @@
             <v-sheet>
                 <v-card-item class="pa-6">
                     <v-card-title class="font-weight-bold">
-                        New {{ app ? app.name : '' }} Access
+                        New {{ selectedApp ? selectedApp.name : '' }} Access
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -26,8 +26,8 @@
                             @click="model = false"
                         />
                     </template>
-                    <template v-if="app" #prepend>
-                        <img :src="app.src" :alt="app.name" width="40" height="40" class="rounded">
+                    <template v-if="selectedApp" #prepend>
+                        <img :src="selectedApp.src" :alt="selectedApp.name" width="40" height="40" class="rounded">
                     </template>
                     <template v-else #prepend>
                         <v-sheet
@@ -56,6 +56,7 @@
                         @name-changed="newName => name = newName"
                         @typeChanged="newType => accessType = newType"
                         @submit="nextStep"
+                        @appChanged="application => selectedApp = application"
                     />
                 </v-window-item>
 
@@ -66,7 +67,7 @@
                 <v-window-item :value="SetupStep.ChooseFlowStep">
                     <choose-flow-step
                         :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
-                        :app="app"
+                        :app="selectedApp"
                         @setFlowType="val => flowType = val"
                     />
                 </v-window-item>
@@ -132,7 +133,7 @@
                     <access-created-step
                         :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
                         :name="name"
-                        :app="app"
+                        :app="selectedApp"
                         :cli-access="cliAccess"
                         :access-grant="accessGrant"
                         :credentials="credentials"
@@ -173,7 +174,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            :href="docsLink"
+                            :href="selectedApp ? selectedApp.docs : docsLink"
                             target="_blank"
                             rel="noopener noreferrer"
                             @click="() => sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_DOCS_CLICKED)"
@@ -300,6 +301,7 @@ function resettableRef<T>(value: T): Ref<T> {
     return thisRef;
 }
 
+const selectedApp = resettableRef<Application | undefined>(props.app);
 const step = resettableRef<SetupStep>(props.defaultStep);
 const accessType = resettableRef<AccessType>(props.defaultAccessType ?? AccessType.S3);
 const flowType = resettableRef<FlowType>(FlowType.FullAccess);
@@ -458,15 +460,15 @@ async function generate(): Promise<void> {
     await createAPIKey();
     if (accessType.value === AccessType.AccessGrant || accessType.value === AccessType.S3) {
         await createAccessGrant();
+        if (accessType.value === AccessType.S3) await createEdgeCredentials();
         if (passphraseOption.value === PassphraseOption.SetMyProjectPassphrase) {
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
             bucketsStore.setPassphrase(passphrase.value);
             bucketsStore.setPromptForPassphrase(false);
         }
     }
-    if (accessType.value === AccessType.S3) await createEdgeCredentials();
 
-    sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_COMPLETED);
+    if (selectedApp.value) sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_COMPLETED);
 
     isCreating.value = false;
 }
@@ -593,7 +595,7 @@ function prevStep(): void {
 }
 
 function sendApplicationsAnalytics(e: AnalyticsEvent): void {
-    if (props.app) analyticsStore.eventTriggered(e, { application: props.app.name });
+    if (selectedApp.value) analyticsStore.eventTriggered(e, { application: selectedApp.value.name });
 }
 
 /**
