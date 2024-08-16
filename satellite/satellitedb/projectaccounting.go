@@ -643,7 +643,15 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 func (db *ProjectAccounting) DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind("DELETE FROM project_bandwidth_daily_rollups WHERE interval_day < ?"), before)
+	query := db.db.Rebind("DELETE FROM project_bandwidth_daily_rollups WHERE interval_day < ?")
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		_, err = db.db.DB.ExecContext(ctx, query, before)
+	case dbutil.Spanner:
+		_, err = db.db.DB.ExecContext(ctx, query, civil.DateOf(before))
+	default:
+		return errs.New("unsupported database dialect: %s", db.db.impl)
+	}
 
 	return err
 }
