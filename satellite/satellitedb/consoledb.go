@@ -60,8 +60,9 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	})
 
 	return &apikeys{
-		db:  db.methods,
-		lru: db.apikeysCache,
+		db:   db.methods,
+		lru:  db.apikeysCache,
+		impl: db.db.impl,
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/lrucache"
 )
@@ -27,8 +28,9 @@ type projectApiKeyRow = dbx.ApiKey_Project_PublicId_Project_RateLimit_Project_Bu
 
 // apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
-	db  dbx.DriverMethods
-	lru *lrucache.ExpiringLRUOf[*projectApiKeyRow]
+	db   dbx.DriverMethods
+	lru  *lrucache.ExpiringLRUOf[*projectApiKeyRow]
+	impl dbutil.Implementation
 }
 
 func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor, ignoredNamePrefix string) (page *console.APIKeyPage, err error) {
@@ -265,7 +267,16 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 // DeleteMultiple implements satellite.APIKeys.
 func (keys *apikeys) DeleteMultiple(ctx context.Context, ids []uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = keys.db.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ANY($1)`, pgutil.UUIDArray(ids))
+	switch keys.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		query := `DELETE FROM api_keys WHERE id = ANY($1)`
+		_, err = keys.db.ExecContext(ctx, query, pgutil.UUIDArray(ids))
+	case dbutil.Spanner:
+		query := `DELETE FROM api_keys WHERE id IN UNNEST(?)`
+		_, err = keys.db.ExecContext(ctx, query, uuidsToBytesArray(ids))
+	default:
+		return errs.New("unsupported database dialect: %s", keys.impl)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
@@ -301,21 +312,21 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 	cursorQuery := `
 		SELECT id FROM api_keys
 	` + aost + `
-		WHERE id > $1 AND api_keys.name LIKE
+		WHERE id > ? AND api_keys.name LIKE
 	'` + prefix + `%'
 		ORDER BY id LIMIT 1
 	`
 	selectQuery := `
 		SELECT id, created_at FROM api_keys
 	` + aost + `
-		WHERE id >= $1 AND api_keys.name LIKE
+		WHERE id >= ? AND api_keys.name LIKE
 	'` + prefix + `%'
-		ORDER BY id LIMIT $2
+		ORDER BY id LIMIT ?
 	`
 
 	for {
 		// Select the ID beginning this page of records
-		err = keys.db.QueryRowContext(ctx, cursorQuery, pageCursor).Scan(&pageCursor)
+		err = keys.db.QueryRowContext(ctx, keys.db.Rebind(cursorQuery), pageCursor).Scan(&pageCursor)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
@@ -324,7 +335,7 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 		}
 
 		// Select page of records
-		rows, err := keys.db.QueryContext(ctx, selectQuery, pageCursor, pageSize)
+		rows, err := keys.db.QueryContext(ctx, keys.db.Rebind(selectQuery), pageCursor, pageSize)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -350,7 +361,17 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 
 		// Delete all expired keys in the page
 		if len(toBeDeleted) != 0 {
-			_, err = keys.db.ExecContext(ctx, `DELETE FROM api_keys WHERE id = ANY($1)`, pgutil.UUIDArray(toBeDeleted))
+			switch keys.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				query := `DELETE FROM api_keys WHERE id = ANY($1)`
+				_, err = keys.db.ExecContext(ctx, query, pgutil.UUIDArray(toBeDeleted))
+			case dbutil.Spanner:
+				query := `DELETE FROM api_keys WHERE id IN UNNEST(?)`
+				_, err = keys.db.ExecContext(ctx, query, uuidsToBytesArray(toBeDeleted))
+			default:
+				return errs.New("unsupported database dialect: %s", keys.impl)
+			}
+
 			if err != nil {
 				return Error.Wrap(err)
 			}
