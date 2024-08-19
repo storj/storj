@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
@@ -30,11 +31,18 @@ type DeleteExpiredObjects struct {
 	ExpiredBefore      time.Time
 	AsOfSystemInterval time.Duration
 	BatchSize          int
+	DeleteConcurrency  int
 }
 
 // DeleteExpiredObjects deletes all objects that expired before expiredBefore.
 func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if opts.DeleteConcurrency == 0 {
+		opts.DeleteConcurrency = 1
+	}
+
+	limiter := sync2.NewLimiter(opts.DeleteConcurrency)
 
 	for _, a := range db.adapters {
 		err = db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
@@ -47,17 +55,26 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 				return ObjectStream{}, nil
 			}
 
-			objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegments(ctx, expiredObjects)
+			ok := limiter.Go(ctx, func() {
+				objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegments(ctx, expiredObjects)
+				if err != nil {
+					db.log.Error("failed to delete expired objects from DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
+				}
 
-			mon.Meter("object_delete").Mark64(objectsDeleted)
-			mon.Meter("segment_delete").Mark64(segmentsDeleted)
+				mon.Meter("expired_object_delete").Mark64(objectsDeleted)
+				mon.Meter("expired_segment_delete").Mark64(segmentsDeleted)
+			})
+			if !ok {
+				return ObjectStream{}, Error.New("unable to start delete operation")
+			}
 
 			return expiredObjects[len(expiredObjects)-1], err
 		})
 		if err != nil {
-			db.log.Error("failed to delete expired objects from DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
+			db.log.Error("failed to find expired objects in DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
 		}
 	}
+	limiter.Wait()
 	return nil
 }
 
@@ -93,12 +110,12 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 				return Error.Wrap(err)
 			}
 
-			p.log.Info("Deleting expired object",
+			p.log.Debug("Deleting expired object",
 				zap.Stringer("Project", last.ProjectID),
 				zap.Stringer("Bucket", last.BucketName),
 				zap.String("Object Key", string(last.ObjectKey)),
 				zap.Int64("Version", int64(last.Version)),
-				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
+				zap.Stringer("StreamID", last.StreamID),
 				zap.Time("Expired At", expiresAt),
 			)
 			expiredObjects = append(expiredObjects, last)
@@ -148,12 +165,12 @@ func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpi
 			return Error.Wrap(err)
 		}
 
-		s.log.Info("Deleting expired object",
+		s.log.Debug("Deleting expired object",
 			zap.Stringer("Project", object.ProjectID),
 			zap.Stringer("Bucket", object.BucketName),
 			zap.String("Object Key", string(object.ObjectKey)),
 			zap.Int64("Version", int64(object.Version)),
-			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
+			zap.Stringer("StreamID", object.StreamID),
 			zap.Time("Expired At", expiresAt),
 		)
 
