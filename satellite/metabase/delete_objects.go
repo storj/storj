@@ -14,6 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
@@ -327,45 +329,49 @@ func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects 
 		return 0, 0, nil
 	}
 
-	err = pgxutil.Conn(ctx, p.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
-		for _, obj := range objects {
-			obj := obj
+	projectIDs := make([]uuid.UUID, len(objects))
+	bucketNames := make([][]byte, len(objects))
+	objectKeys := make([][]byte, len(objects))
+	versions := make([]int64, len(objects))
+	streamIDs := make([]uuid.UUID, len(objects))
 
-			batch.Queue(`
-				WITH deleted_objects AS (
-					DELETE FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1::BYTEA, $2, $3, $4, $5::BYTEA)
-					RETURNING stream_id
-				)
-				DELETE FROM segments
-				WHERE segments.stream_id = $5::BYTEA
-			`, obj.ProjectID, obj.BucketName, []byte(obj.ObjectKey), obj.Version, obj.StreamID)
-		}
+	for i, obj := range objects {
+		projectIDs[i] = obj.ProjectID
+		bucketNames[i] = []byte(obj.BucketName)
+		objectKeys[i] = []byte(obj.ObjectKey)
+		versions[i] = int64(obj.Version)
+		streamIDs[i] = obj.StreamID
+	}
 
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
-
-		var errlist errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			result, err := results.Exec()
-			errlist.Add(err)
-
-			if affectedSegmentCount := result.RowsAffected(); affectedSegmentCount > 0 {
-				// Note, this slightly miscounts objects without any segments
-				// there doesn't seem to be a simple work around for this.
-				// Luckily, this is used only for metrics, where it's not a
-				// significant problem to slightly miscount.
-				objectsDeleted++
-				segmentsDeleted += affectedSegmentCount
-			}
-		}
-
-		return errlist.Err()
-	})
+	result, err := p.db.ExecContext(ctx, `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE (project_id, bucket_name, object_key, version, stream_id) IN
+			(SELECT UNNEST($1::BYTEA[]), UNNEST($2::BYTEA[]), UNNEST($3::BYTEA[]), UNNEST($4::INT8[]), UNNEST($5::BYTEA[]))
+			RETURNING stream_id
+		)
+		DELETE FROM segments
+		WHERE segments.stream_id IN (SELECT stream_id FROM deleted_objects)
+	`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(objectKeys),
+		pgutil.Int8Array(versions), pgutil.UUIDArray(streamIDs))
 	if err != nil {
 		return 0, 0, Error.New("unable to delete expired objects: %w", err)
 	}
+
+	affectedSegmentCount, err := result.RowsAffected()
+	if err != nil {
+		return 0, 0, Error.New("unable to delete expired objects: %w", err)
+	}
+
+	if affectedSegmentCount > 0 {
+		// Note, this slightly miscounts objects without any segments
+		// there doesn't seem to be a simple work around for this.
+		// Luckily, this is used only for metrics, where it's not a
+		// significant problem to slightly miscount.
+		objectsDeleted = int64(len(objects))
+		segmentsDeleted += affectedSegmentCount
+	}
+
 	return objectsDeleted, segmentsDeleted, nil
 }
 
