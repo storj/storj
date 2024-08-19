@@ -103,8 +103,9 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}()
 
 	for key, val := range dbMapping {
-		db, err := open(ctx, log, val, opts, key)
-		if err != nil {
+		db, openErr := open(ctx, log, val, opts, key)
+		if openErr != nil {
+			err = errs.Combine(err, openErr)
 			return nil, err
 		}
 		dbc.dbs[key] = db
