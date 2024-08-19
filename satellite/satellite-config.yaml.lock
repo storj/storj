@@ -709,6 +709,9 @@ contact.external-address: ""
 # energy needed to write 1GB of data, in W-hours/GB
 # emission.write-energy: 0.005
 
+# how many delete queries are sent in parallel
+# expired-deletion.delete-concurrency: 1
+
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 

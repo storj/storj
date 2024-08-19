@@ -164,6 +164,25 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("concurrent deletes", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			for _, batchSize := range []int{0, 1, 2, 3, 8, 100} {
+				for i := 0; i < 13; i++ {
+					_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, pastTime)
+				}
+
+				metabasetest.DeleteExpiredObjects{
+					Opts: metabase.DeleteExpiredObjects{
+						ExpiredBefore:     time.Now(),
+						DeleteConcurrency: batchSize,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			}
+		})
 	})
 }
 
