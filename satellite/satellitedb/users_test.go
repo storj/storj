@@ -154,7 +154,7 @@ func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
 		needingReminder, err = users.GetUnverifiedNeedingReminder(ctx, now, now, cutoff)
 		require.NoError(t, err)
 		require.Len(t, needingReminder, 1)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateUser(t *testing.T) {

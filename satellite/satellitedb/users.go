@@ -295,16 +295,16 @@ func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefor
 func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := users.db.QueryContext(ctx, `
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT id, email, full_name, short_name
 		FROM users
 		WHERE status = 0
-			AND created_at > $3
+			AND created_at > ?
 			AND (
-				(verification_reminders = 0 AND created_at < $1)
-				OR (verification_reminders = 1 AND created_at < $2)
+				(verification_reminders = 0 AND created_at < ?)
+				OR (verification_reminders = 1 AND created_at < ?)
 			)
-	`, firstReminder, secondReminder, cutoff)
+	`), cutoff, firstReminder, secondReminder)
 	if err != nil {
 		return nil, err
 	}
