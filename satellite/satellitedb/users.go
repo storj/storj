@@ -264,13 +264,13 @@ func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notification
 func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefore time.Time) (emails []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := users.db.QueryContext(ctx, `
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT email
 		FROM users
-		WHERE status = $1
-			AND status_updated_at < $2
+		WHERE status = ?
+			AND status_updated_at < ?
 			AND (paid_tier = false OR final_invoice_generated = true)
-	`, console.UserRequestedDeletion, statusUpdatedBefore)
+	`), console.UserRequestedDeletion, statusUpdatedBefore)
 	if err != nil {
 		return nil, err
 	}

@@ -466,7 +466,7 @@ func TestGetEmailsForDeletion(t *testing.T) {
 		emails, err = usersRepo.GetEmailsForDeletion(ctx, nowPlusMinute)
 		require.NoError(t, err)
 		require.Len(t, emails, 2)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetUserInfoByProjectID(t *testing.T) {

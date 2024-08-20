@@ -206,6 +206,11 @@ func (s UserStatus) String() string {
 	}
 }
 
+// Value implements database/sql/driver.Valuer for UserStatus.
+func (s UserStatus) Value() (driver.Value, error) {
+	return int64(s), nil
+}
+
 // User is a database object that describes User entity.
 type User struct {
 	ID uuid.UUID `json:"id"`
