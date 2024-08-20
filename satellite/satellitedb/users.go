@@ -430,12 +430,12 @@ func (users *users) DeleteUnverifiedBefore(
 	aost := users.db.AsOfSystemInterval(asOfSystemTimeInterval)
 	for {
 		// Select the ID beginning this page of records
-		err = users.db.QueryRowContext(ctx, `
+		err = users.db.QueryRowContext(ctx, users.db.Rebind(`
 			SELECT id FROM users
 			`+aost+`
-			WHERE id > $1 AND users.status = $2 AND users.created_at < $3
+			WHERE id > ? AND users.status = ? AND users.created_at < ?
 			ORDER BY id LIMIT 1
-		`, pageCursor, console.Inactive, before).Scan(&pageCursor)
+		`), pageCursor, console.Inactive, before).Scan(&pageCursor)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
@@ -444,11 +444,11 @@ func (users *users) DeleteUnverifiedBefore(
 		}
 
 		// Select page of records
-		rows, err := users.db.QueryContext(ctx, `
+		rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 			SELECT id FROM users
 			`+aost+`
-			WHERE id >= $1 ORDER BY id LIMIT $2
-		`, pageCursor, pageSize)
+			WHERE id >= ? ORDER BY id LIMIT ?
+		`), pageCursor, pageSize)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -463,12 +463,24 @@ func (users *users) DeleteUnverifiedBefore(
 			return Error.Wrap(err)
 		}
 
-		// Delete all old, unverified users in the page
-		_, err = users.db.ExecContext(ctx, `
+		switch users.impl {
+		case dbutil.Postgres, dbutil.Cockroach:
+			// Delete all old, unverified users in the page
+			_, err = users.db.ExecContext(ctx, `
 			DELETE FROM users
 			WHERE id = ANY($1)
 			AND status = $2 AND created_at < $3
 		`, pgutil.UUIDArray(selected[:i]), console.Inactive, before)
+		case dbutil.Spanner:
+			// Delete all old, unverified users in the page
+			_, err = users.db.ExecContext(ctx, `
+			DELETE FROM users
+			WHERE id IN UNNEST(?)
+			AND status = ? AND created_at < ?
+		`, uuidsToBytesArray(selected[:i]), console.Inactive, before)
+		default:
+			return errs.New("unsupported database dialect: %s", users.impl)
+		}
 		if err != nil {
 			return Error.Wrap(err)
 		}

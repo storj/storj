@@ -668,7 +668,7 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 			require.NoError(t, err)
 
 			result, err := db.Testing().RawDB().ExecContext(ctx,
-				"UPDATE users SET created_at = $1, status = $2 WHERE id = $3",
+				db.Testing().Rebind("UPDATE users SET created_at = ?, status = ? WHERE id = ?"),
 				createdAt, status, user.ID,
 			)
 			require.NoError(t, err)
@@ -693,5 +693,5 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 		require.NoError(t, err)
 		_, err = usersDB.Get(ctx, oldActive)
 		require.NoError(t, err)
-	})
+	}, satellitedbtest.WithSpanner())
 }
