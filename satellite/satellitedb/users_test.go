@@ -63,7 +63,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		u, err = users.Get(ctx, trialUserNeedsReminder)
 		require.NoError(t, err)
 		require.False(t, u.PaidTier)
-		require.Equal(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond))
+		require.WithinDuration(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond), time.Nanosecond)
 		require.Zero(t, u.TrialNotifications)
 
 		// insert free trial user who already got reminder and expires tomorrow
@@ -85,7 +85,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		u, err = users.Get(ctx, trialUserAlreadyReminded)
 		require.NoError(t, err)
 		require.False(t, u.PaidTier)
-		require.Equal(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond))
+		require.WithinDuration(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond), time.Nanosecond)
 		require.Equal(t, int(notifiedStatus), u.TrialNotifications)
 
 		u, err = users.Get(ctx, trialUserAlreadyReminded)
@@ -115,7 +115,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, needExpiredNotification, 1)
 		require.Equal(t, trialUserAlreadyReminded, needExpiredNotification[0].ID)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {

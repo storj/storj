@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"database/sql/driver"
 	"net/mail"
 	"time"
 
@@ -409,3 +410,8 @@ const (
 	// TrialExpired represents trial expired notification has been sent.
 	TrialExpired
 )
+
+// Value implements database/sql/driver.Valuer for TrialNotificationStatus.
+func (t TrialNotificationStatus) Value() (driver.Value, error) {
+	return int64(t), nil
+}

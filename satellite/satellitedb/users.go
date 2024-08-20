@@ -236,13 +236,13 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus console.TrialNotificationStatus, expiresBefore time.Time) (needNotification []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := users.db.QueryContext(ctx, `
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT id, email
 		FROM users
 		WHERE paid_tier = false
-			AND trial_notifications = $1
-			AND trial_expiration < $2
-	`, notificationStatus, expiresBefore)
+			AND trial_notifications = ?
+			AND trial_expiration < ?
+	`), notificationStatus, expiresBefore)
 	if err != nil {
 		return nil, err
 	}
