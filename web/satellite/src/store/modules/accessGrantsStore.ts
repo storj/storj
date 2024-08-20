@@ -88,7 +88,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         await api.delete(ids);
     }
 
-    async function getEdgeCredentials(accessGrant: string, isPublic?: boolean): Promise<EdgeCredentials> {
+    async function getEdgeCredentials(accessGrant: string, isPublic = false): Promise<EdgeCredentials> {
         const url = projectsStore.state.selectedProject.edgeURLOverrides?.authService
             || configStore.state.config.gatewayCredentialsRequestURL;
 

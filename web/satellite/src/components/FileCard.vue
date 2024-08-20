@@ -132,9 +132,7 @@ const videoEl = ref<HTMLVideoElement>();
  */
 const objectPreviewUrl = computed((): string => {
     const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
-    const url = cache?.url;
-    if (!url) return '';
-    return `${url}?view=1`;
+    return cache?.url ?? '';
 });
 
 /**

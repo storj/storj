@@ -146,11 +146,11 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
      * @param isPublic - optional status
      * @throws Error
      */
-    public async getGatewayCredentials(accessGrant: string, requestURL: string, isPublic?: boolean): Promise<EdgeCredentials> {
+    public async getGatewayCredentials(accessGrant: string, requestURL: string, isPublic = false): Promise<EdgeCredentials> {
         const path = `${requestURL}/v1/access`;
         const body = {
             access_grant: accessGrant,
-            public: isPublic || false,
+            public: isPublic,
         };
         const response = await this.client.post(path, JSON.stringify(body));
         if (!response.ok) {
