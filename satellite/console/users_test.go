@@ -578,7 +578,7 @@ func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit)
 		require.NoError(t, err)
 		require.Empty(t, users, "expected no trial frozen users")
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetUnverifiedNeedingReminder(t *testing.T) {

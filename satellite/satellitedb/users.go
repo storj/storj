@@ -85,14 +85,14 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 		return nil, Error.New("limit cannot be 0")
 	}
 
-	rows, err := users.db.QueryContext(ctx, `
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT u.id, u.email FROM users AS u
 		LEFT JOIN account_freeze_events AS ae
 		    ON u.id = ae.user_id
 		WHERE u.paid_tier = false
-		    AND u.trial_expiration < $1
+		    AND u.trial_expiration < ?
 		    AND ae.user_id IS NULL
-		LIMIT $2;`, after, limit)
+		LIMIT ?;`), after, limit)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
 			return []console.User{}, nil
