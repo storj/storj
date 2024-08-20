@@ -18,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 )
 
@@ -26,19 +27,32 @@ var _ console.Users = (*users)(nil)
 
 // implementation of Users interface repository using spacemonkeygo/dbx orm.
 type users struct {
-	db dbx.DriverMethods
+	db   dbx.DriverMethods
+	impl dbutil.Implementation
 }
 
 // UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
 func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) (err error) {
 	if failedLoginPenalty != nil {
 		// failed_login_count exceeded config.FailedLoginPenalty
-		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
+		switch users.impl {
+		case dbutil.Postgres, dbutil.Cockroach:
+			_, err = users.db.ExecContext(ctx, users.db.Rebind(`
 			UPDATE users
 			SET failed_login_count = COALESCE(failed_login_count, 0) + 1,
 				login_lockout_expiration = CURRENT_TIMESTAMP + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
 			WHERE id = ?
 		`), failedLoginPenalty, id.Bytes())
+		case dbutil.Spanner:
+			_, err = users.db.ExecContext(ctx, users.db.Rebind(`
+			UPDATE users
+			SET failed_login_count = IFNULL(failed_login_count, 0) + 1,
+				login_lockout_expiration = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL CAST(POW(?, failed_login_count - 1) AS INT64) MINUTE)
+			WHERE id = ?
+		`), failedLoginPenalty, id.Bytes())
+		default:
+			return errs.New("unsupported database dialect: %s", users.impl)
+		}
 	} else {
 		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
 			UPDATE users
