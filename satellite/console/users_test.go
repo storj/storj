@@ -590,6 +590,7 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 			},
 		},
 		SatelliteCount: 1,
+		EnableSpanner:  true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var sentFirstReminder bool
 		var sentSecondReminder bool

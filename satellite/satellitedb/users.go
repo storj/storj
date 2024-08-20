@@ -324,11 +324,11 @@ func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstRemin
 
 // UpdateVerificationReminders increments verification_reminders.
 func (users *users) UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error {
-	_, err := users.db.ExecContext(ctx, `
+	_, err := users.db.ExecContext(ctx, users.db.Rebind(`
 		UPDATE users
 		SET verification_reminders = verification_reminders + 1
-		WHERE id = $1
-	`, id.Bytes())
+		WHERE id = ?
+	`), id.Bytes())
 	return err
 }
 
