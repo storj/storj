@@ -271,29 +271,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.versionsExpandedKeys = keys;
     }
 
-    async function listVersions(objectKey: string): Promise<BrowserObject[]> {
-        assertIsInitialized(state);
-        const response = await state.s3.send(new ListObjectVersionsCommand({
-            Bucket: state.bucket,
-            Delimiter: '/',
-            Prefix: objectKey,
-        }));
-        const Key = objectKey.substring(objectKey.lastIndexOf('/') + 1);
-        const path = objectKey.substring(0, objectKey.lastIndexOf('/') + 1);
-
-        const { Versions } = response;
-        const versions = Versions ?? [];
-
-        return versions.map(file => ({
-            ...file,
-            Key,
-            path,
-            type: 'file',
-        })) as BrowserObject[];
-    }
-
     const isFileVisible = (file) =>
-        file.Key.length > 0 && file.Key !== '.file_placeholder';
+        file.Key.length > 0 && !file.Key?.includes('.file_placeholder');
 
     type DefinedCommonPrefix = CommonPrefix & {
         Prefix: string;
@@ -323,6 +302,23 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             path: path,
             type: 'file',
         });
+    }
+
+    async function countVersions(objectKey: string): Promise<string> {
+        assertIsInitialized(state);
+        const response = await state.s3.send(new ListObjectVersionsCommand({
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: objectKey,
+        }));
+        const { Versions, DeleteMarkers, CommonPrefixes } = response;
+        const allVersions = [...Versions ?? [], ...DeleteMarkers ?? []].filter(isFileVisible);
+
+        const listedCount = `${allVersions.length}`;
+        if (response.IsTruncated || (CommonPrefixes?.length ?? 0) > 0) {
+            return `${listedCount}+`;
+        }
+        return listedCount;
     }
 
     async function listAllVersions(path = state.path, page = state.cursor.page, saveNextToken = false) {
@@ -789,6 +785,33 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
+    async function deleteObjectWithVersions(path: string, file: BrowserObject): Promise<void> {
+        assertIsInitialized(state);
+        const response = await state.s3.send(new ListObjectVersionsCommand({
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path + file.Key,
+        }));
+        const { Versions, DeleteMarkers } = response;
+        const versions = Versions ?? [];
+        const deleteMarkers = DeleteMarkers ?? [];
+
+        const deletePromises = [
+            ...versions,
+            ...deleteMarkers,
+        ].map(version => {
+            return state.s3.send(new DeleteObjectCommand({
+                Bucket: state.bucket,
+                Key: path + file.Key,
+                VersionId: version.VersionId,
+            }));
+        });
+        await Promise.all(deletePromises);
+
+        state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
+        removeFile(file);
+    }
+
     async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false, shouldRefresh = true): Promise<void> {
         if (!file) {
             return;
@@ -821,6 +844,53 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             }
             removeFile(file);
         }
+    }
+
+    async function deleteFolderWithVersions(file: BrowserObject, path: string): Promise<void> {
+        assertIsInitialized(state);
+
+        async function recurse(filePath: string) {
+            assertIsInitialized(state);
+
+            let { Versions, DeleteMarkers, CommonPrefixes } = await state.s3.send(new ListObjectVersionsCommand({
+                Bucket: state.bucket,
+                Delimiter: '/',
+                Prefix: filePath,
+            }));
+
+            if (Versions === undefined) {
+                Versions = [];
+            }
+            if (DeleteMarkers === undefined) {
+                DeleteMarkers = [];
+            }
+
+            const Contents = [...Versions, ...DeleteMarkers];
+
+            if (CommonPrefixes === undefined) {
+                CommonPrefixes = [];
+            }
+
+            async function thread() {
+                while (Contents.length) {
+                    const file = Contents.pop();
+
+                    await deleteObject('', file, true, false);
+                }
+            }
+
+            await Promise.all([thread(), thread(), thread()]);
+
+            for (const { Prefix } of CommonPrefixes) {
+                await recurse(Prefix ?? '');
+            }
+        }
+
+        addFileToBeDeleted(file);
+
+        await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
+
+        removeFile(file);
     }
 
     async function deleteFolder(file: BrowserObject, path: string, shouldRefresh = true): Promise<void> {
@@ -881,15 +951,21 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function deleteSelected(): Promise<void> {
+    async function deleteSelected(withVersions = false): Promise<void> {
         addFileToBeDeleted(...state.selectedFiles);
 
         await Promise.all(
             state.selectedFiles.map(async (file) => {
                 if (file.type === 'file') {
-                    await deleteObject(state.path, file, false, false);
+                    if (withVersions) {
+                        return await deleteObjectWithVersions(state.path, file);
+                    }
+                    return await deleteObject(state.path, file, false, false);
                 } else {
-                    await deleteFolder(file, state.path, false);
+                    if (withVersions) {
+                        return await deleteFolderWithVersions(file, state.path);
+                    }
+                    return await deleteFolder(file, state.path, false);
                 }
             }),
         );
@@ -1039,7 +1115,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         reinit,
         initList,
         listByToken,
-        listVersions,
+        countVersions,
         listAllVersions,
         listCustom,
         setCursor,
@@ -1049,7 +1125,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         restoreObject,
         createFolder,
         deleteObject,
+        deleteObjectWithVersions,
         deleteFolder,
+        deleteFolderWithVersions,
         deleteSelected,
         handleDeleteObjectRequest,
         filesDeleted,

@@ -165,6 +165,13 @@
     </v-snackbar>
 
     <delete-file-dialog
+        v-if="!isBucketVersioned"
+        v-model="isDeleteFileDialogShown"
+        :files="filesToDelete"
+        @content-removed="fileToDelete = null"
+    />
+    <delete-versioned-file-dialog
+        v-else
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
         @content-removed="fileToDelete = null"
@@ -177,7 +184,7 @@
     />
     <restore-version-dialog
         v-model="isRestoreDialogShown"
-        :file="fileToRestore"
+        :file="fileToRestore || undefined"
         @file-restored="onFileRestored"
         @content-removed="fileToRestore = null"
     />
@@ -220,12 +227,14 @@ import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { BucketMetadata } from '@/types/buckets';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { Versioning } from '@/types/versioning';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import RestoreVersionDialog from '@/components/dialogs/RestoreVersionDialog.vue';
+import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -331,6 +340,13 @@ const hasNextPage = computed<boolean>(() => {
     const nextToken = obStore.state.continuationTokens.get(cursor.value.page + 1);
 
     return nextToken !== undefined;
+});
+
+/**
+ * Whether this bucket is versioned/version-suspended.
+ */
+const isBucketVersioned = computed<boolean>(() => {
+    return props.bucket?.versioning !== Versioning.NotSupported && props.bucket?.versioning !== Versioning.Unversioned;
 });
 
 /**

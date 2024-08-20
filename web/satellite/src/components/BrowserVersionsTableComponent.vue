@@ -203,7 +203,7 @@
         </v-row>
     </v-snackbar>
 
-    <delete-file-dialog
+    <delete-versions-dialog
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
         @content-removed="fileToDelete = null"
@@ -255,12 +255,12 @@ import { BucketMetadata } from '@/types/buckets';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
-import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import RestoreVersionDialog from '@/components/dialogs/RestoreVersionDialog.vue';
 import IconTrash from '@/components/icons/IconTrash.vue';
 import IconCurveRight from '@/components/icons/IconCurveRight.vue';
 import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
+import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue';
 
 const props = defineProps<{
     forceEmpty?: boolean;
