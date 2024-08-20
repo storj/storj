@@ -124,7 +124,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 
 	// spanner does not have an application name option in the connection string
 	if impl == dbutil.Postgres || impl == dbutil.Cockroach {
-		source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
+		source, err = pgutil.EnsureApplicationName(source, opts.ApplicationName)
 		if err != nil {
 			return nil, err
 		}

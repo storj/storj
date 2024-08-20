@@ -90,7 +90,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		return nil, Error.New("unsupported implementation: %s", connstr)
 	}
 
-	connstr, err = pgutil.CheckApplicationName(connstr, config.ApplicationName)
+	connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
