@@ -51,6 +51,7 @@ type Config struct {
 	TestingUniqueUnversioned   bool
 	TestingCommitSegmentMode   string
 	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
+	TestingSpannerProjects     []uuid.UUID
 }
 
 const commitSegmentModeTransaction = "transaction"
@@ -68,6 +69,8 @@ type DB struct {
 	config Config
 
 	adapters []Adapter
+
+	projectsAdapters map[uuid.UUID]Adapter
 }
 
 // Open opens a connection to metabase.
@@ -85,6 +88,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	}
 
 	db.adapters = make([]Adapter, len(connStrs))
+	db.projectsAdapters = make(map[uuid.UUID]Adapter)
 
 	for i, connstr := range connStrs {
 		var driverName string
@@ -147,6 +151,9 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				return nil, err
 			}
 			db.adapters[i] = adapter
+			for _, projectID := range config.TestingSpannerProjects {
+				db.projectsAdapters[projectID] = adapter
+			}
 		default:
 			return nil, Error.New("unsupported implementation: %s", connstr)
 		}
@@ -167,6 +174,9 @@ func (db *DB) Implementation() dbutil.Implementation {
 
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
+	if adapter, ok := db.projectsAdapters[projectID]; ok {
+		return adapter
+	}
 	return db.adapters[0]
 }
 

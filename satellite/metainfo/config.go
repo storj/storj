@@ -199,10 +199,11 @@ type Config struct {
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
-	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
-	TestOptimizedInlineObjectUpload bool   `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
-	TestingPrecommitDeleteMode      int    `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
+	TestListingQuery                bool     `default:"false" help:"test the new query for non-recursive listing"`
+	TestCommitSegmentMode           string   `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestOptimizedInlineObjectUpload bool     `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
+	TestingPrecommitDeleteMode      int      `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
+	TestingSpannerProjects          []string `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -224,6 +225,7 @@ type ExtendedConfig struct {
 
 	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
 	useBucketLevelObjectLockProjects       map[uuid.UUID]struct{}
+	spannerProjects                        []uuid.UUID
 }
 
 // NewExtendedConfig creates new instance of extended config.
@@ -246,6 +248,13 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 			return ExtendedConfig{}, err
 		}
 		extendedConfig.useBucketLevelObjectLockProjects[projectID] = struct{}{}
+	}
+	for _, projectIDString := range config.TestingSpannerProjects {
+		projectID, err := uuid.FromString(projectIDString)
+		if err != nil {
+			return ExtendedConfig{}, err
+		}
+		extendedConfig.spannerProjects = append(extendedConfig.spannerProjects, projectID)
 	}
 
 	return extendedConfig, nil
@@ -280,4 +289,11 @@ func (ec ExtendedConfig) ObjectLockEnabled(projectID uuid.UUID) bool {
 	}
 	_, ok := ec.useBucketLevelObjectLockProjects[projectID]
 	return ok
+}
+
+// Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
+func (ec ExtendedConfig) Metabase(applicationName string) metabase.Config {
+	config := ec.Config.Metabase(applicationName)
+	config.TestingSpannerProjects = ec.spannerProjects
+	return config
 }

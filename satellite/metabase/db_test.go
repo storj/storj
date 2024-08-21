@@ -5,15 +5,19 @@ package metabase_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
@@ -80,4 +84,45 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 			},
 		}.Check(ctx, t, db)
 	})
+}
+
+func TestSpannerProjects(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	connUrls := []string{}
+	spannerFound := false
+	for _, db := range satellitedbtest.Databases() {
+		connUrls = append(connUrls, db.MetabaseDB.URL)
+
+		if db.Name == "Spanner" {
+			spannerFound = true
+		}
+
+	}
+	require.Len(t, connUrls, 2, "two databases are required for this test")
+	require.True(t, spannerFound, "Spanner must be configured for this test")
+
+	spannerProjects := []uuid.UUID{testrand.UUID(), testrand.UUID()}
+	nonSpannerProject := []uuid.UUID{testrand.UUID(), testrand.UUID()}
+
+	log := zaptest.NewLogger(t)
+	db, err := metabase.Open(ctx, log.Named("metabase"), strings.Join(connUrls, ";"), metabase.Config{
+		ApplicationName:        "test-spanner-projects",
+		TestingSpannerProjects: spannerProjects,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	for _, projectID := range spannerProjects {
+		adapter := db.ChooseAdapter(projectID)
+		_, ok := adapter.(*metabase.SpannerAdapter)
+		require.True(t, ok, "project %v should be a spanner project", projectID)
+	}
+
+	for _, projectID := range nonSpannerProject {
+		adapter := db.ChooseAdapter(projectID)
+		_, ok := adapter.(*metabase.SpannerAdapter)
+		require.False(t, ok, "project %v should NOT be a spanner project", projectID)
+	}
 }
