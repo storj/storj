@@ -180,8 +180,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if req.ObjectLockEnabled {
 		perms = append(perms, VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:     macaroon.ActionLock,
+				Op:     macaroon.ActionPutObjectRetention,
 				Bucket: req.Name,
 				Time:   time.Now(),
 			},
@@ -543,8 +542,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-		Op:     macaroon.ActionLock,
+		Op:     macaroon.ActionGetObjectRetention,
 		Bucket: req.Name,
 		Time:   time.Now(),
 	}, console.RateLimitHead)

@@ -859,12 +859,12 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 			require.NoError(t, err)
 
 			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: noLockApiKey.SerializeRaw(),
+					ApiKey: restrictedApiKey.SerializeRaw(),
 				},
 				Name:              bucketName,
 				ObjectLockEnabled: true,
@@ -1018,12 +1018,15 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			bucketName = []byte(testrand.BucketName())
 			createBucket(t, bucketName, true)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetRetention: true,
+				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+			})
 			require.NoError(t, err)
 
 			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: noLockApiKey.SerializeRaw(),
+					ApiKey: restrictedApiKey.SerializeRaw(),
 				},
 				Name: bucketName,
 			})

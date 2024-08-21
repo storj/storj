@@ -74,8 +74,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionPutObjectRetention,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
@@ -265,7 +264,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	now := time.Now()
-	var allowDelete, allowLock bool
+	var allowDelete, canGetRetention bool
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
@@ -287,13 +286,12 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionGetObjectRetention,
 				Bucket:        streamID.Bucket,
 				EncryptedPath: streamID.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &allowLock,
+			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
 	)
@@ -379,7 +377,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
-	if !allowLock {
+	if !canGetRetention {
 		pbObject.Retention = nil
 	}
 
@@ -428,8 +426,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionPutObjectRetention,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
 				Time:          now,
@@ -627,7 +624,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, err
 	}
 
-	var allowLock bool
+	var canGetRetention bool
 
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
@@ -649,13 +646,12 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionGetObjectRetention,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &allowLock,
+			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
 	)
@@ -751,7 +747,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
-	if !allowLock {
+	if !canGetRetention {
 		object.Retention = nil
 	}
 
@@ -781,7 +777,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
 	}
 
-	var allowLock bool
+	var canGetRetention bool
 
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitGet,
@@ -795,13 +791,12 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionGetObjectRetention,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &allowLock,
+			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
 	)
@@ -1006,7 +1001,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		endpoint.log.Error("unable to convert object to proto", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
-	if !allowLock {
+	if !canGetRetention {
 		protoObject.Retention = nil
 	}
 
@@ -1533,7 +1528,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	now := time.Now()
 
-	var canRead, canList, canLock bool
+	var canRead, canList, canGetRetention bool
 
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
 		VerifyPermission{
@@ -1566,13 +1561,12 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionGetObjectRetention,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canLock,
+			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
 	)
@@ -1627,7 +1621,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		}
 		if len(deletedObjects) > 0 {
 			object = deletedObjects[0]
-			if !canLock {
+			if !canGetRetention {
 				object.Retention = nil
 			}
 		}
@@ -1819,8 +1813,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-		Op:            macaroon.ActionLock,
+		Op:            macaroon.ActionGetObjectRetention,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
 		Time:          now,
@@ -1896,8 +1889,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-		Op:            macaroon.ActionLock,
+		Op:            macaroon.ActionPutObjectRetention,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
 		Time:          now,
@@ -2466,8 +2458,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionPutObjectRetention,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedMetadataKey,
 				Time:          now,
@@ -2716,8 +2707,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
-				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
-				Op:            macaroon.ActionLock,
+				Op:            macaroon.ActionPutObjectRetention,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedMetadataKey,
 				Time:          now,

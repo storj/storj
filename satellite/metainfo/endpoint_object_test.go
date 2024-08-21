@@ -3267,7 +3267,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 		_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 		require.NoError(t, err)
 
 		createBucket := func(t *testing.T, name string, lockEnabled bool) {
@@ -3473,7 +3473,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq = newBeginReq(noLockApiKey, bucketName, key)
+				beginReq = newBeginReq(restrictedApiKey, bucketName, key)
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
@@ -3601,7 +3601,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq, segReq, commitReq = newUploadReqs(noLockApiKey, bucketName, key)
+				beginReq, segReq, commitReq = newUploadReqs(restrictedApiKey, bucketName, key)
 				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
@@ -3838,10 +3838,13 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			require.Nil(t, resp)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetRetention: true,
+				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+			})
 			require.NoError(t, err)
 
-			req.Header.ApiKey = noLockApiKey.SerializeRaw()
+			req.Header.ApiKey = restrictedApiKey.SerializeRaw()
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.Nil(t, resp)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
@@ -4178,10 +4181,10 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			_, err = endpoint.SetObjectRetention(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 			require.NoError(t, err)
 
-			req.Header.ApiKey = noLockApiKey.SerializeRaw()
+			req.Header.ApiKey = restrictedApiKey.SerializeRaw()
 			_, err = endpoint.SetObjectRetention(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 		})
@@ -4203,7 +4206,10 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 		require.NoError(t, err)
 		_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+			DisallowGetRetention: true,
+			DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+		})
 		require.NoError(t, err)
 
 		requireEqualRetention := func(t *testing.T, expected metabase.Retention, actual *pb.Retention) {
@@ -4258,7 +4264,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
 
-				getLockedObj.Header.ApiKey = noLockApiKey.SerializeRaw()
+				getLockedObj.Header.ApiKey = restrictedApiKey.SerializeRaw()
 				resp, err = endpoint.GetObject(ctx, getLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
@@ -4300,7 +4306,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
 
-				dlLockedObj.Header.ApiKey = noLockApiKey.SerializeRaw()
+				dlLockedObj.Header.ApiKey = restrictedApiKey.SerializeRaw()
 				resp, err = endpoint.DownloadObject(ctx, dlLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
@@ -4563,7 +4569,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 		_, oldApiKey, err := satellite.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 		require.NoError(t, err)
 
 		requireObject := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string) metabase.Object {
@@ -4802,7 +4808,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 		})
 
 		t.Run("unauthorized API keys", func(t *testing.T) {
-			for _, k := range []*macaroon.APIKey{oldApiKey, noLockApiKey} {
+			for _, k := range []*macaroon.APIKey{oldApiKey, restrictedApiKey} {
 				dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
 				beginResponse := newCopy(t, satellite, project.ID, k.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
@@ -4908,7 +4914,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		_, oldApiKey, err := satellite.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 		require.NoError(t, err)
 
 		requireObject := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string) metabase.Object {
@@ -5137,7 +5143,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		})
 
 		t.Run("unauthorized API keys", func(t *testing.T) {
-			for _, k := range []*macaroon.APIKey{oldApiKey, noLockApiKey} {
+			for _, k := range []*macaroon.APIKey{oldApiKey, restrictedApiKey} {
 				dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
 				beginResponse := newMove(t, satellite, project.ID, k.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
