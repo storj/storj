@@ -131,11 +131,11 @@ func (slow *SlowBlobs) Delete(ctx context.Context, ref blobstore.BlobRef) error 
 }
 
 // DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
-func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
+func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
-	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint)
 }
 
 // DeleteNamespace deletes blobs of specific satellite, used after successful GE only.

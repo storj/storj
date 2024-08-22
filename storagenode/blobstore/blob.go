@@ -78,7 +78,7 @@ type Blobs interface {
 	// Delete deletes the blob with the namespace and key.
 	Delete(ctx context.Context, ref BlobRef) error
 	// DeleteWithStorageFormat deletes a blob of a specific storage format.
-	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
+	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion, sizeHint int64) error
 	// DeleteNamespace deletes blobs folder for a specific namespace.
 	DeleteNamespace(ctx context.Context, ref []byte) (err error)
 	// DeleteTrashNamespace deletes the trash folder for a given namespace.

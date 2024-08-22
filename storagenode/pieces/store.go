@@ -367,13 +367,13 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 var monDeleteSkipV0 = mon.Task()
 
 // DeleteSkipV0 deletes the specified piece skipping V0 format and pieceinfo database.
-func (store *Store) DeleteSkipV0(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+func (store *Store) DeleteSkipV0(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, pieceSize int64) (err error) {
 	defer monDeleteSkipV0(&ctx)(&err)
 
 	err = store.blobs.DeleteWithStorageFormat(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}, filestore.FormatV1)
+	}, filestore.FormatV1, pieceSize)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -512,7 +512,7 @@ func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID,
 	err = store.blobs.DeleteWithStorageFormat(ctx, blobstore.BlobRef{
 		Namespace: satelliteID.Bytes(),
 		Key:       pieceID.Bytes(),
-	}, filestore.FormatV0)
+	}, filestore.FormatV0, info.PieceSize)
 
 	if store.v0PieceInfo != nil {
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satelliteID, pieceID))

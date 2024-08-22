@@ -145,7 +145,7 @@ func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err 
 }
 
 // DeleteWithStorageFormat deletes blobs with the specified ref and storage format version.
-func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
+func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) (err error) {
 	// not monkit monitoring because of performance reasons
 
 	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)

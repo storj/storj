@@ -101,12 +101,12 @@ func (s *CachedStatBlobstore) Delete(ctx context.Context, ref blobstore.BlobRef)
 }
 
 // DeleteWithStorageFormat implements blobstore.Blobs.
-func (s *CachedStatBlobstore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
+func (s *CachedStatBlobstore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
 	err := s.cache.Delete(ctx, ref.Namespace, ref.Key)
 	if err != nil {
 		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", ref.Namespace), zap.Binary("key", ref.Key), zap.Error(err))
 	}
-	return s.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+	return s.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint)
 }
 
 // EmptyTrash implements blobstore.Blobs.
