@@ -853,41 +853,57 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		return nodeRollupsDeleted, err
 
 	case dbutil.Spanner:
-		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			for {
-				query := `
+		query := `
 					INSERT INTO storagenode_bandwidth_rollup_archives
 					(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-					SELECT
+					(SELECT
 					storagenode_id, interval_start, interval_seconds, action, allocated, settled
 					FROM storagenode_bandwidth_rollups
-					WHERE interval_start <= ? LIMIT ?`
+					WHERE interval_start <= ? LIMIT ?) THEN RETURN storagenode_id, interval_start, action`
 
-				var res sql.Result
-				var rowCount int64
-				_, err = tx.Tx.ExecContext(ctx, query, before, batchSize)
+		type storagenodeToDelete struct {
+			StoragenodeID []byte
+			IntervalStart time.Time
+			Action        int64
+		}
+
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+				err := withRows(tx.Tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
+					var storagenodesToDelete []storagenodeToDelete
+					for rows.Next() {
+						var s storagenodeToDelete
+						if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
+							err = errs.Combine(err, rows.Err(), rows.Close())
+							return err
+						}
+						storagenodesToDelete = append(storagenodesToDelete, s)
+					}
+
+					res, err := tx.Tx.ExecContext(ctx,
+						`DELETE FROM storagenode_bandwidth_rollups WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
+						storagenodesToDelete)
+					if err != nil {
+						return err
+					}
+
+					rowCount, err = res.RowsAffected()
+					if err != nil {
+						return err
+					}
+					nodeRollupsDeleted += int(rowCount)
+
+					return nil
+				})
 				if err != nil {
 					return err
-				}
-
-				res, err = tx.Tx.ExecContext(ctx,
-					`DELETE FROM storagenode_bandwidth_rollups WHERE interval_start <= ? LIMIT ?`,
-					before, batchSize)
-				if err != nil {
-					return err
-				}
-				rowCount, err = res.RowsAffected()
-				if err != nil {
-					return err
-				}
-
-				nodeRollupsDeleted += int(rowCount)
-				if rowCount < int64(batchSize) {
-					break
 				}
 			}
 			return nil
 		})
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
 
 	default:
 		return 0, Error.New("unsupported database: %v", db.db.impl)
