@@ -26,7 +26,7 @@ var EuCountries = []location.CountryCode{
 	location.Latvia,
 	location.Luxembourg,
 	location.Malta,
-	location.Netherlands,
+	location.TheNetherlands,
 	location.Poland,
 	location.Portugal,
 	location.Romania,

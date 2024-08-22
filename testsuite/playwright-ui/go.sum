@@ -2699,8 +2699,8 @@ sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1
 sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2zzQcaEFbx8wA8rck=
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20240815141411-ba3ddb8d6272 h1:qyfj+OVY8y3jWRMw8CjRYWbl/EhzgLHyfVmXbvYlKiQ=
-storj.io/common v0.0.0-20240815141411-ba3ddb8d6272/go.mod h1:XMpwKxc04HCBl4H5IFCGv1ca5Dm0tvH4NL7Jx+JhxuA=
+storj.io/common v0.0.0-20240822100803-44f68567297c h1:I24sfMWpBF/DusJu6av33biA6VP8PzAplVLhY+sc5rI=
+storj.io/common v0.0.0-20240822100803-44f68567297c/go.mod h1:XMpwKxc04HCBl4H5IFCGv1ca5Dm0tvH4NL7Jx+JhxuA=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.32/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
@@ -2720,7 +2720,7 @@ storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd h1:XkLxAvogynNQu/1gM/F
 storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd/go.mod h1:nwyyJiAFAPRu81qBfAE5cBGkVXROYSNJu9pGXLtStHE=
 storj.io/picobuf v0.0.3 h1:xAUPB5ZUGfxkqd3bnw3zp01kkWb9wlhg4vtZWUs2S9A=
 storj.io/picobuf v0.0.3/go.mod h1:4V4xelV1RSCck5GgmkL/Txw9l6IfX3XcBzegmL5Kudo=
-storj.io/uplink v1.13.1-0.20240813112806-9c782c9201df h1:GpwVLvbmp33JvYG0BVcS4zdi/mOsD6ZStSOZk2lIxqY=
-storj.io/uplink v1.13.1-0.20240813112806-9c782c9201df/go.mod h1:x0MQr4UfFsQBwgVWZAtEsLpuwAn6dg7G0Mpne1r516E=
+storj.io/uplink v1.13.2-0.20240821111301-f296d41bedbb h1:Pmlt0cSYGCQ4aJrd16l65MyacipoSzwTOfniKye0rXg=
+storj.io/uplink v1.13.2-0.20240821111301-f296d41bedbb/go.mod h1:x0MQr4UfFsQBwgVWZAtEsLpuwAn6dg7G0Mpne1r516E=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=

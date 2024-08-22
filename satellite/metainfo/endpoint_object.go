@@ -73,6 +73,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
@@ -291,6 +292,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        streamID.Bucket,
 				EncryptedPath: streamID.EncryptedObjectKey,
@@ -432,6 +434,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
@@ -654,6 +657,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
@@ -804,6 +808,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
@@ -1581,6 +1586,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
@@ -1840,6 +1846,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 		Op:            macaroon.ActionLock,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
@@ -1921,6 +1928,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 		Op:            macaroon.ActionLock,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedObjectKey,
@@ -2505,6 +2513,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedMetadataKey,
@@ -2766,6 +2775,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	if retention.Enabled() {
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
+				//lint:ignore SA1019 TODO(object-lock): migrate to the granular permissions
 				Op:            macaroon.ActionLock,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedMetadataKey,
