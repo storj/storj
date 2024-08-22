@@ -613,6 +613,9 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# indicates whether the console API should not be served along with satellite API
+# disable-console-from-satellite-api: false
+
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
 
@@ -1357,9 +1360,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
-# indicates whether the console API should be split out from satellite API
-# separate-console-api: false
-
 # public address to listen on
 server.address: :7777
 
@@ -1392,6 +1392,9 @@ server.private-address: 127.0.0.1:7778
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
+
+# indicates whether the console API should be served as a standalone service
+# standalone-console-api-enabled: false
 
 # whether nodes will be disqualified if they have not been contacted in some time
 # stray-nodes.enable-dq: true

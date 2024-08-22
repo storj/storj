@@ -523,7 +523,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	if !config.SeparateConsoleAPI {
+	if !config.DisableConsoleFromSatelliteAPI {
 		{ // setup mailservice
 			peer.Mail.Service, err = setupMailService(peer.Log, *config)
 			if err != nil {

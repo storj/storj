@@ -204,7 +204,7 @@ func (system *Satellite) URL() string { return system.NodeURL().String() }
 
 // ConsoleURL returns the console URL.
 func (system *Satellite) ConsoleURL() string {
-	if system.Config.SeparateConsoleAPI {
+	if system.Config.DisableConsoleFromSatelliteAPI {
 		return "http://" + system.ConsoleAPI.Console.Listener.Addr().String()
 	} else {
 		return "http://" + system.API.Console.Listener.Addr().String()
@@ -222,7 +222,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 	defer mon.Task()(&ctx)(&err)
 
 	var service *console.Service
-	if system.Config.SeparateConsoleAPI && system.ConsoleAPI != nil {
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
 		service = system.ConsoleAPI.Console.Service
 	} else {
 		service = system.API.Console.Service
@@ -270,7 +270,7 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 		return nil, errs.Wrap(err)
 	}
 
-	if system.Config.SeparateConsoleAPI && system.ConsoleAPI != nil {
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
 		project, err = system.ConsoleAPI.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
 			Name: name,
 		})
@@ -291,7 +291,7 @@ func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ c
 	defer mon.Task()(&ctx)(&err)
 
 	var user *console.User
-	if system.Config.SeparateConsoleAPI && system.ConsoleAPI != nil {
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
 		user, err = system.ConsoleAPI.Console.Service.GetUser(ctx, userID)
 	} else {
 		user, err = system.API.Console.Service.GetUser(ctx, userID)
@@ -568,7 +568,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		consoleAPI     *satellite.ConsoleAPI
 		consoleAPIAddr string
 	)
-	if config.SeparateConsoleAPI {
+	if config.DisableConsoleFromSatelliteAPI {
 		consoleAPI, err = planet.newConsoleAPI(ctx, index, identity, db, metabaseDB, config, versionInfo)
 		if err != nil {
 			return nil, errs.Wrap(err)
@@ -697,7 +697,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
-	if system.Config.SeparateConsoleAPI {
+	if system.Config.DisableConsoleFromSatelliteAPI {
 		system.API.Console = consoleAPI.Console
 		system.API.Mail = consoleAPI.Mail
 		system.API.OIDC = consoleAPI.OIDC
@@ -708,6 +708,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 		system.API.REST = consoleAPI.REST
 		system.API.HealthCheck = consoleAPI.HealthCheck
 		system.API.Userinfo = consoleAPI.Userinfo
+		system.API.Accounting = consoleAPI.Accounting
 	}
 
 	return system
