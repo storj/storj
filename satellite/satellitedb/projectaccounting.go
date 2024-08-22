@@ -291,8 +291,11 @@ func (db *ProjectAccounting) GetProjectSettledBandwidthTotal(ctx context.Context
 	actionGet := int64(pb.PieceAction_GET)
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start >= ?;`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], actionGet, from.UTC()).Scan(&sum)
-	if errors.Is(err, sql.ErrNoRows) || sum == nil {
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && sum == nil) {
 		return 0, nil
+	}
+	if err != nil {
+		return 0, errs.Wrap(err)
 	}
 
 	return *sum, err
