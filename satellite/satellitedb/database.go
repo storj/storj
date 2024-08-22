@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
+	"storj.io/storj/satellite/satellitedb/consoledb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/shared/dbutil"
@@ -59,7 +60,7 @@ type satelliteDB struct {
 	source string
 
 	consoleDBOnce sync.Once
-	consoleDB     *ConsoleDB
+	consoleDB     *consoledb.ConsoleDB
 
 	revocationDBOnce sync.Once
 	revocationDB     *revocationDB
@@ -240,13 +241,14 @@ func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 func (dbc *satelliteDBCollection) Console() console.DB {
 	db := dbc.getByName("console")
 	db.consoleDBOnce.Do(func() {
-		db.consoleDB = &ConsoleDB{
-			apikeysLRUOptions: db.opts.APIKeysLRUOptions,
+		db.consoleDB = &consoledb.ConsoleDB{
+			DB:                db.DB,
+			ApikeysLRUOptions: db.opts.APIKeysLRUOptions,
 
-			db:      db,
-			methods: db,
+			Impl:    db.impl,
+			Methods: db,
 
-			apikeysOnce: new(sync.Once),
+			ApikeysOnce: new(sync.Once),
 		}
 	})
 

@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package consoledb
 
 import (
 	"context"
@@ -9,12 +9,20 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/tagsql"
+)
+
+var (
+	mon = monkit.Package()
+
+	// Error is the default satellitedb errs class.
+	Error = errs.Class("consoledb")
 )
 
 // Ensure that accountFreezeEvents implements console.AccountFreezeEvents.
