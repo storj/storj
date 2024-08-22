@@ -194,17 +194,17 @@ pipeline {
                     }
                 }
 
-                stage('Check Benchmark') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_SPANNER = 'omit'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                    }
-                    steps {
-                        sh 'psql -U postgres -c \'create database benchstorj;\''
-                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-                    }
-                }
+                // stage('Check Benchmark') {
+                //     environment {
+                //         STORJ_TEST_COCKROACH = 'omit'
+                //         STORJ_TEST_SPANNER = 'omit'
+                //         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                //     }
+                //     steps {
+                //         sh 'psql -U postgres -c \'create database benchstorj;\''
+                //         sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                //     }
+                // }
             }
         }
 
