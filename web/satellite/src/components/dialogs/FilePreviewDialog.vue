@@ -17,11 +17,11 @@
             >
                 <v-toolbar-title class="text-subtitle-2">
                     {{ fileName }}
-                    <p v-if="showingVersions && currentFile"> Version ID: {{ currentFile.VersionId }} </p>
+                    <p class="text-caption text-medium-emphasis" v-if="showingVersions && currentFile"> Version ID: {{ currentFile.VersionId }} </p>
                 </v-toolbar-title>
                 <template #append>
                     <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" @click="download">
-                        <img src="@/assets/icon-download.svg" width="22" alt="Download">
+                        <component :is="Download" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -31,7 +31,7 @@
                         </v-tooltip>
                     </v-btn>
                     <v-btn v-if="showingVersions" id="Delete" icon size="small" color="red" @click="onDeleteFileClick">
-                        <icon-trash size="22" />
+                        <component :is="Trash2" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -41,7 +41,7 @@
                         </v-tooltip>
                     </v-btn>
                     <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" @click="isShareDialogShown = true">
-                        <icon-share size="22" />
+                        <component :is="Share" :size="19" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -51,7 +51,7 @@
                         </v-tooltip>
                     </v-btn>
                     <v-btn v-if="!showingVersions" id="Distribution" icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
-                        <icon-distribution size="22" />
+                        <icon-distribution size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -61,7 +61,7 @@
                         </v-tooltip>
                     </v-btn>
                     <v-btn v-if="!showingVersions" icon size="small" color="white">
-                        <img src="@/assets/icon-more.svg" width="22" alt="More">
+                        <component :is="EllipsisVertical" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -73,9 +73,9 @@
                             <v-list class="pa-1" theme="light">
                                 <v-list-item density="comfortable" link base-color="error" @click="onDeleteFileClick">
                                     <template #prepend>
-                                        <icon-trash bold />
+                                        <component :is="Trash2" :size="18" />
                                     </template>
-                                    <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
+                                    <v-list-item-title class="pl-1 ml-2 text-body-2 font-weight-medium">
                                         Delete
                                     </v-list-item-title>
                                 </v-list-item>
@@ -83,7 +83,7 @@
                         </v-menu>
                     </v-btn>
                     <v-btn id="close-preview" icon size="small" color="white" @click="model = false">
-                        <img src="@/assets/icon-close.svg" width="18" alt="Close">
+                        <component :is="X" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -109,6 +109,7 @@
                         v-if="files.length > 1"
                         color="default"
                         class="rounded-circle"
+                        variant="outlined"
                         icon
                         @click="onPrevious"
                     >
@@ -120,6 +121,7 @@
                         v-if="files.length > 1"
                         color="default"
                         class="rounded-circle"
+                        variant="outlined"
                         icon
                         @click="onNext"
                     >
@@ -170,7 +172,7 @@ import {
     VToolbarTitle,
     VTooltip,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Share, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -179,12 +181,10 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
-import IconShare from '@/components/icons/IconShare.vue';
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 import FilePreviewItem from '@/components/dialogs/filePreviewComponents/FilePreviewItem.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import GeographicDistributionDialog from '@/components/dialogs/GeographicDistributionDialog.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 
 const obStore = useObjectBrowserStore();

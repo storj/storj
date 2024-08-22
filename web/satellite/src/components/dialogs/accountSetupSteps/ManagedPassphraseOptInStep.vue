@@ -21,7 +21,7 @@
                         <p>Storj securely manages the encryption and decryption of your project automatically.</p>
                         <p>
                             <v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" variant="tonal" size="small">
-                                Recommended for most users and teams
+                                Recommended for ease of use and teams
                             </v-chip>
                         </p>
 
@@ -33,7 +33,7 @@
 
                         <p class="text-body-2 my-2">
                             <b>Easy team management</b><br>
-                            The team members you invite will automatically have access to your project's data.
+                            The team members will automatically have access to your project's data.
                         </p>
 
                         <p class="text-body-2 my-2">

@@ -10,8 +10,7 @@
 
         <v-col>
             <v-row class="mt-2 mb-4">
-                <v-btn @click="onCreateAccess">
-                    <IconNew class="mr-2" size="16" bold />
+                <v-btn :prepend-icon="CirclePlus" @click="onCreateAccess">
                     New Access Key
                 </v-btn>
             </v-row>
@@ -34,6 +33,7 @@ import {
     VRow,
     VBtn,
 } from 'vuetify/components';
+import { CirclePlus } from 'lucide-vue-next';
 
 import { useTrialCheck } from '@/composables/useTrialCheck';
 import { SetupStep } from '@/types/setupAccess';
@@ -42,7 +42,6 @@ import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import AccessTableComponent from '@/components/AccessTableComponent.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const dialog = ref<boolean>(false);

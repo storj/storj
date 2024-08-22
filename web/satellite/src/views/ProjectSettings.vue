@@ -62,7 +62,7 @@
         </v-row>
 
         <v-row v-if="!isProjectOwnerPaidTier && billingEnabled">
-            <v-col cols="12">
+            <v-col cols="12" lg="4">
                 <v-card title="Free Trial">
                     <v-card-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>

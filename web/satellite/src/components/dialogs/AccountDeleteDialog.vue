@@ -19,7 +19,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <IconDelete />
+                            <component :is="Trash2" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold text-error">
@@ -206,6 +206,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { Trash2 } from 'lucide-vue-next';
 
 import { DeleteAccountStep } from '@/types/accountActions';
 import { User } from '@/types/users';
@@ -213,8 +214,6 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { RequiredRule } from '@/types/common';
-
-import IconDelete from '@/components/icons/IconDelete.vue';
 
 const userStore = useUsersStore();
 

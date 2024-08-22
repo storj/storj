@@ -19,7 +19,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <IconEmail />
+                            <component :is="AtSign" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
@@ -48,7 +48,7 @@
                                 <p>Account:</p>
                                 <v-chip
                                     variant="tonal"
-                                    class="font-weight-bold"
+                                    class="font-weight-bold mt-2"
                                 >
                                     {{ user.email }}
                                 </v-chip>
@@ -226,6 +226,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { AtSign } from 'lucide-vue-next';
 
 import { ChangeEmailStep } from '@/types/accountActions';
 import { User } from '@/types/users';
@@ -233,8 +234,6 @@ import { EmailRule, RequiredRule } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
-
-import IconEmail from '@/components/icons/IconEmail.vue';
 
 const userStore = useUsersStore();
 

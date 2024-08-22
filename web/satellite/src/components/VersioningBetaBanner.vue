@@ -8,7 +8,6 @@
         variant="tonal"
         color="default"
         title="Object Versioning Beta Available"
-        border
         closable
         @click:close="closeAlert"
     >

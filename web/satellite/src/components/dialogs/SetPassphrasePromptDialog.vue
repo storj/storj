@@ -12,7 +12,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-change-password.svg" alt="Change password">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="LockKeyhole" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
                     {{ userSettings.passphrasePrompt ? 'Disable' : 'Enable' }} Passphrase Prompt
@@ -82,7 +89,9 @@ import {
     VRow,
     VCol,
     VBtn,
+    VSheet,
 } from 'vuetify/components';
+import { LockKeyhole } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" rounded="lg">
+    <v-card variant="outlined" rounded="lg">
         <div class="h-100 d-flex flex-column justify-space-between">
             <a role="button" class="h-100" @click="previewClicked">
                 <template v-if="previewType === PreviewType.Image">
@@ -47,6 +47,7 @@
                                 :src="item.typeInfo.icon"
                                 :alt="item.typeInfo.title + 'icon'"
                                 :aria-roledescription="item.typeInfo.title + 'icon'"
+                                class="bg-background rounded-xlg"
                                 height="52"
                             >
                             </div>
@@ -205,7 +206,7 @@ function previewClicked() {
     max-width: 100%;
     max-height: 100%;
     aspect-ratio: 1;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .absolute {

@@ -11,7 +11,14 @@
         <v-card ref="innerContent">
             <v-card-item class="pa-6 pr-5">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-access.svg" alt="icon">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="LockKeyhole" :size="18" />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -114,7 +121,9 @@ import {
     VForm,
     VRow,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { LockKeyhole } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

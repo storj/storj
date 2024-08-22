@@ -12,7 +12,14 @@
         <v-card ref="innerContent">
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-mfa.svg" alt="MFA">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="RectangleEllipsis" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Disable Two-Factor</v-card-title>
                 <template #append>
@@ -107,7 +114,9 @@ import {
     VForm,
     VOtpInput,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { RectangleEllipsis } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row :align="mdAndDown ? 'center' : 'start'" :justify="mdAndDown ? 'start' : 'space-between'" :class="{'flex-column': mdAndDown}">
-        <v-col v-for="(plan, index) in plans" :key="index" :cols="mdAndDown ? 10 : 4" class="select-item">
+    <v-row :align="mdAndDown ? 'center' : 'start'" :justify="mdAndDown ? 'start' : 'space-between'" :class="{'flex-column': mdAndDown}" class="mt-1 mb-2">
+        <v-col v-for="(plan, index) in plans" :key="index" class="select-item">
             <PricingPlanContainer
                 :plan="plan"
                 @select="(p) => emit('select', p)"

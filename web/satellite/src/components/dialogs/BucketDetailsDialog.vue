@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-bucket />
+                        <component :is="ReceiptText" :size="18" />
                     </v-sheet>
                 </template>
 
@@ -39,34 +39,17 @@
 
             <v-divider />
 
-            <v-card-item class="pa-6">
-                <h4>Name</h4>
-                <p class="text-body-2 mb-2">{{ bucket.name }}</p>
-
-                <h4>Files</h4>
-                <p class="text-body-2 mb-2">{{ bucket.objectCount.toLocaleString() }}</p>
-
-                <h4>Segments</h4>
-                <p class="text-body-2 mb-2">{{ bucket.segmentCount.toLocaleString() }}</p>
-
-                <h4>Storage</h4>
-                <p class="text-body-2 mb-2">{{ bucket.storage.toFixed(2) + 'GB' }}</p>
-
-                <div v-if="showRegionTag">
-                    <h4>Location</h4>
-                    <p class="text-body-2 mb-2">{{ bucket.location || `unknown(${bucket.defaultPlacement})` }}</p>
-                </div>
-
-                <div v-if="versioningUIEnabled">
-                    <h4>Versioning</h4>
-                    <p class="text-body-2 mb-2">{{ bucket.versioning }}</p>
-                </div>
-
-                <h4>Date Created</h4>
-                <p class="text-body-2 mb-2">{{ bucket.since.toUTCString() }}</p>
-
-                <h4>Last Updated</h4>
-                <p class="text-body-2">{{ bucket.before.toUTCString() }}</p>
+            <v-card-item>
+                <v-list lines="one">
+                    <v-list-item title="Name" :subtitle="bucket.name" class="px-0" />
+                    <v-list-item title="Files" :subtitle="bucket.objectCount.toLocaleString()" class="px-0" />
+                    <v-list-item title="Segments" :subtitle="bucket.segmentCount.toLocaleString()" class="px-0" />
+                    <v-list-item title="Storage" :subtitle="bucket.storage.toFixed(2) + 'GB'" class="px-0" />
+                    <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0" />
+                    <v-list-item v-if="versioningUIEnabled" title="Versioning" :subtitle="bucket.versioning" class="px-0" />
+                    <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0" />
+                    <v-list-item title="Last Updated" :subtitle="bucket.before.toUTCString()" class="px-0" />
+                </v-list>
             </v-card-item>
 
             <v-divider />
@@ -96,9 +79,10 @@ import {
     VCol,
     VBtn,
     VSheet,
+    VList,
+    VListItem,
 } from 'vuetify/components';
-
-import IconBucket from '../icons/IconBucket.vue';
+import { ReceiptText } from 'lucide-vue-next';
 
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

@@ -25,7 +25,6 @@
                         color="info"
                         variant="text"
                         class="font-weight-medium"
-                        rounded-lg
                         filter
                     >
                         {{ category }}
@@ -34,7 +33,7 @@
             </v-col>
         </v-row>
 
-        <v-card class="pa-2 my-5" variant="flat">
+        <v-card class="pa-2 mt-2 mb-6" variant="flat">
             <v-row align="center">
                 <v-col>
                     <v-text-field
@@ -47,7 +46,7 @@
                         hide-details
                         clearable
                         density="comfortable"
-                        rounded="lg"
+                        rounded="md"
                     />
                 </v-col>
                 <v-col cols="auto">

@@ -11,7 +11,7 @@
         <template v-else>
             <v-btn
                 v-if="file.type !== 'folder'"
-                :variant="isVersion ? 'outlined' : 'text'"
+                variant="text"
                 color="default"
                 size="small"
                 rounded="md"
@@ -22,7 +22,7 @@
                 :loading="isDownloading"
                 @click="onDownloadClick"
             >
-                <icon-download />
+                <component :is="Download" :size="18" />
                 <v-tooltip
                     activator="parent"
                     location="top"
@@ -42,12 +42,12 @@
                 icon
                 @click="emit('shareClick')"
             >
-                <icon-share />
+                <component :is="Share" :size="17" />
             </v-btn>
 
             <v-btn
-                :variant="isVersion ? 'outlined' : 'text'"
-                color="default"
+            variant="text"
+            color="default"
                 size="small"
                 class="mr-1 text-caption"
                 density="comfortable"
@@ -60,7 +60,7 @@
                         <template v-if="file.type !== 'folder'">
                             <v-list-item density="comfortable" link @click="emit('previewClick')">
                                 <template #prepend>
-                                    <icon-preview />
+                                    <component :is="ZoomIn" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Preview
@@ -73,7 +73,7 @@
                                 @click="onDownloadClick"
                             >
                                 <template #prepend>
-                                    <icon-download />
+                                    <component :is="Download" :size="18" />
                                 </template>
                                 <v-fade-transition>
                                     <v-list-item-title v-show="!isDownloading" class="ml-3 text-body-2 font-weight-medium">
@@ -86,7 +86,7 @@
                             </v-list-item>
                             <v-list-item v-if="isVersion" density="comfortable" link @click="emit('restoreObjectClick')">
                                 <template #prepend>
-                                    <icon-restore />
+                                    <component :is="Redo2" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Restore
@@ -96,7 +96,7 @@
 
                         <v-list-item v-if="!isVersion" density="comfortable" link @click="emit('shareClick')">
                             <template #prepend>
-                                <icon-share />
+                                <component :is="Share" :size="18" />
                             </template>
                             <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                 Share
@@ -107,7 +107,7 @@
 
                         <v-list-item density="comfortable" link base-color="error" @click="emit('deleteFileClick')">
                             <template #prepend>
-                                <icon-trash />
+                                <component :is="Trash2" :size="18" />
                             </template>
                             <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                 Delete
@@ -133,19 +133,13 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { Ellipsis } from 'lucide-vue-next';
+import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2 } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-
-import IconDownload from '@/components/icons/IconDownload.vue';
-import IconShare from '@/components/icons/IconShare.vue';
-import IconPreview from '@/components/icons/IconPreview.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
-import IconRestore from '@/components/icons/IconRestore.vue';
 
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();

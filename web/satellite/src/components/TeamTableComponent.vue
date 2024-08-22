@@ -68,7 +68,7 @@
                                 @click="() => showChangeRoleDialog(item)"
                             >
                                 <template #prepend>
-                                    <icon-member />
+                                    <component :is="UserCog" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Change Role
@@ -81,8 +81,8 @@
                                 @click="() => onResendOrCopyClick(item.expired, item.email)"
                             >
                                 <template #prepend>
-                                    <icon-upload v-if="item.expired" :size="18" />
-                                    <icon-copy v-else />
+                                    <component :is="Send" v-if="item.expired" :size="18" />
+                                    <component :is="Copy" v-else :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
@@ -99,7 +99,7 @@
                                 @click="() => onSingleDelete(item.email)"
                             >
                                 <template #prepend>
-                                    <icon-remove size="16" bold />
+                                    <component :is="UserMinus" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Remove Member
@@ -145,7 +145,7 @@
                         @click="showDeleteDialog"
                     >
                         <template #prepend>
-                            <icon-remove size="16" bold />
+                            <component :is="UserMinus" :size="18" />
                         </template>
                         Remove
                     </v-btn>
@@ -174,7 +174,14 @@ import {
     VDivider,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { Ellipsis, Search } from 'lucide-vue-next';
+import {
+    Ellipsis,
+    Search,
+    Send,
+    Copy,
+    UserMinus,
+    UserCog }
+    from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -199,10 +206,6 @@ import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 
 import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberDialog.vue';
-import IconUpload from '@/components/icons/IconUpload.vue';
-import IconMember from '@/components/icons/IconMember.vue';
-import IconCopy from '@/components/icons/IconCopy.vue';
-import IconRemove from '@/components/icons/IconRemove.vue';
 import ChangeMemberRoleDialog from '@/components/dialogs/ChangeMemberRoleDialog.vue';
 
 type RenderedItem = {

@@ -11,7 +11,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-boxes.svg" alt="Boxes">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="Box" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Project {{ field }}</v-card-title>
                 <template #append>
@@ -77,7 +84,9 @@ import {
     VBtn,
     VForm,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { Box } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

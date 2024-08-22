@@ -13,8 +13,7 @@
 
         <v-row class="mt-2 mb-4">
             <v-col>
-                <v-btn color="primary" @click="onCreateBucket">
-                    <IconNew class="mr-2" size="16" bold />
+                <v-btn color="primary" :prepend-icon="CirclePlus" @click="onCreateBucket">
                     New Bucket
                 </v-btn>
             </v-col>
@@ -34,6 +33,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
+import { CirclePlus } from 'lucide-vue-next';
 
 import { useTrialCheck } from '@/composables/useTrialCheck';
 
@@ -41,7 +41,6 @@ import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();

@@ -16,7 +16,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-trash />
+                        <component :is="Trash2" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold text-capitalize">Delete {{ fileTypes }}</v-card-title>
@@ -77,11 +77,10 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
+import { Trash2 } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-
-import IconTrash from '@/components/icons/IconTrash.vue';
 
 const props = defineProps<{
     files: BrowserObject[],
