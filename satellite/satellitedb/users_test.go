@@ -63,7 +63,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		u, err = users.Get(ctx, trialUserNeedsReminder)
 		require.NoError(t, err)
 		require.False(t, u.PaidTier)
-		require.Equal(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond))
+		require.WithinDuration(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond), time.Nanosecond)
 		require.Zero(t, u.TrialNotifications)
 
 		// insert free trial user who already got reminder and expires tomorrow
@@ -85,7 +85,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		u, err = users.Get(ctx, trialUserAlreadyReminded)
 		require.NoError(t, err)
 		require.False(t, u.PaidTier)
-		require.Equal(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond))
+		require.WithinDuration(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond), time.Nanosecond)
 		require.Equal(t, int(notifiedStatus), u.TrialNotifications)
 
 		u, err = users.Get(ctx, trialUserAlreadyReminded)
@@ -115,7 +115,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, needExpiredNotification, 1)
 		require.Equal(t, trialUserAlreadyReminded, needExpiredNotification[0].ID)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
@@ -154,7 +154,7 @@ func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
 		needingReminder, err = users.GetUnverifiedNeedingReminder(ctx, now, now, cutoff)
 		require.NoError(t, err)
 		require.Len(t, needingReminder, 1)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateUser(t *testing.T) {
@@ -668,7 +668,7 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 			require.NoError(t, err)
 
 			result, err := db.Testing().RawDB().ExecContext(ctx,
-				"UPDATE users SET created_at = $1, status = $2 WHERE id = $3",
+				db.Testing().Rebind("UPDATE users SET created_at = ?, status = ? WHERE id = ?"),
 				createdAt, status, user.ID,
 			)
 			require.NoError(t, err)
@@ -693,5 +693,5 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 		require.NoError(t, err)
 		_, err = usersDB.Get(ctx, oldActive)
 		require.NoError(t, err)
-	})
+	}, satellitedbtest.WithSpanner())
 }

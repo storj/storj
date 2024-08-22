@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"database/sql/driver"
 	"net/mail"
 	"time"
 
@@ -203,6 +204,11 @@ func (s UserStatus) String() string {
 	default:
 		return ""
 	}
+}
+
+// Value implements database/sql/driver.Valuer for UserStatus.
+func (s UserStatus) Value() (driver.Value, error) {
+	return int64(s), nil
 }
 
 // User is a database object that describes User entity.
@@ -409,3 +415,8 @@ const (
 	// TrialExpired represents trial expired notification has been sent.
 	TrialExpired
 )
+
+// Value implements database/sql/driver.Valuer for TrialNotificationStatus.
+func (t TrialNotificationStatus) Value() (driver.Value, error) {
+	return int64(t), nil
+}

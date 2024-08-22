@@ -727,6 +727,9 @@ contact.external-address: ""
 # Bucket which will be used to upload bloom filters
 # garbage-collection-bf.bucket: ""
 
+# do not include expired pieces into bloom filter
+# garbage-collection-bf.exclude-expired-pieces: false
+
 # how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
 

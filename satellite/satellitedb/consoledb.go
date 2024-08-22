@@ -33,7 +33,7 @@ type ConsoleDB struct {
 
 // Users is getter a for Users repository.
 func (db *ConsoleDB) Users() console.Users {
-	return &users{db: db.methods}
+	return &users{db: db.methods, impl: db.db.impl}
 }
 
 // Projects is a getter for Projects repository.
@@ -43,7 +43,7 @@ func (db *ConsoleDB) Projects() console.Projects {
 
 // ProjectMembers is a getter for ProjectMembers repository.
 func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
-	return &projectMembers{db: db.methods}
+	return &projectMembers{db: db.methods, impl: db.db.impl}
 }
 
 // ProjectInvitations is a getter for ProjectInvitations repository.

@@ -124,7 +124,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 				require.NoError(t, err)
 
 				result, err := db.Testing().RawDB().ExecContext(ctx,
-					"UPDATE project_members SET created_at = $1 WHERE member_id = $2",
+					db.Testing().Rebind("UPDATE project_members SET created_at = ? WHERE member_id = ?"),
 					time.Time{}.Add(time.Duration((i+1)%3)*time.Hour), id,
 				)
 				require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 				require.Equal(t, reverseMemberIDs, getIDsFromDB(cursor), errMsg(cursor))
 			}
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateRole(t *testing.T) {
@@ -205,5 +205,5 @@ func TestUpdateRole(t *testing.T) {
 		member, err = membersDB.UpdateRole(ctx, memberUser.ID, projectID, console.RoleMember)
 		require.NoError(t, err)
 		require.Equal(t, console.RoleMember, member.Role)
-	})
+	}, satellitedbtest.WithSpanner())
 }

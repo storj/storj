@@ -189,6 +189,10 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 			continue
 		}
 
+		if fork.config.ExcludeExpiredPieces && segment.Expired(time.Now()) {
+			continue
+		}
+
 		// sanity check to detect if loop is not running against live database
 		if segment.CreatedAt.After(fork.startTime) {
 			fork.log.Error("segment created after loop started", zap.Stringer("StreamID", segment.StreamID),
