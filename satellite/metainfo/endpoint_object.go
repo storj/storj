@@ -2326,14 +2326,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
-				Op:            macaroon.ActionDelete,
-				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedObjectKey,
-				Time:          now,
-			},
-		},
-		VerifyPermission{
-			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedObjectKey,
@@ -2479,7 +2471,10 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	now := time.Now()
+	var (
+		now       = time.Now()
+		canDelete bool
+	)
 
 	actions := []VerifyPermission{
 		{
@@ -2489,6 +2484,16 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 				EncryptedPath: req.NewEncryptedMetadataKey,
 				Time:          now,
 			},
+		},
+		{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedMetadataKey,
+				Time:          now,
+			},
+			ActionPermitted: &canDelete,
+			Optional:        true,
 		},
 	}
 
@@ -2574,8 +2579,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 
-		// TODO(ver): currently we disallow deletion, to not change behaviour.
-		NewDisallowDelete: true,
+		NewDisallowDelete: !canDelete,
 
 		NewVersioned: versioningEnabled,
 

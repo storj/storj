@@ -223,7 +223,7 @@ func (finishMove FinishMoveObject) Verify() error {
 		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
 	}
 
-	return finishMove.Retention.Verify()
+	return ErrInvalidRequest.Wrap(finishMove.Retention.Verify())
 }
 
 // FinishMoveObject accepts new encryption keys for moved object and updates the corresponding object ObjectKey and segments EncryptedKey.

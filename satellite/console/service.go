@@ -808,26 +808,13 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 	}, nil
 }
 
-// checkProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
-// which have not been applied/invoiced yet (meaning sent over to stripe).
-func (payment Payments) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = payment.service.getUserAndAuditLog(ctx, "project invoicing status")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return payment.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
-}
-
 // checkProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (err error) {
+func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsage, invoicingIncomplete bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = payment.service.getUserAndAuditLog(ctx, "project usage status")
 	if err != nil {
-		return Error.Wrap(err)
+		return false, false, Error.Wrap(err)
 	}
 
 	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
@@ -1784,6 +1771,9 @@ type accountAction = string
 type AccountActionStep = int
 
 const (
+	// DeleteAccountInit is the initial step of account deletion where we check the user
+	// has met all account deletion requirements before then verifying password etc.
+	DeleteAccountInit AccountActionStep = 0
 	// VerifyAccountPasswordStep stands for the first step of the change email/account delete flow
 	// where user has to provide an account password.
 	VerifyAccountPasswordStep AccountActionStep = 1
@@ -1808,59 +1798,109 @@ const (
 )
 
 // DeleteAccount handles self-serve account delete actions.
-func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (err error) {
+func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (resp *DeleteAccountResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !s.config.SelfServeAccountDeleteEnabled {
-		return ErrForbidden.New("this feature is disabled")
+		return nil, ErrForbidden.New("this feature is disabled")
 	}
 
 	user, err := s.getUserAndAuditLog(ctx, "delete account")
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	if user.Status == LegalHold {
-		return ErrForbidden.New("account can't be deleted")
+		return nil, ErrForbidden.New("account can't be deleted")
 	}
 
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
 		mon.Counter("delete_account_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
-		return ErrUnauthorized.New("please try again later")
+		return nil, ErrUnauthorized.New("please try again later")
+	}
+
+	resp = &DeleteAccountResponse{}
+	deletionRestricted := false
+	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	resp.OwnedProjects = len(projects)
+
+	// check project deletion restrictions
+	for _, p := range projects {
+		buckets, err := s.buckets.CountBuckets(ctx, p.ID)
+		if err != nil {
+			return nil, err
+		}
+		if buckets > 0 {
+			deletionRestricted = true
+			resp.Buckets += buckets
+		}
+
+		// ignore object browser api key because we hide it from the user, so they can't delete it.
+		// project row deletion cascades to api keys, so it's okay.
+		keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, p.ID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
+		if err != nil {
+			return nil, err
+		}
+		if keys.TotalCount > 0 {
+			deletionRestricted = true
+			resp.ApiKeys += int(keys.TotalCount)
+		}
+	}
+
+	if user.PaidTier {
+		for _, p := range projects {
+			currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, p.ID)
+			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
+				return nil, err
+			}
+
+			if currentUsage {
+				deletionRestricted = true
+				resp.CurrentUsage = true
+			}
+			if invoicingIncomplete {
+				deletionRestricted = true
+				resp.InvoicingIncomplete = true
+			}
+		}
+	}
+
+	// check for unpaid invoices
+	invoices, err := s.accounts.Invoices().List(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, invoice := range invoices {
+		if invoice.Status == payments.InvoiceStatusOpen {
+			deletionRestricted = true
+			resp.UnpaidInvoices++
+			resp.AmountOwed += invoice.Amount
+		}
+	}
+
+	if deletionRestricted {
+		return resp, nil
 	}
 
 	switch step {
+	case DeleteAccountInit:
+		return nil, nil
 	case VerifyAccountPasswordStep:
-		err = s.handlePasswordStep(ctx, user, data, deleteAccountAction)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return nil, s.handlePasswordStep(ctx, user, data, deleteAccountAction)
 	case VerifyAccountMfaStep:
-		err = s.handleMfaStep(ctx, user, data, deleteAccountAction)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return nil, s.handleMfaStep(ctx, user, data, deleteAccountAction)
 	case VerifyAccountEmailStep:
-		err = s.handleVerifyCurrentEmailStep(ctx, user, data, deleteAccountAction)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return nil, s.handleVerifyCurrentEmailStep(ctx, user, data, deleteAccountAction)
 	case DeleteAccountStep:
-		err = s.handleDeleteAccountStep(ctx, user)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return nil, s.handleDeleteAccountStep(ctx, user)
 	default:
-		return ErrValidation.New("step value is out of range")
+		return nil, ErrValidation.New("step value is out of range")
 	}
 }
 
@@ -2069,23 +2109,45 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
-	unsetInt := 0
-	unsetInt64 := int64(unsetInt)
-	unsetStr := ""
-	loginLockoutExpirationPtr := &time.Time{}
-	status := UserRequestedDeletion
+	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var errsList errs.Group
+	for _, p := range projects {
+		// delete project cascades to members, invitations, and API keys.
+		// project id is a foreign key on buckets, so if a bucket got created
+		// at the last second, it will return an error.
+		err = s.store.Projects().Delete(ctx, p.ID)
+		if err != nil {
+			errsList.Add(err)
+		}
+	}
+	if errsList.Err() != nil {
+		return Error.Wrap(errsList.Err())
+	}
+
+	err = s.accounts.CreditCards().RemoveAll(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+	status := Deleted
 	now := s.nowFn()
+
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		Status:                      &status,
-		StatusUpdatedAt:             &now,
-		EmailChangeVerificationStep: &unsetInt,
-		FailedLoginCount:            &unsetInt,
-		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
-		ActivationCode:              &unsetStr,
-		ProjectLimit:                &unsetInt,
-		ProjectStorageLimit:         &unsetInt64,
-		ProjectBandwidthLimit:       &unsetInt64,
-		ProjectSegmentLimit:         &unsetInt64,
+		FullName:        new(string),
+		ShortName:       new(*string),
+		Email:           &deactivatedEmail,
+		Status:          &status,
+		StatusUpdatedAt: &now,
 	})
 	if err != nil {
 		return Error.Wrap(err)
@@ -2096,51 +2158,6 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		[]post.Address{{Address: user.Email, Name: user.FullName}},
 		&RequestAccountDeletionSuccessEmail{},
 	)
-
-	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	var errsList errs.Group
-	for _, p := range projects {
-		err = s.store.APIKeys().DeleteAllByProjectID(ctx, p.ID)
-		if err != nil {
-			errsList.Add(err)
-		}
-
-		err = s.store.Projects().UpdateLimitsGeneric(ctx, p.ID, []Limit{
-			{Kind: UserSetBandwidthLimit, Value: &unsetInt64},
-			{Kind: UserSetStorageLimit, Value: &unsetInt64},
-			{Kind: StorageLimit, Value: &unsetInt64},
-			{Kind: BandwidthLimit, Value: &unsetInt64},
-			{Kind: SegmentLimit, Value: &unsetInt64},
-			{Kind: BucketsLimit, Value: &unsetInt64},
-			{Kind: RateLimit, Value: &unsetInt64},
-			{Kind: BurstLimit, Value: &unsetInt64},
-			{Kind: RateLimitHead, Value: &unsetInt64},
-			{Kind: BurstLimitHead, Value: &unsetInt64},
-			{Kind: RateLimitGet, Value: &unsetInt64},
-			{Kind: BurstLimitGet, Value: &unsetInt64},
-			{Kind: RateLimitPut, Value: &unsetInt64},
-			{Kind: BurstLimitPut, Value: &unsetInt64},
-			{Kind: RateLimitList, Value: &unsetInt64},
-			{Kind: BurstLimitList, Value: &unsetInt64},
-			{Kind: RateLimitDelete, Value: &unsetInt64},
-			{Kind: BurstLimitDelete, Value: &unsetInt64},
-		})
-		if err != nil {
-			errsList.Add(err)
-		}
-	}
-	if errsList.Err() != nil {
-		return Error.Wrap(errsList.Err())
-	}
-
-	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
 	return nil
 }
@@ -4457,7 +4474,9 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 		return ErrUsage.New("some buckets still exist")
 	}
 
-	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1}, "")
+	// ignore object browser api key because we hide it from the user, so they can't delete it.
+	// project row deletion cascades to api keys, so it's okay.
+	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
 	if err != nil {
 		return err
 	}
@@ -4466,15 +4485,10 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 	}
 
 	if user.PaidTier {
-		err = s.Payments().checkProjectUsageStatus(ctx, projectID)
+		_, _, err = s.Payments().checkProjectUsageStatus(ctx, projectID)
 		if err != nil {
 			return ErrUsage.Wrap(err)
 		}
-	}
-
-	err = s.Payments().checkProjectInvoicingStatus(ctx, projectID)
-	if err != nil {
-		return ErrUsage.Wrap(err)
 	}
 
 	return nil

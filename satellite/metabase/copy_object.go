@@ -118,10 +118,10 @@ func (finishCopy FinishCopyObject) Verify() error {
 	}
 
 	if !finishCopy.NewVersioned && finishCopy.Retention.Enabled() {
-		return ErrMethodNotAllowed.New("cannot lock unversioned copies")
+		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
 	}
 
-	return finishCopy.Retention.Verify()
+	return ErrInvalidRequest.Wrap(finishCopy.Retention.Verify())
 }
 
 type transposedSegmentList struct {
@@ -644,11 +644,11 @@ func checkExpiresAtWithRetention(object Object, segments transposedSegmentList, 
 	}
 	for _, e := range segments.ExpiresAts {
 		if e != nil {
-			return ErrInvalidRequest.New("retention cannot be applied to expiring segments")
+			return ErrObjectExpiration.New(noLockWithExpirationSegmentsErrMsg)
 		}
 	}
 	if object.ExpiresAt != nil && !object.ExpiresAt.IsZero() {
-		return ErrInvalidRequest.New("retention cannot be applied to expiring objects")
+		return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 	}
 	return nil
 }
