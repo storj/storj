@@ -64,6 +64,7 @@ func TestService(t *testing.T) {
 				}
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
 				config.Console.VarPartners = []string{"partner1"}
+				config.Console.DeleteProjectEnabled = true
 			},
 		},
 	},
@@ -719,35 +720,6 @@ func TestService(t *testing.T) {
 				require.ErrorIs(t, err, sql.ErrNoRows)
 			})
 
-			t.Run("DeleteProject", func(t *testing.T) {
-				// Deleting the own project should not work before deleting the API-Key
-				err := service.DeleteProject(userCtx1, up1Proj.ID)
-				require.Error(t, err)
-
-				keys, err := service.GetAPIKeys(userCtx1, up1Proj.ID, console.APIKeyCursor{Page: 1, Limit: 10})
-				require.NoError(t, err)
-				require.Len(t, keys.APIKeys, 1)
-
-				err = service.DeleteAPIKeys(userCtx1, []uuid.UUID{keys.APIKeys[0].ID})
-				require.NoError(t, err)
-
-				// Deleting the own project should now work
-				err = service.DeleteProject(userCtx1, up1Proj.ID)
-				require.NoError(t, err)
-
-				// Deleting someone else project should not work
-				err = service.DeleteProject(userCtx1, up2Proj.ID)
-				require.Error(t, err)
-
-				err = planet.Uplinks[1].CreateBucket(ctx, sat, "testbucket")
-				require.NoError(t, err)
-
-				// deleting a project with a bucket should fail
-				err = service.DeleteProject(userCtx2, up2Proj.ID)
-				require.Error(t, err)
-				require.Equal(t, "console service: project usage: some buckets still exist", err.Error())
-			})
-
 			t.Run("CreateAPIKey", func(t *testing.T) {
 				createdAPIKey, _, err := service.CreateAPIKey(userCtx2, up2Proj.ID, "test key", macaroon.APIKeyVersionMin)
 				require.NoError(t, err)
@@ -846,6 +818,8 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
+				require.NoError(t, planet.Uplinks[1].CreateBucket(ctx, sat, "testbucket"))
+
 				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
 				storageLimit := sat.Config.Console.UsageLimits.Storage.Free
 				bucketsLimit := int64(sat.Config.Metainfo.ProjectLimits.MaxBuckets)
@@ -1635,6 +1609,305 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, "", *user.NewUnverifiedEmail)
 		require.Equal(t, validEmail, user.Email)
 		require.Empty(t, user.ActivationCode)
+	})
+}
+
+func TestDeleteProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.DeleteProjectEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		service := sat.API.Console.Service
+		uplinks := planet.Uplinks
+		require.Len(t, uplinks, 2)
+
+		usrLogin := uplinks[0].User[sat.ID()]
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		updateContext := func() (context.Context, *console.User) {
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			user, err := console.GetUser(userCtx)
+			require.NoError(t, err)
+			return userCtx, user
+		}
+		userCtx, user := updateContext()
+
+		require.Len(t, uplinks[0].Projects, 1)
+		p := uplinks[0].Projects[0]
+
+		// free user can't delete project
+		resp, err := service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		require.True(t, console.ErrNotPaidTier.Has(err))
+		require.Nil(t, resp)
+
+		uplink := uplinks[1]
+
+		usrLogin = uplink.User[sat.ID()]
+		user, _, err = service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		user.PaidTier = true
+		require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &user.PaidTier}))
+
+		require.Len(t, uplink.Projects, 1)
+		p = uplink.Projects[0]
+
+		userCtx, user = updateContext()
+
+		// check resp contains buckets
+		bucket := buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "testBucket1",
+			ProjectID: p.ID,
+		}
+		_, err = sat.API.Buckets.Service.CreateBucket(userCtx, bucket)
+		require.NoError(t, err)
+
+		resp, err = service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, 1, resp.Buckets)
+
+		require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p.ID))
+
+		// check resp contains api keys
+		resp, err = service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, resp.APIKeys, 1)
+
+		keys, err := service.GetAllAPIKeyNamesByProjectID(userCtx, p.PublicID)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+
+		require.NoError(t, service.DeleteAPIKeyByNameAndProjectID(userCtx, keys[0], p.PublicID))
+
+		// set time to middle of day to avoid usage being created in previous month
+		// if this test runs early on the first day of the month
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+
+		service.TestSetNow(func() time.Time {
+			return timestamp
+		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
+		interval := timestamp.Add(-2 * time.Hour)
+
+		// check for unbilled storage
+		// storage usage is calculated between two tally rows
+		require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+			BucketName:    bucket.Name,
+			ProjectID:     bucket.ProjectID,
+			IntervalStart: interval,
+			TotalBytes:    10000,
+		}))
+
+		interval = interval.Add(time.Hour)
+
+		require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+			BucketName:    bucket.Name,
+			ProjectID:     bucket.ProjectID,
+			IntervalStart: interval,
+			TotalBytes:    10000,
+		}))
+
+		resp, err = service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.CurrentUsage)
+
+		// can't delete bucket storage tallies, so manually delete the project and create another one.
+		require.NoError(t, sat.DB.Console().Projects().Delete(ctx, p.ID))
+		p2, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "test project 2",
+		})
+		require.NoError(t, err)
+
+		// check for unbilled bandwidth
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, 1000000, 0, interval))
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.CurrentUsage)
+
+		_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 1)
+		require.NoError(t, err)
+
+		// check for usage in previous month, but invoice not generated yet
+		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		egress := int64(1000000)
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth))
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.InvoicingIncomplete)
+
+		thisMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, sat.DB.StripeCoinPayments().ProjectRecords().Create(ctx, []stripe.CreateProjectRecord{{
+			ProjectID: p2.ID,
+			Egress:    egress,
+		}}, lastMonth, thisMonth))
+
+		// 2fa is disabled.
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, "test")
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		mfaSecret, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+
+		goodCode, err := console.NewMFAPasscode(mfaSecret, timestamp)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(userCtx, goodCode, timestamp)
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.NotEmpty(t, user.MFASecretKey)
+		require.Zero(t, user.EmailChangeVerificationStep)
+
+		// skipping straight to last step fails.
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.DeleteProjectStep, "")
+		require.Error(t, err)
+		require.True(t, console.ErrValidation.Has(err))
+		require.Nil(t, resp)
+
+		// starting from second step must fail.
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, "test")
+		require.True(t, console.ErrValidation.Has(err))
+		require.Nil(t, resp)
+
+		userCtx, user = updateContext()
+		require.Zero(t, user.EmailChangeVerificationStep)
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountPasswordStep, "wrong password")
+		require.True(t, console.ErrValidation.Has(err))
+		require.Nil(t, resp)
+
+		userCtx, _ = updateContext()
+
+		// account gets locked after 3 failed attempts.
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountPasswordStep, usrLogin.Password)
+		require.True(t, console.ErrUnauthorized.Has(err))
+		require.Nil(t, resp)
+
+		resetAccountLock := func() error {
+			failedLoginCount := 0
+			loginLockoutExpirationPtr := &time.Time{}
+
+			return db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				FailedLoginCount:       &failedLoginCount,
+				LoginLockoutExpiration: &loginLockoutExpirationPtr,
+			})
+		}
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, _ = updateContext()
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountPasswordStep, usrLogin.Password)
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountPasswordStep, user.EmailChangeVerificationStep)
+
+		wrongCode, err := console.NewMFAPasscode(mfaSecret, timestamp.Add(time.Hour))
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, wrongCode)
+			require.True(t, console.ErrMFAPasscode.Has(err))
+			require.Nil(t, resp)
+
+			userCtx, _ = updateContext()
+		}
+
+		goodCode, err = console.NewMFAPasscode(mfaSecret, timestamp)
+		require.NoError(t, err)
+
+		// account gets locked after 3 failed attempts.
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, goodCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+		require.Nil(t, resp)
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountPasswordStep, user.EmailChangeVerificationStep)
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, goodCode)
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountMfaStep, user.EmailChangeVerificationStep)
+
+		for i := 0; i < 3; i++ {
+			_, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountEmailStep, "random verification code")
+			require.True(t, console.ErrValidation.Has(err))
+
+			userCtx, _ = updateContext()
+		}
+
+		// account gets locked after 3 failed attempts.
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountEmailStep, user.ActivationCode)
+		require.True(t, console.ErrUnauthorized.Has(err))
+		require.Nil(t, resp)
+
+		err = resetAccountLock()
+		require.NoError(t, err)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountMfaStep, user.EmailChangeVerificationStep)
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountEmailStep, user.ActivationCode)
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		userCtx, user = updateContext()
+		require.Equal(t, console.VerifyAccountEmailStep, user.EmailChangeVerificationStep)
+		require.Empty(t, user.ActivationCode)
+
+		// check that creating a bucket in between steps interrupts deletion
+		bucket.ProjectID = p2.ID
+		_, err = sat.API.Buckets.Service.CreateBucket(userCtx, bucket)
+		require.NoError(t, err)
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountEmailStep, user.ActivationCode)
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, 1, resp.Buckets)
+
+		require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p2.ID))
+
+		// project deletion is successful
+		project, err := sat.API.DB.Console().Projects().Get(ctx, p2.ID)
+		require.NoError(t, err)
+		require.NotNil(t, project)
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.DeleteProjectStep, "")
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+		require.NoError(t, err)
+		require.Zero(t, len(projects))
 	})
 }
 

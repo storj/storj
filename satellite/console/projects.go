@@ -249,6 +249,14 @@ type ProjectConfig struct {
 	Role                    ProjectMemberRole `json:"role"`
 }
 
+// DeleteProjectInfo holds data for project deletion UI flow.
+type DeleteProjectInfo struct {
+	Buckets             int  `json:"buckets"`
+	APIKeys             int  `json:"apiKeys"`
+	CurrentUsage        bool `json:"currentUsage"`
+	InvoicingIncomplete bool `json:"invoicingIncomplete"`
+}
+
 // ValidateNameAndDescription validates project name and description strings.
 // Project name must have more than 0 and less than 21 symbols.
 // Project description can't have more than hundred symbols.

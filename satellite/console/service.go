@@ -1763,6 +1763,9 @@ const (
 	// DeleteAccountInit is the initial step of account deletion where we check the user
 	// has met all account deletion requirements before then verifying password etc.
 	DeleteAccountInit AccountActionStep = 0
+	// DeleteProjectInit is the initial step of project deletion where we check the user
+	// has met all project deletion requirements before then verifying password etc.
+	DeleteProjectInit AccountActionStep = 0
 	// VerifyAccountPasswordStep stands for the first step of the change email/account delete flow
 	// where user has to provide an account password.
 	VerifyAccountPasswordStep AccountActionStep = 1
@@ -1775,6 +1778,9 @@ const (
 	// DeleteAccountStep stands for the last step of the delete account flow
 	// where user has to approve the intention to delete account.
 	DeleteAccountStep AccountActionStep = 4
+	// DeleteProjectStep stands for the last step of the delete project flow
+	// where user has to approve the intention to delete project.
+	DeleteProjectStep AccountActionStep = 4
 	// ChangeAccountEmailStep stands for the fourth step of the change email flow
 	// where user has to provide a new email address.
 	ChangeAccountEmailStep AccountActionStep = 4
@@ -1784,6 +1790,7 @@ const (
 
 	changeEmailAction   accountAction = "change_email"
 	deleteAccountAction accountAction = "delete_account"
+	deleteProjectAction accountAction = "delete_project"
 )
 
 // DeleteAccount handles self-serve account delete actions.
@@ -1978,9 +1985,16 @@ func (s *Service) handlePasswordStep(ctx context.Context, user *User, data strin
 	}
 
 	if !user.MFAEnabled {
-		emailAction := "account email address change"
-		if action == deleteAccountAction {
-			emailAction = "account delete"
+		var emailAction string
+		switch action {
+		case changeEmailAction:
+			emailAction = "an account email address change"
+		case deleteAccountAction:
+			emailAction = "an account deletion"
+		case deleteProjectAction:
+			emailAction = "a project deletion"
+		default:
+			return errs.New("invalid account action: %s", action)
 		}
 
 		s.mailService.SendRenderedAsync(
@@ -2039,9 +2053,16 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string, ac
 		return Error.Wrap(err)
 	}
 
-	emailAction := "account email address change"
-	if action == deleteAccountAction {
-		emailAction = "account delete"
+	var emailAction string
+	switch action {
+	case changeEmailAction:
+		emailAction = "an account email address change"
+	case deleteAccountAction:
+		emailAction = "an account deletion"
+	case deleteProjectAction:
+		emailAction = "a project deletion"
+	default:
+		return errs.New("invalid account action: %s", action)
 	}
 
 	s.mailService.SendRenderedAsync(
@@ -2086,6 +2107,17 @@ func (s *Service) handleVerifyCurrentEmailStep(ctx context.Context, user *User, 
 	}
 
 	return nil
+}
+
+func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, projectID uuid.UUID) (err error) {
+	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, DeleteProjectStep, deleteProjectAction)
+		if err != nil {
+			return err
+		}
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+	return s.store.Projects().Delete(ctx, projectID)
 }
 
 func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
@@ -2938,30 +2970,50 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo UpsertProjec
 }
 
 // DeleteProject is a method for deleting project by id.
-func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
+func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step AccountActionStep, data string) (info *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.DeleteProjectEnabled {
+		return nil, ErrForbidden.New("this feature is disabled")
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	_, _, err = s.isProjectOwner(ctx, user.ID, projectID)
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	err = s.checkProjectCanBeDeleted(ctx, user, projectID)
+	projectID = p.ID
+
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("delete_project_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "delete project: failed account locked out", &user.ID, user.Email)
+		return nil, ErrUnauthorized.New("please try again later")
+	}
+
+	info, err = s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return info, Error.Wrap(err)
 	}
 
-	err = s.store.Projects().Delete(ctx, projectID)
-	if err != nil {
-		return Error.Wrap(err)
+	switch step {
+	case DeleteProjectInit:
+		return nil, nil
+	case VerifyAccountPasswordStep:
+		return nil, s.handlePasswordStep(ctx, user, data, deleteProjectAction)
+	case VerifyAccountMfaStep:
+		return nil, s.handleMfaStep(ctx, user, data, deleteProjectAction)
+	case VerifyAccountEmailStep:
+		return nil, s.handleVerifyCurrentEmailStep(ctx, user, data, deleteProjectAction)
+	case DeleteProjectStep:
+		return nil, s.handleDeleteProjectStep(ctx, user, projectID)
+	default:
+		return nil, ErrValidation.New("step value is out of range")
 	}
-
-	return nil
 }
 
 // GenDeleteProject is a method for deleting project by id for generated API.
@@ -2991,7 +3043,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	err = s.checkProjectCanBeDeleted(ctx, user, projectID)
+	_, err = s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -4457,35 +4509,51 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !user.PaidTier {
+		return nil, ErrNotPaidTier.New("You must upgrade your account in order to delete a project")
+	}
 
 	buckets, err := s.buckets.CountBuckets(ctx, projectID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if buckets > 0 {
-		return ErrUsage.New("some buckets still exist")
+		return &DeleteProjectInfo{Buckets: buckets}, ErrUsage.New("some buckets still exist")
 	}
 
 	// ignore object browser api key because we hide it from the user, so they can't delete it.
 	// project row deletion cascades to api keys, so it's okay.
-	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
+	keys, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, projectID)
 	if err != nil {
-		return err
-	}
-	if keys.TotalCount > 0 {
-		return ErrUsage.New("some api keys still exist")
+		return nil, err
 	}
 
-	if user.PaidTier {
-		_, _, err = s.Payments().checkProjectUsageStatus(ctx, projectID)
-		if err != nil {
-			return ErrUsage.Wrap(err)
+	var keyCount int
+	for _, k := range keys {
+		if !strings.HasPrefix(k, s.config.ObjectBrowserKeyNamePrefix) {
+			keyCount++
 		}
 	}
+	if keyCount > 0 {
+		return &DeleteProjectInfo{APIKeys: keyCount}, ErrUsage.New("some api keys still exist")
+	}
 
-	return nil
+	currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
+	if err != nil && !payments.ErrUnbilledUsage.Has(err) {
+		return nil, ErrUsage.Wrap(err)
+	}
+
+	if currentUsage || invoicingIncomplete {
+		return &DeleteProjectInfo{
+			CurrentUsage:        currentUsage,
+			InvoicingIncomplete: invoicingIncomplete,
+		}, ErrUsage.Wrap(err)
+	}
+
+	return nil, nil
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.
