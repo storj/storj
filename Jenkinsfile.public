@@ -4,7 +4,7 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v /tmp/gocache-benchmarks:/root/.cache/go-build-benchmarks -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v /tmp/gocache-benchmarks:/root/.cache/go-build-benchmarks -v /tmp/gocache-main:/root/.cache/go-build-main -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
@@ -153,6 +153,7 @@ pipeline {
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                GOCACHE = "${ env.BRANCH_NAME == 'main' ? '/root/.cache/go-build-main' : '/root/.cache/go-build'}"
                 GOEXPERIMENT = 'nocoverageredesign'
             }
             steps {
