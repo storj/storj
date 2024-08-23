@@ -140,6 +140,11 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 		return func(node SelectedNode) string {
 			return node.LastIPPort
 		}, nil
+	case "last_ip":
+		return func(node SelectedNode) string {
+			ip, _, _ := strings.Cut(node.LastIPPort, ":")
+			return ip
+		}, nil
 	case "wallet":
 		return func(node SelectedNode) string {
 			return node.Wallet

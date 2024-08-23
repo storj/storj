@@ -26,6 +26,11 @@ func TestNodeAttribute(t *testing.T) {
 		LastNet: "127.0.0.1",
 	}))
 
+	assert.Equal(t, "1.2.3.4", must(CreateNodeAttribute("last_ip"))(SelectedNode{
+		LastNet:    "1.2.3.0",
+		LastIPPort: "1.2.3.4:1234",
+	}))
+
 	assert.Equal(t, "0xCAFEBABE", must(CreateNodeAttribute("wallet"))(SelectedNode{
 		Wallet: "0xCAFEBABE",
 	}))
