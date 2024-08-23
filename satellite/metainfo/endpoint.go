@@ -398,6 +398,8 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrObjectLock.Has(err):
 		return rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+	case metabase.ErrObjectExpiration.Has(err):
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrFailedPrecondition.Has(err):
