@@ -239,6 +239,29 @@ func NewCountryFilterFromString(countries []string) (*CountryFilter, error) {
 	return NewCountryFilter(set), nil
 }
 
+// NewContinentFilterFromString parses country definitions like 'SA','!NA'.
+func NewContinentFilterFromString(continent string) (*CountryFilter, error) {
+	var set location.Set
+	apply := func(modified location.Set, code ...location.CountryCode) location.Set {
+		return modified.With(code...)
+	}
+	if continent[0] == '!' {
+		set = location.NewFullSet()
+		apply = func(modified location.Set, code ...location.CountryCode) location.Set {
+			return modified.Without(code...)
+		}
+		continent = continent[1:]
+	}
+
+	countries, ok := location.Continents[continent]
+	if !ok {
+		panic(fmt.Sprintf("unknown continent %q", continent))
+	}
+	set = apply(set, countries...)
+
+	return NewCountryFilter(set), nil
+}
+
 // Match implements NodeFilter interface.
 func (p *CountryFilter) Match(node *SelectedNode) bool {
 	return p.permit.Contains(node.CountryCode)
