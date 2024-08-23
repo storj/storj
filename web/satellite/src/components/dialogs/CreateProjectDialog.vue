@@ -15,8 +15,15 @@
         <v-card ref="innerContent">
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
-                    <img v-else class="d-block" src="@/assets/icon-blue-box.svg" alt="Box">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="Gauge" v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" :size="18" />
+                        <component :is="Box" v-else :size="18" />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -100,7 +107,7 @@
                                     <v-alert v-if="passphraseManageMode === 'auto'" variant="tonal" color="default">
                                         <p>
                                             <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
-                                                Recommended for most users and teams
+                                                Recommended for ease of use and teams
                                             </v-chip>
                                         </p>
                                         <p class="text-body-2 my-2 font-weight-bold">
@@ -110,7 +117,7 @@
                                             Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
                                         </p>
                                         <p class="text-body-2 my-2">
-                                            The team members you invite will automatically have access to your project's data.
+                                            The team members will automatically have access to your project's data.
                                         </p>
                                         <p class="text-body-2 m-2">
                                             <a class="link" @click="goToDocs">Learn more in the documentation.</a>
@@ -260,8 +267,9 @@ import {
     VOverlay,
     VWindow,
     VWindowItem,
+    VSheet,
 } from 'vuetify/components';
-import { ArrowRight, Plus } from 'lucide-vue-next';
+import { ArrowRight, Plus, Box, Gauge } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';

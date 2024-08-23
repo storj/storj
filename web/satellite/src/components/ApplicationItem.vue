@@ -3,7 +3,7 @@
 
 <template>
     <v-col cols="12" md="6" lg="6" xl="3">
-        <v-card class="px-2 py-4 h-100 align-content-space-between">
+        <v-card class="px-2 py-4 h-100 align-content-space-between flex-grow-1 d-flex flex-column">
             <v-card-item class="pb-0">
                 <img :src="app.src" :alt="app.name" width="48" height="48" class="rounded">
             </v-card-item>
@@ -20,7 +20,7 @@
                 </p>
             </v-card-item>
 
-            <v-card-item class="bottom">
+            <v-card-item class="bottom mt-auto">
                 <v-btn color="primary" :append-icon="ArrowRight" @click="onSetup">
                     Setup
                 </v-btn>

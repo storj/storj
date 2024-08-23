@@ -13,7 +13,14 @@
             <v-sheet>
                 <v-card-item class="pa-6">
                     <template #prepend>
-                        <icon-versioning-clock size="40" />
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <component :is="History" :size="18" />
+                        </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
                         Object Versioning (Beta)
@@ -163,6 +170,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { History } from 'lucide-vue-next';
 import { ref, watchEffect } from 'vue';
 
 import { useLoading } from '@/composables/useLoading';
@@ -170,8 +178,6 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-
-import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectStore = useProjectsStore();

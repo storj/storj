@@ -12,7 +12,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-change-password.svg" alt="Change password">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="SquareAsterisk" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Change Password</v-card-title>
                 <template #append>
@@ -30,7 +37,7 @@
             <v-card-item class="px-6 pt-5">
                 <p>You will receive a verification link in your email to confirm the password change.</p>
             </v-card-item>
-            <v-card-item class="px-6">
+            <v-card-item class="px-6 py-0">
                 <v-form v-model="formValid" @submit.prevent="onChangePassword">
                     <v-col cols="12" class="px-0">
                         <v-text-field
@@ -115,7 +122,9 @@ import {
     VBtn,
     VForm,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { SquareAsterisk } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { RequiredRule } from '@/types/common';

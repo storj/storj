@@ -36,7 +36,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <IconAccess />
+                            <component :is="KeyRound" :size="18" />
                         </v-sheet>
                     </template>
                     <v-progress-linear height="2px" indeterminate absolute location="bottom" :active="isFetching || isCreating" />
@@ -180,7 +180,7 @@
                             @click="() => sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_DOCS_CLICKED)"
                         >
                             <template #prepend>
-                                <IconDocs />
+                                <component :is="BookOpenText" :size="18" />
                             </template>
                             Read Docs
                         </v-btn>
@@ -209,6 +209,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { useRoute } from 'vue-router';
+import { BookOpenText, KeyRound } from 'lucide-vue-next';
 
 import { AccessType, FlowType, PassphraseOption, Permission, SetupStep } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -235,8 +236,6 @@ import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/
 import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/OptionalExpirationStep.vue';
 import EncryptionInfoStep from '@/components/dialogs/accessSetupSteps/EncryptionInfoStep.vue';
 import ConfirmDetailsStep from '@/components/dialogs/accessSetupSteps/ConfirmDetailsStep.vue';
-import IconAccess from '@/components/icons/IconAccess.vue';
-import IconDocs from '@/components/icons/IconDocs.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 

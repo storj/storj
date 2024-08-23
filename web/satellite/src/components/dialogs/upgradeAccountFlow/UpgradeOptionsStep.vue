@@ -7,7 +7,7 @@
         and get 10% bonus on your STORJ tokens deposit.
     </p>
 
-    <v-alert v-if="user.trialExpiration" border class="my-2" type="info" variant="tonal" color="info">
+    <v-alert v-if="user.trialExpiration" class="my-2" type="info" variant="tonal" color="info">
         <p class="text-body-2 my-2">By upgrading, your trial will end immediately.</p>
     </v-alert>
 

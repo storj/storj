@@ -11,7 +11,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-session-timeout.svg" alt="Session expired">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="TimerReset" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Session Expired</v-card-title>
             </v-card-item>
@@ -41,7 +48,17 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { VDialog, VCard, VCardItem, VCardTitle, VBtn, VDivider, VCardActions } from 'vuetify/components';
+import {
+    VDialog,
+    VCard,
+    VCardItem,
+    VCardTitle,
+    VBtn,
+    VDivider,
+    VCardActions,
+    VSheet,
+} from 'vuetify/components';
+import { TimerReset } from 'lucide-vue-next';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';

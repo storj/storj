@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card v-if="!isAltPagination" class="pa-2 mb-7" variant="flat" :loading="isFetching">
+    <v-card v-if="!isAltPagination" class="pa-2 mb-6" :loading="isFetching">
         <v-row align="center">
             <v-col>
                 <v-text-field
@@ -39,6 +39,7 @@
                             v-for="(key, index) in sortKeys"
                             :key="index"
                             :title="key"
+                            class="mx-2"
                             @click="() => sortKey = key.toLowerCase()"
                         />
                     </v-list>
@@ -94,7 +95,7 @@
         </template>
 
         <template #footer>
-            <v-card class="pa-2 my-6" variant="flat">
+            <v-card class="pa-2 my-6">
                 <div class="d-flex align-center">
                     <v-menu>
                         <template #activator="{ props: limitProps }">

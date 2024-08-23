@@ -12,7 +12,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-team-members.svg" alt="Team members">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="UserPlus" :size="18" />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">Add Member</v-card-title>
@@ -41,7 +48,6 @@
                             text="All team members should use the same passphrase to access the same data."
                             rounded="lg"
                             density="comfortable"
-                            border
                         />
                     </v-col>
                     <v-col cols="12">
@@ -99,7 +105,9 @@ import {
     VAlert,
     VTextField,
     VCardActions,
+    VSheet,
 } from 'vuetify/components';
+import { UserPlus } from 'lucide-vue-next';
 
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

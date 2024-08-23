@@ -88,7 +88,7 @@
                                 <template v-if="item.role === ProjectRole.Owner">
                                     <v-list-item link @click="() => onSettingsClick(item)">
                                         <template #prepend>
-                                            <icon-settings />
+                                            <component :is="Settings" :size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
                                             Project Settings
@@ -97,7 +97,7 @@
                                     <v-divider class="my-1" />
                                     <v-list-item link @click="emit('inviteClick', item)">
                                         <template #prepend>
-                                            <IconNew size="18" />
+                                            <component :is="UserPlus" :size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
                                             Add Members
@@ -106,7 +106,7 @@
                                 </template>
                                 <v-list-item v-else link @click="declineInvitation(item)">
                                     <template #prepend>
-                                        <icon-trash />
+                                        <component :is="Trash2" :size="18" />
                                     </template>
                                     <v-list-item-title class="text-body-2 ml-3">
                                         Decline
@@ -137,7 +137,7 @@ import {
     VDivider,
     VDataTable,
 } from 'vuetify/components';
-import { Ellipsis, Search } from 'lucide-vue-next';
+import { Ellipsis, Search, UserPlus, Settings, Trash2 } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
@@ -148,10 +148,6 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 
 defineProps<{
     items: ProjectItemModel[],

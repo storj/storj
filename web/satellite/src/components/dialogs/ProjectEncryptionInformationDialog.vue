@@ -19,7 +19,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <icon-lock width="20" />
+                            <component :is="LockKeyhole" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
@@ -54,7 +54,7 @@
                             <v-alert v-if="encryption === 'auto'" variant="tonal" color="default">
                                 <p>
                                     <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
-                                        Recommended for most users and teams
+                                        Recommended for ease of use and teams
                                     </v-chip>
                                 </p>
                                 <p class="text-body-2 my-2 font-weight-bold">
@@ -64,7 +64,7 @@
                                     Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
                                 </p>
                                 <p class="text-body-2 my-2">
-                                    The team members you invite will automatically have access to your project's data.
+                                    The team members will automatically have access to your project's data.
                                 </p>
                                 <p class="text-body-2 mt-2">
                                     <a class="link" @click="goToDocs">Learn more in the documentation.</a>
@@ -148,7 +148,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { computed, ref } from 'vue';
-import { Plus } from 'lucide-vue-next';
+import { Plus, LockKeyhole } from 'lucide-vue-next';
 
 import {
     AnalyticsEvent,
@@ -157,8 +157,6 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-
-import IconLock from '@/components/icons/IconLock.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();

@@ -68,7 +68,7 @@
                             {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                         </v-chip>
                         <v-divider class="my-4" />
-                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" rounded="md" :to="ROUTES.Billing.path">
+                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" rounded="md" :to="ROUTES.Billing.path" :append-icon="ArrowRight">
                             View Billing
                         </v-btn>
                         <v-btn v-else color="primary" size="small" rounded="md" :append-icon="ArrowRight" @click="appStore.toggleUpgradeFlow(true)">

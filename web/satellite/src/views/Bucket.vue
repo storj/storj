@@ -16,20 +16,20 @@
                     <template #activator="{ props }">
                         <v-btn
                             color="primary"
-                            min-width="120"
                             :disabled="!isInitialized"
                             v-bind="props"
+                            min-width="120"
+                            :prepend-icon="Upload"
                         >
-                            <IconUpload class="mr-2" />
                             Upload
                         </v-btn>
                     </template>
                     <v-list class="pa-1">
                         <v-list-item :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
-                                <IconFile size="16" />
+                                <component :is="FileUp" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-2">
+                            <v-list-item-title class="text-body-2 ml-3">
                                 Upload Files
                             </v-list-item-title>
                         </v-list-item>
@@ -38,9 +38,9 @@
 
                         <v-list-item class="mt-1" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
                             <template #prepend>
-                                <icon-folder size="16" bold />
+                                <component :is="FolderUp" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-2">
+                            <v-list-item-title class="text-body-2 ml-3">
                                 Upload Folders
                             </v-list-item-title>
                         </v-list-item>
@@ -85,12 +85,10 @@
                             color="default"
                             class="ml-2 ml-sm-4"
                             v-bind="props"
-                        >
-                            <template #append>
-                                <IconDropdown class="ml-1" />
-                            </template>
-                            <IconSettings size="16" />
-                        </v-btn>
+                            :prepend-icon="Settings"
+                            :append-icon="ChevronDown"
+                            aria-label="Bucket Options"
+                        />
                     </template>
                     <v-list class="pa-1">
                         <v-list-item
@@ -100,8 +98,8 @@
                             @click="onToggleVersioning"
                         >
                             <template #prepend>
-                                <IconVersioning v-if="bucket?.versioning !== Versioning.Enabled" />
-                                <IconPause v-else />
+                                <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
+                                <component :is="CirclePause" v-else :size="18" />
                             </template>
                             <v-list-item-title
                                 class="ml-3 text-body-2 font-weight-medium"
@@ -119,7 +117,7 @@
                             @click="obStore.toggleShowObjectVersions()"
                         >
                             <template #prepend>
-                                <icon-finger-print />
+                                <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
                             </template>
                             <v-list-item-title
                                 class="ml-3 text-body-2 font-weight-medium"
@@ -134,7 +132,7 @@
                             @click="isShareBucketDialogShown = true"
                         >
                             <template #prepend>
-                                <icon-share bold />
+                                <component :is="Share" :size="18" />
                             </template>
                             <v-list-item-title
                                 class="ml-3 text-body-2 font-weight-medium"
@@ -150,7 +148,7 @@
                             @click="isDeleteBucketDialogShown = true"
                         >
                             <template #prepend>
-                                <icon-trash bold />
+                                <component :is="Trash2" :size="18" />
                             </template>
                             <v-list-item-title
                                 class="ml-3 text-body-2 font-weight-medium"
@@ -182,7 +180,7 @@
                                     v-bind="props"
                                     @click="isCardView = true"
                                 >
-                                    <icon-card-view />
+                                    <component :is="ScanEye" :size="14" class="mr-1" />
                                     Gallery
                                 </v-btn>
                             </template>
@@ -196,7 +194,7 @@
                             aria-label="Toggle Table View"
                             @click="isCardView = false"
                         >
-                            <icon-table-view />
+                            <component :is="List" :size="14" class="mr-1" />
                             List
                         </v-btn>
                     </v-btn-toggle>
@@ -239,6 +237,20 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import { FileUp,
+    FolderUp,
+    ChevronDown,
+    Settings,
+    Upload,
+    Share,
+    Trash2,
+    History,
+    CirclePause,
+    ScanEye,
+    List,
+    Eye,
+    EyeOff,
+} from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -259,24 +271,13 @@ import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
 import BrowserTableComponent from '@/components/BrowserTableComponent.vue';
 import BrowserNewFolderDialog from '@/components/dialogs/BrowserNewFolderDialog.vue';
-import IconUpload from '@/components/icons/IconUpload.vue';
-import IconFolder from '@/components/icons/IconFolder.vue';
-import IconFile from '@/components/icons/IconFile.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
 import DropzoneDialog from '@/components/dialogs/DropzoneDialog.vue';
 import BrowserCardViewComponent from '@/components/BrowserCardViewComponent.vue';
-import IconTableView from '@/components/icons/IconTableView.vue';
-import IconCardView from '@/components/icons/IconCardView.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconDropdown from '@/components/icons/IconDropdown.vue';
+import IconFolder from '@/components/icons/IconFolder.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
-import IconPause from '@/components/icons/IconPause.vue';
-import IconVersioning from '@/components/icons/IconVersioning.vue';
-import IconShare from '@/components/icons/IconShare.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
-import IconFingerPrint from '@/components/icons/IconFingerPrint.vue';
 import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
 
 const bucketsStore = useBucketsStore();

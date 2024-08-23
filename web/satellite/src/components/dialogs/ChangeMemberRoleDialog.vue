@@ -13,7 +13,14 @@
             <v-sheet>
                 <v-card-item class="py-4 pl-6">
                     <template #prepend>
-                        <icon-member-color class="mt-1" :size="40" />
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <component :is="UserCog" :size="18" />
+                        </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
                         Change Role
@@ -88,6 +95,7 @@ import {
     VSelect,
     VSheet,
 } from 'vuetify/components';
+import { UserCog } from 'lucide-vue-next';
 
 import { ProjectRole } from '@/types/projectMembers';
 import { useLoading } from '@/composables/useLoading';
@@ -95,8 +103,6 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-
-import IconMemberColor from '@/components/icons/IconMemberColor.vue';
 
 const props = withDefaults(defineProps<{
     memberId?: string

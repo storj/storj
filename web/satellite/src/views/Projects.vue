@@ -20,10 +20,9 @@
                     class="mr-3"
                     color="default"
                     variant="outlined"
-                    density="comfortable"
+                    :prepend-icon="CirclePlus"
                     @click="newProjectClicked"
                 >
-                    <IconNew class="mr-2" size="14" bold />
                     New Project
                 </v-btn>
             </v-col>
@@ -47,7 +46,9 @@
                             aria-label="Toggle Cards View"
                             @click="isTableView = false"
                         >
-                            <icon-card-view />
+                            <template #prepend>
+                                <component :is="Grid2X2" :size="14" />
+                            </template>
                             Cards
                         </v-btn>
                         <v-btn
@@ -58,7 +59,9 @@
                             aria-label="Toggle Table View"
                             @click="isTableView = true"
                         >
-                            <icon-table-view />
+                            <template #prepend>
+                                <component :is="List" :size="15" />
+                            </template>
                             List
                         </v-btn>
                     </v-btn-toggle>
@@ -103,6 +106,7 @@ import {
     VBtnToggle,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
+import { CirclePlus, Grid2X2, List } from 'lucide-vue-next';
 
 import { ProjectItemModel } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -125,9 +129,6 @@ import ProjectsTableComponent from '@/components/ProjectsTableComponent.vue';
 import JoinProjectDialog from '@/components/dialogs/JoinProjectDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
-import IconCardView from '@/components/icons/IconCardView.vue';
-import IconTableView from '@/components/icons/IconTableView.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';

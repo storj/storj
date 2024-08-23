@@ -50,7 +50,7 @@
                         </td>
                     </tr>
                 </template>
-                <tr v-for="file in versionsCache.get(key.path + key.Key) as BrowserObject[]" v-else :key="file.VersionId" class="bg-altbg">
+                <tr v-for="file in versionsCache.get(key.path + key.Key) as BrowserObject[]" v-else :key="file.VersionId" class="bg-background">
                     <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
                         <v-checkbox-btn :model-value="selectedFiles.includes(file)" hide-details @update:modelValue="(selected) => toggleSelectObjectVersion(selected as boolean, file)" />
                     </td>
@@ -211,7 +211,7 @@
                         @click="isDeleteFileDialogShown = true"
                     >
                         <template #prepend>
-                            <icon-trash />
+                            <component :is="Trash2" :size="18" />
                         </template>
                         Delete
                     </v-btn>
@@ -257,7 +257,7 @@ import {
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-vue-next';
 
 import {
     BrowserObject,
@@ -285,7 +285,6 @@ import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import RestoreVersionDialog from '@/components/dialogs/RestoreVersionDialog.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
 import IconCurveRight from '@/components/icons/IconCurveRight.vue';
 import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 
