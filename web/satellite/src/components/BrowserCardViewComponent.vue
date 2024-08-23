@@ -197,7 +197,6 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
-import { useLinksharing } from '@/composables/useLinksharing';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 
@@ -223,8 +222,6 @@ const bucketsStore = useBucketsStore();
 
 const notify = useNotify();
 const router = useRouter();
-
-const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -520,10 +517,10 @@ function onShareClick(file: BrowserObject): void {
 /**
  * Get the object preview url.
  */
-async function fetchPreviewUrl(file: BrowserObject) {
+async function fetchPreviewUrl(file: BrowserObject): Promise<void> {
     let url = '';
     try {
-        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, file.path + file.Key);
+        url = await obStore.getDownloadLink(file);
     } catch (error) {
         error.message = `Unable to get file preview URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
