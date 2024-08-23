@@ -39,8 +39,8 @@
                             v-for="(key, index) in sortKeys"
                             :key="index"
                             :title="key"
-                            @click="() => sortKey = key.toLowerCase()"
                             class="mx-2"
+                            @click="() => sortKey = key.toLowerCase()"
                         />
                     </v-list>
                 </v-menu>

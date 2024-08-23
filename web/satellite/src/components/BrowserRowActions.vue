@@ -46,8 +46,8 @@
             </v-btn>
 
             <v-btn
-            variant="text"
-            color="default"
+                variant="text"
+                color="default"
                 size="small"
                 class="mr-1 text-caption"
                 density="comfortable"

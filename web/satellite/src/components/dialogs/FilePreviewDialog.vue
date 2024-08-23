@@ -17,7 +17,7 @@
             >
                 <v-toolbar-title class="text-subtitle-2">
                     {{ fileName }}
-                    <p class="text-caption text-medium-emphasis" v-if="showingVersions && currentFile"> Version ID: {{ currentFile.VersionId }} </p>
+                    <p v-if="showingVersions && currentFile" class="text-caption text-medium-emphasis"> Version ID: {{ currentFile.VersionId }} </p>
                 </v-toolbar-title>
                 <template #append>
                     <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" @click="download">
