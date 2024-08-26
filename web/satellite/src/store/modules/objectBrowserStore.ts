@@ -100,6 +100,7 @@ export class FilesState {
     uploading: UploadingBrowserObject[] = [];
     selectedFiles: BrowserObject[] = [];
     filesToBeDeleted: Set<string> = new Set<string>();
+    deletedFilesCount = 0;
     openedDropdown: null | string = null;
     headingSorted = 'name';
     orderBy: 'asc' | 'desc' = 'asc';
@@ -804,7 +805,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 Bucket: state.bucket,
                 Key: path + file.Key,
                 VersionId: version.VersionId,
-            }));
+            })).then(() => state.deletedFilesCount++);
         });
         await Promise.all(deletePromises);
 
@@ -829,6 +830,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }));
 
         state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
+        state.deletedFilesCount++;
 
         if (!isFolder) {
             if (shouldRefresh) {
@@ -893,7 +895,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         removeFile(file);
     }
 
-    async function deleteFolder(file: BrowserObject, path: string, shouldRefresh = true): Promise<void> {
+    async function deleteFolder(path: string, file: BrowserObject, shouldRefresh = true): Promise<void> {
         assertIsInitialized(state);
 
         async function recurse(filePath: string) {
@@ -956,17 +958,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         await Promise.all(
             state.selectedFiles.map(async (file) => {
+                let deletePromise;
                 if (file.type === 'file') {
-                    if (withVersions) {
-                        return await deleteObjectWithVersions(state.path, file);
-                    }
-                    return await deleteObject(state.path, file, false, false);
+                    deletePromise = withVersions ? deleteObjectWithVersions : deleteObject;
                 } else {
-                    if (withVersions) {
-                        return await deleteFolderWithVersions(file, state.path);
-                    }
-                    return await deleteFolder(file, state.path, false);
+                    deletePromise = withVersions ? deleteFolderWithVersions : deleteFolder;
                 }
+                return await deletePromise(state.path, file, false, false).catch((e) => {
+                    state.filesToBeDeleted.delete((file.path ?? '') + file.Key + (file.VersionId ?? ''));
+                    return new Promise((_, reject) => {
+                        reject(e);
+                    });
+                });
             }),
         );
     }
@@ -974,19 +977,19 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     /**
      * This is an empty action for App.vue to subscribe to know the status of the delete object/folder requests.
      *
-     * @param fileCount - number of files being deleted.
-     * @param fileTypes - file types being deleted.
      * @param deleteRequest - the promise of the delete request.
+     * @param filesLabel - descriptive label of files deleted (versions/files).
      */
-    function handleDeleteObjectRequest(fileCount: number, fileTypes: string, deleteRequest: Promise<void>): void {
+    function handleDeleteObjectRequest(deleteRequest: Promise<void>, filesLabel = 'file'): void {
         /* empty */
     }
 
     /**
-     * Empty action for the file browser to refresh on files deleted.
+     * Action for the file browser to refresh on files deleted.
+     * It also resets the count for number of files deleted.
      */
     function filesDeleted(): void {
-        /* empty */
+        state.deletedFilesCount = 0;
     }
 
     async function getDownloadLink(file: BrowserObject): Promise<string> {
@@ -1093,6 +1096,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.uploading = [];
         state.selectedFiles = [];
         state.filesToBeDeleted.clear();
+        state.deletedFilesCount = 0;
         state.openedDropdown = null;
         state.headingSorted = 'name';
         state.orderBy = 'asc';

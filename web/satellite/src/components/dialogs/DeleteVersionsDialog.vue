@@ -151,7 +151,7 @@ function onDeleteClick(): void {
     // multiple files selected in the file browser.
         deleteRequest = obStore.deleteSelected();
     } else return;
-    obStore.handleDeleteObjectRequest(props.files.length, `Version${ props.files.length > 1 ? 's' : '' }`, deleteRequest);
+    obStore.handleDeleteObjectRequest(deleteRequest, 'version');
     model.value = false;
 }
 
