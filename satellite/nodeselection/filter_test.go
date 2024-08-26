@@ -144,13 +144,13 @@ func TestCountryFilter_FromString(t *testing.T) {
 			definition:      []string{"EU"},
 			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IT\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
 			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.Austria},
-			mustNotIncluded: []location.CountryCode{location.Iceland, location.UnitedStates},
+			mustNotIncluded: []location.CountryCode{location.Iceland, location.UnitedStates, location.UnitedKingdom},
 		},
 		{
 			definition:      []string{"EEA"},
 			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IS\",\"IT\",\"LI\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"NO\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
 			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.Austria, location.Iceland},
-			mustNotIncluded: []location.CountryCode{location.UnitedStates},
+			mustNotIncluded: []location.CountryCode{location.UnitedStates, location.UnitedKingdom},
 		},
 		{
 			definition:      []string{"EU", "US"},
@@ -169,6 +169,12 @@ func TestCountryFilter_FromString(t *testing.T) {
 			canonical:       "country(\"*\",\"!BY\",\"!RU\")",
 			mustIncluded:    []location.CountryCode{location.Hungary},
 			mustNotIncluded: []location.CountryCode{location.Russia, location.Belarus},
+		},
+		{
+			definition:      []string{"EU", "!DE"},
+			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IT\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
+			mustIncluded:    []location.CountryCode{location.Hungary, location.TheNetherlands},
+			mustNotIncluded: []location.CountryCode{location.Germany, location.UnitedStates, location.Russia},
 		},
 	}
 	for _, tc := range cases {
