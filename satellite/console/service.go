@@ -2702,15 +2702,26 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	var passphrase []byte
+	var hasManagedPassphrase bool
+	if project.PassphraseEnc != nil {
+		hasManagedPassphrase = true
+	}
 	if project.PassphraseEnc != nil && s.kmsService != nil {
 		if project.PassphraseEncKeyID == nil {
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB")
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
 		if err != nil {
 			s.log.Error("failed to decrypt passphrase", zap.Error(err))
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error())
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
+	}
+
+	if len(passphrase) == 0 && hasManagedPassphrase {
+		// the UI handles this condition on its own, so we track an analytics event, but continue to send a valid response to the client.
+		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite")
 	}
 
 	versioningUIEnabled, promptForVersioningBeta := s.GetObjectVersioningUIEnabledByProject(project)
@@ -2718,6 +2729,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		VersioningUIEnabled:     versioningUIEnabled,
 		ObjectLockUIEnabled:     s.objectLockAndVersioningConfig.ObjectLockEnabled && versioningUIEnabled,
 		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
+		HasManagedPassphrase:    hasManagedPassphrase,
 		Passphrase:              string(passphrase),
 		IsOwnerPaidTier:         isOwnerPaidTier,
 		Role:                    isMember.membership.Role,

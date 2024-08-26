@@ -554,6 +554,12 @@ onMounted(async () => {
             params: { id: projectUrlId.value },
         });
     }
+
+    if (appStore.state.managedPassphraseNotRetrievable) {
+        goToBuckets();
+        return;
+    }
+
     try {
         await bucketsStore.getAllBucketsMetadata(projectId.value);
     } catch (error) {

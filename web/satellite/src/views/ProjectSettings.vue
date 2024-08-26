@@ -318,7 +318,7 @@ const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
 /**
  * whether this project has a satellite managed passphrase.
  */
-const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.

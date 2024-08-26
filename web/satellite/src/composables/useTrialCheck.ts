@@ -39,11 +39,21 @@ export function useTrialCheck() {
         callback();
     }
 
+    function withManagedPassphraseCheck(callback: () => void | Promise<void>): void {
+        if (appStore.state.managedPassphraseNotRetrievable) {
+            appStore.toggleManagedPassphraseErrorDialog(true);
+            return;
+        }
+
+        callback();
+    }
+
     return {
         isTrialExpirationBanner,
         isExpired,
         isUserProjectOwner,
         expirationInfo,
         withTrialCheck,
+        withManagedPassphraseCheck,
     };
 }

@@ -363,7 +363,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -765,9 +765,9 @@ function getValueAndUnit(value: number): ValueUnit {
  * Starts create bucket flow if user's free trial is not expired.
  */
 function onCreateBucket(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isCreateBucketDialogOpen.value = true;
-    });
+    });});
 }
 
 /**

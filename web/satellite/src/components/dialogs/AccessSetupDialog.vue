@@ -316,7 +316,7 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
-const hasManagedPassphrase = computed<boolean>(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseAccessStep]: new StepInfo(

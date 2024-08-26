@@ -46,14 +46,14 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const dialog = ref<boolean>(false);
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
 
 /**
  * Starts create access grant flow if user's free trial is not expired.
  */
 function onCreateAccess(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         dialog.value = true;
-    });
+    });});
 }
 </script>

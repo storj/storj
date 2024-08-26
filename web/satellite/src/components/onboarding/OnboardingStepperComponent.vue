@@ -106,7 +106,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
 
 let passphraseDialogCallback: () => void = () => {};
 
@@ -120,7 +120,7 @@ const isManagePassphraseDialogOpen = ref(false);
  * Returns whether this project has passphrase managed by the satellite.
  */
 const hasManagedPassphrase = computed((): boolean => {
-    return !!projectsStore.state.selectedProjectConfig.passphrase;
+    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
 });
 
 const steps = computed<StepData[]>(() => {
@@ -269,9 +269,9 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Starts set passphrase flow if user's free trial is not expired.
  */
 function onManagePassphrase(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isManagePassphraseDialogOpen.value = true;
-    });
+    });});
 }
 
 /**
@@ -289,7 +289,7 @@ function onCreateBucket(): void {
  * or redirect to the buckets list.
  */
 function uploadFilesClicked(): void {
-    withTrialCheck(async () => {
+    withTrialCheck(async () => { withManagedPassphraseCheck(async () => {
         if (trackedBucketName.value) {
             await openTrackedBucket();
         } else {
@@ -306,7 +306,7 @@ function uploadFilesClicked(): void {
                 });
             }
         }
-    });
+    });});
 }
 
 /**
@@ -349,7 +349,7 @@ function onBucketCreated(bucketName: string): void {
 }
 
 function openAccessDialog(): void {
-    withTrialCheck(async () => {
+    withTrialCheck(async () => { withManagedPassphraseCheck(async () => {
         if (!onboardingInfo.value) {
             router.push({ name: ROUTES.Applications.name, params: { id: selectedProject.value.urlId } });
             return;
@@ -360,7 +360,7 @@ function openAccessDialog(): void {
             await progressStep();
         }
         isAccessDialogOpen.value = true;
-    });
+    });});
 }
 
 function onAccessCreated(): void {
@@ -428,7 +428,7 @@ onMounted(async () => {
 });
 
 watch(() => projectsStore.state.selectedProjectConfig, config => {
-    const hasSatelliteManagedEncryption = !!config.passphrase;
+    const hasSatelliteManagedEncryption = config.hasManagedPassphrase;
     if (hasSatelliteManagedEncryption && currentStep.value === OnboardingStep.EncryptionPassphrase) {
     // Skip the passphrase step if the project passphrase is satellite managed
         progressStep();

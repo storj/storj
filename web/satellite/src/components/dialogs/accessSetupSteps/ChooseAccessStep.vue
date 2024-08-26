@@ -112,7 +112,7 @@ const emit = defineEmits<{
     'submit': [];
 }>();
 
-const hasManagedPassphrase = computed<boolean>(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 const form = ref<VForm | null>(null);
 const name = ref<string>('');

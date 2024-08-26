@@ -363,7 +363,7 @@ const sharedProjects = computed((): Project[] => {
  * Returns whether this project has passphrase managed by the satellite.
  */
 const hasManagedPassphrase = computed((): boolean => {
-    return !!projectsStore.state.selectedProjectConfig.passphrase;
+    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
 });
 
 /**

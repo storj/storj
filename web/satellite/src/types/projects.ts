@@ -173,6 +173,7 @@ export class ProjectConfig {
     public constructor(
         public versioningUIEnabled: boolean = false,
         public promptForVersioningBeta: boolean = false,
+        public hasManagedPassphrase: boolean = false,
         public passphrase: string = '',
         public isOwnerPaidTier: boolean = false,
         public _role: number = 1,

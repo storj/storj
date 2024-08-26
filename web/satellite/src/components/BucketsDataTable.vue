@@ -245,7 +245,7 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
 
 const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);
@@ -417,9 +417,9 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
  * Toggles versioning for the bucket between Suspended and Enabled.
  */
 async function onToggleVersioning(bucket: Bucket) {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         bucketToToggleVersioning.value = new BucketMetadata(bucket.name, bucket.versioning);
-    });
+    });});
 }
 
 /**
@@ -483,7 +483,7 @@ function onUpdateSort(value: SortItem[]): void {
  * Navigates to bucket page.
  */
 function openBucket(bucketName: string): void {
-    withTrialCheck(async () => {
+    withTrialCheck(async () => {withManagedPassphraseCheck(async () => {
         if (!bucketName) {
             return;
         }
@@ -512,7 +512,7 @@ function openBucket(bucketName: string): void {
         }
         passphraseDialogCallback = () => openBucket(selectedBucketName.value);
         isBucketPassphraseDialogOpen.value = true;
-    });
+    });});
 }
 
 /**
@@ -535,7 +535,7 @@ function showDeleteBucketDialog(bucketName: string): void {
  * Displays the Share Bucket dialog.
  */
 function showShareBucketDialog(bucketName: string): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         shareBucketName.value = bucketName;
         if (promptForPassphrase.value) {
             bucketsStore.setFileComponentBucketName(bucketName);
@@ -544,7 +544,7 @@ function showShareBucketDialog(bucketName: string): void {
             return;
         }
         isShareBucketDialogShown.value = true;
-    });
+    });});
 }
 
 /**
