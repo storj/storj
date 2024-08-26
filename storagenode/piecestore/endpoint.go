@@ -310,7 +310,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		})
 	switch {
 	case err != nil:
-		if errs2.IsCanceled(err) {
+		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
@@ -384,9 +384,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			if errors.Is(err, context.Canceled) {
-				// Context cancellation is common in normal operation, and shouldn't throw a full error.
-				log.Info("upload canceled (race lost or node shutdown)")
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) || rpcstatus.Code(err) == rpcstatus.Canceled {
+				// This is common in normal operation, and shouldn't throw a full error.
 				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
 
 			} else {
@@ -571,8 +570,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 				return stream.Recv()
 			})
-		if errs.Is(err, io.EOF) {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "unexpected EOF")
+		if errs.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return rpcstatus.Error(rpcstatus.Aborted, "unexpected EOF")
 		} else if err != nil {
 			if errs2.IsCanceled(err) {
 				return rpcstatus.Wrap(rpcstatus.Canceled, err)
