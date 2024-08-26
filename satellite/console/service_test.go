@@ -1752,6 +1752,9 @@ func TestDeleteAccount(t *testing.T) {
 			service.TestSetNow(func() time.Time {
 				return timestamp
 			})
+			sat.API.Payments.StripeService.SetNow(func() time.Time {
+				return timestamp
+			})
 			interval := timestamp.Add(-2 * time.Hour)
 
 			// check for unbilled storage
@@ -1801,7 +1804,7 @@ func TestDeleteAccount(t *testing.T) {
 				require.Nil(t, resp)
 			}
 
-			_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, time.Now(), 1)
+			_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 1)
 			require.NoError(t, err)
 
 			// check for usage in previous month, but invoice not generated yet

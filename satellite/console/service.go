@@ -1658,7 +1658,7 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 		failedLoginPenalty = &s.config.FailedLoginPenalty
 	}
 
-	return lockoutDuration, s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
+	return lockoutDuration, s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID, s.nowFn())
 }
 
 // GetLoginAttemptsWithoutPenalty returns LoginAttemptsWithoutPenalty config value.
