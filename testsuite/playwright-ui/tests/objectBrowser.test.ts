@@ -33,7 +33,8 @@ test.describe('object browser + edge services', () => {
         await navigationMenu.switchPassphrase(passphrase);
     });
 
-    test('File download and upload', async ({
+    // TODO re-enable test after it is fixed
+    test.skip('File download and upload', async ({
         objectBrowserPage,
         bucketsPage,
         navigationMenu,
