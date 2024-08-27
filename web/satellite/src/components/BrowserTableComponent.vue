@@ -626,7 +626,6 @@ function onFileClick(file: BrowserObject): void {
     obStore.setObjectPathForModal((file.path ?? '') + file.Key);
     fileToPreview.value = file;
     previewDialog.value = true;
-    isFileGuideShown.value = false;
     dismissFileGuide();
 }
 
