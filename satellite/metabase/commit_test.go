@@ -4686,39 +4686,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:                obj.ObjectStream,
-						ObjectLockEnabledForProject: true,
-					},
-					ErrClass: &metabase.ErrObjectLock,
-				}.Check(ctx, t, db)
-
-				metabasetest.Verify{
-					Objects:  []metabase.RawObject{metabase.RawObject(lockedObj), metabase.RawObject(obj)},
-					Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
-				}.Check(ctx, t, db)
-			})
-
-			t.Run("Active retention period - ObjectLockEnabledForProject disabled", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
-
-				beginObjStream := objStream
-				beginObjStream.Version = metabase.NextVersion
-				obj := metabasetest.BeginObjectNextVersion{
-					Opts: metabase.BeginObjectNextVersion{
-						ObjectStream: beginObjStream,
-						Encryption:   metabasetest.DefaultEncryption,
-					},
-					Version: lockedObj.Version + 1,
-				}.Check(ctx, t, db)
-
-				metabasetest.CommitObject{
-					Opts: metabase.CommitObject{
-						ObjectStream:                obj.ObjectStream,
-						ObjectLockEnabledForProject: false,
+						ObjectStream: obj.ObjectStream,
 					},
 					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
@@ -4748,8 +4716,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				obj = metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:                obj.ObjectStream,
-						ObjectLockEnabledForProject: true,
+						ObjectStream: obj.ObjectStream,
 					},
 				}.Check(ctx, t, db)
 
@@ -4784,29 +4751,6 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
 					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
-
-				metabasetest.CommitInlineObject{
-					Opts: metabase.CommitInlineObject{
-						ObjectStream:        objStream,
-						Encryption:          metabasetest.DefaultEncryption,
-						CommitInlineSegment: commitInlineSeg,
-					},
-					ErrClass: &metabase.ErrObjectLock,
-				}.Check(ctx, t, db)
-
-				metabasetest.Verify{
-					Objects:  []metabase.RawObject{metabase.RawObject(lockedObj)},
-					Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
-				}.Check(ctx, t, db)
-			})
-
-			t.Run("Active retention period - ObjectLockEnabledForProject disabled", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				now := time.Now()
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, now.Add(time.Hour),
 				)
 
 				metabasetest.CommitInlineObject{

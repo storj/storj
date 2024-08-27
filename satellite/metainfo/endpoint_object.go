@@ -345,8 +345,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		DisallowDelete: !allowDelete,
 
 		Versioned: streamID.Versioned,
-
-		ObjectLockEnabledForProject: endpoint.config.ObjectLockEnabled(keyInfo.ProjectID),
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
