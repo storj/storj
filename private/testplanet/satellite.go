@@ -467,7 +467,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.ProjectLimitsIncreaseRequestURL = ""
 	config.Console.GatewayCredentialsRequestURL = ""
 	config.Console.DocumentationURL = ""
-	config.Console.LinksharingURL = ""
 	config.Console.PathwayOverviewEnabled = false
 	config.Compensation.Rates.AtRestGBHours = compensation.Rate{}
 	config.Compensation.Rates.GetTB = compensation.Rate{}
