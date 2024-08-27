@@ -216,7 +216,8 @@ func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 					ChunkSize: int64(len(data)),
 				},
 			},
-		}}
+		},
+		ch: make(chan interface{})}
 }
 
 func uploadPiece(ctx context.Context, endpoint *piecestore.Endpoint, upload *stream) []*collect.FinishedSpan {
@@ -403,16 +404,23 @@ func (s *stream) Cancel(err error) bool                             { panic("uni
 type downloadStream struct {
 	ctx      context.Context
 	messages []*pb.PieceDownloadRequest
+	ch       chan interface{}
 }
 
 func (s *downloadStream) SendAndClose(resp *pb.PieceUploadResponse) error {
 	return nil
 }
 
-func (s *downloadStream) Send(*pb.PieceDownloadResponse) error { return nil }
+func (s *downloadStream) Send(*pb.PieceDownloadResponse) error {
+	s.ch <- struct{}{}
+	return nil
+}
 
 func (s *downloadStream) Recv() (*pb.PieceDownloadRequest, error) {
 	if len(s.messages) == 0 {
+		// don't send EOF until the client has received the response
+		<-s.ch
+		close(s.ch)
 		return nil, io.EOF
 	}
 	resp := s.messages[0]
