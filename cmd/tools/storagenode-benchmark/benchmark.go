@@ -142,7 +142,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 					if pieceID.IsZero() {
 						return
 					}
-					if err := connectAndUpload(ctx, dialer, orderLimitCreator, nodeURL, pieceID, data); err != nil {
+					if err := connectAndUpload(ctx, dialer, orderLimitCreator, nodeURL, pieceID, benchmarkConfig.HashAlgorithm, data); err != nil {
 						fmt.Println(err)
 					}
 				}
@@ -199,12 +199,12 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, data []byte) (err error) {
+func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, hashAlgo int, data []byte) (err error) {
 	client, err := piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-
+	client.UploadHashAlgo = pb.PieceHashAlgorithm(hashAlgo)
 	defer func() {
 		err = errs.Combine(err, client.Close())
 	}()
