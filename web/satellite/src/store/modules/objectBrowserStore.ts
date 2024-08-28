@@ -22,6 +22,9 @@ import {
     ObjectLockRetentionMode,
     S3Client,
     S3ClientConfig,
+    ObjectLockMode,
+    GetObjectRetentionCommand,
+    GetObjectRetentionCommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
@@ -34,6 +37,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DuplicateUploadError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
+import { Retention } from '@/types/objectLock';
 
 export type BrowserObject = {
     Key: string;
@@ -49,6 +53,10 @@ export type BrowserObject = {
     };
     path?: string;
     Versions?: BrowserObject[];
+};
+
+export type FullBrowserObject = BrowserObject & {
+    retention?: Retention;
 };
 
 export enum FailedUploadMessage {
@@ -802,6 +810,32 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }));
     }
 
+    async function getObjectRetention(file: BrowserObject): Promise<Retention> {
+        assertIsInitialized(state);
+
+        const response = await state.s3.send(new GetObjectRetentionCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file.VersionId,
+        })).catch((error) => {
+            if (
+                error.message.includes('object retention not found')
+               || error.message.includes('missing retention configuration')
+               || error.message.includes('object does not have a retention configuration')
+
+            ) {
+                return {} as GetObjectRetentionCommandOutput;
+            }
+            return Promise.reject(error);
+        });
+
+        if (response.Retention && response.Retention.Mode && response.Retention.RetainUntilDate) {
+            return new Retention(response.Retention.Mode, response.Retention.RetainUntilDate);
+        }
+
+        return Retention.empty();
+    }
+
     async function deleteObjectWithVersions(path: string, file: BrowserObject): Promise<void> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
@@ -1144,6 +1178,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         upload,
         restoreObject,
         createFolder,
+        getObjectRetention,
         lockObject,
         deleteObject,
         deleteObjectWithVersions,

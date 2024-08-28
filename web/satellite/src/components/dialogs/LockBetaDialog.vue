@@ -20,7 +20,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <icon-lock :size="20" />
+                            <component :is="Lock" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
@@ -132,11 +132,10 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
+import { Lock } from 'lucide-vue-next';
 
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-
-import IconLock from '@/components/icons/IconLock.vue';
 
 const analyticsStore = useAnalyticsStore();
 

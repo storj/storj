@@ -97,6 +97,7 @@
                             @delete-file-click="onDeleteFileClick(item.browserObject)"
                             @share-click="onShareClick(item.browserObject)"
                             @lock-object-click="onLockObjectClick(item.browserObject)"
+                            @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -185,9 +186,14 @@
     />
     <lock-object-dialog
         v-model="isLockDialogShown"
-        :file="fileToLock"
+        :file="lockActionFile"
         @file-locked="refreshPage"
-        @content-removed="fileToLock = null"
+        @content-removed="lockActionFile = null"
+    />
+    <locked-delete-error-dialog
+        v-model="isLockedObjectDeleteDialogShown"
+        :file="lockActionFile"
+        @content-removed="lockActionFile = null"
     />
 </template>
 
@@ -211,6 +217,7 @@ import { ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-vue-next';
 
 import {
     BrowserObject,
+    FullBrowserObject,
     MAX_KEY_COUNT,
     ObjectBrowserCursor,
     useObjectBrowserStore,
@@ -236,6 +243,7 @@ import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
+import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -274,12 +282,13 @@ const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
 const fileToDelete = ref<BrowserObject | null>(null);
-const fileToLock = ref<BrowserObject | null>(null);
+const lockActionFile = ref<FullBrowserObject | null>(null);
 const fileToPreview = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
+const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
@@ -614,11 +623,19 @@ function onShareClick(file: BrowserObject): void {
 }
 
 /**
- * Handles restore button click event.
+ * Handles delete button click event.
  */
 function onLockObjectClick(file: BrowserObject): void {
-    fileToLock.value = file;
+    lockActionFile.value = file;
     isLockDialogShown.value = true;
+}
+
+/**
+ * Handles locked object delete error.
+ */
+function onLockedObjectDelete(file: FullBrowserObject): void {
+    lockActionFile.value = file;
+    isLockedObjectDeleteDialogShown.value = true;
 }
 
 async function dismissFileGuide() {

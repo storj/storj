@@ -4,8 +4,8 @@
 <template>
     <div class="text-no-wrap" :class="alignClass">
         <v-tooltip v-if="deleting" location="top" text="Deleting file">
-            <template #activator="{ props }">
-                <v-progress-circular class="text-right" width="2" size="22" color="error" indeterminate v-bind="props" />
+            <template #activator="{ props: loaderProps }">
+                <v-progress-circular class="text-right" width="2" size="22" color="error" indeterminate v-bind="loaderProps" />
             </template>
         </v-tooltip>
         <template v-else>
@@ -87,7 +87,7 @@
                             </v-list-item>
                             <v-list-item v-if="objectLockEnabledForBucket" density="comfortable" link @click="emit('lockObjectClick')">
                                 <template #prepend>
-                                    <icon-lock :size="18" />
+                                    <component :is="Lock" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Lock
@@ -115,9 +115,10 @@
                         <v-divider v-if="!file.isDeleteMarker" class="my-1" />
 
                         <template v-if="(!file.isDeleteMarker) || (file.isDeleteMarker && isVersion)">
-                            <v-list-item density="comfortable" link base-color="error" @click="emit('deleteFileClick')">
+                            <v-list-item :disabled="isGettingRetention" density="comfortable" link base-color="error" @click="onDeleteClick">
                                 <template #prepend>
-                                    <component :is="Trash2" :size="18" />
+                                    <v-progress-circular v-if="isGettingRetention" indeterminate size="18" width="2" />
+                                    <component :is="Trash2" v-else :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Delete
@@ -144,17 +145,19 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2 } from 'lucide-vue-next';
+import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock } from 'lucide-vue-next';
 
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    FullBrowserObject,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { BucketMetadata } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-
-import IconLock from '@/components/icons/IconLock.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -176,9 +179,11 @@ const emit = defineEmits<{
     shareClick: [];
     restoreObjectClick: [];
     lockObjectClick: [];
+    lockedObjectDelete: [FullBrowserObject];
 }>();
 
 const isDownloading = ref<boolean>(false);
+const isGettingRetention = ref<boolean>(false);
 
 const alignClass = computed<string>(() => {
     return 'text-' + props.align;
@@ -232,6 +237,30 @@ async function onDownloadClick(): Promise<void> {
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }
     isDownloading.value = false;
+}
+
+async function onDeleteClick(): Promise<void> {
+    if (!objectLockEnabledForBucket.value || props.file.type === 'folder') {
+        emit('deleteFileClick');
+        return;
+    }
+    if (isGettingRetention.value) {
+        return;
+    }
+    isGettingRetention.value = true;
+    try {
+        const retention = await obStore.getObjectRetention(props.file);
+        if (!retention.active()) {
+            emit('deleteFileClick');
+            return;
+        }
+        emit('lockedObjectDelete', { ...props.file, retention });
+    } catch (error) {
+        error.message = `Error deleting file. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    } finally {
+        isGettingRetention.value = false;
+    }
 }
 
 </script>

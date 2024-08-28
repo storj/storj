@@ -80,6 +80,7 @@
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
                             @lock-object-click="onLockObjectClick(item.browserObject)"
+                            @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </td>
                     <td />
@@ -223,9 +224,14 @@
     />
     <lock-object-dialog
         v-model="isLockDialogShown"
-        :file="fileToLock"
+        :file="lockActionFile"
         @file-locked="refreshPage"
-        @content-removed="fileToLock = null"
+        @content-removed="lockActionFile = null"
+    />
+    <locked-delete-error-dialog
+        v-model="isLockedObjectDeleteDialogShown"
+        :file="lockActionFile"
+        @content-removed="lockActionFile = null"
     />
 </template>
 
@@ -247,7 +253,12 @@ import {
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
-import { BrowserObject, ObjectBrowserCursor, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    FullBrowserObject,
+    ObjectBrowserCursor,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { Size } from '@/utils/bytesSize';
@@ -267,6 +278,7 @@ import IconCurveRight from '@/components/icons/IconCurveRight.vue';
 import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue';
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
+import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 
 const props = defineProps<{
     forceEmpty?: boolean;
@@ -290,13 +302,14 @@ const previewDialog = ref<boolean>(false);
 const fileToDelete = ref<BrowserObject | null>(null);
 const fileToRestore = ref<BrowserObject | null>(null);
 const fileToPreview = ref<BrowserObject | null>(null);
-const fileToLock = ref<BrowserObject | null>(null);
+const lockActionFile = ref<BrowserObject | null>(null);
 const fileVersionsToPreview = ref<BrowserObject[]>();
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isRestoreDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
+const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 
@@ -594,8 +607,16 @@ function onRestoreObjectClick(file: BrowserObject): void {
  * Handles lock button click event.
  */
 function onLockObjectClick(file: BrowserObject): void {
-    fileToLock.value = file;
+    lockActionFile.value = file;
     isLockDialogShown.value = true;
+}
+
+/**
+ * Handles locked object delete error.
+ */
+function onLockedObjectDelete(file: FullBrowserObject): void {
+    lockActionFile.value = file;
+    isLockedObjectDeleteDialogShown.value = true;
 }
 
 obStore.$onAction(({ name, after }) => {
