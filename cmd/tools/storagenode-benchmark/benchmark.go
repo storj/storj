@@ -285,8 +285,11 @@ func (k *keySigner) createOrderLimit(ctx context.Context, pieceID storj.PieceID,
 		Action:          pb.PieceAction_PUT,
 		Limit:           size,
 		OrderCreation:   time.Now(),
-		OrderExpiration: time.Now().Add(benchmarkConfig.TTL),
+		OrderExpiration: time.Now().Add(24 * time.Hour),
 		UplinkPublicKey: pub,
+	}
+	if benchmarkConfig.TTL > 0 {
+		limit.PieceExpiration = time.Now().Add(benchmarkConfig.TTL)
 	}
 	limit, err = signing.SignOrderLimit(ctx, k.signer, limit)
 	if err != nil {
