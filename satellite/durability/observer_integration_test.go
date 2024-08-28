@@ -12,11 +12,11 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/durability"
+	"storj.io/storj/shared/location"
 	"storj.io/storj/storagenode"
 )
 

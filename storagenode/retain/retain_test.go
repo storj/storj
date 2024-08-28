@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/errs2"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
@@ -22,6 +21,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/cmd/storagenode/internalcmd"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"

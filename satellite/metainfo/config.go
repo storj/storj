@@ -76,7 +76,7 @@ func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
 	return ro
 }
 
-// Set sets the value from a string in the format k/m/o/n-size (min/repair/optimal/total-erasuresharesize).
+// Set sets the value from a string in the format satellite/satellitedb/overlaycache.gok/m/o/n-size (min/repair/optimal/total-erasuresharesize).
 func (rs *RSConfig) Set(s string) error {
 	// Split on dash. Expect two items. First item is RS numbers. Second item is memory.Size.
 	info := strings.Split(s, "-")

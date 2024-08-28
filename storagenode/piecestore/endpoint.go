@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -34,6 +33,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
