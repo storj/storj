@@ -2344,6 +2344,49 @@ func TestGetObjectExactVersionRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			markerStream := objStream
+			markerStream.StreamID = uuid.UUID{}
+			markerStream.Version++
+			marker := metabase.Object{
+				ObjectStream: markerStream,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: markerStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &markerStream.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: markerStream.Location(),
+					Version:        markerStream.Version,
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("Pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -2434,6 +2477,48 @@ func TestGetObjectLastCommittedRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			markerStream := objStream
+			markerStream.StreamID = uuid.UUID{}
+			markerStream.Version++
+			marker := metabase.Object{
+				ObjectStream: markerStream,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: markerStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &markerStream.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: markerStream.Location(),
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
 		})
 
 		t.Run("Pending object", func(t *testing.T) {

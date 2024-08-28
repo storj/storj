@@ -4163,7 +4163,11 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		lockBucketName := createBucket(t, true)
 
 		t.Run("Success", func(t *testing.T) {
-			objStream1, retention1 := randObjectStream(project.ID, lockBucketName), randRetention()
+			objStream1 := randObjectStream(project.ID, lockBucketName)
+			retention1 := metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().Add(time.Hour),
+			}
 			object1 := createObject(t, objStream1, retention1)
 
 			objStream2 := objStream1
@@ -4221,6 +4225,58 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.Nil(t, resp)
 			rpctest.RequireStatusContains(t, err, rpcstatus.NotFound, "object not found")
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			objStream1, retention := randObjectStream(project.ID, lockBucketName), randRetention()
+			createObject(t, objStream1, retention)
+
+			deleteOpts := metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  objStream1.ObjectKey,
+					ProjectID:  project.ID,
+					BucketName: objStream1.BucketName,
+				},
+				Version: []byte{},
+			}
+			result, err := endpoint.DeleteCommittedObject(ctx, deleteOpts)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.NotNil(t, result[0])
+
+			req := &pb.GetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream1.BucketName),
+				EncryptedObjectKey: []byte(objStream1.ObjectKey),
+				ObjectVersion:      result[0].ObjectVersion,
+			}
+
+			// exact version
+			resp, err := endpoint.GetObjectRetention(ctx, req)
+			require.Error(t, err)
+			require.Nil(t, resp)
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying retention data of delete marker is not allowed")
+
+			objStream2 := randObjectStream(project.ID, lockBucketName)
+			createObject(t, objStream2, retention)
+			objStream2.Version++
+			createObject(t, objStream2, retention)
+
+			deleteOpts.BucketName = objStream2.BucketName
+			deleteOpts.ObjectKey = objStream2.ObjectKey
+
+			_, err = endpoint.DeleteCommittedObject(ctx, deleteOpts)
+			require.NoError(t, err)
+
+			req.Bucket = []byte(objStream2.BucketName)
+			req.EncryptedObjectKey = []byte(objStream2.ObjectKey)
+			req.ObjectVersion = nil
+
+			// last committed version
+			resp, err = endpoint.GetObjectRetention(ctx, req)
+			require.Error(t, err)
+			require.Nil(t, resp)
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying retention data of delete marker is not allowed")
 		})
 
 		t.Run("Pending object", func(t *testing.T) {

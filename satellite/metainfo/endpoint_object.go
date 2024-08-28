@@ -2052,6 +2052,9 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 		})
 	}
 	if err != nil {
+		if metabase.ErrMethodNotAllowed.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, err.Error())
+		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
