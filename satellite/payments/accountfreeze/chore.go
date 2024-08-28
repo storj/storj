@@ -664,7 +664,24 @@ func (chore *Chore) attemptEscalateTrialExpirationFreeze(ctx context.Context) {
 				totalSkipped++
 				continue
 			}
-			totalMarkedForDeletion++
+			user, err := chore.usersDB.Get(ctx, event.UserID)
+			if err == nil {
+				eErr := chore.sendEmail(ctx, user, &event)
+				if eErr != nil {
+					chore.log.Error("Could not send user email",
+						zap.String("process", "trial expiration freeze escalation"),
+						zap.Any("userID", event.UserID),
+						zap.Error(Error.Wrap(eErr)),
+					)
+				}
+				totalMarkedForDeletion++
+				continue
+			}
+			chore.log.Error("Could not get user for email",
+				zap.String("process", "trial expiration freeze escalation"),
+				zap.Any("userID", event.UserID),
+				zap.Error(Error.Wrap(err)),
+			)
 		}
 
 		hasNext = cursor != nil
@@ -693,6 +710,7 @@ func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *co
 	supportLink := chore.generalRequestURL
 	elapsedTime := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
 
+	incrementNotificationCount := true
 	var message mailservice.Message
 	switch event.Type {
 	case console.BillingWarning:
@@ -717,15 +735,22 @@ func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *co
 			SignInLink:  signInLink,
 			SupportLink: supportLink,
 		}
+	case console.TrialExpirationFreeze:
+		incrementNotificationCount = false
+		message = &console.TrialExpirationEscalationReminderEmail{
+			SupportLink: supportLink,
+		}
 	default:
 		return Error.New("unknown event type")
 	}
 
 	chore.mailService.SendRenderedAsync(ctx, []post.Address{{Address: user.Email}}, message)
 
-	err := chore.freezeService.IncrementNotificationsCount(ctx, user.ID, event.Type)
-	if err != nil {
-		return err
+	if incrementNotificationCount {
+		err := chore.freezeService.IncrementNotificationsCount(ctx, user.ID, event.Type)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
