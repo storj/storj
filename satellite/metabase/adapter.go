@@ -40,6 +40,7 @@ type Adapter interface {
 	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error
 
 	SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) error
+	SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 	UpdateTableStats(ctx context.Context) error

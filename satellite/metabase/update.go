@@ -348,6 +348,149 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 	return nil
 }
 
+// SetObjectLastCommittedLegalHold contains arguments necessary for setting
+// the legal hold configuration of the most recently committed version of an object.
+type SetObjectLastCommittedLegalHold struct {
+	ObjectLocation
+
+	Enabled bool
+}
+
+// Verify verifies the request fields.
+func (opts SetObjectLastCommittedLegalHold) Verify() error {
+	return opts.ObjectLocation.Verify()
+}
+
+// SetObjectLastCommittedLegalHold sets the legal hold configuration
+// of the most recently committed version of an object.
+func (db *DB) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = opts.Verify(); err != nil {
+		return err
+	}
+
+	return db.ChooseAdapter(opts.ProjectID).SetObjectLastCommittedLegalHold(ctx, opts)
+}
+
+// SetObjectLastCommittedLegalHold sets the legal hold configuration
+// of the most recently committed version of an object.
+func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var (
+		expiresAt *time.Time
+		updated   bool
+	)
+
+	err = p.db.QueryRowContext(ctx, `
+		WITH pre_update_info AS (
+			SELECT version, expires_at
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND status IN `+statusesCommitted+`
+			ORDER BY version DESC
+			LIMIT 1
+		), updated AS (
+			UPDATE objects
+			SET
+				retention_mode = CASE
+					WHEN $4 THEN COALESCE(retention_mode, 0) | `+retentionModeLegalHold+` -- Enable legal hold
+					ELSE retention_mode & ~`+retentionModeLegalHold+` -- Disable legal hold
+				END
+			WHERE
+				(project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND version IN (SELECT version FROM pre_update_info)
+				AND expires_at IS NULL
+			RETURNING 1
+		)
+		SELECT expires_at, EXISTS(SELECT 1 FROM updated) FROM pre_update_info`,
+		opts.ProjectID,
+		opts.BucketName,
+		opts.ObjectKey,
+		opts.Enabled,
+	).Scan(&expiresAt, &updated)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrObjectNotFound.New("")
+		}
+		return Error.New("unable to update object legal hold configuration: %w", err)
+	}
+
+	if !updated {
+		if expiresAt != nil {
+			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+		}
+
+		return Error.New("unable to update object legal hold configuration")
+	}
+
+	return nil
+}
+
+// SetObjectLastCommittedLegalHold sets the legal hold configuration
+// of the most recently committed version of an object.
+func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	type info struct {
+		version Version
+		preUpdateRetentionInfo
+	}
+
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+			SQL: `
+				SELECT version, expires_at, retention_mode
+				FROM objects
+				WHERE
+					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+					AND status IN ` + statusesCommitted + `
+				ORDER BY version DESC
+				LIMIT 1
+			`,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+			},
+		}), func(row *spanner.Row, item *info) error {
+			return errs.Wrap(row.Columns(
+				&item.version,
+				&item.ExpiresAt,
+				lockModeWrapper{retentionMode: &item.Retention.Mode},
+			))
+		})
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
+				return ErrObjectNotFound.New("")
+			}
+			return errs.New("unable to query object info before setting legal hold: %w", err)
+		}
+
+		if result.ExpiresAt != nil {
+			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+		}
+
+		return errs.Wrap(s.setObjectExactVersionLegalHold(ctx, tx, SetObjectExactVersionLegalHold{
+			ObjectLocation: opts.ObjectLocation,
+			Version:        result.version,
+			Enabled:        opts.Enabled,
+		}, result.Retention.Mode))
+	})
+
+	if err != nil {
+		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) {
+			return errs.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionLegalHold, existingRetMode storj.RetentionMode) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
