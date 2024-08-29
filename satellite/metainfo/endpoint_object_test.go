@@ -4278,7 +4278,7 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const unauthorizedErrMsg = "Unauthorized API credentials"
+		const unauthorizedErrMsg = "metainfo: object lock: object has an active retention period"
 
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
