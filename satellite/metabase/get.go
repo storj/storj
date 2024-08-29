@@ -115,7 +115,8 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -172,7 +173,8 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 
@@ -237,7 +239,8 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 		encryptionParameters{&object.Encryption},
-		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+		timeWrapper{&object.Retention.RetainUntil},
 	)
 
 	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
@@ -292,7 +295,8 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 	if err != nil {

@@ -278,6 +278,32 @@ func TestGetObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("Legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version,
+				},
+				Result: metabase.Object{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.CommittedUnversioned,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
