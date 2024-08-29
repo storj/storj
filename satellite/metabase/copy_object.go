@@ -402,7 +402,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		encryptionParameters{&sourceObject.Encryption},
 		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
-		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
 	)
 
 	newObject = sourceObject
@@ -489,7 +489,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"total_plain_size":                 sourceObject.TotalPlainSize,
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
 			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
-			"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
+			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode},
 			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {

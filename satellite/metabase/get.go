@@ -115,7 +115,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -172,7 +172,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 
@@ -237,7 +237,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 		encryptionParameters{&object.Encryption},
-		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 	)
 
 	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
@@ -292,7 +292,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 	if err != nil {
@@ -651,7 +651,7 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
 			AND status <> `+statusPending,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-	).Scan(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	).Scan(lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
@@ -683,7 +683,7 @@ func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opt
 			"version":     opts.Version,
 		},
 	}), func(row *spanner.Row, retention *Retention) error {
-		err := row.Columns(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+		err := row.Columns(lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -741,7 +741,7 @@ func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, o
 		ORDER BY version DESC
 		LIMIT 1
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
-	).Scan(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	).Scan(lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
@@ -776,7 +776,7 @@ func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, op
 			"object_key":  opts.ObjectKey,
 		},
 	}), func(row *spanner.Row, retention *Retention) error {
-		err := row.Columns(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+		err := row.Columns(lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
 		if err != nil {
 			return Error.Wrap(err)
 		}

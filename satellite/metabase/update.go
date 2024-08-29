@@ -287,13 +287,13 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 		opts.BucketName,
 		opts.ObjectKey,
 		opts.Version,
-		retentionModeWrapper{&opts.Retention.Mode},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode},
 		timeWrapper{&opts.Retention.RetainUntil},
 		now,
 	).Scan(
 		&info.Status,
 		&info.ExpiresAt,
-		retentionModeWrapper{&info.Retention.Mode},
+		lockModeWrapper{retentionMode: &info.Retention.Mode},
 		timeWrapper{&info.Retention.RetainUntil},
 		&updated,
 	)
@@ -338,7 +338,7 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 			return errs.Wrap(row.Columns(
 				&item.Status,
 				&item.ExpiresAt,
-				retentionModeWrapper{&item.Retention.Mode},
+				lockModeWrapper{retentionMode: &item.Retention.Mode},
 				timeWrapper{&item.Retention.RetainUntil},
 			))
 		})
@@ -383,7 +383,7 @@ func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx 
 			"bucket_name":    opts.BucketName,
 			"object_key":     opts.ObjectKey,
 			"version":        opts.Version,
-			"retention_mode": retentionModeWrapper{&opts.Retention.Mode},
+			"retention_mode": lockModeWrapper{retentionMode: &opts.Retention.Mode},
 			"retain_until":   timeWrapper{&opts.Retention.RetainUntil},
 		},
 	})
@@ -476,12 +476,12 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 		opts.ProjectID,
 		opts.BucketName,
 		opts.ObjectKey,
-		retentionModeWrapper{&opts.Retention.Mode},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode},
 		timeWrapper{&opts.Retention.RetainUntil},
 		now,
 	).Scan(
 		&info.ExpiresAt,
-		retentionModeWrapper{&info.Retention.Mode},
+		lockModeWrapper{retentionMode: &info.Retention.Mode},
 		timeWrapper{&info.Retention.RetainUntil},
 		&updated,
 	)
@@ -535,7 +535,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			return errs.Wrap(row.Columns(
 				&item.version,
 				&item.ExpiresAt,
-				retentionModeWrapper{&item.Retention.Mode},
+				lockModeWrapper{retentionMode: &item.Retention.Mode},
 				timeWrapper{&item.Retention.RetainUntil},
 			))
 		})

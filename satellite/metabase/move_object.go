@@ -359,7 +359,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 		newStatus,
 		nextVersion,
-		retentionModeWrapper{&opts.Retention.Mode},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode},
 		timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(
 		&oldStatus,
@@ -367,7 +367,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		&hasMetadata,
 		&streamID,
 		&info.objectExpiresAt,
-		retentionModeWrapper{&info.retention.Mode},
+		lockModeWrapper{retentionMode: &info.retention.Mode},
 		timeWrapper{&info.retention.RetainUntil},
 	)
 	if err != nil {
@@ -428,7 +428,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
 			encryptionParameters{&encryption},
 			&zombieDeletionDeadline,
-			retentionModeWrapper{&info.retention.Mode}, timeWrapper{&info.retention.RetainUntil},
+			lockModeWrapper{retentionMode: &info.retention.Mode}, timeWrapper{&info.retention.RetainUntil},
 		)
 		if err != nil {
 			return Error.New("unable to read old object record: %w", err)
@@ -489,7 +489,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"fixed_segment_size":               fixedSegmentSize,
 			"encryption":                       encryptionParameters{&encryption},
 			"zombie_deletion_deadline":         zombieDeletionDeadline,
-			"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
+			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode},
 			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
 	})

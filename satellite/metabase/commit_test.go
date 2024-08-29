@@ -661,7 +661,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("Invalid retention configuration", func(t *testing.T) {
+			t.Run("Invalid", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
@@ -688,7 +688,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 
-			t.Run("Retention configuration with TTL", func(t *testing.T) {
+			t.Run("With TTL", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
@@ -706,6 +706,64 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
+
+		t.Run("Legal hold", func(t *testing.T) {
+			t.Run("Success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				retention := metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						LegalHold:    true,
+						// An object's legal hold status and retention mode are stored as a
+						// single value in the database. A retention period is provided here
+						// to test that these properties are properly encoded.
+						Retention: retention,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream:           objectStream,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+						Retention:              retention,
+						LegalHold:              true,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("With TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						LegalHold:    true,
+						ExpiresAt:    &expires,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if LegalHold is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{}.Check(ctx, t, db)

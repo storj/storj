@@ -48,6 +48,7 @@ type RawObject struct {
 	ZombieDeletionDeadline *time.Time
 
 	Retention Retention
+	LegalHold bool
 }
 
 // RawSegment defines the full segment that is stored in the database. It should be rarely used directly.
@@ -207,7 +208,10 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-			retentionModeWrapper{&obj.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &obj.Retention.Mode,
+				legalHold:     &obj.LegalHold,
+			},
 			timeWrapper{&obj.Retention.RetainUntil},
 		)
 		if err != nil {
@@ -270,7 +274,10 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-			retentionModeWrapper{&obj.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &obj.Retention.Mode,
+				legalHold:     &obj.LegalHold,
+			},
 			timeWrapper{&obj.Retention.RetainUntil},
 		)
 		if err != nil {

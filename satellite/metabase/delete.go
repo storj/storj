@@ -178,7 +178,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 			&deleted,
 		)
 		if err != nil {
@@ -285,7 +285,7 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 				"version":     opts.Version,
 			},
 		}), func(row *spanner.Row, item *Retention) error {
-			return errs.Wrap(row.Columns(retentionModeWrapper{&item.Mode}, timeWrapper{&item.RetainUntil}))
+			return errs.Wrap(row.Columns(lockModeWrapper{retentionMode: &item.Mode}, timeWrapper{&item.RetainUntil}))
 		})
 		if err != nil {
 			if errs.Is(err, iterator.Done) {
@@ -440,7 +440,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 		)
 		if err != nil {
 			return nil, Error.New("unable to delete object: %w", err)
@@ -469,7 +469,7 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				encryptionParameters{&object.Encryption},
-				retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+				lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 			)
 			if err != nil {
 				return Error.New("unable to delete object: %w", err)
@@ -664,7 +664,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 			&deleted,
 		)
 		if err != nil {
@@ -776,7 +776,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 		}), func(row *spanner.Row, item *versionAndRetention) error {
 			return errs.Wrap(row.Columns(
 				&item.version,
-				retentionModeWrapper{&item.retention.Mode},
+				lockModeWrapper{retentionMode: &item.retention.Mode},
 				timeWrapper{&item.retention.RetainUntil}))
 		})
 		if err != nil {

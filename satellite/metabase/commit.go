@@ -155,7 +155,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(&object.Status, &object.Version, &object.CreatedAt)
 }
 
@@ -200,7 +200,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-				"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
+				"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode},
 				"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
@@ -224,6 +224,7 @@ type BeginObjectExactVersion struct {
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
+	LegalHold bool
 
 	// TestingBypassVerify makes the (*DB).TestingBeginObjectExactVersion method skip
 	// validation of this struct's fields. This is useful for inserting intentionally
@@ -252,8 +253,13 @@ func (opts *BeginObjectExactVersion) Verify() error {
 		return ErrInvalidRequest.Wrap(err)
 	}
 
-	if opts.Retention.Enabled() && opts.ExpiresAt != nil {
-		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	if opts.ExpiresAt != nil {
+		switch {
+		case opts.Retention.Enabled():
+			return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+		case opts.LegalHold:
+			return ErrInvalidRequest.New("ExpiresAt must not be set if LegalHold is set")
+		}
 	}
 
 	return nil
@@ -286,6 +292,7 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 		Encryption:             opts.Encryption,
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 		Retention:              opts.Retention,
+		LegalHold:              opts.LegalHold,
 	}
 
 	err = db.ChooseAdapter(opts.ProjectID).TestingBeginObjectExactVersion(ctx, opts, &object)
@@ -322,7 +329,10 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-		retentionModeWrapper{&opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
+		lockModeWrapper{
+			retentionMode: &opts.Retention.Mode,
+			legalHold:     &opts.LegalHold,
+		}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(
 		&object.Status, &object.CreatedAt,
 	)
@@ -363,8 +373,11 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-				"retention_mode":                   retentionModeWrapper{&opts.Retention.Mode},
-				"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
+				"retention_mode": lockModeWrapper{
+					retentionMode: &opts.Retention.Mode,
+					legalHold:     &opts.LegalHold,
+				},
+				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
 			return Error.Wrap(row.Columns(&object.Status, &object.CreatedAt))
@@ -1244,7 +1257,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		&object.CreatedAt, &object.ExpiresAt,
 		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 		encryptionParameters{&object.Encryption},
-		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1276,7 +1289,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		oldEncryptedMetadataNonce        []byte
 		oldEncryptionParameters          storj.EncryptionParameters
 	)
-	retentionMode := retentionModeWrapper{&object.Retention.Mode}
+	retentionMode := lockModeWrapper{retentionMode: &object.Retention.Mode}
 	retainUntil := timeWrapper{&object.Retention.RetainUntil}
 
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
@@ -1568,7 +1581,7 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
 		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
-		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
 	).Scan(&object.CreatedAt)
 	if err != nil {
 		return Error.New("failed to create object: %w", err)
@@ -1639,7 +1652,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			"encrypted_metadata":               object.EncryptedMetadata,
 			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
 			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
-			"retention_mode":                   retentionModeWrapper{&object.Retention.Mode},
+			"retention_mode":                   lockModeWrapper{retentionMode: &object.Retention.Mode},
 			"retain_until":                     timeWrapper{&object.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {

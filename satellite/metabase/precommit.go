@@ -327,7 +327,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			retentionModeWrapper{&deleted.Retention.Mode},
+			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -465,7 +465,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			retentionModeWrapper{&deleted.Retention.Mode},
+			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -587,7 +587,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			retentionModeWrapper{&deleted.Retention.Mode},
+			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -904,7 +904,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 				status    ObjectStatus
 				retention Retention
 			)
-			err := rows.Scan(&version, &status, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+			err := rows.Scan(&version, &status, lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -992,7 +992,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		&deleted.TotalEncryptedSize,
 		&deleted.FixedSegmentSize,
 		encryptionParameters{&deleted.Encryption},
-		retentionModeWrapper{&deleted.Retention.Mode},
+		lockModeWrapper{retentionMode: &deleted.Retention.Mode},
 		timeWrapper{&deleted.Retention.RetainUntil},
 		&result.DeletedSegmentCount,
 	)
@@ -1155,7 +1155,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 			status    ObjectStatus
 			retention Retention
 		)
-		err := row.Columns(&version, &status, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+		err := row.Columns(&version, &status, lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
 		if err != nil {
 			return errs.Wrap(err)
 		}
