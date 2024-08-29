@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/cockroachutil"
@@ -31,6 +33,12 @@ func init() {
 			return e.Err
 		case ErrorCode_ConstraintViolation:
 			return class.Wrap(&constraintError{e.Constraint, e.Err})
+		}
+		if spanner.ErrCode(e) == codes.Canceled {
+			// Spanner returns its own error codes for things like a canceled database operation via the context
+			// being canceled. Wrap the error here with the general context.Canceled error so upstream logic can
+			// handle the consistent error.
+			return class.Wrap(errors.Join(context.Canceled, e))
 		}
 		return class.Wrap(e)
 	}
