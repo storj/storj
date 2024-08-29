@@ -816,3 +816,16 @@ func (step SetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t te
 	err := db.SetObjectLastCommittedRetention(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
+
+// SetObjectExactVersionLegalHold is for testing metabase.SetObjectExactVersionLegalHold.
+type SetObjectExactVersionLegalHold struct {
+	Opts     metabase.SetObjectExactVersionLegalHold
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectExactVersionLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}

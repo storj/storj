@@ -39,6 +39,8 @@ type Adapter interface {
 	SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) error
 	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error
 
+	SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) error
+
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 	UpdateTableStats(ctx context.Context) error
 	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
