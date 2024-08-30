@@ -4144,7 +4144,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 	})
 }
 
-func TestEndpoint_GetObjectWithRetention(t *testing.T) {
+func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -4162,6 +4162,8 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
 			DisallowGetRetention: true,
 			DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+			DisallowGetLegalHold: true,
+			DisallowPutLegalHold: true,
 		})
 		require.NoError(t, err)
 
@@ -4171,22 +4173,23 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 			require.WithinDuration(t, expected.RetainUntil, actual.RetainUntil, time.Microsecond)
 		}
 
-		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
-			object, _ := metabasetest.CreateTestObject{
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
+			obj, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: objStream,
 					Encryption:   metabasetest.DefaultEncryption,
 					Retention:    retention,
+					LegalHold:    legalHold,
 				},
 				CommitObject: &metabase.CommitObject{
 					ObjectStream: objStream,
 				},
 			}.Run(ctx, t, sat.Metabase.DB, objStream, 0)
-			return object
+			return obj
 		}
 
-		lockedObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), randRetention())
-		plainObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), metabase.Retention{})
+		lockedObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), randRetention(), true)
+		plainObj := createObject(t, randObjectStream(project.ID, testrand.BucketName()), metabase.Retention{}, false)
 
 		t.Run("GetObject", func(t *testing.T) {
 			getLockedObj := &pb.GetObjectRequest{
@@ -4200,6 +4203,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				resp, err := endpoint.GetObject(ctx, getLockedObj)
 				require.NoError(t, err)
 				requireEqualRetention(t, lockedObj.Retention, resp.Object.Retention)
+				require.True(t, resp.Object.LegalHold)
 
 				resp, err = endpoint.GetObject(ctx, &pb.GetObjectRequest{
 					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -4209,6 +4213,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
+				require.False(t, resp.Object.LegalHold)
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4221,6 +4226,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				resp, err = endpoint.GetObject(ctx, getLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
+				require.False(t, resp.Object.LegalHold)
 			})
 		})
 
@@ -4242,6 +4248,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				resp, err := endpoint.DownloadObject(ctx, dlLockedObj)
 				require.NoError(t, err)
 				requireEqualRetention(t, lockedObj.Retention, resp.Object.Retention)
+				require.True(t, resp.Object.LegalHold)
 
 				resp, err = endpoint.DownloadObject(ctx, &pb.DownloadObjectRequest{
 					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -4251,6 +4258,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
+				require.False(t, resp.Object.LegalHold)
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4263,6 +4271,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				resp, err = endpoint.DownloadObject(ctx, dlLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
+				require.False(t, resp.Object.LegalHold)
 			})
 		})
 	})

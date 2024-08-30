@@ -626,6 +626,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	var canGetRetention bool
+	var canGetLegalHold bool
 
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
@@ -653,6 +654,16 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 				Time:          now,
 			},
 			ActionPermitted: &canGetRetention,
+			Optional:        true,
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectLegalHold,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetLegalHold,
 			Optional:        true,
 		},
 	)
@@ -751,6 +762,9 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	if !canGetRetention {
 		object.Retention = nil
 	}
+	if !canGetLegalHold {
+		object.LegalHold = false
+	}
 
 	endpoint.log.Debug("Object Get", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
 	mon.Meter("req_get_object").Mark(1)
@@ -779,6 +793,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	var canGetRetention bool
+	var canGetLegalHold bool
 
 	now := time.Now()
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitGet,
@@ -798,6 +813,16 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				Time:          now,
 			},
 			ActionPermitted: &canGetRetention,
+			Optional:        true,
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectLegalHold,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetLegalHold,
 			Optional:        true,
 		},
 	)
@@ -1004,6 +1029,9 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 	if !canGetRetention {
 		protoObject.Retention = nil
+	}
+	if !canGetLegalHold {
+		protoObject.LegalHold = false
 	}
 
 	segmentList, err := convertSegmentListResults(segments)
@@ -2047,6 +2075,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		},
 
 		Retention: retention,
+		LegalHold: object.LegalHold,
 	}
 
 	return result, nil
