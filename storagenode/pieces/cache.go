@@ -298,6 +298,9 @@ func (blobs *BlobsUsageCache) SpaceUsedForTrash(ctx context.Context) (int64, err
 func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.BlobRef) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil
+		}
 		return Error.Wrap(err)
 	}
 
@@ -319,6 +322,9 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.Blob
 func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, ref)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil
+		}
 		return Error.Wrap(err)
 	}
 

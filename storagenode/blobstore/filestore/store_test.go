@@ -25,6 +25,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/pieces"
 )
 
 const (
@@ -122,6 +123,25 @@ func TestStoreLoad(t *testing.T) {
 		_, err := store.Open(ctx, ref)
 		require.Error(t, err)
 	}
+}
+
+func TestNotExistent(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
+	require.NoError(t, err)
+	ref := blobstore.BlobRef{Namespace: []byte{0}, Key: []byte{1}}
+
+	err = store.Delete(ctx, ref)
+	require.NoError(t, err)
+
+	cache := pieces.NewBlobsUsageCache(zaptest.NewLogger(t), store)
+	err = cache.Delete(ctx, ref)
+	require.NoError(t, err)
+
+	err = cache.DeleteWithStorageFormat(ctx, ref, filestore.FormatV1)
+	require.NoError(t, err)
+
 }
 
 func TestDeleteWhileReading(t *testing.T) {
