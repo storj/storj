@@ -51,7 +51,7 @@ type Config struct {
 	TestingUniqueUnversioned   bool
 	TestingCommitSegmentMode   string
 	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
-	TestingSpannerProjects     []uuid.UUID
+	TestingSpannerProjects     map[uuid.UUID]struct{}
 }
 
 const commitSegmentModeTransaction = "transaction"
@@ -151,7 +151,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				return nil, err
 			}
 			db.adapters[i] = adapter
-			for _, projectID := range config.TestingSpannerProjects {
+			for projectID := range config.TestingSpannerProjects {
 				db.projectsAdapters[projectID] = adapter
 			}
 		default:

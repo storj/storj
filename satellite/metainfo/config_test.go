@@ -199,3 +199,25 @@ func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
 	require.False(t, config.ObjectLockEnabledByProject(projectA))
 	require.True(t, config.ObjectLockEnabledByProject(projectB))
 }
+
+func TestUUIDsFlag(t *testing.T) {
+	var UUIDs metainfo.UUIDsFlag
+	err := UUIDs.Set("")
+	require.NoError(t, err)
+	require.Len(t, UUIDs, 0)
+
+	testIDA := testrand.UUID()
+	err = UUIDs.Set(testIDA.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+	}, UUIDs)
+
+	testIDB := testrand.UUID()
+	err = UUIDs.Set(testIDA.String() + "," + testIDB.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+		testIDB: {},
+	}, UUIDs)
+}
