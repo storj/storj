@@ -103,7 +103,6 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 
 		count := len(batch)
 		if count == 0 {
-			service.log.Info("no expired pieces to collect")
 			return nil
 		}
 
