@@ -69,6 +69,8 @@ type FinishCopyObject struct {
 
 	// Retention indicates retention settings of the object copy.
 	Retention Retention
+	// LegalHold indicates whether the object copy is under legal hold.
+	LegalHold bool
 
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
 	// if it turns out completing the copy would exceed a limit.
@@ -117,7 +119,7 @@ func (finishCopy FinishCopyObject) Verify() error {
 		}
 	}
 
-	if !finishCopy.NewVersioned && finishCopy.Retention.Enabled() {
+	if !finishCopy.NewVersioned && (finishCopy.Retention.Enabled() || finishCopy.LegalHold) {
 		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
 	}
 
@@ -194,7 +196,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy object: %w", err)
 		}
 
-		if err = checkExpiresAtWithRetention(sourceObject, newSegments, opts.Retention); err != nil {
+		if err = checkExpiresAtWithObjectLock(sourceObject, newSegments, opts.Retention, opts.LegalHold); err != nil {
 			return err
 		}
 
@@ -242,6 +244,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		newObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
 	}
 	newObject.Retention = opts.Retention
+	newObject.LegalHold = opts.LegalHold
 
 	precommit.submitMetrics()
 	mon.Meter("finish_copy_object").Mark(1)
@@ -402,7 +405,8 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		encryptionParameters{&sourceObject.Encryption},
 		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
-		lockModeWrapper{retentionMode: &opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+		timeWrapper{&opts.Retention.RetainUntil},
 	)
 
 	newObject = sourceObject
@@ -489,7 +493,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"total_plain_size":                 sourceObject.TotalPlainSize,
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
 			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
-			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode},
+			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {
@@ -638,8 +642,8 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 	return object, nil
 }
 
-func checkExpiresAtWithRetention(object Object, segments transposedSegmentList, retention Retention) error {
-	if !retention.Enabled() {
+func checkExpiresAtWithObjectLock(object Object, segments transposedSegmentList, retention Retention, legalHold bool) error {
+	if !retention.Enabled() && !legalHold {
 		return nil
 	}
 	for _, e := range segments.ExpiresAts {

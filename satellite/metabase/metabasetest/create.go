@@ -390,6 +390,7 @@ type CreateObjectCopy struct {
 	NewVersioned      bool
 
 	Retention metabase.Retention
+	LegalHold bool
 }
 
 // Run creates the copy.
@@ -452,6 +453,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewVersioned:      cc.NewVersioned,
 
 			Retention: cc.Retention,
+			LegalHold: cc.LegalHold,
 		}
 	}
 

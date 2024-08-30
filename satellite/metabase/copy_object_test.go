@@ -1560,82 +1560,142 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("copy with TTL (object) and retention", func(t *testing.T) {
+		t.Run("copy with TTL (object) and object lock", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
 			nowPlusHour := now.Add(time.Hour)
 
 			unversionedObject := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 0, nowPlusHour)
+			errText := "Object Lock settings must not be placed on an object with an expiration date"
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					ObjectStream:          unversionedObject.ObjectStream,
-					NewBucket:             unversionedObject.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
-					NewStreamID:           testrand.UUID(),
+			finishCopyObject := metabase.FinishCopyObject{
+				ObjectStream:          unversionedObject.ObjectStream,
+				NewBucket:             unversionedObject.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+				NewStreamID:           testrand.UUID(),
 
-					NewVersioned: true,
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: now,
-					},
+				NewVersioned: true,
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now,
 				},
+			}
+
+			// retention and no legal hold
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
 				ErrClass: &metabase.ErrObjectExpiration,
-				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// retention and legal hold
+			finishCopyObject.LegalHold = true
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// no retention and legal hold
+			finishCopyObject.Retention = metabase.Retention{}
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("copy with TTL (segments) and retention", func(t *testing.T) {
+		t.Run("copy with TTL (segments) and object lock", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
 			nowPlusHour := now.Add(time.Hour)
 
 			unversionedObject := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 12, nowPlusHour)
+			errText := "Object Lock settings must not be placed on an object with segments having an expiration date"
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					ObjectStream:          unversionedObject.ObjectStream,
-					NewBucket:             unversionedObject.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
-					NewStreamID:           testrand.UUID(),
+			finishCopyObject := metabase.FinishCopyObject{
+				ObjectStream:          unversionedObject.ObjectStream,
+				NewBucket:             unversionedObject.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+				NewStreamID:           testrand.UUID(),
 
-					NewSegmentKeys: make([]metabase.EncryptedKeyAndNonce, 12),
+				NewSegmentKeys: make([]metabase.EncryptedKeyAndNonce, 12),
 
-					NewVersioned: true,
+				NewVersioned: true,
 
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: now,
-					},
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now,
 				},
+			}
+
+			// retention and no legal hold
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
 				ErrClass: &metabase.ErrObjectExpiration,
-				ErrText:  "Object Lock settings must not be placed on an object with segments having an expiration date",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// retention and legal hold
+			finishCopyObject.LegalHold = true
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// no retention and legal hold
+			finishCopyObject.Retention = metabase.Retention{}
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("copy unversioned without version and with retention", func(t *testing.T) {
+		t.Run("copy unversioned without version and with object lock", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
+			errText := "Object Lock settings must not be placed on unversioned objects"
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					ObjectStream:          unversionedObject.ObjectStream,
-					NewBucket:             unversionedObject.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
-					NewStreamID:           testrand.UUID(),
+			finishCopyObject := metabase.FinishCopyObject{
+				ObjectStream:          unversionedObject.ObjectStream,
+				NewBucket:             unversionedObject.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+				NewStreamID:           testrand.UUID(),
 
-					NewVersioned: false,
+				NewVersioned: false,
 
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
-					},
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
+			}
+
+			// retention and no legal hold
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
 				ErrClass: &metabase.ErrObjectStatus,
-				ErrText:  "Object Lock settings must not be placed on unversioned objects",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// retention and legal hold
+			finishCopyObject.LegalHold = true
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// no retention and legal hold
+			finishCopyObject.Retention = metabase.Retention{}
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1645,7 +1705,7 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("copy versioned without version and with retention", func(t *testing.T) {
+		t.Run("copy versioned without version and with object lock", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
@@ -1656,22 +1716,43 @@ func TestFinishCopyObject(t *testing.T) {
 			obj.Version = 3
 			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					ObjectStream:          obj2.ObjectStream,
-					NewBucket:             obj2.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
-					NewStreamID:           testrand.UUID(),
+			errText := "Object Lock settings must not be placed on unversioned objects"
 
-					NewVersioned: false,
+			finishCopyObject := metabase.FinishCopyObject{
+				ObjectStream:          obj2.ObjectStream,
+				NewBucket:             obj2.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+				NewStreamID:           testrand.UUID(),
 
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
-					},
+				NewVersioned: false,
+
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
+			}
+
+			// retention and no legal hold
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
 				ErrClass: &metabase.ErrObjectStatus,
-				ErrText:  "Object Lock settings must not be placed on unversioned objects",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// retention and legal hold
+			finishCopyObject.LegalHold = true
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			// no retention and legal hold
+			finishCopyObject.Retention = metabase.Retention{}
+			metabasetest.FinishCopyObject{
+				Opts:     finishCopyObject,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1683,86 +1764,114 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("copy unversioned with version and with retention", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		t.Run("copy unversioned with version and with object lock", func(t *testing.T) {
+			test := func(t *testing.T, expectedRetention metabase.Retention, legalHold bool) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
+				unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
 
-			expectedRetention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
-				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+				copyObject, _, _ := metabasetest.CreateObjectCopy{
+					OriginalObject: unversionedObject,
+					NewVersioned:   true,
+					Retention:      expectedRetention,
+					LegalHold:      legalHold,
+				}.Run(ctx, t, db)
+
+				require.Equal(t, unversionedObject.ProjectID, copyObject.ProjectID)
+				require.Equal(t, metabase.DefaultVersion, copyObject.Version)
+				require.Equal(t, unversionedObject.ExpiresAt, copyObject.ExpiresAt)
+				require.Equal(t, metabase.CommittedVersioned, copyObject.Status)
+				require.Equal(t, unversionedObject.SegmentCount, copyObject.SegmentCount)
+				require.Equal(t, unversionedObject.EncryptedMetadata, copyObject.EncryptedMetadata)
+				require.Equal(t, unversionedObject.TotalPlainSize, copyObject.TotalPlainSize)
+				require.Equal(t, unversionedObject.TotalEncryptedSize, copyObject.TotalEncryptedSize)
+				require.Equal(t, unversionedObject.FixedSegmentSize, copyObject.FixedSegmentSize)
+				require.Equal(t, unversionedObject.Encryption, copyObject.Encryption)
+				require.Equal(t, unversionedObject.ZombieDeletionDeadline, copyObject.ZombieDeletionDeadline)
+				require.Equal(t, expectedRetention, copyObject.Retention)
+				require.Equal(t, legalHold, copyObject.LegalHold)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						metabase.RawObject(unversionedObject),
+						metabase.RawObject(copyObject),
+					},
+				}.Check(ctx, t, db)
 			}
 
-			copyObject, _, _ := metabasetest.CreateObjectCopy{
-				OriginalObject: unversionedObject,
-				NewVersioned:   true,
-				Retention:      expectedRetention,
-			}.Run(ctx, t, db)
+			// retention and no legal hold
+			test(t, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}, false)
 
-			require.Equal(t, unversionedObject.ProjectID, copyObject.ProjectID)
-			require.Equal(t, metabase.DefaultVersion, copyObject.Version)
-			require.Equal(t, unversionedObject.ExpiresAt, copyObject.ExpiresAt)
-			require.Equal(t, metabase.CommittedVersioned, copyObject.Status)
-			require.Equal(t, unversionedObject.SegmentCount, copyObject.SegmentCount)
-			require.Equal(t, unversionedObject.EncryptedMetadata, copyObject.EncryptedMetadata)
-			require.Equal(t, unversionedObject.TotalPlainSize, copyObject.TotalPlainSize)
-			require.Equal(t, unversionedObject.TotalEncryptedSize, copyObject.TotalEncryptedSize)
-			require.Equal(t, unversionedObject.FixedSegmentSize, copyObject.FixedSegmentSize)
-			require.Equal(t, unversionedObject.Encryption, copyObject.Encryption)
-			require.Equal(t, unversionedObject.ZombieDeletionDeadline, copyObject.ZombieDeletionDeadline)
-			require.Equal(t, expectedRetention, copyObject.Retention)
+			// retention and legal hold
+			test(t, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}, true)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(unversionedObject),
-					metabase.RawObject(copyObject),
-				},
-			}.Check(ctx, t, db)
+			// no retention and legal hold
+			test(t, metabase.Retention{}, true)
 		})
 
-		t.Run("copy versioned with version and with retention", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		t.Run("copy versioned with version and with object lock", func(t *testing.T) {
+			test := func(t *testing.T, expectedRetention metabase.Retention, legalHold bool) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			obj := metabasetest.RandObjectStream()
-			obj.Version = metabase.DefaultVersion
-			obj1 := metabasetest.CreateObject(ctx, t, db, obj, 0)
-			obj.Version = 2
-			obj2 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
-			obj.Version = 3
-			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+				obj := metabasetest.RandObjectStream()
+				obj.Version = metabase.DefaultVersion
+				obj1 := metabasetest.CreateObject(ctx, t, db, obj, 0)
+				obj.Version = 2
+				obj2 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+				obj.Version = 3
+				obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
 
-			expectedRetention := metabase.Retention{
-				Mode:        storj.ComplianceMode,
-				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+				copyObject, _, _ := metabasetest.CreateObjectCopy{
+					OriginalObject: obj2,
+					NewVersioned:   true,
+					Retention:      expectedRetention,
+					LegalHold:      legalHold,
+				}.Run(ctx, t, db)
+
+				require.Equal(t, obj2.ProjectID, copyObject.ProjectID)
+				require.Equal(t, metabase.DefaultVersion, copyObject.Version)
+				require.Equal(t, obj2.ExpiresAt, copyObject.ExpiresAt)
+				require.Equal(t, obj2.Status, copyObject.Status)
+				require.Equal(t, obj2.SegmentCount, copyObject.SegmentCount)
+				require.Equal(t, obj2.EncryptedMetadata, copyObject.EncryptedMetadata)
+				require.Equal(t, obj2.TotalPlainSize, copyObject.TotalPlainSize)
+				require.Equal(t, obj2.TotalEncryptedSize, copyObject.TotalEncryptedSize)
+				require.Equal(t, obj2.FixedSegmentSize, copyObject.FixedSegmentSize)
+				require.Equal(t, obj2.Encryption, copyObject.Encryption)
+				require.Equal(t, obj2.ZombieDeletionDeadline, copyObject.ZombieDeletionDeadline)
+				require.Equal(t, expectedRetention, copyObject.Retention)
+				require.Equal(t, legalHold, copyObject.LegalHold)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						metabase.RawObject(obj1),
+						metabase.RawObject(obj2),
+						metabase.RawObject(obj3),
+						metabase.RawObject(copyObject),
+					},
+				}.Check(ctx, t, db)
 			}
 
-			copyObject, _, _ := metabasetest.CreateObjectCopy{
-				OriginalObject: obj2,
-				NewVersioned:   true,
-				Retention:      expectedRetention,
-			}.Run(ctx, t, db)
+			// retention and no legal hold
+			test(t, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}, false)
 
-			require.Equal(t, obj2.ProjectID, copyObject.ProjectID)
-			require.Equal(t, metabase.DefaultVersion, copyObject.Version)
-			require.Equal(t, obj2.ExpiresAt, copyObject.ExpiresAt)
-			require.Equal(t, obj2.Status, copyObject.Status)
-			require.Equal(t, obj2.SegmentCount, copyObject.SegmentCount)
-			require.Equal(t, obj2.EncryptedMetadata, copyObject.EncryptedMetadata)
-			require.Equal(t, obj2.TotalPlainSize, copyObject.TotalPlainSize)
-			require.Equal(t, obj2.TotalEncryptedSize, copyObject.TotalEncryptedSize)
-			require.Equal(t, obj2.FixedSegmentSize, copyObject.FixedSegmentSize)
-			require.Equal(t, obj2.Encryption, copyObject.Encryption)
-			require.Equal(t, obj2.ZombieDeletionDeadline, copyObject.ZombieDeletionDeadline)
-			require.Equal(t, expectedRetention, copyObject.Retention)
+			// retention and legal hold
+			test(t, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}, true)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(obj1),
-					metabase.RawObject(obj2),
-					metabase.RawObject(obj3),
-					metabase.RawObject(copyObject),
-				},
-			}.Check(ctx, t, db)
+			// no retention and legal hold
+			test(t, metabase.Retention{}, true)
 		})
 	})
 }
