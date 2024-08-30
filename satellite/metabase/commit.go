@@ -80,7 +80,7 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 
-	if err := opts.Retention.Verify(); err != nil {
+	if err := opts.Retention.verifyWithoutGovernance(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 
@@ -1257,7 +1257,11 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		&object.CreatedAt, &object.ExpiresAt,
 		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 		encryptionParameters{&object.Encryption},
-		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{
+			retentionMode: &object.Retention.Mode,
+			legalHold:     &object.LegalHold,
+		},
+		timeWrapper{&object.Retention.RetainUntil},
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1271,8 +1275,8 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	if err := object.Retention.Verify(); err != nil {
 		return Error.Wrap(err)
 	}
-	if object.Retention.Enabled() && object.ExpiresAt != nil {
-		return Error.New("object expiration must not be set if retention is set")
+	if object.ExpiresAt != nil && (object.LegalHold || object.Retention.Enabled()) {
+		return Error.New("object expiration must not be set if Object Lock configuration is set")
 	}
 
 	return nil
@@ -1289,7 +1293,10 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		oldEncryptedMetadataNonce        []byte
 		oldEncryptionParameters          storj.EncryptionParameters
 	)
-	retentionMode := lockModeWrapper{retentionMode: &object.Retention.Mode}
+	lockMode := lockModeWrapper{
+		retentionMode: &object.Retention.Mode,
+		legalHold:     &object.LegalHold,
+	}
 	retainUntil := timeWrapper{&object.Retention.RetainUntil}
 
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
@@ -1323,7 +1330,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		return Error.Wrap(row.Columns(
 			&object.CreatedAt, &object.ExpiresAt,
 			&oldEncryptedMetadata, &oldEncryptedMetadataEncryptedKey, &oldEncryptedMetadataNonce,
-			encryptionParameters{&oldEncryptionParameters}, retentionMode, retainUntil,
+			encryptionParameters{&oldEncryptionParameters}, lockMode, retainUntil,
 		))
 	})
 	if err != nil {
@@ -1335,8 +1342,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	if err := object.Retention.Verify(); err != nil {
 		return Error.Wrap(err)
 	}
-	if object.Retention.Enabled() && object.ExpiresAt != nil {
-		return Error.New("object expiration must not be set if retention is set")
+	if object.ExpiresAt != nil && (object.LegalHold || object.Retention.Enabled()) {
+		return Error.New("object expiration must not be set if Object Lock configuration is set")
 	}
 
 	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
@@ -1370,7 +1377,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		"total_encrypted_size":             totalEncryptedSize,
 		"fixed_segment_size":               int64(fixedSegmentSize),
 		"encryption":                       encryptionParameters{encryptionArg},
-		"retention_mode":                   retentionMode,
+		"retention_mode":                   lockMode,
 		"retain_until":                     retainUntil,
 		"next_version":                     nextVersion,
 	}
@@ -1478,7 +1485,7 @@ func (c *CommitInlineObject) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 
-	if err := c.Retention.Verify(); err != nil {
+	if err := c.Retention.verifyWithoutGovernance(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 

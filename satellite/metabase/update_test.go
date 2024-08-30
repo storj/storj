@@ -586,7 +586,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			check(metabase.Retention{
 				Mode:        storj.RetentionMode(2),
 				RetainUntil: activeRetention.RetainUntil,
-			}, "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+			}, "invalid retention mode 2")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(obj)},
@@ -831,7 +831,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			check(metabase.Retention{
 				Mode:        storj.RetentionMode(2),
 				RetainUntil: activeRetention.RetainUntil,
-			}, "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+			}, "invalid retention mode 2")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(obj)},

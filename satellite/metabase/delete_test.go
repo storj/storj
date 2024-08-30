@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -437,6 +438,62 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		t.Run("Delete object with retention", func(t *testing.T) {
+			objectLockTestRunner{
+				TestActive: func(t *testing.T, retention metabase.Retention, legalHold bool) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, segments := metabasetest.CreateTestObject{
+						BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+							ObjectStream: obj,
+							Encryption:   metabasetest.DefaultEncryption,
+							Retention:    retention,
+							LegalHold:    legalHold,
+						},
+					}.Run(ctx, t, db, obj, 1)
+
+					var errMsg string
+					if legalHold {
+						errMsg = "object is protected by a legal hold"
+					} else {
+						errMsg = "object is protected by a retention period"
+					}
+
+					metabasetest.DeleteObjectExactVersion{
+						Opts: metabase.DeleteObjectExactVersion{
+							ObjectLocation:    location,
+							Version:           obj.Version,
+							ObjectLockEnabled: true,
+						},
+						ErrClass: &metabase.ErrObjectLock,
+						ErrText:  errMsg,
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects:  []metabase.RawObject{metabase.RawObject(object)},
+						Segments: metabasetest.SegmentsToRaw(segments),
+					}.Check(ctx, t, db)
+				},
+				TestExpired: func(t *testing.T, retention metabase.Retention) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, retention)
+
+					metabasetest.DeleteObjectExactVersion{
+						Opts: metabase.DeleteObjectExactVersion{
+							ObjectLocation:    location,
+							Version:           obj.Version,
+							ObjectLockEnabled: true,
+						},
+						Result: metabase.DeleteObjectResult{
+							Removed: []metabase.Object{object},
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{}.Check(ctx, t, db)
+				},
+			}.Run(t)
+		})
 	})
 }
 
@@ -1162,104 +1219,214 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 
 		t.Run("Delete object with retention", func(t *testing.T) {
 			t.Run("Suspended", func(t *testing.T) {
-				t.Run("Active retention", func(t *testing.T) {
-					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				objectLockTestRunner{
+					TestActive: func(t *testing.T, retention metabase.Retention, legalHold bool) {
+						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, segments := metabasetest.CreateObjectWithRetention(
-						ctx, t, db, obj, 1, time.Now().Add(time.Hour),
-					)
+						object, segments := metabasetest.CreateTestObject{
+							BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+								ObjectStream: obj,
+								Encryption:   metabasetest.DefaultEncryption,
+								Retention:    retention,
+								LegalHold:    legalHold,
+							},
+						}.Run(ctx, t, db, obj, 1)
 
-					metabasetest.DeleteObjectLastCommitted{
-						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation:    object.Location(),
-							ObjectLockEnabled: true,
-							Suspended:         true,
-						},
-						ErrClass: &metabase.ErrObjectLock,
-						ErrText:  "object has an active retention period",
-					}.Check(ctx, t, db)
+						var errMsg string
+						if legalHold {
+							errMsg = "object is protected by a legal hold"
+						} else {
+							errMsg = "object is protected by a retention period"
+						}
 
-					metabasetest.Verify{
-						Objects:  []metabase.RawObject{metabase.RawObject(object)},
-						Segments: metabasetest.SegmentsToRaw(segments),
-					}.Check(ctx, t, db)
-				})
+						metabasetest.DeleteObjectLastCommitted{
+							Opts: metabase.DeleteObjectLastCommitted{
+								ObjectLocation:    obj.Location(),
+								ObjectLockEnabled: true,
+								Suspended:         true,
+							},
+							ErrClass: &metabase.ErrObjectLock,
+							ErrText:  errMsg,
+						}.Check(ctx, t, db)
 
-				t.Run("Expired retention", func(t *testing.T) {
-					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+						metabasetest.Verify{
+							Objects:  []metabase.RawObject{metabase.RawObject(object)},
+							Segments: metabasetest.SegmentsToRaw(segments),
+						}.Check(ctx, t, db)
+					},
+					TestExpired: func(t *testing.T, retention metabase.Retention) {
+						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, _ := metabasetest.CreateObjectWithRetention(
-						ctx, t, db, obj, 1, time.Now().Add(-time.Minute),
-					)
+						object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, retention)
 
-					markerObjStream := obj
-					markerObjStream.Version++
+						markerObjStream := obj
+						markerObjStream.Version++
 
-					deleted := metabasetest.DeleteObjectLastCommitted{
-						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation:    object.Location(),
-							ObjectLockEnabled: true,
-							Suspended:         true,
-						},
-						Result: metabase.DeleteObjectResult{
-							Removed: []metabase.Object{object},
-							Markers: []metabase.Object{{
-								ObjectStream: markerObjStream,
-								CreatedAt:    time.Now(),
-								Status:       metabase.DeleteMarkerUnversioned,
-							}},
-						},
-					}.Check(ctx, t, db)
+						deleted := metabasetest.DeleteObjectLastCommitted{
+							Opts: metabase.DeleteObjectLastCommitted{
+								ObjectLocation:    object.Location(),
+								ObjectLockEnabled: true,
+								Suspended:         true,
+							},
+							Result: metabase.DeleteObjectResult{
+								Removed: []metabase.Object{object},
+								Markers: []metabase.Object{{
+									ObjectStream: markerObjStream,
+									CreatedAt:    time.Now(),
+									Status:       metabase.DeleteMarkerUnversioned,
+								}},
+							},
+						}.Check(ctx, t, db)
 
-					metabasetest.Verify{
-						Objects: []metabase.RawObject{metabase.RawObject(deleted.Markers[0])},
-					}.Check(ctx, t, db)
-				})
+						metabasetest.Verify{
+							Objects: []metabase.RawObject{metabase.RawObject(deleted.Markers[0])},
+						}.Check(ctx, t, db)
+					},
+				}.Run(t)
 			})
 
 			t.Run("Unversioned", func(t *testing.T) {
-				t.Run("Active retention", func(t *testing.T) {
-					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				objectLockTestRunner{
+					TestActive: func(t *testing.T, retention metabase.Retention, legalHold bool) {
+						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, segments := metabasetest.CreateObjectWithRetention(
-						ctx, t, db, obj, 1, time.Now().Add(time.Hour),
-					)
+						objStream := metabasetest.RandObjectStream()
+						object, segments := metabasetest.CreateTestObject{
+							BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+								ObjectStream: objStream,
+								Encryption:   metabasetest.DefaultEncryption,
+								Retention:    retention,
+								LegalHold:    legalHold,
+							},
+						}.Run(ctx, t, db, objStream, 1)
 
-					metabasetest.DeleteObjectLastCommitted{
-						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation:    object.Location(),
-							ObjectLockEnabled: true,
-						},
-						ErrClass: &metabase.ErrObjectLock,
-						ErrText:  "object has an active retention period",
-					}.Check(ctx, t, db)
+						var errMsg string
+						if legalHold {
+							errMsg = "object is protected by a legal hold"
+						} else {
+							errMsg = "object is protected by a retention period"
+						}
 
-					metabasetest.Verify{
-						Objects:  []metabase.RawObject{metabase.RawObject(object)},
-						Segments: metabasetest.SegmentsToRaw(segments),
-					}.Check(ctx, t, db)
-				})
+						metabasetest.DeleteObjectLastCommitted{
+							Opts: metabase.DeleteObjectLastCommitted{
+								ObjectLocation:    objStream.Location(),
+								ObjectLockEnabled: true,
+							},
+							ErrClass: &metabase.ErrObjectLock,
+							ErrText:  errMsg,
+						}.Check(ctx, t, db)
 
-				t.Run("Expired retention", func(t *testing.T) {
-					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+						metabasetest.Verify{
+							Objects:  []metabase.RawObject{metabase.RawObject(object)},
+							Segments: metabasetest.SegmentsToRaw(segments),
+						}.Check(ctx, t, db)
+					},
+					TestExpired: func(t *testing.T, retention metabase.Retention) {
+						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-					object, _ := metabasetest.CreateObjectWithRetention(
-						ctx, t, db, obj, 1, time.Now().Add(-time.Minute),
-					)
+						object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, retention)
 
-					metabasetest.DeleteObjectLastCommitted{
-						Opts: metabase.DeleteObjectLastCommitted{
-							ObjectLocation:    object.Location(),
-							ObjectLockEnabled: true,
-						},
-						Result: metabase.DeleteObjectResult{
-							Removed: []metabase.Object{object},
-						},
-					}.Check(ctx, t, db)
+						metabasetest.DeleteObjectLastCommitted{
+							Opts: metabase.DeleteObjectLastCommitted{
+								ObjectLocation:    object.Location(),
+								ObjectLockEnabled: true,
+							},
+							Result: metabase.DeleteObjectResult{
+								Removed: []metabase.Object{object},
+							},
+						}.Check(ctx, t, db)
 
-					metabasetest.Verify{}.Check(ctx, t, db)
-				})
+						metabasetest.Verify{}.Check(ctx, t, db)
+					},
+				}.Run(t)
 			})
 		})
 	})
+}
+
+type objectLockTestRunner struct {
+	TestActive  func(t *testing.T, retention metabase.Retention, legalHold bool)
+	TestExpired func(t *testing.T, retention metabase.Retention)
+}
+
+func (opts objectLockTestRunner) Run(t *testing.T) {
+	future := time.Now().Add(time.Hour)
+	past := time.Now().Add(-time.Minute)
+
+	type testCase struct {
+		name      string
+		retention metabase.Retention
+		legalHold bool
+	}
+
+	for _, tt := range []testCase{
+		{
+			name: "Compliance",
+			retention: metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			},
+		}, {
+			name: "Governance",
+			retention: metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: future,
+			},
+		}, {
+			name:      "Legal hold",
+			legalHold: true,
+		}, {
+			name: "Legal hold and compliance (active)",
+			retention: metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			},
+			legalHold: true,
+		}, {
+			name: "Legal hold and compliance (expired)",
+			retention: metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: past,
+			},
+			legalHold: true,
+		}, {
+			name: "Legal hold and governance (active)",
+			retention: metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: future,
+			},
+			legalHold: true,
+		}, {
+			name: "Legal hold and governance (expired)",
+			retention: metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: past,
+			},
+			legalHold: true,
+		},
+	} {
+		t.Run("Active Object Lock configuration - "+tt.name, func(t *testing.T) {
+			opts.TestActive(t, tt.retention, tt.legalHold)
+		})
+	}
+
+	for _, tt := range []testCase{
+		{
+			name: "Compliance",
+			retention: metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: past,
+			},
+		}, {
+			name: "Governance",
+			retention: metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: past,
+			},
+		},
+	} {
+		t.Run("Expired Object Lock configuration - "+tt.name, func(t *testing.T) {
+			opts.TestExpired(t, tt.retention)
+		})
+	}
 }

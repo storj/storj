@@ -364,7 +364,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	// this shouldn't happen in real life unless we will have a bug
 	// where unversioned object will have retention set.
 	if deleted.Retention.ActiveNow() {
-		return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
+		return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
 	if result.DeletedObjectCount > 1 {
@@ -698,7 +698,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 		// this shouldn't happen in real life unless we will have a bug
 		// where unversioned object will have retention set.
 		if result.Deleted[0].Retention.ActiveNow() {
-			return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
+			return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 		}
 
 		rowCount, err := stx.tx.Update(ctx, spanner.Statement{
@@ -881,14 +881,15 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	type versionAndRetention struct {
+	type versionAndLockInfo struct {
 		version   Version
 		retention Retention
+		legalHold bool
 	}
 
 	var (
 		highestVersionScanned, highestNonPendingVersionScanned bool
-		objectToDelete                                         *versionAndRetention
+		objectToDelete                                         *versionAndLockInfo
 	)
 
 	err = withRows(ptx.tx.QueryContext(ctx, `
@@ -903,8 +904,15 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 				version   Version
 				status    ObjectStatus
 				retention Retention
+				legalHold bool
 			)
-			err := rows.Scan(&version, &status, lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
+
+			lockMode := lockModeWrapper{
+				retentionMode: &retention.Mode,
+				legalHold:     &legalHold,
+			}
+
+			err := rows.Scan(&version, &status, lockMode, timeWrapper{&retention.RetainUntil})
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -924,9 +932,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 					logMultipleCommittedVersionsError(ptx.postgresAdapter.log, loc)
 					return errs.New(multipleCommittedVersionsErrMsg)
 				}
-				objectToDelete = &versionAndRetention{
+				objectToDelete = &versionAndLockInfo{
 					version:   version,
 					retention: retention,
+					legalHold: legalHold,
 				}
 			}
 		}
@@ -945,8 +954,11 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 	if err = objectToDelete.retention.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
-	if objectToDelete.retention.ActiveNow() {
-		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	switch {
+	case objectToDelete.legalHold:
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case objectToDelete.retention.ActiveNow():
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
 	deleted := Object{
@@ -992,7 +1004,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		&deleted.TotalEncryptedSize,
 		&deleted.FixedSegmentSize,
 		encryptionParameters{&deleted.Encryption},
-		lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+		lockModeWrapper{
+			retentionMode: &deleted.Retention.Mode,
+			legalHold:     &deleted.LegalHold,
+		},
 		timeWrapper{&deleted.Retention.RetainUntil},
 		&result.DeletedSegmentCount,
 	)
@@ -1127,14 +1142,15 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	type versionAndRetention struct {
+	type versionAndLockInfo struct {
 		version   Version
 		retention Retention
+		legalHold bool
 	}
 
 	var (
 		highestVersionScanned, highestNonPendingVersionScanned bool
-		objectToDelete                                         *versionAndRetention
+		objectToDelete                                         *versionAndLockInfo
 	)
 
 	err = stx.tx.Query(ctx, spanner.Statement{
@@ -1154,8 +1170,15 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 			version   Version
 			status    ObjectStatus
 			retention Retention
+			legalHold bool
 		)
-		err := row.Columns(&version, &status, lockModeWrapper{retentionMode: &retention.Mode}, timeWrapper{&retention.RetainUntil})
+
+		lockMode := lockModeWrapper{
+			retentionMode: &retention.Mode,
+			legalHold:     &legalHold,
+		}
+
+		err := row.Columns(&version, &status, lockMode, timeWrapper{&retention.RetainUntil})
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -1175,9 +1198,10 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 				logMultipleCommittedVersionsError(stx.spannerAdapter.log, loc)
 				return errs.New(multipleCommittedVersionsErrMsg)
 			}
-			objectToDelete = &versionAndRetention{
+			objectToDelete = &versionAndLockInfo{
 				version:   version,
 				retention: retention,
+				legalHold: legalHold,
 			}
 		}
 
@@ -1193,8 +1217,11 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 	if err = objectToDelete.retention.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
-	if objectToDelete.retention.ActiveNow() {
-		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	switch {
+	case objectToDelete.legalHold:
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case objectToDelete.retention.ActiveNow():
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
 	// TODO(spanner): is there a better way to combine these deletes from different tables?

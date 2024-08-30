@@ -8,11 +8,9 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
@@ -84,63 +82,59 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Active retention", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		objectLockTestRunner{
+			TestActive: func(t *testing.T, retention metabase.Retention, legalHold bool) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			obj, segs := metabasetest.CreateTestObject{
-				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-					ObjectStream: objStream,
-					Encryption:   metabasetest.DefaultEncryption,
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: time.Now().Add(time.Hour),
+				obj, segs := metabasetest.CreateTestObject{
+					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+						ObjectStream: objStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+						LegalHold:    legalHold,
 					},
-				},
-			}.Run(ctx, t, db, objStream, 3)
+				}.Run(ctx, t, db, objStream, 3)
 
-			result, err := precommit(loc)
-			require.True(t, metabase.ErrObjectLock.Has(err))
-			require.Empty(t, result)
+				result, err := precommit(loc)
+				require.True(t, metabase.ErrObjectLock.Has(err))
+				require.Empty(t, result)
 
-			metabasetest.Verify{
-				Objects:  []metabase.RawObject{metabase.RawObject(obj)},
-				Segments: metabasetest.SegmentsToRaw(segs),
-			}.Check(ctx, t, db)
-		})
+				metabasetest.Verify{
+					Objects:  []metabase.RawObject{metabase.RawObject(obj)},
+					Segments: metabasetest.SegmentsToRaw(segs),
+				}.Check(ctx, t, db)
+			},
+			TestExpired: func(t *testing.T, retention metabase.Retention) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-		t.Run("Expired retention", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			committed, _ := metabasetest.CreateTestObject{
-				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-					ObjectStream: objStream,
-					Encryption:   metabasetest.DefaultEncryption,
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: time.Now().Add(-time.Minute),
+				committed, _ := metabasetest.CreateTestObject{
+					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+						ObjectStream: objStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
 					},
-				},
-			}.Run(ctx, t, db, objStream, 3)
+				}.Run(ctx, t, db, objStream, 3)
 
-			pendingObjStream := objStream
-			pendingObjStream.Version++
-			pending := metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: pendingObjStream,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
+				pendingObjStream := objStream
+				pendingObjStream.Version++
+				pending := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: pendingObjStream,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
 
-			result, err := precommit(loc)
-			require.NoError(t, err)
-			require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{
-				Deleted:                  []metabase.Object{committed},
-				DeletedObjectCount:       1,
-				DeletedSegmentCount:      3,
-				HighestVersion:           pending.Version,
-				HighestNonPendingVersion: committed.Version,
-			}, result)
-		})
+				result, err := precommit(loc)
+				require.NoError(t, err)
+				require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{
+					Deleted:                  []metabase.Object{committed},
+					DeletedObjectCount:       1,
+					DeletedSegmentCount:      3,
+					HighestVersion:           pending.Version,
+					HighestNonPendingVersion: committed.Version,
+				}, result)
+			},
+		}.Run(t)
 	})
 }
 

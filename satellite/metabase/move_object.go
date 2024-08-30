@@ -271,7 +271,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			}
 		}
 		if lockInfo.retention.ActiveNow() {
-			return ErrObjectLock.New(objectLockedErrMsg)
+			return ErrObjectLock.New(retentionErrMsg)
 		}
 		if lockInfo.objectExpiresAt != nil && opts.Retention.Enabled() {
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)

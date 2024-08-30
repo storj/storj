@@ -462,15 +462,12 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 }
 
 // CreateObjectWithRetention creates an object with an Object Lock retention configuration.
-func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, retainUntil time.Time) (metabase.Object, []metabase.Segment) {
+func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, retention metabase.Retention) (metabase.Object, []metabase.Segment) {
 	BeginObjectExactVersion{
 		Opts: metabase.BeginObjectExactVersion{
 			ObjectStream: obj,
 			Encryption:   DefaultEncryption,
-			Retention: metabase.Retention{
-				Mode:        storj.ComplianceMode,
-				RetainUntil: retainUntil,
-			},
+			Retention:    retention,
 		},
 	}.Check(ctx, t, db)
 

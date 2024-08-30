@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	objectLockedErrMsg              = "object has an active retention period"
+	retentionErrMsg                 = "object is protected by a retention period"
+	legalHoldErrMsg                 = "object is protected by a legal hold"
 	multipleCommittedVersionsErrMsg = "internal error: multiple committed unversioned objects"
 )
 
@@ -139,16 +140,11 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			DELETE FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-				AND CASE COALESCE(retention_mode, `+retentionModeNone+`)
-					WHEN `+retentionModeNone+` THEN TRUE
-					WHEN `+retentionModeCompliance+` THEN (
-						CASE
-							WHEN retain_until IS NULL THEN FALSE -- invalid
-							-- Deletion is only allowed if the period has expired.
-							ELSE retain_until <= $5
-						END
-					)
-					ELSE FALSE
+				AND CASE
+					WHEN COALESCE(retention_mode, `+retentionModeNone+`) = 0 THEN TRUE
+					WHEN retention_mode & `+retentionModeLegalHold+` != 0 THEN FALSE
+					WHEN retain_until IS NULL THEN FALSE -- invalid
+					ELSE retention_mode in `+retentionModesComplianceAndGovernance+` AND retain_until <= $5
 				END
 			RETURNING stream_id
 		), deleted_segments AS (
@@ -178,7 +174,11 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{
+				retentionMode: &object.Retention.Mode,
+				legalHold:     &object.LegalHold,
+			},
+			timeWrapper{&object.Retention.RetainUntil},
 			&deleted,
 		)
 		if err != nil {
@@ -199,10 +199,14 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 		if err = object.Retention.Verify(); err != nil {
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
-		if object.Retention.Active(now) {
-			return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
+		switch {
+		case object.LegalHold:
+			return DeleteObjectResult{}, ErrObjectLock.New(legalHoldErrMsg)
+		case object.Retention.Active(now):
+			return DeleteObjectResult{}, ErrObjectLock.New(retentionErrMsg)
+		default:
+			return DeleteObjectResult{}, Error.New("unable to delete object")
 		}
-		return DeleteObjectResult{}, Error.New("unable to delete object")
 	}
 
 	result.Removed = []Object{*object}
@@ -271,8 +275,13 @@ func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts Dele
 func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	type retentionAndLegalHold struct {
+		retention Retention
+		legalHold bool
+	}
+
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		retention, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+		lockInfo, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT retention_mode, retain_until
 				FROM objects
@@ -284,8 +293,12 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 				"object_key":  opts.ObjectKey,
 				"version":     opts.Version,
 			},
-		}), func(row *spanner.Row, item *Retention) error {
-			return errs.Wrap(row.Columns(lockModeWrapper{retentionMode: &item.Mode}, timeWrapper{&item.RetainUntil}))
+		}), func(row *spanner.Row, item *retentionAndLegalHold) error {
+			lockMode := lockModeWrapper{
+				retentionMode: &item.retention.Mode,
+				legalHold:     &item.legalHold,
+			}
+			return errs.Wrap(row.Columns(lockMode, timeWrapper{&item.retention.RetainUntil}))
 		})
 		if err != nil {
 			if errs.Is(err, iterator.Done) {
@@ -294,11 +307,14 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 			return errs.Wrap(err)
 		}
 
-		if err = retention.Verify(); err != nil {
+		if err = lockInfo.retention.Verify(); err != nil {
 			return errs.Wrap(err)
 		}
-		if retention.ActiveNow() {
-			return ErrObjectLock.New(objectLockedErrMsg)
+		switch {
+		case lockInfo.legalHold:
+			return ErrObjectLock.New(legalHoldErrMsg)
+		case lockInfo.retention.ActiveNow():
+			return ErrObjectLock.New(retentionErrMsg)
 		}
 
 		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
@@ -440,7 +456,11 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{
+				retentionMode: &object.Retention.Mode,
+				legalHold:     &object.LegalHold,
+			},
+			timeWrapper{&object.Retention.RetainUntil},
 		)
 		if err != nil {
 			return nil, Error.New("unable to delete object: %w", err)
@@ -469,7 +489,11 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				encryptionParameters{&object.Encryption},
-				lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+				lockModeWrapper{
+					retentionMode: &object.Retention.Mode,
+					legalHold:     &object.LegalHold,
+				},
+				timeWrapper{&object.Retention.RetainUntil},
 			)
 			if err != nil {
 				return Error.New("unable to delete object: %w", err)
@@ -625,16 +649,11 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND version IN (SELECT version FROM objects_to_delete)
-				AND CASE COALESCE(retention_mode, `+retentionModeNone+`)
-					WHEN `+retentionModeNone+` THEN TRUE
-					WHEN `+retentionModeCompliance+` THEN (
-						CASE
-							WHEN retain_until IS NULL THEN FALSE -- invalid
-							-- Deletion is only allowed if the retention period has expired.
-							ELSE retain_until <= $4
-						END
-					)
-					ELSE FALSE
+				AND CASE
+					WHEN COALESCE(retention_mode, `+retentionModeNone+`) = 0 THEN TRUE
+					WHEN retention_mode & `+retentionModeLegalHold+` != 0 THEN FALSE
+					WHEN retain_until IS NULL THEN FALSE -- invalid
+					ELSE retention_mode in `+retentionModesComplianceAndGovernance+` AND retain_until <= $4
 				END
 			RETURNING stream_id
 		), deleted_segments AS (
@@ -664,7 +683,10 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{
+				retentionMode: &object.Retention.Mode,
+				legalHold:     &object.LegalHold,
+			}, timeWrapper{&object.Retention.RetainUntil},
 			&deleted,
 		)
 		if err != nil {
@@ -685,10 +707,14 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 		if err = object.Retention.Verify(); err != nil {
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
-		if object.Retention.Active(now) {
-			return DeleteObjectResult{}, ErrObjectLock.New(objectLockedErrMsg)
+		switch {
+		case object.LegalHold:
+			return DeleteObjectResult{}, ErrObjectLock.New(legalHoldErrMsg)
+		case object.Retention.Active(now):
+			return DeleteObjectResult{}, ErrObjectLock.New(retentionErrMsg)
+		default:
+			return DeleteObjectResult{}, Error.New("unable to delete object")
 		}
-		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
 
 	result.Removed = []Object{*object}
@@ -752,9 +778,10 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	type versionAndRetention struct {
+	type versionAndLockInfo struct {
 		version   Version
 		retention Retention
+		legalHold bool
 	}
 
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
@@ -773,11 +800,15 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
 			},
-		}), func(row *spanner.Row, item *versionAndRetention) error {
+		}), func(row *spanner.Row, item *versionAndLockInfo) error {
 			return errs.Wrap(row.Columns(
 				&item.version,
-				lockModeWrapper{retentionMode: &item.retention.Mode},
-				timeWrapper{&item.retention.RetainUntil}))
+				lockModeWrapper{
+					retentionMode: &item.retention.Mode,
+					legalHold:     &item.legalHold,
+				},
+				timeWrapper{&item.retention.RetainUntil},
+			))
 		})
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
@@ -789,8 +820,11 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 		if err = info.retention.Verify(); err != nil {
 			return errs.Wrap(err)
 		}
-		if info.retention.ActiveNow() {
-			return ErrObjectLock.New(objectLockedErrMsg)
+		switch {
+		case info.legalHold:
+			return ErrObjectLock.New(legalHoldErrMsg)
+		case info.retention.ActiveNow():
+			return ErrObjectLock.New(retentionErrMsg)
 		}
 
 		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, DeleteObjectExactVersion{

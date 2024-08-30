@@ -226,7 +226,7 @@ func (opts *SetObjectExactVersionRetention) Verify() (err error) {
 	if err = opts.ObjectLocation.Verify(); err != nil {
 		return err
 	}
-	if err = opts.Retention.Verify(); err != nil {
+	if err = opts.Retention.verifyWithoutGovernance(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 	return nil
@@ -410,7 +410,7 @@ func (opts SetObjectLastCommittedRetention) Verify() (err error) {
 	if err = opts.ObjectLocation.Verify(); err != nil {
 		return err
 	}
-	if err = opts.Retention.Verify(); err != nil {
+	if err = opts.Retention.verifyWithoutGovernance(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 	return nil
@@ -590,7 +590,7 @@ func (info *preUpdateRetentionInfo) verifyWithoutStatus(newRetention Retention, 
 		return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 	}
 
-	if err := info.Retention.Verify(); err != nil {
+	if err := info.Retention.verifyWithoutGovernance(); err != nil {
 		return errs.Wrap(err)
 	}
 

@@ -216,7 +216,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "invalid retention mode 2")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -683,7 +683,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+				check(storj.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -3152,7 +3152,7 @@ func TestCommitObject(t *testing.T) {
 						ObjectStream: obj,
 					},
 					ErrClass: &metabase.Error,
-					ErrText:  "object expiration must not be set if retention is set",
+					ErrText:  "object expiration must not be set if Object Lock configuration is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{
@@ -4683,7 +4683,7 @@ func TestCommitInlineObject(t *testing.T) {
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "invalid retention mode 2")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -4728,9 +4728,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
+				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(time.Hour),
+				})
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4758,9 +4759,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Expired retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, _ := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(-time.Minute),
-				)
+				lockedObj, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(-time.Minute),
+				})
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4807,9 +4809,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
+				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(time.Hour),
+				})
 
 				metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
@@ -4830,9 +4833,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				objStream := metabasetest.RandObjectStream()
-				lockedObj, _ := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(-time.Minute),
-				)
+				lockedObj, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(-time.Minute),
+				})
 
 				inlineObj := metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{

@@ -4278,7 +4278,7 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const unauthorizedErrMsg = "metainfo: object lock: object has an active retention period"
+		const unauthorizedErrMsg = "object is protected by Object Lock settings"
 
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -4336,9 +4336,10 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			fn := func(useExactVersion bool) {
 				objStream := randObjectStream(project.ID, opts.bucketName)
 
-				object, _ := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 0, time.Now().Add(opts.retentionDuration),
-				)
+				object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 0, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(opts.retentionDuration),
+				})
 
 				var version []byte
 				if useExactVersion {

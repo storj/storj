@@ -39,7 +39,8 @@ import (
 )
 
 const (
-	satIDExpiration = 48 * time.Hour
+	satIDExpiration    = 48 * time.Hour
+	objectLockedErrMsg = "object is protected by Object Lock settings"
 )
 
 var (
@@ -386,7 +387,7 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		// uplink expects a message that starts with the specified prefix
 		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrObjectLock.Has(err):
-		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+		return rpcstatus.Error(rpcstatus.PermissionDenied, objectLockedErrMsg)
 	case metabase.ErrObjectExpiration.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrInvalidRequest.Has(err):

@@ -1019,8 +1019,14 @@ func TestFinishMoveObject(t *testing.T) {
 			now := time.Now()
 			nowPlusHour := time.Now().Add(time.Hour)
 
-			withCurrentLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, nowPlusHour)
-			withExpiredLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, now)
+			withCurrentLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: nowPlusHour,
+			})
+			withExpiredLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: now,
+			})
 
 			newEncryptedObjectKey := metabase.ObjectKey("new key")
 
@@ -1054,7 +1060,7 @@ func TestFinishMoveObject(t *testing.T) {
 					},
 				},
 				ErrClass: &metabase.ErrObjectLock,
-				ErrText:  "object has an active retention period",
+				ErrText:  "object is protected by a retention period",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
