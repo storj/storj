@@ -21,6 +21,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"encoding/base64"
+	"encoding/json"
 	_ "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
@@ -33568,21 +33569,21 @@ func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -33655,21 +33656,21 @@ func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reverification_audits = &ReverificationAudits{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -33709,21 +33710,21 @@ func (obj *spannerImpl) Create_StripeCustomer(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -33803,21 +33804,21 @@ func (obj *spannerImpl) Create_BillingTransaction(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	billing_transaction = &BillingTransaction{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, spannerConvertJSON(&billing_transaction.Metadata), &billing_transaction.TxTimestamp, &billing_transaction.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -33895,21 +33896,21 @@ func (obj *spannerImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -33958,21 +33959,21 @@ func (obj *spannerImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34008,21 +34009,21 @@ func (obj *spannerImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34250,21 +34251,21 @@ func (obj *spannerImpl) Create_NodeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.LastIpPort, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.LastAttempted, &node_event.EmailSent)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34519,21 +34520,21 @@ func (obj *spannerImpl) Create_Reputation(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34764,21 +34765,21 @@ func (obj *spannerImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34840,21 +34841,21 @@ func (obj *spannerImpl) Create_ProjectMember(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34892,21 +34893,21 @@ func (obj *spannerImpl) Replace_ProjectInvitation(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -34976,21 +34977,21 @@ func (obj *spannerImpl) Create_ApiKey(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy, &api_key.Version)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.UserAgent, &api_key.CreatedAt, &api_key.CreatedBy, &api_key.Version)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35086,21 +35087,21 @@ func (obj *spannerImpl) Create_BucketMetainfo(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35138,21 +35139,21 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35340,21 +35341,21 @@ func (obj *spannerImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35394,21 +35395,21 @@ func (obj *spannerImpl) Create_WebappSession(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35446,21 +35447,21 @@ func (obj *spannerImpl) Create_RegistrationToken(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35496,21 +35497,21 @@ func (obj *spannerImpl) Create_ResetPasswordToken(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -35580,21 +35581,21 @@ func (obj *spannerImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -39926,21 +39927,21 @@ func (obj *spannerImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -39992,21 +39993,21 @@ func (obj *spannerImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	billing_balance = &BillingBalance{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_balance.UserId, &billing_balance.Balance, &billing_balance.LastUpdated)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_balance.UserId, &billing_balance.Balance, &billing_balance.LastUpdated)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -40106,21 +40107,21 @@ func (obj *spannerImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -40170,21 +40171,21 @@ func (obj *spannerImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -40489,21 +40490,21 @@ func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41013,21 +41014,21 @@ func (obj *spannerImpl) Update_Reputation_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41131,21 +41132,21 @@ func (obj *spannerImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Con
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41529,21 +41530,21 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41594,21 +41595,21 @@ func (obj *spannerImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx conte
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41663,21 +41664,21 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41817,21 +41818,21 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -41931,21 +41932,21 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42045,21 +42046,21 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42111,21 +42112,21 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42315,21 +42316,21 @@ func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42383,21 +42384,21 @@ func (obj *spannerImpl) Update_WebappSession_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42447,21 +42448,21 @@ func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42520,21 +42521,21 @@ func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -42604,21 +42605,21 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	d := obj.driver
+	__d := obj.driver
 	var tx tagsql.Tx
 	if !obj.txn {
 		tx, err = obj.db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		d = tx
+		__d = tx
 		defer func() {
 			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
 				err = obj.makeErr(errors.Join(err, txErr))
 			}
 		}()
 	}
-	err = d.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
+	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
 	if !obj.txn {
 		if err == nil {
 			err = obj.makeErr(tx.Commit())
@@ -44904,7 +44905,15 @@ func (s *spannerJSON) Scan(input any) error {
 			return nil
 		}
 
-		return fmt.Errorf("unable to decode spanner.NullJSON with type %T", v.Value)
+		// "{}" gets returned back as a map[string]interface{} for some reason, so capture any other odd value
+		// that comes back and try and marshal it via json.
+		bytesVal, err := json.Marshal(v.Value)
+		if err != nil {
+			return fmt.Errorf("failed to marshal spanner.NullJSON value with type %T to json bytes: %w", v.Value, err)
+		}
+		*s.data = bytesVal
+
+		return nil
 	}
 	return fmt.Errorf("unable to decode %T", input)
 }
