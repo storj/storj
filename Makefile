@@ -416,7 +416,8 @@ satellite_%: satellite-admin-ui
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_windows_amd64
 storagenode_windows_amd64: storagenode-console
-	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS}
+	./scripts/generate-gomod-for-storagenode-go1.20.sh go.mod go.storagenode.mod
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS} EXTRA_ARGS="-modfile go.storagenode.mod"
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
