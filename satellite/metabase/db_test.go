@@ -103,8 +103,14 @@ func TestSpannerProjects(t *testing.T) {
 	require.Len(t, connUrls, 2, "two databases are required for this test")
 	require.True(t, spannerFound, "Spanner must be configured for this test")
 
-	spannerProjects := []uuid.UUID{testrand.UUID(), testrand.UUID()}
-	nonSpannerProject := []uuid.UUID{testrand.UUID(), testrand.UUID()}
+	spannerProjects := map[uuid.UUID]struct{}{
+		testrand.UUID(): {},
+		testrand.UUID(): {},
+	}
+	nonSpannerProject := map[uuid.UUID]struct{}{
+		testrand.UUID(): {},
+		testrand.UUID(): {},
+	}
 
 	log := zaptest.NewLogger(t)
 	db, err := metabase.Open(ctx, log.Named("metabase"), strings.Join(connUrls, ";"), metabase.Config{
@@ -114,13 +120,13 @@ func TestSpannerProjects(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 
-	for _, projectID := range spannerProjects {
+	for projectID := range spannerProjects {
 		adapter := db.ChooseAdapter(projectID)
 		_, ok := adapter.(*metabase.SpannerAdapter)
 		require.True(t, ok, "project %v should be a spanner project", projectID)
 	}
 
-	for _, projectID := range nonSpannerProject {
+	for projectID := range nonSpannerProject {
 		adapter := db.ChooseAdapter(projectID)
 		_, ok := adapter.(*metabase.SpannerAdapter)
 		require.False(t, ok, "project %v should NOT be a spanner project", projectID)

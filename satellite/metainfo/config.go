@@ -199,11 +199,11 @@ type Config struct {
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery                bool     `default:"false" help:"test the new query for non-recursive listing"`
-	TestCommitSegmentMode           string   `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
-	TestOptimizedInlineObjectUpload bool     `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
-	TestingPrecommitDeleteMode      int      `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
-	TestingSpannerProjects          []string `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
+	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
+	TestCommitSegmentMode           string    `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
+	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
+	TestingPrecommitDeleteMode      int       `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
+	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -216,6 +216,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
 		TestingCommitSegmentMode:   c.TestCommitSegmentMode,
 		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
+		TestingSpannerProjects:     c.TestingSpannerProjects,
 	}
 }
 
@@ -225,7 +226,6 @@ type ExtendedConfig struct {
 
 	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
 	useBucketLevelObjectLockProjects       map[uuid.UUID]struct{}
-	spannerProjects                        []uuid.UUID
 }
 
 // NewExtendedConfig creates new instance of extended config.
@@ -248,13 +248,6 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 			return ExtendedConfig{}, err
 		}
 		extendedConfig.useBucketLevelObjectLockProjects[projectID] = struct{}{}
-	}
-	for _, projectIDString := range config.TestingSpannerProjects {
-		projectID, err := uuid.FromString(projectIDString)
-		if err != nil {
-			return ExtendedConfig{}, err
-		}
-		extendedConfig.spannerProjects = append(extendedConfig.spannerProjects, projectID)
 	}
 
 	return extendedConfig, nil
@@ -291,9 +284,46 @@ func (ec ExtendedConfig) ObjectLockEnabled(projectID uuid.UUID) bool {
 	return ok
 }
 
-// Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
-func (ec ExtendedConfig) Metabase(applicationName string) metabase.Config {
-	config := ec.Config.Metabase(applicationName)
-	config.TestingSpannerProjects = ec.spannerProjects
-	return config
+// UUIDsFlag is a configuration struct that keeps info about project IDs
+//
+// Can be used as a flag.
+type UUIDsFlag map[uuid.UUID]struct{}
+
+// Type is required for pflag.Value.
+func (m UUIDsFlag) Type() string {
+	return "metainfo.UUIDsFlag"
+}
+
+// Set is required for pflag.Value.
+func (m *UUIDsFlag) Set(s string) error {
+	if s == "" {
+		*m = map[uuid.UUID]struct{}{}
+		return nil
+	}
+
+	uuids := strings.Split(s, ",")
+	*m = make(map[uuid.UUID]struct{}, len(uuids))
+	for _, uuidStr := range uuids {
+		id, err := uuid.FromString(uuidStr)
+		if err != nil {
+			return err
+		}
+
+		(*m)[id] = struct{}{}
+	}
+	return nil
+}
+
+// String is required for pflag.Value.
+func (m UUIDsFlag) String() string {
+	var b strings.Builder
+	i := 0
+	for id := range m {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(id.String())
+		i++
+	}
+	return b.String()
 }
