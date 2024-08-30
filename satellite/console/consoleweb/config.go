@@ -66,6 +66,7 @@ type FrontendConfig struct {
 	SatelliteManagedEncryptionEnabled bool                  `json:"satelliteManagedEncryptionEnabled"`
 	EmailChangeFlowEnabled            bool                  `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                  `json:"selfServeAccountDeleteEnabled"`
+	DeleteProjectEnabled              bool                  `json:"deleteProjectEnabled"`
 	NoLimitsUiEnabled                 bool                  `json:"noLimitsUiEnabled"`
 	AltObjBrowserPagingEnabled        bool                  `json:"altObjBrowserPagingEnabled"`
 	AltObjBrowserPagingThreshold      int                   `json:"altObjBrowserPagingThreshold"`

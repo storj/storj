@@ -903,6 +903,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
+		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
 		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,

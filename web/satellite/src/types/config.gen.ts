@@ -62,6 +62,7 @@ export class FrontendConfig {
     satelliteManagedEncryptionEnabled: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
+    deleteProjectEnabled: boolean;
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
     altObjBrowserPagingThreshold: number;
