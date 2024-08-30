@@ -524,8 +524,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		var pieceExpiration pieces.PieceExpirationDB
 		if config.Pieces.EnableFlatExpirationStore {
+			flatFileStorePath := config.Pieces.FlatExpirationStorePath
+			if abs := filepath.IsAbs(flatFileStorePath); !abs {
+				if config.Storage2.DatabaseDir != "" {
+					flatFileStorePath = filepath.Join(config.Storage2.DatabaseDir, flatFileStorePath)
+				} else {
+					flatFileStorePath = filepath.Join(config.Storage.Path, flatFileStorePath)
+				}
+			}
+
 			pieceExpirationStore, err := pieces.NewPieceExpirationStore(process.NamedLog(peer.Log, "pieceexpiration"), pieces.PieceExpirationConfig{
-				DataDir:               filepath.Join(config.Storage2.DatabaseDir, config.Pieces.FlatExpirationStorePath),
+				DataDir:               flatFileStorePath,
 				ConcurrentFileHandles: config.Pieces.FlatExpirationStoreFileHandles,
 				MaxBufferTime:         config.Pieces.FlatExpirationStoreMaxBufferTime,
 			})
