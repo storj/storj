@@ -774,6 +774,23 @@ func (step GetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t tes
 	require.Zero(t, diff)
 }
 
+// GetObjectLastCommittedLegalHold is for testing metabase.GetObjectLastCommittedLegalHold.
+type GetObjectLastCommittedLegalHold struct {
+	Opts     metabase.GetObjectLastCommittedLegalHold
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommittedLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommittedLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
 // GetObjectExactVersionRetention is for testing metabase.GetObjectExactVersionRetention.
 type GetObjectExactVersionRetention struct {
 	Opts     metabase.GetObjectExactVersionRetention
