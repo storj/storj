@@ -39,6 +39,7 @@ type Adapter interface {
 	SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) error
 	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error
 
+	GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error)
 	SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) error
 	SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) error
 

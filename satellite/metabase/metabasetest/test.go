@@ -757,6 +757,23 @@ func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, d
 	require.Zero(t, diff)
 }
 
+// GetObjectExactVersionLegalHold is for testing metabase.GetObjectExactVersionLegalHold.
+type GetObjectExactVersionLegalHold struct {
+	Opts     metabase.GetObjectExactVersionLegalHold
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectExactVersionLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
 // GetObjectExactVersionRetention is for testing metabase.GetObjectExactVersionRetention.
 type GetObjectExactVersionRetention struct {
 	Opts     metabase.GetObjectExactVersionRetention
