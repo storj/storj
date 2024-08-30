@@ -2732,6 +2732,16 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			},
 		})
 	}
+	if req.LegalHold {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionPutObjectLegalHold,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedMetadataKey,
+				Time:          now,
+			},
+		})
+	}
 
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, actions...)
 	if err != nil {
@@ -2739,7 +2749,8 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+	objectLockRequested := retention.Enabled() || req.LegalHold
+	if objectLockRequested && !endpoint.config.ObjectLockEnabled {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
 	}
 
@@ -2749,7 +2760,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 	var versioningEnabled bool
 
-	if retention.Enabled() {
+	if objectLockRequested {
 		enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.NewBucket, keyInfo.ProjectID)
 		if err != nil {
 			if buckets.ErrBucketNotFound.Has(err) {
@@ -2812,6 +2823,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewVersioned: versioningEnabled,
 
 		Retention: retention,
+		LegalHold: req.LegalHold,
 
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
