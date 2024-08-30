@@ -73,7 +73,7 @@ func main() {
 	}
 
 	duration := profile("used-space", func() {
-		try.E2(filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID))
+		try.E3(filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID))
 	})
 	fmt.Printf("Walked (used space) %d pieces in %s \n", *numberOfPieces, duration)
 

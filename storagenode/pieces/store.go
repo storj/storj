@@ -720,9 +720,11 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
 func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID, lowerIOPriority bool) (piecesTotal, piecesContentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+	start := time.Now()
 
 	var satPiecesTotal int64
 	var satPiecesContentSize int64
+	var satPiecesCount int64
 
 	log := store.log.With(zap.Stringer("Satellite ID", satelliteID))
 
@@ -730,7 +732,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 
 	failover := true
 	if lowerIOPriority {
-		satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		satPiecesTotal, satPiecesContentSize, satPiecesCount, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
 			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", true), zap.Error(err))
 		} else {
@@ -739,7 +741,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	}
 
 	if failover {
-		satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		satPiecesTotal, satPiecesContentSize, satPiecesCount, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
 			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", false), zap.Error(err))
 		}
@@ -752,7 +754,10 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	log.Info("used-space-filewalker completed",
 		zap.Bool("Lazy File Walker", !failover),
 		zap.Int64("Total Pieces Size", satPiecesTotal),
-		zap.Int64("Total Pieces Content Size", satPiecesContentSize))
+		zap.Int64("Total Pieces Content Size", satPiecesContentSize),
+		zap.Int64("Total Pieces Count", satPiecesCount),
+		zap.Duration("Duration", time.Since(start)),
+	)
 
 	return satPiecesTotal, satPiecesContentSize, nil
 }

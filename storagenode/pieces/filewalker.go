@@ -75,7 +75,7 @@ func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.N
 }
 
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
-func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, err error) {
+func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
 	err = fw.WalkSatellitePieces(ctx, satelliteID, "", func(access StoredPieceAccess) error {
 		pieceTotal, pieceContentSize, err := access.Size(ctx)
 		if err != nil {
@@ -86,10 +86,11 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 		}
 		satPiecesTotal += pieceTotal
 		satPiecesContentSize += pieceContentSize
+		satPieceCount++
 		return nil
 	})
 
-	return satPiecesTotal, satPiecesContentSize, errFileWalker.Wrap(err)
+	return satPiecesTotal, satPiecesContentSize, satPieceCount, errFileWalker.Wrap(err)
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the
