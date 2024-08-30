@@ -3585,6 +3585,269 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 	})
 }
 
+func TestEndpoint_GetObjectLegalHold(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, legalHold bool) metabase.Object {
+			object, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    legalHold,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return object
+		}
+
+		createBucket := func(t *testing.T, lockEnabled bool) string {
+			name := testrand.BucketName()
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:              name,
+				ProjectID:         project.ID,
+				Versioning:        buckets.VersioningEnabled,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+			return name
+		}
+
+		lockBucketName := createBucket(t, true)
+
+		t.Run("Success", func(t *testing.T) {
+			objStream1 := randObjectStream(project.ID, lockBucketName)
+			object1 := createObject(t, objStream1, true)
+
+			objStream2 := objStream1
+			objStream2.Version++
+			createObject(t, objStream2, false)
+
+			req := &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream1.BucketName),
+				EncryptedObjectKey: []byte(objStream1.ObjectKey),
+				ObjectVersion:      object1.StreamVersionID().Bytes(),
+			}
+
+			// exact version
+			resp, err := endpoint.GetObjectLegalHold(ctx, req)
+			require.NoError(t, err)
+			require.True(t, resp.Enabled)
+
+			// last committed version
+			req.ObjectVersion = nil
+			resp, err = endpoint.GetObjectLegalHold(ctx, req)
+			require.NoError(t, err)
+			require.False(t, resp.Enabled)
+		})
+
+		t.Run("Missing bucket", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			resp, err := endpoint.GetObjectLegalHold(ctx, &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			})
+			require.Nil(t, resp)
+			rpctest.RequireStatus(t, err, rpcstatus.NotFound, "bucket not found: "+bucketName)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			objStream := randObjectStream(project.ID, lockBucketName)
+
+			req := &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+			}
+
+			// last committed version
+			resp, err := endpoint.GetObjectLegalHold(ctx, req)
+			require.Nil(t, resp)
+			rpctest.RequireStatusContains(t, err, rpcstatus.NotFound, "object not found")
+
+			// exact version
+			createObject(t, objStream, true)
+			req.ObjectVersion = metabase.NewStreamVersionID(randVersion(), testrand.UUID()).Bytes()
+			resp, err = endpoint.GetObjectLegalHold(ctx, req)
+			require.Nil(t, resp)
+			rpctest.RequireStatusContains(t, err, rpcstatus.NotFound, "object not found")
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			objStream1 := randObjectStream(project.ID, lockBucketName)
+			createObject(t, objStream1, true)
+
+			deleteOpts := metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  objStream1.ObjectKey,
+					ProjectID:  project.ID,
+					BucketName: objStream1.BucketName,
+				},
+				Version: []byte{},
+			}
+			result, err := endpoint.DeleteCommittedObject(ctx, deleteOpts)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.NotNil(t, result[0])
+
+			req := &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream1.BucketName),
+				EncryptedObjectKey: []byte(objStream1.ObjectKey),
+				ObjectVersion:      result[0].ObjectVersion,
+			}
+
+			// exact version
+			resp, err := endpoint.GetObjectLegalHold(ctx, req)
+			require.Error(t, err)
+			require.Nil(t, resp)
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying legal hold status of delete marker is not allowed")
+
+			objStream2 := randObjectStream(project.ID, lockBucketName)
+			createObject(t, objStream2, false)
+			objStream2.Version++
+			createObject(t, objStream2, true)
+
+			deleteOpts.ObjectKey = objStream2.ObjectKey
+			deleteOpts.BucketName = objStream2.BucketName
+
+			_, err = endpoint.DeleteCommittedObject(ctx, deleteOpts)
+			require.NoError(t, err)
+
+			req.Bucket = []byte(objStream2.BucketName)
+			req.EncryptedObjectKey = []byte(objStream2.ObjectKey)
+			req.ObjectVersion = nil
+
+			// last committed version
+			resp, err = endpoint.GetObjectLegalHold(ctx, req)
+			require.Error(t, err)
+			require.Nil(t, resp)
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying legal hold status of delete marker is not allowed")
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			objStream := randObjectStream(project.ID, lockBucketName)
+			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream: objStream,
+				Encryption:   metabasetest.DefaultEncryption,
+				LegalHold:    true,
+			})
+			require.NoError(t, err)
+
+			req := &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      pending.StreamVersionID().Bytes(),
+			}
+
+			// exact version
+			_, err = endpoint.GetObjectLegalHold(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+
+			// last committed version
+			req.ObjectVersion = nil
+			_, err = endpoint.GetObjectLegalHold(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+
+			_, err = db.CommitObject(ctx, metabase.CommitObject{ObjectStream: objStream})
+			require.NoError(t, err)
+
+			pendingObjStream := objStream
+			pendingObjStream.Version++
+			_, err = db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream: pendingObjStream,
+				Encryption:   metabasetest.DefaultEncryption,
+				LegalHold:    false,
+			})
+			require.NoError(t, err)
+
+			// Ensure that the pending object is skipped despite being newer
+			// than the committed one.
+			resp, err := endpoint.GetObjectLegalHold(ctx, req)
+			require.NoError(t, err)
+			require.True(t, resp.Enabled)
+		})
+
+		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
+			bucketName := createBucket(t, false)
+			resp, err := endpoint.GetObjectLegalHold(ctx, &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			})
+			require.Nil(t, resp)
+			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this bucket")
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
+
+			objStream := randObjectStream(project.ID, lockBucketName)
+			object := createObject(t, objStream, true)
+			req := &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(object.BucketName),
+				EncryptedObjectKey: []byte(object.ObjectKey),
+				ObjectVersion:      object.StreamVersionID().Bytes(),
+			}
+			resp, err := endpoint.GetObjectLegalHold(ctx, req)
+			require.Nil(t, resp)
+			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			objStream := randObjectStream(project.ID, lockBucketName)
+			object := createObject(t, objStream, true)
+			req := &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: oldApiKey.SerializeRaw()},
+				Bucket:             []byte(object.BucketName),
+				EncryptedObjectKey: []byte(object.ObjectKey),
+				ObjectVersion:      object.StreamVersionID().Bytes(),
+			}
+			resp, err := endpoint.GetObjectLegalHold(ctx, req)
+			require.Nil(t, resp)
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetLegalHold: true,
+			})
+			require.NoError(t, err)
+
+			req.Header.ApiKey = restrictedApiKey.SerializeRaw()
+			resp, err = endpoint.GetObjectLegalHold(ctx, req)
+			require.Nil(t, resp)
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
+	})
+}
+
 func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
