@@ -1848,6 +1848,77 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
 
+// SetObjectLegalHold sets an object's Object Lock legal hold configuration.
+func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObjectLegalHoldRequest) (_ *pb.SetObjectLegalHoldResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionPutObjectLegalHold,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedObjectKey,
+		Time:          now,
+	}, console.RateLimitPut)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+	}
+
+	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", string(req.Bucket))
+		}
+		endpoint.log.Error("unable to get bucket's Object Lock configuration", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
+	}
+	if !bucketLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+	}
+
+	loc := metabase.ObjectLocation{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: metabase.BucketName(req.Bucket),
+		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+	}
+
+	if len(req.ObjectVersion) == 0 {
+		err = endpoint.metabase.SetObjectLastCommittedLegalHold(ctx, metabase.SetObjectLastCommittedLegalHold{
+			ObjectLocation: loc,
+			Enabled:        req.Enabled,
+		})
+	} else {
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
+		if err != nil {
+			return nil, endpoint.ConvertMetabaseErr(err)
+		}
+		err = endpoint.metabase.SetObjectExactVersionLegalHold(ctx, metabase.SetObjectExactVersionLegalHold{
+			ObjectLocation: loc,
+			Version:        sv.Version(),
+			Enabled:        req.Enabled,
+		})
+	}
+	if err != nil {
+		if metabase.ErrObjectStatus.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		}
+		return nil, endpoint.ConvertMetabaseErr(err)
+	}
+
+	return &pb.SetObjectLegalHoldResponse{}, nil
+}
+
 // GetObjectRetention returns an object's Object Lock retention configuration.
 func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObjectRetentionRequest) (_ *pb.GetObjectRetentionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
