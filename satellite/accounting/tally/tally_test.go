@@ -458,6 +458,7 @@ func TestBucketTallyCollectorListLimit(t *testing.T) {
 func TestTallySaveTalliesBatchSize(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ProjectLimits.MaxBuckets = 23
@@ -497,7 +498,7 @@ func TestTallySaveTalliesBatchSize(t *testing.T) {
 			tallies, err := satellite.DB.ProjectAccounting().GetTallies(ctx)
 			require.NoError(t, err)
 
-			_, err = satellite.DB.Testing().RawDB().ExecContext(ctx, "DELETE FROM bucket_storage_tallies")
+			_, err = satellite.DB.Testing().RawDB().ExecContext(ctx, "DELETE FROM bucket_storage_tallies WHERE TRUE")
 			require.NoError(t, err)
 
 			bucketLocations := []metabase.BucketLocation{}
