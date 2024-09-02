@@ -843,23 +843,41 @@ func TestFinishMoveObject(t *testing.T) {
 
 			unversionedObject := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 0, nowPlusHour)
 
-			metabasetest.FinishMoveObject{
-				Opts: metabase.FinishMoveObject{
-					ObjectStream:          unversionedObject.ObjectStream,
-					NewBucket:             unversionedObject.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+			moveOpts := metabase.FinishMoveObject{
+				ObjectStream:          unversionedObject.ObjectStream,
+				NewBucket:             unversionedObject.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
 
-					NewDisallowDelete: true,
+				NewDisallowDelete: true,
 
-					NewVersioned: true,
+				NewVersioned: true,
 
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: now,
-					},
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now,
 				},
+			}
+
+			errText := "Object Lock settings must not be placed on an object with an expiration date"
+
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
 				ErrClass: &metabase.ErrObjectExpiration,
-				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			moveOpts.LegalHold = true
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			moveOpts.Retention = metabase.Retention{}
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 		})
 
@@ -868,23 +886,41 @@ func TestFinishMoveObject(t *testing.T) {
 
 			unversionedObject := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
 
-			metabasetest.FinishMoveObject{
-				Opts: metabase.FinishMoveObject{
-					ObjectStream:          unversionedObject.ObjectStream,
-					NewBucket:             unversionedObject.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+			moveOpts := metabase.FinishMoveObject{
+				ObjectStream:          unversionedObject.ObjectStream,
+				NewBucket:             unversionedObject.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
 
-					NewDisallowDelete: true,
+				NewDisallowDelete: true,
 
-					NewVersioned: false,
+				NewVersioned: false,
 
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
-					},
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
+			}
+
+			errText := "Object Lock settings must not be placed on unversioned objects"
+
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
 				ErrClass: &metabase.ErrObjectStatus,
-				ErrText:  "Object Lock settings must not be placed on unversioned objects",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			moveOpts.LegalHold = true
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			moveOpts.Retention = metabase.Retention{}
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -905,23 +941,41 @@ func TestFinishMoveObject(t *testing.T) {
 			obj.Version = 3
 			obj3 := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
 
-			metabasetest.FinishMoveObject{
-				Opts: metabase.FinishMoveObject{
-					ObjectStream:          obj2.ObjectStream,
-					NewBucket:             obj2.BucketName,
-					NewEncryptedObjectKey: metabase.ObjectKey("new key"),
+			moveOpts := metabase.FinishMoveObject{
+				ObjectStream:          obj2.ObjectStream,
+				NewBucket:             obj2.BucketName,
+				NewEncryptedObjectKey: metabase.ObjectKey("new key"),
 
-					NewDisallowDelete: true,
+				NewDisallowDelete: true,
 
-					NewVersioned: false,
+				NewVersioned: false,
 
-					Retention: metabase.Retention{
-						Mode:        storj.ComplianceMode,
-						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
-					},
+				Retention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 				},
+			}
+
+			errText := "Object Lock settings must not be placed on unversioned objects"
+
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
 				ErrClass: &metabase.ErrObjectStatus,
-				ErrText:  "Object Lock settings must not be placed on unversioned objects",
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			moveOpts.LegalHold = true
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
+			}.Check(ctx, t, db)
+
+			moveOpts.Retention = metabase.Retention{}
+			metabasetest.FinishMoveObject{
+				Opts:     moveOpts,
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  errText,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -942,6 +996,7 @@ func TestFinishMoveObject(t *testing.T) {
 				Mode:        storj.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}
+			const expectedLegalHold = true
 
 			newEncryptedObjectKey := metabase.ObjectKey("new key")
 
@@ -956,6 +1011,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewVersioned: true,
 
 					Retention: expectedRetention,
+					LegalHold: expectedLegalHold,
 				},
 			}.Check(ctx, t, db)
 
@@ -963,6 +1019,7 @@ func TestFinishMoveObject(t *testing.T) {
 			unversionedObject.Version = 1
 			unversionedObject.Status = metabase.CommittedVersioned
 			unversionedObject.Retention = expectedRetention
+			unversionedObject.LegalHold = expectedLegalHold
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -986,6 +1043,7 @@ func TestFinishMoveObject(t *testing.T) {
 				Mode:        storj.ComplianceMode,
 				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
 			}
+			const expectedLegalHold = true
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
@@ -998,11 +1056,13 @@ func TestFinishMoveObject(t *testing.T) {
 					NewVersioned: true,
 
 					Retention: expectedRetention,
+					LegalHold: expectedLegalHold,
 				},
 			}.Check(ctx, t, db)
 
 			obj2.Version = 4
 			obj2.Retention = expectedRetention
+			obj2.LegalHold = expectedLegalHold
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -1024,9 +1084,10 @@ func TestFinishMoveObject(t *testing.T) {
 				RetainUntil: nowPlusHour,
 			})
 			withExpiredLock, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, metabasetest.RandObjectStream(), 0, metabase.Retention{
-				Mode:        storj.ComplianceMode,
+				Mode:        storj.GovernanceMode,
 				RetainUntil: now,
 			})
+			withLegalHold := metabasetest.CreateObjectWithRetentionAndLegalHold(ctx, t, db, metabasetest.RandObjectStream(), metabase.Retention{}, true)
 
 			newEncryptedObjectKey := metabase.ObjectKey("new key")
 
@@ -1063,10 +1124,31 @@ func TestFinishMoveObject(t *testing.T) {
 				ErrText:  "object is protected by a retention period",
 			}.Check(ctx, t, db)
 
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          withLegalHold.ObjectStream,
+					NewBucket:             withLegalHold.BucketName,
+					NewEncryptedObjectKey: newEncryptedObjectKey,
+
+					NewDisallowDelete: true,
+
+					NewVersioned: true,
+
+					Retention: metabase.Retention{
+						Mode:        storj.GovernanceMode,
+						RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+					},
+					LegalHold: false,
+				},
+				ErrClass: &metabase.ErrObjectLock,
+				ErrText:  "object is protected by a legal hold",
+			}.Check(ctx, t, db)
+
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(withCurrentLock),
 					metabase.RawObject(withExpiredLock),
+					metabase.RawObject(withLegalHold),
 				},
 			}.Check(ctx, t, db)
 		})

@@ -25,6 +25,7 @@ const noLockOnUnversionedErrMsg = "Object Lock settings must not be placed on un
 type lockInfo struct {
 	objectExpiresAt *time.Time
 	retention       Retention
+	legalHold       bool
 }
 
 type moveObjectTransactionAdapter interface {
@@ -195,6 +196,9 @@ type FinishMoveObject struct {
 	// Retention indicates retention settings of the moved object
 	// version.
 	Retention Retention
+	// LegalHold indicates legal hold settings of the moved object
+	// version.
+	LegalHold bool
 }
 
 // NewLocation returns the new object location.
@@ -219,7 +223,7 @@ func (finishMove FinishMoveObject) Verify() error {
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
 	}
 
-	if !finishMove.NewVersioned && finishMove.Retention.Enabled() {
+	if !finishMove.NewVersioned && (finishMove.Retention.Enabled() || finishMove.LegalHold) {
 		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
 	}
 
@@ -273,7 +277,10 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		if lockInfo.retention.ActiveNow() {
 			return ErrObjectLock.New(retentionErrMsg)
 		}
-		if lockInfo.objectExpiresAt != nil && opts.Retention.Enabled() {
+		if lockInfo.legalHold {
+			return ErrObjectLock.New(legalHoldErrMsg)
+		}
+		if lockInfo.objectExpiresAt != nil && (opts.Retention.Enabled() || opts.LegalHold) {
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 		}
 
@@ -359,7 +366,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 		newStatus,
 		nextVersion,
-		lockModeWrapper{retentionMode: &opts.Retention.Mode},
+		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 		timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(
 		&oldStatus,
@@ -367,7 +374,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		&hasMetadata,
 		&streamID,
 		&info.objectExpiresAt,
-		lockModeWrapper{retentionMode: &info.retention.Mode},
+		lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
 		timeWrapper{&info.retention.RetainUntil},
 	)
 	if err != nil {
@@ -428,7 +435,8 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
 			encryptionParameters{&encryption},
 			&zombieDeletionDeadline,
-			lockModeWrapper{retentionMode: &info.retention.Mode}, timeWrapper{&info.retention.RetainUntil},
+			lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
+			timeWrapper{&info.retention.RetainUntil},
 		)
 		if err != nil {
 			return Error.New("unable to read old object record: %w", err)
@@ -489,7 +497,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"fixed_segment_size":               fixedSegmentSize,
 			"encryption":                       encryptionParameters{&encryption},
 			"zombie_deletion_deadline":         zombieDeletionDeadline,
-			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode},
+			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
 	})
