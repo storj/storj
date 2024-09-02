@@ -1203,7 +1203,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				config.Overlay.GeoIP.MockCountries = []string{"DE"}
 			},
 		},
-		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -2751,7 +2750,6 @@ func TestEndpoint_Object_MoveObjectWithDisallowedDeletes(t *testing.T) {
 func TestListObjectDuplicates(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		u := planet.Uplinks[0]
 		s := planet.Satellites[0]
@@ -2820,7 +2818,6 @@ func TestListUploads(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
-		EnableSpanner:    true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// basic ListUploads tests, more tests are on storj/uplink side
 		u := planet.Uplinks[0]
@@ -2896,7 +2893,6 @@ func TestNodeTagPlacement(t *testing.T) {
 
 				},
 			},
-			EnableSpanner: true,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -5309,7 +5305,6 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -5706,7 +5701,6 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
-		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		createBucket := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, lockEnabled bool) string {
 			name := testrand.BucketName()
@@ -6056,7 +6050,6 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				config.Metainfo.ObjectLockEnabled = true
 			},
 		},
-		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		createBucket := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, lockEnabled bool) string {
 			name := testrand.BucketName()

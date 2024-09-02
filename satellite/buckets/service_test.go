@@ -20,7 +20,7 @@ const TestObject = "testobject"
 func TestBucketPlacement_EmptyBucket(t *testing.T) {
 	testplanet.Run(t,
 		testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -73,7 +73,7 @@ func TestBucketPlacement_EmptyBucket(t *testing.T) {
 func TestBucketPlacement_SetOnNonEmptyBucket(t *testing.T) {
 	testplanet.Run(t,
 		testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -124,7 +124,7 @@ func TestBucketPlacement_SetOnNonEmptyBucket(t *testing.T) {
 func TestBucketPlacement_ChangeOnNonEmptyBucket(t *testing.T) {
 	testplanet.Run(t,
 		testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -195,7 +195,7 @@ func TestBucketPlacement_ChangeOnNonEmptyBucket(t *testing.T) {
 func TestBucketPlacement_PendingObject(t *testing.T) {
 	testplanet.Run(t,
 		testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]

@@ -82,7 +82,7 @@ func TestDB_PieceCounts(t *testing.T) {
 		pieceCounts, err := overlaydb.ActiveNodesPieceCounts(ctx)
 		require.NoError(t, err)
 		require.NotContains(t, pieceCounts, nodeToDisqualify)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func BenchmarkDB_PieceCounts(b *testing.B) {

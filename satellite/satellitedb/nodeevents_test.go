@@ -38,7 +38,7 @@ func TestNodeEvents(t *testing.T) {
 		neFromGet, err := db.NodeEvents().GetLatestByEmailAndEvent(ctx, neFromInsert.Email, neFromInsert.Event)
 		require.NoError(t, err)
 		require.Equal(t, neFromInsert, neFromGet)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestNodeEventsUpdateEmailSent(t *testing.T) {
@@ -81,7 +81,7 @@ func TestNodeEventsUpdateEmailSent(t *testing.T) {
 		events, err = db.NodeEvents().GetNextBatch(ctx, time.Now())
 		require.NoError(t, err)
 		require.Len(t, events, 0)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestNodeEventsUpdateLastAttempted(t *testing.T) {
@@ -114,7 +114,7 @@ func TestNodeEventsUpdateLastAttempted(t *testing.T) {
 		event2, err = db.NodeEvents().GetByID(ctx, event2.ID)
 		require.NoError(t, err)
 		require.NotNil(t, event2.LastAttempted)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestNodeEventsGetByID(t *testing.T) {
@@ -143,7 +143,7 @@ func TestNodeEventsGetByID(t *testing.T) {
 		require.Equal(t, event2.Email, res.Email)
 		require.Equal(t, event2.CreatedAt, res.CreatedAt)
 		require.Equal(t, event2.Event, res.Event)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestNodeEventsGetNextBatch(t *testing.T) {
@@ -192,7 +192,7 @@ func TestNodeEventsGetNextBatch(t *testing.T) {
 		}
 		require.True(t, foundEvent1)
 		require.True(t, foundEvent2)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestNodeEventsGetNextBatchSelectionOrder(t *testing.T) {
@@ -242,5 +242,5 @@ func TestNodeEventsGetNextBatchSelectionOrder(t *testing.T) {
 
 			require.NoError(t, db.NodeEvents().UpdateEmailSent(ctx, []uuid.UUID{e[0].ID}, time.Now()))
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }

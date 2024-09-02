@@ -49,7 +49,7 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 }
 
 func TestBasicBucketOperations(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, EnableSpanner: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		consoleDB := db.Console()
@@ -148,7 +148,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 		{"non matching cursor, more", "ccc", 3, 3, true},
 		{"first bucket cursor, more", "0test", 5, 5, true},
 	}
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, EnableSpanner: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		consoleDB := db.Console()
@@ -211,7 +211,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 		{"last bucket cursor, allow all", "zzz", 2, 1, false, true, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
 		{"empty string cursor, allow all, more", "", 5, 5, true, true, map[string]struct{}{"": {}}, []string{"123", "0test", "999", "aaa", "bbb"}},
 	}
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, EnableSpanner: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		consoleDB := db.Console()
@@ -304,7 +304,7 @@ func TestIterateBucketLocations_ProjectsWithMutipleBuckets(t *testing.T) {
 
 			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
@@ -343,13 +343,12 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 
 			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestEnableSuspendBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		db := planet.Satellites[0].API.DB.Buckets()
 		projectID := planet.Uplinks[0].Projects[0].ID

@@ -44,6 +44,6 @@ func TestWalletsDB(t *testing.T) {
 			address3, err := db.Wallets().GetWallet(ctx, userID3)
 			require.NoError(t, err)
 			require.Equal(t, walletAddress3, address3)
-		}, satellitedbtest.WithSpanner())
+		})
 	})
 }
