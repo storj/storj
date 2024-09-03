@@ -254,7 +254,7 @@ CREATE TABLE registration_tokens (
 	project_limit INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
-CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens (owner_id) ;
+CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id ) ;
 CREATE TABLE repair_queue (
 	stream_id BYTES(MAX) NOT NULL,
 	position INT64 NOT NULL,
@@ -288,7 +288,7 @@ CREATE TABLE reset_password_tokens (
 	owner_id BYTES(MAX) NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
-CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens (owner_id) ;
+CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id ) ;
 CREATE TABLE reverification_audits (
 	node_id BYTES(MAX) NOT NULL,
 	stream_id BYTES(MAX) NOT NULL,
@@ -402,7 +402,7 @@ CREATE TABLE stripe_customers (
 	purchased_package_at TIMESTAMP,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( user_id ) ;
-CREATE UNIQUE INDEX index_stripe_customers_customer_id ON stripe_customers (customer_id) ;
+CREATE UNIQUE INDEX index_stripe_customers_customer_id ON stripe_customers ( customer_id ) ;
 CREATE TABLE stripecoinpayments_invoice_project_records (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -415,7 +415,7 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	state INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
-CREATE UNIQUE INDEX index_stripecoinpayments_invoice_project_records_project_id ON stripecoinpayments_invoice_project_records (project_id) ;
+CREATE UNIQUE INDEX index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end ON stripecoinpayments_invoice_project_records ( project_id, period_start, period_end ) ;
 CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id STRING(MAX) NOT NULL,
 	rate_numeric FLOAT64 NOT NULL,
@@ -505,8 +505,8 @@ CREATE TABLE api_keys (
 	CONSTRAINT api_keys_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE ,
 	CONSTRAINT api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( id ) ;
-CREATE UNIQUE INDEX index_api_keys_head ON api_keys (head) ;
-CREATE UNIQUE INDEX index_api_keys_name ON api_keys (name) ;
+CREATE UNIQUE INDEX index_api_keys_head ON api_keys ( head ) ;
+CREATE UNIQUE INDEX index_api_keys_name_project_id ON api_keys ( name, project_id ) ;
 CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,

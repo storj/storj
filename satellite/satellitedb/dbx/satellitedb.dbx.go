@@ -2462,7 +2462,7 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret )`,
 
-		`CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens (owner_id)`,
+		`CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
 
 		`CREATE TABLE repair_queue (
 	stream_id BYTES(MAX) NOT NULL,
@@ -2500,7 +2500,7 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret )`,
 
-		`CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens (owner_id)`,
+		`CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id )`,
 
 		`CREATE TABLE reverification_audits (
 	node_id BYTES(MAX) NOT NULL,
@@ -2628,7 +2628,7 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( user_id )`,
 
-		`CREATE UNIQUE INDEX index_stripe_customers_customer_id ON stripe_customers (customer_id)`,
+		`CREATE UNIQUE INDEX index_stripe_customers_customer_id ON stripe_customers ( customer_id )`,
 
 		`CREATE TABLE stripecoinpayments_invoice_project_records (
 	id BYTES(MAX) NOT NULL,
@@ -2643,7 +2643,7 @@ func (obj *spannerDB) Schema() []string {
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id )`,
 
-		`CREATE UNIQUE INDEX index_stripecoinpayments_invoice_project_records_project_id ON stripecoinpayments_invoice_project_records (project_id)`,
+		`CREATE UNIQUE INDEX index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end ON stripecoinpayments_invoice_project_records ( project_id, period_start, period_end )`,
 
 		`CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id STRING(MAX) NOT NULL,
@@ -2741,9 +2741,9 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( id )`,
 
-		`CREATE UNIQUE INDEX index_api_keys_head ON api_keys (head)`,
+		`CREATE UNIQUE INDEX index_api_keys_head ON api_keys ( head )`,
 
-		`CREATE UNIQUE INDEX index_api_keys_name ON api_keys (name)`,
+		`CREATE UNIQUE INDEX index_api_keys_name_project_id ON api_keys ( name, project_id )`,
 
 		`CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
@@ -2899,9 +2899,9 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS index_api_keys_head`,
 
-		`DROP INDEX IF EXISTS index_api_keys_name`,
+		`DROP INDEX IF EXISTS index_api_keys_name_project_id`,
 
-		`DROP INDEX IF EXISTS index_stripecoinpayments_invoice_project_records_project_id`,
+		`DROP INDEX IF EXISTS index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end`,
 
 		`DROP INDEX IF EXISTS index_stripe_customers_customer_id`,
 
