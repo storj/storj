@@ -5444,13 +5444,14 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			return metabase.Object{}
 		}
 
-		putObject := func(t *testing.T, satellite *testplanet.Satellite, objStream metabase.ObjectStream, expiresAt *time.Time, retention metabase.Retention) metabase.Object {
+		putObject := func(t *testing.T, satellite *testplanet.Satellite, objStream metabase.ObjectStream, expiresAt *time.Time, retention metabase.Retention, legalHold bool) metabase.Object {
 			object, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: objStream,
 					ExpiresAt:    expiresAt,
 					Encryption:   metabasetest.DefaultEncryption,
 					Retention:    retention,
+					LegalHold:    legalHold,
 				},
 				CommitObject: &metabase.CommitObject{
 					ObjectStream: objStream,
@@ -5459,8 +5460,8 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			return object
 		}
 
-		newMove := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, apiKey []byte, srcBucket string, srcExpiresAt *time.Time, srcRetention metabase.Retention, dstBucket, dstKey string) *pb.ObjectBeginMoveResponse {
-			o := putObject(t, satellite, randObjectStream(projectID, srcBucket), srcExpiresAt, srcRetention)
+		newMove := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, apiKey []byte, srcBucket string, srcExpiresAt *time.Time, srcRetention metabase.Retention, srcLegalHold bool, dstBucket, dstKey string) *pb.ObjectBeginMoveResponse {
+			o := putObject(t, satellite, randObjectStream(projectID, srcBucket), srcExpiresAt, srcRetention, srcLegalHold)
 
 			response, err := satellite.API.Metainfo.Endpoint.BeginMoveObject(ctx, &pb.ObjectBeginMoveRequest{
 				Header: &pb.RequestHeader{
@@ -5514,14 +5515,20 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			require.WithinDuration(t, r.RetainUntil, o.Retention.RetainUntil, time.Microsecond)
 		}
 
+		requireLegalHold := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, lh bool) {
+			o := requireObject(t, satellite, projectID, bucketName, key)
+			require.Equal(t, lh, o.LegalHold)
+		}
+
 		srcBucket := createBucket(t, satellite, project.ID, false)
 
 		t.Run("success", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
+			const expectedLegalHold = true
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -5531,16 +5538,18 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				NewBucket:             []byte(dstBucket),
 				NewEncryptedObjectKey: []byte(dstKey),
 				Retention:             retentionToProto(expectedRetention),
+				LegalHold:             expectedLegalHold,
 			})
 			require.NoError(t, err)
 
 			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
+			requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, expectedLegalHold)
 		})
 
 		t.Run("unspecified retention mode or period", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -5579,7 +5588,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
 
@@ -5599,7 +5608,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, false), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -5617,7 +5626,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		t.Run("invalid retention mode", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
 			expectedRetention.Mode++
@@ -5638,7 +5647,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		t.Run("retention period is in the past", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
 			expectedRetention.RetainUntil = time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC)
@@ -5661,7 +5670,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 			ttl := time.Now().Add(time.Hour)
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, &ttl, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, &ttl, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
 			expectedRetention.RetainUntil = expectedRetention.RetainUntil.Add(time.Hour)
@@ -5684,7 +5693,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			// the current behavior that this test ensures we keep.
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, ttlApiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, ttlApiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
 			expectedRetention.RetainUntil = expectedRetention.RetainUntil.Add(time.Hour)
@@ -5707,7 +5716,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			for _, k := range []*macaroon.APIKey{oldApiKey, restrictedApiKey} {
 				dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-				beginResponse := newMove(t, satellite, project.ID, k.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)
+				beginResponse := newMove(t, satellite, project.ID, k.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 				_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 					Header: &pb.RequestHeader{
@@ -5726,7 +5735,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		t.Run("moving an object from a locked location is impossible", func(t *testing.T) {
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, randRetention(), dstBucket, dstKey)
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, randRetention(), false, dstBucket, dstKey)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
