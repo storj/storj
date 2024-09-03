@@ -57,6 +57,7 @@ var (
 	ttl                = flag.Duration("ttl", time.Hour, "")
 	forceSync          = flag.Bool("force-sync", false, "")
 	disablePrealloc    = flag.Bool("disable-prealloc", false, "")
+	workDir            = flag.String("work-dir", "", "")
 	dbsLocation        = flag.String("dbs-location", "", "")
 	flatFileTTLStore   = flag.Bool("flat-ttl-store", false, "use flat-files ttl store")
 	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
@@ -106,6 +107,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	if *dbsLocation != "" {
 		cfg.Storage2.DatabaseDir = *dbsLocation
+		try.E(os.MkdirAll(*dbsLocation, 0755))
 	}
 
 	snDB, err := storagenodedb.OpenNew(ctx, log, cfg.DatabaseConfig())
@@ -307,8 +309,15 @@ func runCollector(ctx context.Context, collector *collector.Service) []*collect.
 }
 
 func main() {
-	flag.Parse()
 	ctx := context.Background()
+
+	flag.Parse()
+
+	if *workDir != "" {
+		try.E(os.MkdirAll(*workDir, 0755))
+		try.E(os.Chdir(*workDir))
+	}
+
 	data = try.E1(io.ReadAll(io.LimitReader(rand.Reader, int64(*pieceSize))))
 
 	satIdent := createIdentity(ctx, "identity/satellite")
