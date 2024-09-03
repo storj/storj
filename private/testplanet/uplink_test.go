@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
@@ -356,5 +357,32 @@ func TestUploadRSOveride(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedData, data)
+	})
+}
+func TestUplinkAPIKeyVersionObjectLock(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+		endpoint := sat.API.Metainfo.Endpoint
+
+		_, err := endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:              []byte(testrand.BucketName()),
+			ObjectLockEnabled: true,
+		})
+		require.NoError(t, err)
 	})
 }
