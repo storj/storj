@@ -25,6 +25,7 @@ import (
 	_ "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
+	"google.golang.org/grpc/codes"
 )
 
 // Prevent conditional imports from causing build failures.
@@ -43275,7 +43276,7 @@ func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 }
 
 func (impl spannerImpl) isConstraintError(err error) (constraint string, ok bool) {
-	return "", false
+	return "", spanner.ErrCode(err) == codes.AlreadyExists
 }
 
 func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) {
