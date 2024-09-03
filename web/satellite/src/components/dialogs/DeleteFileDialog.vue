@@ -131,6 +131,7 @@ const isFolder = computed<boolean>(() => {
 });
 
 function onDeleteClick(): void {
+    obStore.clearDeletedCount();
     let deleteRequest: Promise<void>;
     if (props.files.length === 1) {
         deleteRequest = deleteSingleFile(props.files[0]);
@@ -144,9 +145,9 @@ function onDeleteClick(): void {
 
 async function deleteSingleFile(file: BrowserObject): Promise<void> {
     if (isFolder.value) {
-        await obStore.deleteFolder(filePath.value ? filePath.value + '/' : '', file, false);
+        await obStore.deleteFolder(filePath.value ? filePath.value + '/' : '', file);
     } else {
-        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false, false);
+        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false);
     }
 }
 

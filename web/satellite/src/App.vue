@@ -248,6 +248,7 @@ obStore.$onAction(({ name, after, args }) => {
                 notify.success(`${obStore.state.deletedFilesCount} ${label} deleted`);
                 obStore.filesDeleted();
             }
+            obStore.clearDeletedCount();
         });
     }
 });

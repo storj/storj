@@ -71,7 +71,7 @@
                     </td>
                     <td>
                         <browser-row-actions
-                            :deleting="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
+                            :deleting="isBeingDeleted(file)"
                             :file="file"
                             is-version
                             :is-file-deleted="item.browserObject.isDeleteMarker"
@@ -540,6 +540,10 @@ function updateSelectedVersions(file: BrowserObject, selected: boolean): void {
 
 function getExpandOrCollapseIcon(file: BrowserObject): string {
     return expandedFiles.value.includes(file) ? '$collapse' : '$expand';
+}
+
+function isBeingDeleted(file: BrowserObject): boolean {
+    return filesBeingDeleted.value.has(file.path + file.Key) || filesBeingDeleted.value.has(file.path + file.Key + file.VersionId);
 }
 
 /**
