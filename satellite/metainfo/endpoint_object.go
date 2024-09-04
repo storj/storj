@@ -2206,7 +2206,9 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			Versioned:      versioned,
 			Suspended:      suspended,
 
-			ObjectLockEnabled: bucketData.ObjectLockEnabled,
+			ObjectLock: metabase.ObjectLockDeleteOptions{
+				Enabled: bucketData.ObjectLockEnabled,
+			},
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -2221,7 +2223,9 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			ObjectLocation: req,
 			Version:        sv.Version(),
 
-			ObjectLockEnabled: bucketData.ObjectLockEnabled,
+			ObjectLock: metabase.ObjectLockDeleteOptions{
+				Enabled: bucketData.ObjectLockEnabled,
+			},
 		})
 	}
 	if err != nil {

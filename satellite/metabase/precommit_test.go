@@ -58,11 +58,14 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 
 func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		precommit := func(loc metabase.ObjectLocation) (result metabase.PrecommitConstraintWithNonPendingResult, err error) {
+		precommit := func(loc metabase.ObjectLocation, bypassGovernance bool) (result metabase.PrecommitConstraintWithNonPendingResult, err error) {
 			err = db.ChooseAdapter(loc.ProjectID).WithTx(ctx, func(ctx context.Context, tx metabase.TransactionAdapter) (err error) {
 				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, metabase.PrecommitDeleteUnversionedWithNonPending{
-					ObjectLocation:    loc,
-					ObjectLockEnabled: true,
+					ObjectLocation: loc,
+					ObjectLock: metabase.ObjectLockDeleteOptions{
+						Enabled:          true,
+						BypassGovernance: bypassGovernance,
+					},
 				})
 				return
 			})
@@ -75,27 +78,27 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 		t.Run("No objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			result, err := precommit(loc)
+			result, err := precommit(loc, false)
 			require.NoError(t, err)
 			require.Empty(t, result)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		objectLockTestRunner{
-			TestActive: func(t *testing.T, retention metabase.Retention, legalHold bool) {
+		objectLockDeletionTestRunner{
+			TestProtected: func(t *testing.T, testCase objectLockDeletionTestCase) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				obj, segs := metabasetest.CreateTestObject{
 					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 						ObjectStream: objStream,
 						Encryption:   metabasetest.DefaultEncryption,
-						Retention:    retention,
-						LegalHold:    legalHold,
+						Retention:    testCase.Retention,
+						LegalHold:    testCase.LegalHold,
 					},
 				}.Run(ctx, t, db, objStream, 3)
 
-				result, err := precommit(loc)
+				result, err := precommit(loc, testCase.BypassGovernance)
 				require.True(t, metabase.ErrObjectLock.Has(err))
 				require.Empty(t, result)
 
@@ -104,14 +107,14 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 					Segments: metabasetest.SegmentsToRaw(segs),
 				}.Check(ctx, t, db)
 			},
-			TestExpired: func(t *testing.T, retention metabase.Retention) {
+			TestRemovable: func(t *testing.T, testCase objectLockDeletionTestCase) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				committed, _ := metabasetest.CreateTestObject{
 					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 						ObjectStream: objStream,
 						Encryption:   metabasetest.DefaultEncryption,
-						Retention:    retention,
+						Retention:    testCase.Retention,
 					},
 				}.Run(ctx, t, db, objStream, 3)
 
@@ -124,7 +127,7 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 
-				result, err := precommit(loc)
+				result, err := precommit(loc, testCase.BypassGovernance)
 				require.NoError(t, err)
 				require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{
 					Deleted:                  []metabase.Object{committed},
