@@ -114,6 +114,8 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 			SET segment_health=$3, updated_at=current_timestamp, placement=$4
 			RETURNING (SELECT alreadyInserted FROM inserted)
 		`
+	default:
+		return false, Error.New("unsupported database: %v", r.db.impl)
 	}
 	rows, err := r.db.QueryContext(ctx, query, seg.StreamID, seg.Position.Encode(), seg.SegmentHealth, seg.Placement)
 	if err != nil {
@@ -199,6 +201,8 @@ func (r *repairQueue) InsertBatch(
 				ON to_insert.stream_id = repair_queue.stream_id
 				AND to_insert.position = repair_queue.position
 		`
+	default:
+		return nil, Error.New("unsupported database: %v", r.db.impl)
 	}
 
 	var insertData struct {

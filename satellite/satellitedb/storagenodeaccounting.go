@@ -465,6 +465,8 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 			LEFT JOIN nodes n ON n.id = r.node_id
 			ORDER BY n.id
 			`
+	default:
+		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
 
 	rows, err := db.db.DB.QueryContext(ctx, query, start.UTC(), end.UTC())
@@ -542,6 +544,8 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 			   node_id
 			ORDER BY
 			   node_id ASC`
+	default:
+		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
 
 	rows, err := db.db.DB.QueryContext(ctx, query, period.StartDate(), period.EndDateExclusive())

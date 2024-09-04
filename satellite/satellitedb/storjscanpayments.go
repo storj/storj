@@ -274,6 +274,8 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 			block_number,
 			log_index`
 		rows, err = storjscanPayments.db.Query(ctx, query, chainIDs, blockNumber, blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	default:
+		return nil, Error.New("unsupported database: %v", storjscanPayments.db.impl)
 	}
 	if err != nil {
 		return nil, err

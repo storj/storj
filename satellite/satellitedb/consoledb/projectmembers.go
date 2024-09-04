@@ -145,6 +145,9 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			countQuery,
 			sql.Named("project_id", projectID.Bytes()),
 			sql.Named("search", search))
+
+	default:
+		return nil, Error.New("unsupported database: %v", pm.impl)
 	}
 
 	err = countRow.Scan(&page.TotalCount)
@@ -219,6 +222,8 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			sql.Named("limit", page.Limit),
 			sql.Named("offset", page.Offset),
 		)
+	default:
+		return nil, Error.New("unsupported database: %v", pm.impl)
 	}
 
 	if err != nil {

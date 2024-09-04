@@ -61,6 +61,10 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return errs.Wrap(err)
 		}
+	case dbutil.Spanner:
+		// nothing to do here at the moment
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
@@ -114,6 +118,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
+
 	case dbutil.Spanner:
 		projectID, instance, database, err := spannerutil.ParseConnStr(db.source)
 		if err != nil {
@@ -125,6 +130,8 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if err := spannerutil.CreateDatabase(ctx, projectID, instance, *database); err != nil && spanner.ErrCode(err) != codes.AlreadyExists {
 			return ErrMigrateMinVersion.New("error creating database: %w", err)
 		}
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {

@@ -232,7 +232,8 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		}
 
 		rows, err = cache.db.Query(ctx, query, args...)
-
+	default:
+		return nil, Error.New("unsupported database: %v", cache.db.impl)
 	}
 	if err != nil {
 		return nil, err
@@ -313,7 +314,7 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 			}
 			break
 		}
-
+		return nodeNets, err
 	case dbutil.Spanner:
 		query := `
 			SELECT coalesce(n.last_net, '')
@@ -325,9 +326,10 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 		if err != nil {
 			return nodeNets, err
 		}
+		return nodeNets, err
+	default:
+		return nil, Error.New("unsupported database: %v", cache.db.impl)
 	}
-
-	return nodeNets, err
 }
 
 func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID, query string) (nodeNets []string, err error) {

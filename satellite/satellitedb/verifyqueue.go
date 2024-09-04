@@ -45,7 +45,6 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 
 	switch vq.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-
 		streamIDSlice := make([]uuid.UUID, maxBatchSize)
 		encryptedSizeSlice := make([]int32, maxBatchSize)
 		var insertFunc func(streamIDSlice []uuid.UUID, positionSlice []int64, expirationSlice []*time.Time, encryptedSizeSlice []int32) (sql.Result, error)
@@ -85,8 +84,9 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 				segmentsCounter.Inc(int64(batchIndex))
 			}
 		}
-	case dbutil.Spanner:
+		return nil
 
+	case dbutil.Spanner:
 		encryptedSizeSliceSpanner := make([]int, maxBatchSize)
 		streamIDSliceSpanner := make([][]byte, maxBatchSize)
 		var insertFuncSpanner func(streamIDSlice [][]byte, positionSlice []int64, expirationSlice []*time.Time, encryptedSizeSlice []int) (sql.Result, error)
@@ -140,9 +140,11 @@ func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBa
 				segmentsCounter.Inc(int64(batchIndex))
 			}
 		}
-	}
+		return nil
 
-	return nil
+	default:
+		return Error.New("unsupported database: %v", vq.db.impl)
+	}
 }
 
 func (vq *verifyQueue) Next(ctx context.Context) (seg audit.Segment, err error) {

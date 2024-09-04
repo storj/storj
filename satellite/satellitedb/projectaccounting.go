@@ -83,6 +83,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			pgutil.Int8Array(totalBytes), 0, 0,
 			pgutil.Int8Array(totalSegments), 0, 0,
 			pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes))
+		return Error.Wrap(err)
 	case dbutil.Spanner:
 		type bucketTally struct {
 			BucketName          []byte
@@ -114,7 +115,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 		}
 
 		query := `
-		INSERT INTO bucket_storage_tallies ( 
+		INSERT INTO bucket_storage_tallies (
 			interval_start,
 			bucket_name,
 			project_id,
@@ -147,9 +148,10 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			intervalStart,
 			insertBucketTallies,
 		)
+		return Error.Wrap(err)
+	default:
+		return Error.New("unsupported database: %v", db.db.impl)
 	}
-
-	return Error.Wrap(err)
 }
 
 // GetTallies retrieves all tallies ordered by interval start (descending).
@@ -1425,8 +1427,9 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 				return archivedCount, nil
 			}
 		}
+	default:
+		return 0, Error.New("unsupported database: %v", db.db.impl)
 	}
-	return archivedCount, Error.Wrap(err)
 }
 
 // getBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
