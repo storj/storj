@@ -29,6 +29,8 @@ func SplitConnStr(s string) (driver string, source string, implementation Implem
 	case Spanner:
 		// spanner only needs the source part, not the full URL
 		driver = "spanner"
+	default:
+		// the DSN matches to driver://source
 	}
 	return driver, source, implementation, nil
 }

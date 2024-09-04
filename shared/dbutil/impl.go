@@ -9,6 +9,8 @@ import (
 )
 
 // Implementation type of valid DBs.
+//
+//enumcheck:complete
 type Implementation int
 
 const (
@@ -70,6 +72,8 @@ func (impl Implementation) String() string {
 		return "sqlite3"
 	case Spanner:
 		return "spanner"
+	case Unknown:
+		fallthrough
 	default:
 		return "<unknown>"
 	}
