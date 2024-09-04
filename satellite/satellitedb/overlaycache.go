@@ -1476,7 +1476,6 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIDs []storj.NodeID
-	nodeEmails = make(map[storj.NodeID]string)
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
@@ -1491,10 +1490,30 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 		break
 	}
 
-	var rows tagsql.Rows
+	processRows := func(rows tagsql.Rows) error {
+		nodeEmails = make(map[storj.NodeID]string)
+		count = 0
+		for rows.Next() {
+			var id storj.NodeID
+			var email string
+			var lastContacted time.Time
+			err = rows.Scan(&id, &email, &lastContacted)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			cache.db.log.Info("Disqualified",
+				zap.String("DQ type", "stray node"),
+				zap.Stringer("Node ID", id),
+				zap.Stringer("Last contacted", lastContacted))
+			nodeEmails[id] = email
+			count++
+		}
+		return nil
+	}
+
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		err = Error.Wrap(withRows(cache.db.Query(ctx, cache.db.Rebind(`
 			UPDATE nodes
 			SET disqualified = current_timestamp,
 				disqualification_reason = $3
@@ -1504,43 +1523,28 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 				AND last_contact_success < $2
 				AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 			RETURNING id, email, last_contact_success;
-		`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline)
+		`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline))(processRows))
+		return nodeEmails, count, err
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			UPDATE nodes
-			SET disqualified = current_timestamp,
-				disqualification_reason = ?
-			WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
-				AND disqualified IS NULL
-				AND exit_finished_at IS NULL
-				AND last_contact_success < ?
-				AND last_contact_success != '0001-01-01 00:00:00+00'
-			THEN RETURN id, email, last_contact_success;
-		`), overlay.DisqualificationReasonNodeOffline, storj.NodeIDList(nodeIDs).Bytes(), cutoff)
+		// TODO(spanner): it needs to use tx so that go-sql-spanner library can understand that it's not a
+		//                read-only transaction. See issue https://github.com/googleapis/go-sql-spanner/issues/235.
+		err = Error.Wrap(txutil.WithTx(ctx, cache.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			return withRows(tx.Query(ctx, `
+				UPDATE nodes
+				SET disqualified = current_timestamp,
+					disqualification_reason = ?
+				WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
+					AND disqualified IS NULL
+					AND exit_finished_at IS NULL
+					AND last_contact_success < ?
+					AND last_contact_success != '0001-01-01 00:00:00+00'
+				THEN RETURN id, email, last_contact_success;
+			`, int64(overlay.DisqualificationReasonNodeOffline), storj.NodeIDList(nodeIDs).Bytes(), cutoff))(processRows)
+		}))
+		return nodeEmails, count, err
 	default:
 		return nil, 0, Error.New("unsupported implementation")
 	}
-	if err != nil {
-		return nil, 0, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var id storj.NodeID
-		var email string
-		var lcs time.Time
-		err = rows.Scan(&id, &email, &lcs)
-		if err != nil {
-			return nil, count, err
-		}
-		cache.db.log.Info("Disqualified",
-			zap.String("DQ type", "stray node"),
-			zap.Stringer("Node ID", id),
-			zap.Stringer("Last contacted", lcs))
-		nodeEmails[id] = email
-		count++
-	}
-	return nodeEmails, count, rows.Err()
 }
 
 func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {
