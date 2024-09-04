@@ -80,6 +80,8 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 
 // FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
 func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	query := `
 		SELECT
 			project_id, bucket_name, object_key, version, stream_id,
@@ -131,6 +133,8 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 
 // FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
 func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO(spanner): check whether this query is executed efficiently
 	expiredObjects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
@@ -224,6 +228,8 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 
 // FindZombieObjects locates up to batchSize zombie objects that need deletion.
 func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
 	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
 	query := `
@@ -272,6 +278,8 @@ func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZomb
 
 // FindZombieObjects locates up to batchSize zombie objects that need deletion.
 func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
 	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
 	tuple, err := spannerutil.TupleGreaterThanSQL(
