@@ -27,7 +27,10 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
-var randomEncryptedKey = testrand.Bytes(48)
+var (
+	randomEncryptedKey = testrand.Bytes(48)
+	randomBucketName   = []byte(testrand.BucketName())
+)
 
 func TestEndpoint_NoStorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -82,7 +85,6 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			_, err = projectUser1.CreateBucket(ctx, "bob1")
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		})
-
 		t.Run("revoke macaroon", func(t *testing.T) {
 			// I want the api key for the single satellite in this test
 			up := planet.Uplinks[2]
@@ -108,16 +110,22 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-			_, err = client.BeginObject(ctx, metaclient.BeginObjectParams{})
+			_, err = client.BeginObject(ctx, metaclient.BeginObjectParams{
+				Bucket: []byte(testrand.BucketName()),
+			})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-			_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{})
+			_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{
+				Bucket: randomBucketName,
+			})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 			_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-			_, _, err = client.ListObjects(ctx, metaclient.ListObjectsParams{})
+			_, _, err = client.ListObjects(ctx, metaclient.ListObjectsParams{
+				Bucket: randomBucketName,
+			})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 			_, err = client.CreateBucket(ctx, metaclient.CreateBucketParams{})
@@ -126,13 +134,17 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			_, err = client.DeleteBucket(ctx, metaclient.DeleteBucketParams{})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-			_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{})
+			_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{
+				Bucket: randomBucketName,
+			})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 			_, err = client.GetBucket(ctx, metaclient.GetBucketParams{})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-			_, err = client.GetObject(ctx, metaclient.GetObjectParams{})
+			_, err = client.GetObject(ctx, metaclient.GetObjectParams{
+				Bucket: randomBucketName,
+			})
 			assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 			_, err = client.GetProjectInfo(ctx)

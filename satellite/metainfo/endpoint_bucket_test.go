@@ -178,7 +178,8 @@ func TestDeleteBucket(t *testing.T) {
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 				testplanet.MaxSegmentSize(13*memory.KiB),
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Metainfo.UseBucketLevelObjectLock = true
+					config.Metainfo.ObjectLockEnabled = true
+					config.Metainfo.UseBucketLevelObjectVersioning = true
 				},
 			),
 		},
@@ -771,7 +772,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
@@ -820,8 +821,8 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.TestSetUseBucketLevelObjectLock(false)
-			defer endpoint.TestSetUseBucketLevelObjectLock(true)
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
 
 			bucketName := []byte(testrand.BucketName())
 			req := &pb.CreateBucketRequest{
@@ -833,16 +834,6 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			}
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
-
-			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
-
-			enabled, err := sat.DB.Buckets().GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
-			require.NoError(t, err)
-			require.True(t, enabled)
 		})
 
 		t.Run("Unauthorized API key", func(t *testing.T) {
@@ -859,12 +850,12 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 			require.NoError(t, err)
 
 			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: noLockApiKey.SerializeRaw(),
+					ApiKey: restrictedApiKey.SerializeRaw(),
 				},
 				Name:              bucketName,
 				ObjectLockEnabled: true,
@@ -911,7 +902,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
@@ -970,8 +961,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			bucketName := []byte(testrand.BucketName())
 			createBucket(t, bucketName, true)
 
-			endpoint.TestSetUseBucketLevelObjectLock(false)
-			defer endpoint.TestSetUseBucketLevelObjectLock(true)
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
 
 			req := &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
@@ -981,13 +972,6 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			}
 			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
-
-			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
-			require.NoError(t, err)
-			require.True(t, resp.Configuration.Enabled)
 		})
 
 		t.Run("Nonexistent bucket", func(t *testing.T) {
@@ -1018,12 +1002,15 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			bucketName = []byte(testrand.BucketName())
 			createBucket(t, bucketName, true)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetRetention: true,
+				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+			})
 			require.NoError(t, err)
 
 			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: noLockApiKey.SerializeRaw(),
+					ApiKey: restrictedApiKey.SerializeRaw(),
 				},
 				Name: bucketName,
 			})

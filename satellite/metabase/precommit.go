@@ -363,7 +363,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	// check of retention is active and avoid deletion if it is
 	// this shouldn't happen in real life unless we will have a bug
 	// where unversioned object will have retention set.
-	if deleted.Retention.Active() {
+	if deleted.Retention.ActiveNow() {
 		return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 
@@ -697,7 +697,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 		// check of retention is active and avoid deletion if it is
 		// this shouldn't happen in real life unless we will have a bug
 		// where unversioned object will have retention set.
-		if result.Deleted[0].Retention.Active() {
+		if result.Deleted[0].Retention.ActiveNow() {
 			return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
 		}
 
@@ -748,7 +748,7 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	if opts.ObjectLockEnabledForProject {
+	if opts.ObjectLockEnabled {
 		return ptx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
 	}
 	return ptx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
@@ -945,7 +945,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 	if err = objectToDelete.retention.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
-	if objectToDelete.retention.Active() {
+	if objectToDelete.retention.ActiveNow() {
 		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 
@@ -1024,7 +1024,7 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	if opts.ObjectLockEnabledForProject {
+	if opts.ObjectLockEnabled {
 		return stx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
 	}
 	return stx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
@@ -1193,7 +1193,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 	if err = objectToDelete.retention.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
-	if objectToDelete.retention.Active() {
+	if objectToDelete.retention.ActiveNow() {
 		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
 	}
 

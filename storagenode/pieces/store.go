@@ -49,6 +49,10 @@ type ExpiredInfo struct {
 	SatelliteID storj.NodeID
 	PieceID     storj.PieceID
 
+	// PieceSize is the size of the piece that was stored with the piece ID; if not zero, this
+	// can be used to decrement the used space counters instead of calling os.Stat on the piece.
+	PieceSize int64
+
 	// This can be removed when we no longer need to support the pieceinfo db. Its only purpose
 	// is to keep track of whether expired entries came from piece_expirations or pieceinfo.
 	InPieceInfo bool
@@ -58,8 +62,10 @@ type ExpiredInfo struct {
 //
 // architecture: Database
 type PieceExpirationDB interface {
-	// SetExpiration sets an expiration time for the given piece ID on the given satellite
-	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) error
+	// SetExpiration sets an expiration time for the given piece ID on the given satellite. If pieceSize
+	// is non-zero, it may be used later to decrement the used space counters without needing to call
+	// os.Stat on the piece.
+	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) error
 	// GetExpired gets piece IDs that expire or have expired before the given time
 	GetExpired(ctx context.Context, expiresBefore time.Time, batchSize int) ([]ExpiredInfo, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
@@ -158,6 +164,11 @@ type Config struct {
 	WritePreallocSize    memory.Size `help:"deprecated" default:"4MiB"`
 	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
 	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`
+
+	EnableFlatExpirationStore        bool          `help:"use flat files for the piece expiration store instead of a sqlite database" default:"false"`
+	FlatExpirationStoreFileHandles   int           `help:"number of concurrent file handles to use for the flat expiration store" default:"1000"`
+	FlatExpirationStorePath          string        `help:"where to store flat piece expiration files, relative to the data directory" default:"piece_expirations"`
+	FlatExpirationStoreMaxBufferTime time.Duration `help:"maximum time to buffer writes to the flat expiration store before flushing" default:"5m"`
 }
 
 // DefaultConfig is the default value for the Config.
@@ -618,8 +629,8 @@ func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Ti
 }
 
 // SetExpiration records an expiration time for the specified piece ID owned by the specified satellite.
-func (store *Store) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) (err error) {
-	return store.expirationInfo.SetExpiration(ctx, satellite, pieceID, expiresAt)
+func (store *Store) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
+	return store.expirationInfo.SetExpiration(ctx, satellite, pieceID, expiresAt, pieceSize)
 }
 
 // SpaceUsedForPieces returns *an approximation of* the disk space used by all local pieces (both
@@ -709,9 +720,11 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
 func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID, lowerIOPriority bool) (piecesTotal, piecesContentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+	start := time.Now()
 
 	var satPiecesTotal int64
 	var satPiecesContentSize int64
+	var satPiecesCount int64
 
 	log := store.log.With(zap.Stringer("Satellite ID", satelliteID))
 
@@ -719,7 +732,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 
 	failover := true
 	if lowerIOPriority {
-		satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		satPiecesTotal, satPiecesContentSize, satPiecesCount, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
 			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", true), zap.Error(err))
 		} else {
@@ -728,7 +741,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	}
 
 	if failover {
-		satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		satPiecesTotal, satPiecesContentSize, satPiecesCount, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
 			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", false), zap.Error(err))
 		}
@@ -741,7 +754,10 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	log.Info("used-space-filewalker completed",
 		zap.Bool("Lazy File Walker", !failover),
 		zap.Int64("Total Pieces Size", satPiecesTotal),
-		zap.Int64("Total Pieces Content Size", satPiecesContentSize))
+		zap.Int64("Total Pieces Content Size", satPiecesContentSize),
+		zap.Int64("Total Pieces Count", satPiecesCount),
+		zap.Duration("Duration", time.Since(start)),
+	)
 
 	return satPiecesTotal, satPiecesContentSize, nil
 }

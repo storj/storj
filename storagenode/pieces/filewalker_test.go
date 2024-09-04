@@ -57,7 +57,7 @@ func TestFilewalker_Basic(t *testing.T) {
 		filter := bloomfilter.NewOptimal(int64(numberOfPieces), 0.000000001)
 
 		// WalkAndComputeSpaceUsedBySatellite
-		total, totalContentSize, err := fw.WalkAndComputeSpaceUsedBySatellite(ctx, satellite)
+		total, totalContentSize, _, err := fw.WalkAndComputeSpaceUsedBySatellite(ctx, satellite)
 		require.NoError(t, err)
 		require.Equal(t, int64(numberOfPieces)*size.Int64(), totalContentSize)
 		require.GreaterOrEqual(t, total, int64(numberOfPieces)*size.Int64())

@@ -41,7 +41,7 @@
 
             <v-divider />
 
-            <v-card-item>
+            <v-card-item v-if="file">
                 <p class="mt-2 mb-3">
                     You are about to restore a previous version. This action will create a copy as the latest version of the object. All existing versions, including the current one, will be preserved.
                 </p>
@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Component, watch } from 'vue';
+import { ref, Component, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -112,7 +112,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import IconRestore from '@/components/icons/IconRestore.vue';
 
 const props = defineProps<{
-    file: BrowserObject,
+    file?: BrowserObject,
 }>();
 
 const emit = defineEmits<{
@@ -131,6 +131,9 @@ const innerContent = ref<Component | null>(null);
 
 async function onRestoreObjectClick(): Promise<void> {
     await withLoading(async () => {
+        if (!props.file) {
+            return;
+        }
         try {
             await obStore.restoreObject(props.file);
         } catch (error) {
@@ -138,11 +141,10 @@ async function onRestoreObjectClick(): Promise<void> {
             notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
             return;
         }
+        emit('fileRestored');
+        notify.success(`Previous version restored.`);
+        model.value = false;
     });
-
-    emit('fileRestored');
-    notify.success(`Previous version restored.`);
-    model.value = false;
 }
 
 watch(innerContent, comp => !comp && emit('contentRemoved'));

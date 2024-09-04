@@ -234,16 +234,19 @@ bucketsStore.$onAction(({ name, after, args }) => {
 obStore.$onAction(({ name, after, args }) => {
     if (name === 'handleDeleteObjectRequest') {
         after(async (_) => {
-            const fileCount = args[0];
-            const fileTypes = args[1];
-            const request = args[2];
+            const request = args[0];
+            let label = args[1] ?? 'file';
             try {
                 await request;
-                notify.success(`${fileCount} ${fileTypes} deleted`);
-                obStore.filesDeleted();
             } catch (error) {
-                error.message = `Error deleting ${fileTypes}. ${error.message}`;
+                error.message = `Deleting failed. ${error.message}`;
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
+
+            if (obStore.state.deletedFilesCount > 0) {
+                label = obStore.state.deletedFilesCount > 1 ? `${label}s` : label;
+                notify.success(`${obStore.state.deletedFilesCount} ${label} deleted`);
+                obStore.filesDeleted();
             }
         });
     }

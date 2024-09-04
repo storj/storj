@@ -23,6 +23,10 @@ import (
 )
 
 func cmdConsoleAPIRun(cmd *cobra.Command, args []string) (err error) {
+	if !runCfg.Config.StandaloneConsoleAPIEnabled {
+		return errs.New("Standalone console API is not enabled")
+	}
+
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 

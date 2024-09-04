@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package consoledb_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/consoledb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -18,7 +18,7 @@ func TestUserFromDbx(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		user, err := satellitedb.UserFromDBX(ctx, nil)
+		user, err := consoledb.UserFromDBX(ctx, nil)
 		assert.Nil(t, user)
 		assert.Error(t, err)
 	})
@@ -33,7 +33,7 @@ func TestUserFromDbx(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		user, err := satellitedb.UserFromDBX(ctx, &dbxUser)
+		user, err := consoledb.UserFromDBX(ctx, &dbxUser)
 
 		assert.Nil(t, user)
 		assert.Error(t, err)

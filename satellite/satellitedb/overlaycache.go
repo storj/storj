@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -1083,38 +1084,47 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return counts[i].ID.Less(counts[k].ID)
 	})
 
-	var nodeIDs []storj.NodeID
-	var countNumbers []int64
-	for _, count := range counts {
-		nodeIDs = append(nodeIDs, count.ID)
-		countNumbers = append(countNumbers, count.Count)
-	}
-
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
+		nodeIDs := make([]storj.NodeID, len(counts))
+		countNumbers := make([]int64, len(counts))
+		for i, count := range counts {
+			nodeIDs[i] = count.ID
+			countNumbers[i] = count.Count
+		}
+
 		_, err = cache.db.ExecContext(ctx, `
 			UPDATE nodes
 				SET piece_count = update.count
 			FROM (
-				SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
-			) as update
+				SELECT UNNEST($1::bytea[]) AS id, UNNEST($2::bigint[]) AS count
+			) AS update
 			WHERE nodes.id = update.id
 		`, pgutil.NodeIDArray(nodeIDs), pgutil.Int8Array(countNumbers))
-
+		return Error.Wrap(err)
 	case dbutil.Spanner:
-		_, err = cache.db.ExecContext(ctx, `
-			UPDATE nodes
-				SET piece_count = update.count
-			FROM (
-				SELECT unnest(?) as id, unnest(?) as count
-			) as update
-			WHERE nodes.id = update.id
-		`, storj.NodeIDList(nodeIDs).Bytes(), countNumbers)
+		return Error.Wrap(txutil.WithTx(ctx, cache.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			_, err := tx.ExecContext(ctx, `START BATCH DML`)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 
+			for _, count := range counts {
+				_, err := tx.ExecContext(ctx, cache.db.Rebind("UPDATE nodes SET piece_count = ? WHERE id = ?"), count.Count, count.ID)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+
+			if _, err := tx.ExecContext(ctx, "RUN BATCH"); err != nil {
+				return Error.Wrap(err)
+			}
+
+			return nil
+		}))
 	default:
+		return Error.New("unsupported implementation")
 	}
-
-	return Error.Wrap(err)
 }
 
 // GetExitingNodes returns nodes who have initiated a graceful exit and is not disqualified, but have not completed it.

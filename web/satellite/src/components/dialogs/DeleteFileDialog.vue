@@ -138,13 +138,13 @@ function onDeleteClick(): void {
         // multiple files selected in the file browser.
         deleteRequest = obStore.deleteSelected();
     } else return;
-    obStore.handleDeleteObjectRequest(fileCount.value + folderCount.value + versionsCount.value, fileTypes.value, deleteRequest);
+    obStore.handleDeleteObjectRequest(deleteRequest);
     model.value = false;
 }
 
 async function deleteSingleFile(file: BrowserObject): Promise<void> {
     if (isFolder.value) {
-        await obStore.deleteFolder(file, filePath.value ? filePath.value + '/' : '', false);
+        await obStore.deleteFolder(filePath.value ? filePath.value + '/' : '', file, false);
     } else {
         await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false, false);
     }

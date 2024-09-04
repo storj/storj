@@ -523,7 +523,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	if !config.SeparateConsoleAPI {
+	if !config.DisableConsoleFromSatelliteAPI {
 		{ // setup mailservice
 			peer.Mail.Service, err = setupMailService(peer.Log, *config)
 			if err != nil {
@@ -687,13 +687,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				consoleConfig.SatelliteName,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				placement,
-				console.VersioningConfig{
+				console.ObjectLockAndVersioningConfig{
+					ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
 					UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
 					UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
-				},
-				console.ObjectLockConfig{
-					UseBucketLevelObjectLock:         config.Metainfo.UseBucketLevelObjectLock,
-					UseBucketLevelObjectLockProjects: config.Metainfo.UseBucketLevelObjectLockProjects,
 				},
 				consoleConfig.Config,
 			)
@@ -714,6 +711,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.StripeCoinPayments.StripePublicKey,
 				config.Payments.Storjscan.Confirmations,
 				peer.URL(),
+				console.ObjectLockAndVersioningConfig{
+					ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
+					UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
+					UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				},
 				config.Analytics,
 				config.Payments.PackagePlans,
 			)

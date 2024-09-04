@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package consoledb
 
 import (
 	"context"
@@ -32,7 +32,7 @@ type users struct {
 }
 
 // UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
-func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) (err error) {
+func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) (err error) {
 	if failedLoginPenalty != nil {
 		// failed_login_count exceeded config.FailedLoginPenalty
 		switch users.impl {
@@ -40,16 +40,16 @@ func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, fai
 			_, err = users.db.ExecContext(ctx, users.db.Rebind(`
 			UPDATE users
 			SET failed_login_count = COALESCE(failed_login_count, 0) + 1,
-				login_lockout_expiration = CURRENT_TIMESTAMP + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
+				login_lockout_expiration = ?::TIMESTAMPTZ + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
 			WHERE id = ?
-		`), failedLoginPenalty, id.Bytes())
+		`), now, failedLoginPenalty, id.Bytes())
 		case dbutil.Spanner:
 			_, err = users.db.ExecContext(ctx, users.db.Rebind(`
 			UPDATE users
 			SET failed_login_count = IFNULL(failed_login_count, 0) + 1,
-				login_lockout_expiration = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL CAST(POW(?, failed_login_count - 1) AS INT64) MINUTE)
+				login_lockout_expiration = TIMESTAMP_ADD(?, INTERVAL CAST(POW(?, failed_login_count - 1) AS INT64) MINUTE)
 			WHERE id = ?
-		`), failedLoginPenalty, id.Bytes())
+		`), now, failedLoginPenalty, id.Bytes())
 		default:
 			return errs.New("unsupported database dialect: %s", users.impl)
 		}

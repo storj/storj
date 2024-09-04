@@ -141,12 +141,12 @@
 
             <v-row>
                 <v-col cols="12" sm="6" lg="4">
-                    <v-card title="Object Versioning">
+                    <v-card title="Object Versioning (beta)">
                         <v-card-subtitle v-if="versioningUIEnabled">
-                            Versioning (beta) is enabled for this project.
+                            Versioning is enabled for this project.
                         </v-card-subtitle>
                         <v-card-subtitle v-else>
-                            Enable object versioning (beta) on this project.
+                            Enable object versioning on this project.
                         </v-card-subtitle>
 
                         <v-card-text>
@@ -158,6 +158,25 @@
                             <v-btn v-else-if="versioningUIEnabled" variant="outlined" color="default" size="small" rounded="md">
                                 View Details
                                 <versioning-beta-dialog info />
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+
+                <v-col v-if="objectLockEnabled" cols="12" sm="6" lg="4">
+                    <v-card title="Object Lock (Beta)">
+                        <v-card-subtitle v-if="objectLockUIEnabled">
+                            Enabled through Object Versioning (beta).
+                        </v-card-subtitle>
+                        <v-card-subtitle v-else>
+                            Versioning is required to use this feature.
+                        </v-card-subtitle>
+
+                        <v-card-text>
+                            <v-divider class="mb-4" />
+                            <v-btn color="default" variant="outlined" size="small" :disabled="!objectLockUIEnabled">
+                                View Details
+                                <lock-beta-dialog />
                             </v-btn>
                         </v-card-text>
                     </v-card>
@@ -232,6 +251,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import VersioningBetaDialog from '@/components/dialogs/VersioningBetaDialog.vue';
 import ProjectEncryptionInformationDialog from '@/components/dialogs/ProjectEncryptionInformationDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
+import LockBetaDialog from '@/components/dialogs/LockBetaDialog.vue';
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isEditDetailsDialogShown = ref<boolean>(false);
@@ -284,6 +304,16 @@ const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForV
  * Whether versioning has been enabled for current project.
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+
+/**
+ * Whether object lock has been enabled for current project.
+ */
+const objectLockUIEnabled = computed(() => projectsStore.objectLockUIEnabled);
+
+/**
+ * whether object lock feature is enabled.
+ */
+const objectLockEnabled = computed(() => configStore.state.config.objectLockEnabled);
 
 /**
  * whether this project has a satellite managed passphrase.

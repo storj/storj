@@ -613,6 +613,9 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# indicates whether the console API should not be served along with satellite API
+# disable-console-from-satellite-api: false
+
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
 
@@ -898,6 +901,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # node alias cache does a full refresh when a value is missing
 # metainfo.node-alias-cache-full-refresh: false
 
+# enable the use of bucket-level Object Lock
+# metainfo.object-lock-enabled: false
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -954,9 +960,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how often we can upload to the single object (the same location) per API instance
 # metainfo.upload-limiter.single-object-limit: 1s
-
-# enable the use of bucket-level Object Lock
-# metainfo.use-bucket-level-object-lock: false
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
@@ -1357,9 +1360,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
-# indicates whether the console API should be split out from satellite API
-# separate-console-api: false
-
 # public address to listen on
 server.address: :7777
 
@@ -1392,6 +1392,9 @@ server.private-address: 127.0.0.1:7778
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
+
+# indicates whether the console API should be served as a standalone service
+# standalone-console-api-enabled: false
 
 # whether nodes will be disqualified if they have not been contacted in some time
 # stray-nodes.enable-dq: true

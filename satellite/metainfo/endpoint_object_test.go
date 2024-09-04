@@ -3246,7 +3246,8 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -3267,7 +3268,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 		_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 		require.NoError(t, err)
 
 		createBucket := func(t *testing.T, name string, lockEnabled bool) {
@@ -3382,33 +3383,13 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 			})
 
 			t.Run("Object Lock not globally supported", func(t *testing.T) {
-				endpoint.TestSetUseBucketLevelObjectLock(false)
-				defer endpoint.TestSetUseBucketLevelObjectLock(true)
+				endpoint.TestSetObjectLockEnabled(false)
+				defer endpoint.TestSetObjectLockEnabled(true)
 
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
 				_, err := endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
-
-				endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-				defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-				beginResp, err := endpoint.BeginObject(ctx, beginReq)
-				require.NoError(t, err)
-
-				commitResp, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
-					Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					StreamId: beginResp.StreamId,
-				})
-				require.NoError(t, err)
-
-				require.NotNil(t, commitResp.Object.Retention)
-				require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
-
-				obj := requireObject(t, bucketName, key)
-				require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -3473,7 +3454,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq = newBeginReq(noLockApiKey, bucketName, key)
+				beginReq = newBeginReq(restrictedApiKey, bucketName, key)
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
@@ -3513,28 +3494,14 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 			})
 
 			t.Run("Object Lock not globally supported", func(t *testing.T) {
-				endpoint.TestSetUseBucketLevelObjectLock(false)
-				defer endpoint.TestSetUseBucketLevelObjectLock(true)
+				endpoint.TestSetObjectLockEnabled(false)
+				defer endpoint.TestSetObjectLockEnabled(true)
 
 				key := testrand.Path()
 
 				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
 				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
-
-				endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-				defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				require.NoError(t, err)
-
-				require.NotNil(t, commitResp.Object.Retention)
-				require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
-
-				obj := requireObject(t, bucketName, key)
-				require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -3601,7 +3568,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq, segReq, commitReq = newUploadReqs(noLockApiKey, bucketName, key)
+				beginReq, segReq, commitReq = newUploadReqs(restrictedApiKey, bucketName, key)
 				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
@@ -3616,7 +3583,8 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -3797,8 +3765,8 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.TestSetUseBucketLevelObjectLock(false)
-			defer endpoint.TestSetUseBucketLevelObjectLock(true)
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
 
 			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			object := createObject(t, objStream, retention)
@@ -3810,16 +3778,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			}
 			resp, err := endpoint.GetObjectRetention(ctx, req)
 			require.Nil(t, resp)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
-
-			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-			resp, err = endpoint.GetObjectRetention(ctx, req)
-			require.NoError(t, err)
-			require.NotNil(t, resp.Retention)
-			require.EqualValues(t, retention.Mode, resp.Retention.Mode)
-			require.WithinDuration(t, retention.RetainUntil, resp.Retention.RetainUntil, time.Microsecond)
+			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
 		})
 
 		t.Run("Unauthorized API key", func(t *testing.T) {
@@ -3838,10 +3797,13 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			require.Nil(t, resp)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetRetention: true,
+				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+			})
 			require.NoError(t, err)
 
-			req.Header.ApiKey = noLockApiKey.SerializeRaw()
+			req.Header.ApiKey = restrictedApiKey.SerializeRaw()
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.Nil(t, resp)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
@@ -3854,7 +3816,8 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -4134,8 +4097,8 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.TestSetUseBucketLevelObjectLock(false)
-			defer endpoint.TestSetUseBucketLevelObjectLock(true)
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
 
 			objStream, retention := randObjectStream(project.ID, lockBucketName), randRetention()
 			obj := createObject(t, objStream, metabase.Retention{})
@@ -4149,15 +4112,8 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			}
 
 			_, err := endpoint.SetObjectRetention(ctx, req)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this project")
+			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
 			requireRetention(t, obj.Location(), obj.Version, obj.Retention)
-
-			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-			_, err = endpoint.SetObjectRetention(ctx, req)
-			require.NoError(t, err)
-			requireRetention(t, obj.Location(), obj.Version, retention)
 		})
 
 		t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4178,10 +4134,10 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			_, err = endpoint.SetObjectRetention(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 			require.NoError(t, err)
 
-			req.Header.ApiKey = noLockApiKey.SerializeRaw()
+			req.Header.ApiKey = restrictedApiKey.SerializeRaw()
 			_, err = endpoint.SetObjectRetention(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 		})
@@ -4203,7 +4159,10 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 		require.NoError(t, err)
 		_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+			DisallowGetRetention: true,
+			DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+		})
 		require.NoError(t, err)
 
 		requireEqualRetention := func(t *testing.T, expected metabase.Retention, actual *pb.Retention) {
@@ -4258,7 +4217,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
 
-				getLockedObj.Header.ApiKey = noLockApiKey.SerializeRaw()
+				getLockedObj.Header.ApiKey = restrictedApiKey.SerializeRaw()
 				resp, err = endpoint.GetObject(ctx, getLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
@@ -4300,7 +4259,7 @@ func TestEndpoint_GetObjectWithRetention(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
 
-				dlLockedObj.Header.ApiKey = noLockApiKey.SerializeRaw()
+				dlLockedObj.Header.ApiKey = restrictedApiKey.SerializeRaw()
 				resp, err = endpoint.DownloadObject(ctx, dlLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
@@ -4314,7 +4273,8 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -4392,14 +4352,18 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 					ObjectVersion:      version,
 				})
 
-				if opts.expectError {
+				if opts.expectError && useExactVersion {
 					require.Error(t, err)
 					rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
 					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
 					return
 				}
 				require.NoError(t, err)
-				requireNoObject(t, opts.bucketName, string(objStream.ObjectKey))
+				if useExactVersion {
+					requireNoObject(t, opts.bucketName, string(objStream.ObjectKey))
+				} else {
+					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
+				}
 			}
 
 			t.Run("Exact version", func(t *testing.T) { fn(true) })
@@ -4463,7 +4427,6 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 				test(t, testOpts{
 					bucketName:        bucketName,
 					retentionDuration: time.Hour,
-					expectError:       true,
 				})
 			})
 
@@ -4482,7 +4445,8 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -4563,7 +4527,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 		_, oldApiKey, err := satellite.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 		require.NoError(t, err)
 
 		requireObject := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string) metabase.Object {
@@ -4650,11 +4614,11 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 
-		t.Run("Object Lock not globally supported", func(t *testing.T) {
+		t.Run("Object Lock disabled", func(t *testing.T) {
 			endpoint := satellite.Metainfo.Endpoint
 
-			endpoint.TestSetUseBucketLevelObjectLock(false)
-			defer endpoint.TestSetUseBucketLevelObjectLock(true)
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
 
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
@@ -4673,23 +4637,6 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
-
-			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-			response, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				StreamId:              beginResponse.StreamId,
-				NewBucket:             []byte(dstBucket),
-				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(expectedRetention),
-			})
-			require.NoError(t, err)
-
-			requireEqualRetention(t, expectedRetention, response.Object.Retention)
-			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -4802,7 +4749,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 		})
 
 		t.Run("unauthorized API keys", func(t *testing.T) {
-			for _, k := range []*macaroon.APIKey{oldApiKey, noLockApiKey} {
+			for _, k := range []*macaroon.APIKey{oldApiKey, restrictedApiKey} {
 				dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
 				beginResponse := newCopy(t, satellite, project.ID, k.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
@@ -4828,7 +4775,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectLock = true
+				config.Metainfo.ObjectLockEnabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -4908,7 +4855,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		_, oldApiKey, err := satellite.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
-		noLockApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowLocks: true})
+		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
 		require.NoError(t, err)
 
 		requireObject := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string) metabase.Object {
@@ -4991,8 +4938,8 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
 			endpoint := satellite.Metainfo.Endpoint
 
-			endpoint.TestSetUseBucketLevelObjectLock(false)
-			defer endpoint.TestSetUseBucketLevelObjectLock(true)
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
 
 			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
@@ -5011,22 +4958,6 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
-
-			endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, true)
-			defer endpoint.TestSetUseBucketLevelObjectLockByProjectID(project.ID, false)
-
-			_, err = satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				StreamId:              beginResponse.StreamId,
-				NewBucket:             []byte(dstBucket),
-				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(expectedRetention),
-			})
-			require.NoError(t, err)
-
-			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -5137,7 +5068,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		})
 
 		t.Run("unauthorized API keys", func(t *testing.T) {
-			for _, k := range []*macaroon.APIKey{oldApiKey, noLockApiKey} {
+			for _, k := range []*macaroon.APIKey{oldApiKey, restrictedApiKey} {
 				dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
 
 				beginResponse := newMove(t, satellite, project.ID, k.SerializeRaw(), srcBucket, nil, metabase.Retention{}, dstBucket, dstKey)

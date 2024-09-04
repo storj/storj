@@ -6,9 +6,12 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -48,21 +51,40 @@ import (
 )
 
 var (
-	pieceSize       = flag.Int("piece-size", 62068, "62068 bytes for a piece in a 1.8 MB file. must be less than 100MiB")
-	piecesToUpload  = flag.Int("pieces-to-upload", 10000, "")
-	workers         = flag.Int("workers", 5, "")
-	ttl             = flag.Duration("ttl", time.Hour, "")
-	forceSync       = flag.Bool("force-sync", false, "")
-	disablePrealloc = flag.Bool("disable-prealloc", false, "")
-	dbsLocation     = flag.String("dbs-location", "", "")
+	pieceSize          = flag.Int("piece-size", 62068, "62068 bytes for a piece in a 1.8 MB file. must be less than 100MiB")
+	piecesToUpload     = flag.Int("pieces-to-upload", 10000, "")
+	workers            = flag.Int("workers", 5, "")
+	ttl                = flag.Duration("ttl", time.Hour, "")
+	forceSync          = flag.Bool("force-sync", false, "")
+	disablePrealloc    = flag.Bool("disable-prealloc", false, "")
+	workDir            = flag.String("work-dir", "", "")
+	dbsLocation        = flag.String("dbs-location", "", "")
+	flatFileTTLStore   = flag.Bool("flat-ttl-store", false, "use flat-files ttl store")
+	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
 	memprofile = flag.String("memprofile", "", "write a memory profile")
 	notrace    = flag.Bool("notrace", false, "disable tracing")
 
+	skipUploads   = flag.Bool("skip-uploads", false, "skip uploads")
+	skipDownloads = flag.Bool("skip-downloads", false, "skip downloads")
+	skipCollect   = flag.Bool("skip-collect", false, "skip collect")
+
 	mon  = monkit.Package()
 	data []byte
 )
+
+func createIdentity(ctx context.Context, path string) *identity.FullIdentity {
+	var cfg identity.Config
+	cfg.CertPath = filepath.Join(path, "identity.cert")
+	cfg.KeyPath = filepath.Join(path, "identity.key")
+	ident, err := cfg.Load()
+	if err != nil {
+		ident = try.E1(identity.NewFullIdentity(ctx, identity.NewCAOptions{Difficulty: 0, Concurrency: 1}))
+		try.E(cfg.Save(ident))
+	}
+	return ident
+}
 
 func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentity) (*piecestore.Endpoint, *collector.Service) {
 	log := zap.L()
@@ -85,9 +107,13 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	if *dbsLocation != "" {
 		cfg.Storage2.DatabaseDir = *dbsLocation
+		try.E(os.MkdirAll(*dbsLocation, 0755))
 	}
 
-	snDB := try.E1(storagenodedb.OpenNew(ctx, log, cfg.DatabaseConfig()))
+	snDB, err := storagenodedb.OpenNew(ctx, log, cfg.DatabaseConfig())
+	if err != nil {
+		snDB = try.E1(storagenodedb.OpenExisting(ctx, log, cfg.DatabaseConfig()))
+	}
 	try.E(snDB.MigrateToLatest(ctx))
 
 	trustPool := try.E1(trust.NewPool(log, resolver, cfg.Storage2.Trust, snDB.Satellites()))
@@ -97,7 +123,17 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
 		snDB.GCFilewalkerProgress())
 
-	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), snDB.PieceExpirationDB(), snDB.PieceSpaceUsedDB(), cfg.Pieces)
+	var expirationStore pieces.PieceExpirationDB
+	if *flatFileTTLStore {
+		cfg.Pieces.EnableFlatExpirationStore = true
+		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), pieces.PieceExpirationConfig{
+			DataDir:               filepath.Join(cfg.Storage2.DatabaseDir, "pieceexpiration"),
+			ConcurrentFileHandles: *flatFileTTLHandles,
+		}))
+	} else {
+		expirationStore = snDB.PieceExpirationDB()
+	}
+	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), expirationStore, snDB.PieceSpaceUsedDB(), cfg.Pieces)
 
 	tlsOptions := try.E1(tlsopts.NewOptions(snIdent, cfg.Server.Config, nil))
 
@@ -126,10 +162,18 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	return endpoint, collectorService
 }
 
-func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity) (_ *stream, pieceID storj.PieceID) {
+func createPieceID(n int) storj.PieceID {
+	// Convert the n to a byte slice
+	bytes := make([]byte, 8) // int64 is 8 bytes
+	binary.BigEndian.PutUint64(bytes, uint64(n))
+
+	// Create the piece id from the sha256 hash of the byte slice
+	return storj.PieceID(sha256.Sum256(bytes))
+}
+
+func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storj.PieceID) *stream {
 	defer mon.Task()(&ctx)(nil)
 	piecePubKey, piecePrivKey := try.E2(storj.NewPieceKey())
-	rootPieceId := storj.NewPieceID()
 
 	var expiration time.Time
 	if *ttl > 0 {
@@ -142,7 +186,7 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity)
 		UplinkPublicKey: piecePubKey,
 		StorageNodeId:   snIdent.ID,
 
-		PieceId: rootPieceId.Deriver().Derive(snIdent.ID, 0),
+		PieceId: pieceID,
 		Limit:   100 * (1 << 20),
 		Action:  pb.PieceAction_PUT,
 
@@ -179,7 +223,7 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity)
 					HashAlgorithm: algo,
 				})),
 			},
-		}}, limit.PieceId
+		}}
 }
 
 func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentity, pieceID storj.PieceID) *downloadStream {
@@ -216,7 +260,8 @@ func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 					ChunkSize: int64(len(data)),
 				},
 			},
-		}}
+		},
+		ch: make(chan interface{})}
 }
 
 func uploadPiece(ctx context.Context, endpoint *piecestore.Endpoint, upload *stream) []*collect.FinishedSpan {
@@ -264,93 +309,115 @@ func runCollector(ctx context.Context, collector *collector.Service) []*collect.
 }
 
 func main() {
-	flag.Parse()
 	ctx := context.Background()
+
+	flag.Parse()
+
+	if *workDir != "" {
+		try.E(os.MkdirAll(*workDir, 0755))
+		try.E(os.Chdir(*workDir))
+	}
+
 	data = try.E1(io.ReadAll(io.LimitReader(rand.Reader, int64(*pieceSize))))
 
-	satIdent := try.E1(identity.NewFullIdentity(ctx, identity.NewCAOptions{Difficulty: 0, Concurrency: 1}))
-
-	snIdent := try.E1(identity.NewFullIdentity(ctx, identity.NewCAOptions{Difficulty: 0, Concurrency: 1}))
+	satIdent := createIdentity(ctx, "identity/satellite")
+	snIdent := createIdentity(ctx, "identity/storagenode")
 
 	endpoint, collector := createEndpoint(ctx, satIdent, snIdent)
 
-	allUploads := make([]*stream, 0, *piecesToUpload)
-	allPieceIds := make([]storj.PieceID, 0, *piecesToUpload)
+	allPieceIDs := make([]storj.PieceID, 0, *piecesToUpload)
 	for i := 0; i < *piecesToUpload; i++ {
-		upload, pieceID := createUpload(ctx, satIdent, snIdent)
-		allUploads = append(allUploads, upload)
-		allPieceIds = append(allPieceIds, pieceID)
+		pieceID := createPieceID(i)
+		allPieceIDs = append(allPieceIDs, pieceID)
 	}
 
-	allSpans := make([][]*collect.FinishedSpan, 0, *piecesToUpload)
+	allSpans := make([][]*collect.FinishedSpan, 0, len(allPieceIDs))
 
-	queue := make(chan *stream, 100)
-	spans := make(chan []*collect.FinishedSpan, 100)
-
-	duration := profile("upload", func() {
-		for i := 0; i < *workers; i++ {
-			go func() {
-				for upload := range queue {
-					spans <- uploadPiece(ctx, endpoint, upload)
-				}
-			}()
+	if !*skipUploads {
+		allUploads := make([]*stream, 0, len(allPieceIDs))
+		for _, pieceID := range allPieceIDs {
+			upload := createUpload(ctx, satIdent, snIdent, pieceID)
+			allUploads = append(allUploads, upload)
 		}
-		go func() {
-			for _, upload := range allUploads {
-				queue <- upload
+
+		queue := make(chan *stream, 100)
+		spans := make(chan []*collect.FinishedSpan, 100)
+
+		duration := profile("upload", func() {
+			for i := 0; i < *workers; i++ {
+				go func() {
+					for upload := range queue {
+						spans <- uploadPiece(ctx, endpoint, upload)
+					}
+				}()
 			}
-			close(queue)
-		}()
+			go func() {
+				for _, upload := range allUploads {
+					queue <- upload
+				}
+				close(queue)
+			}()
 
-		for i := 0; i < *piecesToUpload; i++ {
-			allSpans = append(allSpans, <-spans)
-		}
-	})
+			for i := 0; i < *piecesToUpload; i++ {
+				allSpans = append(allSpans, <-spans)
+			}
+		})
 
-	fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-		*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
-		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
-		float64(*piecesToUpload)/duration.Seconds())
-
-	allDownloads := make([]*downloadStream, 0, len(allPieceIds))
-	for _, pieceID := range allPieceIds {
-		download := createDownload(ctx, satIdent, snIdent, pieceID)
-		allDownloads = append(allDownloads, download)
+		fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
+			*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
+			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
+			float64(*piecesToUpload)/duration.Seconds())
 	}
 
-	downloadQueue := make(chan *downloadStream, 100)
-
-	duration = profile("download", func() {
-		for i := 0; i < *workers; i++ {
-			go func() {
-				for download := range downloadQueue {
-					spans <- downloadPiece(ctx, endpoint, download)
-				}
-			}()
+	if !*skipDownloads {
+		allDownloads := make([]*downloadStream, 0, len(allPieceIDs))
+		for _, pieceID := range allPieceIDs {
+			download := createDownload(ctx, satIdent, snIdent, pieceID)
+			allDownloads = append(allDownloads, download)
 		}
-		go func() {
-			for _, download := range allDownloads {
-				downloadQueue <- download
+
+		// shuffle the downloads to ensure random reads
+		mathrand.Shuffle(len(allDownloads), func(i, j int) {
+			allDownloads[i], allDownloads[j] = allDownloads[j], allDownloads[i]
+		})
+
+		queue := make(chan *downloadStream, 100)
+		spans := make(chan []*collect.FinishedSpan, 100)
+
+		duration := profile("download", func() {
+			for i := 0; i < *workers; i++ {
+				go func() {
+					for download := range queue {
+						spans <- downloadPiece(ctx, endpoint, download)
+					}
+				}()
 			}
-			close(downloadQueue)
-		}()
+			go func() {
+				for _, download := range allDownloads {
+					queue <- download
+				}
+				close(queue)
+			}()
 
-		for i := 0; i < *piecesToUpload; i++ {
-			allSpans = append(allSpans, <-spans)
-		}
-	})
+			for i := 0; i < *piecesToUpload; i++ {
+				allSpans = append(allSpans, <-spans)
+			}
+		})
 
-	fmt.Printf("downloaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-		*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
-		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
-		float64(*piecesToUpload)/duration.Seconds())
+		fmt.Printf("downloaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
+			*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
+			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
+			float64(*piecesToUpload)/duration.Seconds())
+	}
 
-	duration = profile("collect", func() {
-		allSpans = append(allSpans, runCollector(ctx, collector))
-	})
+	if !*skipCollect {
+		duration := profile("collect", func() {
+			allSpans = append(allSpans, runCollector(ctx, collector))
+		})
 
-	fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, duration,
-		float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()))
+		fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, duration,
+			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()))
+	}
 
 	if !*notrace {
 		statsfh := try.E1(os.Create("stats.txt"))
@@ -403,16 +470,23 @@ func (s *stream) Cancel(err error) bool                             { panic("uni
 type downloadStream struct {
 	ctx      context.Context
 	messages []*pb.PieceDownloadRequest
+	ch       chan interface{}
 }
 
 func (s *downloadStream) SendAndClose(resp *pb.PieceUploadResponse) error {
 	return nil
 }
 
-func (s *downloadStream) Send(*pb.PieceDownloadResponse) error { return nil }
+func (s *downloadStream) Send(*pb.PieceDownloadResponse) error {
+	s.ch <- struct{}{}
+	return nil
+}
 
 func (s *downloadStream) Recv() (*pb.PieceDownloadRequest, error) {
 	if len(s.messages) == 0 {
+		// don't send EOF until the client has received the response
+		<-s.ch
+		close(s.ch)
 		return nil, io.EOF
 	}
 	resp := s.messages[0]

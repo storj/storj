@@ -35,7 +35,7 @@ type Users interface {
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
-	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
+	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	// GetByStatus is a method for querying user by status from the database.

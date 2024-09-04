@@ -42,7 +42,7 @@ func TestCustomersRepository(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, id, customerID)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestCustomersRepositoryList(t *testing.T) {
@@ -108,7 +108,7 @@ func TestCustomersRepositoryList(t *testing.T) {
 		for i, cus := range page.Customers {
 			require.Equal(t, "customerID"+strconv.Itoa(i+(2*custLen)), cus.ID)
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func waitForTimeToChange() {

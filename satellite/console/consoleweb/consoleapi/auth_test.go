@@ -1289,6 +1289,9 @@ func TestAuth_DeleteAccount(t *testing.T) {
 		sat.API.Console.Service.TestSetNow(func() time.Time {
 			return timestamp
 		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
 
 		proUser, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "test user",
@@ -1461,10 +1464,10 @@ func TestAuth_DeleteAccount(t *testing.T) {
 			{
 				name: "has current usage",
 				prepare: func(user, project uuid.UUID) error {
-					return sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp)
+					return sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp.Add(-time.Minute))
 				},
 				cleanup: func(user, project uuid.UUID) error {
-					_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, time.Now(), 100)
+					_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 100)
 					return err
 				},
 				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},

@@ -28,6 +28,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'git restore-mtime'
 
                 // download dependencies
                 sh 'go mod download'

@@ -1055,10 +1055,6 @@ type CommitObject struct {
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
-
-	// ObjectLockEnabledForProject, if enabled, prevents the deletion of committed object versions
-	// with active Object Lock configurations.
-	ObjectLockEnabledForProject bool
 }
 
 // Verify verifies request fields.

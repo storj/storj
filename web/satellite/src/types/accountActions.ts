@@ -18,4 +18,8 @@ export enum DeleteAccountStep {
     VerifyEmailStep,
     ConfirmDeleteStep,
     FinalConfirmDeleteStep,
+    DeleteBucketsStep,
+    DeleteAccessKeysStep,
+    PayInvoicesStep,
+    WaitForInvoicingStep,
 }

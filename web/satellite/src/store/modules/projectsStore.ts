@@ -57,6 +57,7 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const selectedProjectConfig: ComputedRef<ProjectConfig> = computed(() => state.selectedProjectConfig);
     const versioningUIEnabled: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.versioningUIEnabled);
+    const objectLockUIEnabled: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.objectLockUIEnabled);
     const promptForVersioningBeta: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.promptForVersioningBeta);
 
     const usersFirstProject = computed<Project>(() => {
@@ -336,6 +337,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state,
         selectedProjectConfig,
         versioningUIEnabled,
+        objectLockUIEnabled,
         promptForVersioningBeta,
         usersFirstProject,
         getProjects,

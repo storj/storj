@@ -196,7 +196,7 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 				&segment.EncryptedETag,
 				redundancyScheme{&segment.Redundancy},
 				&segment.InlineData, &aliasPieces,
-				spannerutil.Int(&segment.Placement),
+				&segment.Placement,
 			)
 			if err != nil {
 				return Error.New("failed to read segments: %w", err)

@@ -161,7 +161,7 @@
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col class="pa-0 pt-5 pa-sm-0" cols="auto">
+                <v-col v-if="!showObjectVersions" class="pa-0 pt-5 pa-sm-0" cols="auto">
                     <v-btn-toggle
                         mandatory
                         border
@@ -202,7 +202,8 @@
             </v-row>
         </v-col>
 
-        <browser-card-view-component v-if="isCardView" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <browser-card-view-component v-else-if="isCardView" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
         <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
     </v-container>
 
@@ -279,6 +280,7 @@ import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
+import BrowserVersionsTableComponent from '@/components/BrowserVersionsTableComponent.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();

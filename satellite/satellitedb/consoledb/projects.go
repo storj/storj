@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package consoledb
 
 import (
 	"context"
@@ -18,6 +18,8 @@ import (
 	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ensures that projects implements console.Projects.
@@ -27,7 +29,8 @@ var ek = eventkit.Package()
 
 // implementation of Projects interface repository using spacemonkeygo/dbx orm.
 type projects struct {
-	db dbx.DriverMethods
+	db   dbx.DriverMethods
+	impl dbutil.Implementation
 }
 
 // GetAll is a method for querying all projects from the database.
@@ -601,7 +604,7 @@ func (projects *projects) ListByOwnerID(
 		page.PageCount++
 	}
 
-	rows, err := projects.db.QueryContext(ctx, projects.db.Rebind(`
+	baseQuery := `
 		SELECT
 			id,
 			public_id,
@@ -617,9 +620,27 @@ func (projects *projects) ListByOwnerID(
 		FROM projects
 		WHERE owner_id = ?
 		ORDER BY name ASC
-		OFFSET ? ROWS
-		LIMIT ?
-	`), ownerID, page.Offset, page.Limit+1) // add 1 to limit to see if there is another page
+	`
+	limit := page.Limit + 1 // add 1 to limit to see if there is another page
+
+	var rows tagsql.Rows
+	switch projects.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		rows, err = projects.db.QueryContext(ctx, projects.db.Rebind(
+			baseQuery+`
+			OFFSET ? ROWS
+			LIMIT ?
+		`), ownerID, page.Offset, limit) // add 1 to limit to see if there is another page
+	case dbutil.Spanner:
+		rows, err = projects.db.QueryContext(ctx, projects.db.Rebind(
+			baseQuery+`
+			LIMIT ?
+			OFFSET ?
+		`), ownerID, limit, page.Offset) // add 1 to limit to see if there is another page
+	default:
+		return console.ProjectsPage{}, errs.New("unsupported database dialect: %s", projects.impl)
+	}
+
 	if err != nil {
 		return console.ProjectsPage{}, err
 	}
@@ -629,7 +650,7 @@ func (projects *projects) ListByOwnerID(
 	projectsToSend := make([]console.Project, 0, page.Limit)
 	for rows.Next() {
 		count++
-		if count == page.Limit+1 {
+		if count == limit {
 			// we are done with this page; do not include this project
 			page.Next = true
 			page.NextOffset = page.Offset + int64(page.Limit)

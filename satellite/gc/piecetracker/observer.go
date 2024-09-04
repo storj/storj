@@ -134,8 +134,9 @@ func newObserverFork() *observerFork {
 
 // Process iterates over segment range updating partial piece counts for each node.
 func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
+	now := time.Now()
 	for _, segment := range segments {
-		if segment.Inline() {
+		if segment.Inline() || segment.Expired(now) {
 			continue
 		}
 

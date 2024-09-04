@@ -5,6 +5,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
+    AccountDeletionData,
     AccountSetupData,
     FreezeStatus,
     Session,
@@ -194,7 +195,7 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async deleteAccount(step: DeleteAccountStep, data: string): Promise<void> {
+    public async deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
         const path = `${this.ROOT_PATH}/account`;
 
         const body = JSON.stringify({
@@ -203,17 +204,33 @@ export class AuthHttpApi implements UsersApi {
         });
 
         const response = await this.http.delete(path, body);
+
         if (response.ok) {
-            return;
+            return null;
         }
 
         const result = await response.json();
+
+        if (response.status === 409) {
+            return new AccountDeletionData(
+                result.ownedProjects,
+                result.buckets,
+                result.apiKeys,
+                result.unpaidInvoices,
+                result.amountOwed,
+                result.currentUsage,
+                result.invoicingIncomplete,
+                result.success,
+            );
+        }
 
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not delete account. Please try again later',
             requestID: response.headers.get('x-request-id'),
         });
+
+        return null;
     }
 
     /**

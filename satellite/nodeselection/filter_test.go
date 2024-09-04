@@ -190,6 +190,46 @@ func TestCountryFilter_FromString(t *testing.T) {
 	}
 }
 
+func TestContinentFilter_FromString(t *testing.T) {
+	cases := []struct {
+		code            string
+		mustIncluded    []location.CountryCode
+		mustNotIncluded []location.CountryCode
+	}{
+		{
+			code:            "EU",
+			mustIncluded:    []location.CountryCode{location.Hungary},
+			mustNotIncluded: []location.CountryCode{location.India, location.UnitedStates},
+		},
+		{
+			code:            "SA",
+			mustIncluded:    []location.CountryCode{location.Brazil},
+			mustNotIncluded: []location.CountryCode{location.Hungary},
+		},
+		{
+			code:            "!NA",
+			mustIncluded:    []location.CountryCode{location.Hungary},
+			mustNotIncluded: []location.CountryCode{location.UnitedStates},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.code, func(t *testing.T) {
+			filter, err := NewContinentFilterFromString(tc.code)
+			require.NoError(t, err)
+			for _, c := range tc.mustIncluded {
+				assert.True(t, filter.Match(&SelectedNode{
+					CountryCode: c,
+				}), "Country %s should be included", c.String())
+			}
+			for _, c := range tc.mustNotIncluded {
+				assert.False(t, filter.Match(&SelectedNode{
+					CountryCode: c,
+				}), "Country %s shouldn't be included", c.String())
+			}
+		})
+	}
+}
+
 func TestNodeListFilter(t *testing.T) {
 	filter, err := AllowedNodesFromFile("filter_testdata.txt")
 	require.NoError(t, err)

@@ -144,6 +144,9 @@ var supportedFilters = map[any]any{
 	"country": func(countries ...string) (NodeFilter, error) {
 		return NewCountryFilterFromString(countries)
 	},
+	"continent": func(continent string) (NodeFilter, error) {
+		return NewContinentFilterFromString(continent)
+	},
 	"all": func(filters ...NodeFilter) (NodeFilters, error) {
 		res := NodeFilters{}
 		for _, filter := range filters {
