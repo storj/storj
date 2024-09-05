@@ -1557,7 +1557,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	now := time.Now()
 
-	var canRead, canList, canGetRetention bool
+	var canRead, canList, canGetRetention, canBypassGovernance bool
 
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
 		VerifyPermission{
@@ -1598,6 +1598,16 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionBypassGovernanceRetention,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canBypassGovernance,
+			Optional:        !req.BypassGovernanceRetention,
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -1627,7 +1637,15 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			}
 		}
 	} else {
-		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedObjectKey), req.ObjectVersion)
+		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, DeleteCommittedObject{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: metabase.BucketName(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			},
+			Version:          req.ObjectVersion,
+			BypassGovernance: req.BypassGovernanceRetention,
+		})
 	}
 	if err != nil {
 		if !canRead && !canList {
@@ -2170,24 +2188,30 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	return item, nil
 }
 
+// DeleteCommittedObject contains arguments necessary for deleting a committed version
+// of an object via the (*Endpoint).DeleteCommittedObject method.
+type DeleteCommittedObject struct {
+	metabase.ObjectLocation
+	Version          []byte
+	BypassGovernance bool
+}
+
 // DeleteCommittedObject deletes all the pieces of the storage nodes that belongs
 // to the specified object.
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-func (endpoint *Endpoint) DeleteCommittedObject(
-	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey, version []byte,
-) (deletedObjects []*pb.Object, err error) {
-	defer mon.Task()(&ctx, projectID.String(), bucket, object)(&err)
+func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts DeleteCommittedObject) (deletedObjects []*pb.Object, err error) {
+	defer mon.Task()(&ctx, opts.ProjectID.String(), opts.BucketName, opts.ObjectKey)(&err)
 
 	req := metabase.ObjectLocation{
-		ProjectID:  projectID,
-		BucketName: metabase.BucketName(bucket),
-		ObjectKey:  object,
+		ProjectID:  opts.ProjectID,
+		BucketName: opts.BucketName,
+		ObjectKey:  opts.ObjectKey,
 	}
 
 	// TODO(ver): for production we need to avoid somehow additional GetBucket call
-	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
+	bucketData, err := endpoint.buckets.GetBucket(ctx, []byte(opts.BucketName), opts.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, nil
@@ -2197,7 +2221,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	}
 
 	var result metabase.DeleteObjectResult
-	if len(version) == 0 {
+	if len(opts.Version) == 0 {
 		versioned := bucketData.Versioning == buckets.VersioningEnabled
 		suspended := bucketData.Versioning == buckets.VersioningSuspended
 
@@ -2207,7 +2231,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			Suspended:      suspended,
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
-				Enabled: bucketData.ObjectLockEnabled,
+				Enabled:          bucketData.ObjectLockEnabled,
+				BypassGovernance: opts.BypassGovernance,
 			},
 		})
 		if err != nil {
@@ -2215,7 +2240,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		}
 	} else {
 		var sv metabase.StreamVersionID
-		sv, err = metabase.StreamVersionIDFromBytes(version)
+		sv, err = metabase.StreamVersionIDFromBytes(opts.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -2224,7 +2249,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			Version:        sv.Version(),
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
-				Enabled: bucketData.ObjectLockEnabled,
+				Enabled:          bucketData.ObjectLockEnabled,
+				BypassGovernance: opts.BypassGovernance,
 			},
 		})
 	}
@@ -2235,9 +2261,9 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
 	if err != nil {
 		endpoint.log.Error("failed to convert delete object result",
-			zap.Stringer("project", projectID),
-			zap.String("bucket", bucket),
-			zap.Binary("object", []byte(object)),
+			zap.Stringer("project", opts.ProjectID),
+			zap.String("bucket", opts.BucketName.String()),
+			zap.Binary("object", []byte(opts.ObjectKey)),
 			zap.Error(err),
 		)
 		return nil, Error.Wrap(err)

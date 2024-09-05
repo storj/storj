@@ -1904,7 +1904,14 @@ func TestEndpoint_DeleteCommittedObject(t *testing.T) {
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		_, err := planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucket, metabase.ObjectKey(encryptedKey), []byte{})
+		_, err := planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+			ObjectLocation: metabase.ObjectLocation{
+				ObjectKey:  metabase.ObjectKey(encryptedKey),
+				ProjectID:  projectID,
+				BucketName: metabase.BucketName(bucket),
+			},
+			Version: []byte{},
+		})
 		require.NoError(t, err)
 	}
 	testDeleteObject(t, createObject, deleteObject)
@@ -4287,7 +4294,10 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const unauthorizedErrMsg = "object is protected by Object Lock settings"
+		const (
+			unauthorizedErrMsg = "Unauthorized API credentials"
+			protectedErrMsg    = "object is protected by Object Lock settings"
+		)
 
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -4336,19 +4346,23 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 		}
 
 		type testOpts struct {
-			bucketName        string
-			retentionDuration time.Duration
-			expectError       bool
+			bucketName  string
+			testCase    metabasetest.ObjectLockDeletionTestCase
+			expectError bool
 		}
 
 		test := func(t *testing.T, opts testOpts) {
 			fn := func(useExactVersion bool) {
 				objStream := randObjectStream(project.ID, opts.bucketName)
 
-				object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 0, metabase.Retention{
-					Mode:        storj.ComplianceMode,
-					RetainUntil: time.Now().Add(opts.retentionDuration),
-				})
+				object, _ := metabasetest.CreateTestObject{
+					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+						ObjectStream: objStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    opts.testCase.Retention,
+						LegalHold:    opts.testCase.LegalHold,
+					},
+				}.Run(ctx, t, db, objStream, 0)
 
 				var version []byte
 				if useExactVersion {
@@ -4356,15 +4370,16 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 				}
 
 				_, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
-					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					Bucket:             []byte(objStream.BucketName),
-					EncryptedObjectKey: []byte(objStream.ObjectKey),
-					ObjectVersion:      version,
+					Header:                    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:                    []byte(objStream.BucketName),
+					EncryptedObjectKey:        []byte(objStream.ObjectKey),
+					ObjectVersion:             version,
+					BypassGovernanceRetention: opts.testCase.BypassGovernance,
 				})
 
 				if opts.expectError && useExactVersion {
 					require.Error(t, err)
-					rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
+					rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, protectedErrMsg)
 					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
 					return
 				}
@@ -4384,13 +4399,22 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			bucketName := testrand.BucketName()
 			createBucket(t, bucketName, true)
 
-			t.Run("Active retention - Committed", func(t *testing.T) {
-				test(t, testOpts{
-					bucketName:        bucketName,
-					retentionDuration: time.Hour,
-					expectError:       true,
-				})
-			})
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					test(t, testOpts{
+						bucketName:  bucketName,
+						testCase:    testCase,
+						expectError: true,
+					})
+				},
+				TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					test(t, testOpts{
+						bucketName:  bucketName,
+						testCase:    testCase,
+						expectError: false,
+					})
+				},
+			}.Run(t)
 
 			t.Run("Active retention - Pending", func(t *testing.T) {
 				objectKey := metabasetest.RandObjectKey()
@@ -4421,11 +4445,37 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 				requireNoObject(t, bucketName, string(objectKey))
 			})
 
-			t.Run("Expired retention", func(t *testing.T) {
-				test(t, testOpts{
-					bucketName:        bucketName,
-					retentionDuration: -time.Minute,
+			t.Run("Unauthorized API key - Governance bypass", func(t *testing.T) {
+				objStream := randObjectStream(project.ID, bucketName)
+				object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 0, metabase.Retention{
+					Mode:        storj.GovernanceMode,
+					RetainUntil: time.Now().Add(time.Hour),
 				})
+
+				_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+				require.NoError(t, err)
+
+				req := &pb.BeginDeleteObjectRequest{
+					Header:                    &pb.RequestHeader{ApiKey: oldApiKey.SerializeRaw()},
+					Bucket:                    []byte(objStream.BucketName),
+					EncryptedObjectKey:        []byte(objStream.ObjectKey),
+					ObjectVersion:             object.StreamVersionID().Bytes(),
+					BypassGovernanceRetention: true,
+				}
+
+				_, err = endpoint.BeginDeleteObject(ctx, req)
+				require.Error(t, err)
+				rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
+
+				restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowBypassGovernanceRetention: true})
+				require.NoError(t, err)
+
+				req.Header.ApiKey = restrictedApiKey.SerializeRaw()
+				_, err = endpoint.BeginDeleteObject(ctx, req)
+				require.Error(t, err)
+				rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
+
+				requireObject(t, bucketName, string(objStream.ObjectKey))
 			})
 		})
 
@@ -4433,19 +4483,18 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			bucketName := testrand.BucketName()
 			createBucket(t, bucketName, false)
 
-			t.Run("Active retention", func(t *testing.T) {
+			testFn := func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 				test(t, testOpts{
-					bucketName:        bucketName,
-					retentionDuration: time.Hour,
+					bucketName:  bucketName,
+					testCase:    testCase,
+					expectError: false,
 				})
-			})
+			}
 
-			t.Run("Expired retention", func(t *testing.T) {
-				test(t, testOpts{
-					bucketName:        bucketName,
-					retentionDuration: -time.Minute,
-				})
-			})
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: testFn,
+				TestRemovable: testFn,
+			}.Run(t)
 		})
 	})
 }
