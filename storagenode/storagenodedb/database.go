@@ -60,23 +60,6 @@ type DBContainer interface {
 	GetDB() tagsql.DB
 }
 
-// withTx is a helper method which executes callback in transaction scope.
-func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-	return cb(tx)
-}
-
 // Config configures storage node database.
 type Config struct {
 	// TODO: figure out better names
