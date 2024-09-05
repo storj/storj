@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"sync"
 	"time"
 
 	"github.com/dsnet/try"
@@ -129,12 +130,18 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		allPieceIds = append(allPieceIds, storj.NewPieceID())
 	}
 
+	var uwg sync.WaitGroup
 	duration := profile(benchmarkConfig.CPUProfile, "upload", func() {
 		for i := 0; i < benchmarkConfig.Workers; i++ {
+			uwg.Add(1)
 			data := slices.Clone(data)
 
 			go func() {
+				defer uwg.Done()
 				for pieceID := range pieceIDQueue {
+					if pieceID.IsZero() {
+						return
+					}
 					if err := connectAndUpload(ctx, dialer, orderLimitCreator, nodeURL, pieceID, data); err != nil {
 						fmt.Println(err)
 					}
@@ -145,18 +152,28 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		for _, pieceID := range allPieceIds {
 			pieceIDQueue <- pieceID
 		}
-	})
 
+		for i := 0; i < benchmarkConfig.Workers; i++ {
+			pieceIDQueue <- storj.PieceID{}
+		}
+		uwg.Wait()
+	})
 	fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
 		benchmarkConfig.PiecesToUpload, memory.Size(pieceSize).Base10String(), duration,
 		float64((pieceSize)*int64(benchmarkConfig.PiecesToUpload))/(1024*1024*duration.Seconds()),
 		float64(benchmarkConfig.PiecesToUpload)/duration.Seconds())
 
+	var dwg sync.WaitGroup
 	pieceIDQueue = make(chan storj.PieceID, benchmarkConfig.Workers)
 	duration = profile(benchmarkConfig.CPUProfile, "download", func() {
 		for i := 0; i < benchmarkConfig.Workers; i++ {
+			dwg.Add(1)
 			go func() {
+				defer dwg.Done()
 				for pieceID := range pieceIDQueue {
+					if pieceID.IsZero() {
+						return
+					}
 					if err := connectAndDownload(ctx, dialer, orderLimitCreator, nodeURL, pieceID, pieceSize); err != nil {
 						fmt.Println(err)
 					}
@@ -167,6 +184,10 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		for _, pieceID := range allPieceIds {
 			pieceIDQueue <- pieceID
 		}
+		for i := 0; i < benchmarkConfig.Workers; i++ {
+			pieceIDQueue <- storj.PieceID{}
+		}
+		dwg.Wait()
 	})
 
 	close(pieceIDQueue)
