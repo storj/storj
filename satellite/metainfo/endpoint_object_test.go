@@ -2735,7 +2735,6 @@ func TestListObjectDuplicates(t *testing.T) {
 }
 
 func TestListUploads(t *testing.T) {
-	t.Skip() // see TODO at the bottom. this test is now failing.
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -2751,8 +2750,6 @@ func TestListUploads(t *testing.T) {
 
 		require.NoError(t, u.CreateBucket(ctx, s, "testbucket"))
 
-		// TODO number of objects created can be limited when uplink will
-		// have an option to control listing limit value for ListUploads
 		for i := 0; i < 1001; i++ {
 			_, err := project.BeginUpload(ctx, "testbucket", "object"+strconv.Itoa(i), nil)
 			require.NoError(t, err)
@@ -2764,11 +2761,7 @@ func TestListUploads(t *testing.T) {
 			items++
 		}
 		require.NoError(t, list.Err())
-		// TODO result should be 1001 but we have bug in libuplink
-		// were it's not possible to get second page of results for
-		// pending objets.
-		// test will fail when we will fix uplink and we will need to adjust this test
-		require.Equal(t, 1000, items)
+		require.Equal(t, 1001, items)
 	})
 }
 
