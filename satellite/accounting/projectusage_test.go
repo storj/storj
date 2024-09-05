@@ -519,7 +519,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true

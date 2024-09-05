@@ -54,7 +54,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1

@@ -75,7 +75,9 @@ func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
 						}
 						defer ctx.Check(planet.Shutdown)
 
-						planet.Start(ctx)
+						if err := planet.Start(ctx); err != nil {
+							b.Fatalf("planet failed to start: %+v", err)
+						}
 					})
 				}()
 			}
