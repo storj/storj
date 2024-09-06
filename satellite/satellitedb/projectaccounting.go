@@ -368,10 +368,17 @@ func (db *ProjectAccounting) GetProjectSettledBandwidth(ctx context.Context, pro
 func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled, dead int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	interval := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	startOfMonth := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 
 	query := `SELECT egress_allocated, egress_settled, egress_dead FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&allocated, &settled, &dead)
+	switch db.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID.Bytes(), startOfMonth).Scan(&allocated, &settled, &dead)
+	case dbutil.Spanner:
+		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID.Bytes(), civil.DateOf(startOfMonth)).Scan(&allocated, &settled, &dead)
+	default:
+		return 0, 0, 0, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, 0, nil
 	}
