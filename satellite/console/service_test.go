@@ -3290,6 +3290,7 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 func TestSatelliteManagedProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
@@ -3460,6 +3461,7 @@ func TestSatelliteManagedProjectWithDisabled(t *testing.T) {
 func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
@@ -4120,8 +4122,9 @@ func TestProjectInvitations(t *testing.T) {
 		}
 
 		setInviteDate := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation, createdAt time.Time) {
-			result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
-				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2 AND email = $3",
+			db := sat.DB.Testing()
+			result, err := db.RawDB().ExecContext(ctx,
+				db.Rebind("UPDATE project_invitations SET created_at = ? WHERE project_id = ? AND email = ?"),
 				createdAt, invite.ProjectID, strings.ToUpper(invite.Email),
 			)
 			require.NoError(t, err)

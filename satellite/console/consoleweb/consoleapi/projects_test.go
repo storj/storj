@@ -441,7 +441,7 @@ func TestEdgeURLOverrides(t *testing.T) {
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
-					"UPDATE projects SET default_placement = $1 WHERE id = $2",
+					sat.DB.Testing().Rebind("UPDATE projects SET default_placement = ? WHERE id = ?"),
 					tt.placement, project.ID,
 				)
 				require.NoError(t, err)
