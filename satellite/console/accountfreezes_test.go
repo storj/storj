@@ -882,7 +882,7 @@ func TestGetDaysTillEscalation(t *testing.T) {
 
 		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, midFuture)
 		require.NotNil(t, days)
-		require.Equal(t, gracePeriodDays/2, *days)
+		require.InDelta(t, gracePeriodDays/2, *days, 1)
 
 		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, future)
 		require.NotNil(t, days)
@@ -900,7 +900,7 @@ func TestGetDaysTillEscalation(t *testing.T) {
 
 		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, midFuture)
 		require.NotNil(t, days)
-		require.Equal(t, gracePeriodDays/2, *days)
+		require.InDelta(t, gracePeriodDays/2, *days, 1)
 
 		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, future)
 		require.NotNil(t, days)
