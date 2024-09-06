@@ -129,7 +129,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	var expirationStore pieces.PieceExpirationDB
 	if *flatFileTTLStore {
 		cfg.Pieces.EnableFlatExpirationStore = true
-		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), pieces.PieceExpirationConfig{
+		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), nil, pieces.PieceExpirationConfig{
 			DataDir:               filepath.Join(cfg.Storage2.DatabaseDir, "pieceexpiration"),
 			ConcurrentFileHandles: *flatFileTTLHandles,
 		}))
