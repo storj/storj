@@ -43480,7 +43480,8 @@ func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 }
 
 func (impl spannerImpl) isConstraintError(err error) (constraint string, ok bool) {
-	return "", spanner.ErrCode(err) == codes.AlreadyExists
+	errcode := spanner.ErrCode(err)
+	return "", errcode == codes.AlreadyExists || errcode == codes.OutOfRange || errcode == codes.FailedPrecondition
 }
 
 func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) {
