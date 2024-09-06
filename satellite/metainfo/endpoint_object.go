@@ -2136,10 +2136,14 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 		})
 	}
 	if err != nil {
-		if metabase.ErrObjectLock.Has(err) || metabase.ErrObjectStatus.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		switch {
+		case metabase.ErrObjectLock.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockedErrMsg)
+		case metabase.ErrObjectStatus.Has(err), metabase.ErrObjectExpiration.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
+		default:
+			return nil, endpoint.ConvertMetabaseErr(err)
 		}
-		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	return &pb.SetObjectRetentionResponse{}, nil

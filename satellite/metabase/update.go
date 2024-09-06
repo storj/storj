@@ -24,6 +24,7 @@ const (
 	noLockOnUncommittedErrMsg          = "Object Lock settings must only be placed on committed objects"
 	noShortenRetentionErrMsg           = "retention period cannot be shortened"
 	noRemoveRetentionErrMsg            = "an active retention configuration cannot be removed"
+	noLockOnDeleteMarkerErrMsg         = "Object Lock settings must not be placed on delete markers"
 )
 
 var (
@@ -750,11 +751,11 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 
 	err = p.db.QueryRowContext(ctx, `
 		WITH pre_update_info AS (
-			SELECT version, expires_at, retention_mode, retain_until
+			SELECT status, version, expires_at, retention_mode, retain_until
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND status IN `+statusesCommitted+`
+				AND status <> `+statusPending+`
 			ORDER BY version DESC
 			LIMIT 1
 		), updated AS (
@@ -765,6 +766,7 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND version IN (SELECT version FROM pre_update_info)
+				AND status IN `+statusesCommitted+`
 				AND expires_at IS NULL
 				AND CASE COALESCE(retention_mode, `+retentionModeNone+`)
 					WHEN `+retentionModeNone+` THEN TRUE
@@ -781,7 +783,7 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 				END
 			RETURNING 1
 		)
-		SELECT expires_at, retention_mode, retain_until, EXISTS(SELECT * FROM updated) from pre_update_info`,
+		SELECT status, expires_at, retention_mode, retain_until, EXISTS(SELECT * FROM updated) from pre_update_info`,
 		opts.ProjectID,
 		opts.BucketName,
 		opts.ObjectKey,
@@ -789,6 +791,7 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 		timeWrapper{&opts.Retention.RetainUntil},
 		now,
 	).Scan(
+		&info.Status,
 		&info.ExpiresAt,
 		lockModeWrapper{retentionMode: &info.Retention.Mode},
 		timeWrapper{&info.Retention.RetainUntil},
@@ -803,7 +806,7 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 	}
 
 	if !updated {
-		if err = info.verifyWithoutStatus(opts.Retention, now); err != nil {
+		if err = info.verify(opts.Retention, now); err != nil {
 			return errs.Wrap(err)
 		}
 		return Error.New("unable to update object retention configuration")
@@ -827,11 +830,11 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
-				SELECT version, expires_at, retention_mode, retain_until
+				SELECT status, version, expires_at, retention_mode, retain_until
 				FROM objects
 				WHERE
 					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status IN ` + statusesCommitted + `
+					AND status <> ` + statusPending + `
 				ORDER BY version DESC
 				LIMIT 1
 			`,
@@ -842,6 +845,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			},
 		}), func(row *spanner.Row, item *info) error {
 			return errs.Wrap(row.Columns(
+				&item.Status,
 				&item.version,
 				&item.ExpiresAt,
 				lockModeWrapper{retentionMode: &item.Retention.Mode},
@@ -855,7 +859,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			return errs.New("unable to query object info before setting retention: %w", err)
 		}
 
-		if err = result.verifyWithoutStatus(opts.Retention, now); err != nil {
+		if err = result.verify(opts.Retention, now); err != nil {
 			return errs.Wrap(err)
 		}
 
@@ -867,7 +871,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 	})
 
 	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectLock.Has(err) {
+		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectLock.Has(err) || ErrObjectStatus.Has(err) {
 			return errs.Wrap(err)
 		}
 		return Error.Wrap(err)
@@ -886,16 +890,12 @@ type preUpdateRetentionInfo struct {
 
 // verify returns an error if the object's retention shouldn't be updated.
 func (info *preUpdateRetentionInfo) verify(newRetention Retention, now time.Time) error {
-	if !info.Status.IsCommitted() {
+	switch {
+	case info.Status.IsDeleteMarker():
+		return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+	case !info.Status.IsCommitted():
 		return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
-	}
-	return errs.Wrap(info.verifyWithoutStatus(newRetention, now))
-}
-
-// verifyWithoutStatus returns an error if the object's retention shouldn't be updated,
-// ignoring the status.
-func (info *preUpdateRetentionInfo) verifyWithoutStatus(newRetention Retention, now time.Time) error {
-	if info.ExpiresAt != nil {
+	case info.ExpiresAt != nil:
 		return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 	}
 

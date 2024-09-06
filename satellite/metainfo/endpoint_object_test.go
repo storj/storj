@@ -4541,7 +4541,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				EncryptedObjectKey: []byte(objStream.ObjectKey),
 				ObjectVersion:      obj.StreamVersionID().Bytes(),
 			})
-			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "an active retention configuration cannot be removed")
+			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "object is protected by Object Lock settings")
 			requireRetention(t, objStream.Location(), objStream.Version, obj.Retention)
 
 			objStream = randObjectStream(project.ID, lockBucketName)
@@ -4571,7 +4571,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 					RetainUntil: retention.RetainUntil.Add(-time.Minute),
 				},
 			})
-			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "retention period cannot be shortened")
+			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, "object is protected by Object Lock settings")
 
 			requireRetention(t, objStream.Location(), objStream.Version, retention)
 		})
@@ -4669,7 +4669,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.SetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.FailedPrecondition, "Object Lock settings must only be placed on committed objects")
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4694,6 +4694,36 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			// than the committed one.
 			requireRetention(t, objStream.Location(), pending.Version, metabase.Retention{})
 			requireRetention(t, objStream.Location(), committed.Version, retention)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			objStream := randObjectStream(project.ID, lockBucketName)
+
+			metabasetest.CreateObject(ctx, t, db, objStream, 0)
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: objStream.Location(),
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+
+			req := &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      deleteResult.Markers[0].StreamVersionID().Bytes(),
+				Retention:          retentionToProto(randRetention()),
+			}
+
+			errMsg := "method not allowed"
+
+			// exact version
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+
+			// last committed version
+			req.ObjectVersion = nil
+			_, err = endpoint.SetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
