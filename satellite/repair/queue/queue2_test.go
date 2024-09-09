@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 )
 
@@ -114,7 +114,7 @@ func TestOrder(t *testing.T) {
 
 // TestOrderHealthyPieces ensures that we select in the correct order, accounting for segment health as well as last attempted repair time. We only test on Postgres since Cockraoch doesn't order by segment health due to performance.
 func TestOrderHealthyPieces(t *testing.T) {
-	testorderHealthyPieces(t, pgtest.PickPostgres(t))
+	testorderHealthyPieces(t, dbtest.PickPostgres(t))
 }
 
 func testorderHealthyPieces(t *testing.T, connStr string) {

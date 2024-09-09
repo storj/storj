@@ -13,7 +13,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 )
 
@@ -22,9 +22,9 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach + "\n" +
-			"-spanner-test-db=" + pgtest.DefaultSpanner)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
+			"-spanner-test-db=" + dbtest.DefaultSpanner)
 	}
 
 	for _, satelliteDB := range databases {
@@ -80,8 +80,8 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach)
 	}
 
 	for _, satelliteDB := range databases {

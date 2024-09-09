@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 )
 
 func TestRun(t *testing.T) {
@@ -42,8 +42,8 @@ func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach)
 	}
 
 	for _, satelliteDB := range databases {

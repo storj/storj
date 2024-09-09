@@ -11,13 +11,13 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 func TestExplain(t *testing.T) {
-	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
 		db, err := tempdb.OpenUnique(ctx, connstr, "explain")
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)

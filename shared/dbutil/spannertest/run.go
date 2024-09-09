@@ -17,7 +17,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/testrand"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
@@ -26,7 +26,7 @@ var Error = errs.Class("spannertest")
 
 // RunClient creates a new temporary spanner database, executes the ddls and finally connects a spanner client to it.
 func RunClient(ctx context.Context, t *testing.T, ddls string, run func(t *testing.T, client *spanner.Client)) {
-	connurl := pgtest.PickSpanner(t)
+	connurl := dbtest.PickSpanner(t)
 	schemeconnstr := strings.TrimPrefix(connurl, "spanner://")
 	connstr := schemeconnstr + "_" + strings.ToLower(string(testrand.RandAlphaNumeric(8)))
 	project, instance, databaseName, err := spannerutil.ParseConnStr(connstr)

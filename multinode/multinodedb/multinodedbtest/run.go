@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/multinode/multinodedb"
 	"storj.io/storj/multinode/multinodedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/tempdb"
 )
@@ -107,8 +107,8 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db mult
 	databases := []Database{
 		{
 			Name:    "Postgres",
-			URL:     pgtest.PickPostgres(ignoreSkip{}),
-			Message: "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
+			URL:     dbtest.PickPostgres(ignoreSkip{}),
+			Message: "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
 		},
 		{
 			Name: "Sqlite3",
