@@ -196,7 +196,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		err = withDDLTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 			err = step.Action.Run(ctx, stepLog, db, tx)
 			if err != nil {
 				return err
@@ -227,16 +227,81 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	return nil
 }
 
+func withDDLTx(ctx context.Context, db tagsql.DB, opts *sql.TxOptions, fn func(context.Context, tagsql.Tx) error) error {
+	txRunner := txutil.WithTx
+	if db.Name() == tagsql.SpannerName {
+		// We can't use a transaction for each step because some DBs don't support
+		// DDL in transactions. In this case, however, we can batch DDL statements
+		// together instead.
+		txRunner = ddlBatcher
+	}
+	return txRunner(ctx, db, opts, fn)
+}
+
+func ddlBatcher(ctx context.Context, db tagsql.DB, _ *sql.TxOptions, fn func(context.Context, tagsql.Tx) error) (err error) {
+	conn, err := db.Conn(ctx)
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	_, err = conn.ExecContext(ctx, "START BATCH DDL")
+	if err != nil {
+		return errs.New("failed to start batch DDL: %w", err)
+	}
+	err = fn(ctx, ddlBatchTx{conn})
+	if err != nil {
+		return errs.New("failure executing batch DDL: %w", err)
+	}
+	_, err = conn.ExecContext(ctx, "RUN BATCH")
+	if err != nil {
+		return errs.New("failed to run batch DDL: %w", err)
+	}
+	return nil
+}
+
+type ddlBatchTx struct {
+	tagsql.Conn
+}
+
+func (tx ddlBatchTx) Commit() error {
+	return errs.New("this should not be called from inside the DDL transaction function")
+}
+
+func (tx ddlBatchTx) Rollback() error {
+	return errs.New("this should not be called from inside the DDL transaction function")
+}
+
+// These are deprecated and not provided by tagsql.Conn, but we need to implement them for now
+// to satisfy the tagsql.Tx interface.
+
+func (tx ddlBatchTx) Prepare(ctx context.Context, query string) (tagsql.Stmt, error) {
+	return tx.Conn.PrepareContext(ctx, query)
+}
+
+func (tx ddlBatchTx) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return tx.Conn.ExecContext(ctx, query, args...)
+}
+
+func (tx ddlBatchTx) Query(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error) {
+	return tx.Conn.QueryContext(ctx, query, args...)
+}
+
+func (tx ddlBatchTx) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return tx.Conn.QueryRowContext(ctx, query, args...)
+}
+
 // ensureVersionTable creates migration.Table table if not exists.
 func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
 	if err := migration.ValidTableName(); err != nil {
 		return Error.Wrap(err)
 	}
 
-	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
-		return err
-	})
+	createTableSQL := `CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)` //nolint:misspell
+	// allow for differences in CREATE TABLE syntax between databases
+	if db.Name() == tagsql.SpannerName {
+		createTableSQL = `CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version INT64, commited_at STRING(MAX)) PRIMARY KEY (version)` //nolint:misspell
+	}
+	_, err := db.ExecContext(ctx, createTableSQL)
 	return Error.Wrap(err)
 }
 
@@ -249,16 +314,13 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 	}
 
 	var version sql.NullInt64
-	err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		/* #nosec G202 */ // Table name is white listed by the ValidTableName method
-		// executed at the beginning of the function
-		err := tx.QueryRow(ctx, rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
-		if errors.Is(err, sql.ErrNoRows) || !version.Valid {
-			version.Int64 = -1
-			return nil
-		}
-		return err
-	})
+	/* #nosec G202 */ // Table name is white listed by the ValidTableName method
+	// executed at the beginning of the function
+	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+migration.Table).Scan(&version)
+	if errors.Is(err, sql.ErrNoRows) || !version.Valid {
+		version.Int64 = -1
+		err = nil
+	}
 
 	return int(version.Int64), Error.Wrap(err)
 }

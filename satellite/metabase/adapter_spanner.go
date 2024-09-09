@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"database/sql"
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
@@ -12,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // SpannerConfig includes all the configuration required by using spanner.
@@ -25,6 +27,7 @@ type SpannerAdapter struct {
 	log         *zap.Logger
 	client      *spanner.Client
 	adminClient *database.DatabaseAdminClient
+	sqlClient   tagsql.DB
 
 	// database name  for spanner connection in the form  projects/P/instances/I/databases/DB
 	database string
@@ -47,10 +50,15 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	sqlClient, err := sql.Open("spanner", cfg.Database)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
 	return &SpannerAdapter{
 		client:      client,
 		database:    cfg.Database,
 		adminClient: adminClient,
+		sqlClient:   tagsql.Wrap(sqlClient),
 		log:         log,
 	}, nil
 }
@@ -74,12 +82,6 @@ func (s *SpannerAdapter) UnderlyingDB() *spanner.Client {
 // Implementation returns the dbutil.Implementation code for the adapter.
 func (s *SpannerAdapter) Implementation() dbutil.Implementation {
 	return dbutil.Spanner
-}
-
-// CheckVersion checks the database is the correct version.
-func (s *SpannerAdapter) CheckVersion(ctx context.Context) error {
-	// TODO(spanner): implement this
-	return nil
 }
 
 var _ Adapter = &SpannerAdapter{}
