@@ -621,11 +621,12 @@ const (
 	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
 
-	retentionModeNone                     = "0"
-	retentionModeCompliance               = "1"
-	retentionModeGovernance               = "2"
-	retentionModeLegalHold                = "4"
-	retentionModesComplianceAndGovernance = "(" + retentionModeCompliance + "," + retentionModeGovernance + ")"
+	retentionModeNone                        = "0"
+	retentionModeCompliance                  = "1"
+	retentionModeGovernance                  = "2"
+	retentionModeComplianceAndGovernanceMask = "3"
+	retentionModeLegalHold                   = "4"
+	retentionModesComplianceAndGovernance    = "(" + retentionModeCompliance + "," + retentionModeGovernance + ")"
 )
 
 func committedWhereVersioned(versioned bool) ObjectStatus {
