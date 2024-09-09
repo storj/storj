@@ -17,8 +17,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
 
@@ -86,22 +86,18 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 	})
 }
 
-func TestSpannerProjects(t *testing.T) {
+func TestChooseAdapter_Spanner(t *testing.T) {
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
 
-	connUrls := []string{}
-	spannerFound := false
-	for _, db := range satellitedbtest.Databases() {
-		connUrls = append(connUrls, db.MetabaseDB.URL)
+	spannerConnStr := dbtest.PickSpanner(t)
 
-		if db.Name == "Spanner" {
-			spannerFound = true
+	otherConnStr := dbtest.PickPostgresNoSkip()
+	if otherConnStr == "" || strings.EqualFold(otherConnStr, "omit") {
+		otherConnStr = dbtest.PickCockroachNoSkip()
+		if otherConnStr == "" || strings.EqualFold(otherConnStr, "omit") {
+			t.Fatal("Spanner and either Postgres or Cockroach is required to run this test.")
 		}
-
 	}
-	require.Len(t, connUrls, 2, "two databases are required for this test")
-	require.True(t, spannerFound, "Spanner must be configured for this test")
 
 	spannerProjects := map[uuid.UUID]struct{}{
 		testrand.UUID(): {},
@@ -113,7 +109,7 @@ func TestSpannerProjects(t *testing.T) {
 	}
 
 	log := zaptest.NewLogger(t)
-	db, err := metabase.Open(ctx, log.Named("metabase"), strings.Join(connUrls, ";"), metabase.Config{
+	db, err := metabase.Open(ctx, log.Named("metabase"), otherConnStr+";"+spannerConnStr, metabase.Config{
 		ApplicationName:        "test-spanner-projects",
 		TestingSpannerProjects: spannerProjects,
 	})
