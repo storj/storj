@@ -34,6 +34,7 @@ const (
 	projectNoLockErrMsg      = "Object Lock is not enabled for this project"
 	objectLockDisabledErrMsg = "Object Lock feature is not enabled"
 	bucketNoLockErrMsg       = "Object Lock is not enabled for this bucket"
+	methodNotAllowedErrMsg   = "method not allowed"
 )
 
 // BeginObject begins object.
@@ -699,7 +700,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	if mbObject.Status.IsDeleteMarker() {
-		return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, "method not allowed")
+		return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
 	}
 
 	{
@@ -863,7 +864,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	if object.Status.IsDeleteMarker() {
-		return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, "method not allowed")
+		return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
 	}
 
 	// get the range segments
@@ -1910,7 +1911,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	}
 	if err != nil {
 		if metabase.ErrMethodNotAllowed.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -2053,7 +2054,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	}
 	if err != nil {
 		if metabase.ErrMethodNotAllowed.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}

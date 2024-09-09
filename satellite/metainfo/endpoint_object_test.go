@@ -3723,7 +3723,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			resp, err := endpoint.GetObjectLegalHold(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying legal hold status of delete marker is not allowed")
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 
 			objStream2 := randObjectStream(project.ID, lockBucketName)
 			createObject(t, objStream2, false)
@@ -3744,7 +3744,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			resp, err = endpoint.GetObjectLegalHold(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying legal hold status of delete marker is not allowed")
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 		})
 
 		t.Run("Pending object", func(t *testing.T) {
@@ -4255,7 +4255,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			resp, err := endpoint.GetObjectRetention(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying retention data of delete marker is not allowed")
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 
 			objStream2 := randObjectStream(project.ID, lockBucketName)
 			createObject(t, objStream2, retention)
@@ -4276,7 +4276,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "querying retention data of delete marker is not allowed")
+			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 		})
 
 		t.Run("Pending object", func(t *testing.T) {
@@ -4322,6 +4322,35 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			resp, err := endpoint.GetObjectRetention(ctx, req)
 			require.NoError(t, err)
 			requireEqualRetention(t, retention, resp.Retention)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			objStream := randObjectStream(project.ID, lockBucketName)
+
+			metabasetest.CreateObject(ctx, t, db, objStream, 0)
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: objStream.Location(),
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+
+			req := &pb.GetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      deleteResult.Markers[0].StreamVersionID().Bytes(),
+			}
+
+			errMsg := "method not allowed"
+
+			// exact version
+			_, err = endpoint.GetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+
+			// last committed version
+			req.ObjectVersion = nil
+			_, err = endpoint.GetObjectRetention(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
 		})
 
 		t.Run("Missing retention period", func(t *testing.T) {
