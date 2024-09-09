@@ -122,7 +122,10 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		return nil, errs.Wrap(err)
 	}
 
-	encoder, err := zstd.NewWriter(nil)
+	encoder, err := zstd.NewWriter(nil,
+		zstd.WithWindowSize(1<<20),
+		zstd.WithLowerEncoderMem(true),
+	)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
