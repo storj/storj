@@ -47,10 +47,6 @@ func (db *tempMasterDB) TestDBAccess() *dbx.DB {
 	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
 
-type ignoreSkip struct{}
-
-func (ignoreSkip) Skip(...interface{}) {}
-
 // SchemaSuffix returns a suffix for schemas.
 func SchemaSuffix() string {
 	return pgutil.CreateRandomTestingSchemaName(6)
@@ -107,7 +103,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db mult
 	databases := []Database{
 		{
 			Name:    "Postgres",
-			URL:     dbtest.PickPostgres(ignoreSkip{}),
+			URL:     dbtest.PickPostgresNoSkip(),
 			Message: "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
 		},
 		{

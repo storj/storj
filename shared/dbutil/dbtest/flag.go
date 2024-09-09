@@ -79,6 +79,11 @@ func PickPostgres(t TB) string {
 	if *postgres == "" || strings.EqualFold(*postgres, "omit") {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + DefaultPostgres)
 	}
+	return PickPostgresNoSkip()
+}
+
+// PickPostgresNoSkip picks one postgres database from flag, but doesn't autoskip.
+func PickPostgresNoSkip() string {
 	return pickNext(*postgres, &pickPostgres)
 }
 
@@ -87,14 +92,24 @@ func PickCockroach(t TB) string {
 	if *cockroach == "" || strings.EqualFold(*cockroach, "omit") {
 		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + DefaultCockroach)
 	}
+	return PickCockroachNoSkip()
+}
+
+// PickCockroachNoSkip picks one cockroach database from flag, but doesn't autoskip.
+func PickCockroachNoSkip() string {
 	return pickNext(*cockroach, &pickCockroach)
 }
 
 // PickSpanner picks one spanner database from flag.
 func PickSpanner(t TB) string {
-	if *spanner == "" || strings.EqualFold(*spanner, "omit") || strings.EqualFold(*spanner, "") {
+	if *spanner == "" || strings.EqualFold(*spanner, "omit") {
 		t.Skip("Spanner flag missing, example: -spanner-test-db=" + DefaultSpanner)
 	}
+	return PickSpannerNoSkip()
+}
+
+// PickSpannerNoSkip picks one spanner database from flag, but doesn't autoskip.
+func PickSpannerNoSkip() string {
 	return pickNext(*spanner, &pickSpanner)
 }
 

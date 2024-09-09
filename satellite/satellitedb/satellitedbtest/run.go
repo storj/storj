@@ -71,15 +71,11 @@ type Database struct {
 	Message string
 }
 
-type ignoreSkip struct{}
-
-func (ignoreSkip) Skip(...interface{}) {}
-
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
 	var dbs []SatelliteDatabases
 
-	postgresConnStr := dbtest.PickPostgres(ignoreSkip{})
+	postgresConnStr := dbtest.PickPostgresNoSkip()
 	if !strings.EqualFold(postgresConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Postgres",
@@ -88,7 +84,7 @@ func Databases() []SatelliteDatabases {
 		})
 	}
 
-	cockroachConnStr := dbtest.PickCockroach(ignoreSkip{})
+	cockroachConnStr := dbtest.PickCockroachNoSkip()
 	if !strings.EqualFold(cockroachConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Cockroach",
@@ -97,7 +93,7 @@ func Databases() []SatelliteDatabases {
 		})
 	}
 
-	spanner := dbtest.PickSpanner(ignoreSkip{})
+	spanner := dbtest.PickSpannerNoSkip()
 	if !strings.EqualFold(spanner, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Spanner",
