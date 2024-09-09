@@ -24,7 +24,7 @@
     "@stripe/stripe-js": "2.4.0",
     "bip39-english": "2.5.0",
     "chart.js": "4.4.1",
-    "lucide-vue-next": "0.408.0",
+    "lucide-vue-next": "0.439.0",
     "papaparse": "5.4.1",
     "pinia": "2.1.7",
     "qrcode": "1.5.3",
