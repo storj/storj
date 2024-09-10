@@ -69,6 +69,7 @@ export class FrontendConfig {
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
     objectLockUIEnabled: boolean;
+    valdiSignUpURL: string;
 }
 
 export class MultiCaptchaConfig {
