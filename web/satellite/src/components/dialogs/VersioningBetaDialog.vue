@@ -199,9 +199,9 @@ const optedIn = ref(false);
 const step = ref(0);
 
 /**
- * whether object lock feature is enabled.
+ * whether object lock UI is globally enabled.
  */
-const objectLockEnabled = computed(() => configStore.state.config.objectLockEnabled);
+const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
 
 function goToDocs() {
     analyticsStore.pageVisit('https://docs.storj.io/dcs/buckets/object-versioning', PageVisitSource.DOCS);

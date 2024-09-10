@@ -382,7 +382,7 @@ const allowVersioningStep = computed<boolean>(() => {
  * Whether object lock is enabled for current project.
  */
 const objectLockUIEnabled = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabled && configStore.state.config.objectLockEnabled;
+    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
 });
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {

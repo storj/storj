@@ -57,7 +57,15 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const selectedProjectConfig: ComputedRef<ProjectConfig> = computed(() => state.selectedProjectConfig);
     const versioningUIEnabled: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.versioningUIEnabled);
-    const objectLockUIEnabled: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.objectLockUIEnabled);
+
+    /**
+     * This indicates whether a project has object lock enabled for it.
+     * In the background (satellite), it is dependent on whether the object
+     * lock feature is enabled for the satellite (metainfo) and whether
+     * the project has opted in for versioning (versioningUIEnabled).
+     */
+    const objectLockUIEnabledForProject: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.objectLockUIEnabled);
+
     const promptForVersioningBeta: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.promptForVersioningBeta);
 
     const usersFirstProject = computed<Project>(() => {
@@ -337,7 +345,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state,
         selectedProjectConfig,
         versioningUIEnabled,
-        objectLockUIEnabled,
+        objectLockUIEnabledForProject,
         promptForVersioningBeta,
         usersFirstProject,
         getProjects,

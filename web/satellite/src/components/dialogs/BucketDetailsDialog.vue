@@ -108,9 +108,12 @@ const model = defineModel<boolean>({ required: true });
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
 /**
- * Whether object lock has been enabled for current project.
+ * Whether object lock UI is enabled.
  */
-const objectLockUIEnabled = computed(() => projectsStore.objectLockUIEnabled);
+const objectLockUIEnabled = computed<boolean>(() => {
+    return configStore.objectLockUIEnabled
+      && projectsStore.objectLockUIEnabledForProject;
+});
 
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;

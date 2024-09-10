@@ -158,8 +158,10 @@ import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { BucketMetadata } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 
@@ -200,7 +202,9 @@ const bucket = computed<BucketMetadata | undefined>(() => {
  * Whether object lock is enabled for current bucket.
  */
 const objectLockEnabledForBucket = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabled && !!bucket.value?.objectLockEnabled;
+    return configStore.objectLockUIEnabled
+        && projectsStore.objectLockUIEnabledForProject
+        && !!bucket.value?.objectLockEnabled;
 });
 
 /**

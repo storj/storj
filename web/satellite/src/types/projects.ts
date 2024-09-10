@@ -178,8 +178,8 @@ export class ProjectConfig {
         public _role: number = 1,
         // This indicates whether a project has object lock enabled for it.
         // In the background (satellite), it is dependent on whether the object
-        // lock feature is enabled for the satellite (FrontendConfig.objectLockEnabled)
-        // and whether the project has opted in for versioning (versioningUIEnabled).
+        // lock feature is enabled for the satellite (metainfo) and whether
+        // the project has opted in for versioning (versioningUIEnabled).
         public objectLockUIEnabled: boolean = false,
     ) {}
 
