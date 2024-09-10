@@ -1626,18 +1626,17 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	now := time.Now()
 
-	var canRead, canList, canGetRetention, canBypassGovernance bool
+	var canRead, canList, canGetRetention bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
-		VerifyPermission{
+	actions := []VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
 				Bucket:        req.Bucket,
@@ -1646,8 +1645,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			},
 			ActionPermitted: &canRead,
 			Optional:        true,
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionList,
 				Bucket:        req.Bucket,
@@ -1656,8 +1654,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			},
 			ActionPermitted: &canList,
 			Optional:        true,
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionGetObjectRetention,
 				Bucket:        req.Bucket,
@@ -1667,17 +1664,20 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
-		VerifyPermission{
+	}
+
+	if req.BypassGovernanceRetention {
+		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionBypassGovernanceRetention,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canBypassGovernance,
-			Optional:        !req.BypassGovernanceRetention,
-		},
-	)
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete, actions...)
 	if err != nil {
 		return nil, err
 	}
@@ -2150,12 +2150,28 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 	}
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionPutObjectRetention,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedObjectKey,
-		Time:          now,
-	}, console.RateLimitPut)
+
+	actions := []VerifyPermission{{
+		Action: macaroon.Action{
+			Op:            macaroon.ActionPutObjectRetention,
+			Bucket:        req.Bucket,
+			EncryptedPath: req.EncryptedObjectKey,
+			Time:          now,
+		},
+	}}
+
+	if req.BypassGovernanceRetention {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionBypassGovernanceRetention,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, actions...)
 	if err != nil {
 		return nil, err
 	}
@@ -2187,8 +2203,9 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 
 	if len(req.ObjectVersion) == 0 {
 		err = endpoint.metabase.SetObjectLastCommittedRetention(ctx, metabase.SetObjectLastCommittedRetention{
-			ObjectLocation: loc,
-			Retention:      retention,
+			ObjectLocation:   loc,
+			Retention:        retention,
+			BypassGovernance: req.BypassGovernanceRetention,
 		})
 	} else {
 		var sv metabase.StreamVersionID
@@ -2197,9 +2214,10 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 		err = endpoint.metabase.SetObjectExactVersionRetention(ctx, metabase.SetObjectExactVersionRetention{
-			ObjectLocation: loc,
-			Version:        sv.Version(),
-			Retention:      retention,
+			ObjectLocation:   loc,
+			Version:          sv.Version(),
+			Retention:        retention,
+			BypassGovernance: req.BypassGovernanceRetention,
 		})
 	}
 	if err != nil {
