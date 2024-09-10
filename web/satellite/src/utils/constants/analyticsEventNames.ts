@@ -51,7 +51,9 @@ export enum AnalyticsEvent {
     ARRIVED_FROM_SOURCE = 'Arrived From Source',
     APPLICATIONS_SETUP_CLICKED = 'Applications Setup Clicked',
     APPLICATIONS_SETUP_COMPLETED = 'Applications Setup Completed',
-    APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked'
+    APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked',
+    CLOUD_GPU_NAVIGATION_ITEM_CLICKED = 'Cloud GPU Navigation Item Clicked',
+    CLOUD_GPU_SIGN_UP_CLICKED = 'Cloud GPU Sign Up Clicked',
 }
 
 export enum AnalyticsErrorEventSource {
@@ -124,7 +126,8 @@ export enum AnalyticsErrorEventSource {
 export enum PageVisitSource {
     DOCS = 'docs',
     FORUM = 'forum',
-    SUPPORT = 'support'
+    SUPPORT = 'support',
+    VALDI = 'valdi'
 }
 
 export const SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE = 'https://docs.storj.io/learn/concepts/encryption-key/storj-vs-user-managed-encryption';
