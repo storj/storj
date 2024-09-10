@@ -92,7 +92,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
@@ -154,9 +154,9 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	if retention.Enabled() {
 		if bucket.Versioning != buckets.VersioningEnabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
 		} else if !bucket.ObjectLockEnabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 	}
 
@@ -448,7 +448,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
 
 	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
-		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
@@ -500,7 +500,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	if retention.Enabled() && !bucket.ObjectLockEnabled {
-		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
 	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, false); err != nil {
@@ -1872,7 +1872,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -1884,7 +1884,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -1944,7 +1944,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -1956,7 +1956,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -2015,7 +2015,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -2027,7 +2027,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -2060,7 +2060,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	}
 
 	if !retention.Enabled() {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "object does not have a retention configuration")
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockObjectRetentionConfigurationMissing, "object does not have a retention configuration")
 	}
 
 	return &pb.GetObjectRetentionResponse{
@@ -2094,7 +2094,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	retention := protobufRetentionToMetabase(req.Retention)
@@ -2108,7 +2108,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -2679,7 +2679,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 	objectLockRequested := retention.Enabled() || req.LegalHold
 	if objectLockRequested && !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	var versioningEnabled bool
@@ -2694,7 +2694,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
 		}
 		if !enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 		versioningEnabled = true
 	} else {
@@ -2959,7 +2959,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
 		}
 		if !enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 		versioningEnabled = true
 	} else {

@@ -3396,7 +3396,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
 				_, err := endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -3405,7 +3405,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 
 				key := testrand.Path()
 				_, err := endpoint.BeginObject(ctx, newBeginReq(apiKey, bucketName, key))
-				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 
 				requireNoObject(t, bucketName, key)
 			})
@@ -3508,7 +3508,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 
 				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
 				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -3518,7 +3518,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				key := testrand.Path()
 				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
 				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 
 				requireNoObject(t, bucketName, key)
 			})
@@ -3799,7 +3799,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
 			})
 			require.Nil(t, resp)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this bucket")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
@@ -3816,7 +3816,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			}
 			resp, err := endpoint.GetObjectLegalHold(ctx, req)
 			require.Nil(t, resp)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockEndpointsDisabled, "Object Lock feature is not enabled")
 		})
 
 		t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4054,7 +4054,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 				ObjectVersion:      obj.StreamVersionID().Bytes(),
 				Enabled:            true,
 			})
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this bucket")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
 			requireLegalHold(t, obj.Location(), obj.Version, false)
 		})
 
@@ -4074,7 +4074,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 			}
 
 			_, err := endpoint.SetObjectLegalHold(ctx, req)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockEndpointsDisabled, "Object Lock feature is not enabled")
 			requireLegalHold(t, obj.Location(), obj.Version, false)
 		})
 
@@ -4363,7 +4363,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 				ObjectVersion:      object.StreamVersionID().Bytes(),
 			})
 			require.Nil(t, resp)
-			rpctest.RequireStatus(t, err, rpcstatus.NotFound, "object does not have a retention configuration")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectRetentionConfigurationMissing, "object does not have a retention configuration")
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -4374,7 +4374,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
 			})
 			require.Nil(t, resp)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this bucket")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
@@ -4391,7 +4391,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			}
 			resp, err := endpoint.GetObjectRetention(ctx, req)
 			require.Nil(t, resp)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockEndpointsDisabled, "Object Lock feature is not enabled")
 		})
 
 		t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4705,7 +4705,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				EncryptedObjectKey: []byte(obj.ObjectKey),
 				ObjectVersion:      obj.StreamVersionID().Bytes(),
 			})
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock is not enabled for this bucket")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
 			requireRetention(t, obj.Location(), obj.Version, metabase.Retention{})
 		})
 
@@ -4725,7 +4725,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			}
 
 			_, err := endpoint.SetObjectRetention(ctx, req)
-			rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "Object Lock feature is not enabled")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockEndpointsDisabled, "Object Lock feature is not enabled")
 			requireRetention(t, obj.Location(), obj.Version, obj.Retention)
 		})
 
@@ -5318,7 +5318,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				NewEncryptedObjectKey: []byte(dstKey),
 				Retention:             retentionToProto(randRetention()),
 			})
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 
@@ -5630,7 +5630,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				NewEncryptedObjectKey: []byte(dstKey),
 				Retention:             retentionToProto(expectedRetention),
 			})
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 
@@ -5648,7 +5648,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				NewEncryptedObjectKey: []byte(dstKey),
 				Retention:             retentionToProto(randRetention()),
 			})
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 
