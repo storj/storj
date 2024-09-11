@@ -290,7 +290,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
@@ -307,7 +307,7 @@ const configStore = useConfigStore();
 const route = useRoute();
 const router = useRouter();
 
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck } = usePreCheck();
 const { mdAndDown } = useDisplay();
 
 const model = computed<boolean>({

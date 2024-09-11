@@ -9,7 +9,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { ExpirationInfo, User } from '@/types/users';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
-export function useTrialCheck() {
+export function usePreCheck() {
     const userStore = useUsersStore();
     const projectsStore = useProjectsStore();
     const appStore = useAppStore();

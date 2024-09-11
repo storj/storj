@@ -227,7 +227,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { ROUTES } from '@/router';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -245,7 +245,7 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
-const { withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);

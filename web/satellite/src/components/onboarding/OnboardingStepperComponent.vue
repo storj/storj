@@ -77,7 +77,7 @@ import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
@@ -106,7 +106,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
-const { withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 let passphraseDialogCallback: () => void = () => {};
 

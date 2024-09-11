@@ -135,7 +135,7 @@ import {
 import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
 
 import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { SortItem } from '@/types/common';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -143,7 +143,7 @@ import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ApplicationItem from '@/components/ApplicationItem.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = usePreCheck();
 
 const selectedChip = ref<AppCategory>(AppCategory.All);
 const search = ref<string>('');

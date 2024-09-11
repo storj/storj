@@ -274,7 +274,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { ROUTES } from '@/router';
 import { Versioning } from '@/types/versioning';
 import { BucketMetadata } from '@/types/buckets';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { DuplicateUploadError } from '@/utils/error';
 import { useUsersStore } from '@/store/modules/usersStore';
 
@@ -303,7 +303,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 const { smAndUp } = useDisplay();
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck } = usePreCheck();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();

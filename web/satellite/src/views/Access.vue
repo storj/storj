@@ -35,7 +35,7 @@ import {
 } from 'vuetify/components';
 import { CirclePlus } from 'lucide-vue-next';
 
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { SetupStep } from '@/types/setupAccess';
 
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
@@ -46,7 +46,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const dialog = ref<boolean>(false);
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 /**
  * Starts create access grant flow if user's free trial is not expired.
