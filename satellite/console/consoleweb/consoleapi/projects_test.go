@@ -411,6 +411,9 @@ func TestDeleteProject(t *testing.T) {
 		sat.API.Console.Service.TestSetNow(func() time.Time {
 			return timestamp
 		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
 
 		goodCode, err := console.NewMFAPasscode(mfaSecret, timestamp)
 		require.NoError(t, err)
@@ -509,7 +512,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, sat.API.DB.Console().APIKeys().DeleteAllByProjectID(ctx, p))
 
 		// test pro user deleting project with current usage fails
-		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp))
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp.Add(-time.Hour)))
 
 		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 		require.NoError(t, err)
@@ -518,7 +521,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, json.Unmarshal(body, &resp))
 		require.True(t, resp.CurrentUsage)
 
-		_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, time.Now(), 100)
+		_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 100)
 		require.NoError(t, err)
 
 		// test pro user deleting project with incomplete invoicing fails
