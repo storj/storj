@@ -73,6 +73,7 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 		case nodes.ErrNodeAPIKeyInvalid.Has(err):
 			controller.serveError(w, http.StatusUnauthorized, ErrNodes.Wrap(err))
 		case nodes.Error.Has(err):
+			controller.serveError(w, http.StatusBadGateway, ErrNodes.Wrap(err))
 		default:
 			controller.log.Error("could not add node", zap.Error(err))
 			controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
