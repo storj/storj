@@ -623,7 +623,7 @@ function onShareClick(file: BrowserObject): void {
 }
 
 /**
- * Handles delete button click event.
+ * Handles lock object button click event.
  */
 function onLockObjectClick(file: BrowserObject): void {
     lockActionFile.value = file;

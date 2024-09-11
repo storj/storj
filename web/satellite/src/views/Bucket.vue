@@ -203,7 +203,7 @@
         </v-col>
 
         <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-        <browser-card-view-component v-else-if="isCardView" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <browser-card-view-component v-else-if="isCardView" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
         <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
     </v-container>
 
@@ -314,7 +314,12 @@ const duplicateFiles = ref<string[]>([]);
 /**
  * Whether versioning has been enabled for current project and allowed for this bucket specifically.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning !== Versioning.NotSupported);
+const versioningUIEnabled = computed(() => {
+    return projectsStore.versioningUIEnabled
+      && bucket.value
+      && bucket.value.versioning !== Versioning.NotSupported
+      && bucket.value.versioning !== Versioning.Unversioned;
+});
 
 /**
  * Whether the user should be warned when uploading duplicate files.
@@ -328,7 +333,7 @@ const ignoreDuplicateUploads = computed<boolean>(() => {
 /**
  * Whether object versions should be shown.
  */
-const showObjectVersions = computed(() => obStore.state.showObjectVersions);
+const showObjectVersions = computed(() =>  versioningUIEnabled.value && obStore.state.showObjectVersions);
 
 /**
  * Returns the name of the selected bucket.
