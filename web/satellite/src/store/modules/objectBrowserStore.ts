@@ -1119,12 +1119,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.continuationTokens = new Map<number, string>();
     }
 
-    function toggleShowObjectVersions(): void {
+    function toggleShowObjectVersions(toggle?: boolean): void {
         clearTokens();
         updateVersionsExpandedKeys([]);
         updateSelectedFiles([]);
         updateFiles(state.path, []);
-        state.showObjectVersions = !state.showObjectVersions;
+        state.showObjectVersions = toggle ?? !state.showObjectVersions;
     }
 
     function setObjectCountOfSelectedBucket(count: number): void {
