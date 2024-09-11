@@ -215,8 +215,9 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				now := time.Now()
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storj.GovernanceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "invalid retention mode 2")
+				check(storj.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -240,6 +241,69 @@ func TestBeginObjectNextVersion(t *testing.T) {
 					Version:  1,
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
+
+		t.Run("Legal Hold", func(t *testing.T) {
+			t.Run("Success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				retention := metabase.Retention{
+					Mode:        storj.GovernanceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+						LegalHold:    true,
+					},
+					Version: 1,
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  objectStream.ProjectID,
+							BucketName: objectStream.BucketName,
+							ObjectKey:  objectStream.ObjectKey,
+							Version:    1,
+							StreamID:   objectStream.StreamID,
+						},
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+						Retention:              retention,
+						LegalHold:              true,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("With TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						LegalHold:    true,
+						ExpiresAt:    &expires,
+					},
+					Version:  1,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if LegalHold is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{}.Check(ctx, t, db)
