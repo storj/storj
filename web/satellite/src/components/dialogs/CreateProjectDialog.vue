@@ -247,7 +247,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, ref, computed, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VAlert,
@@ -304,7 +304,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 const inputText = ref<string>('');
 const name = ref<string>('');

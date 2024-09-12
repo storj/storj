@@ -271,7 +271,7 @@ const projectMembers = computed((): RenderedItem[] => {
     const projectMembersToReturn = projectMembers.filter((member) => member.getUserID() !== selectedProject.value.ownerId);
 
     // if the project owner exists, place at the front of the members list
-    projectOwner && projectMembersToReturn.unshift(projectOwner);
+    if (projectOwner) projectMembersToReturn.unshift(projectOwner);
 
     return projectMembersToReturn.map(member => {
         let role = member.getRole();
@@ -378,7 +378,11 @@ async function onUpdateSortBy(sortBy: {key: keyof ProjectMemberOrderBy, order: k
  * Handles on invite raw action click logic depending on expiration status.
  */
 async function onResendOrCopyClick(expired: boolean, email: string): Promise<void> {
-    expired ? await resendInvite(email) : await copyInviteLink(email);
+    if (expired) {
+        await resendInvite(email);
+    } else {
+        await copyInviteLink(email);
+    }
 }
 
 /**
