@@ -329,22 +329,24 @@ function onSelectPricingPlan(p: PricingPlanInfo) {
 /**
  * Decides whether to move to the success step or the pricing plan selection.
  */
-function toNextStep() {
+async function toNextStep() {
     const info = stepInfos[step.value];
     if (info.ref.value?.validate?.() === false) {
         return;
     }
-    withLoading(async () => {
-        try {
-            await info.beforeNext?.();
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-            return;
-        }
-        if (info.next.value) {
-            step.value = info.next.value;
-        }
-    });
+
+    isLoading.value = true;
+    try {
+        await info.beforeNext?.();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+        return;
+    } finally {
+        isLoading.value = false;
+    }
+    if (info.next.value) {
+        step.value = info.next.value;
+    }
 }
 
 async function toPrevStep() {
