@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -764,7 +765,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		object.Retention = nil
 	}
 	if !canGetLegalHold {
-		object.LegalHold = false
+		object.LegalHold = nil
 	}
 
 	endpoint.log.Debug("Object Get", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
@@ -1032,7 +1033,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		protoObject.Retention = nil
 	}
 	if !canGetLegalHold {
-		protoObject.LegalHold = false
+		protoObject.LegalHold = nil
 	}
 
 	segmentList, err := convertSegmentListResults(segments)
@@ -2240,7 +2241,9 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		},
 
 		Retention: retention,
-		LegalHold: object.LegalHold,
+		LegalHold: &types.BoolValue{
+			Value: object.LegalHold,
+		},
 	}
 
 	return result, nil

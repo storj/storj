@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20240911161944-293dbaeb442c
+	storj.io/common v0.0.0-20240913104706-8fd6fa0286a3
 	storj.io/edge v1.79.1-0.20240529152256-bcccced4faab
 	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )
@@ -269,5 +269,5 @@ require (
 	storj.io/minio v0.0.0-20240620235917-ab8893f67859 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
-	storj.io/uplink v1.13.2-0.20240821111301-f296d41bedbb // indirect
+	storj.io/uplink v1.13.2-0.20240913115229-e8ce0e91b41f // indirect
 )

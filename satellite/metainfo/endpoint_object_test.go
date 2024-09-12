@@ -4816,7 +4816,8 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				resp, err := endpoint.GetObject(ctx, getLockedObj)
 				require.NoError(t, err)
 				requireEqualRetention(t, lockedObj.Retention, resp.Object.Retention)
-				require.True(t, resp.Object.LegalHold)
+				require.NotNil(t, resp.Object.LegalHold)
+				require.True(t, resp.Object.LegalHold.Value)
 
 				resp, err = endpoint.GetObject(ctx, &pb.GetObjectRequest{
 					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -4826,7 +4827,8 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
-				require.False(t, resp.Object.LegalHold)
+				require.NotNil(t, resp.Object.LegalHold)
+				require.False(t, resp.Object.LegalHold.Value)
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4839,7 +4841,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				resp, err = endpoint.GetObject(ctx, getLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
-				require.False(t, resp.Object.LegalHold)
+				require.Nil(t, resp.Object.LegalHold)
 			})
 		})
 
@@ -4861,7 +4863,8 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				resp, err := endpoint.DownloadObject(ctx, dlLockedObj)
 				require.NoError(t, err)
 				requireEqualRetention(t, lockedObj.Retention, resp.Object.Retention)
-				require.True(t, resp.Object.LegalHold)
+				require.NotNil(t, resp.Object.LegalHold)
+				require.True(t, resp.Object.LegalHold.Value)
 
 				resp, err = endpoint.DownloadObject(ctx, &pb.DownloadObjectRequest{
 					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -4871,7 +4874,8 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
-				require.False(t, resp.Object.LegalHold)
+				require.NotNil(t, resp.Object.LegalHold)
+				require.False(t, resp.Object.LegalHold.Value)
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
@@ -4884,7 +4888,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				resp, err = endpoint.DownloadObject(ctx, dlLockedObj)
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
-				require.False(t, resp.Object.LegalHold)
+				require.Nil(t, resp.Object.LegalHold)
 			})
 		})
 	})
