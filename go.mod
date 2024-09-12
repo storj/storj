@@ -2,7 +2,7 @@ module storj.io/storj
 
 go 1.21
 
-toolchain go1.22.6
+toolchain go1.21.0
 
 require (
 	cloud.google.com/go v0.115.1
