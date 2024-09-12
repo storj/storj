@@ -202,9 +202,16 @@
             </v-row>
         </v-col>
 
-        <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-        <browser-card-view-component v-else-if="isCardView" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-        <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <v-card v-if="isFetching">
+            <v-card-item>
+                <v-skeleton-loader type="card" />
+            </v-card-item>
+        </v-card>
+        <template v-else>
+            <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-card-view-component v-else-if="isCardView" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        </template>
     </v-container>
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
@@ -224,6 +231,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
+    VCard,
+    VCardItem,
     VContainer,
     VCol,
     VRow,
@@ -232,6 +241,7 @@ import {
     VList,
     VListItem,
     VListItemTitle,
+    VSkeletonLoader,
     VSpacer,
     VDivider,
     VBtnToggle,
@@ -333,7 +343,7 @@ const ignoreDuplicateUploads = computed<boolean>(() => {
 /**
  * Whether object versions should be shown.
  */
-const showObjectVersions = computed(() =>  versioningUIEnabled.value && obStore.state.showObjectVersions);
+const showObjectVersions = computed(() =>  versioningUIEnabled.value && obStore.state.showObjectVersions.value);
 
 /**
  * Returns the name of the selected bucket.
@@ -556,6 +566,11 @@ onMounted(async () => {
     if (!bucket.value) {
         goToBuckets();
         return;
+    }
+
+    if (versioningUIEnabled.value && !obStore.state.showObjectVersions.userModified) {
+        // only toggle this view as default if the user hasn't already changed it
+        obStore.toggleShowObjectVersions(true, false);
     }
 
     if (isPromptForPassphrase.value) {
