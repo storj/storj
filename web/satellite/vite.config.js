@@ -8,6 +8,7 @@ import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 import { defineConfig } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import viteCompression from 'vite-plugin-compression2';
+import checker from 'vite-plugin-checker';
 
 import papaParseWorker from './vitePlugins/papaParseWorker';
 
@@ -23,6 +24,7 @@ const plugins = [
             configFile: 'src/styles/settings.scss',
         },
     }),
+    checker({ typescript: true, vueTsc: true }),
     papaParseWorker(),
 ];
 

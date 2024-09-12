@@ -199,7 +199,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
@@ -209,7 +209,7 @@ import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberD
 import ChangeMemberRoleDialog from '@/components/dialogs/ChangeMemberRoleDialog.vue';
 
 type RenderedItem = {
-    id: string,
+    id: string | undefined,
     name: string,
     email: string,
     role: ProjectRole,
@@ -240,7 +240,7 @@ const selectedMembers = ref<string[]>([]);
 const memberToDelete = ref<string>();
 const memberToUpdate = ref<RenderedItem>();
 
-const headers = ref([
+const headers = ref<DataTableHeader[]>([
     {
         title: 'Name',
         align: 'start',
@@ -273,7 +273,7 @@ const projectMembers = computed((): RenderedItem[] => {
     // if the project owner exists, place at the front of the members list
     if (projectOwner) projectMembersToReturn.unshift(projectOwner);
 
-    return projectMembersToReturn.map(member => {
+    return projectMembersToReturn.map<RenderedItem>(member => {
         let role = member.getRole();
         if (member.getUserID() === projectOwner?.getUserID()) {
             role = ProjectRole.Owner;

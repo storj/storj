@@ -91,7 +91,7 @@ interface StepData {
     description: string;
     buttonTxt: string;
     color: string;
-    variant: string;
+    variant: VBtn['$props']['variant'];
     disabled: boolean;
     prependIcon?: FunctionalComponent;
     appendIcon?: FunctionalComponent;
@@ -162,7 +162,7 @@ const steps = computed<StepData[]>(() => {
                 description: 'You are ready to upload files in your bucket, and share with the world.',
                 buttonTxt: 'Go to Upload',
                 color: uploadStepInfo.value.color,
-                variant: uploadStepInfo.value.variant,
+                variant: uploadStepInfo.value.variant as VBtn['$props']['variant'],
                 disabled: uploadStepInfo.value.disabled,
                 appendIcon: uploadStepInfo.value.appendIcon,
                 onClick: uploadFilesClicked,
@@ -175,7 +175,7 @@ const steps = computed<StepData[]>(() => {
                 description: onboardingInfo.value?.accessText || 'Connect your S3 compatible application to Storj with S3 credentials.',
                 buttonTxt: onboardingInfo.value?.accessBtnText || 'View Applications',
                 color: accessStepInfo.value.color,
-                variant: accessStepInfo.value.variant,
+                variant: accessStepInfo.value.variant as VBtn['$props']['variant'],
                 disabled: accessStepInfo.value.disabled,
                 appendIcon: accessStepInfo.value.appendIcon,
                 onClick: openAccessDialog,

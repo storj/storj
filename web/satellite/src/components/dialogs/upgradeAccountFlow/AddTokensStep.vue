@@ -110,7 +110,7 @@ const notify = useNotify();
 const route = useRoute();
 
 const canvas = ref<HTMLCanvasElement>();
-const intervalID = ref<NodeJS.Timer>();
+const intervalID = ref<number>();
 const viewState = ref<ViewState>(ViewState.Default);
 
 defineProps<{
@@ -211,7 +211,7 @@ watch(() => pendingPayments.value, async () => {
 onMounted(async (): Promise<void> => {
     setViewState();
 
-    intervalID.value = setInterval(async () => {
+    intervalID.value = window.setInterval(async () => {
         try {
             await billingStore.getPaymentsWithConfirmations();
         } catch { /* empty */ }

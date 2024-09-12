@@ -224,13 +224,13 @@ const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
 const isGeographicDistributionDialogShown = ref<boolean>(false);
-const fileToDelete = ref<BrowserObject | null>(null);
+const fileToDelete = ref<BrowserObject | undefined>();
 const isDeleteFileDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
 const model = defineModel<boolean>({ required: true });
-const currentFile = defineModel<BrowserObject | null>('currentFile', { required: true });
+const currentFile = defineModel<BrowserObject | undefined>('currentFile', { required: true });
 
 const constCarouselIndex = computed(() => carouselIndex.value);
 const carouselIndex = ref(0);
@@ -396,7 +396,7 @@ function onDeleteFileClick(): void {
  * Closes the preview on file delete dialog close.
  */
 function onDeleteFileDialogClose(): void {
-    fileToDelete.value = null;
+    fileToDelete.value = undefined;
     model.value = false;
     emit('fileDeleteRequested');
 }

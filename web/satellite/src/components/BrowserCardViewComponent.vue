@@ -222,6 +222,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
+import { SortItem } from '@/types/common';
 
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
@@ -255,7 +256,7 @@ const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
 const lockActionFile = ref<FullBrowserObject | null>(null);
-const fileToPreview = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>();
 const fileToDelete = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
@@ -268,7 +269,7 @@ let previewQueue: BrowserObjectWrapper[] = [];
 let processingPreview = false;
 
 const sortKey = ref<string>('name');
-const sortOrder = ref<string>('asc');
+const sortOrder = ref<'asc' | 'desc'>('asc');
 const sortKeys = ['Name', 'Type', 'Size', 'Date'];
 const pageSizes = [
     { title: '12', value: 12 },
@@ -376,7 +377,7 @@ const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
 /**
  * The sorting criteria to be used for the file list.
  */
-const sortBy = computed(() => [{ key: sortKey.value, order: sortOrder.value }]);
+const sortBy = computed<SortItem[]>(() => [{ key: sortKey.value, order: sortOrder.value }]);
 
 /**
  * Returns the files to be displayed in the browser.

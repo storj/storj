@@ -136,6 +136,7 @@ import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Searc
 
 import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
 import { useTrialCheck } from '@/composables/useTrialCheck';
+import { SortItem } from '@/types/common';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -147,7 +148,7 @@ const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck
 const selectedChip = ref<AppCategory>(AppCategory.All);
 const search = ref<string>('');
 const sortKey = ref<string>('name');
-const sortOrder = ref<string>('asc');
+const sortOrder = ref<'asc' | 'desc'>('asc');
 const sortKeys = ['Name', 'Category'];
 
 /**
@@ -158,7 +159,7 @@ const showUplinkItem = computed<boolean>(() => !search.value && selectedChip.val
 /**
  * The sorting criteria to be used for the file list.
  */
-const sortBy = computed(() => [{ key: sortKey.value, order: sortOrder.value }]);
+const sortBy = computed<SortItem[]>(() => [{ key: sortKey.value, order: sortOrder.value }]);
 
 /**
  * Returns all application categories.
