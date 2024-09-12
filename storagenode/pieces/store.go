@@ -165,7 +165,7 @@ type Config struct {
 	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
 	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`
 
-	EnableFlatExpirationStore        bool          `help:"use flat files for the piece expiration store instead of a sqlite database" default:"false"`
+	EnableFlatExpirationStore        bool          `help:"use flat files for the piece expiration store instead of a sqlite database" default:"true"`
 	FlatExpirationStoreFileHandles   int           `help:"number of concurrent file handles to use for the flat expiration store" default:"1000"`
 	FlatExpirationStorePath          string        `help:"where to store flat piece expiration files, relative to the data directory" default:"piece_expirations"`
 	FlatExpirationStoreMaxBufferTime time.Duration `help:"maximum time to buffer writes to the flat expiration store before flushing" default:"5m"`
