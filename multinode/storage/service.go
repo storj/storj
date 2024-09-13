@@ -29,11 +29,11 @@ var (
 type Service struct {
 	log    *zap.Logger
 	dialer rpc.Dialer
-	nodes  nodes.DB
+	nodes  *nodes.Service
 }
 
 // NewService creates new instance of Service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, nodes nodes.DB) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, nodes *nodes.Service) *Service {
 	return &Service{
 		log:    log,
 		dialer: dialer,
@@ -126,6 +126,10 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
+		nodeinfo := service.nodes.FetchNodeInfo(ctx, node)
+		if nodeinfo.Status != nodes.StatusOnline {
+			continue
+		}
 		usage, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
 		if err != nil {
 			if nodes.ErrNodeNotReachable.Has(err) {
@@ -159,6 +163,10 @@ func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace Disk
 	}
 
 	for _, node := range listNodes {
+		nodeinfo := service.nodes.FetchNodeInfo(ctx, node)
+		if nodeinfo.Status != nodes.StatusOnline {
+			continue
+		}
 		diskSpace, err := service.dialDiskSpace(ctx, node)
 		if err != nil {
 			if nodes.ErrNodeNotReachable.Has(err) {

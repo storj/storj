@@ -6,6 +6,7 @@ import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vue
 import { RootState } from '@/app/store/index';
 import { BandwidthTraffic } from '@/bandwidth';
 import { Bandwidth } from '@/bandwidth/service';
+import { NodeStatus } from '@/nodes';
 
 /**
  * BandwidthState is a representation of bandwidth egress and ingress.
@@ -55,9 +56,8 @@ export class BandwidthModule implements Module<BandwidthState, RootState> {
      * @param ctx - context of the Vuex action.
      */
     public async fetch(ctx: ActionContext<BandwidthState, RootState>): Promise<void> {
-        const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
+        const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : ctx.rootState.nodes.trustedSatellites[0].id;
         const selectedNodeId = ctx.rootState.nodes.selectedNode ? ctx.rootState.nodes.selectedNode.id : null;
-
         const traffic = await this.bandwidth.fetch(selectedSatelliteId, selectedNodeId);
 
         ctx.commit('populate', traffic);

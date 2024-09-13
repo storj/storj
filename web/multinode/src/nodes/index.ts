@@ -51,7 +51,7 @@ export class Node {
     }
 
     public get statusText(): string {
-        return NodeStatus[this.status];
+        return this.status;
     }
 }
 

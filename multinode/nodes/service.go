@@ -116,6 +116,85 @@ func (service *Service) Remove(ctx context.Context, id storj.NodeID) (err error)
 	return Error.Wrap(service.nodes.Remove(ctx, id))
 }
 
+// Fetch infomation of a particular node
+func (service *Service) FetchNodeInfo(ctx context.Context, node Node) (_ NodeInfo) {
+	nodeInfo := NodeInfo{
+		ID:   node.ID,
+		Name: node.Name,
+	}
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		nodeInfo.Status = StatusNotReachable
+		return nodeInfo
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+	storageClient := multinodepb.NewDRPCStorageClient(conn)
+	bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret[:],
+	}
+
+	nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+			nodeInfo.Status = StatusUnauthorized
+			return nodeInfo
+		}
+
+		nodeInfo.Status = StatusStorageNodeInternalError
+		return nodeInfo
+	}
+
+	lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
+	if err != nil {
+		// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
+		// only if new apikey was issued during ListInfos method call.
+		nodeInfo.Status = StatusStorageNodeInternalError
+		return nodeInfo
+	}
+
+	diskSpace, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{Header: header})
+	if err != nil {
+		nodeInfo.Status = StatusStorageNodeInternalError
+		return nodeInfo
+	}
+
+	earned, err := payoutClient.Earned(ctx, &multinodepb.EarnedRequest{Header: header})
+	if err != nil {
+		nodeInfo.Status = StatusStorageNodeInternalError
+		return nodeInfo
+	}
+
+	bandwidthSummaryRequest := &multinodepb.BandwidthMonthSummaryRequest{
+		Header: header,
+	}
+	bandwidthSummary, err := bandwidthClient.MonthSummary(ctx, bandwidthSummaryRequest)
+	if err != nil {
+		nodeInfo.Status = StatusStorageNodeInternalError
+		return nodeInfo
+	}
+
+	nodeInfo.Version = nodeVersion.Version
+	nodeInfo.LastContact = lastContact.LastContact
+	nodeInfo.DiskSpaceUsed = diskSpace.GetUsedPieces() + diskSpace.GetUsedTrash()
+	nodeInfo.DiskSpaceLeft = diskSpace.GetAvailable()
+	nodeInfo.BandwidthUsed = bandwidthSummary.GetUsed()
+	nodeInfo.TotalEarned = earned.Total
+	nodeInfo.Status = nodeStatus(lastContact.LastContact)
+
+	return nodeInfo
+}
+
 // ListInfos queries node basic info from all nodes via rpc.
 func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -130,83 +209,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 
 	var infos []NodeInfo
 	for _, node := range nodes {
-		info := func() NodeInfo {
-			nodeInfo := NodeInfo{
-				ID:   node.ID,
-				Name: node.Name,
-			}
-			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-				ID:      node.ID,
-				Address: node.PublicAddress,
-			})
-			if err != nil {
-				nodeInfo.Status = StatusNotReachable
-				return nodeInfo
-			}
-
-			defer func() {
-				err = errs.Combine(err, conn.Close())
-			}()
-
-			nodeClient := multinodepb.NewDRPCNodeClient(conn)
-			storageClient := multinodepb.NewDRPCStorageClient(conn)
-			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
-			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
-
-			header := &multinodepb.RequestHeader{
-				ApiKey: node.APISecret[:],
-			}
-
-			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
-			if err != nil {
-				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-					nodeInfo.Status = StatusUnauthorized
-					return nodeInfo
-				}
-
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
-			if err != nil {
-				// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
-				// only if new apikey was issued during ListInfos method call.
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			diskSpace, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{Header: header})
-			if err != nil {
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			earned, err := payoutClient.Earned(ctx, &multinodepb.EarnedRequest{Header: header})
-			if err != nil {
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			bandwidthSummaryRequest := &multinodepb.BandwidthMonthSummaryRequest{
-				Header: header,
-			}
-			bandwidthSummary, err := bandwidthClient.MonthSummary(ctx, bandwidthSummaryRequest)
-			if err != nil {
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			nodeInfo.Version = nodeVersion.Version
-			nodeInfo.LastContact = lastContact.LastContact
-			nodeInfo.DiskSpaceUsed = diskSpace.GetUsedPieces() + diskSpace.GetUsedTrash()
-			nodeInfo.DiskSpaceLeft = diskSpace.GetAvailable()
-			nodeInfo.BandwidthUsed = bandwidthSummary.GetUsed()
-			nodeInfo.TotalEarned = earned.Total
-			nodeInfo.Status = nodeStatus(lastContact.LastContact)
-
-			return nodeInfo
-		}()
+		info := service.FetchNodeInfo(ctx, node);
 
 		infos = append(infos, info)
 	}
@@ -315,6 +318,10 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 
 	var trustedSatellites storj.NodeURLs
 	for _, node := range listNodes {
+		nodeinfo := service.FetchNodeInfo(ctx, node)
+		if nodeinfo.Status != StatusOnline {
+			continue
+		}
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
 			if ErrNodeNotReachable.Has(err) {

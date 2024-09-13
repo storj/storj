@@ -105,12 +105,15 @@ func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
+		nodeinfo := service.nodes.FetchNodeInfo(ctx, node)
+		if nodeinfo.Status != nodes.StatusOnline {
+			continue
+		}
 		monthly, err := service.getMonthlySatellite(ctx, node, satelliteID)
 		if err != nil {
 			if nodes.ErrNodeNotReachable.Has(err) {
 				continue
 			}
-
 			return Monthly{}, Error.Wrap(err)
 		}
 
