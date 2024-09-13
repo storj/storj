@@ -420,7 +420,8 @@ storagenode_windows_amd64: storagenode-console
 		-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
 		-w /go/src/storj.io/storj \
 		-u $(shell id -u):$(shell id -g) \
-		scripts/generate-gomod-for-storagenode-go1.20.sh go.mod go.storagenode.mod
+		storjlabs/golang:${GO_VERSION} \
+		/bin/bash scripts/generate-gomod-for-storagenode-go1.20.sh go.mod go.storagenode.mod
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS} EXTRA_ARGS="-modfile go.storagenode.mod"
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
