@@ -4,7 +4,7 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { Domain } from '@/types/domains';
+import { CheckDNSResponse, Domain } from '@/types/domains';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -19,8 +19,8 @@ export const useDomainsStore = defineStore('domains', () => {
 
     const api = new DomainsHttpAPI();
 
-    async function checkDNSRecords(domain: string, cname: string, txt: string[]): Promise<void> {
-        await api.checkDNSRecords(domain, cname, txt);
+    async function checkDNSRecords(domain: string, cname: string, txt: string[]): Promise<CheckDNSResponse> {
+        return await api.checkDNSRecords(domain, cname, txt);
     }
 
     async function generateDomainCredentials(accessName: string, bucket: string, passphrase: string): Promise<string> {
