@@ -3414,11 +3414,11 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
 
-				beginReq.Retention.Mode = pb.Retention_COMPLIANCE - 1
+				beginReq.Retention.Mode = pb.Retention_INVALID
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.Retention.Mode = pb.Retention_COMPLIANCE + 1
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE + 1
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
@@ -4591,7 +4591,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, errText)
 			}
 
-			check(&pb.Retention{}, "invalid retention mode 0, expected 1 (compliance)")
+			check(&pb.Retention{}, "invalid retention mode 0")
 
 			check(&pb.Retention{
 				Mode: pb.Retention_COMPLIANCE,
@@ -4603,9 +4603,9 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			}, "retention period expiration time must not be in the past")
 
 			check(&pb.Retention{
-				Mode:        pb.Retention_COMPLIANCE + 1,
+				Mode:        pb.Retention_GOVERNANCE + 1,
 				RetainUntil: time.Now().Add(time.Hour),
-			}, "invalid retention mode 2, expected 1 (compliance)")
+			}, "invalid retention mode 3")
 
 			requireRetention(t, objStream.Location(), objStream.Version, metabase.Retention{})
 		})
@@ -5109,6 +5109,45 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 	})
 }
 
+var objectLockTestCases = []struct {
+	name              string
+	expectedRetention *metabase.Retention
+	legalHold         bool
+}{
+	{name: "no retention, no legal hold"},
+	{
+		name: "retention - compliance, no legal hold",
+		expectedRetention: &metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		},
+	},
+	{
+		name: "retention - governance, no legal hold",
+		expectedRetention: &metabase.Retention{
+			Mode:        storj.GovernanceMode,
+			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		},
+	},
+	{name: "no retention, legal hold", legalHold: true},
+	{
+		name: "retention - compliance, legal hold",
+		expectedRetention: &metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		},
+		legalHold: true,
+	},
+	{
+		name: "retention - governance, legal hold",
+		expectedRetention: &metabase.Retention{
+			Mode:        storj.GovernanceMode,
+			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		},
+		legalHold: true,
+	},
+}
+
 func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
@@ -5210,43 +5249,60 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			require.Zero(t, obj)
 		}
 
-		requireRetention := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, r metabase.Retention) {
-			o := requireObject(t, satellite, projectID, bucketName, key)
-			if r != (metabase.Retention{}) {
-				require.Nil(t, o.ExpiresAt)
+		requireRetention := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, r *metabase.Retention) {
+			if r == nil {
+				return
 			}
-			require.Equal(t, r.Mode, o.Retention.Mode)
-			require.WithinDuration(t, r.RetainUntil, o.Retention.RetainUntil, time.Microsecond)
+			o := requireObject(t, satellite, projectID, bucketName, key)
+			require.Nil(t, o.ExpiresAt)
+			require.Equal(t, r, &o.Retention)
 		}
 
-		requireEqualRetention := func(t *testing.T, expected metabase.Retention, actual *pb.Retention) {
-			require.NotNil(t, actual)
-			require.EqualValues(t, expected.Mode, actual.Mode)
-			require.Equal(t, expected.RetainUntil, actual.RetainUntil)
+		requireLegalHold := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, lh bool) {
+			o := requireObject(t, satellite, projectID, bucketName, key)
+			require.Equal(t, lh, o.LegalHold)
+		}
+
+		requireEqualRetention := func(t *testing.T, expected *metabase.Retention, actual *pb.Retention) {
+			var expectedRetention *pb.Retention
+			if expected != nil {
+				expectedRetention = retentionToProto(*expected)
+			}
+			require.Equal(t, expectedRetention, actual)
 		}
 
 		srcBucket := createBucket(t, satellite, project.ID, false)
 
 		t.Run("success", func(t *testing.T) {
-			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
+			dstBucket := createBucket(t, satellite, project.ID, true)
 
-			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
+			for _, testCase := range objectLockTestCases {
+				t.Run(testCase.name, func(t *testing.T) {
+					dstKey := testrand.Path()
+					beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-			expectedRetention := randRetention()
+					var expectedRetention *pb.Retention
+					if testCase.expectedRetention != nil {
+						expectedRetention = retentionToProto(*testCase.expectedRetention)
+					}
 
-			response, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				StreamId:              beginResponse.StreamId,
-				NewBucket:             []byte(dstBucket),
-				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(expectedRetention),
-			})
-			require.NoError(t, err)
+					response, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: apiKey.SerializeRaw(),
+						},
+						StreamId:              beginResponse.StreamId,
+						NewBucket:             []byte(dstBucket),
+						NewEncryptedObjectKey: []byte(dstKey),
+						Retention:             expectedRetention,
+						LegalHold:             testCase.legalHold,
+					})
+					require.NoError(t, err)
 
-			requireEqualRetention(t, expectedRetention, response.Object.Retention)
-			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
+					requireEqualRetention(t, testCase.expectedRetention, response.Object.Retention)
+					requireRetention(t, satellite, project.ID, dstBucket, dstKey, testCase.expectedRetention)
+					requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, testCase.legalHold)
+				})
+			}
 		})
 
 		t.Run("unspecified retention mode or period", func(t *testing.T) {
@@ -5332,7 +5388,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
-			expectedRetention.Mode++
+			expectedRetention.Mode = storj.RetentionMode(pb.Retention_INVALID)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
 				Header: &pb.RequestHeader{
@@ -5413,8 +5469,8 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Zero(t, response.Object.ExpiresAt)
-			requireEqualRetention(t, expectedRetention, response.Object.Retention)
-			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
+			requireEqualRetention(t, &expectedRetention, response.Object.Retention)
+			requireRetention(t, satellite, project.ID, dstBucket, dstKey, &expectedRetention)
 		})
 
 		t.Run("unauthorized API keys", func(t *testing.T) {
@@ -5539,13 +5595,13 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			require.Zero(t, obj)
 		}
 
-		requireRetention := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, r metabase.Retention) {
-			o := requireObject(t, satellite, projectID, bucketName, key)
-			if r != (metabase.Retention{}) {
-				require.Nil(t, o.ExpiresAt)
+		requireRetention := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, r *metabase.Retention) {
+			if r == nil {
+				return
 			}
-			require.Equal(t, r.Mode, o.Retention.Mode)
-			require.WithinDuration(t, r.RetainUntil, o.Retention.RetainUntil, time.Microsecond)
+			o := requireObject(t, satellite, projectID, bucketName, key)
+			require.Nil(t, o.ExpiresAt)
+			require.Equal(t, r, &o.Retention)
 		}
 
 		requireLegalHold := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, lh bool) {
@@ -5556,27 +5612,35 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 		srcBucket := createBucket(t, satellite, project.ID, false)
 
 		t.Run("success", func(t *testing.T) {
-			dstBucket, dstKey := createBucket(t, satellite, project.ID, true), testrand.Path()
+			dstBucket := createBucket(t, satellite, project.ID, true)
 
-			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
+			for _, testCase := range objectLockTestCases {
+				t.Run(testCase.name, func(t *testing.T) {
+					dstKey := testrand.Path()
 
-			expectedRetention := randRetention()
-			const expectedLegalHold = true
+					beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				StreamId:              beginResponse.StreamId,
-				NewBucket:             []byte(dstBucket),
-				NewEncryptedObjectKey: []byte(dstKey),
-				Retention:             retentionToProto(expectedRetention),
-				LegalHold:             expectedLegalHold,
-			})
-			require.NoError(t, err)
+					var expectedRetention *pb.Retention
+					if testCase.expectedRetention != nil {
+						expectedRetention = retentionToProto(*testCase.expectedRetention)
+					}
 
-			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
-			requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, expectedLegalHold)
+					_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: apiKey.SerializeRaw(),
+						},
+						StreamId:              beginResponse.StreamId,
+						NewBucket:             []byte(dstBucket),
+						NewEncryptedObjectKey: []byte(dstKey),
+						Retention:             expectedRetention,
+						LegalHold:             testCase.legalHold,
+					})
+					require.NoError(t, err)
+
+					requireRetention(t, satellite, project.ID, dstBucket, dstKey, testCase.expectedRetention)
+					requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, testCase.legalHold)
+				})
+			}
 		})
 
 		t.Run("unspecified retention mode or period", func(t *testing.T) {
@@ -5662,7 +5726,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
 			expectedRetention := randRetention()
-			expectedRetention.Mode++
+			expectedRetention.Mode = storj.RetentionMode(pb.Retention_INVALID)
 
 			_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
 				Header: &pb.RequestHeader{
@@ -5742,7 +5806,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
+			requireRetention(t, satellite, project.ID, dstBucket, dstKey, &expectedRetention)
 		})
 
 		t.Run("unauthorized API keys", func(t *testing.T) {
@@ -5789,7 +5853,7 @@ func randRetention() metabase.Retention {
 	randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
 	return metabase.Retention{
 		Mode:        storj.ComplianceMode,
-		RetainUntil: time.Now().Add(time.Hour + randDur),
+		RetainUntil: time.Now().Add(time.Hour + randDur).Truncate(time.Minute),
 	}
 }
 
@@ -5799,6 +5863,9 @@ func retentionToProto(retention metabase.Retention) *pb.Retention {
 	}
 	if retention.Mode == storj.ComplianceMode {
 		ret.Mode = pb.Retention_COMPLIANCE
+	}
+	if retention.Mode == storj.GovernanceMode {
+		ret.Mode = pb.Retention_GOVERNANCE
 	}
 	return ret
 }
