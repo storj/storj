@@ -3241,7 +3241,7 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 	})
 }
 
-func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
+func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -3269,6 +3269,9 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 		require.NoError(t, err)
 
 		restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
+		require.NoError(t, err)
+
+		restrictedLegalHoldApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutLegalHold: true})
 		require.NoError(t, err)
 
 		createBucket := func(t *testing.T, name string, lockEnabled bool) {
@@ -3363,6 +3366,33 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
 			})
 
+			t.Run("Success - Legal Hold", func(t *testing.T) {
+				key := testrand.Path()
+
+				beginReq := newBeginReq(apiKey, bucketName, key)
+				beginReq.LegalHold = true
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+
+				beginResp, err := endpoint.BeginObject(ctx, beginReq)
+				require.NoError(t, err)
+
+				commitResp, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+					Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					StreamId: beginResp.StreamId,
+				})
+				require.NoError(t, err)
+
+				require.NotNil(t, commitResp.Object.Retention)
+				require.EqualValues(t, storj.GovernanceMode, commitResp.Object.Retention.Mode)
+				require.EqualValues(t, beginReq.LegalHold, commitResp.Object.LegalHold.Value)
+				require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
+
+				obj := requireObject(t, bucketName, key)
+				require.Equal(t, storj.GovernanceMode, obj.Retention.Mode)
+				require.Equal(t, beginReq.LegalHold, obj.LegalHold)
+				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
+			})
+
 			t.Run("Success - No retention period", func(t *testing.T) {
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
@@ -3390,6 +3420,15 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				beginReq := newBeginReq(apiKey, bucketName, key)
 				_, err := endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+
+				beginReq.Retention = nil
+				beginReq.LegalHold = true
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -3397,7 +3436,21 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				createBucket(t, bucketName, false)
 
 				key := testrand.Path()
-				_, err := endpoint.BeginObject(ctx, newBeginReq(apiKey, bucketName, key))
+				beginReq := newBeginReq(apiKey, bucketName, key)
+				_, err := endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+
+				requireNoObject(t, bucketName, key)
+
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+
+				requireNoObject(t, bucketName, key)
+
+				beginReq.Retention = nil
+				beginReq.LegalHold = true
+				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 
 				requireNoObject(t, bucketName, key)
@@ -3433,7 +3486,7 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				requireNoObject(t, bucketName, key)
 			})
 
-			t.Run("Retention period with TTL is disallowed", func(t *testing.T) {
+			t.Run("Object Lock with TTL is disallowed", func(t *testing.T) {
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
 
@@ -3441,7 +3494,25 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+				beginReq.Retention = nil
+				beginReq.LegalHold = true
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
 				beginReq = newBeginReq(ttlApiKey, bucketName, key)
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+				beginReq.Retention = nil
+				beginReq.LegalHold = true
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
@@ -3454,7 +3525,26 @@ func TestEndpoint_UploadObjectWithRetention(t *testing.T) {
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+				beginReq.Retention = nil
+				beginReq.LegalHold = true
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
 				beginReq = newBeginReq(restrictedApiKey, bucketName, key)
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				_, err = endpoint.BeginObject(ctx, beginReq)
+				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+				beginReq = newBeginReq(restrictedLegalHoldApiKey, bucketName, key)
+				beginReq.Retention = nil
+				beginReq.LegalHold = true
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 

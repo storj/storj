@@ -50,8 +50,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	now := time.Now()
 
-	var canDelete, canLock bool
-
 	actions := []VerifyPermission{
 		{
 			Action: macaroon.Action{
@@ -67,8 +65,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canDelete,
-			Optional:        true,
+			Optional: true,
 		},
 	}
 
@@ -82,7 +79,16 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canLock,
+		})
+	}
+	if req.LegalHold {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionPutObjectLegalHold,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
 		})
 	}
 
@@ -92,7 +98,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
@@ -118,7 +124,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		expiresAt = ttl
 	}
 
-	if retention.Enabled() {
+	if retention.Enabled() || req.LegalHold {
 		switch {
 		case maxObjectTTL != nil:
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument,
@@ -153,7 +159,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if retention.Enabled() {
+	if retention.Enabled() || req.LegalHold {
 		if bucket.Versioning != buckets.VersioningEnabled {
 			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
 		} else if !bucket.ObjectLockEnabled {
@@ -198,6 +204,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadataNonce:        nonce,
 
 		Retention: retention,
+		LegalHold: req.LegalHold,
 	}
 	if !expiresAt.IsZero() {
 		opts.ExpiresAt = &expiresAt
