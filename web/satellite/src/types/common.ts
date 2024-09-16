@@ -87,6 +87,19 @@ export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {t
     return opts;
 }
 
+export type DataTableHeader = {
+    key: string;
+    title: string;
+    align?: 'start' | 'end' | 'center';
+    sortable?: boolean;
+    width?: number | string;
+}
+
+export type SortItem = {
+    key: string;
+    order?: boolean | 'asc' | 'desc';
+};
+
 export type ValidationRule<T> = string | boolean | ((value: T) => string | boolean);
 
 export function RequiredRule(value: unknown): string | boolean {

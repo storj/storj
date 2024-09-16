@@ -147,10 +147,22 @@
 
     <share-dialog v-if="!showingVersions" v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
     <geographic-distribution-dialog v-if="!showingVersions" v-model="isGeographicDistributionDialogShown" />
-    <delete-file-dialog
-        v-if="fileToDelete"
+    <delete-versions-dialog
+        v-if="showingVersions"
         v-model="isDeleteFileDialogShown"
-        :files="[fileToDelete]"
+        :files="fileToDelete ? [fileToDelete] : []"
+        @content-removed="onDeleteFileDialogClose"
+    />
+    <delete-file-dialog
+        v-else-if="!isBucketVersioned"
+        v-model="isDeleteFileDialogShown"
+        :files="fileToDelete ? [fileToDelete] : []"
+        @content-removed="onDeleteFileDialogClose"
+    />
+    <delete-versioned-file-dialog
+        v-else
+        v-model="isDeleteFileDialogShown"
+        :files="fileToDelete ? [fileToDelete] : []"
         @content-removed="onDeleteFileDialogClose"
     />
 </template>
@@ -180,12 +192,16 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { Versioning } from '@/types/versioning';
+import { BucketMetadata } from '@/types/buckets';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 import FilePreviewItem from '@/components/dialogs/filePreviewComponents/FilePreviewItem.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import GeographicDistributionDialog from '@/components/dialogs/GeographicDistributionDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
+import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
+import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue';
 
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
@@ -208,18 +224,32 @@ const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
 const isGeographicDistributionDialogShown = ref<boolean>(false);
-const fileToDelete = ref<BrowserObject | null>(null);
+const fileToDelete = ref<BrowserObject | undefined>();
 const isDeleteFileDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
 const model = defineModel<boolean>({ required: true });
-const currentFile = defineModel<BrowserObject | null>('currentFile', { required: true });
+const currentFile = defineModel<BrowserObject | undefined>('currentFile', { required: true });
 
 const constCarouselIndex = computed(() => carouselIndex.value);
 const carouselIndex = ref(0);
 
 const showingVersions = computed(() => props.versions.length > 0);
+
+/**
+ * Returns metadata of the current bucket.
+ */
+const bucket = computed<BucketMetadata | undefined>(() => {
+    return bucketsStore.state.allBucketMetadata.find(b => b.name === bucketName.value);
+});
+
+/**
+ * Whether this bucket is versioned/version-suspended.
+ */
+const isBucketVersioned = computed<boolean>(() => {
+    return bucket.value?.versioning !== Versioning.NotSupported && bucket.value?.versioning !== Versioning.Unversioned;
+});
 
 const files = computed((): BrowserObject[] => {
     if (showingVersions.value) {
@@ -366,7 +396,7 @@ function onDeleteFileClick(): void {
  * Closes the preview on file delete dialog close.
  */
 function onDeleteFileDialogClose(): void {
-    fileToDelete.value = null;
+    fileToDelete.value = undefined;
     model.value = false;
     emit('fileDeleteRequested');
 }

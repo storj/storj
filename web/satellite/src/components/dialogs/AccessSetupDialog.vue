@@ -192,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, Ref, ref, watch, WatchStopHandle } from 'vue';
+import { computed, Ref, ref, watch, WatchStopHandle } from 'vue';
 import {
     VBtn,
     VCard,
@@ -288,7 +288,7 @@ const route = useRoute();
 
 const model = defineModel<boolean>({ required: true });
 
-const innerContent = ref<Component>();
+const innerContent = ref<VCard>();
 const isCreating = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
 const worker = ref<Worker | null>(null);
@@ -632,7 +632,7 @@ watch(step, newStep => {
  * This is used instead of onMounted because the dialog remains mounted
  * even when hidden.
  */
-watch(innerContent, async (comp: Component): Promise<void> => {
+watch(innerContent, async (comp?: VCard): Promise<void> => {
     if (!comp) {
         resets.forEach(reset => reset());
         return;

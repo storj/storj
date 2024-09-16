@@ -213,6 +213,7 @@ import {
     Trash2,
     ArrowRight,
     Earth,
+    History,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -223,7 +224,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { ROUTES } from '@/router';
 import { useTrialCheck } from '@/composables/useTrialCheck';
@@ -266,14 +267,6 @@ let passphraseDialogCallback: () => void = () => {};
 type SortItem = {
     key: keyof Bucket;
     order: boolean | 'asc' | 'desc';
-}
-
-type DataTableHeader = {
-    key: string;
-    title: string;
-    align?: 'start' | 'end' | 'center';
-    sortable?: boolean;
-    width?: number | string;
 }
 
 const displayedItems = computed<Bucket[]>(() => {

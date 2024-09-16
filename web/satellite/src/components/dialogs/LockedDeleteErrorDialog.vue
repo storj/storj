@@ -109,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, defineModel, ref, watch } from 'vue';
+import { defineModel, ref, watch } from 'vue';
 import {
     VAlert,
     VBtn,
@@ -146,7 +146,7 @@ const emit = defineEmits<{
     'contentRemoved': [],
 }>();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 
 function formatDate(date?: Date): string {
     if (!date) {

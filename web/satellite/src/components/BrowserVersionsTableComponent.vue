@@ -3,9 +3,11 @@
 
 <template>
     <v-card>
+        <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
+        <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
         <v-data-table-server
             v-model="selectedFiles"
-            v-model:expanded="expandedFiles"
+            v-model:expanded="expandedFiles as any"
             :loading="isFetching || loading"
             :headers="headers"
             :items="filesAndVersions"
@@ -268,6 +270,7 @@ import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { DataTableHeader } from '@/types/common';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -301,7 +304,7 @@ const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const fileToDelete = ref<BrowserObject | null>(null);
 const fileToRestore = ref<BrowserObject | null>(null);
-const fileToPreview = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>(undefined);
 const lockActionFile = ref<BrowserObject | null>(null);
 const fileVersionsToPreview = ref<BrowserObject[]>();
 const isDeleteFileDialogShown = ref<boolean>(false);
@@ -316,7 +319,7 @@ const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 /**
  * Returns table headers.
  */
-const headers = computed(() => {
+const headers = computed<DataTableHeader[]>(() => {
     return [
         { title: 'Name', align: 'start', key: 'name', sortable: false },
         { title: 'Type', key: 'type', sortable: false },
