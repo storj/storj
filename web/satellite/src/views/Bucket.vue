@@ -91,24 +91,35 @@
                         />
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item
-                            v-if="versioningUIEnabled"
-                            density="comfortable"
-                            link
-                            @click="onToggleVersioning"
-                        >
-                            <template #prepend>
-                                <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
-                                <component :is="CirclePause" v-else :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                        <div>
+                            <v-list-item
+                                v-if="versioningUIEnabled"
+                                density="comfortable"
+                                link
+                                :disabled="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                @click="onToggleVersioning"
                             >
-                                {{
-                                    bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
-                                }}
-                            </v-list-item-title>
-                        </v-list-item>
+                                <template #prepend>
+                                    <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
+                                    <component :is="CirclePause" v-else :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    {{
+                                        bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                    }}
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-tooltip
+                                v-if="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                activator="parent"
+                                location="left"
+                                max-width="300"
+                            >
+                                Versioning cannot be suspended on a bucket with object lock enabled
+                            </v-tooltip>
+                        </div>
 
                         <v-list-item
                             v-if="versioningUIEnabled"

@@ -131,20 +131,31 @@
                                 Open Bucket
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item
-                            v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
-                            density="comfortable"
-                            link
-                            @click="() => onToggleVersioning(item)"
-                        >
-                            <template #prepend>
-                                <component :is="History" v-if="item.versioning !== Versioning.Enabled" :size="18" />
-                                <component :is="CirclePause" v-else :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3">
-                                {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
-                            </v-list-item-title>
-                        </v-list-item>
+                        <div>
+                            <v-list-item
+                                v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
+                                density="comfortable"
+                                link
+                                :disabled="item.versioning === Versioning.Enabled && item.objectLockEnabled"
+                                @click="() => onToggleVersioning(item)"
+                            >
+                                <template #prepend>
+                                    <component :is="History" v-if="item.versioning !== Versioning.Enabled" :size="18" />
+                                    <component :is="CirclePause" v-else :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3">
+                                    {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-tooltip
+                                v-if="item.versioning === Versioning.Enabled && item.objectLockEnabled"
+                                activator="parent"
+                                location="left"
+                                max-width="300"
+                            >
+                                Versioning cannot be suspended on a bucket with object lock enabled
+                            </v-tooltip>
+                        </div>
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <component :is="Share" :size="18" />
