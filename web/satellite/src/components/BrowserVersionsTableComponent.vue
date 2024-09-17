@@ -38,10 +38,12 @@
                         />
                     </td>
                     <td>
-                        <v-list-item
-                            class="text-caption pl-1 ml-n1"
+                        <v-btn
+                            class="text-caption pl-1 ml-n1 justify-start rounded-lg w-100"
+                            variant="text"
+                            color="default"
+                            block
                             :disabled="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
-                            link
                             @click="() => onFileClick(file)"
                         >
                             <template #prepend>
@@ -50,7 +52,7 @@
                             </template>
                             {{ file.Key }}
                             <v-chip v-if="file.isLatest" class="ml-2" size="small" variant="tonal" color="primary">LATEST</v-chip>
-                        </v-list-item>
+                        </v-btn>
                     </td>
                     <td>
                         <p class="text-caption">
@@ -68,7 +70,25 @@
                     </td>
                     <td>
                         <p class="text-caption">
-                            {{ file.VersionId }}
+                            <v-hover v-if="file.VersionId">
+                                <template #default="{ isHovering, props }">
+                                    <v-chip
+                                        v-bind="props"
+                                        size="small"
+                                        :variant="isHovering ? 'tonal' : 'text'"
+                                        class="cursor-pointer"
+                                        @click="() => copyToClipboard(file.VersionId)"
+                                    >
+                                        <template #append>
+                                            <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
+                                        </template>
+                                        <template #default>
+                                            <span v-if="mdAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
+                                            <span v-else>{{ file.VersionId }}</span>
+                                        </template>
+                                    </v-chip>
+                                </template>
+                            </v-hover>
                         </p>
                     </td>
                     <td>
@@ -249,12 +269,14 @@ import {
     VChip,
     VCol,
     VDataTableServer,
-    VListItem,
     VRow,
     VSelect,
     VSnackbar,
+    VHover,
+    VIcon,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
+import { useDisplay } from 'vuetify';
 
 import {
     BrowserObject,
@@ -296,6 +318,7 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const { mdAndDown } = useDisplay();
 
 const notify = useNotify();
 const router = useRouter();
@@ -575,6 +598,18 @@ function onFileClick(file: BrowserObject): void {
     const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
     fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
     previewDialog.value = true;
+}
+
+/**
+ * Copies the version ID to the clipboard.
+ */
+function copyToClipboard(versionId?: string): void {
+    if (!versionId) return;
+    navigator.clipboard.writeText(versionId).then(() => {
+        notify.success('Version ID copied to clipboard');
+    }).catch(err => {
+        notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER);
+    });
 }
 
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
