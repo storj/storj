@@ -61,7 +61,7 @@ var (
 	disablePrealloc    = flag.Bool("disable-prealloc", false, "")
 	workDir            = flag.String("work-dir", "", "")
 	dbsLocation        = flag.String("dbs-location", "", "")
-	flatFileTTLStore   = flag.Bool("flat-ttl-store", false, "use flat-files ttl store")
+	flatFileTTLStore   = flag.Bool("flat-ttl-store", true, "use flat-files ttl store")
 	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
