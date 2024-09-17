@@ -37,7 +37,7 @@ type placementDefinition struct {
 
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
 type UploadSuccessTracker interface {
-	Get(uplink storj.NodeID) func(node storj.NodeID) float64
+	Get(uplink storj.NodeID) func(node *SelectedNode) float64
 }
 
 // NoopTracker doesn't tracker uploads at all. Always returns with zero.
@@ -45,8 +45,8 @@ type NoopTracker struct {
 }
 
 // Get implements UploadSuccessTracker.
-func (n NoopTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
-	return func(node storj.NodeID) float64 { return 0 }
+func (n NoopTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+	return func(node *SelectedNode) float64 { return 0 }
 }
 
 var _ UploadSuccessTracker = NoopTracker{}
