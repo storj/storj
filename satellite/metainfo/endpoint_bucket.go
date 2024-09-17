@@ -153,7 +153,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		case buckets.ErrConflict.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		case buckets.ErrLocked.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidBucketState, err.Error())
 		case buckets.ErrUnavailable.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 		}

@@ -639,7 +639,7 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 				objectLockEnabled:        true,
 				initialVersioningState:   buckets.VersioningEnabled,
 				resultantVersioningState: buckets.VersioningEnabled,
-				expectedErrCode:          rpcstatus.PermissionDenied,
+				expectedErrCode:          rpcstatus.ObjectLockInvalidBucketState,
 			},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
