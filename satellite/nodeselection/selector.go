@@ -304,7 +304,7 @@ func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSe
 	return ChoiceOfN(tracker, 2, delegate)
 }
 
-func choiceOfNReduction(getSuccessRate func(storj.NodeID) float64, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
+func choiceOfNReduction(getSuccessRate func(*SelectedNode) float64, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
 	// shuffle the nodes to ensure the pairwise matching is fair and unbiased when the
 	// totals for either node are 0 (we just pick the first node in the pair in that case)
 	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
@@ -323,8 +323,8 @@ func choiceOfNReduction(getSuccessRate func(storj.NodeID) float64, n int, nodes 
 		}
 
 		for toChooseBetween > 1 {
-			success0 := getSuccessRate(nodes[0].ID)
-			success1 := getSuccessRate(nodes[1].ID)
+			success0 := getSuccessRate(nodes[0])
+			success1 := getSuccessRate(nodes[1])
 
 			// success0 and success1 could both potentially be NaN. we want to prefer a node if
 			// it is NaN and if they are both NaN then it does not matter which we prefer (the
@@ -405,8 +405,8 @@ func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
 		getSuccessRate := tracker.Get(requester)
 
 		sort.Slice(nodeSlice, func(i, j int) bool {
-			success0 := getSuccessRate(nodeSlice[i].ID)
-			success1 := getSuccessRate(nodeSlice[j].ID)
+			success0 := getSuccessRate(nodeSlice[i])
+			success1 := getSuccessRate(nodeSlice[j])
 
 			// we do the same thing as choiceofn where we assume NaN is better
 			// than not NaN. this has the additional benefit of falling back
@@ -461,8 +461,8 @@ func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, d
 		getSuccessRate := tracker.Get(uplinkID)
 
 		slices.SortFunc(nodes, func(a, b *SelectedNode) int {
-			successA := getSuccessRate(a.ID)
-			successB := getSuccessRate(b.ID)
+			successA := getSuccessRate(a)
+			successB := getSuccessRate(b)
 			if math.IsNaN(successB) || successB > successA {
 				return 1
 			}
@@ -510,8 +510,8 @@ func BestOfN(tracker UploadSuccessTracker, ratio float64, delegate NodeSelectorI
 			}
 
 			slices.SortFunc(selectedNodes, func(a, b *SelectedNode) int {
-				successA := getSuccessRate(a.ID)
-				successB := getSuccessRate(b.ID)
+				successA := getSuccessRate(a)
+				successB := getSuccessRate(b)
 				if math.IsNaN(successB) || successA < successB {
 					return 1
 				}
@@ -540,8 +540,8 @@ func EnoughFast(tracker UploadSuccessTracker, ratio float64, splitLine float64, 
 			}
 
 			slices.SortFunc(selectedNodes, func(a, b *SelectedNode) int {
-				successA := getSuccessRate(a.ID)
-				successB := getSuccessRate(b.ID)
+				successA := getSuccessRate(a)
+				successB := getSuccessRate(b)
 				if math.IsNaN(successB) || successA < successB {
 					return 1
 				}
