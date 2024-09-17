@@ -255,20 +255,18 @@ func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx 
 		return DeleteObjectResult{}, errs.Wrap(err)
 	}
 
-	streamIDs := make([][]byte, 0, len(result.Removed))
-	for _, object := range result.Removed {
-		streamIDs = append(streamIDs, object.StreamID.Bytes())
+	stmts := make([]spanner.Statement, len(result.Removed))
+	for ix, object := range result.Removed {
+		stmts[ix] = spanner.Statement{
+			SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+			Params: map[string]interface{}{
+				"stream_id": object.StreamID.Bytes(),
+			},
+		}
 	}
-	segmentDeletion := spanner.Statement{
-		SQL: `
-			DELETE FROM segments
-			WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-		`,
-		Params: map[string]interface{}{
-			"stream_ids": streamIDs,
-		},
+	if len(stmts) > 0 {
+		_, err = tx.BatchUpdate(ctx, stmts)
 	}
-	_, err = tx.Update(ctx, segmentDeletion)
 	if err != nil {
 		return DeleteObjectResult{}, errs.Wrap(err)
 	}
@@ -432,21 +430,18 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 			},
 		}))
 
-		// TODO(spanner): check whether this can be optimized.
-		streamIDs := make([][]byte, 0, len(result.Removed))
-		for _, object := range result.Removed {
-			streamIDs = append(streamIDs, object.StreamID.Bytes())
+		stmts := make([]spanner.Statement, len(result.Removed))
+		for ix, object := range result.Removed {
+			stmts[ix] = spanner.Statement{
+				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+				Params: map[string]interface{}{
+					"stream_id": object.StreamID.Bytes(),
+				},
+			}
 		}
-		segmentDeletion := spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-			`,
-			Params: map[string]interface{}{
-				"stream_ids": streamIDs,
-			},
+		if len(stmts) > 0 {
+			_, err = tx.BatchUpdate(ctx, stmts)
 		}
-		_, err = tx.Update(ctx, segmentDeletion)
 		return Error.Wrap(err)
 	})
 	return result, err
@@ -772,21 +767,18 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 			return Error.Wrap(err)
 		}
 
-		streamIDs := make([][]byte, 0, len(result.Removed))
-		for _, object := range result.Removed {
-			streamIDs = append(streamIDs, object.StreamID.Bytes())
+		stmts := make([]spanner.Statement, len(result.Removed))
+		for ix, object := range result.Removed {
+			stmts[ix] = spanner.Statement{
+				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+				Params: map[string]interface{}{
+					"stream_id": object.StreamID.Bytes(),
+				},
+			}
 		}
-		// TODO(spanner): make sure this is an efficient query
-		segmentDeletion := spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-			`,
-			Params: map[string]interface{}{
-				"stream_ids": streamIDs,
-			},
+		if len(stmts) > 0 {
+			_, err = tx.BatchUpdate(ctx, stmts)
 		}
-		_, err = tx.Update(ctx, segmentDeletion)
 		return Error.Wrap(err)
 	})
 	return result, err
