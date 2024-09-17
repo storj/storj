@@ -56,7 +56,10 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
-const objectLockedErrMsg = "object is protected by Object Lock settings"
+const (
+	objectLockedErrMsg       = "object is protected by Object Lock settings"
+	objectInvalidStateErrMsg = "The operation is not permitted for this object"
+)
 
 func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpcstatus.StatusCode) {
 	statusCode := rpcstatus.Code(actualError)
@@ -3814,7 +3817,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			resp, err := endpoint.GetObjectLegalHold(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			objStream2 := randObjectStream(project.ID, lockBucketName)
 			createObject(t, objStream2, false)
@@ -3835,7 +3838,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			resp, err = endpoint.GetObjectLegalHold(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
 		t.Run("Pending object", func(t *testing.T) {
@@ -3856,7 +3859,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.GetObjectLegalHold(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4107,7 +4110,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.SetObjectLegalHold(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4152,16 +4155,14 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 				Enabled:            true,
 			}
 
-			errMsg := "method not allowed"
-
 			// exact version
 			_, err = endpoint.SetObjectLegalHold(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
 			_, err = endpoint.SetObjectLegalHold(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -4376,7 +4377,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			resp, err := endpoint.GetObjectRetention(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			objStream2 := randObjectStream(project.ID, lockBucketName)
 			createObject(t, objStream2, retention)
@@ -4397,7 +4398,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			resp, err = endpoint.GetObjectRetention(ctx, req)
 			require.Error(t, err)
 			require.Nil(t, resp)
-			rpctest.RequireStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
 		t.Run("Pending object", func(t *testing.T) {
@@ -4419,7 +4420,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.GetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4462,16 +4463,14 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 				ObjectVersion:      deleteResult.Markers[0].StreamVersionID().Bytes(),
 			}
 
-			errMsg := "method not allowed"
-
 			// exact version
 			_, err = endpoint.GetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
 			_, err = endpoint.GetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
 		t.Run("Missing retention period", func(t *testing.T) {
@@ -4702,7 +4701,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 					}
 
 					_, err := endpoint.SetObjectRetention(ctx, opts)
-					rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+					rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 					requireRetention(t, activeRetentionObj.Location(), activeRetentionObj.Version, activeRetentionObj.Retention)
 
 					opts.BypassGovernanceRetention = true
@@ -4712,7 +4711,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 						require.NoError(t, err)
 						requireRetention(t, activeRetentionObj.Location(), activeRetentionObj.Version, metabase.Retention{})
 					} else {
-						rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+						rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 						requireRetention(t, activeRetentionObj.Location(), activeRetentionObj.Version, activeRetentionObj.Retention)
 					}
 				})
@@ -4736,7 +4735,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 					}
 
 					_, err := endpoint.SetObjectRetention(ctx, opts)
-					rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+					rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 					requireRetention(t, obj.Location(), obj.Version, obj.Retention)
 
 					opts.BypassGovernanceRetention = true
@@ -4746,7 +4745,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 						require.NoError(t, err)
 						requireRetention(t, obj.Location(), obj.Version, newRetention)
 					} else {
-						rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+						rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 						requireRetention(t, obj.Location(), obj.Version, obj.Retention)
 					}
 				})
@@ -4770,7 +4769,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 			// Governance mode shouldn't be able to be switched to compliance mode without BypassGovernanceRetention.
 			_, err := endpoint.SetObjectRetention(ctx, opts)
-			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 			requireRetention(t, obj.Location(), obj.Version, retention)
 
 			opts.BypassGovernanceRetention = true
@@ -4784,13 +4783,13 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			opts.BypassGovernanceRetention = false
 
 			_, err = endpoint.SetObjectRetention(ctx, opts)
-			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 			requireRetention(t, obj.Location(), obj.Version, newRetention)
 
 			opts.BypassGovernanceRetention = true
 
 			_, err = endpoint.SetObjectRetention(ctx, opts)
-			rpctest.RequireStatusContains(t, err, rpcstatus.FailedPrecondition, objectLockedErrMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 			requireRetention(t, obj.Location(), obj.Version, newRetention)
 		})
 
@@ -4887,7 +4886,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.SetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4932,16 +4931,14 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 				Retention:          retentionToProto(randRetention(storj.ComplianceMode)),
 			}
 
-			errMsg := "method not allowed"
-
 			// exact version
 			_, err = endpoint.SetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 
 			// last committed version
 			req.ObjectVersion = nil
 			_, err = endpoint.SetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
@@ -5285,7 +5282,7 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 
 				if opts.expectError && useExactVersion {
 					require.Error(t, err)
-					rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, objectLockedErrMsg)
+					rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
 					return
 				}
@@ -6137,7 +6134,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				NewEncryptedObjectKey: []byte(dstKey),
 				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
 			})
-			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockObjectProtected)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 	})

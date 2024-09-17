@@ -36,6 +36,7 @@ const (
 	objectLockDisabledErrMsg = "Object Lock feature is not enabled"
 	bucketNoLockErrMsg       = "Object Lock is not enabled for this bucket"
 	methodNotAllowedErrMsg   = "method not allowed"
+	objectInvalidStateErrMsg = "The operation is not permitted for this object"
 )
 
 // BeginObject begins object.
@@ -1979,7 +1980,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	}
 	if err != nil {
 		if metabase.ErrMethodNotAllowed.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -2052,7 +2053,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	}
 	if err != nil {
 		if metabase.ErrObjectStatus.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -2122,7 +2123,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	}
 	if err != nil {
 		if metabase.ErrMethodNotAllowed.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -2221,14 +2222,10 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 		})
 	}
 	if err != nil {
-		switch {
-		case metabase.ErrObjectLock.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockedErrMsg)
-		case metabase.ErrObjectStatus.Has(err), metabase.ErrObjectExpiration.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
-		default:
-			return nil, endpoint.ConvertMetabaseErr(err)
+		if metabase.ErrObjectStatus.Has(err) || metabase.ErrObjectExpiration.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
+		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	return &pb.SetObjectRetentionResponse{}, nil
