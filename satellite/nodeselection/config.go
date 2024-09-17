@@ -51,6 +51,19 @@ func (n NoopTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
 
 var _ UploadSuccessTracker = NoopTracker{}
 
+type pieceTracker struct{}
+
+func (n pieceTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+	return func(node *SelectedNode) float64 {
+		// return a negated value so that nodes with less pieces are preferred.
+		return -float64(node.PieceCount)
+	}
+}
+
+var _ UploadSuccessTracker = pieceTracker{}
+
+var pieceCount pieceTracker
+
 // PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
 type PlacementConfigEnvironment struct {
 	tracker UploadSuccessTracker
@@ -301,7 +314,8 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return IfSelector(condition, trueAttr, falseAttr), nil
 		},
-		"dual": DualSelector,
+		"piececount": pieceCount,
+		"dual":       DualSelector,
 	}
 	for k, v := range supportedFilters {
 		env[k] = v
