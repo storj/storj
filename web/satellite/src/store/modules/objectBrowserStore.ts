@@ -1058,10 +1058,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     /**
      * This is an empty action for App.vue to subscribe to know the status of the delete object/folder requests.
      *
-     * @param deleteRequest - the promise of the delete request.
-     * @param filesLabel - descriptive label of files deleted (versions/files).
+     * @param _deleteRequest - the promise of the delete request.
+     * @param _filesLabel - descriptive label of files deleted (versions/files).
      */
-    function handleDeleteObjectRequest(deleteRequest: Promise<number>, filesLabel = 'file'): void {
+    function handleDeleteObjectRequest(_deleteRequest: Promise<number>, _filesLabel = 'file'): void {
         /* empty */
     }
 
@@ -1109,12 +1109,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         for (const file of files) {
             state.filesToBeDeleted.delete((file.path ?? '') + file.Key + (file.VersionId ?? ''));
         }
-    }
-
-    function removeFile(file: _Object & { path?: string, VersionId?: string } | BrowserObject): void {
-        state.files = state.files.filter(
-            singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
-        );
     }
 
     function cancelUpload(key: string): void {

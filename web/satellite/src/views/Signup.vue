@@ -553,8 +553,8 @@ onBeforeMount(async () => {
         try {
             const config = (await import('@/configs/registrationViewConfig.json')).default;
             partnerConfig.value = config[partner.value];
-        } catch (e) {
-        // Handle errors, such as a missing configuration file
+        } catch {
+            // Handle errors, such as a missing configuration file
             notify.error('No configuration file for registration page.');
         }
     }

@@ -121,7 +121,7 @@ onBeforeMount(async () => {
             const config = (await import('@/configs/registrationViewConfig.json')).default;
             partnerConfig.value = config[partner];
             // eslint-disable-next-line no-empty
-        } catch (_) {}
+        } catch {}
     }
 });
 

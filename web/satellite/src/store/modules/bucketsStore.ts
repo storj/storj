@@ -300,10 +300,10 @@ export const useBucketsStore = defineStore('buckets', () => {
     /**
      * This is an empty action for App.vue to subscribe to know the status of the delete bucket request.
      *
-     * @param bucketName - the bucket name.
-     * @param deleteRequest - the promise of the delete bucket request.
+     * @param _bucketName - the bucket name.
+     * @param _deleteRequest - the promise of the delete bucket request.
      */
-    function handleDeleteBucketRequest(bucketName: string, deleteRequest: Promise<void>): void {
+    function handleDeleteBucketRequest(_bucketName: string, _deleteRequest: Promise<void>): void {
         /* empty */
     }
 

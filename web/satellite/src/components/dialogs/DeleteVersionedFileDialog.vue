@@ -416,7 +416,7 @@ function initDialog() {
             } else {
                 fileVersionsCount.value = (await obStore.countVersions(props.files[0].path + props.files[0].Key));
             }
-        } catch (_) { /* empty */ }
+        } catch { /* empty */ }
     });
 }
 

@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     color?: string;
 }>(), {
     color: 'currentColor',

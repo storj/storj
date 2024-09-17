@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     size?: number | string;
 }>(), {
     size: 24,

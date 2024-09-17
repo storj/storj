@@ -125,7 +125,6 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { SquareAsterisk } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
@@ -134,9 +133,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { ROUTES } from '@/router';
 
-const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
 const oldRules = [
     RequiredRule,
@@ -154,7 +151,6 @@ const repeatRules = [
 const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const { isLoading, withLoading } = useLoading();
-const router = useRouter();
 const notify = useNotify();
 
 const model = defineModel<boolean>({ required: true });

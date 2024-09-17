@@ -306,7 +306,7 @@ import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue'
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 
-const props = defineProps<{
+const compProps = defineProps<{
     forceEmpty?: boolean;
     loading?: boolean;
 }>();
@@ -391,7 +391,7 @@ const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
-    if (props.forceEmpty) return [];
+    if (compProps.forceEmpty) return [];
 
     return obStore.state.files.map<BrowserObjectWrapper>(file => {
         const { name, ext, typeInfo } = getFileInfo(file);
@@ -405,7 +405,7 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
 });
 
 const filesAndVersions = computed<BrowserObjectWrapper[]>(() => {
-    if (props.forceEmpty) return [];
+    if (compProps.forceEmpty) return [];
 
     const versions = allFiles.value.flatMap(parent => {
         return parent.browserObject.Versions?.map<BrowserObjectWrapper>(version => {
@@ -613,7 +613,7 @@ function copyToClipboard(versionId?: string): void {
 }
 
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
-    if (isFetching.value || props.forceEmpty) return;
+    if (isFetching.value || compProps.forceEmpty) return;
 
     obStore.updateSelectedFiles([]);
     obStore.updateVersionsExpandedKeys([]);
@@ -676,7 +676,7 @@ watch(filePath, () => {
     obStore.clearTokens();
     fetchFiles();
 }, { immediate: true });
-watch(() => props.forceEmpty, v => !v && fetchFiles());
+watch(() => compProps.forceEmpty, v => !v && fetchFiles());
 </script>
 
 <style scoped lang="scss">

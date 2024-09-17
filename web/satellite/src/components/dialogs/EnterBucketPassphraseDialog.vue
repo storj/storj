@@ -111,29 +111,24 @@ import { Component, computed, ref, watch } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert } from 'vuetify/components';
 
 import { RequiredRule } from '@/types/common';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { Bucket } from '@/types/buckets';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 
-const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
-const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
 
 const passphrase = ref<string>('');
 const isPassphraseVisible = ref<boolean>(false);
 const isWarningState = ref<boolean>(false);
 const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 
 const model = defineModel<boolean>({ required: true });
 
