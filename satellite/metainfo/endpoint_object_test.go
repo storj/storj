@@ -3758,7 +3758,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.GetObjectLegalHold(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4291,7 +4291,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.GetObjectRetention(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.NotFound, "object not found")
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 
 			// last committed version
 			req.ObjectVersion = nil

@@ -17,6 +17,8 @@ import (
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
+const noLockFromUncommittedErrMsg = "Object Lock settings must only be retrieved from committed objects"
+
 // ErrSegmentNotFound is an error class for non-existing segment.
 var ErrSegmentNotFound = errs.Class("segment not found")
 
@@ -649,8 +651,7 @@ func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, op
 		SELECT retention_mode, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-			AND status <> `+statusPending,
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
 	if err != nil {
@@ -660,8 +661,11 @@ func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, op
 		return false, Error.New("unable to query object legal hold configuration: %w", err)
 	}
 
-	if info.Status.IsDeleteMarker() {
+	switch {
+	case info.Status.IsDeleteMarker():
 		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return false, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
 	}
 
 	return info.LegalHold, nil
@@ -676,8 +680,7 @@ func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opt
 			SELECT retention_mode, status
 			FROM objects
 			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-				AND status <> ` + statusPending,
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
@@ -699,8 +702,11 @@ func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opt
 		return false, Error.New("unable to query object legal hold configuration: %w", err)
 	}
 
-	if info.Status.IsDeleteMarker() {
+	switch {
+	case info.Status.IsDeleteMarker():
 		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return false, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
 	}
 
 	return info.LegalHold, nil
@@ -830,8 +836,7 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-			AND status <> `+statusPending,
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 	if err != nil {
@@ -840,9 +845,14 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 		}
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
-	if info.Status.IsDeleteMarker() {
+
+	switch {
+	case info.Status.IsDeleteMarker():
 		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return Retention{}, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
 	}
+
 	if err = info.Retention.Verify(); err != nil {
 		return Retention{}, Error.Wrap(err)
 	}
@@ -859,8 +869,7 @@ func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opt
 			SELECT retention_mode, retain_until, status
 			FROM objects
 			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-				AND status <> ` + statusPending,
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
@@ -882,9 +891,13 @@ func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opt
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
 
-	if info.Status.IsDeleteMarker() {
+	switch {
+	case info.Status.IsDeleteMarker():
 		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return Retention{}, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
 	}
+
 	if err = info.Retention.Verify(); err != nil {
 		return Retention{}, Error.Wrap(err)
 	}

@@ -2081,7 +2081,7 @@ func TestGetObjectExactVersionLegalHold(t *testing.T) {
 					ObjectLocation: objStream.Location(),
 					Version:        objStream.Version,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
+				ErrClass: &metabase.ErrMethodNotAllowed,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -2402,7 +2402,7 @@ func TestGetObjectExactVersionRetention(t *testing.T) {
 					ObjectLocation: objStream.Location(),
 					Version:        objStream.Version,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
+				ErrClass: &metabase.ErrMethodNotAllowed,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
