@@ -7,6 +7,7 @@
         max-width="420px"
         transition="fade-transition"
         persistent
+        class="custom-dialog-overlay"
     >
         <v-card>
             <v-card-item class="pa-6">
@@ -60,10 +61,8 @@ import {
 } from 'vuetify/components';
 import { TimerReset } from 'lucide-vue-next';
 
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 
-const analyticsStore = useAnalyticsStore();
 const router = useRouter();
 
 const model = defineModel<boolean>({ required: true });
@@ -78,3 +77,10 @@ function redirectToLogin(): void {
     location.reload();
 }
 </script>
+
+<style scoped lang="scss">
+.custom-dialog-overlay {
+    backdrop-filter: blur(5px);
+    background-color: rgb(255 255 255 / 50%);
+}
+</style>
