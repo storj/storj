@@ -832,11 +832,13 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 }
 
 func TestEndpoint_Object_Limit(t *testing.T) {
+	const uploadLimitSingleObject = 200 * time.Millisecond
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UploadLimiter.SingleObjectLimit = 200 * time.Millisecond
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Metainfo.UploadLimiter.SingleObjectLimit = uploadLimitSingleObject
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -866,7 +868,6 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 
 		t.Run("limit single object upload", func(t *testing.T) {
 
-			now := time.Now()
 			request := &pb.BeginObjectRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
@@ -885,7 +886,8 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 
-			ctx, _ := time2.WithNewMachine(ctx, time2.WithTimeAt(now.Add(250*time.Millisecond)))
+			// Set the context clock enough in the future to ensure that the rate limit is reset.
+			ctx, _ := time2.WithNewMachine(ctx, time2.WithTimeAt(time.Now().Add(uploadLimitSingleObject)))
 
 			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
