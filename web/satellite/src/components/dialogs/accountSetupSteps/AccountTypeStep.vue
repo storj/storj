@@ -28,7 +28,7 @@
                             class="mt-4 mb-4"
                             color="primary"
                             variant="flat"
-                            @click="emit('select', FREE_PLAN_INFO)"
+                            @click="emit('freeClick')"
                         >
                             <template #append>
                                 <v-icon :icon="ArrowRight" />
@@ -70,7 +70,7 @@
                             variant="outlined"
                             color="text-secondary"
                             class="mt-4 mb-4"
-                            @click="emit('select', PRO_PLAN_INFO)"
+                            @click="emit('proClick')"
                         >
                             Start Pro Account
                             <template #append>
@@ -143,12 +143,11 @@
 import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/components';
 import { ArrowRight, Check, ChevronLeft } from 'lucide-vue-next';
 
-import { FREE_PLAN_INFO, PricingPlanInfo, PRO_PLAN_INFO } from '@/types/common';
-
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const emit = defineEmits<{
-    select: [PricingPlanInfo];
+    freeClick: [];
+    proClick: [];
     back: [];
 }>();
 </script>
