@@ -4099,7 +4099,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 
 			// exact version
 			_, err = endpoint.SetObjectLegalHold(ctx, req)
-			rpctest.AssertStatusContains(t, err, rpcstatus.FailedPrecondition, "Object Lock settings must only be placed on committed objects")
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, "method not allowed")
 
 			// last committed version
 			req.ObjectVersion = nil
@@ -4124,6 +4124,36 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 			// than the committed one.
 			requireLegalHold(t, objStream.Location(), pending.Version, false)
 			requireLegalHold(t, objStream.Location(), committed.Version, true)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			objStream := randObjectStream(project.ID, lockBucketName)
+
+			metabasetest.CreateObject(ctx, t, db, objStream, 0)
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: objStream.Location(),
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+
+			req := &pb.SetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      deleteResult.Markers[0].StreamVersionID().Bytes(),
+				Enabled:            true,
+			}
+
+			errMsg := "method not allowed"
+
+			// exact version
+			_, err = endpoint.SetObjectLegalHold(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
+
+			// last committed version
+			req.ObjectVersion = nil
+			_, err = endpoint.SetObjectLegalHold(ctx, req)
+			rpctest.AssertStatusContains(t, err, rpcstatus.MethodNotAllowed, errMsg)
 		})
 
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {

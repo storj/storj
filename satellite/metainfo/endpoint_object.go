@@ -1992,7 +1992,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	}
 	if err != nil {
 		if metabase.ErrObjectStatus.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}

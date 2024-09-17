@@ -17,8 +17,6 @@ import (
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
-const noLockFromUncommittedErrMsg = "Object Lock settings must only be retrieved from committed objects"
-
 // ErrSegmentNotFound is an error class for non-existing segment.
 var ErrSegmentNotFound = errs.Class("segment not found")
 

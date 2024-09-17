@@ -17,6 +17,8 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
+const noLockOnDeleteMarkerErrMsg = "Object Lock settings must not be placed on delete markers"
+
 func TestUpdateSegmentPieces(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
@@ -578,6 +580,33 @@ func TestSetObjectExactVersionLegalHold(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: loc,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+			marker := deleteResult.Markers[0]
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        marker.Version,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  noLockOnDeleteMarkerErrMsg,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object), metabase.RawObject(marker)},
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("Object with TTL", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -741,6 +770,32 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(committed), metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: loc,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+			marker := deleteResult.Markers[0]
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  noLockOnDeleteMarkerErrMsg,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object), metabase.RawObject(marker)},
 			}.Check(ctx, t, db)
 		})
 
@@ -1024,7 +1079,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 					Retention:      activeRetention,
 				},
 				ErrClass: &metabase.ErrObjectStatus,
-				ErrText:  "Object Lock settings must not be placed on delete markers",
+				ErrText:  noLockOnDeleteMarkerErrMsg,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1303,7 +1358,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 					Retention:      activeRetention,
 				},
 				ErrClass: &metabase.ErrObjectStatus,
-				ErrText:  "Object Lock settings must not be placed on delete markers",
+				ErrText:  noLockOnDeleteMarkerErrMsg,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
