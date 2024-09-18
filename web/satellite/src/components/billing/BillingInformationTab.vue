@@ -52,10 +52,25 @@
                 </v-card-text>
             </v-card>
         </v-col>
+        <v-col cols="12" lg="4">
+            <v-card :loading="isLoading" title="Invoice Reference" variant="flat">
+                <v-card-text>
+                    <v-chip v-if="!invoiceReference" color="default" variant="tonal" size="small" class="font-weight-bold">
+                        No invoice reference added
+                    </v-chip>
+                    <p v-else>{{ invoiceReference }}</p>
+                    <v-divider class="my-4" />
+                    <v-btn variant="outlined" color="default" size="small" @click="isInvoiceReferenceDialogShown = true">
+                        {{ invoiceReference ? 'Update' : 'Add' }} Invoice Reference
+                    </v-btn>
+                </v-card-text>
+            </v-card>
+        </v-col>
     </v-row>
 
     <add-tax-id-dialog v-model="isTaxIdDialogShown" />
     <billing-address-dialog v-model="isAddressDialogShown" />
+    <add-invoice-reference-dialog v-model="isInvoiceReferenceDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -69,6 +84,7 @@ import { useNotify } from '@/utils/hooks';
 
 import AddTaxIdDialog from '@/components/dialogs/AddTaxIdDialog.vue';
 import BillingAddressDialog from '@/components/dialogs/BillingAddressDialog.vue';
+import AddInvoiceReferenceDialog from '@/components/dialogs/AddInvoiceReferenceDialog.vue';
 
 const billingStore = useBillingStore();
 
@@ -77,12 +93,15 @@ const notify = useNotify();
 
 const isTaxIdDialogShown = ref(false);
 const isAddressDialogShown = ref(false);
+const isInvoiceReferenceDialogShown = ref(false);
 
 const billingInformation = computed<BillingInformation | null>(() => billingStore.state.billingInformation);
 
 const billingAddress = computed<BillingAddress | undefined>(() => billingInformation.value?.address);
 
 const taxIDs = computed<TaxID[]>(() => billingInformation.value?.taxIDs ?? []);
+
+const invoiceReference = computed<string>(() => billingInformation.value?.invoiceReference ?? '');
 
 function removeTaxID(id: string) {
     withLoading(async () => {
