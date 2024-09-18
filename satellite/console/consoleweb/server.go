@@ -393,6 +393,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-address", paymentController.SaveBillingAddress).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/tax-ids", paymentController.AddTaxID).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/invoice-reference", paymentController.AddInvoiceReference).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/tax-ids/{taxID}", paymentController.RemoveTaxID).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
