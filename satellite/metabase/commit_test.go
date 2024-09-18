@@ -4670,14 +4670,14 @@ func TestCommitInlineObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("retention", func(t *testing.T) {
-			commitInlineSeg := metabase.CommitInlineSegment{
-				EncryptedKey:      testrand.Bytes(32),
-				EncryptedKeyNonce: testrand.Bytes(32),
-				PlainSize:         512,
-				InlineData:        testrand.Bytes(100),
-			}
+		commitInlineSeg := metabase.CommitInlineSegment{
+			EncryptedKey:      testrand.Bytes(32),
+			EncryptedKeyNonce: testrand.Bytes(32),
+			PlainSize:         512,
+			InlineData:        testrand.Bytes(100),
+		}
 
+		t.Run("retention", func(t *testing.T) {
 			t.Run("success", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -4747,7 +4747,7 @@ func TestCommitInlineObject(t *testing.T) {
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "invalid retention mode 2")
+				check(storj.GovernanceMode+1, now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -4771,6 +4771,80 @@ func TestCommitInlineObject(t *testing.T) {
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
+
+		t.Run("legal hold", func(t *testing.T) {
+			t.Run("success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+
+				retention := metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.CommitInlineObject{
+					Opts: metabase.CommitInlineObject{
+						ObjectStream:        obj,
+						Encryption:          metabasetest.DefaultEncryption,
+						CommitInlineSegment: commitInlineSeg,
+						LegalHold:           true,
+						// An object's legal hold status and retention mode are stored as a
+						// single value in the database. A retention period is provided here
+						// to test that these properties are properly encoded.
+						Retention: retention,
+					},
+					ExpectVersion: 1,
+				}.Check(ctx, t, db)
+
+				expectedObjStream := obj
+				expectedObjStream.Version = 1
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream: expectedObjStream,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+						LegalHold:    true,
+
+						SegmentCount:       1,
+						TotalPlainSize:     int64(commitInlineSeg.PlainSize),
+						TotalEncryptedSize: int64(len(commitInlineSeg.InlineData)),
+					}},
+					Segments: []metabase.RawSegment{{
+						StreamID:          obj.StreamID,
+						CreatedAt:         now,
+						EncryptedKeyNonce: commitInlineSeg.EncryptedKeyNonce,
+						EncryptedKey:      commitInlineSeg.EncryptedKey,
+						EncryptedSize:     int32(len(commitInlineSeg.InlineData)),
+						PlainSize:         commitInlineSeg.PlainSize,
+						InlineData:        commitInlineSeg.InlineData,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("with TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.CommitInlineObject{
+					Opts: metabase.CommitInlineObject{
+						ObjectStream:        obj,
+						Encryption:          metabasetest.DefaultEncryption,
+						CommitInlineSegment: commitInlineSeg,
+						LegalHold:           true,
+						ExpiresAt:           &expires,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if LegalHold is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{}.Check(ctx, t, db)

@@ -3614,7 +3614,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.Retention.Mode = pb.Retention_COMPLIANCE + 1
+				beginReq.Retention.Mode = pb.Retention_GOVERNANCE + 1
 				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 

@@ -1471,6 +1471,7 @@ type CommitInlineObject struct {
 	EncryptedMetadataEncryptedKey []byte // optional
 
 	Retention Retention // optional
+	LegalHold bool
 
 	DisallowDelete bool
 
@@ -1498,12 +1499,17 @@ func (c *CommitInlineObject) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 
-	if err := c.Retention.verifyWithoutGovernance(); err != nil {
+	if err := c.Retention.Verify(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 
-	if c.Retention.Enabled() && c.ExpiresAt != nil {
-		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	if c.ExpiresAt != nil {
+		switch {
+		case c.Retention.Enabled():
+			return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+		case c.LegalHold:
+			return ErrInvalidRequest.New("ExpiresAt must not be set if LegalHold is set")
+		}
 	}
 
 	return nil
@@ -1547,6 +1553,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.Retention = opts.Retention
+		object.LegalHold = opts.LegalHold
 
 		segment := &Segment{
 			StreamID:          opts.StreamID,
@@ -1601,7 +1608,10 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
 		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
-		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{
+			retentionMode: &object.Retention.Mode,
+			legalHold:     &object.LegalHold,
+		}, timeWrapper{&object.Retention.RetainUntil},
 	).Scan(&object.CreatedAt)
 	if err != nil {
 		return Error.New("failed to create object: %w", err)
@@ -1672,8 +1682,11 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			"encrypted_metadata":               object.EncryptedMetadata,
 			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
 			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
-			"retention_mode":                   lockModeWrapper{retentionMode: &object.Retention.Mode},
-			"retain_until":                     timeWrapper{&object.Retention.RetainUntil},
+			"retention_mode": lockModeWrapper{
+				retentionMode: &object.Retention.Mode,
+				legalHold:     &object.LegalHold,
+			},
+			"retain_until": timeWrapper{&object.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {
 		err := row.Columns(&object.CreatedAt)
