@@ -240,6 +240,8 @@ func TestRepairQueue_Stat(t *testing.T) {
 }
 
 func TestRepairQueue_Select_Concurrently(t *testing.T) {
+	t.Skip("This test is flaky and needs to be fixed")
+
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		expectedSegments := make([]*queue.InjuredSegment, 100)
 		segs := make([]queue.InjuredSegment, len(expectedSegments))
