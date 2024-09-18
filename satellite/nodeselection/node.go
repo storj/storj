@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // NodeTag is a tag associated with a node (approved by signer).
@@ -139,6 +139,11 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	case "last_ip_port":
 		return func(node SelectedNode) string {
 			return node.LastIPPort
+		}, nil
+	case "last_ip":
+		return func(node SelectedNode) string {
+			ip, _, _ := strings.Cut(node.LastIPPort, ":")
+			return ip
 		}, nil
 	case "wallet":
 		return func(node SelectedNode) string {

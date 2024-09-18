@@ -29,8 +29,7 @@
                 />
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
-                <v-btn v-if="!isPaidTier && billingEnabled" variant="outlined" color="default" @click="appStore.toggleUpgradeFlow(true)">
-                    <IconUpgrade size="16" class="mr-2" />
+                <v-btn v-if="!isPaidTier && billingEnabled" variant="outlined" color="default" :prepend-icon="CircleArrowUp" @click="appStore.toggleUpgradeFlow(true)">
                     Upgrade
                 </v-btn>
             </v-col>
@@ -190,6 +189,7 @@
                     density="comfortable"
                     variant="outlined"
                     :loading="isLoading"
+                    class="bg-surface"
                     show-adjacent-months
                     hide-details
                 >
@@ -203,7 +203,7 @@
                 <v-card ref="chartContainer" class="pb-4">
                     <template #title>
                         <v-card-title class="d-flex align-center">
-                            <IconCloud class="mr-2" width="16" height="16" />
+                            <IconCloud class="mr-2" width="18" height="18" />
                             Storage
                         </v-card-title>
                     </template>
@@ -221,7 +221,7 @@
                     <template #title>
                         <v-card-title class="d-flex align-center justify-space-between">
                             <v-row class="ma-0 align-center">
-                                <IconArrowDown class="mr-2" width="16" height="16" />
+                                <component :is="ArrowDownToLine" :size="18" class="mr-2" />
                                 Download
                                 <v-tooltip width="250" location="bottom">
                                     <template #activator="{ props }">
@@ -268,9 +268,9 @@
                 <v-btn
                     variant="outlined"
                     color="default"
+                    :prepend-icon="CirclePlus"
                     @click="onCreateBucket"
                 >
-                    <IconCirclePlus class="mr-2" />
                     New Bucket
                 </v-btn>
             </v-col>
@@ -303,7 +303,7 @@ import {
 import { VDateInput } from 'vuetify/labs/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
-import { Info } from 'lucide-vue-next';
+import { Info, ArrowDownToLine, CirclePlus, CircleArrowUp } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -324,7 +324,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -336,11 +336,8 @@ import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import IconCloud from '@/components/icons/IconCloud.vue';
-import IconArrowDown from '@/components/icons/IconArrowDown.vue';
 import LimitWarningBanners from '@/components/LimitWarningBanners.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
-import IconUpgrade from '@/components/icons/IconUpgrade.vue';
-import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
@@ -366,7 +363,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -768,9 +765,9 @@ function getValueAndUnit(value: number): ValueUnit {
  * Starts create bucket flow if user's free trial is not expired.
  */
 function onCreateBucket(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isCreateBucketDialogOpen.value = true;
-    });
+    });});
 }
 
 /**

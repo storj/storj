@@ -51,7 +51,7 @@ import { Session, SessionsCursor, SessionsOrderBy, SessionsPage } from '@/types/
 import { useNotify } from '@/utils/hooks';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { SortDirection, tableSizeOptions } from '@/types/common';
+import { DataTableHeader, SortDirection, tableSizeOptions } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { Time } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -64,7 +64,7 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const FIRST_PAGE = 1;
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'User Agent',
         align: 'start',

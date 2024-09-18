@@ -12,7 +12,7 @@
     >
         <v-card ref="innerContent">
             <v-sheet>
-                <v-card-item class="py-4 pl-6">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <v-sheet
                             class="border-sm d-flex justify-center align-center"
@@ -41,35 +41,31 @@
 
             <v-divider />
 
-            <v-row>
-                <v-col class="pa-6 mx-3">
-                    <p class="mt-2">
-                        You are about to restore a previous version. This action will create a copy as the latest version of the object. All existing versions, including the current one, will be preserved.
-                    </p>
-                    <v-alert color="default" variant="outlined" class="my-4">
-                        <p class="mb-2">
-                            Name:
-                        </p>
-                        <v-chip class="font-weight-bold text-wrap py-2 mb-4">
-                            {{ file.Key }}
-                        </v-chip>
+            <v-card-item v-if="file">
+                <p class="mt-2 mb-3">
+                    You are about to restore a previous version. This action will create a copy as the latest version of the object. All existing versions, including the current one, will be preserved.
+                </p>
+                <p class="my-1">
+                    Name:
+                </p>
+                <v-chip class="font-weight-bold text-wrap py-2 mb-3">
+                    {{ file.Key }}
+                </v-chip>
 
-                        <p class="my-2">
-                            Version ID:
-                        </p>
-                        <v-chip class="font-weight-bold text-wrap py-2 mb-4">
-                            {{ file.VersionId }}
-                        </v-chip>
+                <p class="my-1">
+                    Version ID:
+                </p>
+                <v-chip class="font-weight-bold text-wrap py-2 mb-3">
+                    {{ file.VersionId }}
+                </v-chip>
 
-                        <p class="my-2">
-                            Date:
-                        </p>
-                        <v-chip class="font-weight-bold text-wrap py-2">
-                            {{ Time.formattedDate(file.LastModified) }}
-                        </v-chip>
-                    </v-alert>
-                </v-col>
-            </v-row>
+                <p class="my-1">
+                    Date:
+                </p>
+                <v-chip class="font-weight-bold text-wrap py-2 mb-3">
+                    {{ Time.formattedDate(file.LastModified) }}
+                </v-chip>
+            </v-card-item>
 
             <v-divider />
 
@@ -92,9 +88,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Component, watch } from 'vue';
+import { ref, Component, watch } from 'vue';
 import {
-    VAlert,
     VDialog,
     VCard,
     VCardItem,
@@ -117,7 +112,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import IconRestore from '@/components/icons/IconRestore.vue';
 
 const props = defineProps<{
-    file: BrowserObject,
+    file?: BrowserObject,
 }>();
 
 const emit = defineEmits<{
@@ -136,6 +131,9 @@ const innerContent = ref<Component | null>(null);
 
 async function onRestoreObjectClick(): Promise<void> {
     await withLoading(async () => {
+        if (!props.file) {
+            return;
+        }
         try {
             await obStore.restoreObject(props.file);
         } catch (error) {
@@ -143,11 +141,10 @@ async function onRestoreObjectClick(): Promise<void> {
             notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
             return;
         }
+        emit('fileRestored');
+        notify.success(`Previous version restored.`);
+        model.value = false;
     });
-
-    emit('fileRestored');
-    notify.success(`Previous version restored.`);
-    model.value = false;
 }
 
 watch(innerContent, comp => !comp && emit('contentRemoved'));

@@ -48,6 +48,7 @@ type RawObject struct {
 	ZombieDeletionDeadline *time.Time
 
 	Retention Retention
+	LegalHold bool
 }
 
 // RawSegment defines the full segment that is stored in the database. It should be rarely used directly.
@@ -207,7 +208,10 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-			retentionModeWrapper{&obj.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &obj.Retention.Mode,
+				legalHold:     &obj.LegalHold,
+			},
 			timeWrapper{&obj.Retention.RetainUntil},
 		)
 		if err != nil {
@@ -270,7 +274,10 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 
 			encryptionParameters{&obj.Encryption},
 			&obj.ZombieDeletionDeadline,
-			retentionModeWrapper{&obj.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &obj.Retention.Mode,
+				legalHold:     &obj.LegalHold,
+			},
 			timeWrapper{&obj.Retention.RetainUntil},
 		)
 		if err != nil {
@@ -721,5 +728,71 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 	}
 
 	_, err = s.client.Apply(ctx, mutations)
+	return Error.Wrap(err)
+}
+
+// TestingSetObjectVersion sets the version of the object to the given value.
+func (db *DB) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
+	return db.ChooseAdapter(object.ProjectID).TestingSetObjectVersion(ctx, object, randomVersion)
+}
+
+// TestingSetObjectVersion sets the version of the object to the given value.
+func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
+	res, err := p.db.Exec(ctx,
+		"UPDATE objects SET version = $1 WHERE project_id = $2 AND bucket_name = $3 AND object_key = $4 AND stream_id = $5",
+		randomVersion, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
+	)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	rowsAffected, err = res.RowsAffected()
+	return rowsAffected, Error.Wrap(err)
+}
+
+// TestingSetObjectVersion sets the version of the object to the given value.
+func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		var err error
+		rowsAffected, err = tx.Update(ctx, spanner.Statement{
+			SQL: "UPDATE objects SET version = @version WHERE project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND stream_id = @stream_id",
+			Params: map[string]interface{}{
+				"version":     randomVersion,
+				"project_id":  object.ProjectID,
+				"bucket_name": object.BucketName,
+				"object_key":  object.ObjectKey,
+				"stream_id":   object.StreamID,
+			},
+		})
+		return err
+	})
+	return rowsAffected, Error.Wrap(err)
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	for _, a := range db.adapters {
+		err = a.TestingSetPlacementAllSegments(ctx, placement)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	_, err = p.db.Exec(ctx, "UPDATE segments SET placement = $1", placement)
+	return Error.Wrap(err)
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		_, err := tx.Update(ctx, spanner.Statement{
+			SQL:    "UPDATE segments SET placement = @placement",
+			Params: map[string]interface{}{"placement": placement},
+		})
+		return err
+	})
 	return Error.Wrap(err)
 }

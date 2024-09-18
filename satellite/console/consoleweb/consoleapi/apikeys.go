@@ -66,8 +66,19 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	name := string(bodyBytes)
 
+	project, err := keys.service.GetProject(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
 	apiKeyVersion := macaroon.APIKeyVersionMin
-	if keys.service.GetObjectLockEnabledByProjectID(projectID) {
+	if keys.service.GetObjectLockUIEnabledByProject(project) {
 		apiKeyVersion = macaroon.APIKeyVersionObjectLock
 	}
 

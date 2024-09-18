@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // NodeFilter can decide if a Node should be part of the selection or not.
@@ -236,6 +236,29 @@ func NewCountryFilterFromString(countries []string) (*CountryFilter, error) {
 			set = apply(set, code)
 		}
 	}
+	return NewCountryFilter(set), nil
+}
+
+// NewContinentFilterFromString parses country definitions like 'SA','!NA'.
+func NewContinentFilterFromString(continent string) (*CountryFilter, error) {
+	var set location.Set
+	apply := func(modified location.Set, code ...location.CountryCode) location.Set {
+		return modified.With(code...)
+	}
+	if continent[0] == '!' {
+		set = location.NewFullSet()
+		apply = func(modified location.Set, code ...location.CountryCode) location.Set {
+			return modified.Without(code...)
+		}
+		continent = continent[1:]
+	}
+
+	countries, ok := location.Continents[continent]
+	if !ok {
+		panic(fmt.Sprintf("unknown continent %q", continent))
+	}
+	set = apply(set, countries...)
+
 	return NewCountryFilter(set), nil
 }
 

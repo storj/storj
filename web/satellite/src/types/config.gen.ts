@@ -67,6 +67,7 @@ export class FrontendConfig {
     altObjBrowserPagingThreshold: number;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
+    objectLockUIEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

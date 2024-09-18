@@ -84,11 +84,11 @@ func usedSpaceCmdRun(opts *RunOptions) (err error) {
 	}()
 
 	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress())
-	total, contentSize, err := filewalker.WalkAndComputeSpaceUsedBySatellite(opts.Ctx, req.SatelliteID)
+	total, contentSize, pieceCount, err := filewalker.WalkAndComputeSpaceUsedBySatellite(opts.Ctx, req.SatelliteID)
 	if err != nil {
 		return err
 	}
-	resp := lazyfilewalker.UsedSpaceResponse{PiecesTotal: total, PiecesContentSize: contentSize}
+	resp := lazyfilewalker.UsedSpaceResponse{PiecesTotal: total, PiecesContentSize: contentSize, PieceCount: pieceCount}
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(opts.stdout).Encode(resp)

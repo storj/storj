@@ -11,6 +11,10 @@
             v-model="appStore.state.isExpirationDialogShown"
             :expired="user.freezeStatus.trialExpiredFrozen"
         />
+        <managed-passphrase-error-dialog
+            v-if="appStore.state.managedPassphraseErrorDialogShown"
+            v-model="appStore.state.managedPassphraseErrorDialogShown"
+        />
     </template>
     <Notifications />
 </template>
@@ -44,6 +48,7 @@ import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
 import BrandedLoader from '@/components/utils/BrandedLoader.vue';
 import TrialExpirationDialog from '@/components/dialogs/TrialExpirationDialog.vue';
+import ManagedPassphraseErrorDialog from '@/components/dialogs/ManagedPassphraseErrorDialog.vue';
 
 const appStore = useAppStore();
 const abTestingStore = useABTestingStore();
@@ -234,17 +239,21 @@ bucketsStore.$onAction(({ name, after, args }) => {
 obStore.$onAction(({ name, after, args }) => {
     if (name === 'handleDeleteObjectRequest') {
         after(async (_) => {
-            const fileCount = args[0];
-            const fileTypes = args[1];
-            const request = args[2];
+            const request = args[0];
+            let label = args[1] ?? 'file';
             try {
                 await request;
-                notify.success(`${fileCount} ${fileTypes} deleted`);
-                obStore.filesDeleted();
             } catch (error) {
-                error.message = `Error deleting ${fileTypes}. ${error.message}`;
+                error.message = `Deleting failed. ${error.message}`;
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
+
+            if (obStore.state.deletedFilesCount > 0) {
+                label = obStore.state.deletedFilesCount > 1 ? `${label}s` : label;
+                notify.success(`${obStore.state.deletedFilesCount} ${label} deleted`);
+                obStore.filesDeleted();
+            }
+            obStore.clearDeletedCount();
         });
     }
 });
@@ -266,27 +275,29 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
         return;
     }
     try {
+        appStore.setManagedPassphraseNotRetrievable(false);
         const results = await Promise.all([
             projectsStore.getProjectLimits(project.id),
             projectsStore.getProjectConfig(),
         ]);
         const config = results[1] as ProjectConfig;
-        if (config.passphrase) {
+        if (config.hasManagedPassphrase && config.passphrase) {
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
             bucketsStore.setPassphrase(config.passphrase);
             bucketsStore.setPromptForPassphrase(false);
             return;
+        } else if (config.hasManagedPassphrase) { // satellite failed to provide decrypted passphrase
+            appStore.setManagedPassphraseNotRetrievable(true);
+            throw new Error('Unable to acquire managed encryption passphrase');
+        }  else if (
+            usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
+            !user.value.freezeStatus.trialExpiredFrozen &&
+            route.name !== ROUTES.Bucket.name
+        ) {
+            appStore.toggleProjectPassphraseDialog(true);
         }
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
-
-    if (
-        usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
-        !user.value.freezeStatus.trialExpiredFrozen &&
-        route.name !== ROUTES.Bucket.name
-    ) {
-        appStore.toggleProjectPassphraseDialog(true);
     }
 });
 </script>

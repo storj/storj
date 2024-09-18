@@ -446,5 +446,5 @@ func TestApiKeysRepository(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, []string{"key1"}, keys)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }

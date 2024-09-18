@@ -147,7 +147,7 @@ export interface ProjectMemberItemModel {
     /**
      * Returns the member's user ID if it exists.
      */
-    getUserID(): string | null;
+    getUserID(): string | undefined;
 
     /**
      * Returns the member's name.
@@ -208,7 +208,7 @@ export class ProjectMember implements ProjectMemberItemModel {
     /**
      * Returns the user's ID.
      */
-    public getUserID(): string | null {
+    public getUserID(): string | undefined {
         return this.id;
     }
 
@@ -288,8 +288,8 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
     /**
      * Returns a null user ID. Required for implementing ProjectMemberItemModel.
      */
-    public getUserID(): string | null {
-        return null;
+    public getUserID(): string | undefined {
+        return undefined;
     }
 
     /**

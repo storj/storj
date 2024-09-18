@@ -164,6 +164,8 @@ func (db *invoiceProjectRecords) GetUnappliedByProjectIDs(ctx context.Context, p
 				AND period_start = ? AND period_end = ? AND state = ?`
 
 		rows, err = db.db.QueryContext(ctx, query, pids, start, end, int(invoiceProjectRecordStateUnapplied))
+	default:
+		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
 	err = withRows(rows, err)(func(rows tagsql.Rows) error {
 		for rows.Next() {

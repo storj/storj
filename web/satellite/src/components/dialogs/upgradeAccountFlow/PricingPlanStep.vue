@@ -99,9 +99,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { VAlert, VBtn, VCol, VIcon, VRow, VChip } from 'vuetify/components';
-import { useTheme } from 'vuetify';
 import { Check, LockKeyhole, ChevronLeft } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
@@ -121,9 +119,7 @@ const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 
-const router = useRouter();
 const notify = useNotify();
-const theme = useTheme();
 
 const isSuccess = ref<boolean>(false);
 
@@ -131,8 +127,10 @@ const stripeCardInput = ref<StripeForm | null>(null);
 
 const props = withDefaults(defineProps<{
     plan?: PricingPlanInfo;
+    isAccountSetup?: boolean;
 }>(), {
     plan: () => new PricingPlanInfo(),
+    isAccountSetup: false,
 });
 
 const emit = defineEmits<{
@@ -164,8 +162,7 @@ async function onActivateClick() {
     if (loading.value || !props.plan) return;
 
     if (isFree.value) {
-        emit('success');
-        isSuccess.value = true;
+        onSuccess();
         return;
     }
 
@@ -192,10 +189,13 @@ async function onCardAdded(res: string): Promise<void> {
         if (props.plan.type === PricingPlanType.PARTNER) {
             await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
         } else {
-            paymentElementEnabled.value ? await billingStore.addCardByPaymentMethodID(res) : await billingStore.addCreditCard(res);
+            if (paymentElementEnabled.value) {
+                await billingStore.addCardByPaymentMethodID(res);
+            } else {
+                await billingStore.addCreditCard(res);
+            }
         }
-        emit('success');
-        isSuccess.value = true;
+        onSuccess();
 
         // Fetch user to update paid tier status
         usersStore.getUser().catch((_) => {});
@@ -203,6 +203,14 @@ async function onCardAdded(res: string): Promise<void> {
         billingStore.getCreditCards().catch((_) => {});
     } catch (error) {
         notify.notifyError(error);
+    }
+}
+
+function onSuccess() {
+    if (props.isAccountSetup) {
+        emit('success');
+    } else {
+        isSuccess.value = true;
     }
 }
 </script>

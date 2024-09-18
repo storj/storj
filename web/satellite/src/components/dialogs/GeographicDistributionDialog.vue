@@ -7,7 +7,7 @@
         max-width="420px"
         transition="fade-transition"
     >
-        <v-card>
+        <v-card :loading="isLoading">
             <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
@@ -38,10 +38,12 @@
             <v-divider />
 
             <div class="pa-6">
-                <img id="Map" class="w-100" :src="mapURL" alt="map">
-                <p class="font-weight-bold my-4">
-                    This map shows the real-time locations of this file’s pieces.
-                </p>
+                <template v-if="mapURL">
+                    <img class="w-100" :src="mapURL" alt="map">
+                    <p class="font-weight-bold my-4">
+                        This map shows the real-time locations of this file’s pieces.
+                    </p>
+                </template>
                 <p>
                     Storj splits files into smaller pieces, then distributes those pieces
                     over a global network of nodes and recompiles them securely on download.
@@ -83,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -98,20 +100,25 @@ import {
 } from 'vuetify/components';
 import { SquareArrowOutUpRight } from 'lucide-vue-next';
 
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/utils/hooks';
+import { useLinksharing } from '@/composables/useLinksharing';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 
 const model = defineModel<boolean>({ required: true });
 
-const analyticsStore = useAnalyticsStore();
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
+const { getObjectDistributionMap } = useLinksharing();
+
+const mapURL = ref<string>('');
 
 /**
  * Returns bucket name from store.
@@ -128,18 +135,21 @@ const encodedFilePath = computed<string>(() => {
 });
 
 /**
- * Returns object preview URLs cache from store.
+ * Downloads object geographic distribution map.
  */
-const cachedObjectPreviewURLs = computed<Map<string, PreviewCache>>(() => {
-    return obStore.state.cachedObjectPreviewURLs;
-});
+async function getMap(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            const blob = await getObjectDistributionMap(encodedFilePath.value);
+            mapURL.value = URL.createObjectURL(blob);
+        } catch (error) {
+            notify.error(`Failed to fetch a map. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+        }
+    });
+}
 
-/**
- * Returns object map URL.
- */
-const mapURL = computed<string>(() => {
-    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
-    const url = cache?.url || '';
-    return `${url}?map=1`;
+watch(model, value => {
+    if (value) getMap();
+    else mapURL.value = '';
 });
 </script>

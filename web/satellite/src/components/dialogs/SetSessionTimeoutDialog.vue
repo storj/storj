@@ -12,7 +12,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-session-timeout.svg" alt="Session timeout">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="Timer" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Session Timeout</v-card-title>
                 <template #append>
@@ -87,7 +94,9 @@ import {
     VCol,
     VBtn,
     VSelect,
+    VSheet,
 } from 'vuetify/components';
+import { Timer } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

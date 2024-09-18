@@ -20,7 +20,7 @@ import (
 
 func TestRollupArchiveChore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// ensure that orders (and rollups) aren't marked as expired and removed

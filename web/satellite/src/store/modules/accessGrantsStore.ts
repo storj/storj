@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
+import { reactive } from 'vue';
 
 import {
     AccessGrant,
@@ -21,9 +21,7 @@ class AccessGrantsState {
     public allAGNames: string[] = [];
     public cursor: AccessGrantCursor = new AccessGrantCursor();
     public page: AccessGrantsPage = new AccessGrantsPage();
-    public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public accessGrantsWebWorker: Worker | null = null;
-    public isAccessGrantsWebWorkerReady = false;
 }
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
@@ -60,13 +58,11 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         };
 
         state.accessGrantsWebWorker = worker;
-        state.isAccessGrantsWebWorkerReady = true;
     }
 
     function stopWorker(): void {
         state.accessGrantsWebWorker?.terminate();
         state.accessGrantsWebWorker = null;
-        state.isAccessGrantsWebWorkerReady = false;
     }
 
     async function getAllAGNames(projectID: string): Promise<void> {
@@ -92,14 +88,11 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         await api.delete(ids);
     }
 
-    async function getEdgeCredentials(accessGrant: string, isPublic?: boolean): Promise<EdgeCredentials> {
+    async function getEdgeCredentials(accessGrant: string, isPublic = false): Promise<EdgeCredentials> {
         const url = projectsStore.state.selectedProject.edgeURLOverrides?.authService
             || configStore.state.config.gatewayCredentialsRequestURL;
-        const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, url, isPublic);
 
-        state.edgeCredentials = credentials;
-
-        return credentials;
+        return await api.getGatewayCredentials(accessGrant, url, isPublic);
     }
 
     function setSearchQuery(query: string): void {
@@ -118,18 +111,11 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.allAGNames = [];
         state.cursor = new AccessGrantCursor();
         state.page = new AccessGrantsPage();
-        state.edgeCredentials = new EdgeCredentials();
         state.accessGrantsWebWorker = null;
-        state.isAccessGrantsWebWorkerReady = false;
     }
-
-    const selectedAccessGrants = computed((): AccessGrant[] => {
-        return state.page.accessGrants.filter((grant: AccessGrant) => grant.isSelected);
-    });
 
     return {
         state,
-        selectedAccessGrants,
         getAllAGNames,
         startWorker,
         stopWorker,

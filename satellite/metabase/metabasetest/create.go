@@ -111,27 +111,6 @@ func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	}.Check(ctx, t, db)
 }
 
-// CreateFullObjectsWithKeys creates multiple objects with the specified keys.
-func CreateFullObjectsWithKeys(ctx *testcontext.Context, t testing.TB, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.LoopObjectEntry {
-	objects := make(map[metabase.ObjectKey]metabase.LoopObjectEntry, len(keys))
-	for _, key := range keys {
-		obj := RandObjectStream()
-		obj.ProjectID = projectID
-		obj.BucketName = bucketName
-		obj.ObjectKey = key
-
-		CreateObject(ctx, t, db, obj, 0)
-
-		objects[key] = metabase.LoopObjectEntry{
-			ObjectStream: obj,
-			Status:       metabase.CommittedUnversioned,
-			CreatedAt:    time.Now(),
-		}
-	}
-
-	return objects
-}
-
 // CreateSegments creates multiple segments for the specified object.
 func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.Segment {
 	segments := make([]metabase.Segment, 0, numberOfSegments)
@@ -411,6 +390,7 @@ type CreateObjectCopy struct {
 	NewVersioned      bool
 
 	Retention metabase.Retention
+	LegalHold bool
 }
 
 // Run creates the copy.
@@ -473,6 +453,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewVersioned:      cc.NewVersioned,
 
 			Retention: cc.Retention,
+			LegalHold: cc.LegalHold,
 		}
 	}
 
@@ -483,15 +464,12 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 }
 
 // CreateObjectWithRetention creates an object with an Object Lock retention configuration.
-func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, retainUntil time.Time) (metabase.Object, []metabase.Segment) {
+func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, retention metabase.Retention) (metabase.Object, []metabase.Segment) {
 	BeginObjectExactVersion{
 		Opts: metabase.BeginObjectExactVersion{
 			ObjectStream: obj,
 			Encryption:   DefaultEncryption,
-			Retention: metabase.Retention{
-				Mode:        storj.ComplianceMode,
-				RetainUntil: retainUntil,
-			},
+			Retention:    retention,
 		},
 	}.Check(ctx, t, db)
 
@@ -502,6 +480,24 @@ func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metab
 			ObjectStream: obj,
 		},
 	}.Check(ctx, t, db), segments
+}
+
+// CreateObjectWithRetentionAndLegalHold creates an object with an Object Lock retention and legal hold configurations.
+func CreateObjectWithRetentionAndLegalHold(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   DefaultEncryption,
+			Retention:    retention,
+			LegalHold:    legalHold,
+		},
+	}.Check(ctx, t, db)
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+		},
+	}.Check(ctx, t, db)
 }
 
 // SegmentsToRaw converts a slice of Segment to a slice of RawSegment.

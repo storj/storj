@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-trash />
+                        <component :is="Trash2" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
@@ -84,14 +84,13 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
+import { Trash2 } from 'lucide-vue-next';
 
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant } from '@/types/accessGrants';
-
-import IconTrash from '@/components/icons/IconTrash.vue';
 
 const agStore = useAccessGrantsStore();
 

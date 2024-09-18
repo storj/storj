@@ -31,9 +31,9 @@ export const useDomainsStore = defineStore('domains', () => {
 
         const apiKey = await agStore.createAccessGrant(accessName, projectsStore.state.selectedProject.id);
 
-        const { generateCredentials } = useLinksharing();
+        const { generatePublicCredentials } = useLinksharing();
 
-        const creds = await generateCredentials(apiKey.secret, `sj://${bucket}`, null, passphrase);
+        const creds = await generatePublicCredentials(apiKey.secret, `sj://${bucket}`, null, passphrase);
 
         // TODO: rework when we have a way to store those.
         state.domains.push(new Domain(creds.accessKeyId, accessName, new Date()));

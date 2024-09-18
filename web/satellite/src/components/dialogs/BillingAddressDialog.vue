@@ -11,7 +11,7 @@
     >
         <v-card>
             <v-card-item class="pa-6">
-                <v-card-title class="font-weight-bold"> Update Billing Address </v-card-title>
+                <v-card-title class="font-weight-bold">Update Billing Address</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"

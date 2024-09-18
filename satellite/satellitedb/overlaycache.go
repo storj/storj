@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -26,6 +25,8 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -231,7 +232,8 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		}
 
 		rows, err = cache.db.Query(ctx, query, args...)
-
+	default:
+		return nil, Error.New("unsupported database: %v", cache.db.impl)
 	}
 	if err != nil {
 		return nil, err
@@ -312,7 +314,7 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 			}
 			break
 		}
-
+		return nodeNets, err
 	case dbutil.Spanner:
 		query := `
 			SELECT coalesce(n.last_net, '')
@@ -324,9 +326,10 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 		if err != nil {
 			return nodeNets, err
 		}
+		return nodeNets, err
+	default:
+		return nil, Error.New("unsupported database: %v", cache.db.impl)
 	}
-
-	return nodeNets, err
 }
 
 func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID, query string) (nodeNets []string, err error) {
@@ -1083,38 +1086,47 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return counts[i].ID.Less(counts[k].ID)
 	})
 
-	var nodeIDs []storj.NodeID
-	var countNumbers []int64
-	for _, count := range counts {
-		nodeIDs = append(nodeIDs, count.ID)
-		countNumbers = append(countNumbers, count.Count)
-	}
-
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
+		nodeIDs := make([]storj.NodeID, len(counts))
+		countNumbers := make([]int64, len(counts))
+		for i, count := range counts {
+			nodeIDs[i] = count.ID
+			countNumbers[i] = count.Count
+		}
+
 		_, err = cache.db.ExecContext(ctx, `
 			UPDATE nodes
 				SET piece_count = update.count
 			FROM (
-				SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
-			) as update
+				SELECT UNNEST($1::bytea[]) AS id, UNNEST($2::bigint[]) AS count
+			) AS update
 			WHERE nodes.id = update.id
 		`, pgutil.NodeIDArray(nodeIDs), pgutil.Int8Array(countNumbers))
-
+		return Error.Wrap(err)
 	case dbutil.Spanner:
-		_, err = cache.db.ExecContext(ctx, `
-			UPDATE nodes
-				SET piece_count = update.count
-			FROM (
-				SELECT unnest(?) as id, unnest(?) as count
-			) as update
-			WHERE nodes.id = update.id
-		`, storj.NodeIDList(nodeIDs).Bytes(), countNumbers)
+		return Error.Wrap(txutil.WithTx(ctx, cache.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			_, err := tx.ExecContext(ctx, `START BATCH DML`)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 
+			for _, count := range counts {
+				_, err := tx.ExecContext(ctx, cache.db.Rebind("UPDATE nodes SET piece_count = ? WHERE id = ?"), count.Count, count.ID)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+
+			if _, err := tx.ExecContext(ctx, "RUN BATCH"); err != nil {
+				return Error.Wrap(err)
+			}
+
+			return nil
+		}))
 	default:
+		return Error.New("unsupported implementation")
 	}
-
-	return Error.Wrap(err)
 }
 
 // GetExitingNodes returns nodes who have initiated a graceful exit and is not disqualified, but have not completed it.
@@ -1464,7 +1476,6 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIDs []storj.NodeID
-	nodeEmails = make(map[storj.NodeID]string)
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
@@ -1479,10 +1490,30 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 		break
 	}
 
-	var rows tagsql.Rows
+	processRows := func(rows tagsql.Rows) error {
+		nodeEmails = make(map[storj.NodeID]string)
+		count = 0
+		for rows.Next() {
+			var id storj.NodeID
+			var email string
+			var lastContacted time.Time
+			err = rows.Scan(&id, &email, &lastContacted)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			cache.db.log.Info("Disqualified",
+				zap.String("DQ type", "stray node"),
+				zap.Stringer("Node ID", id),
+				zap.Stringer("Last contacted", lastContacted))
+			nodeEmails[id] = email
+			count++
+		}
+		return nil
+	}
+
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		err = Error.Wrap(withRows(cache.db.Query(ctx, cache.db.Rebind(`
 			UPDATE nodes
 			SET disqualified = current_timestamp,
 				disqualification_reason = $3
@@ -1492,43 +1523,28 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 				AND last_contact_success < $2
 				AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 			RETURNING id, email, last_contact_success;
-		`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline)
+		`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline))(processRows))
+		return nodeEmails, count, err
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			UPDATE nodes
-			SET disqualified = current_timestamp,
-				disqualification_reason = ?
-			WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
-				AND disqualified IS NULL
-				AND exit_finished_at IS NULL
-				AND last_contact_success < ?
-				AND last_contact_success != '0001-01-01 00:00:00+00'
-			THEN RETURN id, email, last_contact_success;
-		`), overlay.DisqualificationReasonNodeOffline, storj.NodeIDList(nodeIDs).Bytes(), cutoff)
+		// TODO(spanner): it needs to use tx so that go-sql-spanner library can understand that it's not a
+		//                read-only transaction. See issue https://github.com/googleapis/go-sql-spanner/issues/235.
+		err = Error.Wrap(txutil.WithTx(ctx, cache.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			return withRows(tx.Query(ctx, `
+				UPDATE nodes
+				SET disqualified = current_timestamp,
+					disqualification_reason = ?
+				WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
+					AND disqualified IS NULL
+					AND exit_finished_at IS NULL
+					AND last_contact_success < ?
+					AND last_contact_success != '0001-01-01 00:00:00+00'
+				THEN RETURN id, email, last_contact_success;
+			`, int64(overlay.DisqualificationReasonNodeOffline), storj.NodeIDList(nodeIDs).Bytes(), cutoff))(processRows)
+		}))
+		return nodeEmails, count, err
 	default:
 		return nil, 0, Error.New("unsupported implementation")
 	}
-	if err != nil {
-		return nil, 0, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var id storj.NodeID
-		var email string
-		var lcs time.Time
-		err = rows.Scan(&id, &email, &lcs)
-		if err != nil {
-			return nil, count, err
-		}
-		cache.db.log.Info("Disqualified",
-			zap.String("DQ type", "stray node"),
-			zap.Stringer("Node ID", id),
-			zap.Stringer("Last contacted", lcs))
-		nodeEmails[id] = email
-		count++
-	}
-	return nodeEmails, count, rows.Err()
 }
 
 func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {

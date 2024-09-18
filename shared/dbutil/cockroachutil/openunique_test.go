@@ -11,13 +11,13 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
 )
 
 func TestTempCockroachDB(t *testing.T) {
-	connstr := pgtest.PickCockroach(t)
+	connstr := dbtest.PickCockroach(t)
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

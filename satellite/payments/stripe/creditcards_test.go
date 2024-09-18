@@ -101,10 +101,38 @@ func TestCreditCards_AddByPaymentMethodID(t *testing.T) {
 		_, err = satellite.API.Payments.Accounts.CreditCards().AddByPaymentMethodID(ctx, u.ID, "non-existent")
 		require.Error(t, err)
 
+		// Add expired card to be automatically removed on successful new card addition.
+		invalidExpYear := 2000
+		invalidExpMonth := 10
 		pm, err := satellite.API.Payments.StripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
 			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
 			Card: &stripeLib.PaymentMethodCardParams{
-				Token: stripeLib.String("test"),
+				Token:    stripeLib.String("test"),
+				ExpYear:  stripeLib.Int64(int64(invalidExpYear)),
+				ExpMonth: stripeLib.Int64(int64(invalidExpMonth)),
+			},
+		})
+		require.NoError(t, err)
+
+		customerID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, u.ID)
+		require.NoError(t, err)
+
+		_, err = satellite.API.Payments.StripeClient.PaymentMethods().Attach(pm.ID, &stripeLib.PaymentMethodAttachParams{
+			Params:   stripeLib.Params{Context: ctx},
+			Customer: &customerID,
+		})
+		require.NoError(t, err)
+
+		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, u.ID)
+		require.NoError(t, err)
+		require.Len(t, cards, 1)
+		require.Equal(t, invalidExpYear, cards[0].ExpYear)
+		require.Equal(t, invalidExpMonth, cards[0].ExpMonth)
+
+		pm, err = satellite.API.Payments.StripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token: stripeLib.String("test1"),
 			},
 		})
 		require.NoError(t, err)
@@ -116,9 +144,11 @@ func TestCreditCards_AddByPaymentMethodID(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, stripe.ErrDuplicateCard.Has(err))
 
-		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, u.ID)
+		cards, err = satellite.API.Payments.Accounts.CreditCards().List(ctx, u.ID)
 		require.NoError(t, err)
 		require.Len(t, cards, 1)
+		require.NotEqual(t, invalidExpYear, cards[0].ExpYear)
+		require.NotEqual(t, invalidExpMonth, cards[0].ExpMonth)
 	})
 }
 

@@ -20,6 +20,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 func TestIterateObjectsWithStatus(t *testing.T) {
@@ -4267,20 +4268,6 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 	})
 }
 
-func TestTupleGreaterThanSQLText(t *testing.T) {
-	result := metabase.TupleGreaterThanSQL([]string{"a", "b", "c"}, []string{"d", "e", "f"}, true)
-	assert.Equal(t, "((a > d) OR (a = d AND b > e) OR (a = d AND b = e AND c >= f))", result)
-
-	result = metabase.TupleGreaterThanSQL([]string{"a", "b", "c"}, []string{"d", "e", "f"}, false)
-	assert.Equal(t, "((a > d) OR (a = d AND b > e) OR (a = d AND b = e AND c > f))", result)
-
-	result = metabase.TupleGreaterThanSQL([]string{"a"}, []string{"b"}, true)
-	assert.Equal(t, "(a >= b)", result)
-
-	result = metabase.TupleGreaterThanSQL([]string{"a"}, []string{"b"}, false)
-	assert.Equal(t, "(a > b)", result)
-}
-
 func TestTupleGreaterThanSQLEvaluate(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		adapter := db.ChooseAdapter(uuid.UUID{})
@@ -4309,23 +4296,31 @@ func TestTupleGreaterThanSQLEvaluate(t *testing.T) {
 		}
 
 		expectGreater := func(a, b []string) {
-			expr1 := metabase.TupleGreaterThanSQL(a, b, false)
+			expr1, err := spannerutil.TupleGreaterThanSQL(a, b, false)
+			require.NoError(t, err)
 			assert.True(t, evaluateSQL(expr1), expr1)
-			expr2 := metabase.TupleGreaterThanSQL(b, a, false)
+			expr2, err := spannerutil.TupleGreaterThanSQL(b, a, false)
+			require.NoError(t, err)
 			assert.False(t, evaluateSQL(expr2), expr2)
-			expr3 := metabase.TupleGreaterThanSQL(a, b, true)
+			expr3, err := spannerutil.TupleGreaterThanSQL(a, b, true)
+			require.NoError(t, err)
 			assert.True(t, evaluateSQL(expr3), expr3)
-			expr4 := metabase.TupleGreaterThanSQL(b, a, true)
+			expr4, err := spannerutil.TupleGreaterThanSQL(b, a, true)
+			require.NoError(t, err)
 			assert.False(t, evaluateSQL(expr4), expr4)
 		}
 		expectEqual := func(a, b []string) {
-			expr1 := metabase.TupleGreaterThanSQL(a, b, true)
+			expr1, err := spannerutil.TupleGreaterThanSQL(a, b, true)
+			require.NoError(t, err)
 			assert.True(t, evaluateSQL(expr1), expr1)
-			expr2 := metabase.TupleGreaterThanSQL(b, a, true)
+			expr2, err := spannerutil.TupleGreaterThanSQL(b, a, true)
+			require.NoError(t, err)
 			assert.True(t, evaluateSQL(expr2), expr2)
-			expr3 := metabase.TupleGreaterThanSQL(a, b, false)
+			expr3, err := spannerutil.TupleGreaterThanSQL(a, b, false)
+			require.NoError(t, err)
 			assert.False(t, evaluateSQL(expr3), expr3)
-			expr4 := metabase.TupleGreaterThanSQL(b, a, false)
+			expr4, err := spannerutil.TupleGreaterThanSQL(b, a, false)
+			require.NoError(t, err)
 			assert.False(t, evaluateSQL(expr4), expr4)
 		}
 
@@ -4341,6 +4336,7 @@ func TestTupleGreaterThanSQLEvaluate(t *testing.T) {
 
 	})
 }
+
 func concat[E any](slices ...[]E) (concatenated []E) {
 	for _, s := range slices {
 		concatenated = append(concatenated, s...)

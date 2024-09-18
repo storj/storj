@@ -12,7 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/tempdb"
 )
@@ -142,7 +142,7 @@ func TestPlacementConstraintArray(t *testing.T) {
 // withUniqueDB arranges for a unique database (or unique namespace in a
 // database) and runs a test callback for each type of test database available.
 func withUniqueDB(t *testing.T, namePrefix string, cb func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase)) {
-	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connStr string) {
+	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connStr string) {
 		db, err := tempdb.OpenUnique(ctx, connStr, namePrefix)
 		if err != nil {
 			t.Fatalf("encountered error: %v", err)

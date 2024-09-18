@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 func TestBitshiftSuccessTracker(t *testing.T) {
@@ -17,7 +18,7 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 		var tr bitshiftSuccessTracker
 
 		check := func(id storj.NodeID, expect float64) {
-			got := tr.Get(id)
+			got := tr.Get(&nodeselection.SelectedNode{ID: id})
 			require.Equal(t, got, expect)
 		}
 
@@ -95,7 +96,7 @@ func TestPercentSuccessTracker(t *testing.T) {
 		var tr percentSuccessTracker
 
 		check := func(id storj.NodeID, expect float64) {
-			got := tr.Get(id)
+			got := tr.Get(&nodeselection.SelectedNode{ID: id})
 			require.Equal(t, got, expect)
 		}
 
@@ -167,7 +168,7 @@ func TestBigBitshiftSuccessTracker(t *testing.T) {
 		tr := NewBigBitshiftSuccessTracker(10)
 
 		check := func(id storj.NodeID, expect float64) {
-			got := tr.Get(id)
+			got := tr.Get(&nodeselection.SelectedNode{ID: id})
 			require.Equal(t, got, expect)
 		}
 
@@ -281,5 +282,5 @@ func TestBigBitList_small(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		tracker.Increment(storj.NodeID{}, true)
 	}
-	require.Equal(t, float64(3), tracker.Get(storj.NodeID{}))
+	require.Equal(t, float64(3), tracker.Get(&nodeselection.SelectedNode{}))
 }

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-list>
+    <v-list class="pb-0">
         <v-list-item class="pl-0">
             <template #prepend>
                 <v-icon

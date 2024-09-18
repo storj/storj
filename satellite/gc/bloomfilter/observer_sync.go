@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/shared/nodeidmap"
 )
 

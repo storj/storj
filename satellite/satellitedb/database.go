@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
+	"storj.io/storj/satellite/satellitedb/consoledb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/shared/dbutil"
@@ -59,7 +60,7 @@ type satelliteDB struct {
 	source string
 
 	consoleDBOnce sync.Once
-	consoleDB     *ConsoleDB
+	consoleDB     *consoledb.ConsoleDB
 
 	revocationDBOnce sync.Once
 	revocationDB     *revocationDB
@@ -103,8 +104,9 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}()
 
 	for key, val := range dbMapping {
-		db, err := open(ctx, log, val, opts, key)
-		if err != nil {
+		db, openErr := open(ctx, log, val, opts, key)
+		if openErr != nil {
+			err = errs.Combine(err, openErr)
 			return nil, err
 		}
 		dbc.dbs[key] = db
@@ -124,7 +126,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 
 	// spanner does not have an application name option in the connection string
 	if impl == dbutil.Postgres || impl == dbutil.Cockroach {
-		source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
+		source, err = pgutil.EnsureApplicationName(source, opts.ApplicationName)
 		if err != nil {
 			return nil, err
 		}
@@ -239,13 +241,14 @@ func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 func (dbc *satelliteDBCollection) Console() console.DB {
 	db := dbc.getByName("console")
 	db.consoleDBOnce.Do(func() {
-		db.consoleDB = &ConsoleDB{
-			apikeysLRUOptions: db.opts.APIKeysLRUOptions,
+		db.consoleDB = &consoledb.ConsoleDB{
+			DB:                db.DB,
+			ApikeysLRUOptions: db.opts.APIKeysLRUOptions,
 
-			db:      db,
-			methods: db,
+			Impl:    db.impl,
+			Methods: db,
 
-			apikeysOnce: new(sync.Once),
+			ApikeysOnce: new(sync.Once),
 		}
 	})
 

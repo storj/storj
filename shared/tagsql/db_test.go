@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil/cockroachutil"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -34,7 +34,7 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 	})
 
 	t.Run("jackc-pgx-postgres", func(t *testing.T) {
-		connstr := pgtest.PickPostgres(t)
+		connstr := dbtest.PickPostgres(t)
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -50,7 +50,7 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 	})
 
 	t.Run("jackc-pgx-cockroach", func(t *testing.T) {
-		connstr := pgtest.PickCockroach(t)
+		connstr := dbtest.PickCockroach(t)
 
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()

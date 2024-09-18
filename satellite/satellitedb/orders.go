@@ -236,29 +236,22 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 			updateBBRStatement := tx.Rebind(
 				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.settled = bbr.settled + ? WHERE project_id = ? AND bucket_name =? AND interval_start = ?  AND action = ?`,
 			)
-			result, err := tx.Tx.ExecContext(ctx, updateBBRStatement,
+			_, err := tx.Tx.ExecContext(ctx, updateBBRStatement,
 				uint64(settledAmount), projectID, bucketName, intervalStart.UTC(), int64(action),
 			)
 			if err != nil {
 				return ErrUpdateBucketBandwidthSettle.Wrap(err)
 			}
 
-			affected, err := result.RowsAffected()
+			insertBBRStatement := tx.Rebind(
+				`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			)
+			_, err = tx.Tx.ExecContext(ctx, insertBBRStatement,
+				projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), 0, 0, uint64(settledAmount), uint64(settledAmount),
+			)
 			if err != nil {
 				return ErrUpdateBucketBandwidthSettle.Wrap(err)
-			}
-
-			if affected == 0 {
-				insertBBRStatement := tx.Rebind(
-					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-				)
-				_, err = tx.Tx.ExecContext(ctx, insertBBRStatement,
-					projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), 0, 0, uint64(settledAmount), uint64(settledAmount),
-				)
-				if err != nil {
-					return ErrUpdateBucketBandwidthSettle.Wrap(err)
-				}
 			}
 
 			if action == pb.PieceAction_GET {
@@ -270,23 +263,16 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 				)
 				_, err = tx.Tx.ExecContext(ctx, updatePBDRStatement, uint64(settledAmount), uint64(deadAmount), projectID, civilIntervalDate)
 				if err != nil {
-					return err
-				}
-
-				affected, err := result.RowsAffected()
-				if err != nil {
 					return ErrUpdateBucketBandwidthSettle.Wrap(err)
 				}
 
-				if affected > 0 {
-					insertPBDRStatement := tx.Rebind(
-						`INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+				insertPBDRStatement := tx.Rebind(
+					`INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
 						VALUES (?, ?, ?, ?, ?)`,
-					)
-					_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, projectID, civilIntervalDate, 0, uint64(settledAmount), uint64(deadAmount))
-					if err != nil {
-						return err
-					}
+				)
+				_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, projectID, civilIntervalDate, 0, uint64(settledAmount), uint64(deadAmount))
+				if err != nil {
+					return ErrUpdateBucketBandwidthSettle.Wrap(err)
 				}
 			}
 			return nil

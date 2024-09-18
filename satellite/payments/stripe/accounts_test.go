@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -102,8 +104,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			nodeselection.NewPlacementDefinitions(),
-			console.VersioningConfig{},
-			console.ObjectLockConfig{},
+			console.ObjectLockAndVersioningConfig{},
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 
@@ -164,7 +165,7 @@ func TestUpdateGetPackage(t *testing.T) {
 		require.NotNil(t, dbPackagePlan)
 		require.NotNil(t, dbPurchaseTime)
 		require.Equal(t, packagePlan, *dbPackagePlan)
-		require.Equal(t, purchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond))
+		require.Zero(t, cmp.Diff(dbPurchaseTime.Truncate(time.Millisecond), purchaseTime.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 
 		require.NoError(t, accounts.UpdatePackage(ctx, userID, nil, nil))
 		dbPackagePlan, dbPurchaseTime, err = accounts.GetPackageInfo(ctx, userID)

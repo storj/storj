@@ -162,6 +162,25 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 			return err
 		}
 
+		satelliteTag := monkit.NewSeriesTag("satellite", satellite.String())
+		mon.Counter("reputation_audits_total", satelliteTag).Set(stats.Audit.TotalCount)
+		mon.Counter("reputation_audits_success", satelliteTag).Set(stats.Audit.SuccessCount)
+		mon.FloatVal("reputation_online_score", satelliteTag).Observe(stats.OnlineScore)
+		mon.FloatVal("reputation_score", satelliteTag).Observe(stats.Audit.Score)
+		mon.FloatVal("reputation_unknown_score", satelliteTag).Observe(stats.Audit.UnknownScore)
+		suspensionAge := mon.DurationVal("reputation_suspension_age", satelliteTag)
+		if stats.SuspendedAt == nil {
+			suspensionAge.Observe(0)
+		} else {
+			suspensionAge.Observe(time.Since(*stats.SuspendedAt))
+		}
+		dqAge := mon.DurationVal("reputation_dq_age", satelliteTag)
+		if stats.DisqualifiedAt == nil {
+			dqAge.Observe(0)
+		} else {
+			dqAge.Observe(time.Since(*stats.DisqualifiedAt))
+		}
+
 		if err = cache.reputationService.Store(ctx, *stats, satellite); err != nil {
 			cache.log.Error("failed to store reputation", zap.Error(err))
 			return err

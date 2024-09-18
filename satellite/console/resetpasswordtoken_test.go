@@ -82,5 +82,5 @@ func TestNewRegistrationSecret(t *testing.T) {
 			assert.Equal(t, rptoken.Secret, secretFromString)
 		})
 
-	})
+	}, satellitedbtest.WithSpanner())
 }

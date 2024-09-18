@@ -25,7 +25,7 @@ var (
 type Config struct {
 	StorageBackend     string        `help:"what to use for storing real-time accounting data"`
 	BandwidthCacheTTL  time.Duration `default:"5m" help:"bandwidth cache key time to live"`
-	AsOfSystemInterval time.Duration `default:"-10s" help:"as of system interval"`
+	AsOfSystemInterval time.Duration `default:"-10s" devDefault:"-1us" testDefault:"-1us" help:"as of system interval"`
 	BatchSize          int           `default:"5000" help:"how much projects usage should be requested from redis cache at once"`
 }
 

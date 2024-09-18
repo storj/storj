@@ -108,9 +108,11 @@ export class ProjectsHttpApi implements ProjectsApi {
             return new ProjectConfig(
                 result.versioningUIEnabled,
                 result.promptForVersioningBeta,
+                result.hasManagedPassphrase,
                 result.passphrase ?? '',
                 result.isOwnerPaidTier,
                 result.role,
+                result.objectLockUIEnabled,
             );
         }
 

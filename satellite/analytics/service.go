@@ -31,6 +31,7 @@ const (
 	eventAccountSetUp                 = "Account Set Up"
 	eventSignedIn                     = "Signed In"
 	eventProjectCreated               = "Project Created"
+	eventManagedEncryptionError       = "Managed Encryption Error"
 	eventAccessGrantCreated           = "Access Grant Created"
 	eventAccountVerified              = "Account Verified"
 	eventGatewayCredentialsCreated    = "Credentials Created"
@@ -480,6 +481,24 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventProjectCreated,
+		Properties: props,
+	})
+}
+
+// TrackManagedEncryptionError sends an "Managed Encryption Error" event to Segment.
+func (service *Service) TrackManagedEncryptionError(userID uuid.UUID, email string, projectID uuid.UUID, reason string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("project_id", projectID.String())
+	props.Set("email", email)
+	props.Set("reason", reason)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventManagedEncryptionError,
 		Properties: props,
 	})
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
@@ -3515,5 +3516,184 @@ placements:
 		}
 		require.Equalf(t, 2, foundOnDC1,
 			"%v should be moved out from at least one node", segment.Pieces)
+	})
+}
+
+// TestRepairRSOverride does the following:
+//   - Uploads test data with the default RS config
+//   - Uploads test data to a bucket with a placement level RS override
+//   - Kills enough nodes to trigger adding default segment to repair queue
+//   - Verifies the segment with default RS params is added to the repair queue
+//   - Kills more nodes to trigger adding overridden segment to repair queue
+//   - Verifies that both segments are now in the repair queue
+//   - execute repair, and verify both segments are repaired to their respective thresholds
+func TestRepairRSOverride(t *testing.T) {
+	const (
+		RepairMaxExcessRateOptimalThreshold = 0.005
+		defaultMinThreshold                 = 3
+		defaultRepairThreshold              = 5
+		defaultSuccessThreshold             = 6
+		defaultTotalThreshold               = 6
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 16,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				testplanet.ReconfigureRS(defaultMinThreshold, defaultRepairThreshold, defaultSuccessThreshold, defaultTotalThreshold)(log, index, config)
+				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+				config.Repairer.InMemoryRepair = true
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: "repair_test_placement.yaml",
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop loops to prevent possible interactions
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		// suspend half of the nodes to force segments to the remaining half
+		suspendedNodes := make(map[storj.NodeID]bool)
+		for i := 0; i < len(planet.StorageNodes)/2; i++ {
+			require.NoError(t, satellite.DB.OverlayCache().TestSuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
+			suspendedNodes[planet.StorageNodes[i].ID()] = true
+		}
+
+		// refresh view of the nodes
+		require.NoError(t, satellite.RangedLoop.Repair.Observer.RefreshReliabilityCache(ctx))
+
+		// upload data with the default repair threshold
+		testData := testrand.Bytes(memory.MiB)
+		require.NoError(t, uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData))
+
+		// setup bucket with placement overriding the default repair threshold
+		buckets := planet.Satellites[0].API.Buckets.Service
+		require.NoError(t, uplinkPeer.CreateBucket(ctx, planet.Satellites[0], "placement1"))
+		bucket, err := buckets.GetBucket(ctx, []byte("placement1"), uplinkPeer.Projects[0].ID)
+		require.NoError(t, err)
+		bucket.Placement = 1
+		_, err = buckets.UpdateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		// upload data with a repair threshold override
+		require.NoError(t, uplinkPeer.Upload(ctx, satellite, "placement1", "test/path", testData))
+
+		// get the two remote segments
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		slices.SortFunc(segments,
+			func(a, b metabase.Segment) int {
+				return a.CreatedAt.Compare(b.CreatedAt)
+			})
+
+		require.Len(t, segments, 2)
+		require.NotEmpty(t, segments[0].Pieces)
+		require.NotEmpty(t, segments[1].Pieces)
+		require.NotEqual(t, segments[0].Redundancy.RepairShares, segments[1].Redundancy.RepairShares)
+		require.NotEqual(t, segments[0].Redundancy.OptimalShares, segments[1].Redundancy.OptimalShares)
+		require.NotEqual(t, segments[0].Redundancy.TotalShares, segments[1].Redundancy.TotalShares)
+
+		// verify that both segments have a piece on all online nodes
+		allNodes, err := satellite.Overlay.Service.GetParticipatingNodes(ctx)
+		require.NoError(t, err)
+		activeNodes := make(map[storj.NodeID]bool)
+		for _, node := range allNodes {
+			if !node.Suspended {
+				activeNodes[node.ID] = true
+			}
+		}
+		// RS overridden segment should be on all active storagenodes
+		require.Equal(t, defaultTotalThreshold, len(segments[0].Pieces))
+		require.Equal(t, len(activeNodes), len(segments[1].Pieces))
+
+		// kill enough nodes to trigger default segment as injured, but not RS overridden segment
+		nodesToKill := len(segments[0].Pieces) - int(segments[0].Redundancy.RepairShares)
+		killedNodes := make(map[storj.NodeID]bool)
+		for _, piece := range segments[0].Pieces {
+			if activeNodes[piece.StorageNode] {
+				require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode)))
+				killedNodes[piece.StorageNode] = true
+				if len(killedNodes) == nodesToKill {
+					break
+				}
+			}
+		}
+
+		// refresh view of the nodes
+		require.NoError(t, satellite.RangedLoop.Repair.Observer.RefreshReliabilityCache(ctx))
+
+		// run ranged loop
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// verify default segment is injured and added to repair queue.
+		injuredSegments, err := satellite.DB.RepairQueue().SelectN(ctx, 2)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(injuredSegments))
+		require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)
+
+		// kill enough nodes to trigger overridden segment as injured
+		nodesToKill = len(segments[1].Pieces) - int(segments[1].Redundancy.RepairShares)
+		for _, piece := range segments[1].Pieces {
+			if activeNodes[piece.StorageNode] && !killedNodes[piece.StorageNode] {
+				require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode)))
+				killedNodes[piece.StorageNode] = true
+				if len(killedNodes) == nodesToKill {
+					break
+				}
+			}
+		}
+
+		// refresh view of the nodes again
+		require.NoError(t, satellite.RangedLoop.Repair.Observer.RefreshReliabilityCache(ctx))
+
+		// run ranged loop again
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// verify the RS overridden segment is now injured and added to repair queue
+		injuredSegments, err = satellite.DB.RepairQueue().SelectN(ctx, 2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(injuredSegments))
+		slices.SortFunc(injuredSegments, func(a, b queue.InjuredSegment) int {
+			return a.InsertedAt.Compare(b.InsertedAt)
+		})
+		require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)
+		require.Equal(t, segments[1].StreamID, injuredSegments[1].StreamID)
+
+		// reinstate the suspended nodes to use for repair
+		for nodeID := range suspendedNodes {
+			require.NoError(t, satellite.DB.OverlayCache().TestUnsuspendNodeUnknownAudit(ctx, nodeID))
+		}
+		// refresh view of the nodes
+		require.NoError(t, satellite.RangedLoop.Repair.Observer.RefreshReliabilityCache(ctx))
+
+		// repair the nodes and verify each segment was repaired to it's correct threshold
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		segments, err = satellite.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		slices.SortFunc(segments,
+			func(a, b metabase.Segment) int {
+				return a.CreatedAt.Compare(b.CreatedAt)
+			})
+		require.Len(t, segments, 2)
+		require.NotEmpty(t, segments[0].Pieces)
+		require.NotEmpty(t, segments[1].Pieces)
+		// default RS segment should be repaired to default success threeshold
+		require.Equal(t, int(segments[0].Redundancy.TotalShares), len(segments[0].Pieces))
+		// overridden RS segment should be repaired to overridden success threeshold
+		require.Equal(t, int(segments[1].Redundancy.TotalShares), len(segments[1].Pieces))
+		// Overridden success threshold is greater than the default
+		require.True(t, len(segments[1].Pieces) > len(segments[0].Pieces))
 	})
 }

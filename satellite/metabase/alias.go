@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
@@ -40,7 +39,10 @@ func (db *DB) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (er
 	// TODO(spanner) long term this needs to be a coordinated insert across all adapters,
 	// i.e. one of them needs to be the source of truth, otherwise there will be issues
 	// with different db having different NodeAlias for the same node id.
-	return db.ChooseAdapter(uuid.UUID{}).EnsureNodeAliases(ctx, opts)
+	//
+	// For now, we can require that all participating processes have the same adapter
+	// configured as "first", and use that one as the source of truth.
+	return db.adapters[0].EnsureNodeAliases(ctx, opts)
 }
 
 // EnsureNodeAliases implements Adapter.
@@ -124,7 +126,10 @@ func (db *DB) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err erro
 	// TODO(spanner): long term this needs to be a coordinated get across all adapters,
 	// i.e. one of them needs to be the source of truth, otherwise there will be issues
 	// with different db having different NodeAlias for the same node id.
-	return db.ChooseAdapter(uuid.UUID{}).ListNodeAliases(ctx)
+	//
+	// For now, we can require that all participating processes have the same adapter
+	// configured as "first", and use that one as the source of truth.
+	return db.adapters[0].ListNodeAliases(ctx)
 }
 
 // ListNodeAliases implements Adapter.
@@ -183,7 +188,10 @@ func (db *DB) GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries)
 	// TODO(spanner): long term this needs to be a coordinated get across all adapters,
 	// i.e. one of them needs to be the source of truth, otherwise there will be issues
 	// with different db having different NodeAlias for the same node id.
-	return db.ChooseAdapter(uuid.UUID{}).GetNodeAliasEntries(ctx, opts)
+	//
+	// For now, we can require that all participating processes have the same adapter
+	// configured as "first", and use that one as the source of truth.
+	return db.adapters[0].GetNodeAliasEntries(ctx, opts)
 }
 
 // GetNodeAliasEntries implements Adapter.

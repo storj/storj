@@ -241,12 +241,23 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled     bool              `json:"versioningUIEnabled"`
-	ObjectLockUIEnabled     bool              `json:"objectLockUIEnabled"`
-	PromptForVersioningBeta bool              `json:"promptForVersioningBeta"`
-	Passphrase              string            `json:"passphrase,omitempty"`
-	IsOwnerPaidTier         bool              `json:"isOwnerPaidTier"`
-	Role                    ProjectMemberRole `json:"role"`
+	VersioningUIEnabled     bool `json:"versioningUIEnabled"`
+	ObjectLockUIEnabled     bool `json:"objectLockUIEnabled"`
+	PromptForVersioningBeta bool `json:"promptForVersioningBeta"`
+	// HasManagedPassphrase is a failsafe to prevent user-managed-encryption behavior in the UI if
+	// managed encryption is enabled for a project, but the satellite is unable to decrypt the passphrase.
+	HasManagedPassphrase bool              `json:"hasManagedPassphrase"`
+	Passphrase           string            `json:"passphrase,omitempty"`
+	IsOwnerPaidTier      bool              `json:"isOwnerPaidTier"`
+	Role                 ProjectMemberRole `json:"role"`
+}
+
+// DeleteProjectInfo holds data for project deletion UI flow.
+type DeleteProjectInfo struct {
+	Buckets             int  `json:"buckets"`
+	APIKeys             int  `json:"apiKeys"`
+	CurrentUsage        bool `json:"currentUsage"`
+	InvoicingIncomplete bool `json:"invoicingIncomplete"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

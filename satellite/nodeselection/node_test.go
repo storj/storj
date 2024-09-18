@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 func TestNodeAttribute(t *testing.T) {
@@ -24,6 +24,11 @@ func TestNodeAttribute(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.1", must(CreateNodeAttribute("last_net"))(SelectedNode{
 		LastNet: "127.0.0.1",
+	}))
+
+	assert.Equal(t, "1.2.3.4", must(CreateNodeAttribute("last_ip"))(SelectedNode{
+		LastNet:    "1.2.3.0",
+		LastIPPort: "1.2.3.4:1234",
 	}))
 
 	assert.Equal(t, "0xCAFEBABE", must(CreateNodeAttribute("wallet"))(SelectedNode{

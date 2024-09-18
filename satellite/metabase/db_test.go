@@ -5,16 +5,20 @@ package metabase_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
 
@@ -80,4 +84,47 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 			},
 		}.Check(ctx, t, db)
 	})
+}
+
+func TestChooseAdapter_Spanner(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	spannerConnStr := dbtest.PickSpanner(t)
+
+	otherConnStr := dbtest.PickPostgresNoSkip()
+	if otherConnStr == "" || strings.EqualFold(otherConnStr, "omit") {
+		otherConnStr = dbtest.PickCockroachNoSkip()
+		if otherConnStr == "" || strings.EqualFold(otherConnStr, "omit") {
+			t.Fatal("Spanner and either Postgres or Cockroach is required to run this test.")
+		}
+	}
+
+	spannerProjects := map[uuid.UUID]struct{}{
+		testrand.UUID(): {},
+		testrand.UUID(): {},
+	}
+	nonSpannerProject := map[uuid.UUID]struct{}{
+		testrand.UUID(): {},
+		testrand.UUID(): {},
+	}
+
+	log := zaptest.NewLogger(t)
+	db, err := metabase.Open(ctx, log.Named("metabase"), otherConnStr+";"+spannerConnStr, metabase.Config{
+		ApplicationName:        "test-spanner-projects",
+		TestingSpannerProjects: spannerProjects,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	for projectID := range spannerProjects {
+		adapter := db.ChooseAdapter(projectID)
+		_, ok := adapter.(*metabase.SpannerAdapter)
+		require.True(t, ok, "project %v should be a spanner project", projectID)
+	}
+
+	for projectID := range nonSpannerProject {
+		adapter := db.ChooseAdapter(projectID)
+		_, ok := adapter.(*metabase.SpannerAdapter)
+		require.False(t, ok, "project %v should NOT be a spanner project", projectID)
+	}
 }

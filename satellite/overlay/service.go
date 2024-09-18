@@ -14,12 +14,12 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.

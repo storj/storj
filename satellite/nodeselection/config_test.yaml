@@ -24,4 +24,6 @@ placements:
   - id: 5
     name: dual
     selector: dual(0.2,random(), filter(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true"),random()))
-
+  - id: 6
+    name: sa
+    filter: continent("SA") && $NORMAL

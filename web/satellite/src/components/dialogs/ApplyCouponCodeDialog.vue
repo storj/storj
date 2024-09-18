@@ -11,7 +11,7 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-green-coupon.svg" alt="Coupon">
+                    <component :is="TicketPercent" :size="18" />
                 </template>
                 <v-card-title class="font-weight-bold">Apply New Coupon</v-card-title>
                 <template #append>
@@ -81,6 +81,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions } from 'vuetify/components';
+import { TicketPercent } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

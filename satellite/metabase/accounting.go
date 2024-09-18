@@ -115,14 +115,22 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.
 func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
+	fromTuple, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_bucket_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	toTuple, err := spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_bucket_name"}, []string{"project_id", "bucket_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			WITH counts AS (
 				SELECT project_id, bucket_name, segment_count, total_encrypted_size, length(encrypted_metadata) AS encrypted_bytes, status
 				FROM objects
 				WHERE
-					` + TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_bucket_name"}, true) + `
-					AND ` + TupleGreaterThanSQL([]string{"@to_project_id", "@to_bucket_name"}, []string{"project_id", "bucket_name"}, true) + `
+					` + fromTuple + `
+					AND ` + toTuple + `
 					AND (expires_at IS NULL OR expires_at > @when)
 			)
 			SELECT

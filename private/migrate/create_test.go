@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
 )
@@ -47,7 +47,7 @@ func TestCreate_Sqlite(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
 		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
 		if err != nil {
 			t.Fatal(err)

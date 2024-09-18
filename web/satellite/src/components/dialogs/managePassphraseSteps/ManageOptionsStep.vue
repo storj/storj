@@ -23,19 +23,15 @@
 </template>
 
 <script setup lang="ts">
-import { Component } from 'vue';
+import { FunctionalComponent } from 'vue';
 import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
-import { ChevronRight } from 'lucide-vue-next';
+import { ChevronRight, CirclePlus, ArrowLeftRight, Lock } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { DialogStepComponent } from '@/types/common';
 
-import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
-import IconSwitch from '@/components/icons/IconSwitch.vue';
-import IconLock from '@/components/icons/IconLock.vue';
-
 type Item = {
-    icon: Component;
+    icon: FunctionalComponent;
     title: string;
     subtitle: string;
     next: ManageProjectPassphraseStep;
@@ -43,17 +39,17 @@ type Item = {
 
 const items: Item[] = [
     {
-        icon: IconCirclePlus,
+        icon: CirclePlus,
         title: 'Create a new passphrase',
         subtitle: 'Allows you to upload data with a different passphrase.',
         next: ManageProjectPassphraseStep.Create,
     }, {
-        icon: IconSwitch,
+        icon: ArrowLeftRight,
         title: 'Switch active passphrase',
         subtitle: 'View and upload data using another passphrase.',
         next: ManageProjectPassphraseStep.Switch,
     }, {
-        icon: IconLock,
+        icon: Lock,
         title: 'Clear saved passphrase',
         subtitle: 'Lock your data and clear passphrase from this session.',
         next: ManageProjectPassphraseStep.Clear,

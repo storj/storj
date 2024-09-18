@@ -122,7 +122,7 @@ func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.T
 var monSetExpiration = mon.Task()
 
 // SetExpiration sets an expiration time for the given piece ID on the given satellite.
-func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) (err error) {
+func (db *pieceExpirationDB) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) (err error) {
 	defer monSetExpiration(&ctx)(&err)
 
 	ei := pieces.ExpiredInfo{

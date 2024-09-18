@@ -2,11 +2,15 @@
 // See LICENSE for copying information.
 
 import { computed } from 'vue';
+import { HttpRequest } from '@smithy/types';
+import { Sha256 } from '@aws-crypto/sha256-browser';
+import { SignatureV4 } from '@smithy/signature-v4';
 
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { Project } from '@/types/projects';
 
@@ -23,6 +27,7 @@ export function useLinksharing() {
     const configStore = useConfigStore();
     const projectsStore = useProjectsStore();
     const bucketsStore = useBucketsStore();
+    const objectBrowserStore = useObjectBrowserStore();
 
     const worker = computed((): Worker | null => agStore.state.accessGrantsWebWorker);
 
@@ -54,7 +59,7 @@ export function useLinksharing() {
 
         const LINK_SHARING_AG_NAME = `${fullPath}_shared-${type}_${new Date().toISOString()}`;
         const grant: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, selectedProject.value.id);
-        const creds: EdgeCredentials = await generateCredentials(grant.secret, fullPath, null);
+        const creds: EdgeCredentials = await generatePublicCredentials(grant.secret, fullPath, null);
 
         let url = `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${bucketName}`;
         if (prefix) url = `${url}/${encodeURIComponent(prefix.trim())}`;
@@ -64,18 +69,48 @@ export function useLinksharing() {
         return url;
     }
 
-    async function generateObjectPreviewAndMapURL(bucketName: string, path: string): Promise<string> {
-        if (!worker.value) throw new Error(WORKER_ERR_MSG);
+    async function getObjectDistributionMap(path: string): Promise<Blob> {
+        if (objectBrowserStore.state.s3 === null) throw new Error(
+            'ObjectsModule: S3 Client is uninitialized',
+        );
 
-        path = bucketName + '/' + path;
-        const now = new Date();
-        const inOneDay = new Date(now.setDate(now.getDate() + 1));
-        const creds: EdgeCredentials = await generateCredentials(bucketsStore.state.apiKey, path, inOneDay);
+        const url = new URL(`${linksharingURL.value}/s/${objectBrowserStore.state.accessKey}/${path}`);
+        const request: HttpRequest = {
+            method: 'GET',
+            protocol: url.protocol,
+            hostname: url.hostname,
+            port: parseFloat(url.port),
+            path: url.pathname,
+            headers: {
+                'host': url.host,
+            },
+            query: {
+                'map': '1',
+            },
+        };
 
-        return `${linksharingURL.value}/s/${creds.accessKeyId}/${encodeURIComponent(path.trim())}`;
+        const creds = await objectBrowserStore.state.s3.config.credentials();
+        const signer = new SignatureV4({
+            applyChecksum: true,
+            uriEscapePath: false,
+            credentials: creds,
+            region: 'eu1',
+            service: 'linksharing',
+            sha256: Sha256,
+        });
+
+        const signedRequest: HttpRequest = await signer.sign(request);
+        const requestURL = `${linksharingURL.value}${signedRequest.path}?map=1`;
+
+        const response = await fetch(requestURL, signedRequest);
+        if (response.ok) {
+            return await response.blob();
+        }
+
+        throw new Error();
     }
 
-    async function generateCredentials(cleanAPIKey: string, path: string, expiration: Date | null, passphrase?: string): Promise<EdgeCredentials> {
+    async function generatePublicCredentials(cleanAPIKey: string, path: string, expiration: Date | null, passphrase?: string): Promise<EdgeCredentials> {
         if (!worker.value) throw new Error(WORKER_ERR_MSG);
 
         const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
@@ -131,9 +166,9 @@ export function useLinksharing() {
 
     return {
         publicLinksharingURL,
-        generateCredentials,
+        generatePublicCredentials,
         generateBucketShareURL,
         generateFileOrFolderShareURL,
-        generateObjectPreviewAndMapURL,
+        getObjectDistributionMap,
     };
 }

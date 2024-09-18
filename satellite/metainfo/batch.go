@@ -367,6 +367,17 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectSetRetention: response,
 				},
 			})
+		case *pb.BatchRequestItem_ObjectSetLegalHold:
+			singleRequest.ObjectSetLegalHold.Header = req.Header
+			response, err := endpoint.SetObjectLegalHold(ctx, singleRequest.ObjectSetLegalHold)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectSetLegalHold{
+					ObjectSetLegalHold: response,
+				},
+			})
 		// SEGMENT
 		case *pb.BatchRequestItem_SegmentBegin:
 			singleRequest.SegmentBegin.Header = req.Header

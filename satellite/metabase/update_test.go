@@ -17,6 +17,8 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
+const noLockOnDeleteMarkerErrMsg = "Object Lock settings must not be placed on delete markers"
+
 func TestUpdateSegmentPieces(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
@@ -418,6 +420,418 @@ func TestUpdateSegmentPieces(t *testing.T) {
 	})
 }
 
+func TestSetObjectExactVersionLegalHold(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+		loc := objStream.Location()
+
+		activeRetention := metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour),
+		}
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+					LegalHold:    legalHold,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return obj
+		}
+
+		t.Run("Set legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			// obj1 and obj4 exist to ensure that SetObjectExactVersionRetention
+			// does not select the first or last version instead of the version
+			// it is given.
+			obj1 := createObject(t, objStream, metabase.Retention{}, false)
+			objStream.Version++
+			obj2 := createObject(t, objStream, metabase.Retention{}, false)
+			objStream.Version++
+			obj3 := createObject(t, objStream, activeRetention, false)
+			objStream.Version++
+			obj4 := createObject(t, objStream, activeRetention, false)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj2.Version,
+					Enabled:        true,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj3.Version,
+					Enabled:        true,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj2.Version,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj3.Version,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(obj1),
+					metabase.RawObject(obj2),
+					metabase.RawObject(obj3),
+					metabase.RawObject(obj4),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Remove legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+			obj1 := createObject(t, objStream, activeRetention, true)
+
+			objStream.Version++
+			obj2 := createObject(t, objStream, metabase.Retention{}, true)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj1.Version,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj2.Version,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        objStream.Version,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			obj := createObject(t, objStream, metabase.Retention{}, false)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        obj.Version + 1,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        pending.Version,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  "Object Lock settings must only be placed on committed objects",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: loc,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+			marker := deleteResult.Markers[0]
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        marker.Version,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  noLockOnDeleteMarkerErrMsg,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object), metabase.RawObject(marker)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Object with TTL", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expiresAt := time.Now().Add(time.Minute)
+
+			ttlObj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &expiresAt,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.SetObjectExactVersionLegalHold{
+				Opts: metabase.SetObjectExactVersionLegalHold{
+					ObjectLocation: loc,
+					Version:        ttlObj.Version,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestSetObjectLastCommittedLegalHold(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+		loc := objStream.Location()
+
+		activeRetention := metabase.Retention{
+			Mode:        storj.ComplianceMode,
+			RetainUntil: time.Now().Add(time.Hour),
+		}
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+					LegalHold:    legalHold,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return obj
+		}
+
+		t.Run("Set legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			obj1 := createObject(t, objStream, activeRetention, false)
+			objStream.Version++
+			obj2 := createObject(t, objStream, metabase.Retention{}, false)
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        true,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj1), metabase.RawObject(obj2)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Remove legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+			createObject(t, objStream, activeRetention, true)
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: objStream.Location(),
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := objStream
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			committed := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: pending.ObjectStream,
+				},
+			}.Check(ctx, t, db)
+
+			objStream.Version++
+			pending = metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        true,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(committed), metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: loc,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+			marker := deleteResult.Markers[0]
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  noLockOnDeleteMarkerErrMsg,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object), metabase.RawObject(marker)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Object with TTL", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expiresAt := time.Now().Add(time.Minute)
+
+			ttlObj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &expiresAt,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.SetObjectLastCommittedLegalHold{
+				Opts: metabase.SetObjectLastCommittedLegalHold{
+					ObjectLocation: objStream.Location(),
+					Enabled:        true,
+				},
+				ErrClass: &metabase.ErrObjectExpiration,
+				ErrText:  "Object Lock settings must not be placed on an object with an expiration date",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestSetObjectExactVersionRetention(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		objStream := metabasetest.RandObjectStream()
@@ -586,7 +1000,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			check(metabase.Retention{
 				Mode:        storj.RetentionMode(2),
 				RetainUntil: activeRetention.RetainUntil,
-			}, "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+			}, "invalid retention mode 2")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(obj)},
@@ -643,6 +1057,33 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: loc,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+			marker := deleteResult.Markers[0]
+
+			metabasetest.SetObjectExactVersionRetention{
+				Opts: metabase.SetObjectExactVersionRetention{
+					ObjectLocation: loc,
+					Version:        marker.Version,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  noLockOnDeleteMarkerErrMsg,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object), metabase.RawObject(marker)},
 			}.Check(ctx, t, db)
 		})
 
@@ -831,7 +1272,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			check(metabase.Retention{
 				Mode:        storj.RetentionMode(2),
 				RetainUntil: activeRetention.RetainUntil,
-			}, "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+			}, "invalid retention mode 2")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(obj)},
@@ -896,6 +1337,32 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(committed), metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: loc,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+			marker := deleteResult.Markers[0]
+
+			metabasetest.SetObjectLastCommittedRetention{
+				Opts: metabase.SetObjectLastCommittedRetention{
+					ObjectLocation: loc,
+					Retention:      activeRetention,
+				},
+				ErrClass: &metabase.ErrObjectStatus,
+				ErrText:  noLockOnDeleteMarkerErrMsg,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object), metabase.RawObject(marker)},
 			}.Check(ctx, t, db)
 		})
 

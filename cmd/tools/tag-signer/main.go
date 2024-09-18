@@ -18,11 +18,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
-	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/process"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/nodetag"
 )
 
 var (

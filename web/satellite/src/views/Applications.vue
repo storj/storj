@@ -25,7 +25,6 @@
                         color="info"
                         variant="text"
                         class="font-weight-medium"
-                        rounded-lg
                         filter
                     >
                         {{ category }}
@@ -34,7 +33,7 @@
             </v-col>
         </v-row>
 
-        <v-card class="pa-2 my-5" variant="flat">
+        <v-card class="pa-2 mt-2 mb-6" variant="flat">
             <v-row align="center">
                 <v-col>
                     <v-text-field
@@ -47,7 +46,7 @@
                         hide-details
                         clearable
                         density="comfortable"
-                        rounded="lg"
+                        rounded="md"
                     />
                 </v-col>
                 <v-col cols="auto">
@@ -136,19 +135,20 @@ import {
 import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
 
 import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
+import { SortItem } from '@/types/common';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ApplicationItem from '@/components/ApplicationItem.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = usePreCheck();
 
 const selectedChip = ref<AppCategory>(AppCategory.All);
 const search = ref<string>('');
 const sortKey = ref<string>('name');
-const sortOrder = ref<string>('asc');
+const sortOrder = ref<'asc' | 'desc'>('asc');
 const sortKeys = ['Name', 'Category'];
 
 /**
@@ -159,7 +159,7 @@ const showUplinkItem = computed<boolean>(() => !search.value && selectedChip.val
 /**
  * The sorting criteria to be used for the file list.
  */
-const sortBy = computed(() => [{ key: sortKey.value, order: sortOrder.value }]);
+const sortBy = computed<SortItem[]>(() => [{ key: sortKey.value, order: sortOrder.value }]);
 
 /**
  * Returns all application categories.

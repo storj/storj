@@ -62,7 +62,6 @@ import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modu
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useLinksharing } from '@/composables/useLinksharing';
 import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 
 import FilePreviewPlaceholder from '@/components/dialogs/filePreviewComponents/FilePreviewPlaceholder.vue';
@@ -72,7 +71,6 @@ import CSVFilePreview from '@/components/dialogs/filePreviewComponents/CSVFilePr
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
-const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
 const loadError = ref<boolean>(false);
@@ -106,11 +104,7 @@ const cacheKey = computed(() => props.showingVersion ? props.file.VersionId ?? '
  */
 const objectPreviewUrl = computed((): string => {
     const cache = cachedObjectPreviewURLs.value.get(cacheKey.value);
-    const url = cache?.url || '';
-    if (props.showingVersion) {
-        return url;
-    }
-    return `${url}?view=1`;
+    return cache?.url ?? '';
 });
 
 /**
@@ -153,11 +147,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
     let url = '';
     try {
-        if (props.showingVersion) {
-            url = await obStore.getDownloadLink(props.file);
-        } else {
-            url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, props.file.path + props.file.Key);
-        }
+        url = await obStore.getDownloadLink(props.file);
     } catch (error) {
         error.message = `Unable to get file preview and map URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);

@@ -11,12 +11,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
@@ -57,7 +57,7 @@ func TestFilewalker_Basic(t *testing.T) {
 		filter := bloomfilter.NewOptimal(int64(numberOfPieces), 0.000000001)
 
 		// WalkAndComputeSpaceUsedBySatellite
-		total, totalContentSize, err := fw.WalkAndComputeSpaceUsedBySatellite(ctx, satellite)
+		total, totalContentSize, _, err := fw.WalkAndComputeSpaceUsedBySatellite(ctx, satellite)
 		require.NoError(t, err)
 		require.Equal(t, int64(numberOfPieces)*size.Int64(), totalContentSize)
 		require.GreaterOrEqual(t, total, int64(numberOfPieces)*size.Int64())

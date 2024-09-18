@@ -38,7 +38,7 @@ func TestInsertSelect(t *testing.T) {
 		require.Equal(t, seg.SegmentHealth, segments[0].SegmentHealth)
 		require.WithinDuration(t, time.Now(), segments[0].InsertedAt, 5*time.Second)
 		require.NotZero(t, segments[0].UpdatedAt)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestInsertDuplicate(t *testing.T) {
@@ -52,7 +52,7 @@ func TestInsertDuplicate(t *testing.T) {
 		alreadyInserted, err = q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.True(t, alreadyInserted)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestInsertBatchOfOne(t *testing.T) {
@@ -78,7 +78,7 @@ func TestInsertBatchOfOne(t *testing.T) {
 		require.Equal(t, writeSegments[0].Position, readSegments[0].Position)
 		require.Equal(t, writeSegments[0].SegmentHealth, readSegments[0].SegmentHealth)
 		require.Equal(t, writeSegments[0].Placement, readSegments[0].Placement)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestInsertOverlappingBatches(t *testing.T) {
@@ -126,7 +126,7 @@ func TestInsertOverlappingBatches(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, newlyInserted, 0)
 		requireDbState([]queue.InjuredSegment{*writeSegment1, *writeSegment2, *writeSegment3})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
@@ -136,7 +136,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 		_, err := q.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		require.True(t, queue.ErrEmpty.Has(err), "error should of class EmptyQueue")
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestSequential(t *testing.T) {
@@ -244,7 +244,7 @@ func TestParallel(t *testing.T) {
 		count, err = q.Count(ctx)
 		require.NoError(t, err)
 		require.Zero(t, count)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestClean(t *testing.T) {
@@ -316,5 +316,5 @@ func TestClean(t *testing.T) {
 		count, err = q.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
-	})
+	}, satellitedbtest.WithSpanner())
 }

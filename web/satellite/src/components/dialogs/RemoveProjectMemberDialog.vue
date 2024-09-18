@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <img src="@/assets/icon-remove-member.svg" alt="member icon">
+                        <component :is="UserMinus" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Remove member</v-card-title>
@@ -53,7 +53,7 @@
                     + {{ props.emails.length - 3 }} more
                 </v-chip>
 
-                <v-alert variant="tonal" class="pa-4" type="warning">
+                <v-alert variant="tonal" class="pa-4" color="warning">
                     <template #text>
                         <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
                     </template>
@@ -96,6 +96,7 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
+import { UserMinus } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';

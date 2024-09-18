@@ -514,7 +514,12 @@ async function signup(): Promise<void> {
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
             const altRoute = `${window.location.origin}/${nonBraveSuccessPath}`;
-            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = altRoute;
+
+            if (await detectBraveBrowser()) {
+                await router.push(braveSuccessPath);
+            } else {
+                window.location.href = altRoute;
+            }
         } else {
             confirmCode.value = true;
         }

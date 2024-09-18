@@ -278,6 +278,32 @@ func TestGetObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("Legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version,
+				},
+				Result: metabase.Object{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.CommittedUnversioned,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -1909,6 +1935,323 @@ func TestBucketEmpty(t *testing.T) {
 	})
 }
 
+func TestGetObjectExactVersionLegalHold(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+
+		t.Run("Success", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			objStream2 := objStream
+			objStream2.Version++
+			obj2, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream2,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream2,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetObjectExactVersionLegalHold{
+				Opts: metabase.GetObjectExactVersionLegalHold{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version,
+				},
+				Result: false,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionLegalHold{
+				Opts: metabase.GetObjectExactVersionLegalHold{
+					ObjectLocation: objStream2.Location(),
+					Version:        objStream2.Version,
+				},
+				Result: true,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj1), metabase.RawObject(obj2)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionLegalHold{
+				Opts: metabase.GetObjectExactVersionLegalHold{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			obj, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetObjectExactVersionLegalHold{
+				Opts: metabase.GetObjectExactVersionLegalHold{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version + 1,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			markerStream := objStream
+			markerStream.StreamID = uuid.UUID{}
+			markerStream.Version++
+			marker := metabase.Object{
+				ObjectStream: markerStream,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: markerStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &markerStream.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionLegalHold{
+				Opts: metabase.GetObjectExactVersionLegalHold{
+					ObjectLocation: markerStream.Location(),
+					Version:        markerStream.Version,
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionLegalHold{
+				Opts: metabase.GetObjectExactVersionLegalHold{
+					ObjectLocation: objStream.Location(),
+					Version:        objStream.Version,
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestGetObjectLastCommittedLegalHold(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+
+		t.Run("Success", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetObjectLastCommittedLegalHold{
+				Opts: metabase.GetObjectLastCommittedLegalHold{
+					ObjectLocation: objStream.Location(),
+				},
+			}.Check(ctx, t, db)
+
+			objStream2 := objStream
+			objStream2.Version++
+			obj2, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream2,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream2,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream2, 0)
+
+			metabasetest.GetObjectLastCommittedLegalHold{
+				Opts: metabase.GetObjectLastCommittedLegalHold{
+					ObjectLocation: objStream2.Location(),
+				},
+				Result: true,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(obj1), metabase.RawObject(obj2)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedLegalHold{
+				Opts: metabase.GetObjectLastCommittedLegalHold{
+					ObjectLocation: objStream.Location(),
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			markerStream := objStream
+			markerStream.StreamID = uuid.UUID{}
+			markerStream.Version++
+			marker := metabase.Object{
+				ObjectStream: markerStream,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: markerStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &markerStream.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedLegalHold{
+				Opts: metabase.GetObjectLastCommittedLegalHold{
+					ObjectLocation: markerStream.Location(),
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			loc := objStream.Location()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedLegalHold{
+				Opts: metabase.GetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			committed, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			pendingObjStream := objStream
+			pendingObjStream.Version++
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: pendingObjStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					LegalHold:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedLegalHold{
+				Opts: metabase.GetObjectLastCommittedLegalHold{
+					ObjectLocation: loc,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestGetObjectExactVersionRetention(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		objStream := metabasetest.RandObjectStream()
@@ -2001,6 +2344,49 @@ func TestGetObjectExactVersionRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			markerStream := objStream
+			markerStream.StreamID = uuid.UUID{}
+			markerStream.Version++
+			marker := metabase.Object{
+				ObjectStream: markerStream,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: markerStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &markerStream.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersionRetention{
+				Opts: metabase.GetObjectExactVersionRetention{
+					ObjectLocation: markerStream.Location(),
+					Version:        markerStream.Version,
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("Pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -2016,7 +2402,7 @@ func TestGetObjectExactVersionRetention(t *testing.T) {
 					ObjectLocation: objStream.Location(),
 					Version:        objStream.Version,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
+				ErrClass: &metabase.ErrMethodNotAllowed,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -2091,6 +2477,48 @@ func TestGetObjectLastCommittedRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			markerStream := objStream
+			markerStream.StreamID = uuid.UUID{}
+			markerStream.Version++
+			marker := metabase.Object{
+				ObjectStream: markerStream,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: markerStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &markerStream.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommittedRetention{
+				Opts: metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: markerStream.Location(),
+				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+			}.Check(ctx, t, db)
 		})
 
 		t.Run("Pending object", func(t *testing.T) {

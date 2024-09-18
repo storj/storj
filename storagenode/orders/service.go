@@ -15,7 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/pb"
-	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -208,7 +207,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 			attemptedSatellites++
 
 			group.Go(func() error {
-				log := process.NamedLog(service.log, satelliteID.String())
+				log := service.log.With(zap.Stringer("satelliteID", satelliteID))
 
 				skipSettlement := false
 				nodeURL, err := service.trust.GetNodeURL(ctx, satelliteID)
@@ -258,8 +257,8 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, nodeURL storj.NodeURL, orders []*ordersfile.Info) (status pb.SettlementWithWindowResponse_Status, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	log.Info("sending", zap.Int("count", len(orders)))
-	defer log.Info("finished")
+	log.Debug("sending", zap.Int("count", len(orders)))
+	defer log.Info("finished", zap.Int("count", len(orders)))
 
 	conn, err := service.dialer.DialNodeURL(ctx, nodeURL)
 	if err != nil {

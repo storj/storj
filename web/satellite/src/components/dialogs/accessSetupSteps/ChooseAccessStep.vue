@@ -60,9 +60,25 @@
                     </v-chip>
                 </v-chip-group>
 
-                <v-alert v-if="accessType === AccessType.S3" variant="tonal" width="auto">
-                    <p class="text-subtitle-2">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
-                </v-alert>
+                <template v-if="accessType === AccessType.S3">
+                    <v-alert variant="tonal" width="auto">
+                        <p class="text-subtitle-2">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                    </v-alert>
+                    <v-autocomplete
+                        v-model="selectedApp"
+                        :items="applications"
+                        :item-title="app => app.name"
+                        :item-value="app => app"
+                        class="mt-6"
+                        variant="outlined"
+                        color="default"
+                        label="Application (optional)"
+                        placeholder="Select application"
+                        no-data-text="No applications found."
+                        hide-details
+                        clearable
+                    />
+                </template>
 
                 <v-alert v-else-if="accessType === AccessType.AccessGrant" variant="tonal" width="auto">
                     <p class="text-subtitle-2">Gives access through native clients such as uplink. <a href="https://docs.storj.io/learn/concepts/access/access-grants" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
@@ -78,12 +94,13 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VTextField } from 'vuetify/components';
+import { VAlert, VAutocomplete, VChip, VChipGroup, VCol, VForm, VRow, VTextField } from 'vuetify/components';
 
 import { AccessType } from '@/types/setupAccess';
 import { IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { Application, applications } from '@/types/applications';
 
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
@@ -91,14 +108,16 @@ const projectsStore = useProjectsStore();
 const emit = defineEmits<{
     'nameChanged': [name: string];
     'typeChanged': [type: AccessType];
+    'appChanged': [app: Application | undefined];
     'submit': [];
 }>();
 
-const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 const form = ref<VForm | null>(null);
 const name = ref<string>('');
 const accessType = ref<AccessType>(AccessType.S3);
+const selectedApp = ref<Application>();
 
 const nameRules: ValidationRule<string>[] = [
     RequiredRule,
@@ -106,7 +125,11 @@ const nameRules: ValidationRule<string>[] = [
 ];
 
 watch(name, value => emit('nameChanged', value));
-watch(accessType, value => emit('typeChanged', value));
+watch(accessType, value => {
+    selectedApp.value = undefined;
+    emit('typeChanged', value);
+});
+watch(selectedApp, value => emit('appChanged', value));
 
 defineExpose<IDialogFlowStep>({
     validate: () => {

@@ -16,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/sqliteutil"
 	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/bandwidth"
 )
@@ -324,7 +325,7 @@ func (db *bandwidthDB) AddBatch(ctx context.Context, usages map[bandwidth.CacheK
 					put_repair_total = put_repair_total + excluded.put_repair_total,
 					delete_total = delete_total + excluded.delete_total;`
 
-	return withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
+	return sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		for key, usage := range usages {
 			_, err := tx.ExecContext(ctx, query, key.CreatedAt, key.SatelliteID, usage.Get, usage.GetAudit, usage.GetRepair, usage.Put, usage.PutRepair, usage.Delete)
 			if err != nil {

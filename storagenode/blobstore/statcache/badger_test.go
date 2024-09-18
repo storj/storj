@@ -32,7 +32,11 @@ func TestBadger(t *testing.T) {
 
 	cache, err := NewBadgerCache(zaptest.NewLogger(t), t.TempDir())
 	require.NoError(t, err)
+
 	ctx := testcontext.New(t)
+
+	defer ctx.Check(cache.Close)
+
 	err = cache.Set(ctx, []byte("ns"), []byte("key1"), f)
 	require.NoError(t, err)
 

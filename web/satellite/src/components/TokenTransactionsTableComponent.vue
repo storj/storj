@@ -72,7 +72,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { tableSizeOptions } from '@/types/common';
+import { DataTableHeader, SortItem, tableSizeOptions } from '@/types/common';
 
 type DisplayedItem = {
     id: string;
@@ -87,7 +87,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const billingStore = useBillingStore();
 
-const sortBy = ref([{ key: 'timestamp', order: 'asc' }]);
+const sortBy = ref<SortItem[]>([{ key: 'timestamp', order: 'asc' }]);
 const search = ref<string>('');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,7 +97,7 @@ const customSortFns: Record<string, DataTableCompareFunction> = {
     amount: customAmountSort,
 };
 
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'Date',
         align: 'start',

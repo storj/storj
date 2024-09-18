@@ -111,7 +111,7 @@ func TestReverifyQueue(t *testing.T) {
 
 		_, err = reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestReverifyQueueGetByNodeID(t *testing.T) {
@@ -166,7 +166,7 @@ func TestReverifyQueueGetByNodeID(t *testing.T) {
 		require.Error(t, err)
 		require.Truef(t, audit.ErrContainedNotFound.Has(err), "expected ErrContainedNotFound error but got %+v", err)
 		require.Nil(t, job3)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 // checkGetAllContainedNodes checks that the GetAllContainedNodes method works as expected

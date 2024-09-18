@@ -71,6 +71,7 @@ type FrontendConfig struct {
 	AltObjBrowserPagingThreshold      int                   `json:"altObjBrowserPagingThreshold"`
 	DomainsPageEnabled                bool                  `json:"domainsPageEnabled"`
 	ActiveSessionsViewEnabled         bool                  `json:"activeSessionsViewEnabled"`
+	ObjectLockUIEnabled               bool                  `json:"objectLockUIEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

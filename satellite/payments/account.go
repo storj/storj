@@ -61,7 +61,7 @@ type Accounts interface {
 	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) error
 
 	// CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error
+	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error)
 
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)

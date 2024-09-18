@@ -132,7 +132,8 @@ type BucketUsage struct {
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 	Location         string                    `json:"location"`
 
-	Versioning buckets.Versioning `json:"versioning"`
+	Versioning        buckets.Versioning `json:"versioning"`
+	ObjectLockEnabled bool               `json:"objectLockEnabled"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`

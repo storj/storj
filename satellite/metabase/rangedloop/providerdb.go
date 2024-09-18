@@ -80,7 +80,6 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 
 	return provider.db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
 		BatchSize:          provider.batchSize,
-		AsOfSystemTime:     provider.asOfSystemTime,
 		AsOfSystemInterval: provider.asOfSystemInterval,
 		StartStreamID:      startStreamID,
 		EndStreamID:        endStreamID,

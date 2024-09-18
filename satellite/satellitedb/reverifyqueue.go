@@ -32,17 +32,29 @@ var _ audit.ReverifyQueue = (*reverifyQueue)(nil)
 func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = rq.db.DB.ExecContext(ctx, `
-		INSERT INTO reverification_audits ("node_id", "stream_id", "position", "piece_num")
-			VALUES ($1, $2, $3, $4)
-		ON CONFLICT ("node_id", "stream_id", "position") DO NOTHING
-	`, piece.NodeID[:], piece.StreamID[:], piece.Position.Encode(), piece.PieceNum)
+	var insertQuery string
+	switch rq.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		insertQuery = `
+			INSERT INTO reverification_audits ("node_id", "stream_id", "position", "piece_num")
+				VALUES ($1, $2, $3, $4)
+			ON CONFLICT ("node_id", "stream_id", "position") DO NOTHING
+		`
+	case dbutil.Spanner:
+		insertQuery = `
+			INSERT OR IGNORE INTO reverification_audits (node_id, stream_id, position, piece_num)
+			VALUES (?, ?, ?, ?)
+		`
+	default:
+		return audit.Error.New("unsupported database dialect: %s", rq.db.impl)
+	}
 
+	_, err = rq.db.DB.ExecContext(ctx, insertQuery, piece.NodeID[:], piece.StreamID[:], piece.Position.Encode(), piece.PieceNum)
 	if err == nil {
 		mon.Counter("audit_reverify_queue_piece_inserted").Inc(1)
 	}
 
-	return audit.ContainError.Wrap(err)
+	return audit.Error.Wrap(err)
 }
 
 // GetNextJob retrieves a job from the queue. The job will be the
@@ -55,44 +67,70 @@ func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) 
 // call to GetNextJob() within a given satellite cluster.
 func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Duration) (job *audit.ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
-	switch rq.db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		job = &audit.ReverificationJob{}
-		err = rq.db.QueryRowContext(ctx, `
-		WITH next_entry AS (
-			SELECT *
-			FROM reverification_audits
-			WHERE COALESCE(last_attempt, inserted_at) < (now() - '1 microsecond'::interval * $1::bigint)
-			ORDER BY inserted_at
-			LIMIT 1
-		)
-		UPDATE reverification_audits ra
-		SET last_attempt = now(),
-			reverify_count = ra.reverify_count + 1
-		FROM next_entry
-		WHERE ra.node_id = next_entry.node_id
-			AND ra.stream_id = next_entry.stream_id
-			AND ra.position = next_entry.position
-		RETURNING ra.node_id, ra.stream_id, ra.position, ra.piece_num, ra.inserted_at, ra.reverify_count
-	`, retryInterval.Microseconds()).Scan(
-			&job.Locator.NodeID,
-			&job.Locator.StreamID,
-			&job.Locator.Position,
-			&job.Locator.PieceNum,
-			&job.InsertedAt,
-			&job.ReverifyCount,
+
+	scanJobFunc := func(row *sql.Row) (*audit.ReverificationJob, error) {
+		scannedJob := &audit.ReverificationJob{}
+		err = row.Scan(
+			&scannedJob.Locator.NodeID,
+			&scannedJob.Locator.StreamID,
+			&scannedJob.Locator.Position,
+			&scannedJob.Locator.PieceNum,
+			&scannedJob.InsertedAt,
+			&scannedJob.ReverifyCount,
 		)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, audit.ErrEmptyQueue.Wrap(err)
 		}
-	case dbutil.Spanner:
-		// TODO(spanner): this makes it possible to run testplanet tests with spanner. Later we need proper implementation.
-		return nil, audit.ErrEmptyQueue.New("TODO")
-	default:
-		panic("unsupported database")
-	}
+		if err != nil {
+			return nil, audit.Error.Wrap(err)
+		}
 
-	return job, err
+		return scannedJob, nil
+	}
+	switch rq.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		selectQuery := `
+			WITH next_entry AS (
+				SELECT *
+				FROM reverification_audits
+				WHERE COALESCE(last_attempt, inserted_at) < (now() - '1 microsecond'::interval * $1::bigint)
+				ORDER BY inserted_at
+				LIMIT 1
+			)
+			UPDATE reverification_audits ra
+			SET last_attempt = now(),
+				reverify_count = ra.reverify_count + 1
+			FROM next_entry
+			WHERE ra.node_id = next_entry.node_id
+				AND ra.stream_id = next_entry.stream_id
+				AND ra.position = next_entry.position
+			RETURNING ra.node_id, ra.stream_id, ra.position, ra.piece_num, ra.inserted_at, ra.reverify_count
+		`
+		row := rq.db.QueryRowContext(ctx, selectQuery, retryInterval.Microseconds())
+		job, err = scanJobFunc(row)
+		return job, err
+	case dbutil.Spanner:
+		err = rq.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			selectQuery := `
+			UPDATE reverification_audits
+			SET last_attempt = CURRENT_TIMESTAMP(),
+				reverify_count = reverify_count + 1
+			WHERE (node_id, stream_id, position) IN (
+				SELECT (node_id, stream_id, position)
+				FROM reverification_audits
+				WHERE COALESCE(last_attempt, inserted_at) < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ? nanosecond)
+				ORDER BY inserted_at
+				LIMIT 1
+			)
+			THEN RETURN node_id, stream_id, position, piece_num, inserted_at, reverify_count`
+			row := tx.QueryRowContext(ctx, selectQuery, retryInterval.Nanoseconds())
+			job, err = scanJobFunc(row)
+			return err
+		})
+		return job, err
+	default:
+		return nil, audit.Error.New("unsupported database dialect: %s", rq.db.impl)
+	}
 }
 
 // Remove removes a job from the reverification queue, whether because the job
@@ -119,13 +157,13 @@ func (rq *reverifyQueue) Remove(ctx context.Context, piece *audit.PieceLocator) 
 // TestingFudgeUpdateTime (used only for testing) changes the last_update
 // timestamp for an entry in the reverification queue to a specific value.
 func (rq *reverifyQueue) TestingFudgeUpdateTime(ctx context.Context, piece *audit.PieceLocator, updateTime time.Time) error {
-	result, err := rq.db.ExecContext(ctx, `
+	query := rq.db.Rebind(`
 		UPDATE reverification_audits
-		SET last_attempt = $4
-		WHERE node_id = $1
-			AND stream_id = $2
-			AND position = $3
-	`, piece.NodeID[:], piece.StreamID[:], piece.Position, updateTime)
+		SET last_attempt = ?
+		WHERE node_id = ?
+			AND stream_id = ?
+			AND position = ?`)
+	result, err := rq.db.ExecContext(ctx, query, updateTime, piece.NodeID[:], piece.StreamID[:], piece.Position)
 	if err != nil {
 		return err
 	}

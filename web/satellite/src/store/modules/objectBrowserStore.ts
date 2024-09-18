@@ -14,10 +14,18 @@ import {
     ListObjectsV2CommandInput,
     ListObjectsV2CommandOutput,
     ListObjectVersionsCommand,
+    ListObjectVersionsCommandInput,
+    ListObjectVersionsCommandOutput,
     paginateListObjectsV2,
     PutObjectCommand,
+    PutObjectRetentionCommand,
+    ObjectLockRetentionMode,
     S3Client,
     S3ClientConfig,
+    GetObjectRetentionCommand,
+    GetObjectRetentionCommandOutput,
+    ObjectVersion,
+    DeleteMarkerEntry,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
@@ -30,6 +38,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DuplicateUploadError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
+import { Retention } from '@/types/objectLock';
 
 export type BrowserObject = {
     Key: string;
@@ -37,11 +46,18 @@ export type BrowserObject = {
     Size: number;
     LastModified: Date;
     type?: 'file' | 'folder';
+    isDeleteMarker?: boolean;
+    isLatest?: boolean;
     progress?: number;
     upload?: {
         abort: () => void;
     };
     path?: string;
+    Versions?: BrowserObject[];
+};
+
+export type FullBrowserObject = BrowserObject & {
+    retention?: Retention;
 };
 
 export enum FailedUploadMessage {
@@ -95,14 +111,14 @@ export class FilesState {
     uploading: UploadingBrowserObject[] = [];
     selectedFiles: BrowserObject[] = [];
     filesToBeDeleted: Set<string> = new Set<string>();
+    deletedFilesCount = 0;
     openedDropdown: null | string = null;
     headingSorted = 'name';
     orderBy: 'asc' | 'desc' = 'asc';
     openModalOnFirstUpload = false;
     objectPathForModal = '';
     cachedObjectPreviewURLs: Map<string, PreviewCache> = new Map<string, PreviewCache>();
-    showObjectVersions: boolean = true;
-    objectVersions: Map<string, BrowserObject[]> = new Map<string, BrowserObject[]>();
+    showObjectVersions = { value: false, userModified: false };
     // object keys for which we have expanded versions list.
     versionsExpandedKeys: string[] = [];
     // Local storage data changes are not reactive.
@@ -267,29 +283,147 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.versionsExpandedKeys = keys;
     }
 
-    async function listVersions(objectKey: string): Promise<void> {
+    const isFileVisible = (file) =>
+        file.Key.length > 0 && !file.Key?.includes('.file_placeholder');
+
+    type DefinedCommonPrefix = CommonPrefix & {
+        Prefix: string;
+    };
+    const isPrefixDefined = (
+        value: CommonPrefix,
+    ): value is DefinedCommonPrefix => value.Prefix !== undefined;
+
+    function prefixToFolder(path: string) {
+        return ({
+            Prefix,
+        }: {
+            Prefix: string;
+        }): BrowserObject => ({
+            Key: Prefix.slice(path.length, -1),
+            path: path,
+            LastModified: new Date(),
+            Size: 0,
+            type: 'folder',
+        });
+    }
+
+    function makeFileRelative(path: string) {
+        return (file) => ({
+            ...file,
+            Key: file.Key.slice(path.length),
+            path: path,
+            type: 'file',
+        });
+    }
+
+    async function countVersions(objectKey: string): Promise<string> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
             Bucket: state.bucket,
             Delimiter: '/',
             Prefix: objectKey,
+            MaxKeys: 500,
         }));
-        const Key = objectKey.substring(objectKey.lastIndexOf('/') + 1);
-        const path = objectKey.substring(0, objectKey.lastIndexOf('/') + 1);
+        const { Versions, DeleteMarkers, CommonPrefixes } = response;
+        const allVersions = [...Versions ?? [], ...DeleteMarkers ?? []].filter(isFileVisible);
 
-        const { Versions } = response;
-        const versions = Versions ?? [];
+        const listedCount = `${allVersions.length}`;
+        if (response.IsTruncated || (CommonPrefixes?.length ?? 0) > 0) {
+            return `${listedCount}+`;
+        }
+        return listedCount;
+    }
 
-        const files = versions.map(file => ({
-            ...file,
-            Key,
-            path,
-            type: 'file',
-        })) as BrowserObject[];
-        // remove the first element which is the current version of the object
-        files.shift();
+    async function listAllVersions(path = state.path, page = state.cursor.page, saveNextToken = false) {
+        assertIsInitialized(state);
 
-        state.objectVersions.set(objectKey, files);
+        const continuationToken = state.continuationTokens.get(page);
+        let nextKey: string = '';
+        let nextVersion: string = '';
+        if (continuationToken) {
+            [nextKey, nextVersion] = continuationToken.split('::');
+        }
+
+        state.cursor.page = page;
+        const input: ListObjectVersionsCommandInput = {
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+            KeyMarker: nextKey,
+            VersionIdMarker: nextVersion,
+            MaxKeys: state.cursor.limit,
+        };
+
+        const response: ListObjectVersionsCommandOutput = await state.s3.send(new ListObjectVersionsCommand(input));
+
+        const versions = response.Versions ?? [];
+        const deleteMarkers = response.DeleteMarkers ?? [];
+        const allItems = [...versions, ...deleteMarkers];
+        const groupedItems = new Map<string, BrowserObject[]>();
+
+        for (let item of allItems) {
+            item = makeFileRelative(path)(item);
+            if (!isFileVisible(item)) {
+                continue;
+            }
+
+            if (!groupedItems.has(item.Key ?? '')) {
+                groupedItems.set(item.Key ?? '', []);
+            }
+
+            let size = 0;
+            let isDeleteMarker = true;
+            let isLatest = false;
+            if ('Size' in item) {
+                size = (item.Size as number) ?? 0;
+                isDeleteMarker = false;
+                isLatest = item.IsLatest ?? false;
+            }
+            const browserObject: BrowserObject = {
+                Key: item.Key ?? '',
+                path: path,
+                VersionId: item.VersionId,
+                Size: size,
+                LastModified: item.LastModified ?? new Date(),
+                isLatest: isLatest,
+                type: 'file',
+                isDeleteMarker,
+            };
+
+            groupedItems.get(item.Key ?? '')?.push(browserObject);
+        }
+
+        const latestObjects: BrowserObject[] = [];
+        const keys: string[] = [];
+        for (const [key, items] of groupedItems.entries()) {
+            items.sort((a, b) => new Date(b.LastModified ?? 0).getTime() - new Date(a.LastModified ?? 0).getTime());
+            const item = items[0];
+            keys.push(item.path + item.Key);
+            latestObjects.push({
+                Key: key,
+                Size: item.Size,
+                path: item.path,
+                type: item.type,
+                Versions: items,
+                LastModified: item.LastModified,
+                isDeleteMarker: item.isDeleteMarker,
+            });
+        }
+        updateVersionsExpandedKeys(keys);
+
+        if (saveNextToken) {
+            const nextToken = `${response.NextKeyMarker ?? ''}::${response.NextVersionIdMarker ?? ''}`;
+            if (nextToken !== '::') {
+                state.continuationTokens.set(page + 1, nextToken);
+            }
+        }
+
+        state.path = path;
+        const folders = response.CommonPrefixes ?? [];
+        updateFiles(path, [
+            ...folders.filter(isPrefixDefined).map(prefixToFolder(path)),
+            ...latestObjects,
+        ]);
     }
 
     async function initList(path = state.path): Promise<void> {
@@ -401,39 +535,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             return a.LastModified < b.LastModified ? -1 : 1;
         });
 
-        type DefinedCommonPrefix = CommonPrefix & {
-            Prefix: string;
-        };
-
-        const isPrefixDefined = (
-            value: CommonPrefix,
-        ): value is DefinedCommonPrefix => value.Prefix !== undefined;
-
-        const prefixToFolder = ({
-            Prefix,
-        }: {
-            Prefix: string;
-        }): BrowserObject => ({
-            Key: Prefix.slice(path.length, -1),
-            path: path,
-            LastModified: new Date(),
-            Size: 0,
-            type: 'folder',
-        });
-
-        const makeFileRelative = (file) => ({
-            ...file,
-            Key: file.Key.slice(path.length),
-            path: path,
-            type: 'file',
-        });
-
-        const isFileVisible = (file) =>
-            file.Key.length > 0 && file.Key !== '.file_placeholder';
-
         const files: BrowserObject[] = [
-            ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder),
-            ...Contents.map(makeFileRelative).filter(isFileVisible),
+            ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder(path)),
+            ...Contents.map(makeFileRelative(path)).filter(isFileVisible),
         ];
 
         updateFiles(path, files);
@@ -641,15 +745,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            if (isAltPagination.value) {
+            if (state.showObjectVersions.value) {
+                clearTokens();
+                await listAllVersions(state.path, 1, true);
+            } else if (isAltPagination.value) {
                 clearTokens();
                 await listCustom(state.path, 1, true);
             } else {
                 await initList();
-            }
-
-            if (state.versionsExpandedKeys.includes(item.Key)) {
-                listVersions(item.Key);
             }
 
             const uploadedFiles = state.files.filter(f => f.type === 'file');
@@ -684,7 +787,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: '',
         }));
 
-        if (isAltPagination.value) {
+        if (state.showObjectVersions.value) {
+            clearTokens();
+            await listAllVersions(state.path, 1, true);
+        } else if (isAltPagination.value) {
             clearTokens();
             listCustom(state.path, 1, true);
         } else {
@@ -692,7 +798,83 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false, shouldRefresh = true): Promise<void> {
+    async function lockObject(file: BrowserObject, until: Date): Promise<void> {
+        assertIsInitialized(state);
+
+        await state.s3.send(new PutObjectRetentionCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
+            Retention: {
+                Mode: ObjectLockRetentionMode.COMPLIANCE,
+                RetainUntilDate: until,
+            },
+        }));
+    }
+
+    async function getObjectRetention(file: BrowserObject): Promise<Retention> {
+        assertIsInitialized(state);
+
+        const response = await state.s3.send(new GetObjectRetentionCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file.VersionId,
+        })).catch((error) => {
+            if (
+                error.message.includes('object retention not found')
+               || error.message.includes('missing retention configuration')
+               || error.message.includes('object does not have a retention configuration')
+
+            ) {
+                return {} as GetObjectRetentionCommandOutput;
+            }
+            return Promise.reject(error);
+        });
+
+        if (response.Retention && response.Retention.Mode && response.Retention.RetainUntilDate) {
+            return new Retention(response.Retention.Mode, response.Retention.RetainUntilDate);
+        }
+
+        return Retention.empty();
+    }
+
+    async function deleteObjectWithVersions(path: string, file: BrowserObject): Promise<void> {
+        assertIsInitialized(state);
+        addFileToBeDeleted(file);
+
+        let versions: ObjectVersion[] = [];
+        let deleteMarkers: DeleteMarkerEntry[] = [];
+        try {
+            const response = await state.s3.send(new ListObjectVersionsCommand({
+                Bucket: state.bucket,
+                Delimiter: '/',
+                Prefix: path + file.Key,
+            }));
+            versions = response.Versions ?? [];
+            deleteMarkers = response.DeleteMarkers ?? [];
+
+            const deletePromises = [
+                ...versions,
+                ...deleteMarkers,
+            ].map(async version => {
+                addFileToBeDeleted(version);
+                return state.s3.send(new DeleteObjectCommand({
+                    Bucket: state.bucket,
+                    Key: path + file.Key,
+                    VersionId: version.VersionId,
+                })).then(() => state.deletedFilesCount++);
+            });
+            await Promise.all(deletePromises);
+
+            state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
+        } catch (e) {
+            return Promise.reject(e);
+        } finally {
+            removeFileToBeDeleted(file, ...versions, ...deleteMarkers);
+        }
+    }
+
+    async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false): Promise<void> {
         if (!file) {
             return;
         }
@@ -702,34 +884,76 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         if (!isFolder) {
             addFileToBeDeleted(file);
         }
-        await state.s3.send(new DeleteObjectCommand({
-            Bucket: state.bucket,
-            Key: path + file.Key,
-            VersionId: file['VersionId'] ?? undefined,
-        }));
 
-        state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
+        try {
+            await state.s3.send(new DeleteObjectCommand({
+                Bucket: state.bucket,
+                Key: path + file.Key,
+                VersionId: file['VersionId'] ?? undefined,
+            }));
 
-        if (!isFolder) {
-            if (shouldRefresh) {
-                if (isAltPagination.value) {
-                    clearTokens();
-                    await listCustom(state.path, 1, true);
-                } else {
-                    await initList();
-                }
-            }
-
-            if (file['VersionId']) {
-                // versioned object
-                await listVersions(state.path + file.Key);
-            }
-
-            removeFile(file);
+            state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
+            state.deletedFilesCount++;
+        } catch (e) {
+            return Promise.reject(e);
+        } finally {
+            removeFileToBeDeleted(file);
         }
     }
 
-    async function deleteFolder(file: BrowserObject, path: string, shouldRefresh = true): Promise<void> {
+    async function deleteFolderWithVersions(file: BrowserObject, path: string): Promise<void> {
+        assertIsInitialized(state);
+
+        async function recurse(filePath: string) {
+            assertIsInitialized(state);
+
+            let { Versions, DeleteMarkers, CommonPrefixes } = await state.s3.send(new ListObjectVersionsCommand({
+                Bucket: state.bucket,
+                Delimiter: '/',
+                Prefix: filePath,
+            }));
+
+            if (Versions === undefined) {
+                Versions = [];
+            }
+            if (DeleteMarkers === undefined) {
+                DeleteMarkers = [];
+            }
+
+            const Contents = [...Versions, ...DeleteMarkers];
+
+            if (CommonPrefixes === undefined) {
+                CommonPrefixes = [];
+            }
+
+            async function thread() {
+                while (Contents.length) {
+                    const file = Contents.pop();
+
+                    await deleteObject('', file, true);
+                }
+            }
+
+            await Promise.all([thread(), thread(), thread()]);
+
+            for (const { Prefix } of CommonPrefixes) {
+                await recurse(Prefix ?? '');
+            }
+        }
+
+        addFileToBeDeleted(file);
+
+        try {
+            await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
+        } catch (e) {
+            return Promise.reject(e);
+        } finally {
+            removeFileToBeDeleted(file);
+        }
+
+    }
+
+    async function deleteFolder(path: string, file: BrowserObject): Promise<void> {
         assertIsInitialized(state);
 
         async function recurse(filePath: string) {
@@ -757,7 +981,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 while (Contents.length) {
                     const file = Contents.pop();
 
-                    await deleteObject('', file, true, shouldRefresh);
+                    await deleteObject('', file, true);
                 }
             }
 
@@ -770,30 +994,25 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         addFileToBeDeleted(file);
 
-        await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
-
-        removeFile(file);
-
-        if (shouldRefresh) {
-            if (isAltPagination.value) {
-                clearTokens();
-                await listCustom(state.path, 1, true);
-            } else {
-                await initList();
-            }
+        try {
+            await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
+        } catch (e) {
+            return Promise.reject(e);
+        } finally {
+            removeFileToBeDeleted(file);
         }
     }
 
-    async function deleteSelected(): Promise<void> {
-        addFileToBeDeleted(...state.selectedFiles);
-
+    async function deleteSelected(withVersions = false): Promise<void> {
         await Promise.all(
             state.selectedFiles.map(async (file) => {
+                let deletePromise;
                 if (file.type === 'file') {
-                    await deleteObject(state.path, file, false, false);
+                    deletePromise = withVersions ? deleteObjectWithVersions : deleteObject;
                 } else {
-                    await deleteFolder(file, state.path, false);
+                    deletePromise = withVersions ? deleteFolderWithVersions : deleteFolder;
                 }
+                return await deletePromise(state.path, file);
             }),
         );
     }
@@ -801,19 +1020,23 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     /**
      * This is an empty action for App.vue to subscribe to know the status of the delete object/folder requests.
      *
-     * @param fileCount - number of files being deleted.
-     * @param fileTypes - file types being deleted.
      * @param deleteRequest - the promise of the delete request.
+     * @param filesLabel - descriptive label of files deleted (versions/files).
      */
-    function handleDeleteObjectRequest(fileCount: number, fileTypes: string, deleteRequest: Promise<void>): void {
+    function handleDeleteObjectRequest(deleteRequest: Promise<void>, filesLabel = 'file'): void {
         /* empty */
     }
 
     /**
-     * Empty action for the file browser to refresh on files deleted.
+     * Action for the file browser to refresh on files deleted.
+     * It also resets the count for number of files deleted.
      */
     function filesDeleted(): void {
         /* empty */
+    }
+
+    function clearDeletedCount(): void {
+        state.deletedFilesCount = 0;
     }
 
     async function getDownloadLink(file: BrowserObject): Promise<string> {
@@ -828,7 +1051,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     async function download(file: BrowserObject): Promise<void> {
         const url = await getDownloadLink(file);
-        const downloadURL = function(data: string, fileName: string) {
+        const downloadURL = function (data: string, fileName: string) {
             const a = document.createElement('a');
             a.href = data;
             a.download = fileName;
@@ -844,13 +1067,17 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     function addFileToBeDeleted(...files: (_Object & { path?: string, VersionId?: string })[] | BrowserObject[]): void {
         for (const file of files) {
-            const key = (file.path ?? '') + file.Key + (file.VersionId ?? '');
-            state.filesToBeDeleted.add(key);
+            state.filesToBeDeleted.add((file.path ?? '') + file.Key + (file.VersionId ?? ''));
+        }
+    }
+
+    function removeFileToBeDeleted(...files: (_Object & { path?: string, VersionId?: string })[] | BrowserObject[]): void {
+        for (const file of files) {
+            state.filesToBeDeleted.delete((file.path ?? '') + file.Key + (file.VersionId ?? ''));
         }
     }
 
     function removeFile(file: _Object & { path?: string, VersionId?: string } | BrowserObject): void {
-        state.filesToBeDeleted.delete((file.path ?? '') + file.Key + (file.VersionId ?? ''));
         state.files = state.files.filter(
             singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
         );
@@ -892,8 +1119,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.continuationTokens = new Map<number, string>();
     }
 
-    function toggleShowObjectVersions(): void {
-        state.showObjectVersions = !state.showObjectVersions;
+    function toggleShowObjectVersions(toggle?: boolean, userModified = true): void {
+        clearTokens();
+        updateVersionsExpandedKeys([]);
+        updateSelectedFiles([]);
+        updateFiles(state.path, []);
+        state.showObjectVersions = {
+            value: toggle ?? !state.showObjectVersions.value,
+            userModified: !userModified ? state.showObjectVersions.userModified : userModified,
+        };
     }
 
     function setObjectCountOfSelectedBucket(count: number): void {
@@ -916,14 +1150,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.uploading = [];
         state.selectedFiles = [];
         state.filesToBeDeleted.clear();
+        state.deletedFilesCount = 0;
         state.openedDropdown = null;
         state.headingSorted = 'name';
         state.orderBy = 'asc';
         state.openModalOnFirstUpload = false;
         state.objectPathForModal = '';
         state.cachedObjectPreviewURLs = new Map<string, PreviewCache>();
-        state.showObjectVersions = true;
-        state.objectVersions = new Map<string, BrowserObject[]>();
+        state.showObjectVersions = { value: false, userModified: false };
         state.versionsExpandedKeys = [];
         state.objectCountOfSelectedBucket = 0;
     }
@@ -939,7 +1173,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         reinit,
         initList,
         listByToken,
-        listVersions,
+        countVersions,
+        listAllVersions,
         listCustom,
         setCursor,
         updateVersionsExpandedKeys,
@@ -947,11 +1182,16 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         upload,
         restoreObject,
         createFolder,
+        getObjectRetention,
+        lockObject,
         deleteObject,
+        deleteObjectWithVersions,
         deleteFolder,
+        deleteFolderWithVersions,
         deleteSelected,
         handleDeleteObjectRequest,
         filesDeleted,
+        clearDeletedCount,
         getDownloadLink,
         download,
         updateSelectedFiles,

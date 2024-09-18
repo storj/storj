@@ -1,9 +1,9 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { defineComponent } from 'vue';
+import { ComponentOptions } from '@vue/runtime-core';
 
-export const noWindowTouchInDialog = defineComponent({
+export const noWindowTouchInDialog: ComponentOptions = {
     beforeMount() {
         // We return early if current component is not VWindow.
         if (this.$options.name !== 'VWindow') return;
@@ -15,4 +15,4 @@ export const noWindowTouchInDialog = defineComponent({
         // If at this point our parent is defined and is VDialog component then we set value of VWindow 'touch' prop to false.
         if (parent && 'touch' in this.$props) this.$props.touch = false;
     },
-});
+};

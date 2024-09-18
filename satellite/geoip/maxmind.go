@@ -6,7 +6,7 @@ package geoip
 import (
 	"github.com/oschwald/maxminddb-golang"
 
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // OpenMaxmindDB will use the provided filepath to open the target maxmind database.

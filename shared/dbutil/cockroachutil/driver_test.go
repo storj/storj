@@ -11,12 +11,12 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/tagsql"
 )
 
 func TestLibPqCompatibility(t *testing.T) {
-	connstr := pgtest.PickCockroach(t)
+	connstr := dbtest.PickCockroach(t)
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

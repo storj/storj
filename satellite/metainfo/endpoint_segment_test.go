@@ -866,8 +866,7 @@ func TestSegmentPlacementConstraints(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		err = satellite.Metabase.DB.UnderlyingTagSQL().QueryRowContext(ctx,
-			`UPDATE segments SET placement = 1`).Err()
+		err = satellite.Metabase.DB.TestingSetPlacementAllSegments(ctx, 1)
 		require.NoError(t, err)
 
 		{ // download should fail because non-zero placement and nodes have no country codes

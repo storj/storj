@@ -2,40 +2,40 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="h-100">
+    <v-card class="h-100" hover @click="onActivateClick">
         <div class="h-100 d-flex flex-column justify-space-between pa-8">
             <div>
                 <div class="d-flex justify-center align-center ma-0">
                     <div>
                         <v-badge v-if="isPartner" label="Best Value" rounded="lg" content="Best Value" color="secondary">
                             <v-btn v-if="isPartner" density="comfortable" color="default" variant="outlined" icon>
-                                <v-icon :icon="Cloud" />
+                                <v-icon :icon="Gift" />
                             </v-btn>
                         </v-badge>
 
-                        <v-btn v-else density="comfortable" color="grey-lighten-1" variant="outlined" icon>
+                        <v-btn v-else density="comfortable" color="default" variant="outlined" icon>
                             <v-icon v-if="isPro" :icon="Star" />
-                            <v-icon v-else :icon="Earth" />
+                            <v-icon v-else :icon="Sprout" />
                         </v-btn>
                     </div>
                 </div>
 
-                <div class="py-4 text-center">
+                <div class="py-3 text-center">
                     <p class="font-weight-bold">{{ plan.title }}</p>
                     <p>{{ plan.containerSubtitle }}</p>
                 </div>
 
-                <div class="py-4 text-center">
+                <div class="py-3 text-center">
                     <p class="mb-3">{{ plan.containerDescription }}</p>
                     <!-- eslint-disable-next-line vue/no-v-html -->
                     <p v-if="plan.containerFooterHTML" v-html="plan.containerFooterHTML" />
                 </div>
             </div>
 
-            <div class="d-flex justify-center py-4">
+            <div class="d-flex justify-center py-3">
                 <v-btn
                     :variant="isFree ? 'outlined' : 'flat'"
-                    :color="isPartner ? 'success' : isFree ? 'grey-lighten-1' : 'primary'"
+                    :color="isPartner ? 'success' : isFree ? 'default' : 'primary'"
                     @click="onActivateClick"
                 >
                     <template #append>
@@ -52,7 +52,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VBadge, VBtn, VCard, VIcon } from 'vuetify/components';
-import { ArrowRight, Cloud, Earth, Star } from 'lucide-vue-next';
+import { ArrowRight, Gift, Sprout, Star } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 

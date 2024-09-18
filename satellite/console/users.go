@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"database/sql/driver"
 	"net/mail"
 	"time"
 
@@ -34,7 +35,7 @@ type Users interface {
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
-	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
+	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	// GetByStatus is a method for querying user by status from the database.
@@ -203,6 +204,11 @@ func (s UserStatus) String() string {
 	default:
 		return ""
 	}
+}
+
+// Value implements database/sql/driver.Valuer for UserStatus.
+func (s UserStatus) Value() (driver.Value, error) {
+	return int64(s), nil
 }
 
 // User is a database object that describes User entity.
@@ -398,6 +404,18 @@ type SetUpAccountRequest struct {
 	InterestedInPartnering bool    `json:"interestedInPartnering"`
 }
 
+// DeleteAccountResponse holds data for account deletion UI flow.
+type DeleteAccountResponse struct {
+	OwnedProjects       int   `json:"ownedProjects"`
+	Buckets             int   `json:"buckets"`
+	ApiKeys             int   `json:"apiKeys"`
+	UnpaidInvoices      int   `json:"unpaidInvoices"`
+	AmountOwed          int64 `json:"amountOwed"`
+	CurrentUsage        bool  `json:"currentUsage"`
+	InvoicingIncomplete bool  `json:"invoicingIncomplete"`
+	Success             bool  `json:"success"`
+}
+
 // TrialNotificationStatus is an enum representing a type of trial notification.
 type TrialNotificationStatus int
 
@@ -409,3 +427,8 @@ const (
 	// TrialExpired represents trial expired notification has been sent.
 	TrialExpired
 )
+
+// Value implements database/sql/driver.Valuer for TrialNotificationStatus.
+func (t TrialNotificationStatus) Value() (driver.Value, error) {
+	return int64(t), nil
+}

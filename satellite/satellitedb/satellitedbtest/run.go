@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
@@ -71,37 +71,33 @@ type Database struct {
 	Message string
 }
 
-type ignoreSkip struct{}
-
-func (ignoreSkip) Skip(...interface{}) {}
-
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
 	var dbs []SatelliteDatabases
 
-	postgresConnStr := pgtest.PickPostgres(ignoreSkip{})
+	postgresConnStr := dbtest.PickPostgresNoSkip()
 	if !strings.EqualFold(postgresConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Postgres",
-			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
+			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
 			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
 		})
 	}
 
-	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	cockroachConnStr := dbtest.PickCockroachNoSkip()
 	if !strings.EqualFold(cockroachConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Cockroach",
-			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
+			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
 		})
 	}
 
-	spanner := pgtest.PickSpanner(ignoreSkip{})
+	spanner := dbtest.PickSpannerNoSkip()
 	if !strings.EqualFold(spanner, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Spanner",
-			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + pgtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable."},
+			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable."},
 			MetabaseDB: Database{"Spanner", spanner, ""},
 		})
 	}

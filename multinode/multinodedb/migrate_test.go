@@ -20,7 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/multinode/multinodedb"
 	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/sqliteutil"
 	"storj.io/storj/shared/dbutil/tempdb"
@@ -105,7 +105,7 @@ func TestMigratePostgres(t *testing.T) {
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
 
-	connStr := pgtest.PickPostgres(t)
+	connStr := dbtest.PickPostgres(t)
 
 	// create tempDB
 	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")

@@ -7,19 +7,18 @@
         :title="planInfo.bannerTitle"
         closable
         variant="tonal"
-        type="success"
-        rounded="lg"
+        color="success"
         class="mt-4 mb-4"
         @click:close="dismiss"
     >
-        <template #prepend />
         <template #text>
-            <p>
+            <p class="mt-2">
                 {{ planInfo.bannerText }}
             </p>
             <v-btn
-                class="mt-2"
+                class="mt-3"
                 color="success"
+                :append-icon="ArrowRight"
                 @click="toggleUpgradeDialog"
             >
                 Learn More
@@ -36,6 +35,7 @@
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
 import { ref, watch } from 'vue';
+import { ArrowRight } from 'lucide-vue-next';
 
 import { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';

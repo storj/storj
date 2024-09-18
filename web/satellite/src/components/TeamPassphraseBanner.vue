@@ -10,7 +10,6 @@
         class="mt-4 mb-2"
         title="Team Info"
         text="All team members should use the same passphrase to access the same data."
-        border
         @click:close="onDismiss"
     />
 </template>

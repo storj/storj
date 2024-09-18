@@ -215,8 +215,9 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				now := time.Now()
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
+				check(storj.GovernanceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+				check(storj.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -240,6 +241,69 @@ func TestBeginObjectNextVersion(t *testing.T) {
 					Version:  1,
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
+
+		t.Run("Legal Hold", func(t *testing.T) {
+			t.Run("Success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				retention := metabase.Retention{
+					Mode:        storj.GovernanceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    retention,
+						LegalHold:    true,
+					},
+					Version: 1,
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  objectStream.ProjectID,
+							BucketName: objectStream.BucketName,
+							ObjectKey:  objectStream.ObjectKey,
+							Version:    1,
+							StreamID:   objectStream.StreamID,
+						},
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+						Retention:              retention,
+						LegalHold:              true,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("With TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						LegalHold:    true,
+						ExpiresAt:    &expires,
+					},
+					Version:  1,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if LegalHold is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{}.Check(ctx, t, db)
@@ -661,7 +725,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 
-			t.Run("Invalid retention configuration", func(t *testing.T) {
+			t.Run("Invalid", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				check := func(mode storj.RetentionMode, retainUntil time.Time, errText string) {
@@ -683,12 +747,12 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+				check(storj.RetentionMode(3), now.Add(time.Minute), "invalid retention mode 3")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 
-			t.Run("Retention configuration with TTL", func(t *testing.T) {
+			t.Run("With TTL", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				now := time.Now()
@@ -706,6 +770,64 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ExpiresAt must not be set if Retention is set",
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		})
+
+		t.Run("Legal hold", func(t *testing.T) {
+			t.Run("Success", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				retention := metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: now.Add(time.Minute),
+				}
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						LegalHold:    true,
+						// An object's legal hold status and retention mode are stored as a
+						// single value in the database. A retention period is provided here
+						// to test that these properties are properly encoded.
+						Retention: retention,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{{
+						ObjectStream:           objectStream,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+						Retention:              retention,
+						LegalHold:              true,
+					}},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("With TTL", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				now := time.Now()
+				expires := now.Add(time.Minute)
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objectStream,
+						Encryption:   metabasetest.DefaultEncryption,
+						LegalHold:    true,
+						ExpiresAt:    &expires,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ExpiresAt must not be set if LegalHold is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{}.Check(ctx, t, db)
@@ -3094,7 +3216,7 @@ func TestCommitObject(t *testing.T) {
 						ObjectStream: obj,
 					},
 					ErrClass: &metabase.Error,
-					ErrText:  "object expiration must not be set if retention is set",
+					ErrText:  "object expiration must not be set if Object Lock configuration is set",
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{
@@ -4625,7 +4747,7 @@ func TestCommitInlineObject(t *testing.T) {
 
 				check(storj.ComplianceMode, time.Time{}, "retention period expiration must be set if retention mode is set")
 				check(storj.NoRetention, now.Add(time.Minute), "retention period expiration must not be set if retention mode is not set")
-				check(storj.RetentionMode(2), now.Add(time.Minute), "retention mode must be 0 (none) or 1 (compliance), but it was 2")
+				check(storj.RetentionMode(2), now.Add(time.Minute), "invalid retention mode 2")
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -4670,9 +4792,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
+				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(time.Hour),
+				})
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4686,39 +4809,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:                obj.ObjectStream,
-						ObjectLockEnabledForProject: true,
-					},
-					ErrClass: &metabase.ErrObjectLock,
-				}.Check(ctx, t, db)
-
-				metabasetest.Verify{
-					Objects:  []metabase.RawObject{metabase.RawObject(lockedObj), metabase.RawObject(obj)},
-					Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
-				}.Check(ctx, t, db)
-			})
-
-			t.Run("Active retention period - ObjectLockEnabledForProject disabled", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
-
-				beginObjStream := objStream
-				beginObjStream.Version = metabase.NextVersion
-				obj := metabasetest.BeginObjectNextVersion{
-					Opts: metabase.BeginObjectNextVersion{
-						ObjectStream: beginObjStream,
-						Encryption:   metabasetest.DefaultEncryption,
-					},
-					Version: lockedObj.Version + 1,
-				}.Check(ctx, t, db)
-
-				metabasetest.CommitObject{
-					Opts: metabase.CommitObject{
-						ObjectStream:                obj.ObjectStream,
-						ObjectLockEnabledForProject: false,
+						ObjectStream: obj.ObjectStream,
 					},
 					ErrClass: &metabase.ErrObjectLock,
 				}.Check(ctx, t, db)
@@ -4732,9 +4823,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Expired retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, _ := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(-time.Minute),
-				)
+				lockedObj, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(-time.Minute),
+				})
 
 				beginObjStream := objStream
 				beginObjStream.Version = metabase.NextVersion
@@ -4748,8 +4840,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 
 				obj = metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
-						ObjectStream:                obj.ObjectStream,
-						ObjectLockEnabledForProject: true,
+						ObjectStream: obj.ObjectStream,
 					},
 				}.Check(ctx, t, db)
 
@@ -4782,32 +4873,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 			t.Run("Active retention period", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(time.Hour),
-				)
-
-				metabasetest.CommitInlineObject{
-					Opts: metabase.CommitInlineObject{
-						ObjectStream:        objStream,
-						Encryption:          metabasetest.DefaultEncryption,
-						CommitInlineSegment: commitInlineSeg,
-					},
-					ErrClass: &metabase.ErrObjectLock,
-				}.Check(ctx, t, db)
-
-				metabasetest.Verify{
-					Objects:  []metabase.RawObject{metabase.RawObject(lockedObj)},
-					Segments: []metabase.RawSegment{metabase.RawSegment(lockedSegs[0])},
-				}.Check(ctx, t, db)
-			})
-
-			t.Run("Active retention period - ObjectLockEnabledForProject disabled", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				now := time.Now()
-				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, now.Add(time.Hour),
-				)
+				lockedObj, lockedSegs := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(time.Hour),
+				})
 
 				metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
@@ -4828,9 +4897,10 @@ func TestOverwriteLockedObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				objStream := metabasetest.RandObjectStream()
-				lockedObj, _ := metabasetest.CreateObjectWithRetention(
-					ctx, t, db, objStream, 1, time.Now().Add(-time.Minute),
-				)
+				lockedObj, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 1, metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().Add(-time.Minute),
+				})
 
 				inlineObj := metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{

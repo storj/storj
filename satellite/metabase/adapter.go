@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
@@ -21,6 +22,9 @@ type Adapter interface {
 	Name() string
 	Now(ctx context.Context) (time.Time, error)
 	Ping(ctx context.Context) error
+	MigrateToLatest(ctx context.Context) error
+	CheckVersion(ctx context.Context) error
+	Implementation() dbutil.Implementation
 
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
 	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)
@@ -34,6 +38,11 @@ type Adapter interface {
 	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
 	SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) error
 	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error
+
+	GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error)
+	GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (enabled bool, err error)
+	SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) error
+	SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 	UpdateTableStats(ctx context.Context) error
@@ -51,7 +60,6 @@ type Adapter interface {
 	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
 	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)
 	ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error)
-	ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error)
 	ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error)
 
 	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)
@@ -84,6 +92,8 @@ type Adapter interface {
 	TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error)
 	TestingDeleteAll(ctx context.Context) (err error)
 	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
+	TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error)
+	TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error)
 
 	// TestMigrateToLatest creates a database and applies all the migration for test purposes.
 	TestMigrateToLatest(ctx context.Context) error
@@ -94,6 +104,7 @@ type PostgresAdapter struct {
 	log                      *zap.Logger
 	db                       tagsql.DB
 	impl                     dbutil.Implementation
+	connstr                  string
 	testingUniqueUnversioned bool
 }
 
@@ -105,6 +116,11 @@ func (p *PostgresAdapter) Name() string {
 // UnderlyingDB returns a handle to the underlying DB.
 func (p *PostgresAdapter) UnderlyingDB() tagsql.DB {
 	return p.db
+}
+
+// Implementation returns the dbutil.Implementation code for this adapter.
+func (p *PostgresAdapter) Implementation() dbutil.Implementation {
+	return p.impl
 }
 
 var _ Adapter = &PostgresAdapter{}

@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
 )
 
 func TestTempPostgresDB(t *testing.T) {
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

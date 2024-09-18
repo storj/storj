@@ -159,35 +159,65 @@ func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
 }
 
 func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
-	projectID1 := testrand.UUID()
+	projectA := &console.Project{
+		ID: testrand.UUID(),
+	}
+	projectB := &console.Project{
+		ID: testrand.UUID(),
+	}
 
-	// Object Lock globally supported
-	config, err := metainfo.NewExtendedConfig(metainfo.Config{})
-	require.NoError(t, err)
-	require.False(t, config.ObjectLockEnabled(projectID1))
-
-	// Object Lock not globally supported
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectLock: true,
+	// 1. Versioning enabled && object lock disabled
+	config, err := metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioning: true,
 	})
 	require.NoError(t, err)
-	require.True(t, config.ObjectLockEnabled(projectID1))
+	require.False(t, config.ObjectLockEnabledByProject(projectA))
 
-	// Object Lock not globally supported but supported for single project
-	projectID2 := testrand.UUID()
+	// 2. project A in versioning closed beta
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectLockProjects: []string{projectID1.String()},
+		ObjectLockEnabled: true,
+		UseBucketLevelObjectVersioningProjects: []string{
+			projectA.ID.String(),
+		},
 	})
 	require.NoError(t, err)
-	require.True(t, config.ObjectLockEnabled(projectID1))
-	require.False(t, config.ObjectLockEnabled(projectID2))
+	require.True(t, config.ObjectLockEnabledByProject(projectA))
+	require.False(t, config.ObjectLockEnabledByProject(projectB))
 
-	// Object Lock globally supported and supported for single project
+	// 2.1 Versioning disabled globally
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectLock:         true,
-		UseBucketLevelObjectLockProjects: []string{projectID1.String()},
+		ObjectLockEnabled: true,
 	})
 	require.NoError(t, err)
-	require.True(t, config.ObjectLockEnabled(projectID1))
-	require.True(t, config.ObjectLockEnabled(projectID2))
+
+	// 2.2. Project A not in versioning beta
+	projectA.PromptedForVersioningBeta = true
+	projectA.DefaultVersioning = console.VersioningUnsupported
+	// 2.3. Project B is in versioning public beta
+	projectB.PromptedForVersioningBeta = true
+	projectB.DefaultVersioning = console.Unversioned
+	require.False(t, config.ObjectLockEnabledByProject(projectA))
+	require.True(t, config.ObjectLockEnabledByProject(projectB))
+}
+
+func TestUUIDsFlag(t *testing.T) {
+	var UUIDs metainfo.UUIDsFlag
+	err := UUIDs.Set("")
+	require.NoError(t, err)
+	require.Len(t, UUIDs, 0)
+
+	testIDA := testrand.UUID()
+	err = UUIDs.Set(testIDA.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+	}, UUIDs)
+
+	testIDB := testrand.UUID()
+	err = UUIDs.Set(testIDA.String() + "," + testIDB.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+		testIDB: {},
+	}, UUIDs)
 }

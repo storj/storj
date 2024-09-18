@@ -185,11 +185,11 @@ func (bad *BadBlobs) Delete(ctx context.Context, ref blobstore.BlobRef) error {
 }
 
 // DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
-func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
+func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
-	return bad.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+	return bad.blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint)
 }
 
 // DeleteNamespace deletes blobs of specific satellite, used after successful GE only.

@@ -174,7 +174,7 @@ func TestProjectMembersRepository(t *testing.T) {
 			assert.NotNil(t, projectMembers)
 			assert.Equal(t, len(projMembers.ProjectMembers), 4)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Users, projects console.Projects) ([]*console.User, []*console.Project) {

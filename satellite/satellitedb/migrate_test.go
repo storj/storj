@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/shared/dbutil/dbschema"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/tempdb"
 )
@@ -174,14 +174,14 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 
 func TestMigratePostgres(t *testing.T) {
 	t.Parallel()
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
 
 func TestMigrateCockroach(t *testing.T) {
 	t.Parallel()
-	connstr := pgtest.PickCockroachAlt(t)
+	connstr := dbtest.PickCockroachAlt(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
@@ -327,7 +327,7 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string,
 }
 
 func BenchmarkSetup_Postgres(b *testing.B) {
-	connstr := pgtest.PickPostgres(b)
+	connstr := dbtest.PickPostgres(b)
 	b.Run("merged", func(b *testing.B) {
 		benchmarkSetup(b, connstr, true)
 	})
@@ -337,7 +337,7 @@ func BenchmarkSetup_Postgres(b *testing.B) {
 }
 
 func BenchmarkSetup_Cockroach(b *testing.B) {
-	connstr := pgtest.PickCockroach(b)
+	connstr := dbtest.PickCockroach(b)
 	b.Run("merged", func(b *testing.B) {
 		benchmarkSetup(b, connstr, true)
 	})

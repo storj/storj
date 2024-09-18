@@ -13,7 +13,7 @@ export const THEME_OPTIONS: ThemeOptions = {
             colors: {
                 primary: '#0052FF',
                 secondary: '#091C45',
-                background: '#FAFAFA',
+                background: '#fcfcfd',
                 surface: '#FFF',
                 info: '#0059D0',
                 help: '#FFA800',

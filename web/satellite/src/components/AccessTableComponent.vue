@@ -58,7 +58,7 @@
                         <v-list class="pa-1">
                             <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
                                 <template #prepend>
-                                    <icon-trash />
+                                    <component :is="Trash2" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Delete Access
@@ -98,7 +98,7 @@
                         @click="isDeleteAccessDialogShown = true"
                     >
                         <template #prepend>
-                            <icon-trash />
+                            <component :is="Trash2" :size="18" />
                         </template>
                         Delete
                     </v-btn>
@@ -124,7 +124,7 @@ import {
     VTextField,
     VDataTableServer,
 } from 'vuetify/components';
-import { Ellipsis, Search } from 'lucide-vue-next';
+import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -133,10 +133,9 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useNotify } from '@/utils/hooks';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 
 import DeleteAccessDialog from '@/components/dialogs/DeleteAccessDialog.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
 
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
@@ -150,7 +149,7 @@ const isDeleteAccessDialogShown = ref<boolean>(false);
 const accessToDelete = ref<AccessGrant | undefined>();
 const selected = ref<AccessGrant[]>([]);
 
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'Access Name',
         align: 'start',

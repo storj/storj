@@ -111,6 +111,7 @@ type Config struct {
 	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
+	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -154,6 +155,8 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
+
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
 
 	AnalyticsConfig analytics.Config
 
@@ -219,7 +222,10 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
+	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener,
+	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig,
+	analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -237,6 +243,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
+		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -290,6 +297,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("", http.HandlerFunc(projectsController.CreateProject)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/paged", http.HandlerFunc(projectsController.GetPagedProjects)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.UpdateProject)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.DeleteProject)).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limits", http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits)).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
@@ -898,6 +906,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
+		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

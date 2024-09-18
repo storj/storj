@@ -115,7 +115,8 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -172,7 +173,8 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 
@@ -237,7 +239,8 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 		encryptionParameters{&object.Encryption},
-		retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+		timeWrapper{&object.Retention.RetainUntil},
 	)
 
 	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
@@ -292,7 +295,8 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
-			retentionModeWrapper{&object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
 		))
 	})
 	if err != nil {
@@ -334,10 +338,24 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		return Segment{}, err
 	}
 
-	segment, aliasPieces, err := db.ChooseAdapter(uuid.UUID{}).GetSegmentByPosition(ctx, opts)
-	if err != nil {
-		return Segment{}, err
+	// check all adapters until a match is found
+	var aliasPieces AliasPieces
+	found := false
+	for _, adapter := range db.adapters {
+		segment, aliasPieces, err = adapter.GetSegmentByPosition(ctx, opts)
+		if err != nil {
+			if ErrSegmentNotFound.Has(err) {
+				continue
+			}
+			return Segment{}, err
+		}
+		found = true
+		break
 	}
+	if !found {
+		return Segment{}, ErrSegmentNotFound.New("segment missing")
+	}
+
 	if len(aliasPieces) > 0 {
 		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 		if err != nil {
@@ -603,6 +621,186 @@ func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (emp
 	})
 }
 
+// GetObjectExactVersionLegalHold contains arguments necessary for retrieving
+// the legal hold configuration of an exact version of an object.
+type GetObjectExactVersionLegalHold struct {
+	ObjectLocation
+	Version Version
+}
+
+// GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
+func (db *DB) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return false, err
+	}
+
+	return db.ChooseAdapter(opts.ProjectID).GetObjectExactVersionLegalHold(ctx, opts)
+}
+
+// GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
+func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var info lockInfoAndStatus
+
+	err = p.db.QueryRowContext(ctx, `
+		SELECT retention_mode, status
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return false, Error.New("unable to query object legal hold configuration: %w", err)
+	}
+
+	switch {
+	case info.Status.IsDeleteMarker():
+		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return false, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
+	}
+
+	return info.LegalHold, nil
+}
+
+// GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
+func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT retention_mode, status
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+		},
+	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
+		err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return false, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+		}
+		return false, Error.New("unable to query object legal hold configuration: %w", err)
+	}
+
+	switch {
+	case info.Status.IsDeleteMarker():
+		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return false, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
+	}
+
+	return info.LegalHold, nil
+}
+
+// GetObjectLastCommittedLegalHold contains arguments necessary for retrieving the legal hold
+// configuration of the most recently committed version of an object.
+type GetObjectLastCommittedLegalHold struct {
+	ObjectLocation
+}
+
+// GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
+// committed version of an object.
+func (db *DB) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (enabled bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = opts.Verify(); err != nil {
+		return false, err
+	}
+
+	return db.ChooseAdapter(opts.ProjectID).GetObjectLastCommittedLegalHold(ctx, opts)
+}
+
+// GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
+// committed version of an object.
+func (p *PostgresAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var info lockInfoAndStatus
+
+	err = p.db.QueryRowContext(ctx, `
+		SELECT retention_mode, status
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key) = ($1, $2, $3)
+			AND status <> `+statusPending+`
+		ORDER BY version DESC
+		LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
+	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return false, Error.New("unable to query object legal hold configuration: %w", err)
+	}
+
+	if info.Status.IsDeleteMarker() {
+		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	}
+
+	return info.LegalHold, nil
+}
+
+// GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
+// committed version of an object.
+func (s *SpannerAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT retention_mode, status
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				AND status <> ` + statusPending + `
+			ORDER BY version DESC
+			LIMIT 1
+		`,
+		Params: map[string]interface{}{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+		},
+	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
+		err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return false, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+		}
+		return false, Error.New("unable to query object legal hold configuration: %w", err)
+	}
+
+	if info.Status.IsDeleteMarker() {
+		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	}
+
+	return info.LegalHold, nil
+}
+
 // GetObjectExactVersionRetention contains arguments necessary for retrieving
 // the retention configuration of an exact version of an object.
 type GetObjectExactVersionRetention struct {
@@ -627,49 +825,57 @@ func (db *DB) GetObjectExactVersionRetention(ctx context.Context, opts GetObject
 }
 
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
-func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error) {
+func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var info lockInfoAndStatus
+
 	err = p.db.QueryRowContext(ctx, `
-		SELECT retention_mode, retain_until
+		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-			AND status <> `+statusPending,
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-	).Scan(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
-	if err = retention.Verify(); err != nil {
+
+	switch {
+	case info.Status.IsDeleteMarker():
+		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return Retention{}, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
+	}
+
+	if err = info.Retention.Verify(); err != nil {
 		return Retention{}, Error.Wrap(err)
 	}
 
-	return retention, nil
+	return info.Retention, nil
 }
 
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
-func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error) {
+func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	retention, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
-			SELECT retention_mode, retain_until
+			SELECT retention_mode, retain_until, status
 			FROM objects
 			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-				AND status <> ` + statusPending,
+				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	}), func(row *spanner.Row, retention *Retention) error {
-		err := row.Columns(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
+		err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -683,11 +889,18 @@ func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opt
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
 
-	if err = retention.Verify(); err != nil {
+	switch {
+	case info.Status.IsDeleteMarker():
+		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	case !info.Status.IsCommitted():
+		return Retention{}, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
+	}
+
+	if err = info.Retention.Verify(); err != nil {
 		return Retention{}, Error.Wrap(err)
 	}
 
-	return retention, nil
+	return info.Retention, nil
 }
 
 // GetObjectLastCommittedRetention contains arguments necessary for retrieving the retention
@@ -715,11 +928,13 @@ func (db *DB) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjec
 
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently
 // committed version of an object.
-func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error) {
+func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var info lockInfoAndStatus
+
 	err = p.db.QueryRowContext(ctx, `
-		SELECT retention_mode, retain_until
+		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
 			(project_id, bucket_name, object_key) = ($1, $2, $3)
@@ -727,28 +942,31 @@ func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, o
 		ORDER BY version DESC
 		LIMIT 1
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
-	).Scan(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
-	if err = retention.Verify(); err != nil {
+	if info.Status.IsDeleteMarker() {
+		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	}
+	if err = info.Retention.Verify(); err != nil {
 		return Retention{}, Error.Wrap(err)
 	}
 
-	return retention, nil
+	return info.Retention, nil
 }
 
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently
 // committed version of an object.
-func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error) {
+func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	retention, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
-			SELECT retention_mode, retain_until
+			SELECT retention_mode, retain_until, status
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
@@ -761,8 +979,8 @@ func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, op
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	}), func(row *spanner.Row, retention *Retention) error {
-		err := row.Columns(retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
+		err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -776,11 +994,14 @@ func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, op
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
 
-	if err = retention.Verify(); err != nil {
+	if info.Status.IsDeleteMarker() {
+		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	}
+	if err = info.Retention.Verify(); err != nil {
 		return Retention{}, Error.Wrap(err)
 	}
 
-	return retention, nil
+	return info.Retention, nil
 }
 
 // TestingAllObjects gets all objects.
@@ -824,4 +1045,10 @@ func (db *DB) TestingAllSegments(ctx context.Context) (segments []Segment, err e
 	}
 
 	return segments, nil
+}
+
+type lockInfoAndStatus struct {
+	Status    ObjectStatus
+	Retention Retention
+	LegalHold bool
 }

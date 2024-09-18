@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-share size="18" />
+                        <component :is="Share" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VAlert,
     VBtn,
@@ -120,12 +120,11 @@ import {
     VCol,
     VDialog,
     VDivider,
-    VIcon,
     VRow,
     VSheet,
     VTextarea,
 } from 'vuetify/components';
-import { Check, Copy } from 'lucide-vue-next';
+import { Check, Copy, Share } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -135,7 +134,6 @@ import { SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
-import IconShare from '@/components/icons/IconShare.vue';
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
 const props = defineProps<{
@@ -155,7 +153,7 @@ const bucketsStore = useBucketsStore();
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
 const link = ref<string>('');
 
@@ -182,7 +180,7 @@ function onCopy(): void {
 /**
  * Generates linksharing URL when the dialog is opened.
  */
-watch(() => innerContent.value, async (comp: Component | null): Promise<void> => {
+watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     if (!comp) {
         emit('contentRemoved');
         return;
