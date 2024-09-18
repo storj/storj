@@ -274,7 +274,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	now := time.Now()
-	var allowDelete, canGetRetention bool
+	var allowDelete, canGetRetention, canGetLegalHold bool
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
@@ -302,6 +302,16 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 				Time:          now,
 			},
 			ActionPermitted: &canGetRetention,
+			Optional:        true,
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectLegalHold,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetLegalHold,
 			Optional:        true,
 		},
 	)
@@ -390,6 +400,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if !canGetRetention {
 		pbObject.Retention = nil
 	}
+	if !canGetLegalHold {
+		pbObject.LegalHold = nil
+	}
 
 	mon.Meter("req_commit_object").Mark(1)
 
@@ -411,7 +424,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	now := time.Now()
-	var allowDelete bool
+	var allowDelete, canGetRetention, canGetLegalHold bool
 	actions := []VerifyPermission{
 		{
 			Action: macaroon.Action{
@@ -429,6 +442,24 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 			},
 			ActionPermitted: &allowDelete,
 			Optional:        true,
+		}, {
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectRetention,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetRetention,
+			Optional:        true,
+		}, {
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectLegalHold,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetLegalHold,
+			Optional:        true,
 		},
 	}
 
@@ -437,6 +468,17 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionPutObjectRetention,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+		})
+	}
+
+	if beginObjectReq.LegalHold {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionPutObjectLegalHold,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
 				Time:          now,
@@ -455,7 +497,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !endpoint.config.ObjectLockEnabled {
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
@@ -483,6 +525,17 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		expiresAt = &ttl
 	}
 
+	if retention.Enabled() || beginObjectReq.LegalHold {
+		switch {
+		case maxObjectTTL != nil:
+			return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument,
+				"cannot specify Object Lock settings when using an API key that enforces an object expiration time")
+		case !beginObjectReq.ExpiresAt.IsZero():
+			return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument,
+				"cannot specify Object Lock settings and an object expiration time")
+		}
+	}
+
 	objectKeyLength := len(beginObjectReq.EncryptedObjectKey)
 	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
@@ -507,7 +560,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if retention.Enabled() && !bucket.ObjectLockEnabled {
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLockEnabled {
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
@@ -587,6 +640,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		EncryptedMetadataNonce:        metadataNonce,
 
 		Retention: retention,
+		LegalHold: beginObjectReq.LegalHold,
 
 		DisallowDelete: !allowDelete,
 
@@ -612,6 +666,12 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	if err != nil {
 		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+	if !canGetRetention {
+		pbObject.Retention = nil
+	}
+	if !canGetLegalHold {
+		pbObject.LegalHold = nil
 	}
 
 	endpoint.log.Debug("Object Inline Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))

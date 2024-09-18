@@ -3293,25 +3293,61 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 					CipherSuite: pb.CipherSuite_ENC_AESGCM,
 					BlockSize:   256,
 				},
-				Retention: &pb.Retention{
-					Mode:        pb.Retention_COMPLIANCE,
-					RetainUntil: time.Now().Add(time.Hour),
-				},
 			}
 		}
 
-		newUploadReqs := func(apiKey *macaroon.APIKey, bucketName, key string) (*pb.BeginObjectRequest, *pb.MakeInlineSegmentRequest, *pb.CommitObjectRequest) {
+		newBeginReqWithRetention := func(apiKey *macaroon.APIKey, bucketName, key string, mode pb.Retention_Mode) *pb.BeginObjectRequest {
+			req := newBeginReq(apiKey, bucketName, key)
+			req.Retention = &pb.Retention{
+				Mode:        mode,
+				RetainUntil: time.Now().Add(time.Hour),
+			}
+			return req
+		}
+
+		newBeginReqWithLegalHold := func(apiKey *macaroon.APIKey, bucketName, key string) *pb.BeginObjectRequest {
+			req := newBeginReq(apiKey, bucketName, key)
+			req.LegalHold = true
+			return req
+		}
+
+		type uploadRequests struct {
+			beginObject       *pb.BeginObjectRequest
+			makeInlineSegment *pb.MakeInlineSegmentRequest
+			commitObject      *pb.CommitObjectRequest
+		}
+
+		newUploadReqs := func(apiKey *macaroon.APIKey, bucketName, key string) uploadRequests {
 			begin := newBeginReq(apiKey, bucketName, key)
-			return begin, &pb.MakeInlineSegmentRequest{
+			return uploadRequests{
+				beginObject: begin,
+				makeInlineSegment: &pb.MakeInlineSegmentRequest{
 					Header:              begin.Header,
 					Position:            &pb.SegmentPosition{},
 					EncryptedKey:        begin.EncryptedObjectKey,
 					EncryptedKeyNonce:   testrand.Nonce(),
 					PlainSize:           512,
 					EncryptedInlineData: testrand.Bytes(32),
-				}, &pb.CommitObjectRequest{
+				},
+				commitObject: &pb.CommitObjectRequest{
 					Header: begin.Header,
-				}
+				},
+			}
+		}
+
+		newUploadReqsWithRetention := func(apiKey *macaroon.APIKey, bucketName, key string, mode pb.Retention_Mode) uploadRequests {
+			reqs := newUploadReqs(apiKey, bucketName, key)
+			reqs.beginObject.Retention = &pb.Retention{
+				Mode:        mode,
+				RetainUntil: time.Now().Add(time.Hour),
+			}
+			return reqs
+		}
+
+		newUploadReqsWithLegalHold := func(apiKey *macaroon.APIKey, bucketName, key string) uploadRequests {
+			reqs := newUploadReqs(apiKey, bucketName, key)
+			reqs.beginObject.LegalHold = true
+			return reqs
 		}
 
 		getObject := func(bucketName, key string) metabase.Object {
@@ -3340,6 +3376,24 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 			require.Zero(t, obj)
 		}
 
+		runLockCases := func(t *testing.T, apiKey *macaroon.APIKey, bucketName string, fn func(t *testing.T, reqs uploadRequests)) {
+			for _, tt := range []struct {
+				name string
+				mode pb.Retention_Mode
+			}{
+				{name: "Compliance mode", mode: pb.Retention_COMPLIANCE},
+				{name: "Governance mode", mode: pb.Retention_GOVERNANCE},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					fn(t, newUploadReqsWithRetention(apiKey, bucketName, testrand.Path(), tt.mode))
+				})
+			}
+
+			t.Run("Legal hold", func(t *testing.T) {
+				fn(t, newUploadReqsWithLegalHold(apiKey, bucketName, testrand.Path()))
+			})
+		}
+
 		bucketName := testrand.BucketName()
 		createBucket(t, bucketName, true)
 
@@ -3347,7 +3401,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 			t.Run("Success", func(t *testing.T) {
 				key := testrand.Path()
 
-				beginReq := newBeginReq(apiKey, bucketName, key)
+				beginReq := newBeginReqWithRetention(apiKey, bucketName, key, pb.Retention_COMPLIANCE)
 				beginResp, err := endpoint.BeginObject(ctx, beginReq)
 				require.NoError(t, err)
 
@@ -3369,9 +3423,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 			t.Run("Success - Legal Hold", func(t *testing.T) {
 				key := testrand.Path()
 
-				beginReq := newBeginReq(apiKey, bucketName, key)
-				beginReq.LegalHold = true
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
+				beginReq := newBeginReqWithLegalHold(apiKey, bucketName, key)
 
 				beginResp, err := endpoint.BeginObject(ctx, beginReq)
 				require.NoError(t, err)
@@ -3382,21 +3434,16 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				require.NotNil(t, commitResp.Object.Retention)
-				require.EqualValues(t, storj.GovernanceMode, commitResp.Object.Retention.Mode)
-				require.EqualValues(t, beginReq.LegalHold, commitResp.Object.LegalHold.Value)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
+				require.NotNil(t, commitResp.Object.LegalHold)
+				require.True(t, commitResp.Object.LegalHold.Value)
 
 				obj := requireObject(t, bucketName, key)
-				require.Equal(t, storj.GovernanceMode, obj.Retention.Mode)
-				require.Equal(t, beginReq.LegalHold, obj.LegalHold)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
+				require.True(t, obj.LegalHold)
 			})
 
 			t.Run("Success - No retention period", func(t *testing.T) {
 				key := testrand.Path()
 				beginReq := newBeginReq(apiKey, bucketName, key)
-				beginReq.Retention = nil
 				beginResp, err := endpoint.BeginObject(ctx, beginReq)
 				require.NoError(t, err)
 
@@ -3416,51 +3463,27 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				endpoint.TestSetObjectLockEnabled(false)
 				defer endpoint.TestSetObjectLockEnabled(true)
 
-				key := testrand.Path()
-				beginReq := newBeginReq(apiKey, bucketName, key)
-				_, err := endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
-
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
-
-				beginReq.Retention = nil
-				beginReq.LegalHold = true
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, err := endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+				})
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
 				bucketName := testrand.BucketName()
 				createBucket(t, bucketName, false)
 
-				key := testrand.Path()
-				beginReq := newBeginReq(apiKey, bucketName, key)
-				_, err := endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
-
-				requireNoObject(t, bucketName, key)
-
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
-
-				requireNoObject(t, bucketName, key)
-
-				beginReq.Retention = nil
-				beginReq.LegalHold = true
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
-
-				requireNoObject(t, bucketName, key)
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, err := endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 
 			t.Run("Invalid retention mode", func(t *testing.T) {
 				key := testrand.Path()
-				beginReq := newBeginReq(apiKey, bucketName, key)
+				beginReq := newBeginReqWithRetention(apiKey, bucketName, key, pb.Retention_INVALID)
 
-				beginReq.Retention.Mode = pb.Retention_INVALID
 				_, err = endpoint.BeginObject(ctx, beginReq)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
@@ -3473,7 +3496,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 
 			t.Run("Invalid retention period expiration", func(t *testing.T) {
 				key := testrand.Path()
-				beginReq := newBeginReq(apiKey, bucketName, key)
+				beginReq := newBeginReqWithRetention(apiKey, bucketName, key, pb.Retention_COMPLIANCE)
 
 				beginReq.Retention.RetainUntil = time.Time{}
 				_, err = endpoint.BeginObject(ctx, beginReq)
@@ -3487,68 +3510,35 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 			})
 
 			t.Run("Object Lock with TTL is disallowed", func(t *testing.T) {
-				key := testrand.Path()
-				beginReq := newBeginReq(apiKey, bucketName, key)
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					reqs.beginObject.ExpiresAt = time.Now().Add(time.Hour)
+					_, err = endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.ExpiresAt = time.Now().Add(time.Hour)
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+					reqs.beginObject.Header.ApiKey = ttlApiKey.SerializeRaw()
+					_, err = endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
-
-				beginReq.Retention = nil
-				beginReq.LegalHold = true
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
-
-				beginReq = newBeginReq(ttlApiKey, bucketName, key)
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
-
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
-
-				beginReq.Retention = nil
-				beginReq.LegalHold = true
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
-
-				requireNoObject(t, bucketName, key)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
-				key := testrand.Path()
-				beginReq := newBeginReq(oldApiKey, bucketName, key)
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+				runLockCases(t, oldApiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, err = endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+					if reqs.beginObject.LegalHold {
+						reqs.beginObject.Header.ApiKey = restrictedLegalHoldApiKey.SerializeRaw()
+					} else {
+						reqs.beginObject.Header.ApiKey = restrictedApiKey.SerializeRaw()
+					}
 
-				beginReq.Retention = nil
-				beginReq.LegalHold = true
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+					_, err = endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq = newBeginReq(restrictedApiKey, bucketName, key)
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
-
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
-
-				beginReq = newBeginReq(restrictedLegalHoldApiKey, bucketName, key)
-				beginReq.Retention = nil
-				beginReq.LegalHold = true
-				_, err = endpoint.BeginObject(ctx, beginReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
-
-				requireNoObject(t, bucketName, key)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 		})
 
@@ -3556,26 +3546,39 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 			t.Run("Success", func(t *testing.T) {
 				key := testrand.Path()
 
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
-				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
+				reqs := newUploadReqsWithRetention(apiKey, bucketName, key, pb.Retention_COMPLIANCE)
+				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				require.NoError(t, err)
 
 				require.NotNil(t, commitResp.Object.Retention)
 				require.EqualValues(t, storj.ComplianceMode, commitResp.Object.Retention.Mode)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
+				require.WithinDuration(t, reqs.beginObject.Retention.RetainUntil, commitResp.Object.Retention.RetainUntil, time.Microsecond)
 
 				obj := requireObject(t, bucketName, key)
 				require.Equal(t, storj.ComplianceMode, obj.Retention.Mode)
-				require.WithinDuration(t, beginReq.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
+				require.WithinDuration(t, reqs.beginObject.Retention.RetainUntil, obj.Retention.RetainUntil, time.Microsecond)
+			})
+
+			t.Run("Success - Legal Hold", func(t *testing.T) {
+				key := testrand.Path()
+
+				reqs := newUploadReqsWithLegalHold(apiKey, bucketName, key)
+
+				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+				require.NoError(t, err)
+				require.NotNil(t, commitResp.Object.LegalHold)
+				require.True(t, commitResp.Object.LegalHold.Value)
+
+				obj := requireObject(t, bucketName, key)
+				require.True(t, obj.LegalHold)
 			})
 
 			t.Run("Success - No retention period", func(t *testing.T) {
 				key := testrand.Path()
 
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
-				beginReq.Retention = nil
+				reqs := newUploadReqs(apiKey, bucketName, key)
 
-				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
+				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				require.NoError(t, err)
 				require.Nil(t, commitResp.Object.Retention)
 
@@ -3587,35 +3590,33 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				endpoint.TestSetObjectLockEnabled(false)
 				defer endpoint.TestSetObjectLockEnabled(true)
 
-				key := testrand.Path()
-
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
-				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
 				bucketName := testrand.BucketName()
 				createBucket(t, bucketName, false)
 
-				key := testrand.Path()
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
-				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
-
-				requireNoObject(t, bucketName, key)
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 
 			t.Run("Invalid retention mode", func(t *testing.T) {
 				key := testrand.Path()
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
 
-				beginReq.Retention.Mode = pb.Retention_COMPLIANCE - 1
-				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
+				reqs := newUploadReqsWithRetention(apiKey, bucketName, key, pb.Retention_COMPLIANCE-1)
+				_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.Retention.Mode = pb.Retention_GOVERNANCE + 1
-				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
+				reqs.beginObject.Retention.Mode = pb.Retention_GOVERNANCE + 1
+				_, _, _, err = endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
 				requireNoObject(t, bucketName, key)
@@ -3623,46 +3624,49 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 
 			t.Run("Invalid retention period expiration", func(t *testing.T) {
 				key := testrand.Path()
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
+				reqs := newUploadReqsWithRetention(apiKey, bucketName, key, pb.Retention_COMPLIANCE)
 
-				beginReq.Retention.RetainUntil = time.Time{}
-				_, _, _, err := endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
+				reqs.beginObject.Retention.RetainUntil = time.Time{}
+				_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.Retention.RetainUntil = time.Now().Add(-time.Minute)
-				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
+				reqs.beginObject.Retention.RetainUntil = time.Now().Add(-time.Minute)
+				_, _, _, err = endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
 				requireNoObject(t, bucketName, key)
 			})
 
-			t.Run("Retention period with TTL is disallowed", func(t *testing.T) {
-				key := testrand.Path()
-				beginReq, segReq, commitReq := newUploadReqs(apiKey, bucketName, key)
+			t.Run("Object Lock with TTL is disallowed", func(t *testing.T) {
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					reqs.beginObject.ExpiresAt = time.Now().Add(time.Hour)
+					_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq.ExpiresAt = time.Now().Add(time.Hour)
-				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+					reqs.beginObject.Header.ApiKey = ttlApiKey.SerializeRaw()
+					_, _, _, err = endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 
-				beginReq, segReq, commitReq = newUploadReqs(ttlApiKey, bucketName, key)
-				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
-
-				requireNoObject(t, bucketName, key)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
-				key := testrand.Path()
+				runLockCases(t, oldApiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				beginReq, segReq, commitReq := newUploadReqs(oldApiKey, bucketName, key)
-				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+					if reqs.beginObject.LegalHold {
+						reqs.beginObject.Header.ApiKey = restrictedLegalHoldApiKey.SerializeRaw()
+					} else {
+						reqs.beginObject.Header.ApiKey = restrictedApiKey.SerializeRaw()
+					}
 
-				beginReq, segReq, commitReq = newUploadReqs(restrictedApiKey, bucketName, key)
-				_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, segReq, commitReq)
-				rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+					_, _, _, err = endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-				requireNoObject(t, bucketName, key)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
 			})
 		})
 	})
