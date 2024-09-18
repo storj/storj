@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // NodeTag is a tag associated with a node (approved by signer).

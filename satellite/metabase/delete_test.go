@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -439,8 +438,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 		})
 
 		t.Run("Delete object with retention", func(t *testing.T) {
-			objectLockDeletionTestRunner{
-				TestProtected: func(t *testing.T, testCase objectLockDeletionTestCase) {
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 					object, segments := metabasetest.CreateTestObject{
@@ -477,7 +476,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 						Segments: metabasetest.SegmentsToRaw(segments),
 					}.Check(ctx, t, db)
 				},
-				TestRemovable: func(t *testing.T, params objectLockDeletionTestCase) {
+				TestRemovable: func(t *testing.T, params metabasetest.ObjectLockDeletionTestCase) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 					object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, params.Retention)
@@ -1225,8 +1224,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 
 		t.Run("Delete object with retention", func(t *testing.T) {
 			t.Run("Suspended", func(t *testing.T) {
-				objectLockDeletionTestRunner{
-					TestProtected: func(t *testing.T, testCase objectLockDeletionTestCase) {
+				metabasetest.ObjectLockDeletionTestRunner{
+					TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 						object, segments := metabasetest.CreateTestObject{
@@ -1263,7 +1262,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 							Segments: metabasetest.SegmentsToRaw(segments),
 						}.Check(ctx, t, db)
 					},
-					TestRemovable: func(t *testing.T, testCase objectLockDeletionTestCase) {
+					TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 						object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, testCase.Retention)
@@ -1298,8 +1297,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 			})
 
 			t.Run("Unversioned", func(t *testing.T) {
-				objectLockDeletionTestRunner{
-					TestProtected: func(t *testing.T, testCase objectLockDeletionTestCase) {
+				metabasetest.ObjectLockDeletionTestRunner{
+					TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 						objStream := metabasetest.RandObjectStream()
@@ -1336,7 +1335,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 							Segments: metabasetest.SegmentsToRaw(segments),
 						}.Check(ctx, t, db)
 					},
-					TestRemovable: func(t *testing.T, testCase objectLockDeletionTestCase) {
+					TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 						object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, testCase.Retention)
@@ -1360,142 +1359,4 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 			})
 		})
 	})
-}
-
-type objectLockDeletionTestRunner struct {
-	TestProtected func(t *testing.T, testCase objectLockDeletionTestCase)
-	TestRemovable func(t *testing.T, testCase objectLockDeletionTestCase)
-}
-
-type objectLockDeletionTestCase struct {
-	Retention        metabase.Retention
-	BypassGovernance bool
-	LegalHold        bool
-}
-
-func (opts objectLockDeletionTestRunner) Run(t *testing.T) {
-	future := time.Now().Add(time.Hour)
-	past := time.Now().Add(-time.Minute)
-
-	type namedTestCase struct {
-		name     string
-		testCase objectLockDeletionTestCase
-	}
-
-	for _, tt := range []namedTestCase{
-		{
-			name: "Compliance (active)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
-					RetainUntil: future,
-				},
-			},
-		}, {
-			name: "Compliance (active) - Governance bypass",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
-					RetainUntil: future,
-				},
-				BypassGovernance: true,
-			},
-		}, {
-			name: "Governance (active)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: future,
-				},
-			},
-		}, {
-			name: "Legal hold",
-			testCase: objectLockDeletionTestCase{
-				LegalHold: true,
-			},
-		}, {
-			name: "Legal hold and compliance (active)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
-					RetainUntil: future,
-				},
-				LegalHold: true,
-			},
-		}, {
-			name: "Legal hold and compliance (expired)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
-					RetainUntil: past,
-				},
-				LegalHold: true,
-			},
-		}, {
-			name: "Legal hold and governance (active)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: future,
-				},
-				LegalHold: true,
-			},
-		}, {
-			name: "Legal hold and governance (active) - Governance bypass",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: future,
-				},
-				BypassGovernance: true,
-				LegalHold:        true,
-			},
-		}, {
-			name: "Legal hold and governance (expired)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: past,
-				},
-				LegalHold: true,
-			},
-		},
-	} {
-		t.Run("Protected Object Lock configuration - "+tt.name, func(t *testing.T) {
-			opts.TestProtected(t, tt.testCase)
-		})
-	}
-
-	for _, tt := range []namedTestCase{
-		{
-			name: "Compliance (expired)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.ComplianceMode,
-					RetainUntil: past,
-				},
-			},
-		}, {
-			name: "Governance (expired)",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: past,
-				},
-			},
-		}, {
-			name: "Governance (active) - Governance bypass",
-			testCase: objectLockDeletionTestCase{
-				Retention: metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: future,
-				},
-				BypassGovernance: true,
-			},
-		},
-	} {
-		t.Run("Removable Object Lock configuration - "+tt.name, func(t *testing.T) {
-			opts.TestRemovable(t, tt.testCase)
-		})
-	}
 }

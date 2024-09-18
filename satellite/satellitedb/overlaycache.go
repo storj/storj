@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -27,6 +26,7 @@ import (
 	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
 )
 

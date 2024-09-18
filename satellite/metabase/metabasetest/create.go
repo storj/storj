@@ -482,6 +482,24 @@ func CreateObjectWithRetention(ctx *testcontext.Context, t testing.TB, db *metab
 	}.Check(ctx, t, db), segments
 }
 
+// CreateObjectWithRetentionAndLegalHold creates an object with an Object Lock retention and legal hold configurations.
+func CreateObjectWithRetentionAndLegalHold(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   DefaultEncryption,
+			Retention:    retention,
+			LegalHold:    legalHold,
+		},
+	}.Check(ctx, t, db)
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+		},
+	}.Check(ctx, t, db)
+}
+
 // SegmentsToRaw converts a slice of Segment to a slice of RawSegment.
 func SegmentsToRaw(segments []metabase.Segment) []metabase.RawSegment {
 	rawSegments := []metabase.RawSegment{}

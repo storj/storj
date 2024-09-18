@@ -533,7 +533,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				}
 			}
 
-			pieceExpirationStore, err := pieces.NewPieceExpirationStore(process.NamedLog(peer.Log, "pieceexpiration"), pieces.PieceExpirationConfig{
+			var chainedStore pieces.PieceExpirationDB
+			if config.Pieces.FlatExpirationIncludeSQLite {
+				chainedStore = peer.DB.PieceExpirationDB()
+			}
+			pieceExpirationStore, err := pieces.NewPieceExpirationStore(process.NamedLog(peer.Log, "pieceexpiration"), chainedStore, pieces.PieceExpirationConfig{
 				DataDir:               flatFileStorePath,
 				ConcurrentFileHandles: config.Pieces.FlatExpirationStoreFileHandles,
 				MaxBufferTime:         config.Pieces.FlatExpirationStoreMaxBufferTime,

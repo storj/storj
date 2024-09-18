@@ -41,7 +41,7 @@ import { VBtn, VCol, VContainer, VRow, VTooltip } from 'vuetify/components';
 import { UserPlus } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -61,7 +61,7 @@ const usersStore = useUsersStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = usePreCheck();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 

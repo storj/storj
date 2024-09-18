@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Component, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -95,7 +95,7 @@ const model = defineModel<boolean>({ required: true });
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 

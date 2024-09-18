@@ -27,10 +27,10 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/processgroup"
 	"storj.io/common/storj"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/processgroup"
 	"storj.io/uplink"
 )
 

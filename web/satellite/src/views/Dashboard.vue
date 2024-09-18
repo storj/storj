@@ -324,7 +324,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -363,7 +363,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -765,9 +765,9 @@ function getValueAndUnit(value: number): ValueUnit {
  * Starts create bucket flow if user's free trial is not expired.
  */
 function onCreateBucket(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isCreateBucketDialogOpen.value = true;
-    });
+    });});
 }
 
 /**

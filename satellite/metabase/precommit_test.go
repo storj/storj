@@ -85,8 +85,8 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		objectLockDeletionTestRunner{
-			TestProtected: func(t *testing.T, testCase objectLockDeletionTestCase) {
+		metabasetest.ObjectLockDeletionTestRunner{
+			TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				obj, segs := metabasetest.CreateTestObject{
@@ -107,7 +107,7 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 					Segments: metabasetest.SegmentsToRaw(segs),
 				}.Check(ctx, t, db)
 			},
-			TestRemovable: func(t *testing.T, testCase objectLockDeletionTestCase) {
+			TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				committed, _ := metabasetest.CreateTestObject{

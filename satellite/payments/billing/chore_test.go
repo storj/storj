@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v75"
@@ -114,7 +116,7 @@ func TestChore(t *testing.T) {
 
 	t.Run("without StorjScan bonus", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -313,7 +315,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 
 func TestChore_PayInvoiceObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
@@ -512,5 +514,5 @@ func assertTxEqual(t *testing.T, exp, act billing.Transaction, msgAndArgs ...int
 			exp.Amount.AsDecimal().Truncate(act.Amount.Currency().DecimalPlaces()),
 			act.Amount.Currency())
 	}
-	assert.Equal(t, exp, act, msgAndArgs...)
+	assert.Equal(t, "", cmp.Diff(act, exp, cmpopts.EquateApproxTime(0)), msgAndArgs...)
 }

@@ -61,6 +61,7 @@ type BeginObjectNextVersion struct {
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
+	LegalHold bool
 }
 
 // Verify verifies get object request fields.
@@ -80,12 +81,17 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 
-	if err := opts.Retention.verifyWithoutGovernance(); err != nil {
+	if err := opts.Retention.Verify(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 
-	if opts.Retention.Enabled() && opts.ExpiresAt != nil {
-		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	if opts.ExpiresAt != nil {
+		switch {
+		case opts.Retention.Enabled():
+			return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+		case opts.LegalHold:
+			return ErrInvalidRequest.New("ExpiresAt must not be set if LegalHold is set")
+		}
 	}
 
 	return nil
@@ -115,6 +121,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		Encryption:             opts.Encryption,
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 		Retention:              opts.Retention,
+		LegalHold:              opts.LegalHold,
 	}
 
 	err = db.ChooseAdapter(opts.ProjectID).BeginObjectNextVersion(ctx, opts, &object)
@@ -155,7 +162,10 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-		lockModeWrapper{retentionMode: &opts.Retention.Mode}, timeWrapper{&opts.Retention.RetainUntil},
+		lockModeWrapper{
+			retentionMode: &opts.Retention.Mode,
+			legalHold:     &opts.LegalHold,
+		}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(&object.Status, &object.Version, &object.CreatedAt)
 }
 
@@ -200,8 +210,11 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-				"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode},
-				"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
+				"retention_mode": lockModeWrapper{
+					retentionMode: &opts.Retention.Mode,
+					legalHold:     &opts.LegalHold,
+				},
+				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
 			return Error.Wrap(row.Columns(&object.Status, &object.Version, &object.CreatedAt))

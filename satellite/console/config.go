@@ -38,6 +38,7 @@ type Config struct {
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
+	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
 	UsageLimits                       UsageLimitsConfig
 	Captcha                           CaptchaConfig

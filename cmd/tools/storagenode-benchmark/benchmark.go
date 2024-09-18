@@ -142,7 +142,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 					if pieceID.IsZero() {
 						return
 					}
-					if err := connectAndUpload(ctx, dialer, orderLimitCreator, nodeURL, pieceID, data); err != nil {
+					if err := connectAndUpload(ctx, dialer, orderLimitCreator, nodeURL, pieceID, benchmarkConfig.HashAlgorithm, data); err != nil {
 						fmt.Println(err)
 					}
 				}
@@ -199,12 +199,12 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, data []byte) (err error) {
+func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, hashAlgo int, data []byte) (err error) {
 	client, err := piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-
+	client.UploadHashAlgo = pb.PieceHashAlgorithm(hashAlgo)
 	defer func() {
 		err = errs.Combine(err, client.Close())
 	}()
@@ -285,8 +285,11 @@ func (k *keySigner) createOrderLimit(ctx context.Context, pieceID storj.PieceID,
 		Action:          pb.PieceAction_PUT,
 		Limit:           size,
 		OrderCreation:   time.Now(),
-		OrderExpiration: time.Now().Add(benchmarkConfig.TTL),
+		OrderExpiration: time.Now().Add(24 * time.Hour),
 		UplinkPublicKey: pub,
+	}
+	if benchmarkConfig.TTL > 0 {
+		limit.PieceExpiration = time.Now().Add(benchmarkConfig.TTL)
 	}
 	limit, err = signing.SignOrderLimit(ctx, k.signer, limit)
 	if err != nil {

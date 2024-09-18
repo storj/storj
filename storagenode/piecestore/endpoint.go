@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -34,6 +33,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
@@ -511,7 +511,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			}
 			committed = true
 			if !limit.PieceExpiration.IsZero() {
-				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration, 0); err != nil {
+				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration, pieceWriter.Size()); err != nil {
 					endpoint.log.Error("upload internal error", zap.Error(err))
 					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 				}

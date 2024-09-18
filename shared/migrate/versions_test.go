@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/migrate"
 	"storj.io/storj/shared/tagsql"
@@ -46,7 +46,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 }
 
 func TestBasicMigration(t *testing.T) {
-	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
 		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
 		if err != nil {
 			t.Fatal(err)
@@ -150,7 +150,7 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 
 	db, err := tagsql.Open(ctx, "pgx", connstr)
 	require.NoError(t, err)
@@ -229,7 +229,7 @@ func TestFailedMigrationPostgres(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 
 	db, err := tagsql.Open(ctx, "pgx", connstr)
 	require.NoError(t, err)

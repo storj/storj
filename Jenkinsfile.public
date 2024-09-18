@@ -113,10 +113,15 @@ pipeline {
                     steps {
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=4m run'
                         sh 'protolock status'
-                        sh 'go.min vet ./...'
                         dir("testsuite/storjscan") {
                             sh 'go vet ./...'
                         }
+                    }
+                }
+                stage('Storage Node 1.20') {
+                    steps {
+                        sh './scripts/generate-gomod-for-storagenode-go1.20.sh go.mod .build/go.storagenode.mod'
+                        sh 'go.min vet -modfile .build/go.storagenode.mod ./...'
                     }
                 }
                 stage('licenses check') {

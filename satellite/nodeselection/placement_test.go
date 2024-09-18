@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 func TestPlacementFromString(t *testing.T) {
@@ -47,6 +47,7 @@ func TestPlacementFromString(t *testing.T) {
 		countryTest(`country("EEA")`, []location.CountryCode{location.Germany, location.Hungary, location.Norway, location.Iceland}, []location.CountryCode{location.UnitedStates})
 		countryTest(`country("ALL","!EU")`, []location.CountryCode{location.Norway, location.India}, []location.CountryCode{location.Germany, location.Hungary})
 		countryTest(`country("ALL", "!RU", "!BY")`, []location.CountryCode{location.Norway, location.India, location.UnitedStates}, []location.CountryCode{location.Russia, location.Belarus})
+		countryTest(`country("EU", "!DE")`, []location.CountryCode{location.Hungary, location.TheNetherlands}, []location.CountryCode{location.Germany, location.UnitedStates, location.Russia})
 
 	})
 

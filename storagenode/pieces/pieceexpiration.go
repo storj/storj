@@ -63,6 +63,9 @@ type PieceExpirationStore struct {
 
 	maxBufferTime         time.Duration
 	concurrentFileHandles int
+
+	// chainedStore will receive forwarded delete requests, if not nil.
+	chainedStore PieceExpirationDB
 }
 
 // PieceExpirationConfig contains configuration for the piece expiration store.
@@ -79,7 +82,7 @@ type PieceExpirationConfig struct {
 }
 
 // NewPieceExpirationStore creates a new piece expiration store.
-func NewPieceExpirationStore(log *zap.Logger, config PieceExpirationConfig) (*PieceExpirationStore, error) {
+func NewPieceExpirationStore(log *zap.Logger, chainedStore PieceExpirationDB, config PieceExpirationConfig) (*PieceExpirationStore, error) {
 	err := os.MkdirAll(config.DataDir, 0755)
 	if err != nil {
 		return nil, ErrPieceExpiration.Wrap(err)
@@ -90,6 +93,7 @@ func NewPieceExpirationStore(log *zap.Logger, config PieceExpirationConfig) (*Pi
 		tickerDone:            make(chan bool),
 		maxBufferTime:         config.MaxBufferTime,
 		concurrentFileHandles: config.ConcurrentFileHandles,
+		chainedStore:          chainedStore,
 	}
 	peStore.handlePool = lrucache.NewHandlePool[hourKey, *hourFile](config.ConcurrentFileHandles, peStore.openHour, peStore.closeHour)
 	go peStore.flushOnTicks()
@@ -147,6 +151,14 @@ func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Ti
 		}
 		infos = append(infos, satelliteInfos...)
 	}
+	if peStore.chainedStore != nil {
+		chainedInfos, err := peStore.chainedStore.GetExpired(ctx, now, 0)
+		if err != nil {
+			errList.Add(ErrPieceExpiration.Wrap(err))
+		} else {
+			infos = append(infos, chainedInfos...)
+		}
+	}
 	return infos, errList.Err()
 }
 
@@ -155,16 +167,27 @@ func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Ti
 func (peStore *PieceExpirationStore) DeleteExpirations(ctx context.Context, expiresAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	errList := peStore.deleteExpirationsFromAllSatellites(ctx, expiresAt)
+	if peStore.chainedStore != nil {
+		err := peStore.chainedStore.DeleteExpirations(ctx, expiresAt)
+		errList.Add(ErrPieceExpiration.Wrap(err))
+	}
+	return errList.Err()
+}
+
+func (peStore *PieceExpirationStore) deleteExpirationsFromAllSatellites(ctx context.Context, expiresAt time.Time) (errList errs.Group) {
+	defer mon.Task()(&ctx)(nil)
+
 	satellites, err := peStore.getSatellitesWithExpirations(ctx)
 	if err != nil {
-		return ErrPieceExpiration.Wrap(err)
+		errList.Add(ErrPieceExpiration.Wrap(err))
+		return errList
 	}
-	var errList errs.Group
 	for _, satelliteID := range satellites {
 		err := peStore.DeleteExpirationsForSatellite(ctx, satelliteID, expiresAt)
 		errList.Add(ErrPieceExpiration.Wrap(err))
 	}
-	return errList.Err()
+	return errList
 }
 
 func (peStore *PieceExpirationStore) getSatellitesWithExpirations(ctx context.Context) (satellites []storj.NodeID, err error) {
@@ -322,7 +345,12 @@ func (peStore *PieceExpirationStore) DeleteExpirationsForSatellite(ctx context.C
 // DeleteExpirationsBatch removes expiration records for pieces that have expired before the given time.
 // The limit is not applied, as it does not make sense for this implementation.
 func (peStore *PieceExpirationStore) DeleteExpirationsBatch(ctx context.Context, now time.Time, limit int) error {
-	return peStore.DeleteExpirations(ctx, now)
+	errList := peStore.deleteExpirationsFromAllSatellites(ctx, now)
+	if peStore.chainedStore != nil {
+		err := peStore.chainedStore.DeleteExpirationsBatch(ctx, now, limit)
+		errList.Add(ErrPieceExpiration.Wrap(err))
+	}
+	return errList.Err()
 }
 
 func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.Context, satellite storj.NodeID, now time.Time) (elapsed []time.Time, err error) {

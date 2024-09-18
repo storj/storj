@@ -88,7 +88,8 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 
 			expectedNodeIds := []string{}
 			for _, node := range planet.StorageNodes {
-				_, err := planet.Satellites[0].DB.Testing().RawDB().ExecContext(ctx, "UPDATE nodes SET disqualified = null WHERE id = $1", node.ID())
+				db := planet.Satellites[0].DB.Testing()
+				_, err := db.RawDB().ExecContext(ctx, db.Rebind("UPDATE nodes SET disqualified = null WHERE id = ?"), node.ID())
 				require.NoError(t, err)
 
 				expectedNodeIds = append(expectedNodeIds, node.ID().String())

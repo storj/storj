@@ -50,6 +50,8 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
+const orderExpiration = 24 * time.Hour
+
 var (
 	pieceSize          = flag.Int("piece-size", 62068, "62068 bytes for a piece in a 1.8 MB file. must be less than 100MiB")
 	piecesToUpload     = flag.Int("pieces-to-upload", 10000, "")
@@ -59,7 +61,7 @@ var (
 	disablePrealloc    = flag.Bool("disable-prealloc", false, "")
 	workDir            = flag.String("work-dir", "", "")
 	dbsLocation        = flag.String("dbs-location", "", "")
-	flatFileTTLStore   = flag.Bool("flat-ttl-store", false, "use flat-files ttl store")
+	flatFileTTLStore   = flag.Bool("flat-ttl-store", true, "use flat-files ttl store")
 	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
@@ -95,6 +97,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 		cfg.Pieces.WritePreallocSize = -1
 	}
 	cfg.Filestore.ForceSync = *forceSync
+	cfg.Storage2.OrderLimitGracePeriod = orderExpiration
 
 	resolver := trust.IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error) {
 		if url.ID == satIdent.ID {
@@ -126,7 +129,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	var expirationStore pieces.PieceExpirationDB
 	if *flatFileTTLStore {
 		cfg.Pieces.EnableFlatExpirationStore = true
-		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), pieces.PieceExpirationConfig{
+		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), nil, pieces.PieceExpirationConfig{
 			DataDir:               filepath.Join(cfg.Storage2.DatabaseDir, "pieceexpiration"),
 			ConcurrentFileHandles: *flatFileTTLHandles,
 		}))
@@ -181,7 +184,7 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity,
 	}
 
 	limit := try.E1(signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satIdent), &pb.OrderLimit{
-		SerialNumber:    try.E1(satorders.CreateSerial(time.Now().Add(time.Hour))),
+		SerialNumber:    try.E1(satorders.CreateSerial(time.Now().Add(orderExpiration))),
 		SatelliteId:     satIdent.ID,
 		UplinkPublicKey: piecePubKey,
 		StorageNodeId:   snIdent.ID,
@@ -192,7 +195,7 @@ func createUpload(ctx context.Context, satIdent, snIdent *identity.FullIdentity,
 
 		PieceExpiration: expiration,
 		OrderCreation:   time.Now(),
-		OrderExpiration: time.Now().Add(time.Hour),
+		OrderExpiration: time.Now().Add(orderExpiration),
 
 		EncryptedMetadataKeyId: try.E1(io.ReadAll(io.LimitReader(rand.Reader, 16))),
 		EncryptedMetadata:      try.E1(io.ReadAll(io.LimitReader(rand.Reader, 32))),
@@ -231,7 +234,7 @@ func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	piecePubKey, piecePrivKey := try.E2(storj.NewPieceKey())
 
 	limit := try.E1(signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satIdent), &pb.OrderLimit{
-		SerialNumber:    try.E1(satorders.CreateSerial(time.Now().Add(time.Hour))),
+		SerialNumber:    try.E1(satorders.CreateSerial(time.Now().Add(orderExpiration))),
 		SatelliteId:     satIdent.ID,
 		UplinkPublicKey: piecePubKey,
 		StorageNodeId:   snIdent.ID,
@@ -241,7 +244,7 @@ func createDownload(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 		Action:  pb.PieceAction_GET,
 
 		OrderCreation:   time.Now(),
-		OrderExpiration: time.Now().Add(time.Hour),
+		OrderExpiration: time.Now().Add(orderExpiration),
 
 		EncryptedMetadataKeyId: try.E1(io.ReadAll(io.LimitReader(rand.Reader, 16))),
 		EncryptedMetadata:      try.E1(io.ReadAll(io.LimitReader(rand.Reader, 32))),

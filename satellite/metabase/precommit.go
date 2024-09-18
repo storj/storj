@@ -1100,28 +1100,27 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	streamIDs := make([][]byte, 0, len(result.Deleted))
-	for _, object := range result.Deleted {
-		streamIDs = append(streamIDs, object.StreamID.Bytes())
+	stmts := make([]spanner.Statement, len(result.Deleted))
+	for ix, object := range result.Deleted {
+		stmts[ix] = spanner.Statement{
+			SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+			Params: map[string]interface{}{
+				"stream_id": object.StreamID.Bytes(),
+			},
+		}
 	}
 
-	// TODO(spanner): make sure this is an efficient query
-	segmentDeletion := spanner.Statement{
-		SQL: `
-			DELETE FROM segments
-			WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-		`,
-		Params: map[string]interface{}{
-			"stream_ids": streamIDs,
-		},
-	}
-	segmentsDeleted, err := stx.tx.Update(ctx, segmentDeletion)
-	if err != nil {
-		return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
-	}
+	if len(stmts) > 0 {
+		segmentsDeleted, err := stx.tx.BatchUpdate(ctx, stmts)
+		if err != nil {
+			return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
+		}
 
+		for _, v := range segmentsDeleted {
+			result.DeletedSegmentCount += int(v)
+		}
+	}
 	result.DeletedObjectCount = len(result.Deleted)
-	result.DeletedSegmentCount = int(segmentsDeleted)
 
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",

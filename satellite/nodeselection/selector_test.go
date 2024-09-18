@@ -14,10 +14,10 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 func TestSelectByID(t *testing.T) {
@@ -1017,11 +1017,11 @@ type mockTracker struct {
 	slowNodes     []storj.NodeID
 }
 
-func (m *mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
-	return func(node storj.NodeID) float64 {
+func (m *mockTracker) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
+	return func(node *nodeselection.SelectedNode) float64 {
 		if uplink == m.trustedUplink {
 			for _, slow := range m.slowNodes {
-				if slow == node {
+				if slow == node.ID {
 					return 1
 				}
 			}

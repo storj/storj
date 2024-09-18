@@ -30,7 +30,7 @@
                             Download
                         </v-tooltip>
                     </v-btn>
-                    <v-btn v-if="showingVersions" id="Delete" icon size="small" color="red" @click="onDeleteFileClick">
+                    <v-btn v-if="showingVersions" id="Delete" :loading="isGettingRetention" icon size="small" color="red" @click="onDeleteFileClick">
                         <component :is="Trash2" :size="20" />
                         <v-tooltip
                             activator="parent"
@@ -71,9 +71,10 @@
                         </v-tooltip>
                         <v-menu activator="parent">
                             <v-list class="pa-1" theme="light">
-                                <v-list-item density="comfortable" link base-color="error" @click="onDeleteFileClick">
+                                <v-list-item :disabled="isGettingRetention" density="comfortable" link base-color="error" @click="onDeleteFileClick">
                                     <template #prepend>
-                                        <component :is="Trash2" :size="18" />
+                                        <component :is="Trash2" v-if="!isGettingRetention" :size="18" />
+                                        <v-progress-circular v-else size="small" indeterminate />
                                     </template>
                                     <v-list-item-title class="pl-1 ml-2 text-body-2 font-weight-medium">
                                         Delete
@@ -145,13 +146,30 @@
         </v-card>
     </v-dialog>
 
-    <share-dialog v-if="!showingVersions" v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
+    <share-dialog v-if="!showingVersions" v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile ?? undefined" />
     <geographic-distribution-dialog v-if="!showingVersions" v-model="isGeographicDistributionDialogShown" />
-    <delete-file-dialog
-        v-if="fileToDelete"
+    <delete-versions-dialog
+        v-if="showingVersions"
         v-model="isDeleteFileDialogShown"
-        :files="[fileToDelete]"
+        :files="fileToDelete ? [fileToDelete] : []"
         @content-removed="onDeleteFileDialogClose"
+    />
+    <delete-file-dialog
+        v-else-if="!isBucketVersioned"
+        v-model="isDeleteFileDialogShown"
+        :files="fileToDelete ? [fileToDelete] : []"
+        @content-removed="onDeleteFileDialogClose"
+    />
+    <delete-versioned-file-dialog
+        v-else
+        v-model="isDeleteFileDialogShown"
+        :files="fileToDelete ? [fileToDelete] : []"
+        @content-removed="onDeleteFileDialogClose"
+    />
+    <locked-delete-error-dialog
+        v-model="isLockedObjectDeleteDialogShown"
+        :file="lockActionFile"
+        @content-removed="lockActionFile = null"
     />
 </template>
 
@@ -162,6 +180,7 @@ import {
     VCard,
     VCarousel,
     VCarouselItem,
+    VProgressCircular,
     VDialog,
     VIcon,
     VList,
@@ -174,22 +193,29 @@ import {
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight, Share, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
 
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { BrowserObject, FullBrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { Versioning } from '@/types/versioning';
+import { BucketMetadata } from '@/types/buckets';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 import FilePreviewItem from '@/components/dialogs/filePreviewComponents/FilePreviewItem.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import GeographicDistributionDialog from '@/components/dialogs/GeographicDistributionDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
+import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
+import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue';
+import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 
 const props = withDefaults(defineProps<{
@@ -206,20 +232,46 @@ const emit = defineEmits<{
 
 const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);
+const isGettingRetention = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
 const isGeographicDistributionDialogShown = ref<boolean>(false);
-const fileToDelete = ref<BrowserObject | null>(null);
+const fileToDelete = ref<BrowserObject | undefined>();
+const lockActionFile = ref<FullBrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
+const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
 const model = defineModel<boolean>({ required: true });
-const currentFile = defineModel<BrowserObject | null>('currentFile', { required: true });
+const currentFile = defineModel<BrowserObject | undefined>('currentFile', { required: true });
 
 const constCarouselIndex = computed(() => carouselIndex.value);
 const carouselIndex = ref(0);
 
 const showingVersions = computed(() => props.versions.length > 0);
+
+/**
+ * Returns metadata of the current bucket.
+ */
+const bucket = computed<BucketMetadata | undefined>(() => {
+    return bucketsStore.state.allBucketMetadata.find(b => b.name === bucketName.value);
+});
+
+/**
+ * Whether object lock is enabled for current bucket.
+ */
+const objectLockEnabledForBucket = computed<boolean>(() => {
+    return configStore.objectLockUIEnabled
+      && projectsStore.objectLockUIEnabledForProject
+      && !!bucket.value?.objectLockEnabled;
+});
+
+/**
+ * Whether this bucket is versioned/version-suspended.
+ */
+const isBucketVersioned = computed<boolean>(() => {
+    return bucket.value?.versioning !== Versioning.NotSupported && bucket.value?.versioning !== Versioning.Unversioned;
+});
 
 const files = computed((): BrowserObject[] => {
     if (showingVersions.value) {
@@ -357,16 +409,40 @@ async function focusOnCarousel(): Promise<void> {
 /**
  * Handles delete button click event for files.
  */
-function onDeleteFileClick(): void {
-    fileToDelete.value = currentFile.value;
-    isDeleteFileDialogShown.value = true;
+async function onDeleteFileClick(): Promise<void> {
+    function initDelete() {
+        fileToDelete.value = currentFile.value;
+        isDeleteFileDialogShown.value = true;
+    }
+    if (!objectLockEnabledForBucket.value) {
+        initDelete();
+        return;
+    }
+    if (isGettingRetention.value || !currentFile.value) {
+        return;
+    }
+    isGettingRetention.value = true;
+    try {
+        const retention = await obStore.getObjectRetention(currentFile.value);
+        if (!retention.active()) {
+            initDelete();
+            return;
+        }
+        lockActionFile.value = { ...currentFile.value, retention };
+        isLockedObjectDeleteDialogShown.value = true;
+    } catch (error) {
+        error.message = `Error deleting file. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    } finally {
+        isGettingRetention.value = false;
+    }
 }
 
 /**
  * Closes the preview on file delete dialog close.
  */
 function onDeleteFileDialogClose(): void {
-    fileToDelete.value = null;
+    fileToDelete.value = undefined;
     model.value = false;
     emit('fileDeleteRequested');
 }

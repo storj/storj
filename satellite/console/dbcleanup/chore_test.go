@@ -89,7 +89,7 @@ func TestChore(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, createdKey3)
 
-			query := "UPDATE api_keys SET created_at = $1 WHERE id = $2"
+			query := db.Testing().Rebind("UPDATE api_keys SET created_at = ? WHERE id = ?")
 			createdAt := now.Add(-cfg.Console.ObjectBrowserKeyLifetime).Add(-time.Hour)
 
 			_, err = db.Testing().RawDB().ExecContext(ctx, query, createdAt, createdKey1.ID)

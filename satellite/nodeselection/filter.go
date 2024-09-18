@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // NodeFilter can decide if a Node should be part of the selection or not.

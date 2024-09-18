@@ -343,6 +343,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # default project limits for users
 # console.default-project-limit: 1
 
+# whether project deletion from satellite UI is enabled
+# console.delete-project-enabled: false
+
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
@@ -441,6 +444,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # prefix for object browser API key names
 # console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
+
+# whether object lock UI should be shown, regardless of whether the feature is enabled
+# console.object-lock-ui-enabled: false
 
 # enable open registration
 # console.open-registration-enabled: false

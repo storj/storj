@@ -357,6 +357,7 @@ func TestSettledAmountsMatch(t *testing.T) {
 func TestProjectBandwidthDailyRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+		EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 3, 3),
 		},

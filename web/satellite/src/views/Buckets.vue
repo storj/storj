@@ -35,7 +35,7 @@ import {
 } from 'vuetify/components';
 import { CirclePlus } from 'lucide-vue-next';
 
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -43,7 +43,7 @@ import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const isCreateBucketDialogOpen = ref<boolean>(false);
 
@@ -51,8 +51,8 @@ const isCreateBucketDialogOpen = ref<boolean>(false);
  * Starts create bucket flow if user's free trial is not expired.
  */
 function onCreateBucket(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isCreateBucketDialogOpen.value = true;
-    });
+    });});
 }
 </script>

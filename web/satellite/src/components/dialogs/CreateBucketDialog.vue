@@ -127,7 +127,7 @@
                                     mandatory
                                 >
                                     <v-chip
-                                        :disabled="enableObjectLock"
+                                        v-if="!enableObjectLock"
                                         variant="outlined"
                                         filter
                                         :value="false"
@@ -143,6 +143,9 @@
                                         Enabled
                                     </v-chip>
                                 </v-chip-group>
+                                <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
+                                    <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
+                                </v-alert>
                                 <v-alert v-if="enableVersioning" variant="tonal" color="default">
                                     <p class="text-subtitle-2">Keep multiple versions of each file in the same bucket. Additional storage costs apply for each version.</p>
                                 </v-alert>
@@ -382,7 +385,7 @@ const allowVersioningStep = computed<boolean>(() => {
  * Whether object lock is enabled for current project.
  */
 const objectLockUIEnabled = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabled && configStore.state.config.objectLockEnabled;
+    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
 });
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {

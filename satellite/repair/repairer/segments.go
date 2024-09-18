@@ -17,7 +17,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
@@ -27,6 +26,7 @@ import (
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/shared/location"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )

@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -128,7 +128,7 @@ const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 
 const model = defineModel<boolean>({ required: true });
 

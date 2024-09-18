@@ -13,12 +13,12 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/shared/location"
 )
 
 func TestObserverForkProcess(t *testing.T) {

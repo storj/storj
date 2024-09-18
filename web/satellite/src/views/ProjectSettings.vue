@@ -165,7 +165,7 @@
 
                 <v-col v-if="objectLockEnabled" cols="12" sm="6" lg="4">
                     <v-card title="Object Lock (Beta)">
-                        <v-card-subtitle v-if="objectLockUIEnabled">
+                        <v-card-subtitle v-if="objectLockUIEnabledForProject">
                             Enabled through Object Versioning (beta).
                         </v-card-subtitle>
                         <v-card-subtitle v-else>
@@ -174,7 +174,7 @@
 
                         <v-card-text>
                             <v-divider class="mb-4" />
-                            <v-btn color="default" variant="outlined" size="small" :disabled="!objectLockUIEnabled">
+                            <v-btn color="default" variant="outlined" size="small" :disabled="!objectLockUIEnabledForProject">
                                 View Details
                                 <lock-beta-dialog />
                             </v-btn>
@@ -240,7 +240,7 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { ProjectRole } from '@/types/projectMembers';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
@@ -267,7 +267,7 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = usePreCheck();
 
 /**
  * Whether the new no-limits UI is enabled.
@@ -308,17 +308,17 @@ const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 /**
  * Whether object lock has been enabled for current project.
  */
-const objectLockUIEnabled = computed(() => projectsStore.objectLockUIEnabled);
+const objectLockUIEnabledForProject = computed(() => projectsStore.objectLockUIEnabledForProject);
 
 /**
- * whether object lock feature is enabled.
+ * whether object lock UI is globally enabled.
  */
-const objectLockEnabled = computed(() => configStore.state.config.objectLockEnabled);
+const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
 
 /**
  * whether this project has a satellite managed passphrase.
  */
-const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.

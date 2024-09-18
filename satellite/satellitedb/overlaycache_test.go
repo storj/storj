@@ -20,7 +20,6 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/version"
@@ -29,6 +28,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/location"
 )
 
 func TestGetOfflineNodesForEmail(t *testing.T) {

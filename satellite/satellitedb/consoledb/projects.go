@@ -167,11 +167,11 @@ func (projects *projects) GetEncryptedPassphrase(ctx context.Context, id uuid.UU
 
 	// TODO: add method to DBX after DB freeze is over.
 
-	err = projects.db.QueryRowContext(ctx, `
+	err = projects.db.QueryRowContext(ctx, projects.db.Rebind(`
 		SELECT passphrase_enc, passphrase_enc_key_id
 		FROM projects
-		WHERE id = $1 
-	`, id).Scan(&encPassphrase, &keyID)
+		WHERE id = ?
+	`), id).Scan(&encPassphrase, &keyID)
 
 	return encPassphrase, keyID, err
 }

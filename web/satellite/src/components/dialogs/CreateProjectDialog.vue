@@ -100,7 +100,7 @@
                                     <v-chip color="primary" value="auto">
                                         Automatic
                                     </v-chip>
-                                    <v-chip color="primary" value="manual">Manual</v-chip>
+                                    <v-chip color="primary" value="manual">Self-managed</v-chip>
 
                                     <v-divider thickness="0" class="my-1" />
 
@@ -117,7 +117,7 @@
                                             Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
                                         </p>
                                         <p class="text-body-2 my-2">
-                                            The team members will automatically have access to your project's data.
+                                            Team members you invite will automatically have access to your project's data.
                                         </p>
                                         <p class="text-body-2 m-2">
                                             <a class="link" @click="goToDocs">Learn more in the documentation.</a>
@@ -134,7 +134,7 @@
                                             You are responsible for securely managing your own data encryption passphrase.
                                         </p>
                                         <p class="text-body-2 my-2">
-                                            You will need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
+                                            You need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
                                         </p>
                                         <p class="text-body-2 my-2">
                                             Team members must share and enter the same encryption passphrase to access the data.
@@ -247,7 +247,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, ref, computed, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VAlert,
@@ -304,7 +304,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 const inputText = ref<string>('');
 const name = ref<string>('');

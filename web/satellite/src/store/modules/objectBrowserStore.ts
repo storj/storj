@@ -118,7 +118,7 @@ export class FilesState {
     openModalOnFirstUpload = false;
     objectPathForModal = '';
     cachedObjectPreviewURLs: Map<string, PreviewCache> = new Map<string, PreviewCache>();
-    showObjectVersions: boolean = false;
+    showObjectVersions = { value: false, userModified: false };
     // object keys for which we have expanded versions list.
     versionsExpandedKeys: string[] = [];
     // Local storage data changes are not reactive.
@@ -745,7 +745,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            if (state.showObjectVersions) {
+            if (state.showObjectVersions.value) {
                 clearTokens();
                 await listAllVersions(state.path, 1, true);
             } else if (isAltPagination.value) {
@@ -787,7 +787,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: '',
         }));
 
-        if (state.showObjectVersions) {
+        if (state.showObjectVersions.value) {
             clearTokens();
             await listAllVersions(state.path, 1, true);
         } else if (isAltPagination.value) {
@@ -1119,12 +1119,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.continuationTokens = new Map<number, string>();
     }
 
-    function toggleShowObjectVersions(): void {
+    function toggleShowObjectVersions(toggle?: boolean, userModified = true): void {
         clearTokens();
         updateVersionsExpandedKeys([]);
         updateSelectedFiles([]);
         updateFiles(state.path, []);
-        state.showObjectVersions = !state.showObjectVersions;
+        state.showObjectVersions = {
+            value: toggle ?? !state.showObjectVersions.value,
+            userModified: !userModified ? state.showObjectVersions.userModified : userModified,
+        };
     }
 
     function setObjectCountOfSelectedBucket(count: number): void {
@@ -1154,7 +1157,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.openModalOnFirstUpload = false;
         state.objectPathForModal = '';
         state.cachedObjectPreviewURLs = new Map<string, PreviewCache>();
-        state.showObjectVersions = false;
+        state.showObjectVersions = { value: false, userModified: false };
         state.versionsExpandedKeys = [];
         state.objectCountOfSelectedBucket = 0;
     }

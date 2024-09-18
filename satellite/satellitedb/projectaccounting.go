@@ -327,9 +327,22 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 					FROM project_bandwidth_daily_rollups
 					WHERE project_id = ? AND interval_day >= ? AND interval_day < ?
 				) SELECT sum(amount) FROM egress` + db.db.impl.AsOfSystemInterval(asOfSystemInterval)
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
-	if errors.Is(err, sql.ErrNoRows) || egress == nil {
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
+	case dbutil.Spanner:
+		expiredSinceCivil := civil.DateOf(expiredSince)
+		startOfMonthCivil := civil.DateOf(startOfMonth)
+		periodEndCivil := civil.DateOf(periodEnd)
+		err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSinceCivil, projectID[:], startOfMonthCivil, periodEndCivil).Scan(&egress)
+	default:
+		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && egress == nil) {
 		return 0, nil
+	}
+	if err != nil {
+		return 0, Error.Wrap(err)
 	}
 
 	return *egress, err
@@ -368,10 +381,17 @@ func (db *ProjectAccounting) GetProjectSettledBandwidth(ctx context.Context, pro
 func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled, dead int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	interval := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	startOfMonth := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 
 	query := `SELECT egress_allocated, egress_settled, egress_dead FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&allocated, &settled, &dead)
+	switch db.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID.Bytes(), startOfMonth).Scan(&allocated, &settled, &dead)
+	case dbutil.Spanner:
+		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID.Bytes(), civil.DateOf(startOfMonth)).Scan(&allocated, &settled, &dead)
+	default:
+		return 0, 0, 0, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, 0, nil
 	}
@@ -1115,7 +1135,7 @@ func prefixIncrement(origPrefix []byte) (incremented []byte, ok bool) {
 func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []byte, error) {
 	incrementedPrefix, ok := prefixIncrement(prefix)
 	switch db.db.impl {
-	case dbutil.Postgres:
+	case dbutil.Postgres, dbutil.Spanner:
 		if !ok {
 			return fmt.Sprintf(`(%s >= ?)`, expr), nil, nil
 		}
@@ -1253,7 +1273,9 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before, pb.PieceAction_GET)
+		// use int64 for compatibility with Spanner
+		actionGet := int64(pb.PieceAction_GET)
+		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before, actionGet)
 
 		var egress int64
 		err = rollupRow.Scan(&egress)

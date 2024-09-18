@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/quic"
@@ -20,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/shared/nodetag"
 )
 
 // Config contains configurable values for contact service.
