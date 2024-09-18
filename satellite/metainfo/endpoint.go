@@ -305,30 +305,6 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *inter
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create segment id")
 	}
 
-	// TODO this is workaround for BeginSegment response size (it's to big)
-	// We could remove more fields but they are used by RetryBeginSegmentPieces endpoint.
-	// Changing RetryBeginSegmentPieces will require much more changes.
-	limits := make([]*pb.AddressedOrderLimit, 0, len(satSegmentID.OriginalOrderLimits))
-	for i := range satSegmentID.OriginalOrderLimits {
-		limits = append(limits, &pb.AddressedOrderLimit{
-			Limit: &pb.OrderLimit{
-				SerialNumber:           satSegmentID.OriginalOrderLimits[i].Limit.SerialNumber,
-				UplinkPublicKey:        satSegmentID.OriginalOrderLimits[i].Limit.UplinkPublicKey,
-				StorageNodeId:          satSegmentID.OriginalOrderLimits[i].Limit.StorageNodeId,
-				PieceId:                satSegmentID.OriginalOrderLimits[i].Limit.PieceId,
-				Limit:                  satSegmentID.OriginalOrderLimits[i].Limit.Limit,
-				Action:                 satSegmentID.OriginalOrderLimits[i].Limit.Action,
-				PieceExpiration:        satSegmentID.OriginalOrderLimits[i].Limit.PieceExpiration,
-				OrderExpiration:        satSegmentID.OriginalOrderLimits[i].Limit.OrderExpiration,
-				OrderCreation:          satSegmentID.OriginalOrderLimits[i].Limit.OrderCreation,
-				EncryptedMetadataKeyId: satSegmentID.OriginalOrderLimits[i].Limit.EncryptedMetadataKeyId,
-				EncryptedMetadata:      satSegmentID.OriginalOrderLimits[i].Limit.EncryptedMetadata,
-			},
-			// not included to reduce size: StorageNodeAddress and Limit.SatelliteSignature
-		})
-	}
-	satSegmentID.OriginalOrderLimits = limits
-
 	signedSegmentID, err := SignSegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {
 		return nil, err
