@@ -40,7 +40,7 @@
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent
-                    title="Files"
+                    title="Objects"
                     subtitle="Project total"
                     :data="limits.objectCount.toLocaleString()"
                     :to="ROUTES.Buckets.path"
@@ -48,7 +48,7 @@
                 />
             </v-col>
             <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
-                <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Segments" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent title="Buckets" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
@@ -132,7 +132,7 @@
                 >
                     <template #extraInfo>
                         <p>
-                            Segments are the encrypted parts of an uploaded file.
+                            Segments are the encrypted parts of an uploaded object.
                             <a
                                 class="link"
                                 href="https://docs.storj.io/dcs/pricing#per-segment-fee"

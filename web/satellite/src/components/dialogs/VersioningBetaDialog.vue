@@ -45,8 +45,8 @@
                         <v-row>
                             <v-col>
                                 <p>
-                                    Versioning allows you to preserve, retrieve, and restore previous versions of a file.
-                                    <template v-if="objectLockEnabled">Versioning enables additional features like Object Lock, allowing you to protect files from deletion or modification.</template>
+                                    Versioning allows you to preserve, retrieve, and restore previous versions of a object.
+                                    <template v-if="objectLockEnabled">Versioning enables additional features like Object Lock, allowing you to protect objects from deletion or modification.</template>
                                 </p>
                                 <v-alert color="default" variant="tonal" class="my-4">
                                     <v-alert-title class="text-body-2">Beta Information</v-alert-title>
@@ -78,8 +78,8 @@
                                             <p class="my-2">Versioning can be activated for each bucket individually.</p>
                                             <p class="my-2">A new column displaying the versioning status will appear on your buckets page.</p>
                                             <p class="my-2">When versioning is enabled, each object in the bucket will have a unique version ID.</p>
-                                            <p class="my-2">You can easily retrieve, list, and restore previous versions of your files.</p>
-                                            <p v-if="objectLockEnabled" class="my-2">Object Lock can be applied to versioned files for additional protection.</p>
+                                            <p class="my-2">You can easily retrieve, list, and restore previous versions of your objects.</p>
+                                            <p v-if="objectLockEnabled" class="my-2">Object Lock can be applied to versioned objects for additional protection.</p>
                                         </v-expansion-panel-text>
                                     </v-expansion-panel>
                                 </v-expansion-panels>
@@ -93,9 +93,9 @@
                                     >
                                         <v-expansion-panel-text class="text-body-2">
                                             <p class="my-2">1. Create a new bucket with versioning enabled from the start, or enable versioning on existing buckets that support it.</p>
-                                            <p class="my-2">2. Upload files to your versioned bucket and make changes as needed. Each change will create a new version of the object.</p>
-                                            <p class="my-2">3. Use the version ID to retrieve, list, or restore specific versions of your files.</p>
-                                            <p v-if="objectLockEnabled" class="my-2">4. Protect your files from deletion or modification by applying Object Lock to versioned files.</p>
+                                            <p class="my-2">2. Upload objects to your versioned bucket and make changes as needed. Each change will create a new version of the object.</p>
+                                            <p class="my-2">3. Use the version ID to retrieve, list, or restore specific versions of your objects.</p>
+                                            <p v-if="objectLockEnabled" class="my-2">4. Protect your objects from deletion or modification by applying Object Lock to versioned objects.</p>
                                         </v-expansion-panel-text>
                                     </v-expansion-panel>
                                 </v-expansion-panels>

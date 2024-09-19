@@ -37,7 +37,7 @@
 
             <v-card-item class="pa-6">
                 <p class="mb-3 font-weight-bold">
-                    You are about to delete the following file version{{ props.files.length > 1 ? 's' : '' }}:
+                    You are about to delete the following object version{{ props.files.length > 1 ? 's' : '' }}:
                 </p>
                 <v-treeview
                     item-value="title"

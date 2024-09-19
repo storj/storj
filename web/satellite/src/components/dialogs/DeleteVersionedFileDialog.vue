@@ -37,7 +37,7 @@
             <v-card-item v-if="onlyFolders || onlyOneFolder" class="pa-6">
                 <p class="mb-3 font-weight-bold">
                     You are about to delete {{ onlyOneFolder ? 'a' : '' }} folder{{ !onlyOneFolder ? 's' : '' }}
-                    in a versioned bucket. This action will affect all files and subfolders within
+                    in a versioned bucket. This action will affect all objects and subfolders within
                     {{ !onlyOneFolder ? 'these' : 'this' }} folder{{ !onlyOneFolder ? 's' : '' }}.
                 </p>
 
@@ -74,8 +74,8 @@
                                         </strong>
                                     </p>
                                     <p class="text-body-2 pb-4">
-                                        Create delete markers for all files in {{ !onlyOneFolder ? 'these' : 'this' }}
-                                        folder{{ !onlyOneFolder ? 's' : '' }}. Makes the files appear deleted for most
+                                        Create delete markers for all objects in {{ !onlyOneFolder ? 'these' : 'this' }}
+                                        folder{{ !onlyOneFolder ? 's' : '' }}. Makes the objects appear deleted for most
                                         operations, but preserving previous versions. The folder{{ !onlyOneFolder ? 's' : '' }}
                                         and {{ !onlyOneFolder ? 'their' : 'its' }} contents can be restored later.
                                     </p>
@@ -104,7 +104,7 @@
                                         </strong>
                                     </p>
                                     <p class="text-body-2 pb-4">
-                                        Permanently delete all versions of all files in
+                                        Permanently delete all versions of all objects in
                                         {{ !onlyOneFolder ? 'these' : 'this' }} folder{{ !onlyOneFolder ? 's' : '' }}
                                         and {{ !onlyOneFolder ? 'their' : 'its' }} subfolders. This action cannot be undone.
                                     </p>
@@ -116,7 +116,7 @@
             </v-card-item>
             <v-card-item v-else-if="onlyFiles || onlyOneFile" class="pa-6">
                 <p class="mb-3 font-weight-bold">
-                    You are about to delete {{ onlyOneFile ? 'a' : '' }} file{{ !onlyOneFile ? 's' : '' }}
+                    You are about to delete {{ onlyOneFile ? 'a' : '' }} object{{ !onlyOneFile ? 's' : '' }}
                     in a versioned bucket. Please choose how you want to handle this deletion:
                 </p>
 
@@ -153,8 +153,8 @@
                                         </strong>
                                     </p>
                                     <p class="text-body-2 pb-4">
-                                        Make the file{{ !onlyOneFile ? 's' : '' }} appear deleted for most operations,
-                                        but preserve previous versions. The file{{ !onlyOneFile ? 's' : '' }} can be restored later.
+                                        Make the object{{ !onlyOneFile ? 's' : '' }} appear deleted for most operations,
+                                        but preserve previous versions. The object{{ !onlyOneFile ? 's' : '' }} can be restored later.
                                     </p>
                                 </div>
                             </template>
@@ -182,7 +182,7 @@
                                     </p>
                                     <p class="text-body-2 pb-4">
                                         Permanently delete all versions of {{ !onlyOneFile ? 'these' : 'this' }}
-                                        file{{ !onlyOneFile ? 's' : '' }}. This action cannot be undone.
+                                        object{{ !onlyOneFile ? 's' : '' }}. This action cannot be undone.
                                     </p>
                                 </div>
                             </template>
@@ -192,8 +192,8 @@
             </v-card-item>
             <v-card-item v-else class="pa-6">
                 <p class="mb-3 font-weight-bold">
-                    You are about to delete files and/or folders in a versioned bucket.
-                    This action will affect all files and subfolders within the folders.
+                    You are about to delete objects and/or folders in a versioned bucket.
+                    This action will affect all objects and subfolders within the folders.
                 </p>
                 <v-chip-group column direction="horizontal" class="mt-2">
                     <v-chip v-for="file of files" :key="file.path + file.Key" :title="file.path + file.Key">
@@ -223,8 +223,8 @@
                                         </strong>
                                     </p>
                                     <p class="text-body-2 pb-4">
-                                        Create delete markers for all selected files and files in selected folders.
-                                        Makes the files appear deleted for most operations, but preserving previous versions.
+                                        Create delete markers for all selected objects and objects in selected folders.
+                                        Makes the objects appear deleted for most operations, but preserving previous versions.
                                         The folder{{ folderCount > 1 ? 's': '' }} and {{ folderCount > 1 ? 'their' : 'its' }}
                                         contents can be restored later.
                                     </p>
@@ -253,7 +253,7 @@
                                         </strong>
                                     </p>
                                     <p class="text-body-2 pb-4">
-                                        Permanently delete all versions of all selected files and files in selected folders
+                                        Permanently delete all versions of all selected objects and objects in selected folders
                                         and their subfolders. This action cannot be undone.
                                     </p>
                                 </div>

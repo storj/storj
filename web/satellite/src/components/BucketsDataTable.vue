@@ -309,7 +309,7 @@ const headers = computed<DataTableHeader[]>(() => {
             key: 'name',
             sortable: isTableSortable.value,
         },
-        { title: 'Files', key: 'objectCount', sortable: isTableSortable.value },
+        { title: 'Objects', key: 'objectCount', sortable: isTableSortable.value },
         { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
         { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
         { title: 'Download', key: 'egress', sortable: isTableSortable.value },
@@ -439,7 +439,7 @@ async function onToggleVersioning(bucket: Bucket) {
 function getVersioningInfo(status: Versioning): string {
     switch (status) {
     case Versioning.Enabled:
-        return 'Version history saved for all files.';
+        return 'Version history saved for all objects.';
     case Versioning.Suspended:
         return 'Versioning is currently suspended.';
     case Versioning.NotSupported:

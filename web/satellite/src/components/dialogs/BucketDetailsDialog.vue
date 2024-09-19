@@ -42,7 +42,7 @@
             <v-card-item>
                 <v-list lines="one">
                     <v-list-item title="Name" :subtitle="bucket.name" class="px-0" />
-                    <v-list-item title="Files" :subtitle="bucket.objectCount.toLocaleString()" class="px-0" />
+                    <v-list-item title="Objects" :subtitle="bucket.objectCount.toLocaleString()" class="px-0" />
                     <v-list-item title="Segments" :subtitle="bucket.segmentCount.toLocaleString()" class="px-0" />
                     <v-list-item title="Storage" :subtitle="bucket.storage.toFixed(2) + 'GB'" class="px-0" />
                     <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0" />

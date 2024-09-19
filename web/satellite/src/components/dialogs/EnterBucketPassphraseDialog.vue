@@ -71,7 +71,7 @@
                     class="mt-3"
                     density="compact"
                     type="warning"
-                    text="Object count mismatch: files may be uploaded with a different passphrase, or files have been recently deleted and are not reflected yet."
+                    text="Object count mismatch: objects may be uploaded with a different passphrase, or objects have been recently deleted and are not reflected yet."
                 />
             </v-card-item>
 

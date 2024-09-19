@@ -7,7 +7,7 @@
         @dragover.prevent="isDragging = true"
     >
         <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="onUpload" />
-        <page-title-component title="Browse Files" />
+        <page-title-component title="Browse Objects" />
 
         <browser-breadcrumbs-component />
         <v-col>
@@ -30,7 +30,7 @@
                                 <component :is="FileUp" :size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-3">
-                                Upload Files
+                                Upload Objects
                             </v-list-item-title>
                         </v-list-item>
 
