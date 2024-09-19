@@ -101,7 +101,7 @@
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
-                            @lock-object-click="onLockObjectClick(item.browserObject)"
+                            @lock-object-click="onLockObjectClick(file)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </td>
