@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sort"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -752,18 +754,69 @@ func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object Ob
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		var err error
-		rowsAffected, err = tx.Update(ctx, spanner.Statement{
-			SQL: "UPDATE objects SET version = @version WHERE project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND stream_id = @stream_id",
+		// Spanner doesn't support to update primary key columns, so we need to delete and insert the objects.
+		// https://cloud.google.com/spanner/docs/reference/standard-sql/dml-syntax#update-statement
+		deletedRows := tx.Query(ctx, spanner.Statement{
+			SQL: "DELETE FROM objects " +
+				"WHERE project_id = @project_id AND " +
+				"bucket_name = @bucket_name AND " +
+				"object_key = @object_key AND " +
+				"stream_id = @stream_id " +
+				"THEN RETURN *",
 			Params: map[string]interface{}{
-				"version":     randomVersion,
 				"project_id":  object.ProjectID,
 				"bucket_name": object.BucketName,
 				"object_key":  object.ObjectKey,
 				"stream_id":   object.StreamID,
-			},
-		})
-		return err
+			}})
+
+		deleteObjsNames := []string{}
+		deleteObjsVals := []any{}
+
+		defer deletedRows.Stop()
+		for {
+			row, err := deletedRows.Next()
+			if err != nil {
+				if errors.Is(err, iterator.Done) {
+					break
+				}
+
+				return err
+			}
+
+			ncols := row.Size()
+			for c := 0; c < ncols; c++ {
+				name := row.ColumnName(c)
+
+				if len(deleteObjsNames) < ncols {
+					deleteObjsNames = append(deleteObjsNames, name)
+				}
+
+				if name == "version" {
+					deleteObjsVals = append(deleteObjsVals, randomVersion)
+					continue
+				}
+
+				var value spanner.GenericColumnValue
+				if err := row.Column(c, &value); err != nil {
+					return err
+				}
+
+				deleteObjsVals = append(deleteObjsVals, value)
+			}
+
+			if err := tx.BufferWrite([]*spanner.Mutation{
+				spanner.Insert("objects", deleteObjsNames, deleteObjsVals),
+			}); err != nil {
+				return err
+			}
+
+			rowsAffected++
+			// Reuse the allocated slice for the next iteration.
+			deleteObjsVals = deleteObjsVals[:0]
+		}
+
+		return nil
 	})
 	return rowsAffected, Error.Wrap(err)
 }
