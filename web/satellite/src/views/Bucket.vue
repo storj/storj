@@ -172,7 +172,7 @@
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col v-if="!showObjectVersions" class="pa-0 pt-5 pa-sm-0" cols="auto">
+                <v-col class="pa-0 pt-5 pa-sm-0" cols="auto">
                     <v-btn-toggle
                         mandatory
                         border
@@ -180,9 +180,13 @@
                         density="comfortable"
                         class="pa-1 bg-surface"
                     >
-                        <v-tooltip location="top">
+                        <v-tooltip v-if="showObjectVersions" location="top" activator="parent">
+                            Please hide versions to toggle the view.
+                        </v-tooltip>
+                        <v-tooltip :disabled="showObjectVersions" location="top">
                             <template #activator="{ props }">
                                 <v-btn
+                                    :disabled="showObjectVersions"
                                     size="small"
                                     rounded="xl"
                                     active-class="active"
@@ -198,6 +202,7 @@
                             Gallery view shows image previews using download bandwidth.
                         </v-tooltip>
                         <v-btn
+                            :disabled="showObjectVersions"
                             size="small"
                             rounded="xl"
                             active-class="active"
