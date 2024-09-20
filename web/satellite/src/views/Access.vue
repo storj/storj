@@ -9,7 +9,7 @@
         <PageSubtitleComponent subtitle="Create Access Grants, S3 Credentials, and API Keys." link="https://docs.storj.io/dcs/access" />
 
         <v-col>
-            <v-row class="mt-2 mb-4">
+            <v-row class="mt-1 mb-3">
                 <v-btn :prepend-icon="CirclePlus" @click="onCreateAccess">
                     New Access Key
                 </v-btn>

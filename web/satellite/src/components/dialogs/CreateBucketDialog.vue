@@ -156,24 +156,6 @@
                         </v-row>
                     </v-form>
                 </v-window-item>
-                <v-window-item :value="CreateStep.Success">
-                    <div class="pa-7">
-                        <v-row>
-                            <v-col>
-                                <p><strong>Bucket successfully created.</strong></p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="default"
-                                    class="my-4 font-weight-bold"
-                                >
-                                    {{ bucketName }}
-                                </v-chip>
-                                <p>You can choose to open the bucket and start uploading files, or close this dialog and get back to the buckets page.</p>
-                            </v-col>
-                        </v-row>
-                    </div>
-                </v-window-item>
 
                 <v-window-item :value="CreateStep.Confirmation">
                     <v-row class="pa-7">
@@ -215,6 +197,26 @@
                         </v-col>
                     </v-row>
                 </v-window-item>
+                
+                <v-window-item :value="CreateStep.Success">
+                    <div class="pa-7">
+                        <v-row>
+                            <v-col>
+                                <p><strong><v-icon :icon="Check" size="small"></v-icon> Bucket successfully created.</strong></p>
+                                <v-chip
+                                    variant="tonal"
+                                    value="Disabled"
+                                    color="primary"
+                                    class="my-4 font-weight-bold"
+                                >
+                                    {{ bucketName }}
+                                </v-chip>
+                                <p>You open the bucket and start uploading files, or close this dialog and get back to view all buckets.</p>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </v-window-item>
+
             </v-window>
             <v-divider />
 
@@ -229,7 +231,7 @@
                         <v-btn
                             :disabled="!formValid"
                             :loading="isLoading"
-                            :append-icon="step === CreateStep.Success ? ArrowRight : undefined"
+                            :append-icon="ArrowRight"
                             color="primary"
                             variant="flat"
                             block
@@ -265,7 +267,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';

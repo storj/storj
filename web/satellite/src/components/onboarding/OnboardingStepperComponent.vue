@@ -7,7 +7,7 @@
             v-for="(step, i) in steps"
             :key="i"
             cols="12"
-            md="6"
+            :md="steps.length === ONBOARDING_STEPPER_STEPS.length ? 6 : 4"
             :lg="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
             :xl="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
         >
