@@ -146,7 +146,9 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	contactService := contact.NewService(log, dialer, self, trustPool, contact.NewQUICStats(false), &pb.SignedNodeTagSets{})
 
-	monitorService := monitor.NewService(log, piecesStore, contactService, 1<<40, time.Hour, func(context.Context) {}, cfg.Storage2.Monitor)
+	spaceReport := monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+
+	monitorService := monitor.NewService(log, piecesStore, contactService, time.Hour, spaceReport, cfg.Storage2.Monitor)
 
 	retainService := retain.NewService(log, piecesStore, cfg.Retain)
 

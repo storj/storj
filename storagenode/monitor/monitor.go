@@ -17,9 +17,9 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/pieces"
 )
 
 var (
@@ -58,6 +58,15 @@ type Config struct {
 	MinimumDiskSpace          memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
 	MinimumBandwidth          memory.Size   `help:"how much bandwidth a node at minimum has to advertise (deprecated)" default:"0TB"`
 	NotifyLowDiskCooldown     time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
+	DedicatedDisk             bool          `help:"(EXPERIMENTAL) option to dedicate full disk to the storagenode. Allocated space won't be used, some UI / monitoring features will break." default:"false" experimental:"true" hidden:"true"`
+	ReservedBytes             memory.Size   `help:"(EXPERIMENTAL) Number bytes to reserve on the disk in case of dedicated disk" default:"300GB" experimental:"true" hidden:"true"`
+}
+
+// DiskVerification is an interface for verifying disk storage healthiness during startup.
+type DiskVerification interface {
+	VerifyStorageDirWithTimeout(ctx context.Context, id storj.NodeID, timeout time.Duration) error
+
+	CheckWritabilityWithTimeout(ctx context.Context, timeout time.Duration) error
 }
 
 // Service which monitors disk usage.
@@ -65,28 +74,28 @@ type Config struct {
 // architecture: Service
 type Service struct {
 	log                   *zap.Logger
-	store                 *pieces.Store
 	contact               *contact.Service
-	allocatedDiskSpace    int64
 	cooldown              *sync2.Cooldown
 	Loop                  *sync2.Cycle
 	VerifyDirReadableLoop *sync2.Cycle
 	VerifyDirWritableLoop *sync2.Cycle
 	Config                Config
+	spaceReport           SpaceReport
+	verifier              DiskVerification
 }
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, allocatedDiskSpace int64, interval time.Duration, reportCapacity func(context.Context), config Config) *Service {
+func NewService(log *zap.Logger, verifier DiskVerification, contact *contact.Service, interval time.Duration, spaceReport SpaceReport, config Config) *Service {
 	return &Service{
 		log:                   log,
-		store:                 store,
 		contact:               contact,
-		allocatedDiskSpace:    allocatedDiskSpace,
 		cooldown:              sync2.NewCooldown(config.NotifyLowDiskCooldown),
 		Loop:                  sync2.NewCycle(interval),
 		VerifyDirReadableLoop: sync2.NewCycle(config.VerifyDirReadableInterval),
 		VerifyDirWritableLoop: sync2.NewCycle(config.VerifyDirWritableInterval),
 		Config:                config,
+		verifier:              verifier,
+		spaceReport:           spaceReport,
 	}
 }
 
@@ -94,52 +103,12 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// get the disk space details
-	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	storageStatus, err := service.store.StorageStatus(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	freeDiskSpace := storageStatus.DiskFree
-
-	totalUsed, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// check your hard drive is big enough
-	// first time setup as a piece node server
-	if totalUsed == 0 && freeDiskSpace < service.allocatedDiskSpace {
-		service.allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
-	}
-
-	// on restarting the Piece node server, assuming already been working as a node
-	// used above the alloacated space, user changed the allocation space setting
-	// before restarting
-	if totalUsed >= service.allocatedDiskSpace {
-		service.log.Warn("Used more space than allocated. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
-	}
-
-	// the available disk space is less than remaining allocated space,
-	// due to change of setting before restarting
-	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
-		service.allocatedDiskSpace = freeDiskSpace + totalUsed
-		service.log.Warn("Disk space is less than requested. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
-	}
-
-	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
-	if service.allocatedDiskSpace < service.Config.MinimumDiskSpace.Int64() {
-		service.log.Error("Total disk space is less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
-		return Error.New("disk space requirement not met")
-	}
-
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		timeout := service.Config.VerifyDirReadableTimeout
 		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
 			startTime := time.Now()
-			err := service.store.VerifyStorageDirWithTimeout(ctx, service.contact.Local().ID, timeout)
+			err := service.verifier.VerifyStorageDirWithTimeout(ctx, service.contact.Local().ID, timeout)
 			duration := time.Since(startTime)
 			if err != nil {
 				if errs2.IsCanceled(err) {
@@ -167,7 +136,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		timeout := service.Config.VerifyDirWritableTimeout
 		return service.VerifyDirWritableLoop.Run(ctx, func(ctx context.Context) error {
 			startTime := time.Now()
-			err := service.store.CheckWritabilityWithTimeout(ctx, timeout)
+			err := service.verifier.CheckWritabilityWithTimeout(ctx, timeout)
 			duration := time.Since(startTime)
 			if err != nil {
 				if errs2.IsCanceled(err) {
@@ -232,7 +201,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	freeSpace, err := service.AvailableSpace(ctx)
+	freeSpace, err := service.spaceReport.AvailableSpace(ctx)
 	if err != nil {
 		return err
 	}
@@ -245,77 +214,12 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 
 // AvailableSpace returns available disk space for upload.
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	usedSpace, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	diskStatus, err := service.store.StorageStatus(ctx)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	allocated := service.allocatedDiskSpace
-	if isLowerThanAllocated(diskStatus.DiskTotal, allocated) {
-		allocated = diskStatus.DiskTotal
-	}
-
-	freeSpaceForStorj := allocated - usedSpace
-	if diskStatus.DiskFree < freeSpaceForStorj {
-		freeSpaceForStorj = diskStatus.DiskFree
-	}
-
-	mon.IntVal("allocated_space").Observe(allocated)
-	mon.IntVal("used_space").Observe(usedSpace)
-	mon.IntVal("available_space").Observe(freeSpaceForStorj)
-
-	return freeSpaceForStorj, nil
+	return service.spaceReport.AvailableSpace(ctx)
 }
 
 // DiskSpace returns consolidated disk space state info.
 func (service *Service) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	usedForPieces, _, err := service.store.SpaceUsedForPieces(ctx)
-	if err != nil {
-		return DiskSpace{}, Error.Wrap(err)
-	}
-	usedForTrash, err := service.store.SpaceUsedForTrash(ctx)
-	if err != nil {
-		return DiskSpace{}, Error.Wrap(err)
-	}
-
-	storageStatus, err := service.store.StorageStatus(ctx)
-	if err != nil {
-		return DiskSpace{}, Error.Wrap(err)
-	}
-
-	overused := int64(0)
-
-	allocated := service.allocatedDiskSpace
-	if isLowerThanAllocated(storageStatus.DiskTotal, allocated) {
-		allocated = storageStatus.DiskTotal
-	}
-
-	available := allocated - (usedForPieces + usedForTrash)
-	if available < 0 {
-		overused = -available
-	}
-	if storageStatus.DiskFree < available {
-		available = storageStatus.DiskFree
-	}
-
-	return DiskSpace{
-		Total:         storageStatus.DiskTotal,
-		Allocated:     allocated,
-		UsedForPieces: usedForPieces,
-		UsedForTrash:  usedForTrash,
-		Free:          storageStatus.DiskFree,
-		Available:     available,
-		Overused:      overused,
-	}, nil
+	return service.spaceReport.DiskSpace(ctx)
 }
 
 // isLowerThanAllocated checks if the disk space is lower than allocated.
