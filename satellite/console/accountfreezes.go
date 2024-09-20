@@ -747,14 +747,17 @@ func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, us
 			return errs.New("User is already frozen for bot review")
 		}
 
-		daysTillEscalation := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
-		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+		data := upsertData{
 			user:                 user,
 			newFreezeEvent:       freezes.TrialExpirationFreeze,
 			eventType:            TrialExpirationFreeze,
 			zeroProjectRateLimit: true,
-			daysTillEscalation:   &daysTillEscalation,
-		})
+		}
+		if s.config.TrialExpirationFreezeGracePeriod != 0 {
+			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
+			data.daysTillEscalation = &days
+		}
+		err = s.upsertFreezeEvent(ctx, tx, &data)
 		if err != nil {
 			return err
 		}
@@ -873,12 +876,14 @@ func (s *AccountFreezeService) GetTrialExpirationFreezesToEscalate(ctx context.C
 func (s *AccountFreezeService) GetDaysTillEscalation(event AccountFreezeEvent, now time.Time) *int {
 	daysTillEscalation := event.DaysTillEscalation
 
-	if event.Type == TrialExpirationFreeze && daysTillEscalation == nil {
+	if event.Type == TrialExpirationFreeze {
 		if s.config.TrialExpirationFreezeGracePeriod == 0 {
 			return nil
 		}
-		days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
-		daysTillEscalation = &days
+		if daysTillEscalation == nil {
+			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
+			daysTillEscalation = &days
+		}
 	}
 
 	if daysTillEscalation == nil {
@@ -930,12 +935,14 @@ func (s *AccountFreezeService) ShouldEscalateFreezeEvent(ctx context.Context, ev
 
 	daysTillEscalation := event.DaysTillEscalation
 
-	if event.Type == TrialExpirationFreeze && daysTillEscalation == nil {
+	if event.Type == TrialExpirationFreeze {
 		if s.config.TrialExpirationFreezeGracePeriod == 0 {
 			return false, nil
 		}
-		days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
-		daysTillEscalation = &days
+		if daysTillEscalation == nil {
+			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
+			daysTillEscalation = &days
+		}
 	}
 
 	if daysTillEscalation == nil {
