@@ -134,6 +134,7 @@
                     <td />
                     <td>
                         <VBtn
+                            v-if="!isFolder(item.raw.browserObject)"
                             :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
                             size="small"
                             variant="text"
