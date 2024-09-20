@@ -197,12 +197,12 @@
                         </v-col>
                     </v-row>
                 </v-window-item>
-                
+
                 <v-window-item :value="CreateStep.Success">
                     <div class="pa-7">
                         <v-row>
                             <v-col>
-                                <p><strong><v-icon :icon="Check" size="small"></v-icon> Bucket successfully created.</strong></p>
+                                <p><strong><v-icon :icon="Check" size="small" /> Bucket successfully created.</strong></p>
                                 <v-chip
                                     variant="tonal"
                                     value="Disabled"
@@ -216,7 +216,6 @@
                         </v-row>
                     </div>
                 </v-window-item>
-
             </v-window>
             <v-divider />
 
@@ -266,6 +265,7 @@ import {
     VTextField,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';

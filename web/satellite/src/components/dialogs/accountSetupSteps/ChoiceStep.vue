@@ -5,7 +5,7 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border"/>
+                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                 <p class="text-overline mt-2 mb-1">
                     Welcome to Storj
                 </p>

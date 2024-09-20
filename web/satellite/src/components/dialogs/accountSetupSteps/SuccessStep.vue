@@ -6,7 +6,7 @@
         <v-row justify="center" align="center">
             <v-col class="text-center py-10">
                 <component :is="CircleCheckBig" :size="40" />
-                
+
                 <p class="text-overline mt-4 mb-2">
                     Account Complete
                 </p>
@@ -30,10 +30,9 @@
 
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
-import { CircleCheckBig } from 'lucide-vue-next';
+import { CircleCheckBig, ChevronRight } from 'lucide-vue-next';
 import { nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { ChevronRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

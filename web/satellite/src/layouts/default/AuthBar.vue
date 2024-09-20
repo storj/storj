@@ -54,8 +54,7 @@
                             :icon="Sun"
                             aria-label="Toggle Light Theme"
                             @click="toggleTheme('light')"
-                        >
-                        </v-btn>
+                        />
                     </template>
                 </v-tooltip>
 
@@ -70,8 +69,7 @@
                             :icon="MoonStar"
                             aria-label="Toggle Dark Theme"
                             @click="toggleTheme('dark')"
-                        >
-                        </v-btn>
+                        />
                     </template>
                 </v-tooltip>
             </v-btn-toggle>
@@ -83,7 +81,7 @@
 import { onBeforeMount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTheme } from 'vuetify';
-import { VAppBar, VBtn, VBtnToggle, VIcon, VTooltip } from 'vuetify/components';
+import { VAppBar, VBtn, VBtnToggle, VTooltip } from 'vuetify/components';
 import { Sun, MoonStar } from 'lucide-vue-next';
 
 import { PartnerConfig } from '@/types/partners';
