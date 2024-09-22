@@ -4,14 +4,20 @@
 <template>
     <div id="app">
         <router-view />
+        <Notifications/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import Notifications from './components/notification/Notifications.vue';
 
 // @vue/component
-@Component
+@Component({
+    components:{
+        Notifications,
+    }
+})
 export default class App extends Vue {
 }
 </script>
