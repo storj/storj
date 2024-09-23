@@ -5,10 +5,10 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-storj-logo />
-                <div class="text-overline mt-2 mb-1">
+                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <p class="text-overline mt-2 mb-1">
                     Account Type
-                </div>
+                </p>
                 <h2>Choose your account type</h2>
             </v-col>
         </v-row>
@@ -26,8 +26,8 @@
                         <v-btn
                             id="free-plan"
                             class="mt-4 mb-4"
-                            color="text-secondary"
-                            variant="outlined"
+                            color="primary"
+                            variant="flat"
                             @click="emit('select', FREE_PLAN_INFO)"
                         >
                             <template #append>
@@ -67,8 +67,8 @@
                         <p class="text-medium-emphasis text-caption">no minimum, billed monthly.</p>
 
                         <v-btn
-                            variant="flat"
-                            color="primary"
+                            variant="outlined"
+                            color="text-secondary"
                             class="mt-4 mb-4"
                             @click="emit('select', PRO_PLAN_INFO)"
                         >

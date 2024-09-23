@@ -6,9 +6,9 @@
         <v-row justify="center">
             <v-col class="text-center py-4">
                 <img height="50" width="50" src="@/assets/icon-change-password.svg" alt="Change password">
-                <div class="text-overline mt-2 mb-1">
+                <p class="text-overline mt-2 mb-1">
                     Project Encryption
-                </div>
+                </p>
                 <h2>Choose how to manage the encryption for your data.</h2>
             </v-col>
         </v-row>

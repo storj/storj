@@ -11,7 +11,7 @@
             link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"
         />
 
-        <v-row class="mt-2 mb-4">
+        <v-row class="mt-1 mb-3">
             <v-col>
                 <v-btn color="primary" :prepend-icon="CirclePlus" @click="onCreateBucket">
                     New Bucket
