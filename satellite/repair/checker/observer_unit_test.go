@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
@@ -128,6 +129,7 @@ func TestObserverForkProcess(t *testing.T) {
 				OptimalShares:  8,
 				TotalShares:    10,
 			},
+			RootPieceID: testrand.PieceID(),
 		})
 		require.NoError(t, err)
 

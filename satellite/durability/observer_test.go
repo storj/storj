@@ -85,6 +85,7 @@ func TestDurability(t *testing.T) {
 
 		res.AliasPieces = aliasPieces
 		res.Pieces = pieces
+		res.RootPieceID = testrand.PieceID()
 
 		return res
 	}

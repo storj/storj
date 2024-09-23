@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -503,4 +504,57 @@ func TestLoopBoundaries(t *testing.T) {
 			require.Equal(t, expectedSegments, visitedSegments, "batch size %d", batchSize)
 		}
 	})
+}
+
+func TestInlineSegmentDetection(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	inlineSegments := 0
+	remoteSegments := 0
+	callbackObserver := rangedlooptest.CallbackObserver{
+		OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
+			for _, segment := range segments {
+				if segment.Inline() {
+					inlineSegments++
+				} else {
+					remoteSegments++
+				}
+			}
+			return nil
+		},
+	}
+
+	segments := []rangedloop.Segment{
+		{ // regular inline segment
+			RootPieceID: storj.PieceID{},
+			Redundancy:  storj.RedundancyScheme{},
+			Pieces:      metabase.Pieces{},
+		}, { // inline segment with mixed state because of bug
+			RootPieceID: storj.PieceID{},
+			Pieces: metabase.Pieces{
+				{Number: 1, StorageNode: testrand.NodeID()},
+			},
+			Redundancy: storj.RedundancyScheme{
+				ShareSize: 256,
+			},
+		}, { // remove segment
+			RootPieceID: testrand.PieceID(),
+			Redundancy: storj.RedundancyScheme{
+				ShareSize: 256,
+			},
+		},
+	}
+
+	service := rangedloop.NewService(zaptest.NewLogger(t), rangedloop.Config{
+		Parallelism: 1,
+		BatchSize:   1,
+	}, &rangedlooptest.RangeSplitter{
+		Segments: segments,
+	}, []rangedloop.Observer{&callbackObserver})
+	_, err := service.RunOnce(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, inlineSegments)
+	require.Equal(t, 1, remoteSegments)
 }

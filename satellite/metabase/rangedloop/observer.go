@@ -17,7 +17,7 @@ type Segment metabase.LoopSegmentEntry
 
 // Inline returns true if segment is inline.
 func (s Segment) Inline() bool {
-	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+	return (s.Redundancy.IsZero() && len(s.Pieces) == 0) || s.RootPieceID.IsZero()
 }
 
 // Expired checks if segment expired relative to now.
