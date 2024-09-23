@@ -120,7 +120,6 @@ func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, confi
 			ServerSideCopy:         config.ServerSideCopy,
 			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 
-			TestingCommitSegmentMode:   config.TestingCommitSegmentMode,
 			TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 		}
 		return cfg
