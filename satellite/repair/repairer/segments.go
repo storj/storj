@@ -830,7 +830,7 @@ type AdminFetchInfo struct {
 // limits from the storage nodes on which they are stored, and returns them intact to
 // the caller rather than decoding or decrypting or verifying anything. This is to be
 // used for debugging purposes.
-func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *metabase.Segment, saveDir string) (pieceInfos []AdminFetchInfo, err error) {
+func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, log *zap.Logger, seg *metabase.Segment, saveDir string) (pieceInfos []AdminFetchInfo, err error) {
 	if seg.Inline() {
 		return nil, errs.New("cannot download an inline segment")
 	}
@@ -861,6 +861,15 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 		limiter.Go(ctx, func() {
 			info := cachedNodesInfo[limit.GetLimit().StorageNodeId]
 			address := limit.GetStorageNodeAddress().GetAddress()
+
+			log.Debug("piece download attempt",
+				zap.Stringer("Node ID", limit.Limit.StorageNodeId),
+				zap.Stringer("Piece ID", limit.Limit.PieceId),
+				zap.Int("piece index", currentLimitIndex),
+				zap.String("address", limit.GetStorageNodeAddress().Address),
+				zap.String("last_ip_port", info.LastIPPort),
+				zap.Binary("serial", limit.Limit.SerialNumber[:]))
+
 			var triedLastIPPort bool
 			if info.LastIPPort != "" && info.LastIPPort != address {
 				address = info.LastIPPort
