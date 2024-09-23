@@ -1619,20 +1619,17 @@ func TestCommitSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitSegment{
-				Opts: metabase.CommitSegment{
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  rootPieceID1,
-					Pieces:       pieces1,
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    metabasetest.DefaultRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
+					InlineData:  testrand.Bytes(512),
 				},
 			}.Check(ctx, t, db)
 
@@ -2112,17 +2109,21 @@ func TestCommitInlineSegment(t *testing.T) {
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
-			metabasetest.CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					InlineData:   []byte{1, 2, 3},
+					RootPieceID:  testrand.PieceID(),
+					Pieces:       metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}},
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					PlainSize:   512,
-					PlainOffset: 0,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   999999,
+
+					Redundancy: metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
