@@ -1,46 +1,45 @@
 <template>
-    <v-snackbar
-      v-model="doNotificationsExist"
-      absolute
-      top
-      right
-      class="custom-snackbar"
-    >
-      <v-alert
-        text
-        title="Alert title"
-        type="success"
-        class="custom-alert"
-      >
-        This is a notification
-      </v-alert>
-    </v-snackbar>
-  </template>
+  <v-snackbar timeout="50000" v-model="doNotificationsExist" absolute top right>
+    <NotificationItem
+            v-for="item in notifications"
+            :key="item.id"
+            :item="item"
+     />
+  </v-snackbar>
+</template>
 
 <script lang="ts">
-import { VSnackbar } from 'vuetify/lib';
-// import NotificationItem from './NotificationItem.vue';
-import { Component, Vue } from 'vue-property-decorator';
-// import { DelayedNotification } from '@/app/types/delayedNotification';
-import { VAlert } from 'vuetify/lib';
+import { VSnackbar } from "vuetify/lib";
+import NotificationItem from "./NotificationItem.vue";
+import { Component, Vue, Watch } from "vue-property-decorator";
+import { DelayedNotification } from "@/app/types/delayedNotification";
 
 @Component({
-    components: {
-       VSnackbar,
-       VAlert
-    //    NotificationItem
-    },
+  components: {
+    VSnackbar,
+    NotificationItem,
+  },
 })
-
 export default class Notifications extends Vue {
+  public doNotificationsExist: boolean = false;
 
-    // public get notifications(): DelayedNotification[]{
-    //     return this.$store.state.notification.notificationQueue;
-    // }
+  public get notifications(): DelayedNotification[] {
+    return this.$store.state.notification.notificationQueue;
+  }
 
-    public doNotificationsExist(): boolean {
-        // return this.notifications.length > 0;
-        return true;
-    }
+  get hasNotifications(): boolean {
+    return this.notifications.length > 0;
+  }
+
+  @Watch("hasNotifications", { immediate: true })
+  onNotificationsChange(newValue: boolean) {
+    this.doNotificationsExist = newValue;
+  }
+
+  // Optional: If you want to log changes to the console
+  @Watch("notifications", { deep: true })
+  onNotificationsArrayChange(newValue: DelayedNotification[]) {
+    console.log("Notifications changed:", newValue);
+  }
 }
 </script>

@@ -2,10 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app">
-        <router-view />
-        <Notifications/>
-    </div>
+    <v-app>
+        <div id="app">
+            <router-view />
+            <Notifications/>
+        </div>
+    </v-app>
 </template>
 
 <script lang="ts">

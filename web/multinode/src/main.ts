@@ -6,9 +6,9 @@ import VueClipboard from 'vue-clipboard2';
 import Router from 'vue-router';
 import { DirectiveBinding } from 'vue/types/options';
 
-import { vuetify } from '@/app/plugins';
 
 import App from '@/app/App.vue';
+import { vuetify } from '@/app/plugins';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
 import { Currency } from '@/app/utils/currency';

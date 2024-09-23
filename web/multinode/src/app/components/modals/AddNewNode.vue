@@ -64,7 +64,7 @@ export default class AddNewNode extends Vue {
     private publicIPError = '';
     private apiKeyError = '';
 
-    public openModal(): void {
+    public async openModal(): Promise<void> {
         this.isAddNewNodeModalShown = true;
     }
 
