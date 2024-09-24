@@ -401,7 +401,7 @@ func validateRetention(pbRetention *pb.Retention) error {
 		return nil
 	}
 	switch pbRetention.Mode {
-	case pb.Retention_COMPLIANCE:
+	case pb.Retention_COMPLIANCE, pb.Retention_GOVERNANCE:
 		switch {
 		case pbRetention.RetainUntil.IsZero():
 			return errs.New("retention period expiration time must be set if retention is set")
@@ -409,11 +409,7 @@ func validateRetention(pbRetention *pb.Retention) error {
 			return errs.New("retention period expiration time must not be in the past")
 		}
 	default:
-		return errs.New(
-			"invalid retention mode %d, expected %d (compliance)",
-			pbRetention.Mode,
-			pb.Retention_COMPLIANCE,
-		)
+		return errs.New("invalid retention mode %d", pbRetention.Mode)
 	}
 	return nil
 }

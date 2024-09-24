@@ -240,7 +240,7 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { ProjectRole } from '@/types/projectMembers';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
@@ -267,7 +267,7 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = usePreCheck();
 
 /**
  * Whether the new no-limits UI is enabled.
@@ -318,7 +318,7 @@ const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
 /**
  * whether this project has a satellite managed passphrase.
  */
-const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.

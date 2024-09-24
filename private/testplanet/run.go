@@ -67,7 +67,9 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				}
 				defer ctx.Check(planet.Shutdown)
 
-				planet.Start(ctx)
+				if err := planet.Start(ctx); err != nil {
+					t.Fatalf("planet failed to start: %+v", err)
+				}
 
 				test(t, ctx, planet)
 			})
@@ -116,7 +118,9 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 				}
 				defer ctx.Check(planet.Shutdown)
 
-				planet.Start(ctx)
+				if err := planet.Start(ctx); err != nil {
+					b.Fatalf("planet failed to start: %+v", err)
+				}
 
 				bench(b, ctx, planet)
 			})

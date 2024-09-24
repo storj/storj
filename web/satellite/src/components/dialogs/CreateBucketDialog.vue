@@ -127,7 +127,7 @@
                                     mandatory
                                 >
                                     <v-chip
-                                        :disabled="enableObjectLock"
+                                        v-if="!enableObjectLock"
                                         variant="outlined"
                                         filter
                                         :value="false"
@@ -143,6 +143,9 @@
                                         Enabled
                                     </v-chip>
                                 </v-chip-group>
+                                <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
+                                    <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
+                                </v-alert>
                                 <v-alert v-if="enableVersioning" variant="tonal" color="default">
                                     <p class="text-subtitle-2">Keep multiple versions of each file in the same bucket. Additional storage costs apply for each version.</p>
                                 </v-alert>
@@ -152,24 +155,6 @@
                             </v-col>
                         </v-row>
                     </v-form>
-                </v-window-item>
-                <v-window-item :value="CreateStep.Success">
-                    <div class="pa-7">
-                        <v-row>
-                            <v-col>
-                                <p><strong>Bucket successfully created.</strong></p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="default"
-                                    class="my-4 font-weight-bold"
-                                >
-                                    {{ bucketName }}
-                                </v-chip>
-                                <p>You can choose to open the bucket and start uploading files, or close this dialog and get back to the buckets page.</p>
-                            </v-col>
-                        </v-row>
-                    </div>
                 </v-window-item>
 
                 <v-window-item :value="CreateStep.Confirmation">
@@ -212,6 +197,25 @@
                         </v-col>
                     </v-row>
                 </v-window-item>
+
+                <v-window-item :value="CreateStep.Success">
+                    <div class="pa-7">
+                        <v-row>
+                            <v-col>
+                                <p><strong><v-icon :icon="Check" size="small" /> Bucket successfully created.</strong></p>
+                                <v-chip
+                                    variant="tonal"
+                                    value="Disabled"
+                                    color="primary"
+                                    class="my-4 font-weight-bold"
+                                >
+                                    {{ bucketName }}
+                                </v-chip>
+                                <p>You open the bucket and start uploading files, or close this dialog and get back to view all buckets.</p>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </v-window-item>
             </v-window>
             <v-divider />
 
@@ -226,7 +230,7 @@
                         <v-btn
                             :disabled="!formValid"
                             :loading="isLoading"
-                            :append-icon="step === CreateStep.Success ? ArrowRight : undefined"
+                            :append-icon="ArrowRight"
                             color="primary"
                             variant="flat"
                             block
@@ -261,8 +265,9 @@ import {
     VTextField,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';

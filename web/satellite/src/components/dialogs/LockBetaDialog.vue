@@ -142,8 +142,8 @@ const analyticsStore = useAnalyticsStore();
 const model = defineModel<boolean>({ default: false });
 
 function goToDocs() {
-    analyticsStore.pageVisit('https://docs.storj.io/dcs/buckets/object-versioning', PageVisitSource.DOCS);
+    analyticsStore.pageVisit('https://storj.dev/dcs/api/s3/object-versioning', PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-    window.open('https://docs.storj.io/dcs/buckets/object-versioning', '_blank', 'noreferrer');
+    window.open('https://storj.dev/dcs/api/s3/object-versioning', '_blank', 'noreferrer');
 }
 </script>

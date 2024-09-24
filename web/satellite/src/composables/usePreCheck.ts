@@ -9,7 +9,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { ExpirationInfo, User } from '@/types/users';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
-export function useTrialCheck() {
+export function usePreCheck() {
     const userStore = useUsersStore();
     const projectsStore = useProjectsStore();
     const appStore = useAppStore();
@@ -39,11 +39,21 @@ export function useTrialCheck() {
         callback();
     }
 
+    function withManagedPassphraseCheck(callback: () => void | Promise<void>): void {
+        if (appStore.state.managedPassphraseNotRetrievable) {
+            appStore.toggleManagedPassphraseErrorDialog(true);
+            return;
+        }
+
+        callback();
+    }
+
     return {
         isTrialExpirationBanner,
         isExpired,
         isUserProjectOwner,
         expirationInfo,
         withTrialCheck,
+        withManagedPassphraseCheck,
     };
 }

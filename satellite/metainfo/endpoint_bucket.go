@@ -153,7 +153,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		case buckets.ErrConflict.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		case buckets.ErrLocked.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidBucketState, err.Error())
 		case buckets.ErrUnavailable.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 		}
@@ -204,7 +204,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabledByProject(project) {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, projectNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockDisabledForProject, projectNoLockErrMsg)
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -553,7 +553,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Name, keyInfo.ProjectID)
@@ -566,7 +566,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	}
 
 	if !enabled {
-		return nil, rpcstatus.Error(rpcstatus.Unimplemented, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	return &pb.GetBucketObjectLockConfigurationResponse{

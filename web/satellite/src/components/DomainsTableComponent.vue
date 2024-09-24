@@ -50,6 +50,7 @@ import { Search } from 'lucide-vue-next';
 import { Domain } from '@/types/domains';
 import { useDomainsStore } from '@/store/modules/domainsStore';
 import { Time } from '@/utils/time';
+import { DataTableHeader } from '@/types/common';
 
 type SortItem = {
     key: keyof Domain;
@@ -61,13 +62,13 @@ const domainsStore = useDomainsStore();
 const search = ref<string>('');
 const sortBy = ref<SortItem[] | undefined>([{ key: 'createdAt', order: 'asc' }]);
 
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'Name',
         align: 'start',
         key: 'name',
     },
-    { title: 'Date Created', align: '', key: 'createdAt' },
+    { title: 'Date Created', key: 'createdAt' },
 ];
 
 const domains = computed<Domain[]>(() => domainsStore.state.domains);

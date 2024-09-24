@@ -120,7 +120,7 @@ import { ROUTES } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { AccountBalance, CreditCard } from '@/types/payments';
 
 import ProjectCard from '@/components/ProjectCard.vue';
@@ -142,7 +142,7 @@ const billingStore = useBillingStore();
 
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
-const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isExpired, withTrialCheck } = usePreCheck();
 
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);

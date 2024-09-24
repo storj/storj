@@ -27,3 +27,6 @@ placements:
   - id: 6
     name: sa
     filter: continent("SA") && $NORMAL
+  - id: 7
+    name: choiceofpieces
+    selector: choiceoftwo(piececount, random())

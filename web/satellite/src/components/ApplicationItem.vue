@@ -57,7 +57,7 @@ import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { Application, UplinkApp } from '@/types/applications';
 import { AccessType, SetupStep } from '@/types/setupAccess';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
@@ -69,7 +69,7 @@ const props = defineProps<{
 
 const analyticsStore  = useAnalyticsStore();
 
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const dialog = ref<boolean>(false);
 
@@ -85,10 +85,10 @@ const neededAccessType = computed<AccessType>(() => {
  * Starts create S3 credentials flow.
  */
 function onSetup(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         sendAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_CLICKED);
         dialog.value = true;
-    });
+    });});
 }
 
 function sendAnalytics(e: AnalyticsEvent): void {

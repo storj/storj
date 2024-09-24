@@ -144,12 +144,11 @@ const groupedFiles = computed(() => {
 });
 
 function onDeleteClick(): void {
-    obStore.clearDeletedCount();
-    let deleteRequest: Promise<void>;
+    let deleteRequest: Promise<number>;
     if (props.files.length === 1) {
-        deleteRequest = obStore.deleteObject(filePath.value ? filePath.value + '/' : '', props.files[0], false);
+        deleteRequest = obStore.deleteObject(filePath.value ? filePath.value + '/' : '', props.files[0]);
     } else if (props.files.length > 1) {
-    // multiple files selected in the file browser.
+        // multiple files selected in the file browser.
         deleteRequest = obStore.deleteSelected();
     } else return;
     obStore.handleDeleteObjectRequest(deleteRequest, 'version');

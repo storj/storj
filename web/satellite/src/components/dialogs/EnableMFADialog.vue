@@ -143,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, onBeforeUnmount, ref, watch, watchEffect } from 'vue';
+import { computed, onBeforeUnmount, ref, watch, watchEffect } from 'vue';
 import {
     VBtn,
     VCard,
@@ -178,7 +178,7 @@ const notify = useNotify();
 const model = defineModel<boolean>({ required: true });
 
 const canvas = ref<HTMLCanvasElement>();
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const otpInput = ref<VOtpInput>();
 
 const step = ref<number>(0);

@@ -328,7 +328,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -361,10 +364,13 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
-	// check of retention is active and avoid deletion if it is
-	// this shouldn't happen in real life unless we will have a bug
-	// where unversioned object will have retention set.
-	if deleted.Retention.ActiveNow() {
+	// Avoid deleting if Object Lock restrictions are imposed.
+	// This should never occur unless we have a bug allowing
+	// such settings to exist on unversioned objects.
+	switch {
+	case deleted.LegalHold:
+		return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case deleted.Retention.ActiveNow():
 		return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
@@ -466,7 +472,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -588,7 +597,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -695,10 +707,13 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}
 
 	if len(result.Deleted) == 1 {
-		// check of retention is active and avoid deletion if it is
-		// this shouldn't happen in real life unless we will have a bug
-		// where unversioned object will have retention set.
-		if result.Deleted[0].Retention.ActiveNow() {
+		// Avoid deleting if Object Lock restrictions are imposed.
+		// This should never occur unless we have a bug allowing
+		// such settings to exist on unversioned objects.
+		switch {
+		case result.Deleted[0].LegalHold:
+			return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
+		case result.Deleted[0].Retention.ActiveNow():
 			return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 		}
 
@@ -1100,28 +1115,27 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	streamIDs := make([][]byte, 0, len(result.Deleted))
-	for _, object := range result.Deleted {
-		streamIDs = append(streamIDs, object.StreamID.Bytes())
+	stmts := make([]spanner.Statement, len(result.Deleted))
+	for ix, object := range result.Deleted {
+		stmts[ix] = spanner.Statement{
+			SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+			Params: map[string]interface{}{
+				"stream_id": object.StreamID.Bytes(),
+			},
+		}
 	}
 
-	// TODO(spanner): make sure this is an efficient query
-	segmentDeletion := spanner.Statement{
-		SQL: `
-			DELETE FROM segments
-			WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-		`,
-		Params: map[string]interface{}{
-			"stream_ids": streamIDs,
-		},
-	}
-	segmentsDeleted, err := stx.tx.Update(ctx, segmentDeletion)
-	if err != nil {
-		return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
-	}
+	if len(stmts) > 0 {
+		segmentsDeleted, err := stx.tx.BatchUpdate(ctx, stmts)
+		if err != nil {
+			return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
+		}
 
+		for _, v := range segmentsDeleted {
+			result.DeletedSegmentCount += int(v)
+		}
+	}
 	result.DeletedObjectCount = len(result.Deleted)
-	result.DeletedSegmentCount = int(segmentsDeleted)
 
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",

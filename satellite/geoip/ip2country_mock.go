@@ -3,7 +3,7 @@
 
 package geoip
 
-import "storj.io/common/storj/location"
+import "storj.io/storj/shared/location"
 
 // MockIPToCountry provides a mock solution for looking up country codes in testplanet tests. This is done using the
 // last byte of the ip address and mod'ing it into a country code.

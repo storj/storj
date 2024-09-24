@@ -379,8 +379,7 @@ const isFolder = computed<boolean>(() => {
 });
 
 function onDeleteClick(): void {
-    obStore.clearDeletedCount();
-    let deleteRequest: Promise<void>;
+    let deleteRequest: Promise<number>;
     if (props.files.length === 1) {
         deleteRequest = deleteSingleFile(props.files[0]);
     } else if (props.files.length > 1) {
@@ -391,19 +390,18 @@ function onDeleteClick(): void {
     model.value = false;
 }
 
-async function deleteSingleFile(file: BrowserObject): Promise<void> {
+async function deleteSingleFile(file: BrowserObject): Promise<number> {
     if (selectedOption.value === DeleteOption.CreateMarker) {
         if (isFolder.value) {
-            await obStore.deleteFolder(filePath.value ? filePath.value + '/' : '', file);
+            return await obStore.deleteFolder(filePath.value ? filePath.value + '/' : '', file);
         } else {
-            await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false);
+            return await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file);
         }
-        return;
     }
     if (isFolder.value) {
-        await obStore.deleteFolderWithVersions(file, filePath.value ? filePath.value + '/' : '');
+        return await obStore.deleteFolderWithVersions(filePath.value ? filePath.value + '/' : '', file);
     } else {
-        await obStore.deleteObjectWithVersions(filePath.value ? filePath.value + '/' : '', file);
+        return await obStore.deleteObjectWithVersions(filePath.value ? filePath.value + '/' : '', file);
     }
 }
 

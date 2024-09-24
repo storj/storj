@@ -148,6 +148,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { DataTableHeader, SortItem } from '@/types/common';
 
 defineProps<{
     items: ProjectItemModel[],
@@ -168,8 +169,8 @@ const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
 
-const sortBy = [{ key: 'name', order: 'asc' }];
-const headers = [
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
+const headers: DataTableHeader[] = [
     { title: 'Project', key: 'name', align: 'start' },
     { title: 'Role', key: 'role' },
     { title: 'Members', key: 'memberCount' },

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-app-bar :elevation="0" border="0" class="bg-background">
+    <v-app-bar :elevation="0" border="0" class="bg-background no-shadow">
         <template #prepend>
             <div class="d-flex flex-row align-center ml-2 mr-1 mt-n1">
                 <img
@@ -41,7 +41,7 @@
                 border
                 inset
                 density="comfortable"
-                class="pa-1 bg-surface"
+                class="pa-1 bg-surface mr-1"
             >
                 <v-tooltip text="Light Theme" location="bottom">
                     <template #activator="{ props }">
@@ -49,14 +49,12 @@
                             v-bind="props"
                             rounded="xl"
                             density="comfortable"
-                            size="small"
+                            size="x-small"
                             class="px-4"
-                            icon
+                            :icon="Sun"
                             aria-label="Toggle Light Theme"
                             @click="toggleTheme('light')"
-                        >
-                            <v-icon :icon="Sun" height="24" width="24" />
-                        </v-btn>
+                        />
                     </template>
                 </v-tooltip>
 
@@ -66,14 +64,12 @@
                             v-bind="props"
                             rounded="xl"
                             density="comfortable"
-                            size="small"
+                            size="x-small"
                             class="px-4"
-                            icon
+                            :icon="MoonStar"
                             aria-label="Toggle Dark Theme"
                             @click="toggleTheme('dark')"
-                        >
-                            <v-icon :icon="MoonStar" height="24" width="24" />
-                        </v-btn>
+                        />
                     </template>
                 </v-tooltip>
             </v-btn-toggle>
@@ -85,7 +81,7 @@
 import { onBeforeMount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTheme } from 'vuetify';
-import { VAppBar, VBtn, VBtnToggle, VIcon, VTooltip } from 'vuetify/components';
+import { VAppBar, VBtn, VBtnToggle, VTooltip } from 'vuetify/components';
 import { Sun, MoonStar } from 'lucide-vue-next';
 
 import { PartnerConfig } from '@/types/partners';

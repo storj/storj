@@ -11,6 +11,10 @@
             v-model="appStore.state.isExpirationDialogShown"
             :expired="user.freezeStatus.trialExpiredFrozen"
         />
+        <managed-passphrase-error-dialog
+            v-if="appStore.state.managedPassphraseErrorDialogShown"
+            v-model="appStore.state.managedPassphraseErrorDialogShown"
+        />
     </template>
     <Notifications />
 </template>
@@ -22,7 +26,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { APIError } from '@/utils/error';
+import { APIError, ObjectDeleteError } from '@/utils/error';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -44,6 +48,7 @@ import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
 import BrandedLoader from '@/components/utils/BrandedLoader.vue';
 import TrialExpirationDialog from '@/components/dialogs/TrialExpirationDialog.vue';
+import ManagedPassphraseErrorDialog from '@/components/dialogs/ManagedPassphraseErrorDialog.vue';
 
 const appStore = useAppStore();
 const abTestingStore = useABTestingStore();
@@ -236,19 +241,25 @@ obStore.$onAction(({ name, after, args }) => {
         after(async (_) => {
             const request = args[0];
             let label = args[1] ?? 'file';
+            let deletedCount = 0;
             try {
-                await request;
+                deletedCount = await request;
             } catch (error) {
                 error.message = `Deleting failed. ${error.message}`;
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+                if (error instanceof ObjectDeleteError) {
+                    deletedCount = error.deletedCount;
+                } else {
+                    obStore.filesDeleted();
+                    return;
+                }
             }
 
-            if (obStore.state.deletedFilesCount > 0) {
-                label = obStore.state.deletedFilesCount > 1 ? `${label}s` : label;
-                notify.success(`${obStore.state.deletedFilesCount} ${label} deleted`);
+            if (deletedCount) {
+                label = deletedCount > 1 ? `${label}s` : label;
+                notify.success(`${deletedCount} ${label} deleted`);
                 obStore.filesDeleted();
             }
-            obStore.clearDeletedCount();
         });
     }
 });
@@ -270,27 +281,29 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
         return;
     }
     try {
+        appStore.setManagedPassphraseNotRetrievable(false);
         const results = await Promise.all([
             projectsStore.getProjectLimits(project.id),
             projectsStore.getProjectConfig(),
         ]);
         const config = results[1] as ProjectConfig;
-        if (config.passphrase) {
+        if (config.hasManagedPassphrase && config.passphrase) {
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
             bucketsStore.setPassphrase(config.passphrase);
             bucketsStore.setPromptForPassphrase(false);
             return;
+        } else if (config.hasManagedPassphrase) { // satellite failed to provide decrypted passphrase
+            appStore.setManagedPassphraseNotRetrievable(true);
+            throw new Error('Unable to acquire managed encryption passphrase');
+        }  else if (
+            usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
+            !user.value.freezeStatus.trialExpiredFrozen &&
+            route.name !== ROUTES.Bucket.name
+        ) {
+            appStore.toggleProjectPassphraseDialog(true);
         }
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
-
-    if (
-        usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
-        !user.value.freezeStatus.trialExpiredFrozen &&
-        route.name !== ROUTES.Bucket.name
-    ) {
-        appStore.toggleProjectPassphraseDialog(true);
     }
 });
 </script>

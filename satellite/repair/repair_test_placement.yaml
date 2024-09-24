@@ -1,0 +1,10 @@
+placements:
+  - id: 0
+    name: global
+  - id: 1
+    name: RepairRSOverride
+    ec:
+      minimum: 3
+      repair: 4
+      success: 8
+      total: 8

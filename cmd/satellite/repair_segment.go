@@ -324,7 +324,7 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 
 func downloadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment) ([]byte, int, error) {
 	// AdminFetchPieces downloads all pieces for specified segment and returns readers, readers data is kept on disk or inmemory
-	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, &segment, "")
+	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, log, &segment, "")
 	if err != nil {
 		return nil, 0, err
 	}

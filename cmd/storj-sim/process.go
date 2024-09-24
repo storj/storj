@@ -21,8 +21,8 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/processgroup"
 	"storj.io/common/sync2"
+	"storj.io/storj/shared/processgroup"
 )
 
 // Processes contains list of processes.

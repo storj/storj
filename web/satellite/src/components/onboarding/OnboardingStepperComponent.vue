@@ -7,7 +7,7 @@
             v-for="(step, i) in steps"
             :key="i"
             cols="12"
-            md="6"
+            :md="steps.length === ONBOARDING_STEPPER_STEPS.length ? 6 : 4"
             :lg="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
             :xl="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
         >
@@ -77,7 +77,7 @@ import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
@@ -91,7 +91,7 @@ interface StepData {
     description: string;
     buttonTxt: string;
     color: string;
-    variant: string;
+    variant: VBtn['$props']['variant'];
     disabled: boolean;
     prependIcon?: FunctionalComponent;
     appendIcon?: FunctionalComponent;
@@ -106,7 +106,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 let passphraseDialogCallback: () => void = () => {};
 
@@ -120,7 +120,7 @@ const isManagePassphraseDialogOpen = ref(false);
  * Returns whether this project has passphrase managed by the satellite.
  */
 const hasManagedPassphrase = computed((): boolean => {
-    return !!projectsStore.state.selectedProjectConfig.passphrase;
+    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
 });
 
 const steps = computed<StepData[]>(() => {
@@ -162,7 +162,7 @@ const steps = computed<StepData[]>(() => {
                 description: 'You are ready to upload files in your bucket, and share with the world.',
                 buttonTxt: 'Go to Upload',
                 color: uploadStepInfo.value.color,
-                variant: uploadStepInfo.value.variant,
+                variant: uploadStepInfo.value.variant as VBtn['$props']['variant'],
                 disabled: uploadStepInfo.value.disabled,
                 appendIcon: uploadStepInfo.value.appendIcon,
                 onClick: uploadFilesClicked,
@@ -175,7 +175,7 @@ const steps = computed<StepData[]>(() => {
                 description: onboardingInfo.value?.accessText || 'Connect your S3 compatible application to Storj with S3 credentials.',
                 buttonTxt: onboardingInfo.value?.accessBtnText || 'View Applications',
                 color: accessStepInfo.value.color,
-                variant: accessStepInfo.value.variant,
+                variant: accessStepInfo.value.variant as VBtn['$props']['variant'],
                 disabled: accessStepInfo.value.disabled,
                 appendIcon: accessStepInfo.value.appendIcon,
                 onClick: openAccessDialog,
@@ -269,9 +269,9 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Starts set passphrase flow if user's free trial is not expired.
  */
 function onManagePassphrase(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isManagePassphraseDialogOpen.value = true;
-    });
+    });});
 }
 
 /**
@@ -289,7 +289,7 @@ function onCreateBucket(): void {
  * or redirect to the buckets list.
  */
 function uploadFilesClicked(): void {
-    withTrialCheck(async () => {
+    withTrialCheck(async () => { withManagedPassphraseCheck(async () => {
         if (trackedBucketName.value) {
             await openTrackedBucket();
         } else {
@@ -306,7 +306,7 @@ function uploadFilesClicked(): void {
                 });
             }
         }
-    });
+    });});
 }
 
 /**
@@ -349,7 +349,7 @@ function onBucketCreated(bucketName: string): void {
 }
 
 function openAccessDialog(): void {
-    withTrialCheck(async () => {
+    withTrialCheck(async () => { withManagedPassphraseCheck(async () => {
         if (!onboardingInfo.value) {
             router.push({ name: ROUTES.Applications.name, params: { id: selectedProject.value.urlId } });
             return;
@@ -360,7 +360,7 @@ function openAccessDialog(): void {
             await progressStep();
         }
         isAccessDialogOpen.value = true;
-    });
+    });});
 }
 
 function onAccessCreated(): void {
@@ -428,7 +428,7 @@ onMounted(async () => {
 });
 
 watch(() => projectsStore.state.selectedProjectConfig, config => {
-    const hasSatelliteManagedEncryption = !!config.passphrase;
+    const hasSatelliteManagedEncryption = config.hasManagedPassphrase;
     if (hasSatelliteManagedEncryption && currentStep.value === OnboardingStep.EncryptionPassphrase) {
     // Skip the passphrase step if the project passphrase is satellite managed
         progressStep();

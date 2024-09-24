@@ -46,17 +46,17 @@
             </template>
             <template #item="{ index, props: rowProps }">
                 <v-data-table-row v-bind="rowProps">
-                    <template #item.name="{ item }: ItemSlotProps">
+                    <template #item.name="{ item }">
                         <v-btn
                             class="rounded-lg w-100 px-1 ml-n1 justify-start font-weight-bold"
                             variant="text"
                             height="40"
                             color="default"
                             block
-                            :disabled="filesBeingDeleted.has(item.browserObject.path + item.browserObject.Key)"
-                            @click="onFileClick(item.browserObject)"
+                            :disabled="filesBeingDeleted.has((item as BrowserObjectWrapper).browserObject.path + (item as BrowserObjectWrapper).browserObject.Key)"
+                            @click="onFileClick((item as BrowserObjectWrapper).browserObject)"
                         >
-                            <img :src="item.typeInfo.icon" :alt="item.typeInfo.title + 'icon'" class="mr-3">
+                            <img :src="(item as BrowserObjectWrapper).typeInfo.icon" :alt="(item as BrowserObjectWrapper).typeInfo.title + 'icon'" class="mr-3">
                             <v-tooltip
                                 v-if="index === 0 && !fileGuideDismissed"
                                 :model-value="true"
@@ -69,34 +69,34 @@
                             >
                                 Click on the file name to preview.
                                 <template #activator="{ props: activatorProps }">
-                                    <span v-bind="activatorProps">{{ item.browserObject.Key }}</span>
+                                    <span v-bind="activatorProps">{{ (item as BrowserObjectWrapper).browserObject.Key }}</span>
                                 </template>
                             </v-tooltip>
-                            <template v-else>{{ item.browserObject.Key }}</template>
+                            <template v-else>{{ (item as BrowserObjectWrapper).browserObject.Key }}</template>
                         </v-btn>
                     </template>
 
-                    <template #item.type="{ item }: ItemSlotProps">
-                        {{ item.typeInfo.title }}
+                    <template #item.type="{ item }">
+                        {{ (item as BrowserObjectWrapper).typeInfo.title }}
                     </template>
 
-                    <template #item.size="{ item }: ItemSlotProps">
-                        <span class="text-no-wrap">{{ getFormattedSize(item.browserObject) }}</span>
+                    <template #item.size="{ item }">
+                        <span class="text-no-wrap">{{ getFormattedSize((item as BrowserObjectWrapper).browserObject) }}</span>
                     </template>
 
-                    <template #item.date="{ item }: ItemSlotProps">
-                        <span class="text-no-wrap">{{ getFormattedDate(item.browserObject) }}</span>
+                    <template #item.date="{ item }">
+                        <span class="text-no-wrap">{{ getFormattedDate((item as BrowserObjectWrapper).browserObject) }}</span>
                     </template>
 
-                    <template #item.actions="{ item }: ItemSlotProps">
+                    <template #item.actions="{ item }">
                         <browser-row-actions
-                            :deleting="filesBeingDeleted.has(item.browserObject.path + item.browserObject.Key)"
-                            :file="item.browserObject"
+                            :deleting="filesBeingDeleted.has((item as BrowserObjectWrapper).browserObject.path + (item as BrowserObjectWrapper).browserObject.Key)"
+                            :file="(item as BrowserObjectWrapper).browserObject"
                             align="right"
-                            @preview-click="onFileClick(item.browserObject)"
-                            @delete-file-click="onDeleteFileClick(item.browserObject)"
-                            @share-click="onShareClick(item.browserObject)"
-                            @lock-object-click="onLockObjectClick(item.browserObject)"
+                            @preview-click="onFileClick((item as BrowserObjectWrapper).browserObject)"
+                            @delete-file-click="onDeleteFileClick((item as BrowserObjectWrapper).browserObject)"
+                            @share-click="onShareClick((item as BrowserObjectWrapper).browserObject)"
+                            @lock-object-click="onLockObjectClick((item as BrowserObjectWrapper).browserObject)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </template>
@@ -227,7 +227,7 @@ import { useNotify } from '@/utils/hooks';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { tableSizeOptions } from '@/types/common';
+import { DataTableHeader, SortItem, tableSizeOptions } from '@/types/common';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -256,8 +256,6 @@ type TableOptions = {
     }[];
 };
 
-type ItemSlotProps = { item: BrowserObjectWrapper };
-
 const props = defineProps<{
     forceEmpty?: boolean;
     loading?: boolean;
@@ -283,7 +281,7 @@ const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
 const fileToDelete = ref<BrowserObject | null>(null);
 const lockActionFile = ref<FullBrowserObject | null>(null);
-const fileToPreview = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>();
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
@@ -292,7 +290,7 @@ const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
-const sortBy = [{ key: 'name', order: 'asc' }];
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
 /**
@@ -303,7 +301,7 @@ const isAltPagination = computed(() => obStore.isAltPagination);
 /**
  * Returns table headers.
  */
-const headers = computed(() => {
+const headers = computed<DataTableHeader[]>(() => {
     return [
         { title: 'Name', align: 'start', key: 'name', sortable: !isAltPagination.value },
         { title: 'Type', key: 'type', sortable: !isAltPagination.value },
@@ -623,7 +621,7 @@ function onShareClick(file: BrowserObject): void {
 }
 
 /**
- * Handles delete button click event.
+ * Handles lock object button click event.
  */
 function onLockObjectClick(file: BrowserObject): void {
     lockActionFile.value = file;

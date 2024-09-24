@@ -119,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, defineModel, ref, watch } from 'vue';
+import { defineModel, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -180,7 +180,7 @@ const emit = defineEmits<{
     'fileLocked': [],
 }>();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 
 const selectedRange = ref<LockUntilRange>();
 

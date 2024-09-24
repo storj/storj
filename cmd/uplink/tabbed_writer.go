@@ -11,9 +11,10 @@ import (
 )
 
 type tabbedWriter struct {
-	tw      *tabwriter.Writer
-	headers []string
-	wrote   bool
+	tw        *tabwriter.Writer
+	headers   []string
+	wrote     bool
+	unflushed int
 }
 
 func newTabbedWriter(w io.Writer, headers ...string) *tabbedWriter {
@@ -26,6 +27,7 @@ func newTabbedWriter(w io.Writer, headers ...string) *tabbedWriter {
 func (t *tabbedWriter) Done() {
 	if t.wrote {
 		_ = t.tw.Flush()
+		t.unflushed = 0
 	}
 }
 
@@ -43,6 +45,11 @@ func (t *tabbedWriter) WriteLine(parts ...interface{}) {
 		_, _ = fmt.Fprint(t.tw, toString(part))
 	}
 	_, _ = fmt.Fprintln(t.tw)
+	t.unflushed++
+	if t.unflushed >= 1000 {
+		t.unflushed = 0
+		_ = t.tw.Flush()
+	}
 }
 
 func toString(x interface{}) string {

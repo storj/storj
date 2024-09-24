@@ -240,7 +240,7 @@ import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import ChangePasswordDialog from '@/components/dialogs/ChangePasswordDialog.vue';
@@ -260,7 +260,7 @@ const configStore = useConfigStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
-const { isTrialExpirationBanner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isExpired } = usePreCheck();
 
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);

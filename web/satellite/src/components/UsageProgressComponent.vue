@@ -46,8 +46,8 @@
 </template>
 
 <script setup lang="ts">
+import { FunctionalComponent, computed } from 'vue';
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
-import { Component, computed } from 'vue';
 import { Info, ArrowDownToLine } from 'lucide-vue-next';
 
 import IconCloud from '@/components/icons/IconCloud.vue';
@@ -73,7 +73,7 @@ const emit = defineEmits<{
 }>();
 
 const slots = defineSlots<{
-    extraInfo?: Component;
+    extraInfo?: FunctionalComponent;
 }>();
 
 const iconComponents = {

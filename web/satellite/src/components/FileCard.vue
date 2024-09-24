@@ -75,6 +75,8 @@
                 @preview-click="emit('previewClick', item.browserObject)"
                 @delete-file-click="emit('deleteFileClick', item.browserObject)"
                 @share-click="emit('shareClick', item.browserObject)"
+                @lock-object-click="emit('lockObjectClick', item.browserObject)"
+                @locked-object-delete="(fullObject) => emit('lockedObjectDelete', fullObject)"
             />
             <v-card-item class="pt-0">
                 <v-card-title>
@@ -94,7 +96,12 @@
 import { computed, ref } from 'vue';
 import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } from 'vuetify/components';
 
-import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    FullBrowserObject,
+    PreviewCache,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 import { Time } from '@/utils/time';
@@ -124,6 +131,8 @@ const emit = defineEmits<{
     previewClick: [BrowserObject];
     deleteFileClick: [BrowserObject];
     shareClick: [BrowserObject];
+    lockObjectClick: [BrowserObject];
+    lockedObjectDelete: [FullBrowserObject];
 }>();
 
 const videoEl = ref<HTMLVideoElement>();

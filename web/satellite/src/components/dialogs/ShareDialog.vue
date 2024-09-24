@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VAlert,
     VBtn,
@@ -153,7 +153,7 @@ const bucketsStore = useBucketsStore();
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
 const link = ref<string>('');
 
@@ -180,7 +180,7 @@ function onCopy(): void {
 /**
  * Generates linksharing URL when the dialog is opened.
  */
-watch(() => innerContent.value, async (comp: Component | null): Promise<void> => {
+watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     if (!comp) {
         emit('contentRemoved');
         return;

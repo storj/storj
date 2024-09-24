@@ -37,7 +37,7 @@ type placementDefinition struct {
 
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
 type UploadSuccessTracker interface {
-	Get(uplink storj.NodeID) func(node storj.NodeID) float64
+	Get(uplink storj.NodeID) func(node *SelectedNode) float64
 }
 
 // NoopTracker doesn't tracker uploads at all. Always returns with zero.
@@ -45,11 +45,24 @@ type NoopTracker struct {
 }
 
 // Get implements UploadSuccessTracker.
-func (n NoopTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
-	return func(node storj.NodeID) float64 { return 0 }
+func (n NoopTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+	return func(node *SelectedNode) float64 { return 0 }
 }
 
 var _ UploadSuccessTracker = NoopTracker{}
+
+type pieceTracker struct{}
+
+func (n pieceTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+	return func(node *SelectedNode) float64 {
+		// return a negated value so that nodes with less pieces are preferred.
+		return -float64(node.PieceCount)
+	}
+}
+
+var _ UploadSuccessTracker = pieceTracker{}
+
+var pieceCount pieceTracker
 
 // PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
 type PlacementConfigEnvironment struct {
@@ -301,7 +314,8 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return IfSelector(condition, trueAttr, falseAttr), nil
 		},
-		"dual": DualSelector,
+		"piececount": pieceCount,
+		"dual":       DualSelector,
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

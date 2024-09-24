@@ -49,13 +49,9 @@ type Config struct {
 	NodeAliasCacheFullRefresh bool
 
 	TestingUniqueUnversioned   bool
-	TestingCommitSegmentMode   string
 	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
 	TestingSpannerProjects     map[uuid.UUID]struct{}
 }
-
-const commitSegmentModeTransaction = "transaction"
-const commitSegmentModeNoCheck = "no-pending-object-check"
 
 // DB implements a database for storing objects and segments.
 type DB struct {

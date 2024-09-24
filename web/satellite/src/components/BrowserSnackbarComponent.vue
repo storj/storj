@@ -124,7 +124,7 @@ const notify = useNotify();
 const startDate = ref<number>(Date.now());
 const isExpanded = ref<boolean>(false);
 const previewDialog = ref<boolean>(false);
-const fileToPreview = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>();
 
 /**
  * Indicates whether objects upload modal should be shown.

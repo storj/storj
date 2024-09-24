@@ -63,7 +63,7 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 func TestPieceExpirationStore(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
 		DataDir:               ctx.Dir("pieceexpiration"),
 		ConcurrentFileHandles: 10,
 	})
@@ -78,7 +78,7 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dataDir := ctx.Dir("pieceexpiration")
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
 		DataDir:               dataDir,
 		ConcurrentFileHandles: 2,
 	})
@@ -163,7 +163,7 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dataDir := ctx.Dir("pieceexpiration")
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
 		DataDir:               dataDir,
 		ConcurrentFileHandles: 2,
 	})
@@ -230,7 +230,7 @@ func TestPieceExpirationPeriodicFlushing(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dataDir := ctx.Dir("pieceexpiration")
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
 		DataDir:               dataDir,
 		ConcurrentFileHandles: 2,
 		MaxBufferTime:         100 * time.Millisecond,
