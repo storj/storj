@@ -913,6 +913,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 		ORDER BY version DESC
+		FOR UPDATE
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
