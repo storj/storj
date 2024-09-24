@@ -139,6 +139,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
 
         this.selectedMonth = null;
         this.updatePeriod();
+        
         this.submit();
     }
 
