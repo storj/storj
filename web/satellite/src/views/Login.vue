@@ -11,7 +11,7 @@
                             v-if="captchaError"
                             variant="tonal"
                             color="error"
-                            text="HCaptcha is required"
+                            text="hCaptcha is required. If you are using a VPN, try disabling it."
                             rounded="lg"
                             density="comfortable"
                             class="mt-2 mb-3"
