@@ -184,8 +184,11 @@ const headers: DataTableHeader[] = [
  * Selects the project and navigates to the project dashboard.
  */
 function openProject(item: ProjectItemModel): void {
+    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
+    if (projectsStore.state.selectedProject.id !== item.id) bucketsStore.clearS3Data();
+
     projectsStore.selectProject(item.id);
-    bucketsStore.clearS3Data();
+
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },

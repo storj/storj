@@ -295,7 +295,7 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
         } else if (config.hasManagedPassphrase) { // satellite failed to provide decrypted passphrase
             appStore.setManagedPassphraseNotRetrievable(true);
             throw new Error('Unable to acquire managed encryption passphrase');
-        }  else if (
+        } else if (
             usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
             !user.value.freezeStatus.trialExpiredFrozen &&
             route.name !== ROUTES.Bucket.name

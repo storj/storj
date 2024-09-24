@@ -252,10 +252,6 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.fileComponentPath = path;
     }
 
-    function setEnterPassphraseCallback(fn: (() => void) | null): void {
-        state.enterPassphraseCallback = fn;
-    }
-
     async function createBucket(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
             Bucket: name,
@@ -380,7 +376,6 @@ export const useBucketsStore = defineStore('buckets', () => {
         setApiKey,
         setFileComponentBucketName,
         setFileComponentPath,
-        setEnterPassphraseCallback,
         createBucket,
         createBucketWithNoPassphrase,
         setVersioning,
