@@ -1,5 +1,5 @@
 <template>
-  <v-snackbar timeout="50000" v-model="doNotificationsExist" absolute top right>
+  <v-snackbar v-model="doNotificationsExist" absolute top right class="custom-snackbar" timeout=5000000>
     <NotificationItem
             v-for="item in notifications"
             :key="item.id"
@@ -43,3 +43,10 @@ export default class Notifications extends Vue {
   }
 }
 </script>
+<style lang="scss" scoped>
+.custom-snackbar {
+ ::v-deep .v-snack__content {
+  margin-right: -13px;
+ }
+}
+</style>

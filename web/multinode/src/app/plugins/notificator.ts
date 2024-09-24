@@ -1,7 +1,7 @@
 import { store } from "@/app/store";
 import { NotificationPayload } from "@/app/types/delayedNotification";
 
-export class notify {
+export class Notify {
   constructor() {}
 
   public success(payload: NotificationPayload) {
