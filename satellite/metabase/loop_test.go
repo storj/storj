@@ -345,5 +345,73 @@ func TestIterateLoopSegments(t *testing.T) {
 			})
 			require.NoError(t, err)
 		})
+
+		t.Run("spanner stale reads", func(t *testing.T) {
+			if db.Implementation().String() != "spanner" {
+				t.Skip("test works only with spanner")
+			}
+
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:            1,
+					SpannerReadTimestamp: time.Time{},
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:            1,
+					SpannerReadTimestamp: time.Now().Add(-time.Microsecond),
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:            1,
+					SpannerReadTimestamp: time.Now().Add(-time.Hour),
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			beforeUpload := time.Now()
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			// using only time.Now() make this test flaky on CI
+			afterUpload := time.Now().Add(time.Second)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:            1,
+					SpannerReadTimestamp: beforeUpload,
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			defaultSegment := metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{})
+
+			expectedSource := db.ChooseAdapter(object.ProjectID).Name()
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:            1,
+					SpannerReadTimestamp: afterUpload,
+				},
+				Result: []metabase.LoopSegmentEntry{
+					{
+						StreamID:      object.StreamID,
+						CreatedAt:     beforeUpload,
+						EncryptedSize: defaultSegment.EncryptedSize,
+						PlainSize:     defaultSegment.PlainSize,
+						RootPieceID:   defaultSegment.RootPieceID,
+						Redundancy:    defaultSegment.Redundancy,
+						Pieces:        defaultSegment.Pieces,
+						Source:        expectedSource,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
