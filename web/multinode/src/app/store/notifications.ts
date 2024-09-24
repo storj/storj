@@ -1,7 +1,7 @@
 // import { reactive } from 'vue';
 import { ActionContext,ActionTree,Module,MutationTree } from 'vuex';
 import { RootState } from '@/app/store/index';
-import { DelayedNotification,NotificationMessage,NotificationType } from "../types/delayedNotification";
+import { DelayedNotification,NotificationMessage,NotificationType,NotificationPayload } from "../types/delayedNotification";
 
 export class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
@@ -64,7 +64,7 @@ export class NotificationsModule implements Module<NotificationsState,RootState>
         }
     }
 
-    public notifySuccess(ctx: ActionContext<NotificationsState, RootState>,payload: { message: NotificationMessage; title?: string }): void {
+    public notifySuccess(ctx: ActionContext<NotificationsState, RootState>,payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
             () => this.deleteNotification(ctx,notification.id),
             NotificationType.Success,
@@ -75,7 +75,7 @@ export class NotificationsModule implements Module<NotificationsState,RootState>
         ctx.commit('add',notification);
     }
 
-    public notifyInfo(ctx: ActionContext<NotificationsState, RootState>,payload: { message: NotificationMessage; title?: string }): void {
+    public notifyInfo(ctx: ActionContext<NotificationsState, RootState>,payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
             () => this.deleteNotification(ctx,notification.id),
             NotificationType.Info,
@@ -86,21 +86,23 @@ export class NotificationsModule implements Module<NotificationsState,RootState>
         ctx.commit('add',notification);
     }
 
-    public notifyWarning(ctx: ActionContext<NotificationsState, RootState>,message: NotificationMessage): void {
+    public notifyWarning(ctx: ActionContext<NotificationsState, RootState>,payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
             () => this.deleteNotification(ctx,notification.id),
             NotificationType.Warning,
-            message,
+            payload.message,
+            payload.title
         );
 
         ctx.commit('add',notification);
     }
 
-    public notifyError(ctx: ActionContext<NotificationsState, RootState>,message: NotificationMessage): void {
+    public notifyError(ctx: ActionContext<NotificationsState, RootState>,payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
             () => this.deleteNotification(ctx,notification.id),
             NotificationType.Error,
-            message,
+            payload.message,
+            payload.title
         );
 
         ctx.commit('add',notification);

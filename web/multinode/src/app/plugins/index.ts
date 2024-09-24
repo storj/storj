@@ -1,3 +1,4 @@
 import vuetify from './vuetify';
+import { notify } from './notificator';
 
-export { vuetify}; 
+export { vuetify,notify}; 

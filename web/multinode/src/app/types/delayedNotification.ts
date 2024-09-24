@@ -8,9 +8,14 @@ export enum NotificationType {
     Warning = 'Warning',
 }
 
+
 type RenderFunction = () => (string | VNode | (string | VNode)[]);
 export type NotificationMessage = string | RenderFunction;
 
+export type NotificationPayload = {
+    message: NotificationMessage,
+    title?: string
+}
 export class DelayedNotification {
     public readonly id: string;
 
