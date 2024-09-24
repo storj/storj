@@ -80,7 +80,13 @@
                         </v-expansion-panels>
 
                         <p class="text-body-2">
-                            For more information, <a href="" class="link" @click="goToDocs">visit the documentation</a>.
+                            For more information, <a
+                                :href="docsLink"
+                                class="link"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                @click="trackGoToDocs"
+                            >visit the documentation</a>.
                         </p>
                     </v-col>
                 </v-row>
@@ -105,7 +111,10 @@
                         <v-btn
                             variant="flat"
                             block
-                            @click="goToDocs"
+                            link
+                            :href="docsLink"
+                            target="_blank"
+                            @click="trackGoToDocs"
                         >
                             Read Documentation
                         </v-btn>
@@ -141,9 +150,10 @@ const analyticsStore = useAnalyticsStore();
 
 const model = defineModel<boolean>({ default: false });
 
-function goToDocs() {
-    analyticsStore.pageVisit('https://storj.dev/dcs/api/s3/object-versioning', PageVisitSource.DOCS);
+const docsLink = 'https://storj.dev/dcs/api/s3/object-lock';
+
+function trackGoToDocs() {
+    analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-    window.open('https://storj.dev/dcs/api/s3/object-versioning', '_blank', 'noreferrer');
 }
 </script>

@@ -102,9 +102,11 @@
 
                                 <p class="text-body-2">
                                     For more information, <a
-                                        href=""
+                                        :href="docsLink"
                                         class="link"
-                                        @click="goToDocs"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        @click="trackGoToDocs"
                                     >visit the documentation</a>.
                                 </p>
                             </v-col>
@@ -191,6 +193,8 @@ const { withLoading, isLoading } = useLoading();
 
 const isDialogOpen = defineModel<boolean>();
 
+const docsLink = 'https://storj.dev/dcs/api/s3/object-versioning';
+
 const props = defineProps<{
     info?: boolean;
 }>();
@@ -203,10 +207,9 @@ const step = ref(0);
  */
 const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
 
-function goToDocs() {
-    analyticsStore.pageVisit('https://storj.dev/dcs/api/s3/object-versioning', PageVisitSource.DOCS);
+function trackGoToDocs() {
+    analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-    window.open('https://storj.dev/dcs/api/s3/object-versioning', '_blank', 'noreferrer');
 }
 
 function optInOrOut() {
