@@ -27,10 +27,11 @@ var (
 
 // Config contains configurable values for the shared loop.
 type Config struct {
-	Parallelism        int           `help:"how many chunks of segments to process in parallel" default:"2"`
-	BatchSize          int           `help:"how many items to query in a batch" default:"2500"`
-	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
-	Interval           time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
+	Parallelism          int           `help:"how many chunks of segments to process in parallel" default:"2"`
+	BatchSize            int           `help:"how many items to query in a batch" default:"2500"`
+	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+	Interval             time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
+	SpannerStaleInterval time.Duration `help:"sets spanner stale read timestamp as now()-interval" default:"0"`
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }

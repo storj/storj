@@ -54,7 +54,7 @@ func (chore *Chore) RunOnce(ctx context.Context) error {
 
 	// override parallelism to simulate old segments loop
 	chore.Config.Loop.Parallelism = 1
-	provider := rangedloop.NewMetabaseRangeSplitter(chore.DB, 5*time.Second, 2500)
+	provider := rangedloop.NewMetabaseRangeSplitter(chore.DB, 5*time.Second, 0, 2500)
 	loop := rangedloop.NewService(chore.Log, chore.Config.Loop, provider,
 		[]rangedloop.Observer{
 			plainOffset,

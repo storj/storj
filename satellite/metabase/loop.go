@@ -54,10 +54,11 @@ type LoopSegmentsIterator interface {
 
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
-	BatchSize          int
-	AsOfSystemInterval time.Duration
-	StartStreamID      uuid.UUID
-	EndStreamID        uuid.UUID
+	BatchSize            int
+	StartStreamID        uuid.UUID
+	EndStreamID          uuid.UUID
+	AsOfSystemInterval   time.Duration
+	SpannerReadTimestamp time.Time
 }
 
 // Verify verifies segments request fields.
@@ -284,6 +285,8 @@ type spannerLoopSegmentIterator struct {
 	// batchPieces are reused between result pages to reduce memory consumption
 	// batchPieces []Pieces
 
+	readTimestamp time.Time
+
 	curIndex int
 	curRows  *spanner.RowIterator
 	curRow   *spanner.Row
@@ -361,7 +364,11 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 			"endstreamid": it.cursor.EndStreamID.Bytes(),
 			"batchsize":   it.batchSize,
 		}}
-	return it.db.client.Single().Query(ctx, stmt)
+
+	if it.readTimestamp.IsZero() {
+		return it.db.client.Single().Query(ctx, stmt)
+	}
+	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).Query(ctx, stmt)
 }
 
 // IterateLoopSegments implements Adapter.
@@ -369,6 +376,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 	it := &spannerLoopSegmentIterator{
 		db:         s,
 		aliasCache: aliasCache,
+
+		readTimestamp: opts.SpannerReadTimestamp,
 
 		batchSize: opts.BatchSize,
 

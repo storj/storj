@@ -1225,6 +1225,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
 
+# sets spanner stale read timestamp as now()-interval
+# ranged-loop.spanner-stale-interval: 0s
+
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
 
