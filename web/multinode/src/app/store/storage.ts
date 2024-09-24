@@ -67,7 +67,7 @@ export class StorageModule implements Module<StorageState, RootState> {
      * @param ctx - context of the Vuex action.
      */
     public async usage(ctx: ActionContext<StorageState, RootState>): Promise<void> {
-        const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : ctx.rootState.nodes.trustedSatellites[0].id;
+        const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
         const selectedNodeId = ctx.rootState.nodes.selectedNode ? ctx.rootState.nodes.selectedNode.id : null;
 
         const usage = await this.storage.usage(selectedSatelliteId, selectedNodeId);

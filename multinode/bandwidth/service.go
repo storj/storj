@@ -54,6 +54,10 @@ func (service *Service) Monthly(ctx context.Context) (_ Monthly, err error) {
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
+		nodeStatus,_,_ := service.nodes.FetchNodeMeta(ctx, node)
+		if nodeStatus != nodes.StatusOnline {
+			continue
+		}
 		monthly, err := service.getMonthly(ctx, node)
 		if err != nil {
 			if nodes.ErrNodeNotReachable.Has(err) {
@@ -105,8 +109,8 @@ func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
-		nodeinfo := service.nodes.FetchNodeInfo(ctx, node)
-		if nodeinfo.Status != nodes.StatusOnline {
+		nodeStatus,_,_ := service.nodes.FetchNodeMeta(ctx, node)
+		if nodeStatus != nodes.StatusOnline {
 			continue
 		}
 		monthly, err := service.getMonthlySatellite(ctx, node, satelliteID)
