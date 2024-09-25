@@ -132,6 +132,9 @@ const (
 
 	// SpannerName is the name when tagsql wraps a Cockroach DB connection.
 	SpannerName string = "spanner"
+
+	// SqliteName is the name when tagsql wraps a SQLite3 connection.
+	SqliteName string = "sqlite"
 )
 
 func (s *sqlDB) Name() string {
@@ -143,9 +146,14 @@ func (s *sqlDB) Name() string {
 		return PostgresName
 	case strings.Contains(driverType, "spanner"):
 		return SpannerName
+	case strings.Contains(driverType, "sqlite3.SQLiteDriver"):
+		return SqliteName
 	// only used by golang benchmark
 	case strings.Contains(driverType, "stdlib.Driver"):
 		return PostgresName
+	// only used under test; treat as sqlite
+	case strings.Contains(driverType, "utccheck.Driver"):
+		return SqliteName
 	default:
 		panic("unknown database driver: " + driverType)
 	}

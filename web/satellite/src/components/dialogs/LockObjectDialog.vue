@@ -43,7 +43,11 @@
             <v-row>
                 <v-col class="pa-6 mx-3">
                     <p class="my-2">
-                        Locking this file will prevent it from being deleted or overwritten for the specified period of time.
+                        Locking this version will prevent it from being deleted or overwritten for the specified period of time.
+                    </p>
+
+                    <p class="mt-4 mb-2 font-weight-bold text-body-2">
+                        Name:
                     </p>
 
                     <v-chip
@@ -51,12 +55,25 @@
                         filter
                         value="filename"
                         color="default"
-                        class="mt-1 mb-5 font-weight-bold"
+                        class="mb-2 font-weight-bold"
                     >
                         {{ file?.Key }}
                     </v-chip>
 
                     <p class="my-2 font-weight-bold text-body-2">
+                        Version:
+                    </p>
+
+                    <v-chip
+                        variant="tonal"
+                        filter
+                        color="default"
+                        class="mb-4 font-weight-bold"
+                    >
+                        {{ file?.VersionId }}
+                    </v-chip>
+
+                    <p class="mb-2 font-weight-bold text-body-2">
                         Select the lock retention period:
                     </p>
 

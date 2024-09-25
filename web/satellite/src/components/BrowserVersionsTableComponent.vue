@@ -38,10 +38,12 @@
                         />
                     </td>
                     <td>
-                        <v-list-item
-                            class="text-caption pl-1 ml-n1"
+                        <v-btn
+                            class="text-caption pl-1 ml-n1 justify-start rounded-lg w-100"
+                            variant="text"
+                            color="default"
+                            block
                             :disabled="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
-                            link
                             @click="() => onFileClick(file)"
                         >
                             <template #prepend>
@@ -50,7 +52,7 @@
                             </template>
                             {{ file.Key }}
                             <v-chip v-if="file.isLatest" class="ml-2" size="small" variant="tonal" color="primary">LATEST</v-chip>
-                        </v-list-item>
+                        </v-btn>
                     </td>
                     <td>
                         <p class="text-caption">
@@ -68,7 +70,25 @@
                     </td>
                     <td>
                         <p class="text-caption">
-                            {{ file.VersionId }}
+                            <v-hover v-if="file.VersionId">
+                                <template #default="{ isHovering, props }">
+                                    <v-chip
+                                        v-bind="props"
+                                        size="small"
+                                        :variant="isHovering ? 'tonal' : 'text'"
+                                        class="cursor-pointer"
+                                        @click="() => copyToClipboard(file.VersionId)"
+                                    >
+                                        <template #append>
+                                            <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
+                                        </template>
+                                        <template #default>
+                                            <span v-if="mdAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
+                                            <span v-else>{{ file.VersionId }}</span>
+                                        </template>
+                                    </v-chip>
+                                </template>
+                            </v-hover>
                         </p>
                     </td>
                     <td>
@@ -81,7 +101,7 @@
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
-                            @lock-object-click="onLockObjectClick(item.browserObject)"
+                            @lock-object-click="onLockObjectClick(file)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </td>
@@ -91,7 +111,7 @@
 
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
+                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
                 </p>
             </template>
 
@@ -249,12 +269,14 @@ import {
     VChip,
     VCol,
     VDataTableServer,
-    VListItem,
     VRow,
     VSelect,
     VSnackbar,
+    VHover,
+    VIcon,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
+import { useDisplay } from 'vuetify';
 
 import {
     BrowserObject,
@@ -284,7 +306,7 @@ import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue'
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 
-const props = defineProps<{
+const compProps = defineProps<{
     forceEmpty?: boolean;
     loading?: boolean;
 }>();
@@ -296,6 +318,7 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const { mdAndDown } = useDisplay();
 
 const notify = useNotify();
 const router = useRouter();
@@ -368,7 +391,7 @@ const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
-    if (props.forceEmpty) return [];
+    if (compProps.forceEmpty) return [];
 
     return obStore.state.files.map<BrowserObjectWrapper>(file => {
         const { name, ext, typeInfo } = getFileInfo(file);
@@ -382,7 +405,7 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
 });
 
 const filesAndVersions = computed<BrowserObjectWrapper[]>(() => {
-    if (props.forceEmpty) return [];
+    if (compProps.forceEmpty) return [];
 
     const versions = allFiles.value.flatMap(parent => {
         return parent.browserObject.Versions?.map<BrowserObjectWrapper>(version => {
@@ -577,8 +600,20 @@ function onFileClick(file: BrowserObject): void {
     previewDialog.value = true;
 }
 
+/**
+ * Copies the version ID to the clipboard.
+ */
+function copyToClipboard(versionId?: string): void {
+    if (!versionId) return;
+    navigator.clipboard.writeText(versionId).then(() => {
+        notify.success('Version ID copied to clipboard');
+    }).catch(err => {
+        notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER);
+    });
+}
+
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
-    if (isFetching.value || props.forceEmpty) return;
+    if (isFetching.value || compProps.forceEmpty) return;
 
     obStore.updateSelectedFiles([]);
     obStore.updateVersionsExpandedKeys([]);
@@ -641,7 +676,7 @@ watch(filePath, () => {
     obStore.clearTokens();
     fetchFiles();
 }, { immediate: true });
-watch(() => props.forceEmpty, v => !v && fetchFiles());
+watch(() => compProps.forceEmpty, v => !v && fetchFiles());
 </script>
 
 <style scoped lang="scss">

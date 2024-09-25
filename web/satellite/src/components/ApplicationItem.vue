@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
+import { VBtn, VCard, VCardItem, VChip, VCol } from 'vuetify/components';
 import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { Application, UplinkApp } from '@/types/applications';

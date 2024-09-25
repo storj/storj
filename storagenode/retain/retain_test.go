@@ -36,7 +36,7 @@ func TestRetainPieces(t *testing.T) {
 		log := zaptest.NewLogger(t)
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
@@ -217,7 +217,7 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 		log := zaptest.NewLogger(t)
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		cfg := pieces.DefaultConfig
 		cfg.EnableLazyFilewalker = true
 
@@ -370,7 +370,7 @@ func TestRetainPieces_fromStore(t *testing.T) {
 		log := zaptest.NewLogger(t)
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		cfg := pieces.DefaultConfig
 		cfg.EnableLazyFilewalker = true
 

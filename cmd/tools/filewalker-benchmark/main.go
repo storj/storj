@@ -53,7 +53,7 @@ func main() {
 
 	blobsCache := pieces.NewBlobsUsageCache(log, snDB.Pieces())
 	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
-		snDB.GCFilewalkerProgress())
+		snDB.GCFilewalkerProgress(), snDB.UsedSpacePerPrefix())
 
 	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), snDB.PieceExpirationDB(), snDB.PieceSpaceUsedDB(), cfg.Pieces)
 	testStore := pieces.StoreForTest{Store: piecesStore}

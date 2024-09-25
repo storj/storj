@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardText, VChip, VCol, VContainer, VDivider, VRow } from 'vuetify/components';
+import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';

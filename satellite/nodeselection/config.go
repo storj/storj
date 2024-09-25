@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
 
@@ -37,6 +38,7 @@ type placementDefinition struct {
 
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
 type UploadSuccessTracker interface {
+	// Get gives a Score to the node based on the upload success rate. Can be math.NaN (no information). Higher is better.
 	Get(uplink storj.NodeID) func(node *SelectedNode) float64
 }
 
@@ -50,19 +52,6 @@ func (n NoopTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
 }
 
 var _ UploadSuccessTracker = NoopTracker{}
-
-type pieceTracker struct{}
-
-func (n pieceTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
-	return func(node *SelectedNode) float64 {
-		// return a negated value so that nodes with less pieces are preferred.
-		return -float64(node.PieceCount)
-	}
-}
-
-var _ UploadSuccessTracker = pieceTracker{}
-
-var pieceCount pieceTracker
 
 // PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
 type PlacementConfigEnvironment struct {
@@ -314,8 +303,28 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return IfSelector(condition, trueAttr, falseAttr), nil
 		},
-		"piececount": pieceCount,
-		"dual":       DualSelector,
+
+		"dual":               DualSelector,
+		"choiceofnselection": ChoiceOfNSelection,
+		"lastbut":            LastBut,
+		"median":             Median,
+		"piececount":         PieceCount,
+		"desc":               Desc,
+
+		"maxgroup": func(attribute interface{}) ScoreSelection {
+			switch value := attribute.(type) {
+			case NodeAttribute:
+				return MaxGroup(value)
+			case string:
+				attr, err := CreateNodeAttribute(value)
+				if err != nil {
+					panic("Invalid node attribute: " + value + " " + err.Error())
+				}
+				return MaxGroup(attr)
+			default:
+				panic(fmt.Sprintf("Argument of maxgroup must be a node attribute (or string), not %T", attribute))
+			}
+		},
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

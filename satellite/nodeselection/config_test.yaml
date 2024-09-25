@@ -29,4 +29,7 @@ placements:
     filter: continent("SA") && $NORMAL
   - id: 7
     name: choiceofpieces
-    selector: choiceoftwo(piececount, random())
+    selector: choiceoftwo(piececount(10), random())
+  - id: 8
+    name: choiceofnselection1
+    selector: choiceofnselection(3, random(), maxgroup("last_ip"),median(piececount(1000000)),lastbut(tracker,2))

@@ -7,7 +7,7 @@
         @dragover.prevent="isDragging = true"
     >
         <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="onUpload" />
-        <page-title-component title="Browse Files" />
+        <page-title-component title="Browse Objects" />
 
         <browser-breadcrumbs-component />
         <v-col>
@@ -30,7 +30,7 @@
                                 <component :is="FileUp" :size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-3">
-                                Upload Files
+                                Upload Objects
                             </v-list-item-title>
                         </v-list-item>
 
@@ -91,24 +91,35 @@
                         />
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item
-                            v-if="versioningUIEnabled"
-                            density="comfortable"
-                            link
-                            @click="onToggleVersioning"
-                        >
-                            <template #prepend>
-                                <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
-                                <component :is="CirclePause" v-else :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                        <div>
+                            <v-list-item
+                                v-if="versioningUIEnabled"
+                                density="comfortable"
+                                link
+                                :disabled="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                @click="onToggleVersioning"
                             >
-                                {{
-                                    bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
-                                }}
-                            </v-list-item-title>
-                        </v-list-item>
+                                <template #prepend>
+                                    <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
+                                    <component :is="CirclePause" v-else :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    {{
+                                        bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                    }}
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-tooltip
+                                v-if="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                activator="parent"
+                                location="left"
+                                max-width="300"
+                            >
+                                Versioning cannot be suspended on a bucket with object lock enabled
+                            </v-tooltip>
+                        </div>
 
                         <v-list-item
                             v-if="versioningUIEnabled"
@@ -161,7 +172,7 @@
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col v-if="!showObjectVersions" class="pa-0 pt-5 pa-sm-0" cols="auto">
+                <v-col class="pa-0 pt-5 pa-sm-0" cols="auto">
                     <v-btn-toggle
                         mandatory
                         border
@@ -169,9 +180,13 @@
                         density="comfortable"
                         class="pa-1 bg-surface"
                     >
-                        <v-tooltip location="top">
+                        <v-tooltip v-if="showObjectVersions" location="top" activator="parent">
+                            Please hide versions to toggle the view.
+                        </v-tooltip>
+                        <v-tooltip :disabled="showObjectVersions" location="top">
                             <template #activator="{ props }">
                                 <v-btn
+                                    :disabled="showObjectVersions"
                                     size="small"
                                     rounded="xl"
                                     active-class="active"
@@ -187,6 +202,7 @@
                             Gallery view shows image previews using download bandwidth.
                         </v-tooltip>
                         <v-btn
+                            :disabled="showObjectVersions"
                             size="small"
                             rounded="xl"
                             active-class="active"

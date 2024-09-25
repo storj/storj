@@ -70,26 +70,73 @@ func TestUsedSpacePerPrefix_GetInsert(t *testing.T) {
 		usedSpacePerPrefixDB := db.UsedSpacePerPrefix()
 
 		usedSpace := pieces.PrefixUsedSpace{
-			SatelliteID: testrand.NodeID(),
-			Prefix:      "yf",
-			TotalBytes:  1234567890,
-			LastUpdated: time.Now().UTC(),
+			SatelliteID:      testrand.NodeID(),
+			Prefix:           "yf",
+			TotalBytes:       1234567890,
+			TotalContentSize: 123456789,
+			PieceCounts:      123,
+			LastUpdated:      time.Now().UTC(),
 		}
 
-		t.Run("insert", func(t *testing.T) {
-			err := usedSpacePerPrefixDB.Store(ctx, usedSpace)
-			require.NoError(t, err)
-		})
+		var expectedPrefixes = make(map[string]pieces.PrefixUsedSpace)
 
-		t.Run("get", func(t *testing.T) {
-			results, err := usedSpacePerPrefixDB.Get(ctx, usedSpace.SatelliteID)
-			require.NoError(t, err)
+		// Store
+		err := usedSpacePerPrefixDB.Store(ctx, usedSpace)
+		require.NoError(t, err)
+		expectedPrefixes[usedSpace.Prefix] = usedSpace
 
-			require.Len(t, results, 1)
-			require.Equal(t, results[0].SatelliteID, usedSpace.SatelliteID)
-			require.Equal(t, results[0].Prefix, usedSpace.Prefix)
-			require.Equal(t, results[0].TotalBytes, usedSpace.TotalBytes)
-			require.Equal(t, results[0].LastUpdated, usedSpace.LastUpdated)
-		})
+		// storeBatch
+		usedSpace2 := usedSpace
+		usedSpace2.Prefix = "1a"
+		usedSpace2.LastUpdated = time.Now().Add(-time.Hour * 1).UTC()
+
+		usedSpace3 := usedSpace
+		usedSpace3.Prefix = "aa"
+
+		prefixes := []pieces.PrefixUsedSpace{usedSpace2, usedSpace3}
+		err = usedSpacePerPrefixDB.StoreBatch(ctx, prefixes)
+		require.NoError(t, err)
+		expectedPrefixes[usedSpace2.Prefix] = usedSpace2
+		expectedPrefixes[usedSpace3.Prefix] = usedSpace3
+
+		// Get
+		results, err := usedSpacePerPrefixDB.Get(ctx, usedSpace.SatelliteID, nil)
+		require.NoError(t, err)
+
+		require.Len(t, results, len(expectedPrefixes))
+		for _, result := range results {
+			require.Equal(t, expectedPrefixes[result.Prefix], result)
+		}
+
+		// insert a new prefix with older lastUpdated
+		usedSpace4 := usedSpace
+		usedSpace4.Prefix = "zz"
+		usedSpace4.LastUpdated = time.Now().Add(-time.Hour * 48).UTC()
+		err = usedSpacePerPrefixDB.Store(ctx, usedSpace4)
+		require.NoError(t, err)
+		expectedPrefixes[usedSpace4.Prefix] = usedSpace4
+
+		// Get with lastUpdated
+		lastUpdated := time.Now().Add(-time.Hour * 24)
+		results, err = usedSpacePerPrefixDB.Get(ctx, usedSpace.SatelliteID, &lastUpdated)
+		require.NoError(t, err)
+		require.Len(t, results, 3)
+		for _, result := range results {
+			require.Equal(t, expectedPrefixes[result.Prefix], result)
+		}
+
+		// GetSatelliteUsedSpace
+		var expectedTotal int64
+		var expectedContentSize int64
+
+		for _, prefix := range expectedPrefixes {
+			expectedTotal += prefix.TotalBytes
+			expectedContentSize += prefix.TotalContentSize
+		}
+
+		piecesTotal, piecesContentSize, _, err := usedSpacePerPrefixDB.GetSatelliteUsedSpace(ctx, usedSpace.SatelliteID)
+		require.NoError(t, err)
+		require.Equal(t, expectedTotal, piecesTotal)
+		require.Equal(t, expectedContentSize, piecesContentSize)
 	})
 }

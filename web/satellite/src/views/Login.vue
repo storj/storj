@@ -171,7 +171,6 @@ import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { AuthHttpApi } from '@/api/auth';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -197,8 +196,6 @@ const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
 
-const valid = ref(false);
-const checked = ref(false);
 const showPassword = ref(false);
 const isLoading = ref<boolean>(false);
 const isBadLoginMessageShown = ref<boolean>(false);

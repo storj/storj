@@ -3,7 +3,7 @@
 
 <template>
     <div class="text-no-wrap" :class="alignClass">
-        <v-tooltip v-if="deleting" location="top" text="Deleting file">
+        <v-tooltip v-if="deleting" location="top" text="Deleting object">
             <template #activator="{ props: loaderProps }">
                 <v-progress-circular class="text-right" width="2" size="22" color="error" indeterminate v-bind="loaderProps" />
             </template>
@@ -221,7 +221,7 @@ const disableDownload = computed<boolean>(() => {
 
 async function onDownloadClick(): Promise<void> {
     if (disableDownload.value) {
-        notify.error('Bandwidth limit exceeded, can not download this file.');
+        notify.error('Bandwidth limit exceeded, can not download this object.');
         return;
     }
 
@@ -237,7 +237,7 @@ async function onDownloadClick(): Promise<void> {
             'Download started',
         );
     } catch (error) {
-        error.message = `Error downloading file. ${error.message}`;
+        error.message = `Error downloading object. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }
     isDownloading.value = false;
@@ -260,7 +260,7 @@ async function onDeleteClick(): Promise<void> {
         }
         emit('lockedObjectDelete', { ...props.file, retention });
     } catch (error) {
-        error.message = `Error deleting file. ${error.message}`;
+        error.message = `Error deleting object. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     } finally {
         isGettingRetention.value = false;

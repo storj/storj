@@ -20,15 +20,11 @@ import { useDisplay } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { useAppStore } from '@/store/modules/appStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const { mdAndDown } = useDisplay();
 const router = useRouter();
 
 const appStore = useAppStore();
-const projectsStore = useProjectsStore();
-const analyticsStore = useAnalyticsStore();
 
 const props = defineProps<{
     title: string;

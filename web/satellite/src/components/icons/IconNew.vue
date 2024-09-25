@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     color?: string;
     size?: number | string;
 }>(), {

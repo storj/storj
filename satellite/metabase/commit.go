@@ -610,7 +610,9 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
 			redundancy = $10,
 			remote_alias_pieces = $11,
-			placement = $17
+			placement = $17,
+			-- clear fields in case it was inline segment before
+			inline_data = NULL
 		`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
@@ -640,7 +642,9 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 				encrypted_size, plain_offset, plain_size, encrypted_etag,
 				redundancy,
 				remote_alias_pieces,
-				placement
+				placement,
+				-- clear fields in case it was inline segment before
+				inline_data
 			) VALUES (
 				(
 					SELECT stream_id
@@ -652,7 +656,8 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 				$6, $7, $8, $9,
 				$10,
 				$11,
-				$17
+				$17,
+				NULL
 			)`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
@@ -684,7 +689,9 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 					encrypted_size, plain_offset, plain_size, encrypted_etag,
 					redundancy,
 					remote_alias_pieces,
-					placement
+					placement,
+					-- clear column in case it was inline segment before
+					inline_data
 				) VALUES (
 					(
 						SELECT stream_id
@@ -696,7 +703,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
 					@redundancy,
 					@alias_pieces,
-					@placement
+					@placement,
+					NULL
 				)
 			`,
 			Params: map[string]interface{}{
@@ -822,7 +830,9 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 				expires_at = $2,
 				root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
 				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
-				inline_data = $10
+				inline_data = $10,
+				-- clear columns in case it was remote segment before
+				redundancy = 0, remote_alias_pieces = NULL
 		`, opts.Position, opts.ExpiresAt,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
@@ -845,7 +855,9 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 				stream_id, position, expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size, encrypted_etag,
-				inline_data
+				inline_data,
+				-- clear columns in case it was remote segment before
+				redundancy, remote_alias_pieces
 			) VALUES (
 				(
 					SELECT stream_id
@@ -856,7 +868,8 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 				$1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
-				$10
+				$10,
+				0, NULL
 			)
 		`, opts.Position, opts.ExpiresAt,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
@@ -882,7 +895,9 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 					stream_id, position, expires_at,
 					root_piece_id, encrypted_key_nonce, encrypted_key,
 					encrypted_size, plain_offset, plain_size, encrypted_etag,
-					inline_data, redundancy
+					inline_data,
+					-- clear columns in case it was remote segment before
+					 redundancy, remote_alias_pieces
 				) VALUES (
 					(
 						SELECT stream_id
@@ -892,7 +907,8 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 					), @position, @expires_at,
 					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
 					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
-					@inline_data, 0
+					@inline_data,
+					0, NULL
 				)
 			`,
 			Params: map[string]interface{}{

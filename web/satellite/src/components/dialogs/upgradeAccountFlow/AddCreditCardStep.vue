@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { VBtn, VCol, VRow } from 'vuetify/components';
 import { LockKeyhole } from 'lucide-vue-next';
 
@@ -72,7 +72,6 @@ const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 
 const notify = useNotify();
-const router = useRouter();
 const route = useRoute();
 
 const loading = defineModel<boolean>('loading', { default: false });

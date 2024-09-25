@@ -103,7 +103,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.edgeCredentials = credentials;
     }
 
-    function setEdgeCredentialsForDelete(credentials: EdgeCredentials): void {
+    function setEdgeCredentialsForDelete(credentials: EdgeCredentials, forceDeleteDisabled = false): void {
         state.edgeCredentialsForDelete = credentials;
 
         const s3Config: S3ClientConfig = {
@@ -119,13 +119,15 @@ export const useBucketsStore = defineStore('buckets', () => {
 
         state.s3ClientForDelete = new S3Client(s3Config);
 
-        state.s3ClientForDelete.middlewareStack.add(
-            (next, _) => (args) => {
-                (args.request as { headers: { key: string } }).headers['x-minio-force-delete'] = 'true';
-                return next(args);
-            },
-            { step: 'build' },
-        );
+        if (!forceDeleteDisabled) {
+            state.s3ClientForDelete.middlewareStack.add(
+                (next, _) => (args) => {
+                    (args.request as { headers: { key: string } }).headers['x-minio-force-delete'] = 'true';
+                    return next(args);
+                },
+                { step: 'build' },
+            );
+        }
     }
 
     function setEdgeCredentialsForCreate(credentials: EdgeCredentials): void {
@@ -250,10 +252,6 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.fileComponentPath = path;
     }
 
-    function setEnterPassphraseCallback(fn: (() => void) | null): void {
-        state.enterPassphraseCallback = fn;
-    }
-
     async function createBucket(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
             Bucket: name,
@@ -298,10 +296,10 @@ export const useBucketsStore = defineStore('buckets', () => {
     /**
      * This is an empty action for App.vue to subscribe to know the status of the delete bucket request.
      *
-     * @param bucketName - the bucket name.
-     * @param deleteRequest - the promise of the delete bucket request.
+     * @param _bucketName - the bucket name.
+     * @param _deleteRequest - the promise of the delete bucket request.
      */
-    function handleDeleteBucketRequest(bucketName: string, deleteRequest: Promise<void>): void {
+    function handleDeleteBucketRequest(_bucketName: string, _deleteRequest: Promise<void>): void {
         /* empty */
     }
 
@@ -378,7 +376,6 @@ export const useBucketsStore = defineStore('buckets', () => {
         setApiKey,
         setFileComponentBucketName,
         setFileComponentPath,
-        setEnterPassphraseCallback,
         createBucket,
         createBucketWithNoPassphrase,
         setVersioning,

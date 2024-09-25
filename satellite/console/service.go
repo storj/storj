@@ -917,26 +917,30 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 	return registrationToken, nil
 }
 
+// VerifyRegistrationCaptcha verifies the registration captcha response.
+func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, userIP string) (valid bool, score *float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if s.registrationCaptchaHandler != nil {
+		return s.registrationCaptchaHandler.Verify(ctx, captchaResp, userIP)
+	}
+	return true, nil, nil
+}
+
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var captchaScore *float64
-
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
-	if s.config.Captcha.Registration.Recaptcha.Enabled || s.config.Captcha.Registration.Hcaptcha.Enabled {
-		valid, score, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
-		if err != nil {
-			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
-			s.log.Error("captcha authorization failed", zap.Error(err))
-			return nil, ErrCaptcha.Wrap(err)
-		}
-		if !valid {
-			mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
-			return nil, ErrCaptcha.New("captcha validation unsuccessful")
-		}
-		captchaScore = score
+	valid, captchaScore, err := s.VerifyRegistrationCaptcha(ctx, user.CaptchaResponse, user.IP)
+	if err != nil {
+		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+		s.log.Error("captcha authorization failed", zap.Error(err))
+		return nil, ErrCaptcha.Wrap(err)
+	}
+	if !valid {
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+		return nil, ErrCaptcha.New("captcha validation unsuccessful")
 	}
 
 	if err := user.IsValid(user.AllowNoName); err != nil {
