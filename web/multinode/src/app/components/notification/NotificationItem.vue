@@ -1,5 +1,15 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
-  <v-alert border="left" :type="item.type.toLowerCase()" dismissible>
+  <v-alert
+    border="left"
+    :type="item.type.toLowerCase()"
+    dismissible
+    @mouseover="() => onMouseOver(item.id)"
+    @mouseleave="() => onMouseLeave(item.id)"
+    @input="() => onCloseClick(item.id)"
+  >
     <div class="text-h6">{{ item.title }}</div>
     <div>{{ item.message }}</div>
   </v-alert>
@@ -18,8 +28,16 @@ import { DelayedNotification } from "@/app/types/delayedNotification";
 export default class NotificationItem extends Vue {
   @Prop({ required: true }) readonly item!: DelayedNotification;
 
-  created() {
-    console.log("Notification Item:", this.item);
+  onMouseOver(id: string): void {
+    this.$store.dispatch('notification/pause',id);
+  }
+
+  onMouseLeave(id: string): void {
+    this.$store.dispatch('notification/resume',id);
+  }
+
+  onCloseClick(id: string): void {
+    this.$store.dispatch('notification/delete',id);
   }
 }
 </script>

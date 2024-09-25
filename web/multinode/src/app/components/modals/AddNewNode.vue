@@ -45,6 +45,7 @@ import { CreateNodeFields } from '@/nodes';
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
+import { Notify } from '@/app/plugins';
 
 // @vue/component
 @Component({
@@ -63,6 +64,7 @@ export default class AddNewNode extends Vue {
     private idError = '';
     private publicIPError = '';
     private apiKeyError = '';
+    public notify = new Notify();
 
     public async openModal(): Promise<void> {
         this.isAddNewNodeModalShown = true;
@@ -114,6 +116,7 @@ export default class AddNewNode extends Vue {
 
         try {
             await this.$store.dispatch('nodes/add', this.nodeToAdd);
+            this.notify.success({message: "Node Added Successfully"});
         } catch (error) {
             console.error(error);
             this.isLoading = false;

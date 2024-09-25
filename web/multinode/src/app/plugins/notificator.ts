@@ -1,3 +1,6 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { store } from "@/app/store";
 import { NotificationPayload } from "@/app/types/delayedNotification";
 

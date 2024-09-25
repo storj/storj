@@ -1,4 +1,6 @@
-// import { reactive } from 'vue';
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { ActionContext,ActionTree,Module,MutationTree } from 'vuex';
 import { RootState } from '@/app/store/index';
 import { DelayedNotification,NotificationMessage,NotificationType,NotificationPayload } from "../types/delayedNotification";

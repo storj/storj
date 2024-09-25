@@ -1,10 +1,19 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
-  <v-snackbar v-model="doNotificationsExist" absolute top right class="custom-snackbar" timeout=5000000>
+  <v-snackbar
+    v-model="doNotificationsExist"
+    absolute
+    top
+    right
+    class="custom-snackbar"
+  >
     <NotificationItem
-            v-for="item in notifications"
-            :key="item.id"
-            :item="item"
-     />
+      v-for="item in notifications"
+      :key="item.id"
+      :item="item"
+    />
   </v-snackbar>
 </template>
 
@@ -36,17 +45,25 @@ export default class Notifications extends Vue {
     this.doNotificationsExist = newValue;
   }
 
-  // Optional: If you want to log changes to the console
-  @Watch("notifications", { deep: true })
-  onNotificationsArrayChange(newValue: DelayedNotification[]) {
-    console.log("Notifications changed:", newValue);
-  }
 }
 </script>
 <style lang="scss" scoped>
 .custom-snackbar {
- ::v-deep .v-snack__content {
-  margin-right: -13px;
- }
+  ::v-deep .v-snack__content {
+    margin-right: -9px;
+  }
+  .v-alert {
+    margin: 10px;
+  }
+  ::v-deep .v-snack__wrapper.theme--dark {
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.87);
+  }
+  ::v-deep .v-sheet.v-snack__wrapper:not(.v-sheet--outlined) {
+    box-shadow: none;
+  }
+  ::v-deep .v-alert__icon.v-icon{
+    top: 12px;
+  }
 }
 </style>
