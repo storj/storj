@@ -2,48 +2,57 @@
 // See LICENSE for copying information.
 
 <template>
-  <v-snackbar
-    v-model="doNotificationsExist"
-    absolute
-    top
-    right
-    class="custom-snackbar"
-  >
-    <NotificationItem
-      v-for="item in notifications"
-      :key="item.id"
-      :item="item"
-    />
-  </v-snackbar>
+    <v-snackbar
+        v-model="doNotificationsExist"
+        absolute
+        top
+        right
+        class="custom-snackbar"
+    >
+        <NotificationItem
+            v-for="item in notifications"
+            :key="item.id"
+            :item="item"
+        />
+    </v-snackbar>
 </template>
 
 <script lang="ts">
-import { VSnackbar } from "vuetify/lib";
-import NotificationItem from "./NotificationItem.vue";
-import { Component, Vue, Watch } from "vue-property-decorator";
-import { DelayedNotification } from "@/app/types/delayedNotification";
+import { VSnackbar } from 'vuetify/lib';
+import { Component, Vue, Watch } from 'vue-property-decorator';
 
+import NotificationItem from './NotificationItem.vue';
+
+import { DelayedNotification } from '@/app/types/delayedNotification';
+
+// @vue/component
 @Component({
-  components: {
-    VSnackbar,
-    NotificationItem,
-  },
+    components: {
+        VSnackbar,
+        NotificationItem,
+    },
 })
 export default class Notifications extends Vue {
-  public doNotificationsExist: boolean = false;
+    public doNotificationsExist = false;
 
-  public get notifications(): DelayedNotification[] {
-    return this.$store.state.notification.notificationQueue;
-  }
+    /**
+ * Returns all notification queue from store.
+ */
+    public get notifications(): DelayedNotification[] {
+        return this.$store.state.notification.notificationQueue;
+    }
 
-  get hasNotifications(): boolean {
-    return this.notifications.length > 0;
-  }
+    /**
+ * Indicates if any notifications are in queue.
+ */
+    get hasNotifications(): boolean {
+        return this.notifications.length > 0;
+    }
 
-  @Watch("hasNotifications", { immediate: true })
-  onNotificationsChange(newValue: boolean) {
-    this.doNotificationsExist = newValue;
-  }
+  @Watch('hasNotifications', { immediate: true })
+    onNotificationsChange(newValue: boolean) {
+        this.doNotificationsExist = newValue;
+    }
 
 }
 </script>

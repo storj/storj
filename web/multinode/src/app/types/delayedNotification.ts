@@ -1,9 +1,13 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VNode,h } from "vue";
-import { getId } from "@/app/utils/idGenerator";
+import { VNode } from 'vue';
 
+import { getId } from '@/app/utils/idGenerator';
+
+/*
+ * Hold notification types
+ */
 export enum NotificationType {
     Success = 'Success',
     Info = 'Info',
@@ -11,14 +15,23 @@ export enum NotificationType {
     Warning = 'Warning',
 }
 
-
+/**
+ * Notification message can be a string or a render function that returns a string or a VNode
+ */
 type RenderFunction = () => (string | VNode | (string | VNode)[]);
 export type NotificationMessage = string | RenderFunction;
 
+/**
+ * Payload for notification
+ */
 export type NotificationPayload = {
     message: NotificationMessage,
     title?: string
 }
+
+/**
+ * Described notification object with it's methods and properties
+ */
 export class DelayedNotification {
     public readonly id: string;
 
@@ -39,10 +52,6 @@ export class DelayedNotification {
         this.id = getId();
         this.remainingTime = 3000;
         this.start();
-    }
-
-    private createTextVNode(message: string): VNode {
-        return h('span', message)
     }
 
     public pause(): void {

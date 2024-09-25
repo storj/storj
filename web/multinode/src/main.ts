@@ -6,7 +6,6 @@ import VueClipboard from 'vue-clipboard2';
 import Router from 'vue-router';
 import { DirectiveBinding } from 'vue/types/options';
 
-
 import App from '@/app/App.vue';
 import { vuetify } from '@/app/plugins';
 import { router } from '@/app/router';

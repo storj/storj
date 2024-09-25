@@ -48,9 +48,9 @@ module.exports = {
     ],
     css: {
         loaderOptions: {
-          scss: {
-            additionalData: `@import "@/styles/variables.scss";`
-          }
-        }
-      },
+            scss: {
+                additionalData: `@import "@/styles/variables.scss";`,
+            },
+        },
+    },
 };

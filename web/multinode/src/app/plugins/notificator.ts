@@ -1,37 +1,56 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { store } from "@/app/store";
-import { NotificationPayload } from "@/app/types/delayedNotification";
+import { store } from '@/app/store';
+import { NotificationPayload } from '@/app/types/delayedNotification';
 
+/**
+ * Plugin for handling notifications.
+ */
 export class Notify {
-  constructor() {}
+    constructor() {}
 
-  public success(payload: NotificationPayload) {
-    if (!payload.title) {
-      payload.title = "Success";
+    /**
+   * Dispatches a success notification.
+   * @param payload - Payload for the notification.
+   */
+    public success(payload: NotificationPayload) {
+        if (!payload.title) {
+            payload.title = 'Success';
+        }
+        store.dispatch('notification/success', payload);
     }
-    store.dispatch("notification/success", payload);
-  }
 
-  public error(payload: NotificationPayload) {
-    if (!payload.title) {
-      payload.title = "Error";
+    /**
+   * Dispatches a error notification.
+   * @param payload - Payload for the notification.
+   */
+    public error(payload: NotificationPayload) {
+        if (!payload.title) {
+            payload.title = 'Error';
+        }
+        store.dispatch('notification/error', payload);
     }
-    store.dispatch("notification/error", payload);
-  }
 
-  public warning(payload: NotificationPayload) {
-    if (!payload.title) {
-      payload.title = "Warning";
+    /**
+   * Dispatches a warning notification.
+   * @param payload - Payload for the notification.
+   */
+    public warning(payload: NotificationPayload) {
+        if (!payload.title) {
+            payload.title = 'Warning';
+        }
+        store.dispatch('notification/warning', payload);
     }
-    store.dispatch("notification/warning", payload);
-  }
 
-  public info(payload: NotificationPayload) {
-    if (!payload.title) {
-      payload.title = "Info";
+    /**
+   * Dispatches a info notification.
+   * @param payload - Payload for the notification.
+   */
+    public info(payload: NotificationPayload) {
+        if (!payload.title) {
+            payload.title = 'Info';
+        }
+        store.dispatch('notification/info', payload);
     }
-    store.dispatch("notification/info", payload);
-  }
 }
