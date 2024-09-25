@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"sort"
 	"testing"
 	"time"
@@ -149,6 +150,8 @@ func TestIterateLoopSegments(t *testing.T) {
 				Redundancy:    metabasetest.DefaultRedundancy,
 			}
 
+			expectedSource := db.ChooseAdapter(committed.ProjectID).Name()
+
 			expected := []metabase.LoopSegmentEntry{}
 			for _, expect := range []struct {
 				StreamID    uuid.UUID
@@ -171,6 +174,7 @@ func TestIterateLoopSegments(t *testing.T) {
 				entry.AliasPieces = metabase.AliasPieces([]metabase.AliasPiece{
 					{Alias: 1},
 				})
+				entry.Source = expectedSource
 				expected = append(expected, entry)
 			}
 
@@ -202,6 +206,8 @@ func TestIterateLoopSegments(t *testing.T) {
 			for i := 0; i < numberOfObjects; i++ {
 				committed := metabasetest.RandObjectStream()
 
+				source := db.ChooseAdapter(committed.ProjectID).Name()
+
 				expectedObjects[i] = metabase.RawObject(
 					metabasetest.CreateObject(ctx, t, db, committed, byte(numberOfSegmentsPerObject)))
 
@@ -220,6 +226,7 @@ func TestIterateLoopSegments(t *testing.T) {
 						AliasPieces: metabase.AliasPieces([]metabase.AliasPiece{
 							{Alias: 1},
 						}),
+						Source: source,
 					}
 					expected[i*numberOfSegmentsPerObject+j] = entry
 					expectedRaw[i*numberOfSegmentsPerObject+j] = metabase.RawSegment{
@@ -318,6 +325,25 @@ func TestIterateLoopSegments(t *testing.T) {
 				Objects:  expectedObjects,
 				Segments: expectedRaw,
 			}.Check(ctx, t, db)
+		})
+
+		t.Run("check segment source", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			expectedSource := db.ChooseAdapter(object.ProjectID).Name()
+
+			err := db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
+				BatchSize: 1,
+			}, func(ctx context.Context, lsi metabase.LoopSegmentsIterator) error {
+
+				var entry metabase.LoopSegmentEntry
+				for lsi.Next(ctx, &entry) {
+					require.Equal(t, expectedSource, entry.Source)
+				}
+				return nil
+			})
+			require.NoError(t, err)
 		})
 	})
 }
