@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -396,6 +397,33 @@ func (s ScoreNodeFunc) Get(id storj.NodeID) func(node *SelectedNode) float64 {
 func Desc(original ScoreNode) ScoreNode {
 	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 		return -original.Get(uplink)(node)
+	})
+}
+
+// Min is a ScoreNode, which uses the lowest values. Parameters can be ScoreNodes or static float64/int64.
+func Min(sources ...interface{}) ScoreNode {
+	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		minScore := math.NaN()
+		for _, source := range sources {
+			switch st := source.(type) {
+			case float64:
+				if math.IsNaN(minScore) || st < minScore {
+					minScore = st
+				}
+			case int64:
+				if math.IsNaN(minScore) || float64(st) < minScore {
+					minScore = float64(st)
+				}
+			case ScoreNode:
+				get := st.Get(uplink)(node)
+				if math.IsNaN(minScore) || get < minScore {
+					minScore = get
+				}
+			default:
+				panic(fmt.Sprintf("min is supported only between float64,int64 and SourceNode (like the tracker), but got %T", source))
+			}
+		}
+		return minScore
 	})
 }
 
