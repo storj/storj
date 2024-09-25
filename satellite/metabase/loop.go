@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -38,6 +39,7 @@ type LoopSegmentEntry struct {
 	Redundancy    storj.RedundancyScheme
 	Pieces        Pieces
 	Placement     storj.PlacementConstraint
+	Source        string
 }
 
 // Inline returns true if segment is inline.
@@ -93,10 +95,25 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 	return nil
 }
 
+type tagsqlAdapter interface {
+	Name() string
+	UnderlyingDB() tagsql.DB
+	Implementation() dbutil.Implementation
+}
+
 // IterateLoopSegments implements Adapter.
 func (p *PostgresAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
-	it := &postgresLoopSegmentIterator{
-		db:         p,
+	return tagsqlIterateLoopSegments(ctx, p, aliasCache, opts, fn)
+}
+
+// IterateLoopSegments implements Adapter.
+func (c *CockroachAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	return tagsqlIterateLoopSegments(ctx, c, aliasCache, opts, fn)
+}
+
+func tagsqlIterateLoopSegments(ctx context.Context, db tagsqlAdapter, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	it := &tagsqlLoopSegmentIterator{
+		db:         db,
 		aliasCache: aliasCache,
 
 		asOfSystemInterval: opts.AsOfSystemInterval,
@@ -139,9 +156,9 @@ type loopSegmentIteratorCursor struct {
 	EndStreamID   uuid.UUID
 }
 
-// postgresLoopSegmentIterator enables iteration of all segments in metabase.
-type postgresLoopSegmentIterator struct {
-	db         *PostgresAdapter
+// tagsqlLoopSegmentIterator enables iteration of all segments in metabase.
+type tagsqlLoopSegmentIterator struct {
+	db         tagsqlAdapter
 	aliasCache *NodeAliasCache
 
 	batchSize int
@@ -159,7 +176,7 @@ type postgresLoopSegmentIterator struct {
 }
 
 // Next returns true if there was another item and copy it in item.
-func (it *postgresLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
+func (it *tagsqlLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
 	next := it.curRows.Next()
 	if !next {
 		if it.curIndex < it.batchSize {
@@ -201,10 +218,12 @@ func (it *postgresLoopSegmentIterator) Next(ctx context.Context, item *LoopSegme
 	return true
 }
 
-func (it *postgresLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
+func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.QueryContext(ctx, `
+	db := it.db.UnderlyingDB()
+	impl := it.db.Implementation()
+	return db.QueryContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,
@@ -215,7 +234,7 @@ func (it *postgresLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsq
 			remote_alias_pieces,
 			placement
 		FROM segments
-		`+it.db.impl.AsOfSystemInterval(it.asOfSystemInterval)+`
+		`+impl.AsOfSystemInterval(it.asOfSystemInterval)+`
 		WHERE
 			(stream_id, position) > ($1, $2) AND stream_id <= $4
 		ORDER BY (stream_id, position) ASC
@@ -226,7 +245,7 @@ func (it *postgresLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsq
 }
 
 // scanItem scans doNextQuery results into LoopSegmentEntry.
-func (it *postgresLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) error {
+func (it *tagsqlLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) error {
 	err := it.curRows.Scan(
 		&item.StreamID, &item.Position,
 		&item.CreatedAt, &item.ExpiresAt, &item.RepairedAt,
@@ -252,6 +271,7 @@ func (it *postgresLoopSegmentIterator) scanItem(ctx context.Context, item *LoopS
 	if err != nil {
 		return Error.New("failed to convert aliases to pieces: %w", err)
 	}
+	item.Source = it.db.Name()
 
 	return nil
 }
@@ -381,29 +401,19 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	var createdAt time.Time
 	var repairedAt, expiresAt spanner.NullTime
 	var encryptedSize, plainOffset, plainSize, placement int64
-	var streamID, rootPieceID []byte
-	var aliasPieces AliasPieces
-	if err := it.curRow.Columns(&streamID, &position,
+	if err := it.curRow.Columns(&item.StreamID, &position,
 		&createdAt, &expiresAt, &repairedAt,
-		&rootPieceID,
+		&item.RootPieceID,
 		&encryptedSize, &plainOffset, &plainSize,
 		redundancyScheme{&item.Redundancy},
-		&aliasPieces,
+		&item.AliasPieces,
 		&placement,
 	); err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
 
-	item.StreamID, err = uuid.FromBytes(streamID)
-	if err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
 	item.Position = SegmentPositionFromEncoded(uint64(position))
 	item.CreatedAt = createdAt
-	item.RootPieceID, err = storj.PieceIDFromBytes(rootPieceID)
-	if err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
 	if repairedAt.Valid {
 		item.RepairedAt = &repairedAt.Time
 	} else {
@@ -417,13 +427,13 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	item.EncryptedSize = int32(encryptedSize)
 	item.PlainOffset = plainOffset
 	item.PlainSize = int32(plainSize)
-	item.AliasPieces = aliasPieces
 
 	item.Placement = storj.PlacementConstraint(placement)
 	item.Pieces, err = it.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
 	if err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
+	item.Source = it.db.Name()
 
 	return nil
 }
