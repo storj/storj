@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,8 @@ type SelectedNode struct {
 	Vetted      bool
 	Tags        NodeTags
 	PieceCount  int64
+	// free disk space in bytes
+	FreeDisk int64
 }
 
 // Clone returns a deep clone of the selected node.
@@ -148,6 +151,14 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	case "wallet":
 		return func(node SelectedNode) string {
 			return node.Wallet
+		}, nil
+	case "piece_count":
+		return func(node SelectedNode) string {
+			return strconv.FormatInt(node.PieceCount, 10)
+		}, nil
+	case "free_disk":
+		return func(node SelectedNode) string {
+			return strconv.FormatInt(node.FreeDisk, 10)
 		}, nil
 	case "email":
 		return func(node SelectedNode) string {
