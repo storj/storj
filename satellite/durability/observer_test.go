@@ -93,7 +93,7 @@ func TestDurability(t *testing.T) {
 	ctx := testcontext.New(t)
 	c := NewDurability(nil, nil, nodeList{nodes: storageNodes}, "net", func(node *nodeselection.SelectedNode) string {
 		return node.LastNet
-	}, 0, 0)
+	}, 0)
 
 	c.aliasMap = metabase.NewNodeAliasMap(aliases)
 	for _, node := range storageNodes {

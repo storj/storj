@@ -198,6 +198,7 @@ type Config struct {
 	RepairQueueCheck repairer.QueueStatConfig
 
 	RangedLoop rangedloop.Config
+	Durability durability.Config
 
 	ExpiredDeletion expireddeletion.Config
 	ZombieDeletion  zombiedeletion.Config
