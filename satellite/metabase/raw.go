@@ -842,7 +842,7 @@ func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, pl
 func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		_, err := tx.Update(ctx, spanner.Statement{
-			SQL:    "UPDATE segments SET placement = @placement",
+			SQL:    "UPDATE segments SET placement = @placement WHERE true",
 			Params: map[string]interface{}{"placement": placement},
 		})
 		return err
