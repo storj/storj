@@ -340,6 +340,7 @@ func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
+		service.log.Error("Failed to dial the node URL:",zap.Error(err))
 		return StatusNotReachable, nil, nil
 	}
 
@@ -358,7 +359,8 @@ func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status,
 		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
 			return StatusUnauthorized, nil,nil
 		}
-
+		
+		service.log.Error("Could not fetch the version of the node:",zap.Error(err))
 		return StatusStorageNodeInternalError, nil,nil
 	}
 
@@ -366,6 +368,7 @@ func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status,
 	if err != nil {
 		// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
 		// only if new apikey was issued during ListInfos method call.
+		service.log.Error("Could not fetch the lastcontact with the node:",zap.Error(err))
 		return StatusStorageNodeInternalError, nodeVersion,nil
 	}
 

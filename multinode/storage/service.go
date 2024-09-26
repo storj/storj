@@ -89,17 +89,11 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
-		nodeStatus,_,_ := service.nodes.FetchNodeMeta(ctx, node)
-		if nodeStatus != nodes.StatusOnline {
-			continue
-		}
+		
 		usage, err := service.dialUsage(ctx, node, from, to)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return Usage{}, Error.Wrap(err)
+			service.log.Error("Failed to retrieve nodes's storage usage for provided interval:",zap.Error(err))
+			continue
 		}
 
 		totalSummary += usage.Summary
@@ -130,17 +124,11 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
-		nodeStatus,_,_ := service.nodes.FetchNodeMeta(ctx, node)
-		if nodeStatus != nodes.StatusOnline {
-			continue
-		}
+		
 		usage, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return Usage{}, Error.Wrap(err)
+			service.log.Error("Failed to retrieve node storage usage for provided interval and satellite:",zap.Error(err))
+			continue
 		}
 
 		totalSummary += usage.Summary
@@ -167,17 +155,10 @@ func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace Disk
 	}
 
 	for _, node := range listNodes {
-		nodeStatus,_,_ := service.nodes.FetchNodeMeta(ctx, node)
-		if nodeStatus != nodes.StatusOnline {
-			continue
-		}
 		diskSpace, err := service.dialDiskSpace(ctx, node)
 		if err != nil {
-			if nodes.ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return DiskSpace{}, Error.Wrap(err)
+			service.log.Error("Failed to retrieve storagenode disk space usage:",zap.Error(err))
+			continue
 		}
 
 		totalDiskSpace.Add(diskSpace)
