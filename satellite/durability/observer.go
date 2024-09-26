@@ -162,13 +162,12 @@ type Report struct {
 	// contains the available classes for each node alias.
 	classified []ClassID
 
-	maxPieceCount int
-	Class         string
-	nodeGetter    NodeGetter
+	Class      string
+	nodeGetter NodeGetter
 }
 
 // NewDurability creates the new instance.
-func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter, class string, classifier NodeClassifier, maxPieceCount int, asOfSystemInterval time.Duration) *Report {
+func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter, class string, classifier NodeClassifier, asOfSystemInterval time.Duration) *Report {
 	return &Report{
 		healthStat:         make([]HistogramByPlacement, 3),
 		nodeGetter:         nodeGetter,
@@ -179,7 +178,6 @@ func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter
 		asOfSystemInterval: asOfSystemInterval,
 		nodes:              []nodeselection.SelectedNode{},
 		reporter:           reportToEventkit,
-		maxPieceCount:      maxPieceCount,
 	}
 }
 

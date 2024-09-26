@@ -640,6 +640,13 @@ contact.external-address: ""
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
 
+# Node attributes used by the durability segment loop to classify risks
+# durability.classes:
+# - last_net
+# - last_ip
+# - wallet
+# - email
+
 # how often to send reminders to users who need to verify their email
 # email-reminders.chore-interval: 24h0m0s
 
