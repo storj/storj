@@ -266,6 +266,80 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.
+func (db *bucketsDB) UpdateBucketObjectLockSettings(ctx context.Context, params buckets.UpdateBucketObjectLockParams) (_ buckets.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var updateFields dbx.BucketMetainfo_Update_Fields
+
+	if params.ObjectLockEnabled {
+		updateFields.ObjectLockEnabled = dbx.BucketMetainfo_ObjectLockEnabled(true)
+	} else {
+		return buckets.Bucket{}, buckets.ErrBucket.New("object lock cannot be disabled")
+	}
+	if params.DefaultRetentionMode != nil {
+		if *params.DefaultRetentionMode == nil || **params.DefaultRetentionMode == storj.NoRetention {
+			updateFields.DefaultRetentionMode = dbx.BucketMetainfo_DefaultRetentionMode_Null()
+		} else {
+			updateFields.DefaultRetentionMode = dbx.BucketMetainfo_DefaultRetentionMode(int(**params.DefaultRetentionMode))
+		}
+	}
+
+	var (
+		daysSetToPositiveValue  bool
+		yearsSetToPositiveValue bool
+	)
+
+	if params.DefaultRetentionDays != nil {
+		if *params.DefaultRetentionDays == nil || **params.DefaultRetentionDays == 0 {
+			updateFields.DefaultRetentionDays = dbx.BucketMetainfo_DefaultRetentionDays_Null()
+		} else {
+			days := **params.DefaultRetentionDays
+			if days < 0 {
+				return buckets.Bucket{}, buckets.ErrBucket.New("default retention days must be a positive integer")
+			}
+
+			updateFields.DefaultRetentionDays = dbx.BucketMetainfo_DefaultRetentionDays(days)
+			updateFields.DefaultRetentionYears = dbx.BucketMetainfo_DefaultRetentionYears_Null()
+			daysSetToPositiveValue = true
+		}
+	}
+
+	if params.DefaultRetentionYears != nil {
+		if *params.DefaultRetentionYears == nil || **params.DefaultRetentionYears == 0 {
+			updateFields.DefaultRetentionYears = dbx.BucketMetainfo_DefaultRetentionYears_Null()
+		} else {
+			years := **params.DefaultRetentionYears
+			if years < 0 {
+				return buckets.Bucket{}, buckets.ErrBucket.New("default retention years must be a positive integer")
+			}
+
+			updateFields.DefaultRetentionYears = dbx.BucketMetainfo_DefaultRetentionYears(years)
+			updateFields.DefaultRetentionDays = dbx.BucketMetainfo_DefaultRetentionDays_Null()
+			yearsSetToPositiveValue = true
+		}
+	}
+
+	if daysSetToPositiveValue && yearsSetToPositiveValue {
+		return buckets.Bucket{}, buckets.ErrBucket.New("only one of default_retention_days or default_retention_years can be set to a positive value")
+	}
+
+	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(
+		ctx,
+		dbx.BucketMetainfo_ProjectId(params.ProjectID[:]),
+		dbx.BucketMetainfo_Name([]byte(params.Name)),
+		updateFields,
+	)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket == nil {
+		return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", params.Name)
+	}
+
+	return convertDBXtoBucket(dbxBucket)
+}
+
 // UpdateUserAgent updates buckets user agent.
 func (db *bucketsDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -420,8 +494,10 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
-		Versioning:        buckets.Versioning(dbxBucket.Versioning),
-		ObjectLockEnabled: dbxBucket.ObjectLockEnabled,
+		Versioning:            buckets.Versioning(dbxBucket.Versioning),
+		ObjectLockEnabled:     dbxBucket.ObjectLockEnabled,
+		DefaultRetentionDays:  dbxBucket.DefaultRetentionDays,
+		DefaultRetentionYears: dbxBucket.DefaultRetentionYears,
 	}
 
 	if dbxBucket.Placement != nil {
@@ -430,6 +506,10 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 
 	if dbxBucket.UserAgent != nil {
 		bucket.UserAgent = dbxBucket.UserAgent
+	}
+
+	if dbxBucket.DefaultRetentionMode != nil {
+		bucket.DefaultRetentionMode = storj.RetentionMode(*dbxBucket.DefaultRetentionMode)
 	}
 
 	return bucket, nil
