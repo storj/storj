@@ -577,7 +577,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			process.NamedLog(log, "pieces:trash"),
-			24*time.Hour,   // choreInterval: how often to run the chore
+			-1,             // choreInterval: how often to run the chore
 			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
