@@ -50,9 +50,6 @@ export class Node {
         return this.earned / PRICE_DIVIDER;
     }
 
-    public get statusText(): string {
-        return this.status;
-    }
 }
 
 /**
