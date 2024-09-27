@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20240913104706-8fd6fa0286a3
+	storj.io/common v0.0.0-20240927193534-0a3388d43770
 	storj.io/edge v1.79.1-0.20240529152256-bcccced4faab
 	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )
