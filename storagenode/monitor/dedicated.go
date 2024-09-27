@@ -64,7 +64,7 @@ func (d *DedicatedDisk) AvailableSpace(ctx context.Context) (_ int64, err error)
 	}
 
 	mon.IntVal("allocated_space").Observe(status.DiskTotal - d.reservedBytes)
-	mon.IntVal("used_space").Observe(status.DiskUsed)
+	mon.IntVal("used_space").Observe(status.DiskTotal - status.DiskFree)
 	mon.IntVal("available_space").Observe(availableBytes)
 
 	return availableBytes, nil
