@@ -14,6 +14,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -543,7 +544,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionGetObjectRetention,
+		Op:     macaroon.ActionGetBucketObjectLockConfiguration,
 		Bucket: req.Name,
 		Time:   time.Now(),
 	}, console.RateLimitHead)
@@ -556,7 +557,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
-	enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Name, keyInfo.ProjectID)
+	settings, err := endpoint.buckets.GetBucketObjectLockSettings(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -565,14 +566,29 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 
-	if !enabled {
+	if !settings.ObjectLockEnabled {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
+	configuration := pb.ObjectLockConfiguration{
+		Enabled: true,
+	}
+
+	if settings.DefaultRetentionMode != storj.NoRetention {
+		defaultRetention := pb.DefaultRetention{
+			Mode: pb.Retention_Mode(settings.DefaultRetentionMode),
+		}
+		switch {
+		case settings.DefaultRetentionDays != 0:
+			defaultRetention.Duration = &pb.DefaultRetention_Days{Days: int32(settings.DefaultRetentionDays)}
+		case settings.DefaultRetentionYears != 0:
+			defaultRetention.Duration = &pb.DefaultRetention_Years{Years: int32(settings.DefaultRetentionYears)}
+		}
+		configuration.DefaultRetention = &defaultRetention
+	}
+
 	return &pb.GetBucketObjectLockConfigurationResponse{
-		Configuration: &pb.ObjectLockConfiguration{
-			Enabled: true,
-		},
+		Configuration: &configuration,
 	}, nil
 }
 

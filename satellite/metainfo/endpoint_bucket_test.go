@@ -933,6 +933,22 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			bucketName := []byte(testrand.BucketName())
 			createBucket(t, bucketName, true)
 
+			duration := pb.DefaultRetention_Years{Years: 5}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+					DefaultRetention: &pb.DefaultRetention{
+						Mode:     pb.Retention_GOVERNANCE,
+						Duration: &duration,
+					},
+				},
+			})
+			require.NoError(t, err)
+
 			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
@@ -941,6 +957,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.True(t, resp.Configuration.Enabled)
+			require.Equal(t, pb.Retention_GOVERNANCE, resp.Configuration.DefaultRetention.Mode)
+			require.Equal(t, &duration, resp.Configuration.DefaultRetention.Duration)
 		})
 
 		t.Run("Object Lock disabled", func(t *testing.T) {
@@ -1002,8 +1020,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			createBucket(t, bucketName, true)
 
 			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
-				DisallowGetRetention: true,
-				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+				DisallowGetBucketObjectLockConfiguration: true,
+				DisallowPutBucketObjectLockConfiguration: true,
 			})
 			require.NoError(t, err)
 
